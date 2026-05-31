@@ -12,9 +12,10 @@ Pass the returned tuple to ``query.where()``::
 from typing import Any
 
 def equals(bin_name: str, val: Any) -> tuple[str, str, Any]:
-    """Filter records where *bin_name* equals *val* (integer or string).
+    """Filter records where *bin_name* equals *val* (integer, string, or bytes).
 
-    Requires a secondary index on the bin.
+    Requires a secondary index on the bin. Other value types (e.g. ``float`` or
+    ``bool``) are rejected with ``InvalidArgError`` when the query is built.
 
     Example::
 
@@ -36,8 +37,9 @@ def contains(bin_name: str, index_type: int, val: Any) -> tuple[str, str, int, A
 
     Args:
         bin_name: Name of the bin holding a list or map.
-        index_type: One of ``INDEX_TYPE_LIST``, ``INDEX_TYPE_MAPKEYS``,
-            or ``INDEX_TYPE_MAPVALUES``.
+        index_type: One of ``INDEX_TYPE_DEFAULT``, ``INDEX_TYPE_LIST``,
+            ``INDEX_TYPE_MAPKEYS``, or ``INDEX_TYPE_MAPVALUES``. Any other
+            value is rejected with ``InvalidArgError`` when the query is built.
         val: The value to search for within the collection.
 
     Example::

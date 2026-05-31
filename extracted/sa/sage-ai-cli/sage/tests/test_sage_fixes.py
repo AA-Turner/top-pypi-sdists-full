@@ -194,6 +194,8 @@ def test_build_routing_to_principal_pipeline(monkeypatch):
         })
         return {
             "install_ok": True,
+            "build_ok": True,
+            "runs_ok": True,
             "tests_ok": True,
             "out_dir": "/tmp",
         }
@@ -903,10 +905,72 @@ def test_scaffold_continuation_empty_round_handling(monkeypatch, tmp_path):
     assert any("still missing — continuing" in w for w in warnings)
 
 
+def test_parse_fixes_from_llm_accepts_valid_unlisted_files(tmp_path):
+    """Verify that _parse_fixes_from_llm accepts unlisted code files under project root and normalizes absolute/relative keys."""
+    from sage.core.dynamic_builder import _parse_fixes_from_llm
+    
+    # Setup test directories
+    project_root = tmp_path / "project"
+    project_root.mkdir(parents=True, exist_ok=True)
+    
+    # 1. Test case: JSON contains an unlisted file that exists on disk
+    existing_file = project_root / "src/components/Button.tsx"
+    existing_file.parent.mkdir(parents=True, exist_ok=True)
+    existing_file.write_text("// Existing button code", encoding="utf-8")
+    
+    # Target files list only has package.json (heuristic mismatch)
+    targets = [project_root / "package.json"]
+    
+    raw_json = '{"src/components/Button.tsx": "export const Button = () => <button>Click</button>"}'
+    fixes = _parse_fixes_from_llm(raw_json, targets, [], project_root)
+    assert fixes is not None
+    assert "src/components/Button.tsx" in fixes
+    assert "export const Button" in fixes["src/components/Button.tsx"]
+    
+    # 2. Test case: JSON contains an unlisted file that does not exist yet, but has a valid code extension under project root
+    raw_json_new = '{"backend/app/api/new_endpoint.py": "def new_api(): return 42"}'
+    fixes_new = _parse_fixes_from_llm(raw_json_new, targets, [], project_root)
+    assert fixes_new is not None
+    assert "backend/app/api/new_endpoint.py" in fixes_new
+    assert "def new_api():" in fixes_new["backend/app/api/new_endpoint.py"]
+
+    # 3. Test case: JSON contains absolute paths, which should be normalized to project-relative keys
+    absolute_key = str((project_root / "backend/main.py").resolve())
+    raw_json_absolute = f'{{"{absolute_key}": "print(\\"hello\\")"}}'
+    fixes_absolute = _parse_fixes_from_llm(raw_json_absolute, targets, [], project_root)
+    assert fixes_absolute is not None
+    assert "backend/main.py" in fixes_absolute
+    assert fixes_absolute["backend/main.py"] == 'print("hello")'
 
 
-
-
-
-
-
+def test_attempt_repair_with_unlisted_files(tmp_path):
+    """Verify that _attempt_repair successfully applies fixes for files not heuristically identified by _likely_files_for_step, preventing regression of the healing loop parsing bug, without mocking validation or file matching."""
+    from sage.core.dynamic_builder import _attempt_repair
+    from sage.core.install_verify import StepResult
+    from sage.core.install_verify import DiscoveredProject
+    
+    project = DiscoveredProject(kind="node", root=tmp_path)
+    # The step log has no relative paths, only absolute or general descriptions
+    step = StepResult(name="npm typecheck", ok=False, returncode=1, log="Type error: Property 'user' does not exist on type 'Session' at /usr/local/node/lib/index.js", duration_s=1.0)
+    
+    # Pre-create candidate files so real _likely_files_for_step discovers them naturally
+    (tmp_path / "package.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "tsconfig.json").write_text("{}", encoding="utf-8")
+    
+    broken_file_path = tmp_path / "src/app/session.ts"
+    broken_file_path.parent.mkdir(parents=True, exist_ok=True)
+    broken_file_path.write_text("export type Session = { id: string };", encoding="utf-8")
+    
+    # Simple Python generator (no mock library) returning the corrected JSON contents
+    def mock_generate(prompt):
+        return '{"src/app/session.ts": "export type Session = { id: string; user?: string };"}'
+        
+    mock_log = []
+    # Call _attempt_repair with the real pre-write validator and the real heuristic resolver running end-to-end
+    _attempt_repair(project, step, generate=mock_generate, log=mock_log.append)
+    
+    # Verify that the unlisted file was correctly written and the bug was bypassed successfully
+    assert broken_file_path.exists()
+    assert 'user?: string' in broken_file_path.read_text()
+    assert any("wrote src/app/session.ts" in m for m in mock_log)
+    assert not any("could not parse fix" in m for m in mock_log)

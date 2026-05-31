@@ -17,6 +17,7 @@ import sys
 from typing import (
     TYPE_CHECKING,
     Any,
+    ClassVar,
     Generic,
     Literal,
     Protocol,
@@ -33,6 +34,7 @@ from pandas.core.arrays import (
     ExtensionArray,
     IntegerArray,
 )
+from pandas.core.col import Expression
 from pandas.core.frame import DataFrame
 from pandas.core.generic import NDFrame
 from pandas.core.groupby.grouper import Grouper
@@ -696,6 +698,9 @@ CompressionDict: TypeAlias = dict[str, Any]
 CompressionOptions: TypeAlias = (
     None | Literal["infer", "gzip", "bz2", "zip", "xz", "zstd", "tar"] | CompressionDict
 )
+ParquetCompressionOptions: TypeAlias = (
+    Literal["snappy", "gzip", "brotli", "lz4", "zstd"] | None
+)
 
 # types in DataFrameFormatter
 FormattersType: TypeAlias = (
@@ -890,15 +895,14 @@ SliceType: TypeAlias = Hashable | None
 ## All types below this point are only used in pandas-stubs
 ######
 
-BuiltinNotStrDtypeArg: TypeAlias = (
+BuiltinNotStrObjDtypeArg: TypeAlias = (
     BuiltinBooleanDtypeArg
     | BuiltinIntDtypeArg
     | BuiltinFloatDtypeArg
     | BuiltinComplexDtypeArg
     | BuiltinBytesDtypeArg
-    | BuiltinObjectDtypeArg
 )
-BuiltinDtypeArg: TypeAlias = BuiltinNotStrDtypeArg | BuiltinStrDtypeArg
+BuiltinNotObjDtypeArg: TypeAlias = BuiltinNotStrObjDtypeArg | BuiltinStrDtypeArg
 NumpyNotTimeDtypeArg: TypeAlias = (
     NumpyBooleanDtypeArg
     | NumpyIntDtypeArg
@@ -1200,15 +1204,9 @@ ExcelWriteEngine: TypeAlias = Literal["openpyxl", "odf", "xlsxwriter"]
 # https://github.com/pandas-dev/pandas-stubs/pull/1151#issuecomment-2715130190
 TimeZones: TypeAlias = str | tzinfo | None | int
 
+ColumnValue: TypeAlias = AnyArrayLike | Scalar | Sequence[Scalar] | range | None
 # Evaluates to a DataFrame column in DataFrame.assign context.
-IntoColumn: TypeAlias = (
-    AnyArrayLike
-    | Scalar
-    | Callable[[DataFrame], AnyArrayLike | Scalar | Sequence[Scalar] | range | None]
-    | Sequence[Scalar]
-    | range
-    | None
-)
+IntoColumn: TypeAlias = ColumnValue | Callable[[DataFrame], ColumnValue] | Expression
 
 DatetimeLike: TypeAlias = datetime.datetime | np.datetime64 | Timestamp
 DateAndDatetimeLike: TypeAlias = datetime.date | DatetimeLike
@@ -1232,6 +1230,21 @@ class Just(Protocol, Generic[T]):
     @__class__.setter
     @override
     def __class__(self, t: type[T], /) -> None: ...
+
+# Read-only (covariant) list for use in parameter annotations (See GH #1745)
+class CovariantList(Protocol[_T_co]):
+    __hash__: ClassVar[None]  # type: ignore[assignment] # pyright: ignore[reportIncompatibleMethodOverride]
+    @property  # type: ignore[override]
+    def __class__(self) -> type[list[Any]]: ...  # pyrefly: ignore[bad-override]
+    @__class__.setter
+    def __class__(  # pyright: ignore[reportIncompatibleMethodOverride]
+        self, value: type[list[Any]], /
+    ) -> None: ...
+    def __iter__(self) -> Iterator[_T_co]: ...
+    # copy() is only TEMPORARILY needed because `__class__` is a property
+    # and ty doesn't support property protocol members. Remove when
+    # https://github.com/astral-sh/ty/issues/1379 is resolved
+    def copy(self) -> list[Any]: ...
 
 class SupportsTrueDiv(Protocol[_T_contra, _T_co]):
     def __truediv__(self, x: _T_contra, /) -> _T_co: ...

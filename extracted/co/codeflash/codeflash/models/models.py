@@ -1,37 +1,26 @@
 from __future__ import annotations
 
-from collections import Counter, defaultdict
-from functools import lru_cache
-from typing import TYPE_CHECKING
-
-import libcst as cst
-from rich.tree import Tree
-
-from codeflash.cli_cmds.console import DEBUG_MODE, lsp_log
-from codeflash.languages.registry import get_language_support
-from codeflash.lsp.helpers import is_LSP_enabled, report_to_markdown_table
-from codeflash.lsp.lsp_message import LspMarkdownMessage
-from codeflash.models.test_type import TestType
-
-if TYPE_CHECKING:
-    from collections.abc import Iterator
-
 import enum
 import re
 import sys
+from collections import Counter, defaultdict
 from collections.abc import Collection
 from enum import Enum, IntEnum
+from functools import lru_cache
 from pathlib import Path
 from re import Pattern
-from typing import Any, NamedTuple, Optional, cast
+from typing import TYPE_CHECKING, Any, NamedTuple, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, ValidationError, model_validator
 from pydantic.dataclasses import dataclass
 
-from codeflash.cli_cmds.console import console, logger
-from codeflash.code_utils.code_utils import diff_length, module_name_from_file_path, validate_python_code
-from codeflash.code_utils.env_utils import is_end_to_end
-from codeflash.verification.comparator import comparator
+from codeflash.models.test_type import TestType
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
+    import libcst as cst
+    from rich.tree import Tree
 
 
 @dataclass(frozen=True)
@@ -254,6 +243,8 @@ class CodeString(BaseModel):
     def validate_code_syntax(self) -> CodeString:
         """Validate code syntax for the specified language."""
         if self.language == "python":
+            from codeflash.code_utils.code_utils import validate_python_code
+
             validate_python_code(self.code)
         else:
             from codeflash.languages.registry import get_language_support
@@ -267,6 +258,8 @@ class CodeString(BaseModel):
 
 def get_comment_prefix(file_path: Path) -> str:
     """Get the comment prefix for a given language."""
+    from codeflash.languages.registry import get_language_support
+
     support = get_language_support(file_path)
     return support.comment_prefix
 
@@ -305,11 +298,13 @@ class CodeStringsMarkdown(BaseModel):
 
         """
         if self._cache.get("flat") is not None:
-            return self._cache["flat"]
-        self._cache["flat"] = "\n".join(
+            result: str = self._cache["flat"]
+            return result
+        flat: str = "\n".join(
             get_code_block_splitter(block.file_path) + "\n" + block.code for block in self.code_strings
         )
-        return self._cache["flat"]
+        self._cache["flat"] = flat
+        return flat
 
     @property
     def markdown(self) -> str:
@@ -339,7 +334,8 @@ class CodeStringsMarkdown(BaseModel):
 
         """
         try:
-            return self._cache["file_to_path"]
+            cached: dict[str, str] = self._cache["file_to_path"]
+            return cached
         except KeyError:
             mapping = {str(code_string.file_path): code_string.code for code_string in self.code_strings}
             self._cache["file_to_path"] = mapping
@@ -433,13 +429,16 @@ class TestFile(BaseModel):
 
 class TestFiles(BaseModel):
     test_files: list[TestFile]
+    _seen_paths: set[Path] = PrivateAttr(default_factory=set)
+
+    def model_post_init(self, __context: Any, /) -> None:
+        self._seen_paths = {tf.instrumented_behavior_file_path for tf in self.test_files}
 
     def add(self, test_file: TestFile) -> None:
-        if test_file not in self.test_files:
+        key = test_file.instrumented_behavior_file_path
+        if key not in self._seen_paths:
+            self._seen_paths.add(key)
             self.test_files.append(test_file)
-        else:
-            msg = "Test file already exists in the list"
-            raise ValueError(msg)
 
     def get_by_original_file_path(self, file_path: Path) -> TestFile | None:
         normalized = self._normalize_path_for_comparison(file_path)
@@ -501,8 +500,8 @@ class TestFiles(BaseModel):
         # Only lowercase on Windows where filesystem is case-insensitive
         return resolved.lower() if sys.platform == "win32" else resolved
 
-    def __iter__(self) -> Iterator[TestFile]:
-        return iter(self.test_files)
+    def __iter__(self) -> Generator[Any, None, None]:  # noqa: PYI058
+        yield from self.test_files
 
     def __len__(self) -> int:
         return len(self.test_files)
@@ -521,9 +520,9 @@ class CandidateEvaluationContext:
     optimized_runtimes: dict[str, float | None] = Field(default_factory=dict)
     is_correct: dict[str, bool] = Field(default_factory=dict)
     optimized_line_profiler_results: dict[str, str] = Field(default_factory=dict)
-    ast_code_to_id: dict = Field(default_factory=dict)
+    ast_code_to_id: dict[str, Any] = Field(default_factory=dict)
     optimizations_post: dict[str, str] = Field(default_factory=dict)
-    valid_optimizations: list = Field(default_factory=list)
+    valid_optimizations: list[Any] = Field(default_factory=list)
 
     def record_failed_candidate(self, optimization_id: str) -> None:
         """Record results for a failed candidate."""
@@ -550,7 +549,7 @@ class CandidateEvaluationContext:
         # Copy results from the previous evaluation (use .get() in case past_opt_id was registered
         # but never benchmarked due to an unhandled exception in process_single_candidate)
         self.speedup_ratios[candidate.optimization_id] = self.speedup_ratios.get(past_opt_id)
-        self.is_correct[candidate.optimization_id] = self.is_correct.get(past_opt_id)
+        self.is_correct[candidate.optimization_id] = self.is_correct.get(past_opt_id, False)
         self.optimized_runtimes[candidate.optimization_id] = self.optimized_runtimes.get(past_opt_id)
 
         # Line profiler results only available for successful runs
@@ -565,6 +564,8 @@ class CandidateEvaluationContext:
         self.optimizations_post[past_opt_id] = self.ast_code_to_id[normalized_code]["shorter_source_code"].markdown
 
         # Update to shorter code if this candidate has a shorter diff
+        from codeflash.code_utils.code_utils import diff_length
+
         new_diff_len = diff_length(candidate.source_code.flat, original_flat_code)
         if new_diff_len < self.ast_code_to_id[normalized_code]["diff_len"]:
             self.ast_code_to_id[normalized_code]["shorter_source_code"] = candidate.source_code
@@ -574,6 +575,8 @@ class CandidateEvaluationContext:
         self, normalized_code: str, candidate: OptimizedCandidate, original_flat_code: str
     ) -> None:
         """Register a new candidate that hasn't been seen before."""
+        from codeflash.code_utils.code_utils import diff_length
+
         self.ast_code_to_id[normalized_code] = {
             "optimization_id": candidate.optimization_id,
             "shorter_source_code": candidate.source_code,
@@ -634,7 +637,7 @@ class OriginalCodeBaseline(BaseModel):
     behavior_test_results: TestResults
     benchmarking_test_results: TestResults
     replay_benchmarking_test_results: Optional[dict[BenchmarkKey, TestResults]] = None
-    line_profile_results: dict
+    line_profile_results: dict[str, Any]
     runtime: int
     coverage_results: Optional[CoverageData]
     async_throughput: Optional[int] = None
@@ -669,6 +672,9 @@ class CoverageData:
 
     def log_coverage(self) -> None:
         from rich.tree import Tree
+
+        from codeflash.cli_cmds.console import console, logger
+        from codeflash.code_utils.env_utils import is_end_to_end
 
         tree = Tree("Test Coverage Results")
         tree.add(f"Main Function: {self.main_func_coverage.name}: {self.coverage:.2f}%")
@@ -740,6 +746,7 @@ class VerificationType(str, Enum):
     )
     INIT_STATE_FTO = "init_state_fto"  # Correctness verification for fto class instance attributes after init
     INIT_STATE_HELPER = "init_state_helper"  # Correctness verification for helper class instance attributes after init
+    VOID_STATE = "void_state"  # Correctness verification for void methods (no return value)
 
 
 @dataclass(frozen=True, slots=True)
@@ -768,12 +775,16 @@ class InvocationId:
         )
 
     def find_func_in_class(self, class_node: cst.ClassDef, func_name: str) -> Optional[cst.FunctionDef]:
+        import libcst as cst
+
         for stmt in class_node.body.body:
             if isinstance(stmt, cst.FunctionDef) and stmt.name.value == func_name:
                 return stmt
         return None
 
     def get_src_code(self, test_path: Path) -> Optional[str]:
+        import libcst as cst
+
         if not test_path.exists():
             return None
         try:
@@ -788,7 +799,7 @@ class InvocationId:
                 f"// Testing function: {self.function_getting_tested}"
             )
 
-        if self.test_class_name:
+        if self.test_class_name and self.test_function_name:
             for stmt in module_node.body:
                 if isinstance(stmt, cst.ClassDef) and stmt.name.value == self.test_class_name:
                     func_node = self.find_func_in_class(stmt, self.test_function_name)
@@ -855,6 +866,8 @@ class TestResults(BaseModel):  # noqa: PLW1641
         unique_id = function_test_invocation.unique_invocation_loop_id
         test_result_idx = self.test_result_idx
         if unique_id in test_result_idx:
+            from codeflash.cli_cmds.console import DEBUG_MODE, logger
+
             if DEBUG_MODE:
                 logger.warning(f"Test result with id {unique_id} already exists. SKIPPING")
             return
@@ -875,7 +888,9 @@ class TestResults(BaseModel):  # noqa: PLW1641
         self, benchmark_keys: list[BenchmarkKey], benchmark_replay_test_dir: Path, project_root: Path
     ) -> dict[BenchmarkKey, TestResults]:
         """Group TestResults by benchmark for calculating improvements for each benchmark."""
-        test_results_by_benchmark = defaultdict(TestResults)
+        from codeflash.code_utils.code_utils import module_name_from_file_path
+
+        test_results_by_benchmark: defaultdict[BenchmarkKey, TestResults] = defaultdict(TestResults)
         benchmark_module_path = {}
         for benchmark_key in benchmark_keys:
             benchmark_module_path[benchmark_key] = module_name_from_file_path(
@@ -928,9 +943,17 @@ class TestResults(BaseModel):  # noqa: PLW1641
 
     @staticmethod
     def report_to_tree(report: dict[TestType, dict[str, int]], title: str) -> Tree:
+        from rich.tree import Tree
+
+        from codeflash.lsp.helpers import is_LSP_enabled
+
         tree = Tree(title)
 
         if is_LSP_enabled():
+            from codeflash.cli_cmds.console import lsp_log
+            from codeflash.lsp.helpers import report_to_markdown_table
+            from codeflash.lsp.lsp_message import LspMarkdownMessage
+
             # Build markdown table
             markdown = report_to_markdown_table(report, title)
             lsp_log(LspMarkdownMessage(markdown=markdown))
@@ -945,6 +968,8 @@ class TestResults(BaseModel):  # noqa: PLW1641
         return tree
 
     def usable_runtime_data_by_test_case(self) -> dict[InvocationId, list[int]]:
+        from codeflash.cli_cmds.console import logger
+
         # Efficient single traversal, directly accumulating into a dict.
         # can track mins here and only sums can be return in total_passed_runtime
         by_id: dict[InvocationId, list[int]] = {}
@@ -996,7 +1021,7 @@ class TestResults(BaseModel):  # noqa: PLW1641
         return max(loop_indices) if loop_indices else 0
 
     def file_to_no_of_tests(self, test_functions_to_remove: list[str]) -> Counter[Path]:
-        map_gen_test_file_to_no_of_tests = Counter()
+        map_gen_test_file_to_no_of_tests: Counter[Path] = Counter()
         for gen_test_result in self.test_results:
             if (
                 gen_test_result.test_type == TestType.GENERATED_REGRESSION
@@ -1005,8 +1030,8 @@ class TestResults(BaseModel):  # noqa: PLW1641
                 map_gen_test_file_to_no_of_tests[gen_test_result.file_name] += 1
         return map_gen_test_file_to_no_of_tests
 
-    def __iter__(self) -> Iterator[FunctionTestInvocation]:
-        return iter(self.test_results)
+    def __iter__(self) -> Generator[Any, None, None]:  # noqa: PYI058
+        yield from self.test_results
 
     def __len__(self) -> int:
         return len(self.test_results)
@@ -1024,13 +1049,15 @@ class TestResults(BaseModel):  # noqa: PLW1641
         return bool(self.test_results)
 
     def __eq__(self, other: object) -> bool:
+        from codeflash.verification.comparator import comparator
+
         # Unordered comparison
         if type(self) is not type(other):
             return False
         if len(self) != len(other):
             return False
         original_recursion_limit = sys.getrecursionlimit()
-        cast("TestResults", other)
+        assert isinstance(other, TestResults)
         for test_result in self:
             other_test_result = other.get_by_unique_invocation_loop_id(test_result.unique_invocation_loop_id)
             if other_test_result is None:

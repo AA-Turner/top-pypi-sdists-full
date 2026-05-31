@@ -13,7 +13,7 @@ import re
 from setuptools import setup, Command
 from setuptools.command import egg_info
 
-VERSION = "12.1"
+VERSION = "12.2"
 
 # Table with all framework wrappers and the OSX releases where they are
 # first supported, and where support was removed. The introduced column
@@ -211,6 +211,7 @@ MACOS_TO_DARWIN = {
     "15.2": "24.2",
     "15.4": "24.4",
     "26.0": "25.0",
+    "26.4": "25.4",
 }
 
 
@@ -655,6 +656,7 @@ def frameworks_in_table(filename):
     in_table = False
     with open(filename) as stream:
         for line in stream:
+            line = line.lstrip()
             if not in_table:
                 if line.startswith("+--") or line.startswith("+=="):
                     in_table = True

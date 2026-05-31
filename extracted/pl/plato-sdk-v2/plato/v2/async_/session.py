@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 
 from plato._generated.api.v2.artifacts import get_artifact
 from plato._generated.api.v2.jobs import get_flows as jobs_get_flows
+from plato._generated.api.v2.jobs import get_job_info as jobs_get_job_info
 from plato._generated.api.v2.jobs import public_url as jobs_public_url
 from plato._generated.api.v2.jobs import wait_for_ready as jobs_wait_for_ready
 from plato._generated.api.v2.sessions import add_job as sessions_add_job
@@ -628,7 +629,9 @@ class Session:
                     artifact_id=ctx.artifact_id,
                     simulator=ctx.simulator,
                     status="running",
+                    mesh_ip=ctx.mesh_ip,
                     is_desktop=bool(ctx.is_desktop),
+                    provider=ctx.provider,
                 )
                 for ctx in env_contexts
             ]
@@ -1070,7 +1073,10 @@ class Session:
         job_id = response.env.job_id
         is_desktop = bool(response.env.is_desktop)
 
-        # Wait for the job to be ready if requested.
+        # provider isn't carried on the add-job (EnvInfo) or wait-for-ready
+        # (WaitForReadyResult) responses, so it comes from the job-info round
+        # trip below; mesh_ip comes from wait-for-ready.
+        provider: str | None = None
         mesh_ip: str | None = None
         if wait_for_ready:
             poll_budget = min(ready_timeout, timeout)
@@ -1095,12 +1101,40 @@ class Session:
                     )
                 raise TimeoutError(f"Job {job_id} did not become ready: {error}")
             mesh_ip = ready_response.mesh_ip
+            # provider may ride the ready response (read defensively — the
+            # generated WaitForReadyResult doesn't declare it yet); the
+            # job-info fetch below is the fallback when it doesn't.
+            provider = provider or getattr(ready_response, "provider", None)
             if not mesh_ip:
                 logger.warning(
                     "wait_for_ready returned no mesh_ip for job %s (ready=%s, response=%s)",
                     job_id,
                     ready_response.ready,
                     ready_response.model_dump(),
+                )
+
+        # provider drives desktop/qemu detection (it gates the SDK client's
+        # _is_qemu, which picks the Windows /browser/start vs ubuntu chrome
+        # launch path). When the ready response didn't carry it, fall back to
+        # the job-info round trip — but only for artifact-backed VMs
+        # (resource/runtime envs have no provider).
+        if provider is None and response.env.artifact_id:
+            # Best-effort: get_job_info raises on a non-2xx response, so guard
+            # the whole call — a transient backend error must not fail add_env.
+            # provider only drives desktop/qemu detection; leaving it None just
+            # means we don't treat the env as a qemu desktop.
+            try:
+                job_info = await jobs_get_job_info.asyncio(
+                    client=self._http,
+                    job_id=job_id,
+                    x_api_key=self._api_key,
+                )
+                provider = job_info.provider if job_info is not None else None
+            except Exception as exc:
+                logger.warning(
+                    "get_job_info failed for job %s; skipping provider detection: %s",
+                    job_id,
+                    exc,
                 )
 
         # Update internal context with the new environment
@@ -1110,6 +1144,8 @@ class Session:
             artifact_id=response.env.artifact_id,
             simulator=getattr(env, "simulator", None),
             is_desktop=is_desktop,
+            mesh_ip=mesh_ip,
+            provider=provider,
         )
 
         # Add to context's envs list
@@ -1132,6 +1168,7 @@ class Session:
             status="running",  # Newly added environments are running
             mesh_ip=mesh_ip,
             is_desktop=is_desktop,
+            provider=provider,
         )
 
         logger.debug(f"Added job {job_id} (alias={env.alias}) to session {self.session_id}")

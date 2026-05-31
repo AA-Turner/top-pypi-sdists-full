@@ -20,6 +20,7 @@ from rich.table import Table
 from rich.text import Text
 
 from codeflash.cli_cmds.console import apologize_and_exit, console
+from codeflash.cli_cmds.init_config import confirm_with_default_on_eof
 from codeflash.code_utils.code_utils import validate_relative_directory_path
 from codeflash.code_utils.compat import LF
 from codeflash.code_utils.git_utils import get_git_remotes
@@ -147,7 +148,7 @@ def detect_java_test_framework(project_root: Path) -> str:
     return "junit5"  # Default to JUnit 5
 
 
-def init_java_project() -> None:
+def init_java_project(*, skip_confirm: bool = False, skip_api_key: bool = False) -> None:
     """Initialize Codeflash for a Java project."""
     from codeflash.cli_cmds.github_workflow import install_github_actions
     from codeflash.cli_cmds.init_auth import install_github_app, prompt_api_key
@@ -162,15 +163,15 @@ def init_java_project() -> None:
     console.print(lang_panel)
     console.print()
 
-    did_add_new_key = prompt_api_key()
+    did_add_new_key = False if skip_api_key else prompt_api_key()
 
-    should_modify, _config = should_modify_java_config()
+    should_modify, _config = should_modify_java_config(skip_confirm=skip_confirm)
 
     # Default git remote
     git_remote = "origin"
 
     if should_modify:
-        setup_info = collect_java_setup_info()
+        setup_info = collect_java_setup_info(skip_confirm=skip_confirm)
         git_remote = setup_info.git_remote or "origin"
         configured = configure_java_project(setup_info)
         if not configured:
@@ -178,7 +179,7 @@ def init_java_project() -> None:
 
     install_github_app(git_remote)
 
-    install_github_actions(override_formatter_check=True)
+    install_github_actions(override_formatter_check=True, skip_confirm=skip_confirm)
 
     # Show completion message
     usage_table = Table(show_header=False, show_lines=False, border_style="dim")
@@ -213,10 +214,8 @@ def init_java_project() -> None:
     sys.exit(0)
 
 
-def should_modify_java_config() -> tuple[bool, dict[str, Any] | None]:
+def should_modify_java_config(*, skip_confirm: bool = False) -> tuple[bool, dict[str, Any] | None]:
     """Check if the project already has Codeflash config."""
-    from rich.prompt import Confirm
-
     project_root = Path.cwd()
 
     # Check for existing codeflash config in pom.xml properties or gradle.properties
@@ -226,7 +225,9 @@ def should_modify_java_config() -> tuple[bool, dict[str, Any] | None]:
         strategy = get_config_strategy(project_root)
         existing = strategy.read_codeflash_properties(project_root)
         if existing:
-            return Confirm.ask(
+            if skip_confirm:
+                return False, None
+            return confirm_with_default_on_eof(
                 "A Codeflash config already exists. Do you want to re-configure it?", default=False, show_default=True
             ), None
     except ValueError:
@@ -235,10 +236,8 @@ def should_modify_java_config() -> tuple[bool, dict[str, Any] | None]:
     return True, None
 
 
-def collect_java_setup_info() -> JavaSetupInfo:
+def collect_java_setup_info(*, skip_confirm: bool = False) -> JavaSetupInfo:
     """Collect setup information for Java projects."""
-    from rich.prompt import Confirm
-
     from codeflash.cli_cmds.init_config import ask_for_telemetry
 
     curdir = Path.cwd()
@@ -271,12 +270,16 @@ def collect_java_setup_info() -> JavaSetupInfo:
     console.print(detection_panel)
     console.print()
 
+    if skip_confirm:
+        git_remote = _get_git_remote_for_setup(skip_confirm=True)
+        return JavaSetupInfo(git_remote=git_remote, disable_telemetry=False)
+
     # Ask if user wants to change any settings
     module_root_override = None
     test_root_override = None
     formatter_override = None
 
-    if Confirm.ask("Would you like to change any of these settings?", default=False):
+    if confirm_with_default_on_eof("Would you like to change any of these settings?", default=False):
         # Source root override
         module_root_override = _prompt_directory_override("source", detected_source_root, curdir)
 
@@ -382,7 +385,7 @@ def _prompt_custom_directory(dir_type: str) -> str:
         console.print()
 
 
-def _get_git_remote_for_setup() -> str:
+def _get_git_remote_for_setup(*, skip_confirm: bool = False) -> str:
     """Get git remote for project setup."""
     try:
         repo = Repo(Path.cwd(), search_parent_directories=True)
@@ -392,6 +395,8 @@ def _get_git_remote_for_setup() -> str:
 
         if len(git_remotes) == 1:
             return git_remotes[0]
+        if skip_confirm:
+            return "origin" if "origin" in git_remotes else git_remotes[0]
 
         git_panel = Panel(
             Text(

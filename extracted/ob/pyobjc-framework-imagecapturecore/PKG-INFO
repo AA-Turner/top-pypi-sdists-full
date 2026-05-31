@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyobjc-framework-ImageCaptureCore
-Version: 12.1
+Version: 12.2
 Summary: Wrappers for the framework ImageCaptureCore on macOS
 Home-page: https://github.com/ronaldoussoren/pyobjc
 Author: Ronald Oussoren
@@ -31,8 +31,8 @@ Classifier: Topic :: Software Development :: User Interfaces
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst; charset=UTF-8
 License-File: LICENSE.txt
-Requires-Dist: pyobjc-core>=12.1
-Requires-Dist: pyobjc-framework-Cocoa>=12.1
+Requires-Dist: pyobjc-core>=12.2
+Requires-Dist: pyobjc-framework-Cocoa>=12.2
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

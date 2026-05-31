@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sprig-config
-Version: 1.4.9
+Version: 1.4.10
 Summary: Spring-like deep merge configuration loader for Python
 License: MIT
 License-File: LICENSE
@@ -175,7 +175,7 @@ connect_db(host="override")  # Override specific params
 - Nested object auto-binding
 - Clear error messages with full context
 
-See [Dependency Injection Explained](docs/dependency-injection-explained.md) for implementation details.
+See [Dependency Injection Explained](https://gitlab.com/dgw_software/sprig-config/-/blob/main/sprig-config-module/docs/dependency-injection-explained.md) for implementation details.
 
 ---
 
@@ -209,7 +209,7 @@ db = instantiate(cfg["adapters"]["database"])
 - Seamless integration with `@config_inject` decorator
 - Control flags: `_recursive_=False`, `_convert_types_=False`
 
-See [instantiate() Documentation](src/sprigconfig/instantiate.md) for full details.
+See [instantiate() Documentation](https://gitlab.com/dgw_software/sprig-config/-/blob/main/sprig-config-module/src/sprigconfig/instantiate.md) for full details.
 
 ---
 
@@ -466,7 +466,7 @@ SprigConfig follows [Semantic Versioning](https://semver.org/):
 - **MINOR** versions add backward-compatible functionality
 - **PATCH** versions contain backward-compatible bug fixes
 
-Pre-release versions (e.g. `-rc1`) indicate a release candidate.
+Pre-release versions (e.g. `rc1`) indicate a release candidate.
 They are feature-complete but may receive final fixes before a stable release
 and are not recommended for production use unless explicitly intended for testing.
 
@@ -474,9 +474,9 @@ and are not recommended for production use unless explicitly intended for testin
 
 Developer-focused documentation is available under the `docs/` directory:
 
-- 📘 [Developer Guide](docs/README_Developer_Guide.md)
-- 🧭 [Roadmap](ROADMAP.md)
-- 📝 [Changelog](CHANGELOG.md)
+- 📘 [Developer Guide](https://gitlab.com/dgw_software/sprig-config/-/blob/main/sprig-config-module/docs/README_Developer_Guide.md)
+- 🧭 [Roadmap](https://gitlab.com/dgw_software/sprig-config/-/blob/main/sprig-config-module/ROADMAP.md)
+- 📝 [Changelog](https://gitlab.com/dgw_software/sprig-config/-/blob/main/CHANGELOG.md)
 
 These documents cover contributor workflows, test mechanics, Git usage,
 CI/release processes, and internal design notes.

@@ -49,6 +49,7 @@ from abstra_internals.environment import (
     NATS_CREDS,
     NATS_URL,
     WORKER_LOG_TO_QUEUE,
+    web_editor_uses_db,
 )
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.factory import (
@@ -189,6 +190,12 @@ def handle_warmup(
 
             if RABBITMQ_CONNECTION_URI is None:
                 raise Exception("RABBITMQ_CONNECTION_URI required in web editor mode")
+            if web_editor_uses_db():
+                # An executor is serial: ~2 conns (final-flush + log-flush daemon).
+                # Explicit here, not just inherited from the forkserver parent.
+                from abstra_internals.services.db.connection import configure_pool
+
+                configure_pool(max_size=2)
             state.repositories = build_web_editor_repositories(RABBITMQ_CONNECTION_URI)
         else:
             state.repositories = build_editor_repositories(parent_executions_queue)
@@ -322,7 +329,11 @@ def handle_execute(
             )
             actual_connection = rabbitmq_connection_to_close
 
-        if WORKER_LOG_TO_QUEUE and actual_connection is not None:
+        if (
+            WORKER_LOG_TO_QUEUE
+            and not web_editor_uses_db()
+            and actual_connection is not None
+        ):
             set_execution_conn(actual_connection)
 
             if request.rabbitmq_params is not None:
@@ -408,7 +419,11 @@ def handle_execute(
         set_execution_conn(None)
 
         # 2. Send execution:ended signal so the server knows to close the queue
-        if WORKER_LOG_TO_QUEUE and actual_connection is not None:
+        if (
+            WORKER_LOG_TO_QUEUE
+            and not web_editor_uses_db()
+            and actual_connection is not None
+        ):
             ended_msg = {
                 "type": "execution:ended",
                 "execution_id": request.execution_id,

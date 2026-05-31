@@ -4,8 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "service-identity"
+dynamic = ["version", "readme"]
 authors = [{ name = "Hynek Schlawack", email = "hs@ox.cx" }]
 license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.8"
 description = "Service identity verification for pyOpenSSL & cryptography."
 keywords = ["cryptography", "openssl", "pyopenssl"]
@@ -19,6 +21,8 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Security :: Cryptography",
@@ -28,18 +32,8 @@ classifiers = [
 dependencies = [
     # Keep in-sync with tests/constraints/*.
     "attrs>=19.1.0",
-    "pyasn1-modules",
-    "pyasn1",
-    "cryptography",
+    "cryptography>=47",
 ]
-dynamic = ["version", "readme"]
-
-[project.optional-dependencies]
-idna = ["idna"]
-tests = ["coverage[toml]>=5.0.2", "pytest"]
-docs = ["sphinx", "furo", "myst-parser", "sphinx-notfound-page", "pyOpenSSL"]
-mypy = ["mypy", "types-pyOpenSSL", "idna"]
-dev = ["service-identity[tests,mypy,idna]", "pyOpenSSL"]
 
 [project.urls]
 Documentation = "https://service-identity.readthedocs.io/"
@@ -49,6 +43,20 @@ Funding = "https://github.com/sponsors/hynek"
 Tidelift = "https://tidelift.com/subscription/pkg/pypi-service-identity?utm_source=pypi-service-identity&utm_medium=pypi"
 Mastodon = "https://mastodon.social/@hynek"
 Twitter = "https://twitter.com/hynek"
+
+[project.optional-dependencies]
+idna = ["idna"]
+
+
+[dependency-groups]
+tests = ["coverage[toml]>=5.0.2", "pytest"]
+docs = ["sphinx", "furo", "myst-parser", "sphinx-notfound-page", "pyOpenSSL"]
+mypy = ["mypy", "types-pyOpenSSL", "idna"]
+dev = [
+    { include-group = "tests" },
+    { include-group = "mypy" },
+    "pyOpenSSL",
+]
 
 
 [tool.hatch.version]
@@ -96,7 +104,7 @@ norecursedirs = ["tests/typing"]
 [tool.coverage.run]
 parallel = true
 branch = true
-source = ["service_identity"]
+source = ["service_identity", "tests"]
 
 [tool.coverage.paths]
 source = ["src", ".tox/py*/**/site-packages"]
@@ -104,10 +112,7 @@ source = ["src", ".tox/py*/**/site-packages"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = true
-exclude_lines = [
-    # a more strict default pragma
-    "\\# pragma: no cover\\b",
-
+exclude_also = [
     # allow defensive code
     "^\\s*raise AssertionError\\b",
     "^\\s*raise NotImplementedError\\b",
@@ -119,6 +124,9 @@ exclude_lines = [
     ": \\.\\.\\.(\\s*#.*)?$",
     "^ +\\.\\.\\.$",
     "-> ['\"]?NoReturn['\"]?:",
+
+    # Tests
+    '^if pytest\.importorskip\(',
 ]
 
 
@@ -174,6 +182,11 @@ ignore = [
 [tool.ruff.lint.isort]
 lines-between-types = 1
 lines-after-imports = 2
+
+
+[[tool.ty.overrides]]
+include = ["tests"]
+rules.all = "ignore"
 
 
 [tool.mypy]

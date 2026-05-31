@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: Beaker
-Version: 1.14.0
+Version: 1.14.1
 Summary: A Session and Caching library with WSGI Middleware
 Author-email: Ben Bangert <ben@groovie.org>, Mike Bayer <pjenvey@groovie.org>, Philip Jenvey <pjenvey@groovie.org>, Alessandro Molina <alessandro@molina.fyi>
 License: BSD
@@ -40,6 +40,7 @@ Requires-Dist: sqlalchemy; extra == "testsuite"
 Requires-Dist: pymongo; extra == "testsuite"
 Requires-Dist: redis; extra == "testsuite"
 Requires-Dist: python-memcached; extra == "testsuite"
+Dynamic: license-file
 
 =========================
 Cache and Session Library

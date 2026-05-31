@@ -391,6 +391,25 @@ class TestClassAsignments(TestCase):
         with self.assertRaisesRegex(AttributeError, "i_do_not_exist"):
             del theClass.i_do_not_exist
 
+    def testSettingNativeSelector(self):
+        theClass = NSObject
+
+        # XXX: Needed due to unexpected behaviour
+        #      Issue: #664
+        theClass = objc.lookUpClass("NSURL")
+
+        o = theClass.alloc().initFileURLWithPath_("/etc/")
+
+        with self.assertRaisesRegex(
+            TypeError, "Assigning native selectors is not supported"
+        ):
+            theClass.selectorAlias = theClass.description
+
+        theClass.selectorAlias = objc.python_method(theClass.description)
+        self.assertEqual(theClass.selectorAlias(), theClass.description())
+
+        self.assertEqual(o.description(), o.methodForSelector_(b"description")(o))
+
 
 class TestCategory(TestCase):
     # Tests of objc.Category

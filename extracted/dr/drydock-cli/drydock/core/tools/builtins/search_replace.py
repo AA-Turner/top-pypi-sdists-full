@@ -1690,12 +1690,23 @@ class SearchReplace(
                     applied += 1
                     continue
 
-                # Try auto-applying high-confidence fuzzy match (>= 0.95 similarity)
-                auto_apply_threshold = max(fuzzy_threshold, 0.95)
+                # Search for fuzzy candidates at a lower bar (0.80), then
+                # let the whitespace-normalize equality check be the real
+                # auto-apply gate. Rationale: a SEARCH text that differs
+                # from the file only by indentation depth — a frequent
+                # Gemma 4 failure mode — can land below 0.95 raw similarity
+                # while still being a safe auto-apply (normalized text is
+                # identical). Observed 2026-05-30: operator's SEARCH had
+                # 12-space indent, file had 8-space, two short lines, raw
+                # similarity ~94% → previously refused auto-apply, model
+                # cascaded into a SR error loop. The whitespace-only
+                # safety check below catches the structural-diff case the
+                # higher threshold was originally guarding against.
+                candidate_threshold = min(fuzzy_threshold, 0.80)
                 best_match = SearchReplace._find_best_fuzzy_match(
-                    current_content, search, auto_apply_threshold
+                    current_content, search, candidate_threshold
                 )
-                if best_match and best_match.similarity >= auto_apply_threshold:
+                if best_match:
                     # SAFETY: only auto-apply if the diff between the
                     # model's SEARCH and the matched text is WHITESPACE
                     # only. Observed 2026-05-22: model's SEARCH ended

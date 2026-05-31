@@ -50,7 +50,7 @@ case(id="P1-B1", title="Single-file read/modify: --verbose timing", phase="basel
      expected_result="One-file edit; timing on stderr; suite still green(>=24) — the "
                      "seed has 3 planted blockquote failures reserved for P1-D1, so a "
                      "model that only edits cli.py cannot drive pytest to 27/27.",
-     check=["--verbose -> stderr matches /rendered in [\\d.]+ ms/",
+     check=["--verbose README.md -> stderr matches /rendered in [\\d.]+ ms/",
             "stdout identical to no-flag run", "green(>=24)",
             "readonly(all but mdparse/cli.py)"],
      warning_signs=["files_touched>1", "e2e tests red (timing on stdout)"])

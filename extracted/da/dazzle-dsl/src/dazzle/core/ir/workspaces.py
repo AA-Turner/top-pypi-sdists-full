@@ -473,6 +473,13 @@ class LensAggregatePrimary(BaseModel):
             entity that both the cohort source row and the aggregated
             row reference via a single ``ref`` field each. Mutually
             exclusive with ``via``.
+        format: Optional Python format spec applied to the computed
+            aggregate value when rendering the cell (#1300). Mirrors
+            bar_track's ``track_format``: a bare format spec (``".1f"``,
+            ``".0%"``) or a ``str.format`` template (``"{:,.2f}"``).
+            Empty (default) → the renderer applies a sensible numeric
+            default-round (2dp, trailing zeros trimmed) so an ``avg``
+            lens never emits a raw float like ``7.7500000000000000``.
     """
 
     aggregate: AggregateRef
@@ -485,6 +492,9 @@ class LensAggregatePrimary(BaseModel):
     # exclusive with `via:` (true-junction semantics) — set one or
     # the other, never both.
     share: str | None = None
+    # #1300: per-lens render format for the aggregate value. Empty →
+    # default-round in the renderer (_default_round_numeric).
+    format: str = ""
 
     model_config = ConfigDict(frozen=True)
 
@@ -1057,6 +1067,14 @@ class WorkspaceRegion(BaseModel):
     # author `row_action:` ahead of full renderer support, the IR is
     # ready and the parser locks the shape.
     row_action: RowActionSpec | None = None
+    # #1303: per-row drill-to-detail on row-oriented displays (list,
+    # task_inbox). Values: None (default) → AUTO (rows link to
+    # `/app/<entity>/{id}` when the source entity has a VIEW surface,
+    # mirroring the standalone list); "none" → opt out (no row links even
+    # if a detail surface exists); "detail" → explicit auto (same as
+    # default, states intent). The runtime gates on VIEW-surface existence
+    # in all cases, so a drill link never points at a non-existent route.
+    drill: str | None = None
     # v0.61.63 (#903): explicit region title override. When set, replaces
     # the auto-derived title from the region key (e.g. `hero_marked` →
     # "Hero Marked"). Empty string is treated as None — the runtime

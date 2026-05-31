@@ -613,7 +613,54 @@ class CumulativeOutputsTests(unittest.TestCase):
         # than its ceiling 0.25), so togo's pick is "floor".
         togo_row = df_table[df_table["country"] == "togo"].iloc[0]
         self.assertEqual(togo_row["pick"], "floor")
-        self.assertEqual(togo_row["apply"], "floor = 20")
+        # Apply column carries the paste-ready production-knob snippet
+        # (geoprepare 0.6.254+ semantics: both directions absolute >= T).
+        self.assertEqual(togo_row["apply"], "floor = 20, threshold = True")
+
+    def test_ceiling_pick_produces_ceil_apply_string(self):
+        """When ceiling-direction beats floor, Apply column should give
+        the production-knob snippet for the ceil knob (not ANALYSIS-ONLY
+        as in the pre-0.6.254 docs)."""
+        # Country where ceiling clearly beats floor.
+        self._write_pooled("zimbabwe", "maize", 1, [
+            ("floor", 5, 0.30, 4), ("floor", 20, 0.25, 4),
+            ("ceiling", 50, 0.48, 4), ("ceiling", 90, 0.50, 4),
+        ])
+        stub = self._stub()
+        stub.write_cumulative_outputs()
+        cum_root = self.tmproot / "ml" / "analysis" / "test_today" / "threshold_sweep_summary"
+        df_table = pd.read_csv(cum_root / "cumulative_maize_s1_table.csv")
+        zim = df_table[df_table["country"] == "zimbabwe"].iloc[0]
+        self.assertEqual(zim["pick"], "ceiling")
+        self.assertEqual(zim["apply"], "ceil = 90, threshold = False")
+
+    def test_country_names_title_cased_in_table_image_via_format_helper(self):
+        """Country slug → Title Case + spaces for display.
+        Underscored country names ('united_states_of_america') must
+        render as 'United States Of America' in the table image —
+        but the companion CSV preserves the raw slug for downstream
+        join/group operations."""
+        self.assertEqual(
+            ThresholdOptimizer._format_country("united_states_of_america"),
+            "United States Of America",
+        )
+        self.assertEqual(
+            ThresholdOptimizer._format_country("togo"), "Togo",
+        )
+        # Companion CSV preserves the raw slug — needed because anyone
+        # who joins the table CSV back to the per-country pooled CSVs
+        # is joining on the underscored slug.
+        self._write_pooled("united_states_of_america", "maize", 1, [
+            ("floor", 20, 0.55, 10),
+        ])
+        stub = self._stub()
+        stub.write_cumulative_outputs()
+        cum_root = self.tmproot / "ml" / "analysis" / "test_today" / "threshold_sweep_summary"
+        df_csv = pd.read_csv(cum_root / "cumulative_maize_s1_table.csv")
+        self.assertIn(
+            "united_states_of_america", set(df_csv["country"]),
+            "Companion CSV must preserve the raw country slug, not the Title-Cased display name",
+        )
 
     def test_skips_when_no_pooled_csvs_found(self):
         """No pooled CSVs anywhere → warn + return, no outputs written."""

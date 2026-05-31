@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-structlog
-Version: 10.0.0
+Version: 10.1.0
 Summary: Structured Logging for Django
 Author-email: Jules Robichaud-Gagnon <j.robichaudg+pypi@gmail.com>
 License: MIT

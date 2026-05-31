@@ -7,6 +7,7 @@ verification and performance benchmarking.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -16,6 +17,7 @@ from codeflash.cli_cmds.console import logger
 from codeflash.cli_cmds.init_javascript import get_package_install_command
 from codeflash.code_utils.code_utils import get_run_tmp_file
 from codeflash.code_utils.shell_utils import get_cross_platform_subprocess_run_args
+from codeflash.languages.javascript.command_utils import resolve_node_command_list
 
 if TYPE_CHECKING:
     from codeflash.models.models import TestFiles
@@ -169,9 +171,24 @@ def _is_vitest_workspace(project_root: Path) -> bool:
         return False
 
     try:
-        content = vitest_config.read_text()
-        # Check for workspace indicators
-        return "workspace" in content.lower() or "defineWorkspace" in content
+        content = vitest_config.read_text(encoding="utf-8")
+        # Check for actual workspace configuration patterns (not just the word "workspace" in comments)
+        # Valid indicators:
+        #   - defineWorkspace() function call
+        #   - workspace: [ array config
+        #   - separate vitest.workspace.ts/js file
+        # Match defineWorkspace calls or workspace: property assignments
+        workspace_pattern = re.compile(
+            r"(?:^|[^a-zA-Z_])defineWorkspace\s*\(|"  # defineWorkspace( function call
+            r"(?:^|[^a-zA-Z_])workspace\s*:\s*\[",  # workspace: [ array
+            re.MULTILINE,
+        )
+        if workspace_pattern.search(content):
+            return True
+        # Also check for separate workspace config file
+        if (project_root / "vitest.workspace.ts").exists() or (project_root / "vitest.workspace.js").exists():
+            return True
+        return False
     except Exception:
         return False
 
@@ -238,6 +255,18 @@ export default mergeConfig(originalConfig, {{
     include: ['**/*.test.ts', '**/*.test.js', '**/*.test.tsx', '**/*.test.jsx'],
     // Use forks pool so timing markers from process.stdout.write flow to parent stdout
     pool: 'forks',
+    // Disable setupFiles to prevent relative path resolution issues in nested directories.
+    // Project setupFiles often use relative paths (e.g., "test/setup.ts") which resolve
+    // incorrectly when tests are in subdirectories (e.g., extensions/discord/test/).
+    // Codeflash-generated tests are self-contained and don't require project setup files.
+    setupFiles: [],
+    // Override coverage settings to ensure JSON reporter is used.
+    // Vitest's mergeConfig doesn't properly handle nested coverage object merge with
+    // command-line flags, so we explicitly set reporter here to guarantee coverage
+    // files are written to the expected location (coverage-final.json).
+    coverage: {{
+      reporter: ['json'],
+    }},
   }},
 }});
 """
@@ -254,6 +283,10 @@ export default defineConfig({
     exclude: ['**/node_modules/**', '**/dist/**'],
     // Use forks pool so timing markers from process.stdout.write flow to parent stdout
     pool: 'forks',
+    // Override coverage settings to ensure JSON reporter is used
+    coverage: {
+      reporter: ['json'],
+    },
   },
 });
 """
@@ -285,15 +318,17 @@ def _build_vitest_behavioral_command(
         Command list for subprocess execution.
 
     """
-    cmd = [
-        "npx",
-        "vitest",
-        "run",  # Single execution (not watch mode)
-        "--reporter=default",
-        "--reporter=junit",
-        "--no-file-parallelism",  # Serial execution for deterministic timing
-        "--pool=forks",  # Use child processes so timing markers flow to parent stdout
-    ]
+    cmd = resolve_node_command_list(
+        [
+            "npx",
+            "vitest",
+            "run",  # Single execution (not watch mode)
+            "--reporter=default",
+            "--reporter=junit",
+            "--no-file-parallelism",  # Serial execution for deterministic timing
+            "--pool=forks",  # Use child processes so timing markers flow to parent stdout
+        ]
+    )
 
     # For monorepos with restrictive vitest configs (e.g., include: test/**/*.test.ts),
     # we need to create a custom config that allows all test patterns.
@@ -347,15 +382,17 @@ def _build_vitest_benchmarking_command(
         Command list for subprocess execution.
 
     """
-    cmd = [
-        "npx",
-        "vitest",
-        "run",  # Single execution (not watch mode)
-        "--reporter=default",
-        "--reporter=junit",
-        "--no-file-parallelism",  # Serial execution for consistent benchmarking
-        "--pool=forks",  # Use child processes so timing markers flow to parent stdout
-    ]
+    cmd = resolve_node_command_list(
+        [
+            "npx",
+            "vitest",
+            "run",  # Single execution (not watch mode)
+            "--reporter=default",
+            "--reporter=junit",
+            "--no-file-parallelism",  # Serial execution for consistent benchmarking
+            "--pool=forks",  # Use child processes so timing markers flow to parent stdout
+        ]
+    )
 
     # Use codeflash vitest config to override restrictive include patterns
     if project_root:
@@ -446,7 +483,21 @@ def run_vitest_behavioral_tests(
         # Pre-creating an empty directory may cause vitest to delete it
         logger.debug(f"Coverage will be written to: {coverage_dir}")
 
-        vitest_cmd.extend(["--coverage", "--coverage.reporter=json", f"--coverage.reportsDirectory={coverage_dir}"])
+        vitest_cmd.extend(
+            [
+                "--coverage",
+                "--coverage.reporter=json",
+                f"--coverage.reportsDirectory={coverage_dir}",
+                # Disable project-level coverage thresholds to prevent false failures.
+                # Codeflash-generated tests typically cover only a single function (~1-2% of codebase),
+                # which would fail projects with thresholds like 70% lines/functions configured
+                # in their vitest.config.ts.
+                "--coverage.thresholds.lines=0",
+                "--coverage.thresholds.functions=0",
+                "--coverage.thresholds.statements=0",
+                "--coverage.thresholds.branches=0",
+            ]
+        )
         # Note: Removed --coverage.enabled=true (redundant) and --coverage.all false
         # The version mismatch between vitest and @vitest/coverage-v8 can cause
         # issues with coverage flag parsing. Let vitest use default settings.
@@ -635,6 +686,17 @@ def run_vitest_benchmarking_tests(
     vitest_env["CODEFLASH_PERF_TARGET_DURATION_MS"] = str(target_duration_ms)
     vitest_env["CODEFLASH_PERF_STABILITY_CHECK"] = "true" if stability_check else "false"
     vitest_env["CODEFLASH_LOOP_INDEX"] = "1"
+    # Warmup and calibration for accurate benchmarking
+    vitest_env["CODEFLASH_PERF_WARMUP_ITERATIONS"] = "5"
+    vitest_env["CODEFLASH_PERF_MIN_TIME_NS"] = "5000"  # 5us minimum time for calibration
+
+    # Expose GC for accurate benchmarking (allows capturePerf to force GC before timing)
+    existing_node_options = vitest_env.get("NODE_OPTIONS", "")
+    if "--expose-gc" not in existing_node_options:
+        existing_node_options = f"{existing_node_options} --expose-gc".strip()
+    if "--max-old-space-size" not in existing_node_options:
+        existing_node_options = f"{existing_node_options} --max-old-space-size=4096".strip()
+    vitest_env["NODE_OPTIONS"] = existing_node_options
 
     # Set test module for marker identification (use first test file as reference)
     if test_files:
@@ -748,15 +810,17 @@ def run_vitest_line_profile_tests(
     _ensure_runtime_files(effective_cwd)
 
     # Build Vitest command for line profiling - simple run without benchmarking loops
-    vitest_cmd = [
-        "npx",
-        "vitest",
-        "run",
-        "--reporter=default",
-        "--reporter=junit",
-        "--no-file-parallelism",  # Serial execution for consistent line profiling
-        "--pool=forks",  # Use child processes so timing markers flow to parent stdout
-    ]
+    vitest_cmd = resolve_node_command_list(
+        [
+            "npx",
+            "vitest",
+            "run",
+            "--reporter=default",
+            "--reporter=junit",
+            "--no-file-parallelism",  # Serial execution for consistent line profiling
+            "--pool=forks",  # Use child processes so timing markers flow to parent stdout
+        ]
+    )
 
     # Use codeflash vitest config to override restrictive include patterns
     if effective_cwd:

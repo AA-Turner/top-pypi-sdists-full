@@ -20,7 +20,8 @@ from rich.syntax import Syntax
 from rich.text import Text
 from rich.tree import Tree
 
-from codeflash.api.aiservice import AiServiceClient, AIServiceRefinerRequest, LocalAiServiceClient
+import codeflash.code_utils._libcst_cache  # noqa: F401
+from codeflash.api.aiservice import AiServiceClient, LocalAiServiceClient
 from codeflash.api.cfapi import add_code_context_hash, create_staging, get_cfapi_base_urls, mark_optimization_success
 from codeflash.benchmarking.utils import process_benchmark_data
 from codeflash.cli_cmds.console import (
@@ -77,6 +78,7 @@ from codeflash.models.models import (
     AdaptiveOptimizedCandidate,
     AIServiceAdaptiveOptimizeRequest,
     AIServiceCodeRepairRequest,
+    AIServiceRefinerRequest,
     BestOptimization,
     CandidateEvaluationContext,
     GeneratedTests,
@@ -488,6 +490,7 @@ class FunctionOptimizer:
             else function_to_optimize.file_path.read_text(encoding="utf8")
         )
         self.language_support = current_language_support()
+        self.language_support.ensure_runtime_environment(self.project_root)
         if not function_to_optimize_ast:
             self.function_to_optimize_ast = self._resolve_function_ast(
                 self.function_to_optimize_source_code, function_to_optimize.function_name, function_to_optimize.parents
@@ -1710,7 +1713,9 @@ class FunctionOptimizer:
                 logger.debug(f"Failed to instrument test file {test_file} for performance testing")
                 continue
 
-            # For JS/TS, preserve .test.ts or .spec.ts suffix for Jest pattern matching
+            # Preserve language-specific test file naming conventions:
+            # JS/TS: .test.ts / .spec.ts for Jest pattern matching
+            # Go: _test.go required by `go test`
             def get_instrumented_path(original_path: str, suffix: str) -> Path:
                 path_obj = Path(original_path)
                 stem = path_obj.stem
@@ -1722,6 +1727,9 @@ class FunctionOptimizer:
                 elif ".spec" in stem:
                     base, _ = stem.rsplit(".spec", 1)
                     new_stem = f"{base}{suffix}.spec"
+                elif stem.endswith("_test") and ext == ".go":
+                    base = stem.removesuffix("_test")
+                    new_stem = f"{base}{suffix}_test"
                 else:
                     new_stem = f"{stem}{suffix}"
 
@@ -2787,6 +2795,25 @@ class FunctionOptimizer:
             did_pass_all_tests = all(result.did_pass for result in behavioral_results)
             if not did_pass_all_tests:
                 return Failure("Tests failed to pass for the original code.")
+
+            # Check if coverage data was not found (file excluded from coverage)
+            from codeflash.models.models import CoverageStatus
+
+            if coverage_results and coverage_results.status == CoverageStatus.NOT_FOUND:
+                # File was not found in coverage data - likely excluded by test framework config
+                logger.warning(
+                    f"No coverage data found for {self.function_to_optimize.file_path}. "
+                    f"This file may be excluded from coverage collection by your test framework configuration "
+                    f"(e.g., coverage.exclude in vitest.config.ts for Vitest, or testMatch/coveragePathIgnorePatterns "
+                    f"for Jest). Tests ran successfully but coverage cannot be measured."
+                )
+                return Failure(
+                    f"Coverage data not found for {self.function_to_optimize.file_path}. "
+                    f"The file may be excluded from coverage by your test framework config. "
+                    f"Check coverage.exclude patterns in vitest.config.ts or jest.config.js."
+                )
+
+            # Normal coverage failure (tests ran but coverage below threshold)
             coverage_pct = coverage_results.coverage if coverage_results else 0
             return Failure(
                 f"Test coverage is {coverage_pct}%, which is below the required threshold of {COVERAGE_THRESHOLD}%."
@@ -3066,6 +3093,16 @@ class FunctionOptimizer:
                 )
             )
 
+    def get_js_project_root(self) -> Path | None:
+        # Only calculate for JavaScript/TypeScript projects
+        if self.function_to_optimize.language not in ("javascript", "typescript"):
+            return self.test_cfg.js_project_root  # Fall back to cached value for non-JS
+
+        # For JS/TS, calculate fresh for each function to support monorepos
+        from codeflash.languages.javascript.test_runner import find_node_project_root
+
+        return find_node_project_root(Path(self.function_to_optimize.file_path))
+
     def run_and_parse_tests(
         self,
         testing_type: TestingMode,
@@ -3084,33 +3121,39 @@ class FunctionOptimizer:
         coverage_config_file = None
         try:
             if testing_type == TestingMode.BEHAVIOR:
+                # Calculate js_project_root for the current function being optimized
+                # instead of using cached value from test_cfg, which may be from a different function
+                js_project_root = self.get_js_project_root()
+
                 result_file_path, run_result, coverage_database_file, coverage_config_file = (
                     self.language_support.run_behavioral_tests(
                         test_paths=test_files,
                         test_env=test_env,
                         cwd=self.project_root,
                         timeout=INDIVIDUAL_TESTCASE_TIMEOUT,
-                        project_root=self.test_cfg.js_project_root,
+                        project_root=js_project_root,
                         enable_coverage=enable_coverage,
                         candidate_index=optimization_iteration,
                     )
                 )
             elif testing_type == TestingMode.LINE_PROFILE:
+                js_project_root = self.get_js_project_root()
                 result_file_path, run_result = self.language_support.run_line_profile_tests(
                     test_paths=test_files,
                     test_env=test_env,
                     cwd=self.project_root,
                     timeout=INDIVIDUAL_TESTCASE_TIMEOUT,
-                    project_root=self.test_cfg.js_project_root,
+                    project_root=js_project_root,
                     line_profile_output_file=line_profiler_output_file,
                 )
             elif testing_type == TestingMode.PERFORMANCE:
+                js_project_root = self.get_js_project_root()
                 result_file_path, run_result = self.language_support.run_benchmarking_tests(
                     test_paths=test_files,
                     test_env=test_env,
                     cwd=self.project_root,
                     timeout=INDIVIDUAL_TESTCASE_TIMEOUT,
-                    project_root=self.test_cfg.js_project_root,
+                    project_root=js_project_root,
                     min_loops=pytest_min_loops,
                     max_loops=pytest_max_loops,
                     target_duration_seconds=testing_time,
@@ -3217,6 +3260,11 @@ class FunctionOptimizer:
         test_env["CODEFLASH_TEST_ITERATION"] = str(codeflash_test_iteration)
         test_env["CODEFLASH_TRACER_DISABLE"] = str(codeflash_tracer_disable)
         test_env["CODEFLASH_LOOP_INDEX"] = str(codeflash_loop_index)
+        # Pin PYTHONHASHSEED so original and candidate test processes use the same hash seed.
+        # Without this, each subprocess gets a random seed, which can cause non-deterministic
+        # iteration order in sets/dicts and lead to flaky return-value comparisons.
+        if "PYTHONHASHSEED" not in test_env:
+            test_env["PYTHONHASHSEED"] = "0"
         return test_env
 
     def line_profiler_step(

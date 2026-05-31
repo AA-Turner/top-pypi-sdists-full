@@ -1,6 +1,6 @@
 [project]
 name = "geocif"
-version = "0.4.715"
+version = "0.4.716"
 
 description = "Models to visualize and forecast crop conditions and yields"
 readme = "README.md"
@@ -56,6 +56,35 @@ dependencies = [
     "Rbeast>=0.1.20",         # geocif/production_analysis/_common.py (BEAST pipeline)
     "scikit-learn>=1.4",      # geocif.py top-level + ml/cluster_analysis.py, ml/feature_selection.py
     "bottleneck>=1.3",        # geocif/agmet/plot.py
+    # Core production imports (added after install-time audit of import graph):
+    "mapclassify>=2.5",       # geocif/viz/plot.py
+    "pymannkendall>=1.4",     # geocif/utils.py
+    "pangres>=4.0",           # geocif/utils.py (DB upsert)
+    "kneed>=0.8",             # geocif/ml/feature_engineering.py
+    "lifelines>=0.27",        # geocif/ml/gomp.py (survival analysis)
+    # Spatial production imports (production_analysis/beast_spatial.py):
+    "esda>=2.5",              # spatial autocorrelation (Moran's I, etc.)
+    "libpysal>=4.10",         # spatial weights / lattice
+    # ML pipeline alternative model backends (geocif/ml/trainers.py):
+    "crepes>=0.6",            # conformal prediction wrappers
+    "cubist>=1.0",            # Cubist regression (1.0+ — 0.0.x is a separate pre-1.0 line)
+    "mapie>=0.8",             # prediction intervals
+    "desReg>=0.1",            # Distributional Ensemble Synthetic Regression (geocif/ml/trainers.py)
+    "geospaNN>=0.1",          # spatially-aware neural networks (geocif/ml/trainers.py)
+    "merf>=1.0",              # mixed-effects random forests
+    "ngboost>=0.5",           # probabilistic gradient boosting
+    "tabpfn-extensions>=0.4",  # TabPFN extras (0.4+ — stable line; 0.0.x was placeholder releases)
+    "treeple>=0.10",          # honest tree ensembles
+    "ydf>=0.6",               # Yggdrasil Decision Forests
+    # ML feature selection (geocif/ml/feature_selection.py):
+    "BorutaShap>=1.0",        # Boruta with SHAP-based importance
+    "arfs>=2.0",              # All Relevant Feature Selection
+    "fasttreeshap>=0.1",      # fast SHAP for tree models
+    "feature-engine>=1.6",    # categorical / numerical transformers
+    "mrmr-selection>=0.2",    # mRMR feature selection
+    "powershap>=0.0.10",      # SHAP-based feature selection
+    "sklearn-genetic-opt>=0.10",  # genetic hyperparameter / feature opt
+    "stabl>=0.0.1",           # stability selection (only release on PyPI is 0.0.1; >=1.0 would fail to install)
     # Transitive deps of pygeoutil (which has broken setup.py and is git-installed by the installer):
     "cachetools>=5.0",        # pygeoutil/rgeo.py
     "geopy>=2.0",             # pygeoutil/rgeo.py
@@ -66,17 +95,28 @@ dependencies = [
 dashboard = [
     "panel>=1.4.0",
     "hvplot>=0.10.0",
+    "holoviews>=1.18",       # geocif/dashboard/tabs/*.py
+]
+aquacrop = [
+    "aquacrop>=3.0",         # geocif/aquacrop/aquacrop_runner.py + others
 ]
 aquacrop_calibration = [
-    "pygmo>=2.19",   # PSO + CMA-ES backbone for crop-param tuning
-    "SALib>=1.5",    # optional Sobol/eFAST/Morris sensitivity analysis
+    "aquacrop>=3.0",         # transitive base
+    "pygmo>=2.19",           # PSO + CMA-ES backbone for crop-param tuning
+    "SALib>=1.5",            # Sobol / eFAST / Morris sensitivity analysis
 ]
 spatial = [
-    "pysal>=2.6",    # geocif/ml/spatial_autocorrelation.py (standalone module, not in main import chain)
+    "pysal>=2.6",            # full pysal meta-package (esda + libpysal already in core)
 ]
 gee = [
     "earthengine-api>=1.0",  # geocif/playground/gee_access.py and wolayita_*.py
     "geemap>=0.30",
+]
+narrative = [
+    "pymupdf>=1.23",         # imported as `fitz` in geocif/narrative.py
+    "pdfplumber>=0.10",      # geocif/narrative.py
+    "reportlab>=4.0",        # geocif/report.py
+    "anthropic>=0.30",       # geocif/narrative.py (LLM-based report generation)
 ]
 
 [project.urls]

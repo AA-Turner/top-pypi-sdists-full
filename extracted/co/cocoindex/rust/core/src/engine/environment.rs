@@ -2,7 +2,7 @@ use crate::{
     engine::profile::EngineProfile,
     engine::target_state::TargetStateProviderRegistry,
     prelude::*,
-    state_store::{AppStore, ReadTxn, Storage, StorageSettings, WriteTxn},
+    state_store::{AppStore, Storage, StorageSettings, WriteTxn},
 };
 
 use cocoindex_utils::fingerprint::Fingerprint;
@@ -26,6 +26,12 @@ struct EnvironmentInner<Prof: EngineProfile> {
     /// See `specs/memo_validation/plan.md` → "Extension: state validation
     /// for tracked context values".
     context_initial_states: RwLock<HashMap<Fingerprint, Vec<Prof::FunctionData>>>,
+    /// Per-process liveness token. Used by `pre_commit` to distinguish a
+    /// pending tracking-info entry written by this process (live → caller
+    /// backs off and retries) from one left behind by a crashed prior
+    /// process (dead → take the recovery path).
+    /// See `specs/target_state_ownership_transfer/concurrent_preempt_race_fix.md`.
+    process_token: u128,
 }
 
 #[derive(Clone)]
@@ -47,21 +53,22 @@ impl<Prof: EngineProfile> Environment<Prof> {
             host_runtime_ctx,
             logic_set: RwLock::new(HashSet::new()),
             context_initial_states: RwLock::new(HashMap::new()),
+            process_token: uuid::Uuid::new_v4().as_u128(),
         });
         Ok(Self { inner: state })
+    }
+
+    /// Liveness token for the current process. See `EnvironmentInner::process_token`.
+    pub fn process_token(&self) -> u128 {
+        self.inner.process_token
     }
 
     pub fn storage(&self) -> &Storage {
         &self.inner.storage
     }
 
-    /// Open a read transaction. Delegates to [`Storage::read_txn`] which
-    /// handles transient and stale-reader retry.
-    pub async fn read_txn(&self) -> Result<ReadTxn<'_>> {
-        self.inner.storage.read_txn().await
-    }
-
-    /// Run a batched write transaction. Delegates to [`Storage::run_txn`].
+    /// Run a batched write transaction. Delegates to
+    /// [`Storage::run_txn`].
     pub async fn run_txn<T, F>(&self, body: F) -> Result<T>
     where
         T: Send + 'static,
@@ -145,6 +152,16 @@ impl<Prof: EngineProfile> Environment<Prof> {
 pub struct AppRegistration<Prof: EngineProfile> {
     name: String,
     env: Environment<Prof>,
+    /// `false` while the registration owns its slot in
+    /// `env.inner.app_names`; `true` after `unregister()` has been called
+    /// (explicitly or via `Drop`). Used so the slot can be released
+    /// eagerly from `App::drop_app` without depending on every
+    /// `Arc<AppContextInner>` clone being dropped first — pending tokio
+    /// tasks captured during the drop may keep clones alive briefly
+    /// after `drop_handle.result()` resolves, and we don't want a
+    /// "name already registered" race when the same `App` instance is
+    /// reused for a follow-up `update()`.
+    released: std::sync::Mutex<bool>,
 }
 
 impl<Prof: EngineProfile> AppRegistration<Prof> {
@@ -156,17 +173,29 @@ impl<Prof: EngineProfile> AppRegistration<Prof> {
         Ok(Self {
             name: name.to_string(),
             env: env.clone(),
+            released: std::sync::Mutex::new(false),
         })
     }
 
     pub fn name(&self) -> &str {
         &self.name
     }
+
+    /// Release the env-side name slot now, instead of waiting for the
+    /// last `Arc<AppContextInner>` clone to drop. Idempotent: a second
+    /// call (or the implicit one via `Drop`) is a no-op.
+    pub fn unregister(&self) {
+        let mut released = self.released.lock().unwrap();
+        if !*released {
+            let mut app_names = self.env.inner.app_names.lock().unwrap();
+            app_names.remove(&self.name);
+            *released = true;
+        }
+    }
 }
 
 impl<Prof: EngineProfile> Drop for AppRegistration<Prof> {
     fn drop(&mut self) {
-        let mut app_names = self.env.inner.app_names.lock().unwrap();
-        app_names.remove(&self.name);
+        self.unregister();
     }
 }

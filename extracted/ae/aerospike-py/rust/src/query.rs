@@ -76,22 +76,31 @@ fn parse_predicate(pred: &Bound<'_, PyTuple>) -> PyResult<Predicate> {
     }
     let kind: String = pred.get_item(0)?.extract()?;
     let bin: String = pred.get_item(1)?.extract()?;
+    validate_bin_name(&bin)?;
     trace!("Parsing predicate: kind={} bin={}", kind, bin);
 
     match kind.as_str() {
         "equals" => {
-            let val = py_to_value(&pred.get_item(2)?)?;
+            let item = pred.get_item(2)?;
+            let val = py_to_value(&item)?;
+            validate_equals_value(&val, &item)?;
             Ok(Predicate::Equals { bin, val })
         }
         "between" => {
             ensure_predicate_min_len(pred, "between", 4)?;
-            let min: i64 = pred.get_item(2)?.extract()?;
-            let max: i64 = pred.get_item(3)?.extract()?;
+            let min = extract_range_bound(pred, 2, "begin")?;
+            let max = extract_range_bound(pred, 3, "end")?;
             Ok(Predicate::Between { bin, min, max })
         }
         "contains" => {
             ensure_predicate_min_len(pred, "contains", 4)?;
             let col_type: i32 = pred.get_item(2)?.extract()?;
+            // Validate the collection index type up front. A typo or an
+            // accidentally-passed constant from another namespace (e.g. a
+            // `LIST_RETURN_*`/`MAP_RETURN_*` value) used to be silently coerced
+            // to `CollectionIndexType::Default`, querying the wrong index type
+            // and returning wrong/empty results with no error.
+            validate_collection_index_type(col_type)?;
             let val_any = pred.get_item(3)?;
             if let Ok(v) = val_any.extract::<i64>() {
                 Ok(Predicate::ContainsInteger {
@@ -144,6 +153,62 @@ fn ensure_predicate_min_len(pred: &Bound<'_, PyTuple>, kind: &str, min_len: usiz
     Ok(())
 }
 
+/// Extract one bound of a `between` range predicate as an `i64`.
+///
+/// Aerospike secondary-index range filters are integer-only (see
+/// `aerospike_core::query::Filter::range`). A non-integer bound — a common
+/// mistake such as `predicates.between("score", 1.5, 9.5)` or passing a numeric
+/// string — previously surfaced PyO3's opaque, context-free conversion error
+/// (e.g. `'float' object cannot be interpreted as an integer`). That gave the
+/// caller no hint about which predicate or which argument was at fault, nor
+/// that the range must be integral. This raises a precise `InvalidArgError`
+/// instead, matching the descriptive style of the other predicate guards.
+///
+/// `bound` is the human-facing label for the offending argument (`"begin"` or
+/// `"end"`).
+fn extract_range_bound(pred: &Bound<'_, PyTuple>, index: usize, bound: &str) -> PyResult<i64> {
+    let item = pred.get_item(index)?;
+    item.extract::<i64>().map_err(|_| {
+        crate::errors::InvalidArgError::new_err(format!(
+            "Predicate 'between' requires integer bounds; the '{bound}' value {} \
+             is not an integer. Aerospike secondary-index range queries support \
+             integers only.",
+            item.repr()
+                .map(|r| r.to_string())
+                .unwrap_or_else(|_| "<unrepresentable>".to_string()),
+        ))
+    })
+}
+
+/// Reject an `equals` predicate value whose type the server cannot index on.
+///
+/// Aerospike secondary-index equality filters only accept integer, string, or
+/// blob (`bytes`) values — see `aerospike_core::query::EqFilterValue`. The
+/// underlying `Filter::equal(..)` builder *asserts* this at construction time,
+/// so a common mistake such as `predicates.equals("score", 1.5)` (a float) or
+/// `predicates.equals("flag", True)` (a bool) used to trip that assertion and
+/// **panic** while building the statement — outside the query execution
+/// panic-safety net, so it unwound straight through the PyO3 boundary instead
+/// of producing a catchable Python exception. This validates the value up front
+/// and raises a precise `InvalidArgError`, matching the descriptive style of the
+/// other predicate guards (#392/#393/#395).
+///
+/// `item` is the original Python object, used only to echo its repr in the
+/// error message.
+fn validate_equals_value(val: &Value, item: &Bound<'_, PyAny>) -> PyResult<()> {
+    match val {
+        Value::Int(_) | Value::String(_) | Value::Blob(_) => Ok(()),
+        _ => Err(crate::errors::InvalidArgError::new_err(format!(
+            "Predicate 'equals' value {} has an unsupported type. Aerospike \
+             secondary-index equality filters accept only integers, strings, or \
+             bytes.",
+            item.repr()
+                .map(|r| r.to_string())
+                .unwrap_or_else(|_| "<unrepresentable>".to_string()),
+        ))),
+    }
+}
+
 /// Build an `aerospike_core::Statement` from namespace, set, bins, and predicates.
 fn build_statement(
     namespace: &str,
@@ -187,12 +252,55 @@ fn build_statement(
 }
 
 /// Map a Python integer to a [`CollectionIndexType`] for contains-predicates.
+///
+/// Callers must validate `val` via [`validate_collection_index_type`] first;
+/// any value outside `0..=3` falls back to [`CollectionIndexType::Default`].
 fn int_to_collection_index_type(val: i32) -> CollectionIndexType {
     match val {
         1 => CollectionIndexType::List,
         2 => CollectionIndexType::MapKeys,
         3 => CollectionIndexType::MapValues,
         _ => CollectionIndexType::Default,
+    }
+}
+
+/// Reject an out-of-range collection index type for a `contains` predicate.
+///
+/// Valid values are the `INDEX_TYPE_*` constants: `0` (DEFAULT), `1` (LIST),
+/// `2` (MAPKEYS), `3` (MAPVALUES). Any other value is a caller mistake — a
+/// typo, or a constant borrowed from another namespace such as
+/// `LIST_RETURN_*`/`MAP_RETURN_*`, which overlap this small integer range.
+/// Previously such values were silently coerced to `DEFAULT`, so the query ran
+/// against the wrong index type and returned wrong or empty results with no
+/// error. Surfacing it here fails loudly, matching the other predicate guards.
+fn validate_collection_index_type(val: i32) -> PyResult<()> {
+    if (0..=3).contains(&val) {
+        Ok(())
+    } else {
+        Err(crate::errors::InvalidArgError::new_err(format!(
+            "Predicate 'contains' index_type {val} is invalid; expected one of \
+             INDEX_TYPE_DEFAULT (0), INDEX_TYPE_LIST (1), INDEX_TYPE_MAPKEYS (2), \
+             or INDEX_TYPE_MAPVALUES (3)."
+        )))
+    }
+}
+
+/// Reject an empty bin name client-side.
+///
+/// An empty string was previously accepted by the predicate/query/expression
+/// builders and only failed deep in the server with an opaque
+/// `AEROSPIKE_ERR_PARAMETER`/bin-name error that gave the caller no hint about
+/// which builder call produced it. Surfacing it here fails loudly and early,
+/// matching the existing empty-bin-name guard in `py_dict_to_bins` and the
+/// other client-side predicate guards (#392/#393/#395). Shared (`pub(crate)`)
+/// so the query/predicate and expression builders apply one consistent rule.
+pub(crate) fn validate_bin_name(name: &str) -> PyResult<()> {
+    if name.is_empty() {
+        Err(crate::errors::InvalidArgError::new_err(
+            "Bin name must not be empty.",
+        ))
+    } else {
+        Ok(())
     }
 }
 
@@ -369,7 +477,7 @@ impl PyQuery {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_predicate;
+    use super::{parse_predicate, validate_bin_name};
     use pyo3::prelude::*;
     use pyo3::types::PyTuple;
 
@@ -406,6 +514,73 @@ mod tests {
     }
 
     #[test]
+    fn parse_predicate_accepts_integer_between_bounds() {
+        Python::initialize();
+        Python::attach(|py| {
+            // Heterogeneous tuple (str, str, int, int): build via a Python list
+            // and convert to a tuple, since PyTuple::new wants a uniform slice.
+            let list = pyo3::types::PyList::new(py, ["between", "age"]).unwrap();
+            list.append(18i64).unwrap();
+            list.append(65i64).unwrap();
+            let pred = PyTuple::new(py, list.iter()).unwrap();
+            parse_predicate(&pred).expect("integer between bounds must parse");
+        });
+    }
+
+    #[test]
+    fn parse_predicate_rejects_non_integer_between_bounds() {
+        Python::initialize();
+        Python::attach(|py| {
+            // float bounds — the most common mistake
+            let list = pyo3::types::PyList::new(py, ["between", "score"]).unwrap();
+            list.append(1.5f64).unwrap();
+            list.append(9.5f64).unwrap();
+            let pred = PyTuple::new(py, list.iter()).unwrap();
+            match parse_predicate(&pred) {
+                Ok(_) => panic!("float between bounds must be rejected"),
+                Err(err) => {
+                    let msg = err.to_string();
+                    assert!(
+                        msg.contains("InvalidArgError"),
+                        "expected InvalidArgError, got: {msg}"
+                    );
+                    assert!(
+                        msg.contains("between") && msg.contains("integer"),
+                        "error must name the predicate and the integer constraint: {msg}"
+                    );
+                    assert!(
+                        msg.contains("begin"),
+                        "error must identify the offending 'begin' bound: {msg}"
+                    );
+                }
+            }
+        });
+    }
+
+    #[test]
+    fn parse_predicate_rejects_non_integer_between_end_bound() {
+        Python::initialize();
+        Python::attach(|py| {
+            // valid begin, invalid (string) end — error must point at 'end'
+            let list = pyo3::types::PyList::new(py, ["between", "age"]).unwrap();
+            list.append(18i64).unwrap();
+            list.append("oops").unwrap();
+            let pred = PyTuple::new(py, list.iter()).unwrap();
+            match parse_predicate(&pred) {
+                Ok(_) => panic!("string end bound must be rejected"),
+                Err(err) => {
+                    let msg = err.to_string();
+                    assert!(msg.contains("InvalidArgError"), "got: {msg}");
+                    assert!(
+                        msg.contains("end"),
+                        "error must identify the offending 'end' bound: {msg}"
+                    );
+                }
+            }
+        });
+    }
+
+    #[test]
     fn parse_predicate_rejects_short_contains_tuple() {
         Python::initialize();
         Python::attach(|py| {
@@ -416,6 +591,54 @@ mod tests {
                     let msg = err.to_string();
                     assert!(msg.contains("InvalidArgError"));
                     assert!(msg.contains("contains"));
+                }
+            }
+        });
+    }
+
+    #[test]
+    fn parse_predicate_accepts_valid_contains_index_types() {
+        Python::initialize();
+        Python::attach(|py| {
+            // 0..=3 are the valid INDEX_TYPE_* constants. Each must parse for
+            // both an integer value and a string value.
+            for col_type in [0i64, 1, 2, 3] {
+                let list = pyo3::types::PyList::new(py, ["contains", "tags"]).unwrap();
+                list.append(col_type).unwrap();
+                list.append("python").unwrap();
+                let pred = PyTuple::new(py, list.iter()).unwrap();
+                parse_predicate(&pred)
+                    .unwrap_or_else(|e| panic!("index_type {col_type} must parse: {e}"));
+            }
+        });
+    }
+
+    #[test]
+    fn parse_predicate_rejects_invalid_contains_index_type() {
+        Python::initialize();
+        Python::attach(|py| {
+            // Typos and constants borrowed from other namespaces (negative,
+            // or above the 0..=3 range) must be rejected loudly rather than
+            // silently coerced to INDEX_TYPE_DEFAULT.
+            for bad in [-1i64, 4, 5, 99] {
+                let list = pyo3::types::PyList::new(py, ["contains", "tags"]).unwrap();
+                list.append(bad).unwrap();
+                list.append("python").unwrap();
+                let pred = PyTuple::new(py, list.iter()).unwrap();
+                match parse_predicate(&pred) {
+                    Ok(_) => panic!("index_type {bad} must be rejected"),
+                    Err(err) => {
+                        let msg = err.to_string();
+                        assert!(msg.contains("InvalidArgError"), "got: {msg}");
+                        assert!(
+                            msg.contains("contains") && msg.contains("index_type"),
+                            "error must name the predicate and index_type: {msg}"
+                        );
+                        assert!(
+                            msg.contains(&bad.to_string()),
+                            "error must echo the offending value {bad}: {msg}"
+                        );
+                    }
                 }
             }
         });
@@ -436,6 +659,134 @@ mod tests {
             }
         });
     }
+
+    /// An empty bin name must be rejected client-side for every predicate kind
+    /// (equals/between/contains), instead of being forwarded to the server which
+    /// fails far from the call site with an opaque parameter/bin-name error.
+    #[test]
+    fn parse_predicate_rejects_empty_bin_name() {
+        Python::initialize();
+        Python::attach(|py| {
+            // equals: ("equals", "", value)
+            let pred = PyTuple::new(py, ["equals", "", "v"]).unwrap();
+            assert_empty_bin_rejected(&pred, "equals");
+
+            // between: ("between", "", begin, end) — heterogeneous, build via list
+            let list = pyo3::types::PyList::new(py, ["between", ""]).unwrap();
+            list.append(1i64).unwrap();
+            list.append(9i64).unwrap();
+            let pred = PyTuple::new(py, list.iter()).unwrap();
+            assert_empty_bin_rejected(&pred, "between");
+
+            // contains: ("contains", "", index_type, value)
+            let list = pyo3::types::PyList::new(py, ["contains", ""]).unwrap();
+            list.append(0i64).unwrap();
+            list.append("x").unwrap();
+            let pred = PyTuple::new(py, list.iter()).unwrap();
+            assert_empty_bin_rejected(&pred, "contains");
+        });
+    }
+
+    /// A non-empty bin name still parses successfully (the guard does not reject
+    /// legitimate predicates).
+    #[test]
+    fn parse_predicate_accepts_non_empty_bin_name() {
+        Python::initialize();
+        Python::attach(|py| {
+            let pred = PyTuple::new(py, ["equals", "age", "30"]).unwrap();
+            parse_predicate(&pred).expect("non-empty bin name must parse");
+        });
+    }
+
+    /// `equals` with an integer or string value parses (the common, supported
+    /// case the guard must not break).
+    #[test]
+    fn parse_predicate_accepts_integer_and_string_equals_value() {
+        Python::initialize();
+        Python::attach(|py| {
+            // ("equals", "age", 30) — integer value
+            let list = pyo3::types::PyList::new(py, ["equals", "age"]).unwrap();
+            list.append(30i64).unwrap();
+            let pred = PyTuple::new(py, list.iter()).unwrap();
+            parse_predicate(&pred).expect("integer equals value must parse");
+
+            // ("equals", "name", "alice") — string value
+            let pred = PyTuple::new(py, ["equals", "name", "alice"]).unwrap();
+            parse_predicate(&pred).expect("string equals value must parse");
+        });
+    }
+
+    /// `equals` with a float or bool value used to panic deep in
+    /// `Filter::equal`'s assertion (outside the execution panic-safety net). It
+    /// must instead be rejected loudly with an `InvalidArgError`.
+    #[test]
+    fn parse_predicate_rejects_unsupported_equals_value() {
+        Python::initialize();
+        Python::attach(|py| {
+            // float value — a common mistake
+            let list = pyo3::types::PyList::new(py, ["equals", "score"]).unwrap();
+            list.append(1.5f64).unwrap();
+            let pred = PyTuple::new(py, list.iter()).unwrap();
+            match parse_predicate(&pred) {
+                Ok(_) => panic!("float equals value must be rejected"),
+                Err(err) => {
+                    let msg = err.to_string();
+                    assert!(msg.contains("InvalidArgError"), "got: {msg}");
+                    assert!(
+                        msg.contains("equals") && msg.contains("unsupported type"),
+                        "error must name the predicate and the type constraint: {msg}"
+                    );
+                }
+            }
+
+            // bool value — note: must be checked *before* int, since Python
+            // bool is a subclass of int but maps to Value::Bool.
+            let list = pyo3::types::PyList::new(py, ["equals", "flag"]).unwrap();
+            list.append(true).unwrap();
+            let pred = PyTuple::new(py, list.iter()).unwrap();
+            match parse_predicate(&pred) {
+                Ok(_) => panic!("bool equals value must be rejected"),
+                Err(err) => {
+                    let msg = err.to_string();
+                    assert!(msg.contains("InvalidArgError"), "got: {msg}");
+                    assert!(msg.contains("equals"), "got: {msg}");
+                }
+            }
+        });
+    }
+
+    /// The shared `validate_bin_name` guard — used by `Query::select()` as well
+    /// as the predicate and expression builders — rejects empty names and
+    /// accepts non-empty ones.
+    #[test]
+    fn validate_bin_name_rejects_empty_accepts_non_empty() {
+        Python::initialize();
+        Python::attach(|_py| {
+            let err = validate_bin_name("").expect_err("empty bin name must be rejected");
+            let msg = err.to_string();
+            assert!(msg.contains("InvalidArgError"), "got: {msg}");
+            assert!(msg.contains("Bin name"), "got: {msg}");
+
+            validate_bin_name("score").expect("non-empty bin name must be accepted");
+        });
+    }
+
+    fn assert_empty_bin_rejected(pred: &Bound<'_, PyTuple>, kind: &str) {
+        match parse_predicate(pred) {
+            Ok(_) => panic!("empty bin name must be rejected for '{kind}'"),
+            Err(err) => {
+                let msg = err.to_string();
+                assert!(
+                    msg.contains("InvalidArgError"),
+                    "'{kind}' empty bin error must be InvalidArgError: {msg}"
+                );
+                assert!(
+                    msg.contains("Bin name"),
+                    "'{kind}' empty bin error must mention the bin name: {msg}"
+                );
+            }
+        }
+    }
 }
 
 #[pymethods]
@@ -444,7 +795,9 @@ impl PyQuery {
     #[pyo3(signature = (*bins))]
     fn select(&mut self, bins: &Bound<'_, PyTuple>) -> PyResult<()> {
         for bin in bins.iter() {
-            self.bins.push(bin.extract::<String>()?);
+            let name = bin.extract::<String>()?;
+            validate_bin_name(&name)?;
+            self.bins.push(name);
         }
         Ok(())
     }

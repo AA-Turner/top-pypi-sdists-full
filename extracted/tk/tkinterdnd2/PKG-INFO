@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: tkinterdnd2
-Version: 0.4.3
+Version: 0.4.4
 Summary: TkinterDnD2 is a python wrapper for George Petasis'' tkDnD Tk extension version 2
 Home-page: https://github.com/Eliav2/tkinterdnd2
 Author: petasis\pmgagne\eliav2
@@ -15,6 +15,7 @@ Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
+Dynamic: license-file
 Dynamic: requires-python
 Dynamic: summary
 

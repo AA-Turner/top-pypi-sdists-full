@@ -3,7 +3,7 @@ import ssl
 import subprocess
 import sys
 import threading
-from typing import Optional
+from typing import NamedTuple, Optional
 
 import certifi
 from dotenv import load_dotenv
@@ -19,6 +19,7 @@ from abstra_internals.environment import (
     HOST,
     RABBITMQ_CONNECTION_URI,
     WORKER_LOG_TO_QUEUE,
+    web_editor_uses_db,
 )
 from abstra_internals.interface.cli.messages import serve_message
 from abstra_internals.logger import AbstraLogger
@@ -75,6 +76,9 @@ def shutdown_editor_components(
     editor_consumer,
     consumer_controller,
     stdio_broadcast_stop_event,
+    poller_stop_event=None,
+    poller_thread=None,
+    execution_logs=None,
     thread_factory=threading.Thread,
 ):
     """Stop every long-lived resource started by editor() and unblock
@@ -84,6 +88,29 @@ def shutdown_editor_components(
     the full editor() function.
     """
     AbstraLogger.warning("[Editor] Graceful shutdown initiated")
+
+    if poller_stop_event is not None:
+        # DB path. Order matters: stop + join the poller (so it isn't mid-query),
+        # then close the logs repo (drains + stops its flush thread + unregisters
+        # its atexit so it can't resurrect the pool), and only THEN close the pool
+        # so nothing is left holding a checked-out connection.
+        poller_stop_event.set()
+        if poller_thread is not None:
+            try:
+                poller_thread.join(timeout=2.0)
+            except Exception as e:
+                AbstraLogger.error(f"[Editor] Error joining poller thread: {e}")
+        if execution_logs is not None:
+            try:
+                execution_logs.close()
+            except Exception as e:
+                AbstraLogger.error(f"[Editor] Error closing logs repository: {e}")
+        try:
+            from abstra_internals.services.db.connection import close_pool
+
+            close_pool()
+        except Exception as e:
+            AbstraLogger.error(f"[Editor] Error closing DB pool: {e}")
 
     if editor_consumer is not None:
         try:
@@ -154,6 +181,114 @@ def ensure_certificates():
             print(f"Failed to restore certificates: {update_e}")
 
 
+class EditorStorageHandles(NamedTuple):
+    heartbeat: Optional[WebEditorHeartbeat]
+    logs_watcher: Optional[object]
+    tasks_watcher: Optional[object]
+    stdio_broadcast_stop_event: Optional[threading.Event]
+    poller_stop_event: Optional[threading.Event]
+    poller_thread: Optional[threading.Thread] = None
+
+
+def _wire_editor_storage(
+    main_controller: MainController,
+    *,
+    is_web_editor: bool,
+    use_rabbitmq_workers: bool,
+) -> EditorStorageHandles:
+    """Wire the editor's storage-side moving parts and return their handles.
+
+    The single switch is ``WEB_EDITOR_DATABASE_URI`` (invariant §6). On the DB
+    path we run migrations (owner-canonical, D11), the age-based cleanup, and the
+    poller — and do NOT start the heartbeat, the RabbitMQ stdio broadcast
+    consumer, the LogsWatcher, or the TasksWatcher (gating §3/§18). On the legacy
+    path behavior is unchanged.
+    """
+    from abstra_internals.environment import web_editor_uses_db
+
+    db_set = web_editor_uses_db()
+    if db_set and not use_rabbitmq_workers:
+        # The factory would fall back to file-based local mode, silently
+        # persisting to EFS while the DB sits idle — the spec's worst case (§20).
+        # Fail fast (symmetric with web_editor_worker, which raises on missing
+        # RabbitMQ) so the misconfiguration surfaces as a loud boot failure
+        # instead of corrupting storage. cloud-api always injects both together.
+        raise RuntimeError(
+            "ABSTRA_WEB_EDITOR_DATABASE_URI is set but RABBITMQ_CONNECTION_URI is "
+            "missing; the web-editor requires both. Refusing to start in a "
+            "silent file-mode fallback."
+        )
+
+    db_mode = db_set and use_rabbitmq_workers
+
+    if db_mode:
+        from abstra_internals.services.db.cleanup import delete_old_records
+        from abstra_internals.services.db.connection import configure_pool
+        from abstra_internals.services.db.migrations import apply_migrations
+        from abstra_internals.services.db.poller import start_poller
+
+        # The editor serves a threaded Flask server + the poller concurrently, so
+        # it needs a touch more headroom than the serial worker/executors.
+        configure_pool(max_size=3)
+        apply_migrations()
+        try:
+            # Retention cleanup is best-effort maintenance, not a serving
+            # prerequisite — a failure here must never abort the editor boot.
+            delete_old_records()
+        except Exception as e:
+            AbstraLogger.capture_exception(e)
+        poller_stop_event, poller_thread = start_poller()
+        return EditorStorageHandles(
+            heartbeat=None,
+            logs_watcher=None,
+            tasks_watcher=None,
+            stdio_broadcast_stop_event=None,
+            poller_stop_event=poller_stop_event,
+            poller_thread=poller_thread,
+        )
+
+    # Legacy (file-based) path — unchanged behavior.
+    heartbeat: Optional[WebEditorHeartbeat] = None
+    if is_web_editor:
+        heartbeat = WebEditorHeartbeat()
+        if heartbeat.is_stale():
+            AbstraLogger.info(
+                "[Editor] Heartbeat older than staleness threshold, "
+                "cleaning shared storage"
+            )
+            main_controller.reset_repositories()
+        else:
+            AbstraLogger.info(
+                "[Editor] Heartbeat is fresh, skipping reset_repositories "
+                "to preserve shared storage"
+            )
+        heartbeat.start()
+    else:
+        main_controller.reset_repositories()
+
+    stdio_broadcast_stop_event = None
+    logs_watcher = None
+    if WORKER_LOG_TO_QUEUE and not web_editor_uses_db() and use_rabbitmq_workers:
+        assert RABBITMQ_CONNECTION_URI is not None
+        broadcast_result = start_stdio_broadcast_consumer(RABBITMQ_CONNECTION_URI)
+        if isinstance(broadcast_result, tuple) and len(broadcast_result) >= 2:
+            stdio_broadcast_stop_event = broadcast_result[1]
+    else:
+        logs_watcher = LogsWatcher([on_logs_update])
+        logs_watcher.start()
+
+    tasks_watcher = TasksWatcher()
+    tasks_watcher.start()
+
+    return EditorStorageHandles(
+        heartbeat=heartbeat,
+        logs_watcher=logs_watcher,
+        tasks_watcher=tasks_watcher,
+        stdio_broadcast_stop_event=stdio_broadcast_stop_event,
+        poller_stop_event=None,
+    )
+
+
 def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
     ensure_certificates()
 
@@ -181,7 +316,7 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
     AbstraLogger.info(
         f"[Editor] Configuration: EDITOR_MODE={EDITOR_MODE}, RABBITMQ_CONNECTION_URI={'SET' if RABBITMQ_CONNECTION_URI else 'NOT SET'}"
     )
-    if WORKER_LOG_TO_QUEUE:
+    if WORKER_LOG_TO_QUEUE and not web_editor_uses_db():
         AbstraLogger.warning(
             "[Editor] ABSTRA_WORKER_LOG_TO_QUEUE=true, will receive execution logs from workers via RabbitMQ"
         )
@@ -205,23 +340,12 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
 
     main_controller = MainController(repositories)
 
-    heartbeat: Optional[WebEditorHeartbeat] = None
-    if is_web_editor:
-        heartbeat = WebEditorHeartbeat()
-        if heartbeat.is_stale():
-            AbstraLogger.info(
-                "[Editor] Heartbeat older than staleness threshold, "
-                "cleaning shared storage"
-            )
-            main_controller.reset_repositories()
-        else:
-            AbstraLogger.info(
-                "[Editor] Heartbeat is fresh, skipping reset_repositories "
-                "to preserve shared storage"
-            )
-        heartbeat.start()
-    else:
-        main_controller.reset_repositories()
+    storage = _wire_editor_storage(
+        main_controller,
+        is_web_editor=is_web_editor,
+        use_rabbitmq_workers=use_rabbitmq_workers,
+    )
+    heartbeat = storage.heartbeat
 
     StdioPatcher.apply(main_controller)
 
@@ -254,19 +378,9 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
 
     threading.Thread(target=_initial_lint, daemon=True, name="InitialLintCheck").start()
 
-    logs_watcher = None
-    stdio_broadcast_stop_event = None
-    if WORKER_LOG_TO_QUEUE and use_rabbitmq_workers:
-        assert RABBITMQ_CONNECTION_URI is not None
-        broadcast_result = start_stdio_broadcast_consumer(RABBITMQ_CONNECTION_URI)
-        if isinstance(broadcast_result, tuple) and len(broadcast_result) >= 2:
-            stdio_broadcast_stop_event = broadcast_result[1]
-    else:
-        logs_watcher = LogsWatcher([on_logs_update])
-        logs_watcher.start()
-
-    tasks_watcher = TasksWatcher()
-    tasks_watcher.start()
+    logs_watcher = storage.logs_watcher
+    tasks_watcher = storage.tasks_watcher
+    stdio_broadcast_stop_event = storage.stdio_broadcast_stop_event
 
     editor_consumer = None
     consumer_controller = None
@@ -290,6 +404,9 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
             editor_consumer=editor_consumer,
             consumer_controller=consumer_controller,
             stdio_broadcast_stop_event=stdio_broadcast_stop_event,
+            poller_stop_event=storage.poller_stop_event,
+            poller_thread=storage.poller_thread,
+            execution_logs=main_controller.repositories.execution_logs,
         )
 
     SignalHandlers.register_sigterm_callback(_graceful_shutdown)

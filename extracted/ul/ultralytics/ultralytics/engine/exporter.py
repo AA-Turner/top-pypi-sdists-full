@@ -22,7 +22,7 @@ IMX                     | `imx`                     | yolo26n_imx_model/
 RKNN                    | `rknn`                    | yolo26n_rknn_model/
 ExecuTorch              | `executorch`              | yolo26n_executorch_model/
 Axelera AI              | `axelera`                 | yolo26n_axelera_model/
-DeepX                   | `deepx`                   | yolo26n_deepx_model/
+DEEPX                   | `deepx`                   | yolo26n_deepx_model/
 Qualcomm QNN            | `qnn`                     | yolo26n_qnn_model/
 
 Requirements:
@@ -54,7 +54,7 @@ Inference:
                          yolo26n_rknn_model         # RKNN
                          yolo26n_executorch_model   # ExecuTorch
                          yolo26n_axelera_model      # Axelera AI
-                         yolo26n_deepx_model        # DeepX
+                         yolo26n_deepx_model        # DEEPX
                          yolo26n_qnn_model          # Qualcomm QNN
 
 TensorFlow.js:
@@ -105,7 +105,14 @@ from ultralytics.utils import (
     get_default_args,
     is_jetson,
 )
-from ultralytics.utils.checks import IS_PYTHON_MINIMUM_3_9, check_imgsz, check_requirements, check_version, is_intel
+from ultralytics.utils.checks import (
+    IS_PYTHON_MINIMUM_3_9,
+    IS_PYTHON_MINIMUM_3_13,
+    check_imgsz,
+    check_requirements,
+    check_version,
+    is_intel,
+)
 from ultralytics.utils.files import file_size
 from ultralytics.utils.metrics import batch_probiou
 from ultralytics.utils.nms import TorchNMS
@@ -164,7 +171,7 @@ def export_formats():
         ["RKNN", "rknn", "_rknn_model", False, False, ["batch", "name"]],
         ["ExecuTorch", "executorch", "_executorch_model", True, False, ["batch"]],
         ["Axelera AI", "axelera", "_axelera_model", False, False, ["batch", "int8", "fraction", "data"]],
-        ["DeepX", "deepx", "_deepx_model", False, False, ["data", "int8", "optimize"]],
+        ["DEEPX", "deepx", "_deepx_model", False, False, ["data", "int8", "optimize"]],
         ["Qualcomm QNN", "qnn", "_qnn_model", False, False, ["batch", "name", "int8", "fraction", "data"]],
     ]
     return dict(zip(["Format", "Argument", "Suffix", "CPU", "GPU", "Arguments"], zip(*x)))
@@ -254,7 +261,7 @@ class Exporter:
         export_imx: Export model to IMX format.
         export_executorch: Export model to ExecuTorch format.
         export_axelera: Export model to Axelera format.
-        export_deepx: Export model to DeepX format.
+        export_deepx: Export model to DEEPX format.
 
     Examples:
         Export a YOLO26 model to ONNX format
@@ -648,7 +655,7 @@ class Exporter:
             # Pass onnxruntime variants as interchangeable candidates so AutoUpdate keeps an installed build
             # (e.g. onnxruntime-qnn for QNN export) instead of reinstalling stable onnxruntime and breaking its ABI.
             ort = "onnxruntime-gpu" if "cuda" in self.device.type else "onnxruntime"
-            requirements += ["onnxslim>=0.1.71", (ort, "onnxruntime", "onnxruntime-gpu", "onnxruntime-qnn")]
+            requirements += ["onnxslim>=0.1.82", (ort, "onnxruntime", "onnxruntime-gpu", "onnxruntime-qnn")]
         check_requirements(requirements)
         import onnx
 
@@ -834,7 +841,7 @@ class Exporter:
         mlmodel = self.args.format.lower() == "mlmodel"  # legacy *.mlmodel export format requested
         from ultralytics.utils.export.coreml import IOSDetectModel, pipeline_coreml, torch2coreml
 
-        # latest numpy 2.4.0rc1 breaks coremltools exports
+        # numpy 2.4.x breaks coremltools CoreML export https://github.com/apple/coremltools/issues/2633
         check_requirements(["coremltools>=9.0", "numpy>=1.14.5,<=2.3.5"])
         import coremltools as ct
 
@@ -942,6 +949,10 @@ class Exporter:
     @try_export
     def export_saved_model(self, prefix=colorstr("TensorFlow SavedModel:")):
         """Export YOLO model to TensorFlow SavedModel format."""
+        assert not (MACOS and IS_PYTHON_MINIMUM_3_13), (
+            "TensorFlow exports not supported on macOS with Python>=3.13: the ai-edge-litert macOS wheel fails to load "
+            "(missing libpywrap_litert_common.dylib). TensorFlow export works on Linux Python 3.13."
+        )
         from ultralytics.utils.export.tensorflow import onnx2saved_model
 
         f = Path(str(self.file).replace(self.file.suffix, "_saved_model"))
@@ -1050,6 +1061,10 @@ class Exporter:
     @try_export
     def export_tfjs(self, prefix=colorstr("TensorFlow.js:")):
         """Export YOLO model to TensorFlow.js format."""
+        assert not IS_PYTHON_MINIMUM_3_13, (
+            "TensorFlow.js export not supported on Python>=3.13: tensorflowjs requires the np.object alias removed "
+            "in NumPy 1.24, but Python 3.13 has no NumPy<2.1 wheels."
+        )
         from ultralytics.utils.export.tensorflow import pb2tfjs
 
         output_dir = pb2tfjs(
@@ -1102,9 +1117,9 @@ class Exporter:
         )
 
     @try_export
-    def export_deepx(self, prefix=colorstr("DeepX:")):
-        """Export YOLO model to DeepX format."""
-        assert LINUX and not ARM64, "DeepX export only supported on non-aarch64 Linux"
+    def export_deepx(self, prefix=colorstr("DEEPX:")):
+        """Export YOLO model to DEEPX format."""
+        assert LINUX and not ARM64, "DEEPX export only supported on non-aarch64 Linux"
         from ultralytics.utils.export.deepx import onnx2deepx
 
         f = self.export_onnx()

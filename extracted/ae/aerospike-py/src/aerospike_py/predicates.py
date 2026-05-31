@@ -31,7 +31,15 @@ def _warn_geo_unsupported() -> None:
 
 
 def equals(bin_name: str, val: Any) -> tuple[str, str, Any]:
-    """Create an equality predicate for a secondary index query."""
+    """Create an equality predicate for a secondary index query.
+
+    Args:
+        bin_name: Name of the bin.
+        val: The value to match. Aerospike secondary-index equality filters
+            accept only integers, strings, or ``bytes``. Any other type (e.g. a
+            ``float`` or ``bool``) is rejected with ``InvalidArgError`` when the
+            query is built (e.g. via ``query.where(...)``).
+    """
     return ("equals", bin_name, val)
 
 
@@ -45,7 +53,9 @@ def contains(bin_name: str, index_type: int, val: Any) -> tuple[str, str, int, A
 
     Args:
         bin_name: Name of the bin.
-        index_type: Collection index type (INDEX_TYPE_LIST, INDEX_TYPE_MAPKEYS, INDEX_TYPE_MAPVALUES).
+        index_type: Collection index type. One of INDEX_TYPE_DEFAULT, INDEX_TYPE_LIST,
+            INDEX_TYPE_MAPKEYS, or INDEX_TYPE_MAPVALUES. Any other value is rejected with
+            InvalidArgError when the query is built (e.g. via ``query.where(...)``).
         val: The value to search for.
     """
     return ("contains", bin_name, index_type, val)

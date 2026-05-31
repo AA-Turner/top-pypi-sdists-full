@@ -676,6 +676,22 @@ class Bash(
             )
             return
 
+        # Gemma 4 occasionally sends command="{}" (an empty JSON-object
+        # placeholder) instead of a real shell command. Running it does nothing
+        # useful and the model loops waiting for output. Catch it early.
+        if args.command.strip() in ("{}", "{", "}", "{ }", ""):
+            yield BashResult(
+                command=args.command,
+                stdout=(
+                    "[bash: empty or placeholder command — nothing was executed. "
+                    "Supply a real shell command such as `ls`, `python3 script.py`, "
+                    "or `cat file.py`. Do NOT resend '{}' or an empty string.]"
+                ),
+                stderr="",
+                returncode=1,
+            )
+            return
+
         if args.timeout:
             timeout = args.timeout
         elif self._looks_long_running(args.command):
@@ -863,6 +879,33 @@ class Bash(
                         ),
                         stderr="",
                         returncode=returncode,
+                    )
+                    return
+
+            # Import-version-check loop-breaker: fires on the 2nd run of
+            # `python3 -c 'import pkg; print(pkg.__version__)'` patterns.
+            # Gemma 4 re-runs these after every write to verify install,
+            # ignoring the stable output. Fire early with a clear stop signal.
+            _import_ver_pat = __import__("re").search(
+                r"\bpython3?\s+-c\b.*\bimport\b.*\b__version__\b",
+                args.command,
+            )
+            if _import_ver_pat and returncode == 0 and stdout_raw.strip():
+                _ver_state = self.state.__dict__.setdefault("_import_ver_count", {})
+                _ver_cnt = _ver_state.get(args.command, 0) + 1
+                _ver_state[args.command] = _ver_cnt
+                if _ver_cnt >= 2:
+                    yield self._build_result(
+                        command=args.command,
+                        stdout=(
+                            f"[LOOP-BREAKER: version check already returned "
+                            f"`{stdout_raw.strip()}` on the first run. "
+                            f"The package is installed and working. "
+                            f"Do NOT re-run this version check — move on to "
+                            f"the next task step.]"
+                        ),
+                        stderr="",
+                        returncode=0,
                     )
                     return
 

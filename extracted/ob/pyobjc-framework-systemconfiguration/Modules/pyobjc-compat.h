@@ -57,8 +57,6 @@ NS_ASSUME_NONNULL_BEGIN
 /*
  *
  * Start of compiler support helpers
- *
- * XXX: Are these needed?
  */
 
 #define unlikely(x) __builtin_expect(!!(x), 0)
@@ -361,6 +359,11 @@ PyUnstable_TryIncRef(PyObject* op __attribute__((__unused__)))
     return 0;
 #endif
 }
+#endif
+
+#if PY_VERSION_HEX < 0x030f00a7
+#define PyAnyDict_CheckExact PyDict_CheckExact
+#define PyAnyDict_Check PyDict_Check
 #endif
 
 NS_ASSUME_NONNULL_END

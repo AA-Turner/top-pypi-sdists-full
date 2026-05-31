@@ -47,6 +47,7 @@ extern PyObject* _Nullable pythonify_c_array_nullterminated(const char* type,
 extern int depythonify_c_array_count(const char* type, Py_ssize_t count, BOOL strict,
                                      PyObject* value, void* datum, BOOL already_retained,
                                      BOOL already_cfretained);
+//__attribute__((diagnose_if(count < 0, "count must be positive", "error")));
 extern Py_ssize_t c_array_nullterminated_size(PyObject* object,
                                               PyObject* _Nullable* _Nonnull seq);
 extern int        depythonify_c_array_nullterminated(const char* type, Py_ssize_t count,
@@ -76,7 +77,6 @@ extern Py_ssize_t PyObjCRT_SizeOfReturnType(const char* type) __attribute__((__p
 extern Py_ssize_t PyObjCRT_SizeOfType(const char* type) __attribute__((__pure__));
 extern Py_ssize_t PyObjCRT_AlignOfType(const char* type) __attribute__((__pure__));
 extern const char* _Nullable PyObjCRT_SkipTypeSpec(const char* type);
-extern const char* _Nullable PyObjCRT_NextField(const char* type);
 extern const char* PyObjCRT_SkipTypeQualifiers(const char* type);
 extern Py_ssize_t  PyObjCRT_AlignedSize(const char* type) __attribute__((__pure__));
 extern bool        PyObjCRT_IsValidEncoding(const char* type, Py_ssize_t type_length)

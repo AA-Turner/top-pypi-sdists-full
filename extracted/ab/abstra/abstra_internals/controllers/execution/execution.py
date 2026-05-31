@@ -101,6 +101,11 @@ class ExecutionController:
                     create_thread.join(timeout=10.0)
                     execution.set_status(status)
                     self.repositories.execution.update(execution)
+                    # Drain any buffered logs before the (long-lived) executor
+                    # moves on / is recycled. No-op on file/HTTP repos; the
+                    # Postgres repo overrides it. Inside the existing try →
+                    # best-effort, can never escape run().
+                    self.repositories.execution_logs.final_flush()
                 except Exception as e_final:
                     AbstraLogger.capture_exception(e_final)
 

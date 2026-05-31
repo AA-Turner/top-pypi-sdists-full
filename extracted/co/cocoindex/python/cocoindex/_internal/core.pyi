@@ -92,6 +92,13 @@ class ComponentProcessorContext:
         self,
     ) -> dict[Fingerprint, list[Any]]: ...
     async def next_id(self, key: StableKey | None = None) -> int: ...
+    def begin_stats_group(
+        self,
+        title: str,
+        report_to_stdout: bool,
+        refresh_interval_secs: float | None = None,
+    ) -> tuple[ComponentProcessorContext, StatsGroupHandle]: ...
+    def end_stats_group(self) -> None: ...
 
 # --- FnCallContext ---
 class FnCallContext:
@@ -195,7 +202,14 @@ class DropHandle:
     def changed(self) -> Coroutine[Any, Any, int]: ...
     def result(self) -> Coroutine[Any, Any, None]: ...
 
-def show_progress(handle: UpdateHandle) -> Coroutine[Any, Any, StoredValue]: ...
+# --- StatsGroupHandle ---
+class StatsGroupHandle:
+    def stats_snapshot(self) -> tuple[int, bool, dict[str, dict[str, int]]]: ...
+    def changed(self) -> Coroutine[Any, Any, int]: ...
+
+def show_progress(
+    handle: UpdateHandle, refresh_interval_secs: float | None = None
+) -> Coroutine[Any, Any, StoredValue]: ...
 
 # --- App ---
 class App:
@@ -208,6 +222,7 @@ class App:
         full_reprocess: bool = False,
         host_ctx: Any = None,
         report_to_stdout: bool = False,
+        refresh_interval_secs: float | None = None,
         live: bool = False,
     ) -> StoredValue: ...
     def update_async(
@@ -217,19 +232,31 @@ class App:
         live: bool = False,
         host_ctx: Any = None,
     ) -> UpdateHandle: ...
-    def drop(self, host_ctx: Any = None, report_to_stdout: bool = False) -> None: ...
+    def drop(
+        self,
+        host_ctx: Any = None,
+        report_to_stdout: bool = False,
+        refresh_interval_secs: float | None = None,
+    ) -> None: ...
     def drop_async(self, host_ctx: Any = None) -> DropHandle: ...
 
 # --- LiveComponentController ---
 class LiveComponentController:
     def update_full_async(
-        self, processor: ComponentProcessor[Any]
+        self,
+        processor: ComponentProcessor[Any],
+        handler_callback: Callable[[str], Awaitable[None]] | None = None,
     ) -> Coroutine[Any, Any, None]: ...
     def update_async(
-        self, stable_path: StablePath, processor: ComponentProcessor[Any]
+        self,
+        stable_path: StablePath,
+        processor: ComponentProcessor[Any],
+        handler_callback: Callable[[str], Awaitable[None]] | None = None,
     ) -> Coroutine[Any, Any, ComponentMountHandle]: ...
     def delete_async(
-        self, stable_path: StablePath
+        self,
+        stable_path: StablePath,
+        handler_callback: Callable[[str], Awaitable[None]] | None = None,
     ) -> Coroutine[Any, Any, ComponentMountHandle]: ...
     def mark_ready_async(self) -> Coroutine[Any, Any, None]: ...
     def start(self, process_live_fut: Any) -> None: ...

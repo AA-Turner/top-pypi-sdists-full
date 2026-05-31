@@ -907,13 +907,26 @@ def _build_fk_path_subquery(
     field: str,
     resolved_value: Any,
     ref_targets: dict[str, str],
+    all_ref_targets: dict[str, dict[str, str]] | None = None,
 ) -> tuple[str, str, list[Any]] | None:
     """Build a subquery for a left-side dotted path like ``manuscript.student``.
 
     Given field="manuscript.student", resolves:
-    - ``manuscript`` → FK field ``manuscript_id`` on current entity
-    - target entity ``Manuscript`` (from ref_targets["manuscript_id"])
-    - ``student`` → column ``student_id`` on target entity (with _id suffix inferred)
+    - ``manuscript`` → FK field on the current entity (``manuscript`` or
+      ``manuscript_id``, whichever ``ref_targets`` carries)
+    - target entity ``Manuscript`` (from ``ref_targets``)
+    - ``student`` → the column to match on the target entity
+
+    The target column (#1304) is resolved against the *target* entity's own
+    FK map in ``all_ref_targets`` (entity → {fk_field: target}): if
+    ``<target_field>_id`` is an FK on the target entity, the dotted segment
+    names an FK *relation* and the column is ``<target_field>_id``; otherwise
+    the segment is taken literally (a scalar column, e.g. ``user``). This is
+    model-dependent — some projects name FK fields ``teacher`` (bare), others
+    ``teaching_group_id`` — so a blanket ``_id`` suffix is wrong (it broke the
+    bare-named ``teacher.user = current_user`` case). When ``all_ref_targets``
+    is absent (scope-rule callers that don't thread it), the segment is taken
+    literally, preserving the pre-#1304 behaviour.
 
     Returns (fk_field, subquery_sql, params) or None if the path can't be resolved.
     """
@@ -926,7 +939,7 @@ def _build_fk_path_subquery(
     relation_name, target_field = parts
 
     # Resolve relation name to FK field on current entity.
-    # Convention: relation "manuscript" → FK field "manuscript_id"
+    # Convention: relation "manuscript" → FK field "manuscript_id" (or bare).
     fk_candidates = [f"{relation_name}_id", relation_name]
     target_entity = None
     fk_field = None
@@ -940,8 +953,15 @@ def _build_fk_path_subquery(
         return None
 
     target_table = quote_identifier(target_entity)
-    # The target field may or may not have _id suffix — try both
-    target_col = quote_identifier(target_field)
+    # Resolve target_field → actual column via the target entity's FK map.
+    target_fks = (all_ref_targets or {}).get(target_entity, {})
+    if target_field in target_fks:
+        target_col_name = target_field  # FK relation, bare-named on target
+    elif f"{target_field}_id" in target_fks:
+        target_col_name = f"{target_field}_id"  # FK relation → `_id` column
+    else:
+        target_col_name = target_field  # literal/scalar column (e.g. `user`)
+    target_col = quote_identifier(target_col_name)
 
     subquery_sql = f'SELECT "id" FROM {target_table} WHERE {target_col} = %s'  # nosemgrep
     return fk_field, subquery_sql, [resolved_value]
@@ -1067,6 +1087,8 @@ def _extract_condition_filters(
     auth_context: "AuthContext | None" = None,
     ref_targets: dict[str, str] | None = None,
     context_id: str | None = None,
+    all_ref_targets: dict[str, dict[str, str]] | None = None,
+    context_only: bool = False,
 ) -> None:
     """Recursively extract SQL filters from a condition tree.
 
@@ -1090,6 +1112,16 @@ def _extract_condition_filters(
     selected entity id when provided (#857).  If ``context_id`` is ``None``
     (no selection), the condition is skipped so the existing persona scope
     applies unfiltered.
+
+    ``context_only`` (#1305): when True, emit *only* the ``current_context``
+    predicate(s) and skip every ``current_user`` / literal / via-check branch.
+    The aggregate / GROUP BY region paths use this to isolate the
+    context-selector slice of a compound region ``filter:`` (e.g.
+    ``assessment_event.teaching_group = current_context and status = "marked"``)
+    so the chart re-scopes by ``context_id`` the same way the list path does —
+    *without* re-mixing the row-level ``status`` predicate into the aggregate
+    query (the #887 tenant-bounding contract). AND trees are still walked so a
+    nested ``current_context`` comparison is found.
     """
     kind = getattr(condition, "kind", "")
 
@@ -1101,7 +1133,7 @@ def _extract_condition_filters(
             filters[f"{fld}__in_subquery"] = ("SELECT NULL WHERE FALSE", [])
             return
         if "." in fld and ref_targets:
-            result = _build_fk_path_subquery(fld, val, ref_targets)
+            result = _build_fk_path_subquery(fld, val, ref_targets, all_ref_targets)
             if result:
                 fk_field, sql, params = result
                 filters[f"{fk_field}__in_subquery"] = (sql, params)
@@ -1118,7 +1150,12 @@ def _extract_condition_filters(
         else:
             op_val = op.value if hasattr(op, "value") else str(op)
 
-        if field and value == "current_user" and op_val in ("=", "eq", "equals"):
+        if (
+            field
+            and value == "current_user"
+            and op_val in ("=", "eq", "equals")
+            and not context_only
+        ):
             # Prefer DSL User entity ID over auth user ID so comparisons
             # against ref User fields work correctly (#546).
             resolved = _resolve_user_attribute("entity_id", auth_context)
@@ -1128,6 +1165,7 @@ def _extract_condition_filters(
             and isinstance(value, str)
             and value.startswith("current_user.")
             and op_val in ("=", "eq", "equals")
+            and not context_only
         ):
             attr_name = value[len("current_user.") :]
             _set_filter(field, _resolve_user_attribute(attr_name, auth_context))
@@ -1142,6 +1180,7 @@ def _extract_condition_filters(
             and isinstance(value, str | int | float | bool)
             and value != "current_user"
             and value != "current_context"
+            and not context_only  # #1305: aggregate path wants only the context slice
         ):
             if op_val in ("=", "eq", "equals"):
                 _set_filter(field, value)
@@ -1169,15 +1208,35 @@ def _extract_condition_filters(
             right = getattr(condition, "logical_right", None)
             if left:
                 _extract_condition_filters(
-                    left, user_id, filters, _logger, auth_context, ref_targets, context_id
+                    left,
+                    user_id,
+                    filters,
+                    _logger,
+                    auth_context,
+                    ref_targets,
+                    context_id,
+                    all_ref_targets,
+                    context_only,
                 )
             if right:
                 _extract_condition_filters(
-                    right, user_id, filters, _logger, auth_context, ref_targets, context_id
+                    right,
+                    user_id,
+                    filters,
+                    _logger,
+                    auth_context,
+                    ref_targets,
+                    context_id,
+                    all_ref_targets,
+                    context_only,
                 )
         return
 
     if kind == "via_check":
+        # #1305: a junction (via) check is a scope/relationship predicate, not
+        # the context-selector slice — skip it when isolating context filters.
+        if context_only:
+            return
         junction_entity = getattr(condition, "via_junction_entity", None)
         bindings = getattr(condition, "via_bindings", None)
         if junction_entity and bindings:
@@ -1207,7 +1266,12 @@ def _extract_condition_filters(
         else:
             raw_value = cond_value
 
-        if field and raw_value == "current_user" and op_val in ("=", "eq", "equals"):
+        if (
+            field
+            and raw_value == "current_user"
+            and op_val in ("=", "eq", "equals")
+            and not context_only
+        ):
             # Prefer DSL User entity ID over auth user ID so comparisons
             # against ref User fields work correctly (#546).
             resolved = _resolve_user_attribute("entity_id", auth_context)
@@ -1217,6 +1281,7 @@ def _extract_condition_filters(
             and isinstance(raw_value, str)
             and raw_value.startswith("current_user.")
             and op_val in ("=", "eq", "equals")
+            and not context_only
         ):
             attr_name = raw_value[len("current_user.") :]
             _set_filter(field, _resolve_user_attribute(attr_name, auth_context))
@@ -1231,6 +1296,7 @@ def _extract_condition_filters(
             and isinstance(raw_value, str | int | float | bool)
             and raw_value != "current_user"
             and raw_value != "current_context"
+            and not context_only  # #1305: aggregate path wants only the context slice
         ):
             if op_val in ("=", "eq", "equals"):
                 _set_filter(field, raw_value)
@@ -1259,19 +1325,37 @@ def _extract_condition_filters(
             right = getattr(condition, "right", None)
             if left:
                 _extract_condition_filters(
-                    left, user_id, filters, _logger, auth_context, ref_targets, context_id
+                    left,
+                    user_id,
+                    filters,
+                    _logger,
+                    auth_context,
+                    ref_targets,
+                    context_id,
+                    all_ref_targets,
+                    context_only,
                 )
             if right:
                 _extract_condition_filters(
-                    right, user_id, filters, _logger, auth_context, ref_targets, context_id
+                    right,
+                    user_id,
+                    filters,
+                    _logger,
+                    auth_context,
+                    ref_targets,
+                    context_id,
+                    all_ref_targets,
+                    context_only,
                 )
         # OR and other logical operators require post-fetch filtering
         # which is handled by the visibility system already
         return
 
     # Via-check condition (IR path)
+    # #1305: a junction (via) check is a scope/relationship predicate, not the
+    # context-selector slice — skip it when isolating context filters.
     via_cond = getattr(condition, "via_condition", None)
-    if via_cond is not None:
+    if via_cond is not None and not context_only:
         bindings_dicts = [
             {"junction_field": b.junction_field, "target": b.target, "operator": b.operator}
             for b in via_cond.bindings

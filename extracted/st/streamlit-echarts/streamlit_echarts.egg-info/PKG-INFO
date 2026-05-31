@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: streamlit-echarts
-Version: 0.6.0
+Version: 0.6.1
 Summary: A Streamlit component to display ECharts.
 Author-email: Fanilo Andrianasolo <contact@andfanilo.com>
 License-Expression: MIT

@@ -75,8 +75,19 @@ static LANGUAGE_INFO_BY_NAME: LazyLock<
     add("apex", &[".cls", ".trigger"], None);
     add("arduino", &[".ino"], None);
     add("asm", &[".asm", ".a51", ".i", ".nas", ".nasm", ".s"], None);
-    add("astro", &[".astro"], None);
-    add("bash", &[".sh", ".bash"], None);
+    add(
+        "astro",
+        &[".astro"],
+        Some(TreeSitterLanguageInfo::new(
+            tree_sitter_astro_next::LANGUAGE,
+            [],
+        )),
+    );
+    add(
+        "bash",
+        &[".sh", ".bash"],
+        Some(TreeSitterLanguageInfo::new(tree_sitter_bash::LANGUAGE, [])),
+    );
     add("beancount", &[".beancount"], None);
     add("bibtex", &[".bib", ".bibtex"], None);
     add("bicep", &[".bicep", ".bicepparam"], None);
@@ -97,7 +108,11 @@ static LANGUAGE_INFO_BY_NAME: LazyLock<
         ],
         None,
     );
-    add("cmake", &[".cmake", ".cmake.in"], None);
+    add(
+        "cmake",
+        &[".cmake", ".cmake.in"],
+        Some(TreeSitterLanguageInfo::new(tree_sitter_cmake::LANGUAGE, [])),
+    );
     add(
         "commonlisp",
         &[
@@ -191,7 +206,11 @@ static LANGUAGE_INFO_BY_NAME: LazyLock<
     add("hare", &[".ha"], None);
     add("haskell", &[".hs", ".hs-boot", ".hsc"], None);
     add("haxe", &[".hx"], None);
-    add("hcl", &[".hcl", ".tf"], None);
+    add(
+        "hcl",
+        &[".hcl", ".tf"],
+        Some(TreeSitterLanguageInfo::new(tree_sitter_hcl::LANGUAGE, [])),
+    );
     add("heex", &[".heex"], None);
     add("hlsl", &[".hlsl"], None);
     add(
@@ -583,5 +602,12 @@ mod tests {
         let julia = get_language_info(".jl").unwrap();
         assert_eq!(julia.name.as_ref(), "julia");
         assert!(julia.treesitter_info.is_some());
+    }
+
+    #[test]
+    fn test_astro_has_treesitter() {
+        let astro = get_language_info(".astro").unwrap();
+        assert_eq!(astro.name.as_ref(), "astro");
+        assert!(astro.treesitter_info.is_some());
     }
 }

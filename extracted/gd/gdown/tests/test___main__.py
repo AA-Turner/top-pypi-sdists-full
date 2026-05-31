@@ -1,13 +1,17 @@
 import hashlib
+import json
 import os
 import subprocess
 import sys
 import tempfile
+import unittest.mock
 
 import pytest
 
+from gdown.__main__ import main
 from gdown.cached_download import _assert_filehash
 from gdown.cached_download import _compute_filehash
+from gdown.download_folder import _GoogleDriveFile
 
 from .conftest import GITHUB_RELEASE_URL
 
@@ -152,3 +156,218 @@ def test_download_slides_from_gdrive() -> None:
     file_id = "13AhW1Z1GYGaiTpJ0Pr2TTXoQivb6jx-a"
     md5 = "96704c6c40e308a68d3842e83a0136b9"
     _test_cli_with_md5(url_or_id=file_id, md5=md5, options=["--format", "pdf"])
+
+
+def test_json_flag_outputs_json_array(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _GoogleDriveFile(
+        id="root_id",
+        name="myfolder",
+        type=_GoogleDriveFile.TYPE_FOLDER,
+        children=[
+            _GoogleDriveFile(
+                id="child_id",
+                name="track.mp3",
+                type="application/octet-stream",
+            ),
+        ],
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "gdown",
+            "https://drive.google.com/drive/folders/dummy",
+            "--folder",
+            "--json",
+        ],
+    )
+    with unittest.mock.patch.object(
+        sys.modules["gdown.download_folder"],
+        "_download_and_parse_google_drive_link",
+        return_value=root,
+    ):
+        main()
+
+    captured = capsys.readouterr()
+    entries = json.loads(captured.out)
+    assert entries == [
+        {
+            "url": "https://drive.google.com/uc?id=child_id",
+            "path": "track.mp3",
+        }
+    ]
+
+
+def test_json_flag_preserves_subfolder_path(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _GoogleDriveFile(
+        id="root_id",
+        name="myfolder",
+        type=_GoogleDriveFile.TYPE_FOLDER,
+        children=[
+            _GoogleDriveFile(
+                id="sub_id",
+                name="album",
+                type=_GoogleDriveFile.TYPE_FOLDER,
+                children=[
+                    _GoogleDriveFile(
+                        id="nested_id",
+                        name="track.mp3",
+                        type="application/octet-stream",
+                    ),
+                ],
+            ),
+        ],
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "gdown",
+            "https://drive.google.com/drive/folders/dummy",
+            "--folder",
+            "--json",
+        ],
+    )
+    with unittest.mock.patch.object(
+        sys.modules["gdown.download_folder"],
+        "_download_and_parse_google_drive_link",
+        return_value=root,
+    ):
+        main()
+
+    captured = capsys.readouterr()
+    entries = json.loads(captured.out)
+    assert entries == [
+        {
+            "url": "https://drive.google.com/uc?id=nested_id",
+            "path": "album/track.mp3",
+        }
+    ]
+
+
+def test_json_flag_does_not_download(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _GoogleDriveFile(
+        id="root_id",
+        name="myfolder",
+        type=_GoogleDriveFile.TYPE_FOLDER,
+        children=[
+            _GoogleDriveFile(
+                id="child_id",
+                name="track.mp3",
+                type="application/octet-stream",
+            ),
+        ],
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "gdown",
+            "https://drive.google.com/drive/folders/dummy",
+            "--folder",
+            "--json",
+        ],
+    )
+    with (
+        unittest.mock.patch.object(
+            sys.modules["gdown.download_folder"],
+            "_download_and_parse_google_drive_link",
+            return_value=root,
+        ),
+        unittest.mock.patch.object(
+            sys.modules["gdown.download_folder"], "download"
+        ) as mock_download,
+    ):
+        main()
+
+    mock_download.assert_not_called()
+
+
+@pytest.mark.parametrize("output", ["out.bin", "-"])
+def test_json_flag_rejects_output(output: str) -> None:
+    cmd = [
+        sys.executable,
+        "-m",
+        "gdown",
+        "https://drive.google.com/file/d/dummy/view",
+        "--json",
+        "-O",
+        output,
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    assert result.returncode != 0
+    assert "--json cannot be combined with -O/--output" in result.stderr
+
+
+def _fake_session_returning(headers: dict[str, str]) -> unittest.mock.Mock:
+    response = unittest.mock.Mock()
+    response.status_code = 200
+    response.url = "https://drive.google.com/uc?id=child_id"
+    response.headers = headers
+
+    sess = unittest.mock.Mock()
+    sess.get.return_value = response
+    return sess
+
+
+def test_json_flag_single_file_outputs_array(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "gdown",
+            "--no-cookies",
+            "https://drive.google.com/file/d/child_id/view",
+            "--json",
+        ],
+    )
+    sess = _fake_session_returning(
+        {
+            "Content-Type": "application/octet-stream",
+            "Content-Disposition": 'attachment; filename="video.webm"',
+        }
+    )
+    with unittest.mock.patch.object(
+        sys.modules["gdown.download"], "_get_session", return_value=(sess, "")
+    ):
+        main()
+
+    captured = capsys.readouterr()
+    entries = json.loads(captured.out)
+    assert entries == [
+        {
+            "url": "https://drive.google.com/uc?id=child_id",
+            "path": "video.webm",
+        }
+    ]
+
+
+def test_json_flag_single_file_without_drive_filename_raises(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "gdown",
+            "--no-cookies",
+            "https://example.com/file",
+            "--json",
+        ],
+    )
+    sess = _fake_session_returning({"Content-Type": "application/octet-stream"})
+    with (
+        unittest.mock.patch.object(
+            sys.modules["gdown.download"], "_get_session", return_value=(sess, "")
+        ),
+        pytest.raises(SystemExit),
+    ):
+        main()

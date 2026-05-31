@@ -14,6 +14,7 @@ from pydantic.dataclasses import dataclass
 
 from codeflash.cli_cmds.console import apologize_and_exit, console
 from codeflash.code_utils.compat import LF
+from codeflash.code_utils.pyproject_utils import ensure_minimal_project_metadata
 from codeflash.code_utils.config_parser import parse_config_file
 from codeflash.code_utils.env_utils import check_formatter_installed
 from codeflash.lsp.helpers import is_LSP_enabled
@@ -79,6 +80,18 @@ ignore_subdirs = {
 }
 
 
+def confirm_with_default_on_eof(
+    prompt: str, *, default: bool, show_default: bool = True, **kwargs: Any
+) -> bool:
+    """Return the prompt default instead of crashing when stdin is unavailable."""
+    from rich.prompt import Confirm
+
+    try:
+        return Confirm.ask(prompt, default=default, show_default=show_default, **kwargs)
+    except EOFError:
+        return default
+
+
 @lru_cache(maxsize=1)
 def get_valid_subdirs(current_dir: Optional[Path] = None) -> list[str]:
 
@@ -142,13 +155,11 @@ def is_valid_pyproject_toml(pyproject_toml_path: Union[str, Path]) -> tuple[bool
     return True, config, ""
 
 
-def should_modify_pyproject_toml() -> tuple[bool, dict[str, Any] | None]:
+def should_modify_pyproject_toml(*, skip_confirm: bool = False) -> tuple[bool, dict[str, Any] | None]:
     """Check if the current directory contains a valid pyproject.toml file with codeflash config.
 
     If it does, ask the user if they want to re-configure it.
     """
-    from rich.prompt import Confirm
-
     pyproject_toml_path = Path.cwd() / "pyproject.toml"
 
     found, _ = config_found(pyproject_toml_path)
@@ -160,7 +171,10 @@ def should_modify_pyproject_toml() -> tuple[bool, dict[str, Any] | None]:
         # needs to be re-configured
         return True, None
 
-    return Confirm.ask(
+    if skip_confirm:
+        return False, config
+
+    return confirm_with_default_on_eof(
         "✅ A valid Codeflash config already exists in this project. Do you want to re-configure it?",
         default=False,
         show_default=True,
@@ -199,6 +213,7 @@ def configure_pyproject_toml(
             f"Please create a new empty pyproject.toml file here, OR if you use poetry then run `poetry init`, OR run `codeflash init` again from a directory with an existing pyproject.toml file."
         )
         return False
+    ensure_minimal_project_metadata(pyproject_data, toml_path.parent)
 
     codeflash_section = tomlkit.table()
     codeflash_section.add(tomlkit.comment("All paths are relative to this pyproject.toml's directory."))
@@ -249,6 +264,7 @@ def create_empty_pyproject_toml(pyproject_toml_path: Path) -> None:
     lsp_mode = is_LSP_enabled()
     # Define a minimal pyproject.toml content
     new_pyproject_toml = tomlkit.document()
+    ensure_minimal_project_metadata(new_pyproject_toml, pyproject_toml_path.parent)
     new_pyproject_toml["tool"] = {"codeflash": {}}
     try:
         pyproject_toml_path.write_text(tomlkit.dumps(new_pyproject_toml), encoding="utf8")
@@ -279,9 +295,7 @@ def create_empty_pyproject_toml(pyproject_toml_path: Path) -> None:
 
 def ask_for_telemetry() -> bool:
     """Prompt the user to enable or disable telemetry."""
-    from rich.prompt import Confirm
-
-    return Confirm.ask(
+    return confirm_with_default_on_eof(
         "⚡️ Help us improve Codeflash by sharing anonymous usage data (e.g. errors encountered)?",
         default=True,
         show_default=True,

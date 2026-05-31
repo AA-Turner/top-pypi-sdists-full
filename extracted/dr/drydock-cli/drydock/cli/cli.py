@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import sys
 
@@ -75,6 +76,43 @@ def bootstrap_config_files() -> None:
         except Exception as e:  # migration must never break startup
             logger.debug("config migration failed: %s", e)
     if not config_file.exists():
+        # 2026-05-30: if --local URL was passed (sets DRYDOCK_LOCAL_URL),
+        # write a config pointing at that URL directly. Skips both the
+        # local-port probe (which fails when the LLM is on the host but
+        # drydock runs in a container) and the interactive onboarding
+        # wizard (which hangs forever in headless mode like Harbor's
+        # sandbox). Caller already promised the URL is correct.
+        _local_url = os.environ.get("DRYDOCK_LOCAL_URL", "").strip()
+        if _local_url:
+            try:
+                from drydock.core.config.local_detect import (
+                    LocalServerInfo, patch_config_for_local,
+                )
+                _local_model = (
+                    os.environ.get("DRYDOCK_LOCAL_MODEL", "").strip()
+                    or "local"
+                )
+                info = LocalServerInfo(
+                    label="local (--local override)",
+                    api_base=_local_url,
+                    model_name=_local_model,
+                )
+                config_file.parent.mkdir(parents=True, exist_ok=True)
+                default = DrydockConfig.create_default()
+                patch_config_for_local(default, info)
+                with config_file.open("wb") as f:
+                    tomli_w.dump(default, f)
+                rprint(
+                    f"[green]Configured via --local: {_local_url} "
+                    f"(model={_local_model})[/]"
+                )
+                return  # don't fall through to probe/onboarding
+            except Exception as e:
+                rprint(
+                    f"[yellow]--local config write failed: {e} — "
+                    "falling back to probe[/]"
+                )
+
         # Try auto-detecting a running local LLM first. Saves the user a
         # setup screen if they already have llama.cpp / Ollama / vLLM /
         # LM Studio listening on a known port.

@@ -25,7 +25,7 @@ from tqdm import tqdm
 from auto_round.data_type.utils import reshape_pad_tensor_by_group_size, revert_tensor_by_pad
 from auto_round.export.export_to_autoround.export_to_fp8 import FP8QLinear
 from auto_round.export.export_to_llmcompressor.config import check_compressed_tensors_supported
-from auto_round.export.utils import save_model
+from auto_round.export.utils import is_immediate_saving_mode, save_model
 from auto_round.utils import (
     SUPPORTED_LAYER_TYPES,
     check_start_with_block_name,
@@ -62,21 +62,25 @@ def pack_layer(layer_name: str, model: torch.nn.Module, data_type: str, device: 
     fp8_pack_layer(layer_name, model, data_type, device, unsqueeze=True)
 
 
-def _construct_kv_scheme():
-    """Construct the default KV cache quantization scheme for FP8_STATIC export."""
+def _construct_fp8_args():
     from compressed_tensors.quantization import (  # pylint: disable=E0401
         QuantizationArgs,
         QuantizationStrategy,
         QuantizationType,
     )
 
-    default_kv_scheme = QuantizationArgs(
+    return QuantizationArgs(
         num_bits=8,
         type=QuantizationType.FLOAT,
         strategy=QuantizationStrategy.TENSOR,
         symmetric=True,
         dynamic=False,
     )
+
+
+def _construct_kv_scheme():
+    """Construct the default KV cache quantization scheme for FP8_STATIC export."""
+    default_kv_scheme = _construct_fp8_args()
 
     logger.warning_once(
         "Using default KV cache scheme: %s. "
@@ -93,6 +97,42 @@ def _use_fp8_kv(static_kv_dtype: str | None) -> bool:
         logger.warning_once("Exporting model with static KV cache in FP8 dtype.")
         return True
     return False
+
+
+def _use_fp8_attention(static_attention_dtype: str | None) -> bool:
+    """Return True if static attention should use FP8."""
+    if static_attention_dtype in ("fp8", "float8_e4m3fn"):
+        logger.warning_once("Exporting model with static attention in FP8 dtype.")
+        return True
+    return False
+
+
+def _get_attention_targets(model: torch.nn.Module) -> list[str]:
+    from compressed_tensors.quantization.lifecycle.initialize import is_attention_module  # pylint: disable=E0401
+
+    attention_targets = []
+    for module in model.modules():
+        if is_attention_module(module):
+            target = type(module).__name__
+            if target not in attention_targets:
+                attention_targets.append(target)
+    return attention_targets
+
+
+def _append_attention_group(config_groups: dict, model: torch.nn.Module) -> None:
+    from compressed_tensors.quantization import QuantizationScheme  # pylint: disable=E0401
+
+    attention_targets = _get_attention_targets(model)
+    if len(attention_targets) == 0:
+        logger.warning("Skipping FP8 attention config group because no attention modules were detected.")
+        return
+
+    group_name = f"group_{len(config_groups)}"
+    config_groups[group_name] = QuantizationScheme(
+        targets=attention_targets,
+        input_activations=_construct_fp8_args(),
+        weights=None,
+    )
 
 
 def _configure_gaudi2_fp8_dtype(quantization_config: dict) -> None:
@@ -153,7 +193,7 @@ def save_quantized_as_static_fp(
             pack_layer(name, model, serialization_dict.get("data_type", "fp8"), device)
 
     # Get llm-compressor format config
-    check_compressed_tensors_supported()
+    check_compressed_tensors_supported(raise_error=True)
     from compressed_tensors.quantization import (  # pylint: disable=E0401
         QuantizationArgs,
         QuantizationConfig,
@@ -184,13 +224,7 @@ def save_quantized_as_static_fp(
             symmetric=True,
             dynamic=False,
         ),
-        input_activations=QuantizationArgs(
-            num_bits=8,
-            type=QuantizationType.FLOAT,
-            strategy=QuantizationStrategy.TENSOR,
-            symmetric=True,
-            dynamic=False,
-        ),
+        input_activations=_construct_fp8_args(),
     )
     targets = ["Linear"]
     ignore = []
@@ -200,13 +234,15 @@ def save_quantized_as_static_fp(
     config_groups = {}
     scheme = QuantizationScheme(targets=targets, **scheme_args)
     config_groups["group_0"] = scheme
+    if _use_fp8_attention(serialization_dict.get("static_attention_dtype", None)):
+        _append_attention_group(config_groups, model)
     quantization_config = QuantizationConfig(
         config_groups=config_groups,
         kv_cache_scheme=(
             _construct_kv_scheme()
             if (
                 _use_fp8_kv(serialization_dict.get("static_kv_dtype", None))
-                or _use_fp8_kv(serialization_dict.get("static_attention_dtype", None))
+                or _use_fp8_attention(serialization_dict.get("static_attention_dtype", None))
             )
             else None
         ),
@@ -225,7 +261,8 @@ def save_quantized_as_static_fp(
     if output_dir is None:
         return model
 
-    if os.path.exists(output_dir):
+    immediate_saving = is_immediate_saving_mode(model, serialization_dict)
+    if os.path.exists(output_dir) and not immediate_saving:
         logger.warning(f"{output_dir} already exists, this may cause model conflict")
 
     if tokenizer is not None:
@@ -238,6 +275,6 @@ def save_quantized_as_static_fp(
         image_processor.save_pretrained(output_dir)
 
     dtype = None
-    save_model(model, output_dir, safe_serialization=safe_serialization, dtype=dtype)
+    save_model(model, output_dir, safe_serialization=safe_serialization, dtype=dtype, immediate_saving=immediate_saving)
 
     return model

@@ -234,6 +234,31 @@ class TestSelectors(TestCase):
         ):
             m(o)
 
+    def test_selector_as_selector_impl(self):
+
+        class MyBaseClass(NSObject):
+            def value_(self, arg):
+                return f"{type(self).__name__}: {type(arg).__name__}"
+
+        o1 = MyBaseClass.alloc().init()
+        m1 = o1.value_
+
+        o2 = NSArray.arrayWithArray_([1, 2, 3])
+        m2 = o2.containsObject_
+
+        class MyClass(NSObject):
+            someValue = objc.selector(m1, selector=b"someValue", signature=b"@@:")
+            otherValue = objc.selector(m2, selector=b"otherValue", signature=b"@@:")
+
+        v = MyClass.alloc().init()
+        self.assertEqual(v.someValue(), "MyBaseClass: MyClass")
+        self.assertEqual(v.otherValue(), False)
+
+        self.assertEqual(
+            OC_ObjectInt.invokeSelector_of_(b"someValue", v), "MyBaseClass: MyClass"
+        )
+        self.assertEqual(OC_ObjectInt.invokeSelector_of_(b"otherValue", v), False)
+
 
 class TestCopying(TestCase):
     def testCopy(self):
@@ -839,6 +864,15 @@ class TestOverridingSpecials(TestCase):
                 def method(self, *, arg):
                     pass
 
+        with self.assertRaisesRegex(
+            objc.BadPrototypeError, "has keyword-only arguments without defaults"
+        ):
+
+            class OC_KwonlySelector2(NSObject):
+                @objc.selector
+                def method2(self, *, arg):
+                    pass
+
     def test_selector_too_few_defaults(self):
         with self.assertRaisesRegex(
             objc.BadPrototypeError, "has between 2 and 4 positional arguments"
@@ -846,6 +880,15 @@ class TestOverridingSpecials(TestCase):
 
             class OC_TooFewDefaults(NSObject):
                 def method_(self, arg, arg1, arg2=3, arg3=4):
+                    pass
+
+        with self.assertRaisesRegex(
+            objc.BadPrototypeError, "has between 2 and 4 positional arguments"
+        ):
+
+            class OC_TooFewDefaults2(NSObject):
+                @objc.selector
+                def method2_(self, arg, arg1, arg2=3, arg3=4):
                     pass
 
 
@@ -909,7 +952,10 @@ class TestSelectorAttributes(TestCase):
         def mySelector(self):
             return 1
 
-        self.assertIsInstance(mySelector.__metadata__(), dict)
+        if sys.version_info[:2] >= (3, 15):
+            self.assertIsInstance(mySelector.__metadata__(), frozendict)  # noqa: F821
+        else:
+            self.assertIsInstance(mySelector.__metadata__(), dict)
         self.assertIs(mySelector.__metadata__()["classmethod"], False)
 
         # XXX: Tests for the detailed contents
@@ -1183,6 +1229,34 @@ class TestSelectorEdgeCases(TestCase):
 
             class OC_MismatchWithDefaults(NSObject):
                 def method_x_y_z_(self, a, b=3):
+                    pass
+
+        with self.assertRaisesRegex(
+            objc.BadPrototypeError, "has between 1 and 2 positional arguments"
+        ):
+
+            class OC_MismatchWithDefaults2(NSObject):
+                @objc.selector
+                def method2_x_y_z_(self, a, b=3):
+                    pass
+
+    def test_implied_signature(self):
+
+        with self.assertRaisesRegex(
+            objc.BadPrototypeError, "'method:' expects 1 arguments,.*has 2 positional"
+        ):
+
+            class OC_ImpliedSignature(NSObject):
+                def method_(self, a, b):
+                    pass
+
+        with self.assertRaisesRegex(
+            objc.BadPrototypeError, "Objective-C expects 1 arguments,.*has 2 positional"
+        ):
+
+            class OC_ImpliedSignature2(NSObject):
+                @objc.selector
+                def method2_(self, a, b):
                     pass
 
     def test_no_keywords(self):
@@ -1664,3 +1738,117 @@ class TestSubclassOptions(TestCase):
 
         with self.assertRaisesRegex(TypeError, "Cannot delete __version__ attribute"):
             del OC_VersionedClass.__version__
+
+    def test_subclass_check_errors(self):
+        # XXX: Test primarily targets a specific error case in
+        #      defining new subclasses, as such could fail with
+        #      code restructuring.
+        cur_extender = objc.options._class_extender
+
+        def extender(*args, **kwds):
+            if args[0].__name__ == "_PyObjCIntermediate_NSObject":
+                raise RuntimeError("extender failure")
+            return cur_extender(*args, **kwds)
+
+        with pyobjc_options(_class_extender=extender):
+            objc._updatingMetadata(True)
+            objc._updatingMetadata(False)
+
+            with self.assertRaisesRegex(RuntimeError, "extender failure"):
+
+                class OC_ExtenderFailsOnSuper(NSObject):
+                    pass
+
+            with self.assertRaises(objc.error):
+                objc.lookUpClass("OC_ExtenderFailsOnSuper")
+
+    def test_extender_sets_mro(self):
+        # XXX: Test primarily targets a specific error case in
+        #      defining new subclasses, as such could fail with
+        #      code restructuring.
+        #
+        # XXX: This feels wrong to me: setting the class __mro__
+        #      attribute this way actually works, even if setting
+        #      this from the outside fails.
+
+        with self.subTest("set MRO through processor"):
+            cur_processor = objc.options._processClassDict
+
+            def processor(*args, **kwds):
+                result = cur_processor(*args, **kwds)
+                if args[0] == "OC_ExtenderSetsMRO":
+                    args[1]["__mro__"] = 99
+                    args[1]["__add__"] = lambda self, other: (self, other)
+                return result
+
+            with pyobjc_options(_processClassDict=processor):
+
+                class OC_ExtenderSetsMRO(NSObject):
+                    pass
+
+                self.assertIs(
+                    objc.lookUpClass("OC_ExtenderSetsMRO"), OC_ExtenderSetsMRO
+                )
+
+            self.assertEqual(OC_ExtenderSetsMRO.__dict__["__mro__"], 99)
+            self.assertIsInstance(OC_ExtenderSetsMRO.__mro__, tuple)
+
+            o = OC_ExtenderSetsMRO.alloc().init()
+            self.assertEqual(o + 42, (o, 42))
+
+        with self.subTest("native class behaviour"):
+
+            class PyMRO:
+                __mro__ = 42
+
+            self.assertEqual(PyMRO.__dict__["__mro__"], 42)
+            self.assertIsInstance(PyMRO.__mro__, tuple)
+
+        with self.subTest("objective-c class behaviour"):
+
+            class OCMRO(NSObject):
+                __mro__ = 21
+
+            self.assertEqual(OCMRO.__dict__["__mro__"], 21)
+            self.assertIsInstance(OCMRO.__mro__, tuple)
+
+
+class TestEncodings(TestCase):
+    def test_struct_with_embedded_field_names(self):
+        class OC_StructArgument(NSObject):
+            @objc.objc_method(signature=b'v@:{name="field"i}')
+            def structArgument_(self, a):
+                pass
+
+        self.assertArgHasType(OC_StructArgument.structArgument_, 0, b'{name="field"i}')
+
+    def test_union_in_signature(self):
+        class OC_UnionArrayArgument(NSObject):
+            @objc.objc_method(signature=b'v@:[2(name="field"fi)]')
+            def unionArgument_(self, a):
+                pass
+
+        self.assertArgHasType(
+            OC_UnionArrayArgument.unionArgument_, 0, b'n^(name="field"fi)'
+        )
+
+    def test_union_argument(self):
+        # XXX: This fixable, but not needed at the moment for Apple's APIs
+        #      (https://www.chiark.greenend.org.uk/doc/libffi-dev/html/Arrays-Unions-Enums.html)
+        with self.assertRaisesRegex(
+            NotImplementedError, "Cannot generate IMP for unionArgument:"
+        ):
+
+            class OC_UnionArgument(NSObject):
+                @objc.objc_method(signature=b'v@:(name="field"fi)')
+                def unionArgument_(self, a):
+                    pass
+
+        with self.assertRaisesRegex(
+            NotImplementedError, "Cannot generate IMP for unionArgument:"
+        ):
+
+            class OC_UnionArgument2(NSObject):
+                @objc.objc_method(signature=b'v@:(name="field"fi)')
+                def unionArgument_(self, a):
+                    pass

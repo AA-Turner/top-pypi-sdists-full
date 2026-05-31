@@ -9,6 +9,7 @@ import re
 from typing import (
     Generic,
     Literal,
+    Never,
     TypeVar,
     overload,
 )
@@ -22,9 +23,11 @@ from pandas import (
 )
 from pandas.core.base import NoNewAttributesMixin
 
+from pandas._libs.missing import NAType
 from pandas._libs.tslibs.nattype import NaTType
 from pandas._typing import (
     AlignJoin,
+    Dtype,
     DtypeObj,
     Scalar,
     T,
@@ -53,7 +56,7 @@ class StringMethods(
 ):
     def __init__(self, data: T) -> None: ...
     def __getitem__(self, key: _slice | int) -> _T_STR: ...
-    def __iter__(self) -> _T_STR: ...
+    def __iter__(self) -> Never: ...
     @overload
     def cat(
         self,
@@ -119,7 +122,7 @@ class StringMethods(
         pat: str | re.Pattern[str],
         case: bool = True,
         flags: int = 0,
-        na: Scalar | NaTType | None = ...,
+        na: float | NAType | NaTType | bool | None = ...,
         regex: bool = True,
     ) -> _T_BOOL: ...
     def match(
@@ -136,10 +139,21 @@ class StringMethods(
         flags: int = 0,
         na: Scalar | NaTType | None = ...,
     ) -> _T_BOOL: ...
+    @overload
+    def replace(
+        self,
+        pat: dict[str, str],
+        repl: None = None,
+        n: int = -1,
+        case: bool | None = None,
+        flags: int = 0,
+        regex: bool = False,
+    ) -> _T_STR: ...
+    @overload
     def replace(
         self,
         pat: str | re.Pattern[str],
-        repl: str | Callable[[re.Match[str]], str],
+        repl: str | Callable[[re.Match[str]], str] | None = None,
         n: int = -1,
         case: bool | None = None,
         flags: int = 0,
@@ -182,14 +196,20 @@ class StringMethods(
         break_long_words: bool = True,
         break_on_hyphens: bool = True,
     ) -> _T_STR: ...
-    def get_dummies(self, sep: str = "|") -> _T_EXPANDING: ...
+    def get_dummies(
+        self, sep: str = "|", dtype: Dtype | None = None
+    ) -> _T_EXPANDING: ...
     def translate(self, table: Mapping[int, int | str | None] | None) -> _T_STR: ...
     def count(self, pat: str, flags: int = 0) -> _T_INT: ...
     def startswith(
-        self, pat: str | tuple[str, ...], na: Scalar | NaTType | None = ...
+        self,
+        pat: str | tuple[str, ...],
+        na: float | NAType | NaTType | bool | None = ...,
     ) -> _T_BOOL: ...
     def endswith(
-        self, pat: str | tuple[str, ...], na: Scalar | NaTType | None = ...
+        self,
+        pat: str | tuple[str, ...],
+        na: float | NAType | NaTType | bool | None = ...,
     ) -> _T_BOOL: ...
     def findall(self, pat: str | re.Pattern[str], flags: int = 0) -> _T_LIST_STR: ...
     @overload  # expand=True
@@ -228,3 +248,4 @@ class StringMethods(
     def istitle(self) -> _T_BOOL: ...
     def isnumeric(self) -> _T_BOOL: ...
     def isdecimal(self) -> _T_BOOL: ...
+    def isascii(self) -> _T_BOOL: ...

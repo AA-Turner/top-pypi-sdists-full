@@ -1,7 +1,11 @@
 import os
 
 import CFNetwork
-from PyObjCTools.TestSupport import TestCase, min_os_level, expectedFailure
+from PyObjCTools.TestSupport import (
+    TestCase,
+    min_os_level,
+    expectedFailure,
+)
 
 SCRIPT = """
 function FindProxyForURL(url, host) {
@@ -85,8 +89,6 @@ class TestCFProxySupport(TestCase):
         CFNetwork.CFRunLoopRunInMode(CFNetwork.kCFRunLoopDefaultMode, 1.0, True)
 
         CFNetwork.CFRunLoopRemoveSource(rl, rls, CFNetwork.kCFRunLoopCommonModes)
-
-        # print lst
 
         self.assertNotEqual(len(lst), 0)
         self.assertTrue(lst[0][0] is ctx)

@@ -656,6 +656,35 @@ class TestTestSupport(TestCase):
         ):
             self.assertArgIsNullTerminated(m, 3)
 
+    def test_assert_arg_not_nullterminated(self):
+        m = Method(3, {"c_array_delimited_by_null": True}, selector=True)
+        self.assertArgIsNotNullTerminated(m, 0)
+        with self.assertRaisesRegex(
+            self.failureException,
+            "argument 1 of <.*> is a null-terminated array",
+        ):
+            self.assertArgIsNotNullTerminated(m, 1)
+
+        m = Method(3, {"c_array_delimited_by_null": False}, selector=True)
+        self.assertArgIsNotNullTerminated(m, 1)
+
+        m = Method(3, {}, selector=True)
+        self.assertArgIsNotNullTerminated(m, 1)
+
+        m = Method(1, {"c_array_delimited_by_null": True}, selector=False)
+        self.assertArgIsNotNullTerminated(m, 0)
+        with self.assertRaisesRegex(
+            self.failureException,
+            "argument 1 of <.*> is a null-terminated array",
+        ):
+            self.assertArgIsNotNullTerminated(m, 1)
+
+        m = Method(1, {"c_array_delimited_by_null": False}, selector=False)
+        self.assertArgIsNotNullTerminated(m, 1)
+
+        m = Method(1, {}, selector=False)
+        self.assertArgIsNotNullTerminated(m, 1)
+
     def test_selector_initializer(self):
         m = Method(None, {}, selector=True)
         self.assertIsNotInitializer(m)
@@ -855,6 +884,33 @@ class TestTestSupport(TestCase):
         ):
             self.assertArgSizeInResult(m, 3)
 
+    def test_argsize_not_in_result(self):
+        m = Method(3, {"c_array_length_in_result": True}, selector=True)
+        self.assertArgSizeNotInResult(m, 0)
+        with self.assertRaisesRegex(
+            self.failureException, "argument 1 of .* does have size in result"
+        ):
+            self.assertArgSizeNotInResult(m, 1)
+
+        m = Method(3, {"c_array_length_in_result": False}, selector=True)
+        self.assertArgSizeNotInResult(m, 1)
+
+        m = Method(3, {}, selector=True)
+        self.assertArgSizeNotInResult(m, 1)
+
+        m = Method(1, {"c_array_length_in_result": True}, selector=False)
+        self.assertArgSizeNotInResult(m, 0)
+        with self.assertRaisesRegex(
+            self.failureException, "argument 1 of .* does have size in result"
+        ):
+            self.assertArgSizeNotInResult(m, 1)
+
+        m = Method(1, {"c_array_length_in_result": False}, selector=False)
+        self.assertArgSizeNotInResult(m, 1)
+
+        m = Method(1, {}, selector=False)
+        self.assertArgSizeNotInResult(m, 1)
+
     def test_arg_printf(self):
         m = Method(3, {"printf_format": True}, selector=True)
         m._meta["variadic"] = True
@@ -864,7 +920,7 @@ class TestTestSupport(TestCase):
         ):
             self.assertArgIsPrintf(m, 0)
 
-        m._meta["variadic"] = False
+        del m._meta["variadic"]
         with self.assertRaisesRegex(
             self.failureException, "<.*> is not a variadic function"
         ):
@@ -911,6 +967,51 @@ class TestTestSupport(TestCase):
             self.failureException, "<.*> argument 3 is not a printf format string"
         ):
             self.assertArgIsPrintf(m, 3)
+
+    def test_arg_not_printf(self):
+        m = Method(3, {"printf_format": True}, selector=True)
+        m._meta["variadic"] = True
+        self.assertArgIsNotPrintf(m, 0)
+        with self.assertRaisesRegex(
+            self.failureException, "<.*> argument 1 is a printf format string"
+        ):
+            self.assertArgIsNotPrintf(m, 1)
+
+        del m._meta["variadic"]
+        with self.assertRaisesRegex(
+            self.failureException, "<.*> is not a variadic function"
+        ):
+            self.assertArgIsNotPrintf(m, 1)
+
+        m._meta["variadic"] = True
+        m._meta["arguments"][3]["printf_format"] = False
+        self.assertArgIsNotPrintf(m, 1)
+
+        m._meta["variadic"] = True
+        del m._meta["arguments"][3]["printf_format"]
+        self.assertArgIsNotPrintf(m, 1)
+
+        m = Method(1, {"printf_format": True}, selector=False)
+        m._meta["variadic"] = True
+        self.assertArgIsNotPrintf(m, 0)
+        with self.assertRaisesRegex(
+            self.failureException, "<.*> argument 1 is a printf format string"
+        ):
+            self.assertArgIsNotPrintf(m, 1)
+
+        m._meta["variadic"] = False
+        with self.assertRaisesRegex(
+            self.failureException, "<.*> is not a variadic function"
+        ):
+            self.assertArgIsPrintf(m, 1)
+
+        m._meta["variadic"] = True
+        m._meta["arguments"][1]["printf_format"] = False
+        self.assertArgIsNotPrintf(m, 1)
+
+        m._meta["variadic"] = True
+        del m._meta["arguments"][1]["printf_format"]
+        self.assertArgIsNotPrintf(m, 1)
 
     def test_arg_cfretained(self):
 
@@ -2626,6 +2727,33 @@ class TestTestSupport(TestCase):
                 self.assertEqual(m.Object.__name__, "Object")
                 self.assertIsInstance(m.Object, objc.objc_class)
 
+        m = Mod()
+        try:
+            m.IOBluetoothHostController = objc.lookUpClass("IOBluetoothHostController")
+        except objc.error:
+
+            class IOBluetoothHostController(objc.lookUpClass("NSObject")):
+                @objc.objc_method(signature=b"^i@:")
+                def Bluetoothxyz(self):
+                    return 1
+
+                @objc.objc_method(signature=b"^i@:")
+                def Broadcomxyz(self):
+                    return 1
+
+            m.IOBluetoothHostController = IOBluetoothHostController
+
+        with self.subTest("IOBluetoothHostController methods are igored"):
+            try:
+                self.assertCallableMetadataIsSane(m, exclude_cocoa=False)
+            except self.failureException:
+                self.fail("Unexpected failure")
+
+            self.assertEqual(
+                m.IOBluetoothHostController.__name__, "IOBluetoothHostController"
+            )
+            self.assertIsInstance(m.IOBluetoothHostController, objc.objc_class)
+
         with self.subTest("validate framework identifier"):
             m = Mod()
             m.__bundle__ = Mod()
@@ -2686,47 +2814,63 @@ class TestTestSupport(TestCase):
 
             # Also mock the Cocoa package to avoid classes ending up there as well
             # XXX: Need to check if the actual usage of the API is safe in this respect as well!
-            Cocoa = Mod()
-            Cocoa.NSObject = objc.lookUpClass("NSObject")
-            Cocoa.NSArray = objc.lookUpClass("NSArray")
-
-            if "Cocoa" in sys.modules:
-                orig_Cocoa = sys.modules["Cocoa"]
-            else:
-                orig_Cocoa = None
-            sys.modules["Cocoa"] = Cocoa
-            try:
-                with mock.patch(
-                    "PyObjCTools.TestSupport.TestCase._validateCallableMetadata"
-                ) as fn:
-                    m = Mod()
-                    m.Constant = 42
-                    m.MyClassForValidating = MyClassForValidating
-                    m.NSArray = objc.lookUpClass("NSArray")
-
-                    try:
-                        self.assertCallableMetadataIsSane(m, exclude_cocoa=True)
-                    except self.failureException:
-                        self.fail("Unexpected failure")
-
-            finally:
-                if orig_Cocoa is None:
-                    del sys.modules["Cocoa"]
+            for modname in ("AppKit", "Foundation"):
+                mod = Mod()
+                mod.NSObject = objc.lookUpClass("NSObject")
+                mod.NSArray = objc.lookUpClass("NSArray")
+                if "AppKit" in sys.modules:
+                    orig_AppKit = sys.modules["AppKit"]
+                    del sys.modules["AppKit"]
                 else:
-                    sys.modules["Cocoa"] = orig_Cocoa
+                    orig_AppKit = None
+                if "Foundation" in sys.modules:
+                    orig_Foundation = sys.modules["Foundation"]
+                else:
+                    orig_Foundation = None
 
-            fn.assert_any_call(
-                MyClassForValidating.mymethod,
-                "MyClassForValidating",
-                skip_simple_charptr_check=False,
-            )
+                sys.modules[modname] = mod
 
-            for entry in fn.call_args_list:
-                self.assertNotIsInstance(entry.args[0], objc.ivar)
-                self.assertNotEqual(
-                    entry.args[0],
-                    objc.lookUpClass("NSArray").pyobjc_instanceMethods.initWithArray_,
+                try:
+                    with mock.patch(
+                        "PyObjCTools.TestSupport.TestCase._validateCallableMetadata"
+                    ) as fn:
+                        m = Mod()
+                        m.Constant = 42
+                        m.MyClassForValidating = MyClassForValidating
+                        m.NSArray = objc.lookUpClass("NSArray")
+
+                        try:
+                            self.assertCallableMetadataIsSane(m, exclude_cocoa=True)
+                        except self.failureException:
+                            self.fail("Unexpected failure")
+
+                finally:
+                    if orig_Foundation is None:
+                        if "Foundation" in sys.modules:
+                            del sys.modules["Foundation"]
+                    else:
+                        sys.modules["Foundation"] = orig_Foundation
+
+                    if orig_AppKit is None:
+                        if "AppKit" in sys.modules:
+                            del sys.modules["AppKit"]
+                    else:
+                        sys.modules["AppKit"] = orig_AppKit
+
+                fn.assert_any_call(
+                    MyClassForValidating.mymethod,
+                    "MyClassForValidating",
+                    skip_simple_charptr_check=False,
                 )
+
+                for entry in fn.call_args_list:
+                    self.assertNotIsInstance(entry.args[0], objc.ivar)
+                    self.assertNotEqual(
+                        entry.args[0],
+                        objc.lookUpClass(
+                            "NSArray"
+                        ).pyobjc_instanceMethods.initWithArray_,
+                    )
 
         with self.subTest("function"):
 

@@ -1,18 +1,17 @@
-from .async_typer import AsyncTyper
+"""async-typer: Typer with first-class async support."""
 
-# Re-export key typer classes for drop-in replacement functionality
 from typer import (
-    Argument,
-    Option,
-    Context,
     Abort,
-    Exit,
+    Argument,
     BadParameter,
     CallbackParam,
+    Context,
+    Exit,
     FileBinaryRead,
     FileBinaryWrite,
     FileText,
     FileTextWrite,
+    Option,
     Typer,
     clear,
     colors,
@@ -37,3 +36,49 @@ from typer import (
     style,
     unstyle,
 )
+
+from .async_typer import AsyncTyper, EventHandler, EventType
+
+__version__ = "0.2.1"
+
+__all__ = [
+    # Re-exported from typer for drop-in convenience.
+    "Abort",
+    "Argument",
+    "AsyncTyper",
+    "BadParameter",
+    "CallbackParam",
+    "Context",
+    "EventHandler",
+    "EventType",
+    "Exit",
+    "FileBinaryRead",
+    "FileBinaryWrite",
+    "FileText",
+    "FileTextWrite",
+    "Option",
+    "Typer",
+    "__version__",
+    "clear",
+    "colors",
+    "completion",
+    "confirm",
+    "echo",
+    "echo_via_pager",
+    "edit",
+    "format_filename",
+    "get_app_dir",
+    "get_binary_stream",
+    "get_terminal_size",
+    "get_text_stream",
+    "getchar",
+    "launch",
+    "open_file",
+    "pause",
+    "progressbar",
+    "prompt",
+    "run",
+    "secho",
+    "style",
+    "unstyle",
+]

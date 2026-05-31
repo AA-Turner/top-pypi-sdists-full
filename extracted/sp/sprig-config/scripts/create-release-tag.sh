@@ -10,7 +10,7 @@ set -euo pipefail
 # 3. Validates semantic version progression:
 #    - Prevents skipping versions (e.g., 1.2.4 -> 1.2.7)
 #    - Ensures proper major/minor/patch increments
-#    - Supports RC versions (e.g., 1.2.5-RC1, 1.2.5-RC2)
+#    - Supports RC versions (e.g., 1.2.5rc1, 1.2.5rc2)
 # 4. Checks if the tag already exists
 # 5. Creates an annotated git tag with changelog entry
 # ==========================================
@@ -52,12 +52,12 @@ parse_version() {
     local version="$1"
     local major minor patch rc
 
-    # Handle RC versions (e.g., 1.2.5-RC1)
-    if [[ $version =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)-RC([0-9]+)$ ]]; then
+    # Handle RC versions (e.g., 1.2.5rc1); legacy -RC1 is accepted for compatibility.
+    if [[ $version =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-?[Rr][Cc]([0-9]+))$ ]]; then
         major="${BASH_REMATCH[1]}"
         minor="${BASH_REMATCH[2]}"
         patch="${BASH_REMATCH[3]}"
-        rc="${BASH_REMATCH[4]}"
+        rc="${BASH_REMATCH[5]}"
     # Handle normal versions (e.g., 1.2.5)
     elif [[ $version =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
         major="${BASH_REMATCH[1]}"
@@ -93,7 +93,7 @@ validate_version_increment() {
     if [[ $new_major -eq $prev_major ]] && [[ $new_minor -eq $prev_minor ]] && [[ $new_patch -eq $prev_patch ]]; then
         # Same base version - check RC progression or final release
         if [[ -n "$prev_rc" ]] && [[ -z "$new_rc" ]]; then
-            # Going from RC to final release (e.g., 1.2.5-RC2 -> 1.2.5)
+            # Going from RC to final release (e.g., 1.2.5rc2 -> 1.2.5)
             success "Valid progression: RC to final release (${prev_version} -> ${new_version})"
             return 0
         elif [[ -n "$prev_rc" ]] && [[ -n "$new_rc" ]]; then
@@ -102,14 +102,14 @@ validate_version_increment() {
                 success "Valid progression: RC increment (${prev_version} -> ${new_version})"
                 return 0
             else
-                error "Invalid RC progression: ${prev_version} -> ${new_version}\n  RC must increment by 1 (expected: ${prev_major}.${prev_minor}.${prev_patch}-RC$((prev_rc + 1)))"
+                error "Invalid RC progression: ${prev_version} -> ${new_version}\n  RC must increment by 1 (expected: ${prev_major}.${prev_minor}.${prev_patch}rc$((prev_rc + 1)))"
             fi
         else
             error "Cannot create duplicate version: ${prev_version} -> ${new_version}"
         fi
     fi
 
-    # Check patch increment (e.g., 1.2.4 -> 1.2.5 or 1.2.5-RC1)
+    # Check patch increment (e.g., 1.2.4 -> 1.2.5 or 1.2.5rc1)
     if [[ $new_major -eq $prev_major ]] && [[ $new_minor -eq $prev_minor ]] && [[ $new_patch -eq $((prev_patch + 1)) ]]; then
         success "Valid progression: Patch increment (${prev_version} -> ${new_version})"
         return 0
@@ -160,7 +160,7 @@ cd "${MODULE_DIR}"
 info "Extracting latest version from CHANGELOG.md..."
 
 # Extract the first version from CHANGELOG.md (format: ## [1.2.5] — 2026-01-08)
-CHANGELOG_VERSION=$(grep -m 1 '^## \[' "${CHANGELOG_FILE}" | sed -E 's/^## \[([0-9]+\.[0-9]+\.[0-9]+(-RC[0-9]+)?)\].*/\1/')
+CHANGELOG_VERSION=$(grep -m 1 '^## \[' "${CHANGELOG_FILE}" | sed -E 's/^## \[([0-9]+\.[0-9]+\.[0-9]+(-?[Rr][Cc][0-9]+)?)\].*/\1/')
 
 if [[ -z "${CHANGELOG_VERSION}" ]]; then
     error "Could not extract version from CHANGELOG.md"
@@ -191,7 +191,7 @@ success "Version matches in both files: ${CHANGELOG_VERSION}"
 info "Checking version progression against latest git tag..."
 
 # Get all tags matching V*.*.* or v*.*.* pattern, strip prefix, sort by version, get the latest
-LATEST_TAG=$(git tag -l "[Vv]*.*.*" | grep -E '^[Vv][0-9]+\.[0-9]+\.[0-9]+(-RC[0-9]+)?$' | \
+LATEST_TAG=$(git tag -l "[Vv]*.*.*" | grep -E '^[Vv][0-9]+\.[0-9]+\.[0-9]+(-?[Rr][Cc][0-9]+)?$' | \
     sed 's/^[Vv]//' | sort -V | tail -n 1)
 
 # If we found a version, prepend V to reconstruct the tag format

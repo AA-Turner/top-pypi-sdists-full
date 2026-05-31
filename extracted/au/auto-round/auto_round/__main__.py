@@ -17,11 +17,13 @@ import os
 import re
 import sys
 
+import torch
+
 from auto_round.auto_scheme import AutoScheme
-from auto_round.compressors import BaseCompressor
+from auto_round.compressors.base import BaseCompressor
 from auto_round.eval.eval_cli import EvalArgumentParser, eval, eval_task_by_task
 from auto_round.eval.evaluation import run_model_evaluation
-from auto_round.schemes import PRESET_SCHEMES
+from auto_round.schemes import PRESET_SCHEMES, preset_name_to_scheme
 from auto_round.utils import (
     clear_memory,
     get_device_and_parallelism,
@@ -33,11 +35,13 @@ RECIPES = {
     "default": {"batch_size": 8, "iters": 200, "seqlen": 2048, "nsamples": 128, "lr": None},
     "best": {"batch_size": 8, "iters": 1000, "seqlen": 2048, "nsamples": 512, "lr": None},
     "light": {"batch_size": 8, "iters": 50, "seqlen": 2048, "nsamples": 128, "lr": 5e-3},
-    "fast": {"batch_size": 4, "iters": 200, "seqlen": 512, "nsamples": 128, "lr": None},
+    "rtn": {"batch_size": 8, "iters": 0, "seqlen": 2048, "nsamples": 1, "lr": None, "disable_opt_rtn": True},
+    "opt_rtn": {"batch_size": 8, "iters": 0, "seqlen": 2048, "nsamples": 128, "lr": None, "disable_opt_rtn": False},
 }
 
 
 class BasicArgumentParser(argparse.ArgumentParser):
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.add_argument(
@@ -70,8 +74,18 @@ class BasicArgumentParser(argparse.ArgumentParser):
             # choices=["W4A16", "W2A16", "W3A16", "W8A16", "MXFP4", "MXFP8", "NVFP4", "FPW8A16", "FP8_STATIC"],
             help="Quantization scheme to use. "
             "W4A16: 4-bit weights with 16-bit activations (default). "
-            "Other options include W2A16, W3A16, W8A16 for different bit widths, "
+            "Other options include W2A16, W3A16, W8A16, W8A8 for different bit widths, "
             "and MXFP4/MXFP8/NVFP4 for different data type.",
+        )
+        basic.add_argument(
+            "--algorithm",
+            default=None,
+            type=str.lower,
+            choices=["auto_round", "rtn", "awq"],
+            help="Quantization algorithm to use. "
+            "auto_round: SignSGD-based optimization (default when iters > 0). "
+            "rtn: Round-to-nearest (default when iters == 0). "
+            "awq: Activation-Aware Weight Quantization (AWQ smoothing + RTN).",
         )
         basic.add_argument(
             "--batch_size",
@@ -182,7 +196,6 @@ class BasicArgumentParser(argparse.ArgumentParser):
             help="Disable trusting remote code when loading models. "
             "Use for security if you don't trust the model source.",
         )
-
         tuning = self.add_argument_group("Tuning Arguments")
         tuning.add_argument(
             "--ignore_scale_zp_bits",
@@ -293,6 +306,38 @@ class BasicArgumentParser(argparse.ArgumentParser):
             dest="disable_opt_rtn",
             help="Enable optimization for RTN mode when iters=0.",
         )
+        group_model_free = tuning.add_mutually_exclusive_group()
+        group_model_free.add_argument(
+            "--model_free",
+            action="store_true",
+            help="Force model-free quantization mode. "
+            "Downloads and quantizes safetensors files directly using RTN, "
+            "without loading the full model into memory. "
+            "Only supports auto_round output format.",
+        )
+        group_model_free.add_argument(
+            "--disable_model_free",
+            action="store_true",
+            help="Disable the automatic model-free routing that activates when "
+            "--iters 0 --disable_opt_rtn is combined with a supported INT WOQ scheme. "
+            "Use this to force the regular AutoRound flow.",
+        )
+
+        awq_group = self.add_argument_group("AWQ Arguments")
+        awq_group.add_argument(
+            "--duo_scaling",
+            default=True,
+            type=lambda s: "both" if s.lower() == "both" else s.lower() in ("true", "1", "yes"),
+            help="Whether to use both activations and weights for AWQ scaling. "
+            "Options: true/false/'both'. 'both' searches both modes and picks the best. "
+            "(default: True).",
+        )
+        awq_group.add_argument(
+            "--n_grid",
+            default=20,
+            type=int,
+            help="Number of grid points for AWQ scaling ratio search (default: 20).",
+        )
 
         scheme = self.add_argument_group("Scheme Arguments")
         scheme.add_argument("--bits", default=None, type=int, help="Number of bits for weight quantization. ")
@@ -303,6 +348,9 @@ class BasicArgumentParser(argparse.ArgumentParser):
             help="Group size for weight quantization.",
         )
         scheme.add_argument("--asym", action="store_true", help="Use asymmetric quantization instead of symmetric.")
+        scheme.add_argument(
+            "--act_asym", action="store_true", help="Use asymmetric quantization for activation instead of symmetric."
+        )
         scheme.add_argument(
             "--data_type",
             "--dtype",
@@ -372,6 +420,13 @@ class BasicArgumentParser(argparse.ArgumentParser):
             type=str,
             choices=["fp8", "float8_e4m3fn"],
             help="Data type for static quantize attention. ",
+        )
+        scheme.add_argument(
+            "--rotation_type",
+            default=None,
+            type=str,
+            choices=["hadamard", "random_hadamard"],
+            help="Research feature: applies a rotation (e.g., Hadamard) to reduce activation/weight outliers",
         )
         gguf = self.add_argument_group("Double Quant Arguments")
         gguf.add_argument(
@@ -585,8 +640,6 @@ def tune(args):
 
     device_str, use_auto_mapping = get_device_and_parallelism(args.device_map)
 
-    import torch
-
     if args.enable_torch_compile:
         logger.info(
             "`torch.compile` is enabled to reduce tuning costs. "
@@ -605,8 +658,11 @@ def tune(args):
 
     if args.quant_lm_head:
         for format in formats:
-            if "auto_round" not in format and "fake" not in format:
-                auto_round_formats = [s for s in SUPPORTED_FORMATS if s.startswith("auto_round")]
+            # MLX (native ``mlx`` and ``auto_round:mlx``) supports per-layer
+            # mixed-bit quantization including lm_head; treat it the same as
+            # auto_round / fake here.
+            if "auto_round" not in format and "fake" not in format and "mlx" not in format:
+                auto_round_formats = [s for s in SUPPORTED_FORMATS if s.startswith("auto_round") or s == "mlx"]
                 raise ValueError(
                     f"{format} is not supported for lm-head quantization, please change to {auto_round_formats}"
                 )
@@ -659,6 +715,7 @@ def tune(args):
         act_group_size=args.act_group_size,
         act_data_type=args.act_data_type,
         act_dynamic=act_dynamic,
+        act_sym=None if not args.asym else False,
         super_bits=args.super_bits,
         super_group_size=args.super_group_size,
         quant_lm_head=args.quant_lm_head,
@@ -704,10 +761,16 @@ def tune(args):
             low_gpu_mem_usage=True,  # force it to be True as it uses much smaller vram but similar time cost
             low_cpu_mem_usage=low_cpu_mem_usage,
         )
+    rot_config = None
+    if args.rotation_type:
+        from auto_round.algorithms.transforms.rotation.config import RotationConfig
+
+        rot_config = RotationConfig(hadamard_type=args.rotation_type)
 
     autoround: BaseCompressor = AutoRound(
         model=model_name,
         platform=args.platform,
+        format=args.format,
         scheme=scheme,
         dataset=args.dataset,
         iters=args.iters,
@@ -727,46 +790,22 @@ def tune(args):
         model_dtype=args.model_dtype,
         momentum=args.momentum,
         trust_remote_code=not args.disable_trust_remote_code,
+        rotation_config=rot_config,
+        model_free=args.model_free,
+        disable_model_free=args.disable_model_free,
+        algorithm=getattr(args, "algorithm", None),
+        **(
+            {"duo_scaling": args.duo_scaling, "n_grid": args.n_grid}
+            if getattr(args, "algorithm", None) == "awq"
+            else {}
+        ),
     )
 
-    model_name = args.model.rstrip("/")
-
-    if model_name.split("/")[-1].strip(".") == "" and "gguf" not in args.format:
-        if autoround.group_size <= 0:
-            if "fp" in autoround.act_data_type:
-                suffix = f"afp{autoround.act_bits}"
-            else:
-                suffix = f"a{autoround.act_bits}"
-        else:
-            suffix = f"g{autoround.group_size}"
-        export_dir = os.path.join(args.output_dir, f"w{autoround.bits}{suffix}")
-    elif model_name.split("/")[-1].strip(".") == "" and "gguf" in args.format:
-        export_dir = args.output_dir
-    elif model_name.split("./")[-1].strip("./") != "" and "gguf" in args.format:
-        export_dir = os.path.join(args.output_dir, model_name.split("/")[-1] + "-gguf")
-    else:
-        if isinstance(autoround.group_size, tuple):
-            assert len(autoround.group_size) == 2, f"Only support 2D group_size, but get {autoround.group_size}"
-            suffix = f"g{autoround.group_size[0]}x{autoround.group_size[1]}"
-        else:
-            if autoround.group_size <= 0:
-                if "fp" in autoround.act_data_type:
-                    suffix = f"afp{autoround.act_bits}"
-                else:
-                    suffix = f"a{autoround.act_bits}"
-            else:
-                suffix = f"g{autoround.group_size}"
-        prefix = autoround.data_type.lower().replace("_", "") if "int" not in autoround.data_type else ""
-        export_dir = os.path.join(
-            args.output_dir,
-            model_name.split("/")[-1] + (f"-{prefix}" if prefix else "") + f"-w{autoround.bits}{suffix}",
-        )
-
     # ======================= Quantize and save model =======================
-    model, folders = autoround.quantize_and_save(export_dir, format=args.format)  # pylint: disable=E1101
+    # Export directory is now derived automatically inside quantize_and_save via
+    # BaseCompressor._get_export_dir(), so we only need to pass the base output_dir.
+    model, folders = autoround.quantize_and_save(args.output_dir, format=args.format)  # pylint: disable=E1101
     tokenizer = autoround.tokenizer  # pylint: disable=E1101
-
-    model.eval()
     clear_memory()
 
     # ======================= Model evaluation =======================
@@ -835,8 +874,16 @@ def run_light():
     start("light")
 
 
-def run_fast():
-    start("fast")
+def run_rtn():
+    start("rtn")
+
+
+def run_opt_rtn():
+    start("opt_rtn")
+
+
+def run_mllm():
+    run()
 
 
 if __name__ == "__main__":

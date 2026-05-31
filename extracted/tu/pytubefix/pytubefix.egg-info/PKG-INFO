@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: pytubefix
-Version: 10.7.3
+Version: 10.8.1
 Summary: Python3 library for downloading YouTube Videos.
 Author-email: Juan Bindez <juanbindez780@gmail.com>
-License: MIT license
+License-Expression: MIT
 Project-URL: Homepage, https://github.com/juanbindez/pytubefix
 Project-URL: Bug Reports, https://github.com/juanbindez/pytubefix/issues
 Project-URL: Read the Docs, http://pytubefix.readthedocs.io/
@@ -11,7 +11,6 @@ Keywords: youtube,download,video,stream
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3.7
@@ -20,6 +19,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python
 Classifier: Topic :: Internet
 Classifier: Topic :: Multimedia :: Video
@@ -35,9 +36,9 @@ Dynamic: license-file
 
 <p align="center">
   <img
-    width="150"
+    width="250"
     alt="pytubefix_logo"
-    src="https://github.com/user-attachments/assets/b28b3379-4b72-4846-b2c4-2ade07202e45"
+    src="https://github.com/user-attachments/assets/f57a840f-9fa7-465c-997b-17bdf8f8be2e"
   />
 </p>
 

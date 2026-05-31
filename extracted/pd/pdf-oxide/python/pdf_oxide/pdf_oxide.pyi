@@ -413,6 +413,35 @@ class PdfDocument:
         form is deprecated; new code should use the attribute form.
         """
 
+    def get_layers(self) -> list[str]:
+        """
+        List all Optional Content Group (OCG) layer names in the document.
+
+        Returns:
+        list[str]: Layer names from /OCProperties. Empty if no layers.
+
+        Example:
+        layers = doc.get_layers()
+        # ['Dieline', 'Varnish', 'Text', 'Barcode']
+        text = doc.extract_text(0, exclude_layers=['Dieline', 'Varnish'])
+        """
+
+    def get_page_inks(self, page: int) -> list[str]:
+        """
+        List ink / separation names used on a specific page.
+
+        Args:
+        page (int): Page index (0-based)
+
+        Returns:
+        list[str]: Ink names from Separation/DeviceN color spaces.
+
+        Example:
+        inks = doc.get_page_inks(0)
+        # ['PANTONE 186 C', 'Spot Varnish', 'Die Cut']
+        text = doc.extract_text(0, exclude_inks=['Spot Varnish', 'Die Cut'])
+        """
+
     def signatures(self) -> list[Signature]:
         """
         Enumerate existing PDF signatures. Returns a list of
@@ -434,9 +463,27 @@ class PdfDocument:
         """
 
     def extract_text(
-        self, page: int, region: tuple[float, float, float, float] | None = None
+        self,
+        page: int,
+        region: tuple[float, float, float, float] | None = None,
+        exclude_layers: list[str] | None = None,
+        exclude_inks: list[str] | None = None,
     ) -> str:
-        """Extract text from a page."""
+        """
+        Extract text from a page.
+
+        Args:
+        page (int): Page index (0-based)
+        region (tuple, optional): Bounding box (x, y, width, height) to restrict extraction
+        exclude_layers (list[str], optional): OCG layer names to exclude from extraction
+        exclude_inks (list[str], optional): Separation/DeviceN ink names to exclude
+
+        Note:
+        When ``exclude_layers`` or ``exclude_inks`` are specified, the same
+        full text assembly pipeline is used (structure-tree ordering, table
+        detection, column detection) — excluded content is simply removed
+        before assembly.
+        """
 
     def remove_headers(self, threshold: float = 0.8) -> int:
         """Identify and remove headers."""
@@ -548,10 +595,69 @@ class PdfDocument:
         dpi (int, optional): Resolution (default 150).
         """
 
+    def render_separations(self, page: int, dpi: int | None = None) -> list[t.Any]:
+        """
+        Render all ink separation plates for a page.
+
+        Each plate is a grayscale image where pixel intensity (0-255) = ink
+        coverage (0 = no ink, 255 = full tint). Process inks (Cyan, Magenta,
+        Yellow, Black) are included if the page uses DeviceCMYK content; spot
+        colors are taken from Separation and DeviceN color spaces. To display
+        a plate as black ink on white paper, invert: ``display = 255 - value``.
+
+        Args:
+        page (int): Zero-based page index.
+        dpi (int, optional): Resolution in DPI (default 150 — the Rust API
+        has no default; Python defaults to 150 for convenience).
+
+        Returns:
+        list[SeparationPlate]: One plate per ink. Each has ``ink_name``,
+        ``data`` (grayscale bytes), ``width``, and ``height``.
+
+        Example:
+        plates = doc.render_separations(0, dpi=150)
+        for plate in plates:
+        print(f"{plate.ink_name}: {plate.width}x{plate.height}")
+        """
+
+    def render_separation(self, page: int, ink_name: str, dpi: int | None = None) -> t.Any:
+        """
+        Render a single ink separation plate for a page.
+
+        Returns a grayscale image where pixel intensity (0-255) = ink coverage
+        of the named ink (0 = no ink, 255 = full tint). If the ink is not
+        present on the page, the plate is all zeros. To display the plate as
+        black ink on white paper, invert: ``display = 255 - value``.
+
+        Args:
+        page (int): Zero-based page index.
+        ink_name (str): Ink name (e.g., "Cyan", "PANTONE 185 C", "Dieline").
+        dpi (int, optional): Resolution in DPI (default 150 — the Rust API
+        has no default; Python defaults to 150 for convenience).
+
+        Returns:
+        SeparationPlate: The plate with ``ink_name``, ``data``, ``width``, ``height``.
+
+        Example:
+        dieline = doc.render_separation(0, "Dieline", dpi=150)
+        """
+
     def extract_chars(
-        self, page: int, region: tuple[float, float, float, float] | None = None
+        self,
+        page: int,
+        region: tuple[float, float, float, float] | None = None,
+        exclude_layers: list[str] | None = None,
+        exclude_inks: list[str] | None = None,
     ) -> list[TextChar]:
-        """Extract low-level characters."""
+        """
+        Extract low-level characters.
+
+        Args:
+        page (int): Page index (0-based)
+        region (tuple, optional): Bounding box (x, y, width, height) to restrict extraction
+        exclude_layers (list[str], optional): OCG layer names to exclude from extraction
+        exclude_inks (list[str], optional): Separation/DeviceN ink names to exclude
+        """
 
     def extract_words(
         self,
@@ -577,7 +683,6 @@ class PdfDocument:
         regression on PDFs whose running-artifact heuristic
         over-triggers on real content. Pass `False` to get the
         spec-correct behavior (artifact-tagged spans excluded).
-
         region, word_gap_threshold, profile (deprecated, optional):
         Power-user overrides retained for backward compatibility.
         Passing any of these emits a DeprecationWarning. They will
@@ -606,7 +711,6 @@ class PdfDocument:
         Default **True** for backward compatibility with 0.3.41.
         Pass `False` to get the spec-correct behavior
         (artifact-tagged spans excluded).
-
         region, word_gap_threshold, line_gap_threshold, profile
         (deprecated, optional): Power-user overrides retained for
         backward compatibility. Passing any of these emits a
@@ -1137,12 +1241,14 @@ class PdfDocument:
         Extract a subset of pages and return them as PDF bytes.
         `pages` is a list of 0-based indices to keep. The source document is not modified.
 
-        Example::
+        # Example
 
+        ```python
         from itertools import batched
         doc = PdfDocument.from_bytes(pdf_bytes)
         for chunk in batched(range(doc.page_count()), 50):
         chunk_bytes = doc.extract_pages_to_bytes(list(chunk))
+        ```
         """
 
     def extract_page_ranges_to_bytes(self, ranges: list[tuple[int, int]]) -> list[bytes]:
@@ -1151,12 +1257,14 @@ class PdfDocument:
         `(start, end)` interpreted as `[start, end)`. Returns a list of `bytes`
         objects, one per range, in the same order.
 
-        Example::
+        # Example
 
+        ```python
         doc = PdfDocument.from_bytes(pdf_bytes)
         n = doc.page_count()
         ranges = [(i, min(i + 3000, n)) for i in range(0, n, 3000)]
         chunks = doc.extract_page_ranges_to_bytes(ranges)
+        ```
         """
 
     def select_pages(self, pages: list[int]) -> None:

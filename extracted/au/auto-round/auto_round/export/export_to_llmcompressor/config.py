@@ -28,16 +28,17 @@
 from auto_round.utils import logger
 
 
-def check_compressed_tensors_supported():  # pragma: no cover
+def check_compressed_tensors_supported(raise_error: bool = False):  # pragma: no cover
     try:
         import compressed_tensors  # noqa: F401
 
         return True
     except ImportError:
-        logger.error(
-            "Please install compressed-tensors via 'pip install compressed-tensors'" " to save as llm-compressor format"
-        )
-        exit(-1)
+        msg = "Please install compressed-tensors via 'pip install compressed-tensors' to save as llm-compressor format"
+        logger.error(msg)
+        if raise_error:
+            raise ImportError(msg) from None
+        return False
 
 
 if check_compressed_tensors_supported():
@@ -63,13 +64,16 @@ def initialize_quantization(scheme, targets=["Linear"], config_groups=None, kv_c
     config_groups = config_groups
     kv_cache_scheme = kv_cache_scheme
     ignore = ignore
-    check_compressed_tensors_supported()
+    using_mxfp4_for_mxfp8 = False
+    check_compressed_tensors_supported(raise_error=True)
     if scheme is not None and config_groups is not None:
         raise ValueError("Please specify either `scheme` or `config_groups`")
 
     if scheme is not None:
         # takes precedence over config_groups
-
+        if not is_preset_scheme(scheme) and scheme.lower() == "mxfp8":
+            scheme = "mxfp4"
+            using_mxfp4_for_mxfp8 = True  # mxfp8 is not supported.
         if isinstance(scheme, str) and is_preset_scheme(scheme):
             # attach targets to scheme
             scheme = {scheme: targets}
@@ -80,6 +84,10 @@ def initialize_quantization(scheme, targets=["Linear"], config_groups=None, kv_c
                 scheme = preset_name_to_scheme(key, scheme[key])
             else:
                 scheme = QuantizationScheme.model_validate({"targets": scheme[key], **scheme})
+            if using_mxfp4_for_mxfp8:
+                scheme.weights.num_bits = 8
+                scheme.input_activations.num_bits = 8
+                scheme.format = "mxfp8-quantized"
 
             group_name = f"group_{idx}"
             config_groups[group_name] = scheme

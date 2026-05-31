@@ -51,6 +51,13 @@ impl<T: Send + 'static> AppOpHandle<T> {
         Ok(*self.version_rx.borrow())
     }
 
+    /// Waits until the operation terminates, ignoring intermediate changes.
+    /// Unlike `changed()`, this only resolves on termination, so callers that
+    /// don't care about every update aren't woken on every version bump.
+    pub async fn wait_terminated(&self) {
+        self.stats.wait_terminated().await;
+    }
+
     /// Awaits the task completion and returns the result.
     pub async fn result(self) -> Result<T> {
         self.task
@@ -107,6 +114,12 @@ impl<Prof: EngineProfile> App<Prof> {
             options.full_reprocess,
             options.live,
             host_ctx,
+            // Root has no installed on_error in Build mode — orphan-delete
+            // failures from the root's GC sweep log + swallow. (Cascading
+            // a raising on_error from root would equate "any orphan delete
+            // failed" with "the whole update failed", which is too strict;
+            // tombstones survive for retry on the next reconcile.)
+            None,
         )?;
 
         let root_component = self.root_component.clone();
@@ -187,11 +200,22 @@ impl<Prof: EngineProfile> App<Prof> {
             .providers
             .clone();
 
+        // Install a single on_error handler that always propagates: app.drop
+        // is an explicit operation, so root-delete failures (and any
+        // descendant failures, via the GC-sweep cascade) must surface to the
+        // caller (Python `app.drop()` then raises). Without it, the framework
+        // default of "log + swallow" would hide failures behind stale tracking
+        // records while pretending app.drop succeeded. The handler is stored
+        // in the delete context so the GC sweep can read and cascade it to
+        // descendant deletes (see `specs/core/error_handling.md`).
+        let raise_on_error: crate::engine::component::OnError =
+            Arc::new(|err| Box::pin(async move { Err(err) }));
         let context = self.root_component.new_processor_context_for_delete(
             providers,
             None,
             processing_stats.clone(),
             host_ctx,
+            Some(raise_on_error),
         );
 
         let root_component = self.root_component.clone();
@@ -204,19 +228,31 @@ impl<Prof: EngineProfile> App<Prof> {
                 // don't race teardown of shared resources) ──
                 drain_live_components(live_snapshot).await;
 
-                // Delete the root component
+                // Delete the root component (uses on_error from the context).
                 let handle = root_component.clone().delete(context.clone(), None)?;
 
                 // Wait for the drop operation to complete
                 handle.ready().await?;
 
-                // Clear the database
-                let app_store = root_component.app_ctx().app_store().clone();
+                // Drop the per-app state-store data. Clears the per-app
+                // sub-database (heed 0.22 doesn't expose `mdb_drop`).
+                // Subsumes the previous `clear_all` step — `drop_app`
+                // wipes everything `clear_all` would have emptied.
+                let app_name = root_component.app_ctx().app_reg().name().to_owned();
                 root_component
                     .app_ctx()
                     .env()
-                    .run_txn(move |wtxn| Box::pin(async move { app_store.clear_all(wtxn).await }))
+                    .storage()
+                    .drop_app(&app_name)
                     .await?;
+
+                // Release the env-side `app_names` slot eagerly so a
+                // follow-up `App::new(name, …)` (e.g. Python re-using
+                // the same `App` instance for `update()` after `drop()`)
+                // doesn't trip the "App name already registered" check
+                // while pending tokio captures of `Arc<AppContextInner>`
+                // are still releasing.
+                root_component.app_ctx().app_reg().unregister();
 
                 info!("App dropped successfully");
                 stats_for_task.notify_terminated();

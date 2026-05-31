@@ -108,6 +108,17 @@ class TestAVPlayer(TestCase):
             str,  # noqa: B950
         )
 
+    @min_os_level("26.4")
+    def testConstants26_4(self):
+        self.assertIsInstance(
+            AVFoundation.AVPlayerRateDidChangeReasonPlayheadReachedLiveEdge,
+            str,  # noqa: B950
+        )
+        self.assertIsInstance(
+            AVFoundation.AVPlayerRateDidChangeReasonReversePlaybackReachedStartOfSeekableRange,
+            str,  # noqa: B950
+        )
+
     @min_os_level("10.7")
     def testMethods(self):
         self.assertArgIsBlock(
@@ -208,3 +219,8 @@ class TestAVPlayer(TestCase):
 
         self.assertResultIsBOOL(AVFoundation.AVPlayer.isObservationEnabled)
         self.assertArgIsBOOL(AVFoundation.AVPlayer.setObservationEnabled_, 0)
+
+    @min_os_level("26.4")
+    def testMethods26_4(self):
+        self.assertResultIsBOOL(AVFoundation.AVPlayer.allowsCaptureOfClearKeyVideo)
+        self.assertArgIsBOOL(AVFoundation.AVPlayer.setAllowsCaptureOfClearKeyVideo_, 0)

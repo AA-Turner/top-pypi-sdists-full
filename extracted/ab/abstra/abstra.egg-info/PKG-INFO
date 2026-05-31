@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: abstra
-Version: 3.30.31
+Version: 3.31.0
 Summary: Abstra Lib
 Home-page: https://abstra.io
 License: MIT
@@ -61,6 +61,8 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.41.0
 Requires-Dist: opentelemetry-instrumentation-pika>=0.62b0
 Requires-Dist: opentelemetry-instrumentation-requests>=0.62b0
 Requires-Dist: opentelemetry-instrumentation-urllib3>=0.62b0
+Requires-Dist: psycopg[binary,pool]<3.3,>=3.1
+Requires-Dist: psycopg-pool<3.4,>=3.2
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page

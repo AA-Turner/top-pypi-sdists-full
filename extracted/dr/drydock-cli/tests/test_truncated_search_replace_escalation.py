@@ -47,7 +47,11 @@ class TestTruncatedSearchReplaceEscalation:
         handler = APIToolFormatHandler()
         result = handler.resolve_tool_calls(_truncated_sr_call(str(target)), _make_tm())
         err = result.failed_calls[0].error
-        assert "truncated" in err.lower()
+        # 2026-05-29: format.py message rewrote "truncated" to "placeholder /
+        # compacted" to match the new empty-args stub format. Either word
+        # is acceptable evidence that the right error path fired.
+        assert "truncated" in err.lower() or "placeholder" in err.lower() \
+            or "compacted" in err.lower()
         assert "REPEATED FAILURE" not in err
 
     def test_second_hit_escalates_with_correct_tool_name(self, tmp_path):

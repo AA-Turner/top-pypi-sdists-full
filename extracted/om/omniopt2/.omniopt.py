@@ -304,14 +304,6 @@ except KeyboardInterrupt:
     sys.exit(17)
 
 env_b64 = os.environ.get("OMNIAX_ENV_BASE64", "")
-if env_b64:
-    env_decoded = base64.b64decode(env_b64).decode("utf-8")
-    # Parse into a dict
-    saved_env = {}
-    for line in env_decoded.splitlines():
-        if "=" in line:
-            key, _, value = line.partition("=")
-            saved_env[key] = value
 
 def collect_runtime_stats() -> dict:
     process = psutil.Process(os.getpid())
@@ -3980,14 +3972,13 @@ def execute_bash_code_log_time(code: str) -> list:
     # Decode and prepare the environment BEFORE spawning the process
     run_env = os.environ.copy()
     try:
-        env_b64 = os.environ.get("OMNIAX_ENV_BASE64", "")
         if env_b64:
             env_decoded = base64.b64decode(env_b64).decode("utf-8")
-            # Parse the decoded env and merge it into the subprocess environment
             for line in env_decoded.splitlines():
                 if "=" in line:
                     key, _, value = line.partition("=")
-                    run_env[key] = value
+                    if key not in ["SESSION_MANAGER"]:
+                        run_env[key] = value
         else:
             print_red("⚠  Warning: OMNIAX_ENV_BASE64 is not set or empty. Environment snapshot unavailable.")
     except Exception as e:

@@ -3,11 +3,13 @@ import inspect
 import warnings
 from PyObjCTools.TestSupport import TestCase
 from PyObjCTest.test_metadata import OC_MetaDataTest
+from .test_metadata import NoObjCClass
 
 
 NSObject = objc.lookUpClass("NSObject")
 NSMutableArray = objc.lookUpClass("NSMutableArray")
 NSArray = objc.lookUpClass("NSArray")
+NSException = objc.lookUpClass("NSException")
 
 
 class OC_InstanceMethod(NSObject):
@@ -139,6 +141,14 @@ class TestBasicIMP(TestCase):
         ):
             imp(o, value=42)
 
+    def test_argument_cannot_be_converted(self):
+        o = NSArray.arrayWithArray_([1, 2, 3])
+        m = o.methodForSelector_(b"objectAtIndex:")
+        with self.assertRaisesRegex(
+            ValueError, "depythonifying 'unsigned long long', got 'type'"
+        ):
+            m(o, object)
+
     def test_too_few(self):
         o = NSObject.alloc().init()
 
@@ -219,6 +229,49 @@ class TestBasicIMP(TestCase):
                 self.assertFalse(alloc_imp.isAlloc)
         self.assertTrue(alloc_imp.isClassMethod)
 
+    def test_class_imp_instance_self(self):
+        o = NSObject.alloc().init()
+
+        m = NSObject.methodForSelector_("new")
+
+        v = m(o)
+        self.assertIsInstance(v, NSObject)
+
+    def test_class_imp_meta_self(self):
+        m = NSObject.methodForSelector_(b"new")
+        v = m(type(NSObject))
+        self.assertIsInstance(v, NSObject)
+
+    def test_class_imp_invalid_self(self):
+        m = NSObject.methodForSelector_("description")
+        with self.assertRaisesRegex(
+            TypeError,
+            "Need objective-C object or class as self, not an instance of 'int'",
+        ):
+            m(42)
+
+    def test_instance_imp_python_self(self):
+        m = NSObject.instanceMethodForSelector_("description")
+        self.assertIn("OC_BuiltinPythonDictionary", m({}))
+
+        with self.assertRaisesRegex(TypeError, "Cannot proxy"):
+            m(NoObjCClass())
+
+        with self.assertRaisesRegex(objc.error, "Cannot call methods on 'nil'"):
+            m(None)
+
+    def test_instance_imp_raises(self):
+        m = NSException.instanceMethodForSelector_(b"raise")
+
+        o = NSException.exceptionWithName_reason_userInfo_("name", "reason", None)
+        with self.assertRaisesRegex(objc.error, "name - reason"):
+            m(o)
+
+    def test_bad_argcount(self):
+        m = NSException.methodForSelector_(b"exceptionWithName:reason:userInfo:")
+        with self.assertRaisesRegex(TypeError, "Need 4 arguments, got 1"):
+            m(NSException, "hello")
+
 
 class TestGettingIMPs(TestCase):
     def test_basic(self):
@@ -268,23 +321,19 @@ class TestGettingIMPs(TestCase):
 
     def test_not_found(self):
         o = NSMutableArray.alloc().init()
-        with self.assertRaisesRegex(AttributeError, "No selector doesnotexist"):
+        with self.assertRaisesRegex(AttributeError, "No attribute doesnotexist"):
             o.methodForSelector_(b"doesnotexist")
 
-        with self.assertRaisesRegex(AttributeError, "No selector doesnotexist"):
+        with self.assertRaisesRegex(AttributeError, "No attribute doesnotexist"):
             NSMutableArray.instanceMethodForSelector_(b"doesnotexist")
 
-        with self.assertRaisesRegex(AttributeError, "No selector doesnotexist"):
+        with self.assertRaisesRegex(AttributeError, "No attribute doesnotexist"):
             NSMutableArray.methodForSelector_(b"doesnotexist")
 
     def test_python_selector(self):
         o = OC_InstanceMethod.alloc().init()
-        with self.assertRaisesRegex(
-            TypeError, "Cannot locate Python representation of instanceMethod"
-        ):
-            o.methodForSelector_(b"instanceMethod")
+        imp = o.methodForSelector_(b"instanceMethod")
+        self.assertEqual(imp, o.instanceMethod.callable)
 
-        with self.assertRaisesRegex(
-            TypeError, "Cannot locate Python representation of instanceMethod"
-        ):
-            OC_InstanceMethod.instanceMethodForSelector_(b"instanceMethod")
+        imp = OC_InstanceMethod.instanceMethodForSelector_(b"instanceMethod")
+        self.assertEqual(imp, o.instanceMethod.callable)

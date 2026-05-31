@@ -766,6 +766,11 @@ class TestSlingArrowStreaming:
 class TestExecCmd:
     """Tests for the internal command execution helper."""
 
+    @pytest.mark.skipif(
+        os.name == "nt",
+        reason="Relies on a POSIX bash; on Windows `bash` resolves to wsl.exe, "
+        "which has no installed distro on the CI runner.",
+    )
     def test_exec_cmd_includes_stdout_on_error(self):
         """When a subprocess prints an error to STDOUT and exits non-zero
         the helper should include that output in the raised exception.
@@ -778,6 +783,41 @@ class TestExecCmd:
             list(_exec_cmd(cmd))
 
         assert 'fatal:' in str(excinfo.value)
+
+
+class TestReplicationFilePath:
+    """Running a replication from a YAML file goes through
+    `sling run -r "<path>"` (the path is wrapped in quotes). On Windows those
+    quotes used to reach the binary intact, so it failed with
+    `The filename, directory name, or volume label syntax is incorrect`.
+    Running an actual file-based replication exercises that exact path.
+    """
+
+    def test_run_replication_from_file(self, tmp_path):
+        # a small CSV source
+        csv_file = tmp_path / "people.csv"
+        csv_file.write_text("id,name\n1,alice\n2,bob\n")
+
+        # a csv_load.yaml replication, just like the issue describes
+        repl_file = tmp_path / "csv_load.yaml"
+        repl_file.write_text(
+            "source: LOCAL\n"
+            "target: DUCKDB\n"
+            "defaults:\n"
+            "  mode: full-refresh\n"
+            "  object: main.people\n"
+            "streams:\n"
+            f"  '{csv_file.as_posix()}':\n"
+            "    object: main.people\n"
+        )
+
+        duck = tmp_path / "load.duck.db"
+        env = {"DUCKDB": json.dumps({"type": "duckdb", "instance": duck.as_posix()})}
+
+        from sling import Replication
+
+        out = Replication(file_path=str(repl_file), env=env).run(return_output=True)
+        assert "execution succeeded" in out.lower(), out
 
 
 if __name__ == "__main__":

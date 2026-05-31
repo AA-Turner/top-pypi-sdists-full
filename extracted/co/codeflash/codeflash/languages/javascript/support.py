@@ -7,6 +7,7 @@ using tree-sitter for code analysis and Jest for test execution.
 from __future__ import annotations
 
 import logging
+import re
 import subprocess
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -23,6 +24,7 @@ from codeflash.languages.base import (
     TestInfo,
     TestResult,
 )
+from codeflash.languages.javascript.command_utils import resolve_node_command, resolve_node_command_list
 from codeflash.languages.javascript.treesitter import TreeSitterAnalyzer, TreeSitterLanguage, get_analyzer_for_file
 from codeflash.languages.registry import register_language
 from codeflash.models.models import FunctionParent
@@ -160,9 +162,15 @@ class JavaScriptSupport:
                 if not criteria.include_async and func.is_async:
                     continue
 
+                # Skip nested functions (functions defined inside other functions)
+                # Nested functions depend on closure variables from parent scope and cannot
+                # be optimized in isolation without complex context extraction
+                if func.parent_function:
+                    logger.debug(f"Skipping nested function: {func.name} (parent: {func.parent_function})")  # noqa: G004
+                    continue
+
                 # Skip non-exported functions (can't be imported in tests)
-                # Exception: nested functions and methods are allowed if their parent is exported
-                if criteria.require_export and not func.is_exported and not func.parent_function:
+                if criteria.require_export and not func.is_exported:
                     logger.debug(f"Skipping non-exported function: {func.name}")  # noqa: G004
                     continue
 
@@ -224,6 +232,15 @@ class JavaScriptSupport:
         """
         result: dict[str, list[TestInfo]] = {}
 
+        # Build indices for O(1) lookup per imported name (avoids O(NxM) loop)
+        function_name_to_qualified: dict[str, str] = {}
+        class_name_to_qualified_names: dict[str, list[str]] = {}
+        for func in source_functions:
+            function_name_to_qualified[func.function_name] = func.qualified_name
+            for parent in func.parents:
+                if parent.type == "ClassDef":
+                    class_name_to_qualified_names.setdefault(parent.name, []).append(func.qualified_name)
+
         # Find all test files using language-specific patterns
         test_patterns = self._get_test_patterns()
 
@@ -237,26 +254,41 @@ class JavaScriptSupport:
                 analyzer = get_analyzer_for_file(test_file)
                 imports = analyzer.find_imports(source)
 
-                # Build a set of imported function names
+                # Build a set of imported names, resolving aliases and namespace member access
                 imported_names: set[str] = set()
                 for imp in imports:
                     if imp.default_import:
                         imported_names.add(imp.default_import)
+                        # Extract member access patterns: e.g. `math.calculate(...)` → "calculate"
+                        for m in re.finditer(rf"\b{re.escape(imp.default_import)}\.(\w+)", source):
+                            imported_names.add(m.group(1))
+                    if imp.namespace_import:
+                        imported_names.add(imp.namespace_import)
+                        for m in re.finditer(rf"\b{re.escape(imp.namespace_import)}\.(\w+)", source):
+                            imported_names.add(m.group(1))
                     for name, alias in imp.named_imports:
-                        imported_names.add(alias or name)
+                        imported_names.add(name)
+                        if alias:
+                            imported_names.add(alias)
 
                 # Find test functions (describe/it/test blocks)
                 test_functions = self._find_jest_tests(source, analyzer)
 
-                # Match source functions to tests
-                for func in source_functions:
-                    if func.function_name in imported_names or func.function_name in source:
-                        if func.qualified_name not in result:
-                            result[func.qualified_name] = []
-                        for test_name in test_functions:
-                            result[func.qualified_name].append(
-                                TestInfo(test_name=test_name, test_file=test_file, test_class=None)
-                            )
+                # Match via indices: function names and class names → qualified names
+                matched_qualified_names: set[str] = set()
+                for imported_name in imported_names:
+                    if imported_name in function_name_to_qualified:
+                        matched_qualified_names.add(function_name_to_qualified[imported_name])
+                    if imported_name in class_name_to_qualified_names:
+                        matched_qualified_names.update(class_name_to_qualified_names[imported_name])
+
+                for qualified_name in matched_qualified_names:
+                    if qualified_name not in result:
+                        result[qualified_name] = []
+                    for test_name in test_functions:
+                        result[qualified_name].append(
+                            TestInfo(test_name=test_name, test_file=test_file, test_class=None)
+                        )
             except Exception as e:
                 logger.debug("Failed to analyze test file %s: %s", test_file, e)
 
@@ -1535,7 +1567,7 @@ class JavaScriptSupport:
             stdin_filepath = str(file_path.name) if file_path else f"file{self.default_file_extension}"
 
             result = subprocess.run(
-                ["npx", "prettier", "--stdin-filepath", stdin_filepath],
+                resolve_node_command_list(["npx", "prettier", "--stdin-filepath", stdin_filepath]),
                 check=False,
                 input=source,
                 capture_output=True,
@@ -1575,15 +1607,17 @@ class JavaScriptSupport:
 
         # Build Jest command
         test_pattern = "|".join(str(f) for f in test_files)
-        cmd = [
-            "npx",
-            "jest",
-            "--reporters=default",
-            "--reporters=jest-junit",
-            f"--testPathPattern={test_pattern}",
-            "--runInBand",  # Sequential for deterministic timing
-            "--forceExit",
-        ]
+        cmd = resolve_node_command_list(
+            [
+                "npx",
+                "jest",
+                "--reporters=default",
+                "--reporters=jest-junit",
+                f"--testPathPattern={test_pattern}",
+                "--runInBand",  # Sequential for deterministic timing
+                "--forceExit",
+            ]
+        )
 
         test_env = env.copy()
         test_env["JEST_JUNIT_OUTPUT_FILE"] = str(junit_xml)
@@ -1671,8 +1705,9 @@ class JavaScriptSupport:
     ) -> str:
         """Add behavior instrumentation to capture inputs/outputs.
 
-        For JavaScript, this wraps functions to capture their arguments
-        and return values.
+        For JavaScript, instrumentation is handled at runtime by the Babel tracer plugin
+        (babel-tracer-plugin.js) via trace-runner.js. This method returns the source
+        unchanged since no source-level transformation is needed.
 
         Args:
             source: Source code to instrument.
@@ -1680,21 +1715,11 @@ class JavaScriptSupport:
             output_file: Optional output file for traces.
 
         Returns:
-            Instrumented source code.
+            Source code unchanged (Babel handles instrumentation at runtime).
 
         """
-        if not functions:
-            return source
-
-        from codeflash.languages.javascript.tracer import JavaScriptTracer
-
-        # Use first function's file path if output_file not specified
-        if output_file is None:
-            file_path = functions[0].file_path
-            output_file = file_path.parent / ".codeflash" / "traces.db"
-
-        tracer = JavaScriptTracer(output_file)
-        return tracer.instrument_source(source, functions[0].file_path, list(functions))
+        # JavaScript tracing is done at runtime via Babel plugin, not source transformation
+        return source
 
     def instrument_for_benchmarking(self, test_source: str, target_function: FunctionToOptimize) -> str:
         """Add timing instrumentation to test code.
@@ -2012,6 +2037,7 @@ class JavaScriptSupport:
             validate_and_fix_import_style,
         )
         from codeflash.languages.javascript.module_system import (
+            ModuleSystem,
             ensure_module_system_compatibility,
             ensure_vitest_imports,
         )
@@ -2035,6 +2061,13 @@ class JavaScriptSupport:
         generated_test_source = ensure_module_system_compatibility(
             generated_test_source, project_module_system, test_cfg.tests_project_rootdir
         )
+
+        # Add .js extensions to relative imports for ESM projects — but NOT for Jest,
+        # which resolves .ts imports without .js extensions via its transform/resolver.
+        if project_module_system == ModuleSystem.ES_MODULE and test_cfg.test_framework != "jest":
+            from codeflash.languages.javascript.module_system import add_js_extensions_to_relative_imports
+
+            generated_test_source = add_js_extensions_to_relative_imports(generated_test_source)
 
         # Ensure vitest imports are present when using vitest framework
         generated_test_source = ensure_vitest_imports(generated_test_source, test_cfg.test_framework)
@@ -2229,12 +2262,18 @@ class JavaScriptSupport:
             source_without_ext = source_file_abs.with_suffix("")
 
             # Use os.path.relpath to compute relative path from tests_root to source file
-            rel_path = os.path.relpath(str(source_without_ext), str(tests_root_abs))
+            # Replace backslashes with forward slashes — JavaScript import/require paths
+            # must use forward slashes. Backslashes are escape chars in JS strings
+            # (e.g. \t → tab, \n → newline) and would break imports on Windows.
+            rel_path = os.path.relpath(str(source_without_ext), str(tests_root_abs)).replace("\\", "/")
 
-            # For ESM, add .js extension (TypeScript convention)
-            # TypeScript requires imports to reference the OUTPUT file extension (.js),
-            # even when the source file is .ts. This is required for Node.js ESM resolution.
-            if module_system == ModuleSystem.ES_MODULE:
+            # For ESM, add .js extension (TypeScript convention) — but only for Vitest/native ESM.
+            # Jest resolves .ts imports without .js extensions via its transform/resolver config,
+            # so adding .js breaks Jest module resolution (Cannot find module '../foo.js').
+            from codeflash.languages.test_framework import get_js_test_framework_or_default
+
+            test_framework = get_js_test_framework_or_default()
+            if module_system == ModuleSystem.ES_MODULE and test_framework != "jest":
                 rel_path = rel_path + ".js"
                 logger.debug(
                     f"!lsp|Module path (ESM): source={source_file_abs}, tests_root={tests_root_abs}, "
@@ -2253,7 +2292,7 @@ class JavaScriptSupport:
             # For fallback, also check module system
             module_system = detect_module_system(project_root, source_file)
             path_without_ext = "../" + rel_path.with_suffix("").as_posix()
-            if module_system == ModuleSystem.ES_MODULE:
+            if module_system == ModuleSystem.ES_MODULE and test_framework != "jest":
                 return path_without_ext + ".js"
             return path_without_ext
 
@@ -2278,10 +2317,12 @@ class JavaScriptSupport:
 
         """
         errors: list[SetupError] = []
+        node_cmd = resolve_node_command("node")
+        npm_cmd = resolve_node_command("npm")
 
         # Check Node.js
         try:
-            result = subprocess.run(["node", "--version"], check=False, capture_output=True, text=True, timeout=10)
+            result = subprocess.run([node_cmd, "--version"], check=False, capture_output=True, text=True, timeout=10)
             if result.returncode != 0:
                 errors.append(
                     SetupError(
@@ -2300,7 +2341,7 @@ class JavaScriptSupport:
 
         # Check npm
         try:
-            result = subprocess.run(["npm", "--version"], check=False, capture_output=True, text=True, timeout=10)
+            result = subprocess.run([npm_cmd, "--version"], check=False, capture_output=True, text=True, timeout=10)
             if result.returncode != 0:
                 errors.append(
                     SetupError("npm is not available. Please ensure npm is installed with Node.js.", should_abort=True)
@@ -2342,7 +2383,9 @@ class JavaScriptSupport:
     def _detect_node_version(self) -> None:
         """Detect and cache the Node.js runtime version."""
         try:
-            result = subprocess.run(["node", "--version"], check=False, capture_output=True, text=True, timeout=10)
+            result = subprocess.run(
+                [resolve_node_command("node"), "--version"], check=False, capture_output=True, text=True, timeout=10
+            )
             if result.returncode == 0 and result.stdout.strip():
                 self._language_version = result.stdout.strip().lstrip("v")
         except Exception:
@@ -2371,7 +2414,7 @@ class JavaScriptSupport:
 
         try:
             result = subprocess.run(
-                ["npm", "install", "--save-dev", "codeflash"],
+                resolve_node_command_list(["npm", "install", "--save-dev", "codeflash"]),
                 check=False,
                 cwd=project_root,
                 capture_output=True,
@@ -2455,13 +2498,17 @@ class JavaScriptSupport:
     def parse_line_profile_results(self, line_profiler_output_file: Path) -> dict:
         from codeflash.languages.javascript.line_profiler import JavaScriptLineProfiler
 
-        if line_profiler_output_file.exists():
-            parsed_results = JavaScriptLineProfiler.parse_results(line_profiler_output_file)
-            if parsed_results.get("timings"):
-                # Format output string for display
-                str_out = self._format_js_line_profile_output(parsed_results)
-                return {"timings": parsed_results.get("timings", {}), "unit": 1e-9, "str_out": str_out}
-        logger.warning("No line profiler output file found at %s", line_profiler_output_file)
+        if not line_profiler_output_file.exists():
+            logger.warning("Line profiler output file not found: %s", line_profiler_output_file)
+            return {"timings": {}, "unit": 0, "str_out": ""}
+
+        parsed_results = JavaScriptLineProfiler.parse_results(line_profiler_output_file)
+        if parsed_results.get("timings"):
+            # Format output string for display
+            str_out = self._format_js_line_profile_output(parsed_results)
+            return {"timings": parsed_results.get("timings", {}), "unit": 1e-9, "str_out": str_out}
+
+        logger.warning("Line profiler output file empty or contained no timing data: %s", line_profiler_output_file)
         return {"timings": {}, "unit": 0, "str_out": ""}
 
     def _format_js_line_profile_output(self, parsed_results: dict) -> str:

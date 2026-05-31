@@ -276,6 +276,11 @@ class TestStructs(TestCase):
         ):
             objc.createStructType("Foo4", b'^{_Foo="a"f}', None)
 
+        with self.assertRaisesRegex(
+            ValueError, "invalid signature: not a complete struct encoding"
+        ):
+            objc.createStructType("Test", b"{Test}", None)
+
     def testPointerFields(self):
         # Note: the created type won't be all that useful unless the pointer
         # happens to be something that PyObjC knows how to deal with, this is
@@ -349,6 +354,12 @@ class TestStructs(TestCase):
             self.assertEqual(v[1], tp(3, 4))
             self.assertEqual(v[2], tp(5, 6))
             self.assertEqual(v[3], tp(7, 8))
+
+            with self.assertRaises(IndexError):
+                v[2**90] = 1
+
+            with self.assertRaises(IndexError):
+                v[2**90]
 
     def testStructSize(self):
         tp0 = objc.createStructType("FooStruct", b"{FooStruct=}", None)
@@ -566,6 +577,11 @@ class TestStructs(TestCase):
 
             with self.assertRaisesRegex(IndexError, "FooStruct2 index out of range"):
                 v[-6]
+
+            with self.assertRaisesRegex(
+                IndexError, "cannot fit 'int' into an index-sized integer"
+            ):
+                v[2**128]
 
             with self.assertRaisesRegex(
                 IndexError, "cannot fit 'int' into an index-sized integer"
@@ -1021,9 +1037,7 @@ class TestStructs(TestCase):
         ):
             objc.createStructType("InvStruct", b'{_FooStruct="af}', None)
 
-        with self.assertRaisesRegex(
-            ValueError, "invalid signature: unknown type coding 0x21"
-        ):
+        with self.assertRaisesRegex(objc.error, "Unhandled type"):
             objc.createStructType("InvStruct", b'{_FooStruct="a"f"b"!"c"q}', None)
 
         with self.assertRaisesRegex(
@@ -1035,6 +1049,11 @@ class TestStructs(TestCase):
             ValueError, "invalid signature: not a complete struct encoding"
         ):
             objc.createStructType("InvStruct", b"{_FooStruct}", None)
+
+        with self.assertRaisesRegex(
+            ValueError, "invalid signature: not a complete struct encoding"
+        ):
+            objc.createStructType("InvStruct", b"{_FooStruct", None)
 
     def test_repr(self):
         v = GlobalType("a", 4)
@@ -1093,6 +1112,27 @@ class TestStructs(TestCase):
                 "InvalidPackedStruct", b"{_InvalidPackedStruct=hi}", ["a", "b"], pack=1
             )
 
+    def test_nested_struct(self):
+        tp = objc.createStructType(
+            "NestedStruct",
+            b'{_Nested="field1"{NSRange="offset"q"length"q}"field2"i}',
+            None,
+        )
+        self.assertEqual(tp.__typestr__, b"{_Nested={NSRange=qq}i}")
+        v = tp()
+        self.assertEqual(v.field1, None)
+        self.assertEqual(v.field2, 0)
+
+        tp = objc.createStructType(
+            "NestedStruct2", b'{_Nested2="field1"{_empty_}}', None
+        )
+        self.assertEqual(tp.__typestr__, b"{_Nested2={_empty_}}")
+
+        tp = objc.createStructType(
+            "NestedStruct3", b'{_Nested3="field1"{_missing="a"ii}}', None
+        )
+        self.assertEqual(tp.__typestr__, b"{_Nested3={_missing=ii}}")
+
 
 class TestStructAlias(TestCase):
     def test_register_struct_alias(self):
@@ -1110,7 +1150,7 @@ class TestStructAlias(TestCase):
         ):
             objc.registerStructAlias("{foo=ff}")
 
-        with self.assertRaisesRegex(TypeError, "struct type is not valid"):
+        with self.assertRaisesRegex(ValueError, "None is not a struct type"):
             objc.registerStructAlias(b"{foo=ff}", None)
 
         with self.assertRaisesRegex(ValueError, "typestr too long"):
@@ -1139,6 +1179,13 @@ class TestStructAlias(TestCase):
 
         v = objc.repythonify((1, 2, 3), b"{_OtherShaped=fff}")
         self.assertEqual(v, GlobalType(1, 2))
+
+    def test_alias_for_invalid_type(self):
+        class MyStruct:
+            __typestr__ = b"{name=ff}"
+
+        with self.assertRaisesRegex(ValueError, "MyStruct.*is not a struct type"):
+            objc.registerStructAlias(b"{invalid=ff}", MyStruct)
 
     def test_gc(self):
         flag = False

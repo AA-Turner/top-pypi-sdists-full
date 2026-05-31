@@ -88,8 +88,6 @@ TimeDeltaUnitChoices: TypeAlias = Literal[
     "nanosecond",
 ]
 
-UnitChoices: TypeAlias = TimeDeltaUnitChoices | Literal["Y", "y", "M"]
-
 class Timedelta(timedelta):
     min: ClassVar[Timedelta]  # pyright: ignore[reportIncompatibleVariableOverride]
     max: ClassVar[Timedelta]  # pyright: ignore[reportIncompatibleVariableOverride]
@@ -100,13 +98,14 @@ class Timedelta(timedelta):
     def __new__(
         cls,
         value: str | float | Timedelta | Tick | timedelta | np.timedelta64 = ...,
-        unit: TimeDeltaUnitChoices = ...,
+        unit: TimeDeltaUnitChoices | None = None,
         *,
         days: float | np.integer | np.floating = ...,
         seconds: float | np.integer | np.floating = ...,
         microseconds: float | np.integer | np.floating = ...,
         milliseconds: float | np.integer | np.floating = ...,
         minutes: float | np.integer | np.floating = ...,
+        nanoseconds: float | np.integer | np.floating = ...,
         hours: float | np.integer | np.floating = ...,
         weeks: float | np.integer | np.floating = ...,
     ) -> Self: ...
@@ -339,7 +338,7 @@ class Timedelta(timedelta):
     def to_numpy(self) -> np.timedelta64: ...
     @property
     def components(self) -> Components: ...
-    def view(self, dtype: npt.DTypeLike = ...) -> object: ...
+    def view(self, dtype: npt.DTypeLike) -> object: ...
     @property
     def unit(self) -> TimeUnit: ...
     def as_unit(self, unit: TimeUnit, round_ok: bool = True) -> Self: ...

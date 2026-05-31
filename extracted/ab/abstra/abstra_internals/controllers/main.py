@@ -44,6 +44,7 @@ from abstra_internals.entities.execution_context import (
 from abstra_internals.environment import (
     DRAIN_START_TIMEOUT_SECONDS,
     WORKER_LOG_TO_QUEUE,
+    web_editor_uses_db,
 )
 from abstra_internals.interface.cli.deploy import deploy_without_git
 from abstra_internals.interface.cli.deploy_messages import DeployMessages
@@ -2406,7 +2407,7 @@ class MainController:
 
             start_msg = ExecutionStartedMessage(execution_id=start_msg["executionId"])
 
-            if WORKER_LOG_TO_QUEUE:
+            if WORKER_LOG_TO_QUEUE and not web_editor_uses_db():
                 self._broadcast_execution_update(start_msg.execution_id)
                 self.repositories.producer.consume_and_forward(conn, id)
                 hand_off = True
@@ -2532,7 +2533,7 @@ class MainController:
 
             start_msg = ExecutionStartedMessage(execution_id=start_msg["executionId"])
 
-            if WORKER_LOG_TO_QUEUE:
+            if WORKER_LOG_TO_QUEUE and not web_editor_uses_db():
                 self._broadcast_execution_update(start_msg.execution_id)
                 self.repositories.producer.consume_and_forward(conn, id)
                 hand_off = True

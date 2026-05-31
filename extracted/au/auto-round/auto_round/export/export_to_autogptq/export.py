@@ -45,10 +45,10 @@ import torch.nn as nn
 import transformers
 from tqdm import tqdm
 
-import auto_round.export.export_to_autogptq.qlinear_triton
 from auto_round.export.utils import (
     filter_quantization_config,
     get_autogptq_packing_qlinear,
+    is_immediate_saving_mode,
     release_layer_safely,
     resolve_pipeline_export_layout,
     save_model,
@@ -66,10 +66,8 @@ from auto_round.utils import (
     SUPPORTED_LAYER_TYPES,
     check_start_with_block_name,
     check_to_quantized,
-    copy_python_files_from_model_cache,
     get_block_names,
     get_module,
-    json_serialize,
     matches_any_regex,
     set_module,
     to_standard_regex,
@@ -160,9 +158,7 @@ def pack_layer(name, model, backend, device=None):
 
     bias = layer.bias is not None
     ##bias = True  ## if using the above, llama3 lambada RTN will be NAN , TODO why?
-    qlayer = QuantLinear(  ##pylint: disable=E1123
-        bits, group_size, in_features, out_features, bias, weight_dtype=layer.weight.dtype
-    )
+    qlayer = QuantLinear(bits, group_size, in_features, out_features, bias, g_idx=True)  ##pylint: disable=E1123
 
     qlayer.device = orig_device
     scale = layer.scale
@@ -172,8 +168,7 @@ def pack_layer(name, model, backend, device=None):
     ##force to float32 to be compatible with torch 2.0
     if sym and isinstance(zero, torch.Tensor):
         layer, scale, zero = layer.to("cpu"), scale.to("cpu"), zero.to("cpu")
-        if isinstance(qlayer, auto_round.export.export_to_autogptq.qlinear_triton.QuantLinear):
-            zero = int(zero.flatten()[0])
+        zero = int(zero.flatten()[0])
     else:
         layer, scale, zero = layer.to("cpu"), scale.to("cpu"), zero
     if isinstance(zero, torch.Tensor) and zero.dtype == torch.bfloat16:
@@ -205,20 +200,21 @@ def save_quantized_as_autogptq(
 
     # --- 1️⃣ Extract inputs & configs ---
     quantization_config = serialization_dict
-    quant_block_list = serialization_dict.get("quant_block_list", get_block_names(model))
+    quant_block_list = serialization_dict.get("quant_block_list") or get_block_names(model)
     processor = kwargs.get("processor")
     image_processor = kwargs.get("image_processor")
     safe_serialization = kwargs.get("safe_serialization", True)
 
     # --- Save metadata (tokenizer, processor, etc.) ---
+    immediate_saving = is_immediate_saving_mode(model, serialization_dict)
     processor_output_dir = output_dir
     model_output_dir = output_dir
     if output_dir:
         model_output_dir, processor_output_dir, _ = resolve_pipeline_export_layout(model, output_dir)
 
     if output_dir:
-        # if os.path.exists(output_dir):
-        #     logger.info(f"{output_dir} already exists, may cause overwrite conflicts.")
+        if os.path.exists(output_dir) and not immediate_saving:
+            logger.warning(f"{output_dir} already exists, this may cause model conflict")
         for comp in (tokenizer, processor, image_processor):
             if comp is not None and hasattr(comp, "save_pretrained"):
                 comp.save_pretrained(processor_output_dir)
@@ -249,7 +245,7 @@ def save_quantized_as_autogptq(
             continue
         # Handle block layers
         if in_blocks or (block_name_to_quantize and check_start_with_block_name(layer_name, block_name_to_quantize)):
-            neq_keys = check_neq_config(cfg, **{k: quantization_config[k] for k in scheme_keys})
+            neq_keys = check_neq_config(cfg, **{k: quantization_config.get(k) for k in scheme_keys})
             if neq_keys:
                 if matches_any_regex(layer_name, regex_config):
                     continue
@@ -272,15 +268,20 @@ def save_quantized_as_autogptq(
     modules_in_block_to_quantize = []
     # for backward compatibility
     for block_names in all_blocks:
-        first_block = get_module(model, block_names[0])
-        for n, m in first_block.named_modules():
-            if m.global_name not in layer_config:
-                continue
-            if not check_to_quantized(layer_config[m.global_name]):
-                all_to_quantized = False
-            else:
-                modules_in_block_to_quantize.append(n)
-    modules_in_block_to_quantize = [modules_in_block_to_quantize]
+        quantized_in_group = set()
+        not_quantized_in_group = set()
+        for block_name in block_names:
+            block = get_module(model, block_name)
+            for n, m in block.named_modules():
+                if m.global_name not in layer_config:
+                    continue
+                if not check_to_quantized(layer_config[m.global_name]):
+                    not_quantized_in_group.add(n)
+                else:
+                    quantized_in_group.add(n)
+        if not_quantized_in_group:
+            all_to_quantized = False
+        modules_in_block_to_quantize.append(sorted(quantized_in_group))
 
     if all_to_quantized:
         modules_in_block_to_quantize = None
@@ -312,6 +313,11 @@ def save_quantized_as_autogptq(
 
     dtype = torch.float16  ##force dtype to fp16
     save_model(
-        model, model_output_dir, safe_serialization=safe_serialization, dtype=dtype, config_file="quantize_config.json"
+        model,
+        model_output_dir,
+        safe_serialization=safe_serialization,
+        dtype=dtype,
+        config_file="quantize_config.json",
+        immediate_saving=immediate_saving,
     )
     return model

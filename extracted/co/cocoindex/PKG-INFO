@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cocoindex
-Version: 1.0.6
+Version: 1.0.7
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
@@ -47,6 +47,7 @@ Requires-Dist: aiomysql>=0.2.0 ; extra == 'all'
 Requires-Dist: falkordb>=1.1.0 ; extra == 'all'
 Requires-Dist: neo4j>=5.18.0 ; extra == 'all'
 Requires-Dist: confluent-kafka>=2.6 ; extra == 'all'
+Requires-Dist: apache-iggy>=0.8.0 ; extra == 'all'
 Requires-Dist: oci>=2.0 ; extra == 'all'
 Requires-Dist: faiss-cpu>=1.7 ; extra == 'all'
 Requires-Dist: instructor>=1.0 ; extra == 'all'
@@ -64,6 +65,7 @@ Requires-Dist: google-api-python-client>=2.0.0 ; extra == 'google-drive'
 Requires-Dist: google-auth>=2.0.0 ; extra == 'google-drive'
 Requires-Dist: google-auth-httplib2>=0.2.0 ; extra == 'google-drive'
 Requires-Dist: httplib2>=0.22.0 ; extra == 'google-drive'
+Requires-Dist: apache-iggy>=0.8.0 ; extra == 'iggy'
 Requires-Dist: confluent-kafka>=2.6 ; extra == 'kafka'
 Requires-Dist: lancedb>=0.25.0 ; extra == 'lancedb'
 Requires-Dist: pyarrow>=19.0.0 ; extra == 'lancedb'
@@ -84,6 +86,7 @@ Provides-Extra: entity_resolution
 Provides-Extra: entity_resolution_llm
 Provides-Extra: falkordb
 Provides-Extra: google_drive
+Provides-Extra: iggy
 Provides-Extra: kafka
 Provides-Extra: lancedb
 Provides-Extra: litellm

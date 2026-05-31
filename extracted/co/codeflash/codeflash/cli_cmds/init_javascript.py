@@ -19,7 +19,6 @@ import inquirer
 from git import InvalidGitRepositoryError, Repo
 from rich.console import Group
 from rich.panel import Panel
-from rich.prompt import Confirm
 from rich.table import Table
 from rich.text import Text
 
@@ -28,6 +27,7 @@ from codeflash.code_utils.code_utils import validate_relative_directory_path
 from codeflash.code_utils.compat import LF
 from codeflash.code_utils.git_utils import get_git_remotes
 from codeflash.code_utils.shell_utils import get_shell_rc_path, is_powershell
+from codeflash.languages.javascript.command_utils import resolve_node_command
 from codeflash.telemetry.posthog_cf import ph
 
 
@@ -38,6 +38,7 @@ class ProjectLanguage(Enum):
     JAVASCRIPT = auto()
     TYPESCRIPT = auto()
     JAVA = auto()
+    GO = auto()
 
 
 class JsPackageManager(Enum):
@@ -88,6 +89,10 @@ def detect_project_language(project_root: Path | None = None) -> ProjectLanguage
 
     """
     root = project_root or Path.cwd()
+
+    # Go detection (go.mod is definitive)
+    if (root / "go.mod").exists():
+        return ProjectLanguage.GO
 
     # Java detection (pom.xml or build.gradle is definitive)
     has_pom = (root / "pom.xml").exists()
@@ -196,22 +201,22 @@ def get_package_install_command(project_root: Path, package: str, dev: bool = Tr
     pkg_manager = determine_js_package_manager(project_root)
 
     if pkg_manager == JsPackageManager.PNPM:
-        cmd = ["pnpm", "add", package]
+        cmd = [resolve_node_command("pnpm"), "add", package]
         if dev:
             cmd.append("--save-dev")
         return cmd
     if pkg_manager == JsPackageManager.YARN:
-        cmd = ["yarn", "add", package]
+        cmd = [resolve_node_command("yarn"), "add", package]
         if dev:
             cmd.append("--dev")
         return cmd
     if pkg_manager == JsPackageManager.BUN:
-        cmd = ["bun", "add", package]
+        cmd = [resolve_node_command("bun"), "add", package]
         if dev:
             cmd.append("--dev")
         return cmd
     # Default to npm
-    cmd = ["npm", "install", package]
+    cmd = [resolve_node_command("npm"), "install", package]
     if dev:
         cmd.append("--save-dev")
     return cmd
@@ -252,7 +257,7 @@ def init_js_project(language: ProjectLanguage, *, skip_confirm: bool = False, sk
 
     install_github_app(git_remote)
 
-    install_github_actions(override_formatter_check=True)
+    install_github_actions(override_formatter_check=True, skip_confirm=skip_confirm)
 
     # Show completion message
     usage_table = Table(show_header=False, show_lines=False, border_style="dim")
@@ -291,6 +296,8 @@ def init_js_project(language: ProjectLanguage, *, skip_confirm: bool = False, sk
 
 def should_modify_package_json_config(*, skip_confirm: bool = False) -> tuple[bool, dict[str, Any] | None]:
     """Check if package.json has valid codeflash config for JS/TS projects."""
+    from codeflash.cli_cmds.init_config import confirm_with_default_on_eof
+
     package_json_path = Path("package.json")
 
     if not package_json_path.exists():
@@ -320,7 +327,7 @@ def should_modify_package_json_config(*, skip_confirm: bool = False) -> tuple[bo
             return False, config
 
         # Config is valid - ask if user wants to reconfigure
-        return Confirm.ask(
+        return confirm_with_default_on_eof(
             "✅ A valid Codeflash config already exists in package.json. Do you want to re-configure it?",
             default=False,
             show_default=True,
@@ -335,7 +342,7 @@ def collect_js_setup_info(language: ProjectLanguage, *, skip_confirm: bool = Fal
     Uses auto-detection for most settings and only asks for overrides if needed.
     When skip_confirm is True, uses all auto-detected defaults without prompting.
     """
-    from codeflash.cli_cmds.init_config import ask_for_telemetry, get_valid_subdirs
+    from codeflash.cli_cmds.init_config import ask_for_telemetry, confirm_with_default_on_eof, get_valid_subdirs
     from codeflash.code_utils.config_js import (
         detect_formatter,
         detect_module_root,
@@ -372,8 +379,6 @@ def collect_js_setup_info(language: ProjectLanguage, *, skip_confirm: bool = Fal
             pass
         return JSSetupInfo(git_remote=git_remote)
 
-    from rich.prompt import Confirm
-
     # Build detection summary
     formatter_display = detected_formatter[0] if detected_formatter else "none detected"
     detection_table = Table(show_header=False, box=None, padding=(0, 2))
@@ -395,7 +400,7 @@ def collect_js_setup_info(language: ProjectLanguage, *, skip_confirm: bool = Fal
     module_root_override = None
     formatter_override = None
 
-    if Confirm.ask("Would you like to change any of these settings?", default=False):
+    if confirm_with_default_on_eof("Would you like to change any of these settings?", default=False):
         # Module root override
         valid_subdirs = get_valid_subdirs()
         curdir_option = f"current directory ({curdir})"

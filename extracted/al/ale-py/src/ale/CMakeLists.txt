@@ -5,7 +5,11 @@ include_directories(BEFORE ${PROJECT_SOURCE_DIR}/src ${CMAKE_CURRENT_BINARY_DIR}
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_CXX_EXTENSIONS FALSE)
-set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+# Skip IPO/LTO for sanitizer and RelWithDebInfo builds so stack traces from
+# valgrind/sanitizers resolve to real function names instead of '???'.
+if(NOT ENABLE_SANITIZER AND NOT CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+  set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 
 # Compiler options
@@ -74,6 +78,11 @@ endif()
 # Python Library
 if (BUILD_PYTHON_LIB)
   add_subdirectory(python)
+endif()
+
+# WebAssembly Library
+if (BUILD_WASM_LIB)
+  add_subdirectory(wasm)
 endif()
 
 # Install cpp-lib and CMake config & pkg-config

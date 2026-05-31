@@ -295,7 +295,7 @@ class EmbeddingsProvider:
 
         result = []
         for token_ids in token_ids_list:
-            # trim eos/bos + any trailing padding
+            # trim eos/bos
             if token_ids[0] == self.tokenizer.bos_token_id:
                 token_ids = token_ids[1:]
             if token_ids[-1] == self.tokenizer.eos_token_id:
@@ -315,6 +315,14 @@ class EmbeddingsProvider:
                 token_ids = token_ids + [self.tokenizer.pad_token_id] * padding_token_count
 
             result.append(token_ids)
+
+        if padding == 'max_length':
+            # pad out to max length
+            for i in range(len(result)):
+                pad_length = self.max_token_count - len(result[i])
+                result[i] = result[i] + [self.tokenizer.pad_token_id] * pad_length
+        elif padding == 'longest':
+            raise NotImplementedError("padding='longest' is not implemented yet")
 
         return result
 

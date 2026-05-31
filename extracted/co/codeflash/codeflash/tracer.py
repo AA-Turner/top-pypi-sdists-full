@@ -37,6 +37,42 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _build_tracer_parser(*, prog: str | None = None) -> ArgumentParser:
+    parser = ArgumentParser(allow_abbrev=False, prog=prog)
+    parser.add_argument("-o", "--outfile", dest="outfile", help="Save trace to <outfile>", default="codeflash.trace")
+    parser.add_argument("--only-functions", help="Trace only these functions", nargs="+", default=None)
+    parser.add_argument(
+        "--max-function-count",
+        help="Maximum number of inputs for one function to include in the trace.",
+        type=int,
+        default=256,
+    )
+    parser.add_argument(
+        "--tracer-timeout",
+        help="Timeout in seconds for the tracer, if the traced code takes more than this time, then tracing stops and "
+        "normal execution continues.",
+        type=float,
+        default=None,
+    )
+    parser.add_argument("-m", action="store_true", dest="module", help="Trace a library module", default=False)
+    parser.add_argument(
+        "--codeflash-config",
+        help="Optional path to the project's pyproject.toml file "
+        "with the codeflash config. Will be auto-discovered if not specified.",
+        default=None,
+    )
+    parser.add_argument("--trace-only", action="store_true", help="Trace and create replay tests only, don't optimize")
+    parser.add_argument(
+        "--limit", type=int, default=None, help="Limit the number of test files to process (for -m pytest mode)"
+    )
+    parser.add_argument(
+        "--language",
+        help="Language to trace (python, javascript, typescript). Auto-detected if not specified.",
+        default=None,
+    )
+    return parser
+
+
 def _detect_non_python_language(args: Namespace | None) -> Language | None:
     """Detect if the project uses a non-Python language from --file or config.
 
@@ -96,6 +132,11 @@ def _detect_non_python_language(args: Namespace | None) -> Language | None:
 
 
 def main(args: Namespace | None = None) -> ArgumentParser:
+    if any(arg in {"-h", "--help"} for arg in sys.argv[1:]):
+        parser = _build_tracer_parser(prog="codeflash optimize")
+        parser.print_help()
+        return parser
+
     # For non-Python languages, detect early and route to the appropriate handler.
     # Java, JavaScript, and TypeScript use their own test runners (Maven/JUnit, Jest)
     # and should not go through Python tracing.
@@ -122,33 +163,7 @@ def main(args: Namespace | None = None) -> ArgumentParser:
         if detected_language == Language.JAVA:
             return _run_java_tracer(args)
 
-    parser = ArgumentParser(allow_abbrev=False)
-    parser.add_argument("-o", "--outfile", dest="outfile", help="Save trace to <outfile>", default="codeflash.trace")
-    parser.add_argument("--only-functions", help="Trace only these functions", nargs="+", default=None)
-    parser.add_argument(
-        "--max-function-count",
-        help="Maximum number of inputs for one function to include in the trace.",
-        type=int,
-        default=256,
-    )
-    parser.add_argument(
-        "--tracer-timeout",
-        help="Timeout in seconds for the tracer, if the traced code takes more than this time, then tracing stops and "
-        "normal execution continues.",
-        type=float,
-        default=None,
-    )
-    parser.add_argument("-m", action="store_true", dest="module", help="Trace a library module", default=False)
-    parser.add_argument(
-        "--codeflash-config",
-        help="Optional path to the project's pyproject.toml file "
-        "with the codeflash config. Will be auto-discovered if not specified.",
-        default=None,
-    )
-    parser.add_argument("--trace-only", action="store_true", help="Trace and create replay tests only, don't optimize")
-    parser.add_argument(
-        "--limit", type=int, default=None, help="Limit the number of test files to process (for -m pytest mode)"
-    )
+    parser = _build_tracer_parser()
 
     if args is not None:
         parsed_args = args
@@ -182,6 +197,13 @@ def main(args: Namespace | None = None) -> ArgumentParser:
     outfile = parsed_args.outfile
     config, found_config_path = parse_config_file(parsed_args.codeflash_config)
     project_root = project_root_from_module_root(Path(config["module_root"]), found_config_path)
+
+    language = getattr(parsed_args, "language", None) or config.get("language", "python")
+    if language in ("javascript", "typescript"):
+        return run_javascript_tracer_main(
+            parsed_args=parsed_args, config=config, project_root=project_root, unknown_args=unknown_args
+        )
+
     if len(unknown_args) > 0:
         args_dict = {
             "functions": parsed_args.only_functions,
@@ -332,6 +354,87 @@ def main(args: Namespace | None = None) -> ArgumentParser:
     return parser
 
 
+def run_javascript_tracer_main(
+    parsed_args: Namespace, config: dict, project_root: Path, unknown_args: list[str]
+) -> ArgumentParser:
+    from codeflash.languages.javascript.tracer_runner import (
+        check_javascript_tracer_available,
+        detect_test_framework,
+        get_tracer_requirements_message,
+        run_javascript_tracer,
+    )
+
+    if not check_javascript_tracer_available():
+        console.print("[bold red]Error:[/] JavaScript tracer requirements not met.")
+        console.print(get_tracer_requirements_message())
+        sys.exit(1)
+
+    trace_only = getattr(parsed_args, "trace_only", False)
+    only_functions = getattr(parsed_args, "only_functions", None)
+    max_function_count = getattr(parsed_args, "max_function_count", 256)
+    timeout = getattr(parsed_args, "tracer_timeout", None)
+
+    framework = detect_test_framework(project_root, config)
+    logger.info("JavaScript tracer: framework=%s, project_root=%s", framework, project_root)
+
+    trace_db_path = get_run_tmp_file(Path("js_trace.sqlite"))
+
+    script_or_test_args = unknown_args if unknown_args else []
+
+    replay_test_path = run_javascript_tracer(
+        script_args=script_or_test_args,
+        trace_db_path=trace_db_path,
+        project_root=project_root,
+        functions=only_functions,
+        max_function_count=max_function_count,
+        timeout=int(timeout) if timeout else 0,
+        framework=framework,
+    )
+
+    if replay_test_path and not trace_only:
+        from codeflash.cli_cmds.cli import parse_args as cli_parse_args
+        from codeflash.cli_cmds.cli import process_pyproject_config
+        from codeflash.cli_cmds.console import paneled_text
+        from codeflash.cli_cmds.console_constants import CODEFLASH_LOGO
+        from codeflash.languages import Language, set_current_language
+        from codeflash.optimization import optimizer
+        from codeflash.telemetry import posthog_cf
+        from codeflash.telemetry.sentry import init_sentry
+
+        language = getattr(parsed_args, "language", None) or config.get("language", "javascript")
+        if language == "typescript":
+            set_current_language(Language.TYPESCRIPT)
+        else:
+            set_current_language(Language.JAVASCRIPT)
+
+        sys.argv = ["codeflash", "--replay-test", str(replay_test_path)]
+        args = cli_parse_args()
+        paneled_text(
+            CODEFLASH_LOGO,
+            panel_args={"title": "https://codeflash.ai", "expand": False},
+            text_args={"style": "bold gold3"},
+        )
+
+        args = process_pyproject_config(args)
+        args.previous_checkpoint_functions = None
+        init_sentry(enabled=not args.disable_telemetry, exclude_errors=True)
+        posthog_cf.initialize_posthog(enabled=not args.disable_telemetry)
+
+        args.effort = EffortLevel.HIGH.value
+        optimizer.run_with_args(args)
+
+        # Clean up
+        trace_db_path.unlink(missing_ok=True)
+        if replay_test_path:
+            Path(replay_test_path).unlink(missing_ok=True)
+    elif replay_test_path:
+        console.print(f"[bold green]Trace complete.[/] Replay test: {replay_test_path}")
+    else:
+        console.print("[bold yellow]Warning:[/] No functions were traced.")
+
+    return ArgumentParser()
+
+
 def _run_java_tracer(existing_args: Namespace | None = None) -> ArgumentParser:
     """Run the Java two-stage tracer (JFR + argument capture) and optionally optimize."""
     from codeflash.cli_cmds.cli import parse_args, process_pyproject_config
@@ -349,10 +452,10 @@ def _run_java_tracer(existing_args: Namespace | None = None) -> ArgumentParser:
     max_function_count = getattr(config, "max_function_count", 256)
     timeout = int(getattr(config, "timeout", None) or getattr(config, "tracer_timeout", 0) or 0)
 
-    console.print("[bold]Java project detected[/]")
-    console.print(f"  Project root: {project_root}")
-    console.print(f"  Module root:  {getattr(config, 'module_root', '?')}")
-    console.print(f"  Tests root:   {getattr(config, 'tests_root', '?')}")
+    logger.info("Java project detected")
+    logger.info("  Project root: %s", project_root)
+    logger.info("  Module root:  %s", getattr(config, "module_root", "?"))
+    logger.info("  Tests root:   %s", getattr(config, "tests_root", "?"))
 
     from codeflash.code_utils.code_utils import get_run_tmp_file
     from codeflash.languages.java.tracer import JavaTracer, run_java_tracer

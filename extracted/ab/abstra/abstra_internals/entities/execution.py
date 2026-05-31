@@ -42,7 +42,11 @@ class Execution(Serializable, Generic[T]):
             context=context,
             status="running",
             id=id,
-            created_at=datetime.datetime.now(),
+            # Timezone-aware UTC: stored verbatim into the timestamptz column on
+            # the DB path (a naive local time would be misinterpreted in the PG
+            # session TZ). The file path is unaffected — to_utc_iso_string is a
+            # no-op shift on an already-aware value.
+            created_at=datetime.datetime.now(datetime.timezone.utc),
             worker_id=worker_id,
             pid=pid or os.getpid(),
             updated_at=None,
@@ -62,7 +66,7 @@ class Execution(Serializable, Generic[T]):
             raise ValueError("Cannot set status to running")
 
         self.status = status
-        self.updated_at = datetime.datetime.now()
+        self.updated_at = datetime.datetime.now(datetime.timezone.utc)
 
     @property
     def short_id(self) -> str:

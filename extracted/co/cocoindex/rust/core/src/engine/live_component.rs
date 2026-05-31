@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::future::Future;
 
 use crate::engine::component::{
-    Component, ComponentBgChildReadinessChildGuard, ComponentExecutionHandle,
+    Component, ComponentBgChildReadinessChildGuard, ComponentExecutionHandle, OnError,
 };
 use crate::engine::context::{ComponentProcessingAction, ComponentProcessorContext, FnCallContext};
 use crate::engine::profile::EngineProfile;
@@ -218,12 +218,19 @@ struct QueuedOp<Prof: EngineProfile> {
 
 enum Op<Prof: EngineProfile> {
     /// `update(subpath, processor)` — calls `child.run_in_background`.
-    Update(Prof::ComponentProc),
-    /// `delete(subpath)` — calls `child.delete`.
-    /// The DB tombstone+existence-removal is performed at dispatch time
-    /// (synchronously, so the framework can rely on existence-set semantics
-    /// without waiting for the drain to run).
-    Delete,
+    /// Failures route through `on_error` (parent's exception handler
+    /// chain); the handler's `Result` decides propagation (Ok = swallow
+    /// mount-style; Err = propagate via `handle.ready()`).
+    Update {
+        processor: Prof::ComponentProc,
+        on_error: Option<OnError>,
+    },
+    /// `delete(subpath)` — calls `child.delete`. Same error model as
+    /// `Update`: handler controls whether failures propagate. The DB
+    /// tombstone+existence-removal is performed at dispatch time
+    /// (synchronously) regardless, so even a propagating handler
+    /// preserves the retry-via-tombstone safety net.
+    Delete { on_error: Option<OnError> },
 }
 
 /// Per-subpath state in the coalescing map.
@@ -481,7 +488,11 @@ impl<Prof: EngineProfile> LiveComponentController<Prof> {
     /// Full processing cycle. Acquires `update_full_lock` (serializes with
     /// concurrent `update_full()` calls), waits for any in-flight subpath
     /// drains to quiesce, then runs `process()` via `run_in_background`.
-    pub async fn update_full(&self, processor: Prof::ComponentProc) -> Result<()> {
+    pub async fn update_full(
+        &self,
+        processor: Prof::ComponentProc,
+        on_error: Option<OnError>,
+    ) -> Result<()> {
         let _full_guard = self.state.update_full_lock.lock().await;
 
         // Step-1 cancellation gate (mirrors design.md Section "update_full
@@ -501,23 +512,31 @@ impl<Prof: EngineProfile> LiveComponentController<Prof> {
         // authoritatively.
         self.state.wait_until_quiescent().await;
 
-        // Now run process() via run_in_background.
+        // Now run process() via run_in_background. Errors from process() are
+        // routed via `on_error` (parent's exception handler chain), matching
+        // the behavior of background `mount()` calls. Without on_error wired
+        // here, periodic-refresh patterns (e.g. `coco.auto_refresh`) would
+        // silently swallow cycle failures.
         let context = ComponentProcessorContext::new(
             self.component.clone(),
             None,
             self.processing_stats.clone(),
             self.host_ctx.clone(),
+            // Mirror `Component::mount`: store the same on_error on the
+            // build context so the cycle's commit-phase GC sweep cascades
+            // it to orphan deletes too.
             ComponentProcessingAction::new_build(
                 self.providers.clone(),
                 self.full_reprocess,
                 self.live,
+                on_error.clone(),
             ),
         );
 
         let handle = self
             .component
             .clone()
-            .run_in_background(processor, context, None, None)
+            .run_in_background(processor, context, on_error, None)
             .await?;
 
         handle.ready().await?;
@@ -529,19 +548,41 @@ impl<Prof: EngineProfile> LiveComponentController<Prof> {
     /// coalesced — only the most-recently-queued op runs; older ones
     /// resolve as `Superseded`. Returns immediately after dispatching;
     /// the actual processor execution happens on a per-subpath drain task.
+    ///
+    /// Errors from the spawned child are routed through `on_error` if
+    /// provided (parent's exception handler chain), matching the behavior
+    /// of background `coco.mount()` calls.
     pub async fn update(
         &self,
         subpath: StablePath,
         processor: Prof::ComponentProc,
+        on_error: Option<OnError>,
     ) -> Result<ComponentExecutionHandle> {
-        self.dispatch(subpath, Op::Update(processor)).await
+        self.dispatch(
+            subpath,
+            Op::Update {
+                processor,
+                on_error,
+            },
+        )
+        .await
     }
 
     /// Delete a child component. Same coalescing model as `update()`.
     /// The DB existence-removal + tombstone write happens synchronously
     /// here (before dispatch), so `update_full`'s tombstone scan sees a
     /// consistent state once dispatch returns.
-    pub async fn delete(&self, subpath: StablePath) -> Result<ComponentExecutionHandle> {
+    ///
+    /// Failures route through `on_error` (parent's exception handler
+    /// chain). The handler's `Result` decides propagation, symmetric
+    /// with `update()` — `Ok` swallows; `Err` propagates via the
+    /// returned handle. The tombstone always remains in the DB, so even
+    /// a failed delete is retried by the next reconcile's GC sweep.
+    pub async fn delete(
+        &self,
+        subpath: StablePath,
+        on_error: Option<OnError>,
+    ) -> Result<ComponentExecutionHandle> {
         // Synchronously remove the existence entry and write a tombstone,
         // matching the prior implementation's contract.
         if let Some((parent_ref, child_key)) = subpath.as_ref().split_parent() {
@@ -555,6 +596,11 @@ impl<Prof: EngineProfile> LiveComponentController<Prof> {
                 .app_ctx()
                 .env()
                 .run_txn(move |wtxn| {
+                    let app_store = app_store.clone();
+                    let parent_path = parent_path.clone();
+                    let child_key = child_key.clone();
+                    let component_path = component_path.clone();
+                    let relative_child = relative_child.clone();
                     Box::pin(async move {
                         app_store
                             .remove_child_with_tombstone(
@@ -569,7 +615,7 @@ impl<Prof: EngineProfile> LiveComponentController<Prof> {
                 })
                 .await?;
         }
-        self.dispatch(subpath, Op::Delete).await
+        self.dispatch(subpath, Op::Delete { on_error }).await
     }
 
     /// Insert into `pending` (collapsing any queued op for the same subpath
@@ -776,10 +822,14 @@ impl<Prof: EngineProfile> LiveComponentController<Prof> {
             None,
             self.processing_stats.clone(),
             self.host_ctx.clone(),
+            // No on_error on this synthetic parent context — it only
+            // exists to register the child in `child_path_set`; no
+            // commit/GC sweep runs through it.
             ComponentProcessingAction::new_build(
                 self.providers.clone(),
                 self.full_reprocess,
                 self.live,
+                None,
             ),
         );
         let fn_ctx = FnCallContext::default();
@@ -802,6 +852,9 @@ impl<Prof: EngineProfile> LiveComponentController<Prof> {
                 .app_ctx()
                 .env()
                 .run_txn(move |wtxn| {
+                    let app_store = app_store.clone();
+                    let parent_path = parent_path.clone();
+                    let child_key = child_key.clone();
                     Box::pin(async move {
                         crate::engine::execution::ensure_path_node_type(
                             &app_store,
@@ -1064,25 +1117,37 @@ async fn run_op<Prof: EngineProfile>(
     let _ = state; // kept for symmetry / future use
     let child = component.get_child(subpath.clone());
     match op {
-        Op::Update(processor) => {
+        Op::Update {
+            processor,
+            on_error,
+        } => {
             let context = ComponentProcessorContext::new(
                 child.clone(),
                 None,
                 processing_stats.clone(),
                 host_ctx.clone(),
-                ComponentProcessingAction::new_build(providers.clone(), full_reprocess, live),
+                // Mirror `Component::mount`: same on_error stored on the
+                // build context so this op's commit-phase GC sweep
+                // cascades it to orphan deletes.
+                ComponentProcessingAction::new_build(
+                    providers.clone(),
+                    full_reprocess,
+                    live,
+                    on_error.clone(),
+                ),
             );
             let inner_handle = child
-                .run_in_background(processor, context, None, None)
+                .run_in_background(processor, context, on_error, None)
                 .await?;
             inner_handle.ready().await
         }
-        Op::Delete => {
+        Op::Delete { on_error } => {
             let context = child.new_processor_context_for_delete(
                 providers.clone(),
                 None,
                 processing_stats.clone(),
                 host_ctx.clone(),
+                on_error,
             );
             let inner_handle = child.delete(context, None)?;
             inner_handle.ready().await

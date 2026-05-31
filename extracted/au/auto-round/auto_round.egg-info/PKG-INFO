@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: auto-round
-Version: 0.12.3
+Version: 0.13.0
 Summary: Repository of AutoRound: Advanced Weight-Only Quantization Algorithm for LLMs
 Home-page: https://github.com/intel/auto-round
 Author: Intel AIPT Team
@@ -53,7 +53,7 @@ Dynamic: summary
 <h3> Advanced Quantization Algorithm for LLMs</h3>
 
 [![python](https://img.shields.io/badge/python-3.10%2B-blue)](https://github.com/intel/auto-round)
-[![version](https://img.shields.io/badge/release-0.12.3-green)](https://github.com/intel/auto-round/releases)
+[![version](https://img.shields.io/badge/release-0.13.0-green)](https://github.com/intel/auto-round/releases)
 [![nightly](https://img.shields.io/badge/pypi-nightly-green)](https://pypi.org/project/auto-round-nightly)
 [![license](https://img.shields.io/badge/license-Apache%202-9C27B0)](https://github.com/intel/auto-round/blob/main/LICENSE)
 <a href="https://huggingface.co/Intel">
@@ -79,9 +79,13 @@ See our papers [SignRoundV1](https://arxiv.org/pdf/2309.05516) and [SignRoundV2]
 
 
 ## 🆕 What's New
-* [2026/03] **Block-wise FP8** quantization is available via `--scheme FP8_BLOCK --iters 0 --disable_opt_rtn`.
+* [2026/05] We provide **free** devices for calibration-free quantization via pure RTN mode; please visit [Intel Low Bit Open LLM Leaderboard](https://huggingface.co/spaces/Intel/low_bit_open_llm_leaderboard) for more details.
 
-* [2026/03] MTP layer quantization has been supported in [PR](https://github.com/intel/auto-round/pull/1526)
+* [2026/05] **Model free** quantization is available, `auto-round-rtn` will now default to using the model-free approach: [Doc](https://github.com/intel/auto-round/blob/main/docs/step_by_step.md#model-free-mode).
+
+* [2026/03] **Block-wise FP8** quantization is available and rtn mode is recommended. `auto-round-rtn --scheme FP8_BLOCK`.
+
+* [2026/03]  **MTP layer quantization** has been supported in this [PR](https://github.com/intel/auto-round/pull/1526)
 
 * [2025/12] The **SignRoundV2** paper is available. Turn on  `enable_alg_ext` and use the **AutoScheme** API for mixed-precision quantization to reproduce the results: [*Paper*](http://arxiv.org/abs/2512.04746), [*Notes for evaluating LLaMA models*](./docs/alg_202508.md).
 
@@ -128,10 +132,10 @@ Use `--iters 0` for fast quantization with some accuracy drop for 4 bits. Detail
 Quantize 7B models in about 10 minutes on a single GPU. Details are shown in [quantization costs](https://github.com/intel/auto-round/blob/main/docs/step_by_step.md#quantization-costs)
 
 ✅ **10+ VLMs Support**
-Out-of-the-box quantization for 10+ vision-language models [example models](https://huggingface.co/collections/OPEA/vlms-autoround-675bc712fdd6a55ebaf11bfa), [support matrix](https://github.com/intel/auto-round/tree/main/auto_round/mllm#support-matrix)
+Out-of-the-box quantization for 10+ vision-language models [example models](https://huggingface.co/collections/OPEA/vlms-autoround-675bc712fdd6a55ebaf11bfa), [support matrix](https://github.com/intel/auto-round/tree/main/auto_round/compressors/mllm#vlm-support-matrix)
 
 ✅ **Multiple Recipes**
-Choose from `auto-round-best`, `auto-round`, and `auto-round-light` to suit your needs. Details are shown in [quantization recipes](https://github.com/intel/auto-round/blob/main/docs/step_by_step.md#recipe-recommendation)
+Choose from `auto-round-best`, `auto-round`, `auto-round-light`, `auto-round-opt-rtn` (optimized RTN) and `auto-round-rtn` (pure RTN, fastest baseline) to suit your needs. Details are shown in [quantization recipes](https://github.com/intel/auto-round/blob/main/docs/step_by_step.md#recipe-recommendation)
 
 ✅ Advanced Utilities
 Includes [multiple gpus quantization](https://github.com/intel/auto-round/blob/main/docs/step_by_step.md#devicemulti-gpu-setting-in-quantization), [multiple calibration datasets](https://github.com/intel/auto-round/blob/main/docs/step_by_step.md#default-dataset) and support for [10+ runtime backends](https://github.com/intel/auto-round/blob/main/docs/step_by_step.md#specify-inference-backend).
@@ -215,6 +219,21 @@ auto-round-light \
 
   ```
 
+  ```bash
+# Optimized RTN (iters=0, opt_rtn enabled); fast baseline
+auto-round-opt-rtn \
+    --model Qwen/Qwen3-0.6B \
+    --scheme "W4A16"
+  ```
+
+  ```bash
+# Pure RTN (iters=0, no AutoRound optimization); fastest, lowest memory
+# auto-routes to model-free mode for supported INT WOQ schemes
+auto-round-rtn \
+    --model Qwen/Qwen3-0.6B \
+    --scheme "W4A16"
+  ```
+
   <!-- ```bash
 auto-round-fast \
 # Fast and low memory, 2-3X speedup, slight accuracy drop at W4G128
@@ -269,7 +288,7 @@ ar.quantize_and_save(output_dir="./qmodel", format="auto_round")
 - **`iters` (int)**: Number of tuning iterations (default is `200`). Common values: 0 (RTN mode), 50 (with lr=5e-3 recommended), 1000. Higher values increase accuracy but slow down tuning.
 - **`lr` (float)**: The learning rate for rounding value (default is `None`). When None, it will be set to `1.0/iters` automatically.
 - **`batch_size` (int)**: Batch size for training (default is `8`). 4 is also commonly used.
-- ** `enable_deterministic_algorithms` (bool)**: Whether to enable deterministic algorithms for reproducibility (default is `False`).
+- **`enable_deterministic_algorithms` (bool)**: Whether to enable deterministic algorithms for reproducibility (default is `False`).
 
 ##### Calibration Dataset
 - **`dataset` (str|list|tuple|torch.utils.data.DataLoader)**: The dataset for tuning (default is `"NeelNanda/pile-10k"`). Supports local JSON files and dataset combinations, e.g. `"./tmp.json,NeelNanda/pile-10k:train,mbpp:train+validation+test"`.
@@ -293,7 +312,7 @@ ar.quantize_and_save(output_dir="./qmodel", format="auto_round")
 | **auto_round**     | W4A16(Recommended), W2A16, W3A16, W8A16, W2A16G64, W2A16G32, `MXFP4`, `MXFP8`, `MXFP4_RCEIL`, `MXFP8_RCEIL`, `NVFP4`, `FPW8A16`, `FP8_STATIC`, `BF16`                     |
 | **auto_awq**       | W4A16(Recommended), BF16                                                                                                                                                  |
 | **auto_gptq**      | W4A16(Recommended), W2A16, W3A16, W8A16, W2A16G64, W2A16G32,BF16                                                                                                          |
-| **llm_compressor** | NVFP4(Recommended), `MXFP4`, `MXFP8`, `FPW8A16`, `FP8_STATIC`                                                                                                             |
+| **llm_compressor** | NVFP4(Recommended), `MXFP4`, `MXFP8`, `FPW8A16`, `FP8_STATIC`, `FP8_BLOCK`, `INT8`, `W4A16`, `W8A16`                                                                   |
 | **gguf**           | GGUF:Q4_K_M(Recommended), GGUF:Q2_K_S, GGUF:Q3_K_S, GGUF:Q3_K_M, GGUF:Q3_K_L, GGUF:Q4_K_S, GGUF:Q5_K_S, GGUF:Q5_K_M, GGUF:Q6_K, GGUF:Q4_0, GGUF:Q4_1, GGUF:Q5_0, GGUF:Q5_1,GGUF:Q8_0 |
 | **fake**           | `all schemes (only for research)`                                                                                                                                         |
 </details>

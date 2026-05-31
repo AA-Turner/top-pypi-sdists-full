@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pglast
-Version: 7.13
+Version: 7.14
 Summary: PostgreSQL Languages AST and statements prettifier
 Author-email: Lele Gaifax <lele@metapensiero.it>
 License-Expression: GPL-3.0-or-later
@@ -23,19 +23,19 @@ Classifier: Topic :: Database
 Classifier: Topic :: Utilities
 Description-Content-Type: text/x-rst
 Provides-Extra: dev
-Requires-Dist: bump-my-version==1.2.5; extra == "dev"
-Requires-Dist: cython==3.2.4; extra == "dev"
-Requires-Dist: pycparser==2.23; extra == "dev"
+Requires-Dist: bump-my-version==1.3.0; extra == "dev"
+Requires-Dist: cython==3.2.5; extra == "dev"
+Requires-Dist: pycparser==3.0; extra == "dev"
 Requires-Dist: readme-renderer==44.0; extra == "dev"
-Requires-Dist: setuptools==80.9.0; extra == "dev"
+Requires-Dist: setuptools==82.0.1; extra == "dev"
 Requires-Dist: sphinx==9.0.4; extra == "dev"
 Requires-Dist: twine==6.2.0; extra == "dev"
 Provides-Extra: test
-Requires-Dist: coverage==7.13.0; extra == "test"
-Requires-Dist: mypy==1.17.1; extra == "test"
-Requires-Dist: pytest-cov==7.0.0; extra == "test"
-Requires-Dist: pytest==9.0.2; extra == "test"
-Requires-Dist: ty==0.0.7; extra == "test"
+Requires-Dist: coverage==7.14.1; extra == "test"
+Requires-Dist: mypy==2.1.0; extra == "test"
+Requires-Dist: pytest-cov==7.1.0; extra == "test"
+Requires-Dist: pytest==9.0.3; extra == "test"
+Requires-Dist: ty==0.0.40; extra == "test"
 
 .. -*- coding: utf-8 -*-
 .. :Project:   pglast — PostgreSQL Languages AST

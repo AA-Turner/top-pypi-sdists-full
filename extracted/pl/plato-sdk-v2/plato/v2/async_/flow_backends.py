@@ -4,11 +4,10 @@ A ``FlowBackend`` is the side-effect surface the executor drives: it knows
 how to perform one action (click, fill, navigate, …) against *some* browser.
 The executor itself stays environment-agnostic.
 
-Currently only :class:`PlaywrightBackend` ships. For cases where the browser
-lives on a remote VM (e.g. an agent runtime), pair :func:`make_ssh_run_cmd`
-with :func:`plato.v2.async_.cdp_bridge.shared_cdp_chromium` to expose the
-remote chromium over CDP, then drive it with :class:`PlaywrightBackend` as
-usual.
+For cases where the browser lives on a remote VM (e.g. an agent runtime), pair
+:func:`make_ssh_run_cmd` with
+:func:`plato.v2.async_.cdp_bridge.shared_cdp_chromium` to expose the remote
+chromium over CDP, then drive it with :class:`PlaywrightBackend` as usual.
 """
 
 from __future__ import annotations

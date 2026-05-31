@@ -344,11 +344,14 @@ def _parse_fixes_from_llm(
         try:
             fixes = json.loads(raw_clean[start : end + 1], strict=False)
             if isinstance(fixes, dict) and fixes:
-                # Ensure at least one key matches a target file (exact, relative, or basename)
+                # Ensure at least one key matches a target file, exists, or is a valid code file under project root
                 any_match = False
                 for k in fixes.keys():
-                    k_clean = str(k).lower()
+                    k_str = str(k)
+                    k_clean = k_str.lower()
                     k_base = Path(k_clean).name
+                    
+                    # 1.1 Target files check
                     for target in all_targets:
                         t_lower = target.lower()
                         t_base = Path(t_lower).name
@@ -357,8 +360,45 @@ def _parse_fixes_from_llm(
                             break
                     if any_match:
                         break
+                        
+                    # 1.2 Exists under project check
+                    if (project_root / k_str).exists() or (project_root.parent / k_str).exists():
+                        any_match = True
+                        break
+                        
+                    # 1.3 Valid code file path check
+                    try:
+                        resolved_path = Path(k_str).resolve() if Path(k_str).is_absolute() else (project_root / k_str).resolve()
+                        if project_root.resolve() in resolved_path.parents or resolved_path == project_root.resolve():
+                            if resolved_path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".java", ".kt", ".json", ".toml", ".yaml", ".yml", ".ini", ".cfg"}:
+                                any_match = True
+                                break
+                        elif project_root.parent.resolve() in resolved_path.parents:
+                            if resolved_path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".java", ".kt", ".json", ".toml", ".yaml", ".yml", ".ini", ".cfg"}:
+                                any_match = True
+                                break
+                    except Exception:
+                        pass
+                
                 if any_match:
-                    return {str(k): str(v) for k, v in fixes.items()}
+                    # Normalize fixes keys to project-relative or parent-relative paths
+                    normalized_fixes = {}
+                    for k, v in fixes.items():
+                        k_str = str(k)
+                        try:
+                            k_path = Path(k_str)
+                            resolved = k_path.resolve() if k_path.is_absolute() else (project_root / k_path).resolve()
+                            if project_root.resolve() in resolved.parents or resolved == project_root.resolve():
+                                rel = str(resolved.relative_to(project_root.resolve()))
+                                normalized_fixes[rel] = str(v)
+                            elif project_root.parent.resolve() in resolved.parents:
+                                rel = str(resolved.relative_to(project_root.parent.resolve()))
+                                normalized_fixes[rel] = str(v)
+                            else:
+                                normalized_fixes[k_str] = str(v)
+                        except Exception:
+                            normalized_fixes[k_str] = str(v)
+                    return normalized_fixes
         except Exception:
             pass
 
@@ -378,6 +418,21 @@ def _parse_fixes_from_llm(
                 # Check if full path or file basename is explicitly mentioned in the comment line
                 if t_lower in line_clean or t_base in line_clean:
                     return target
+            
+            # Check if any path in the comment matches an existing or valid project file
+            for word in re.split(r"\s+", line_clean):
+                word_clean = word.strip("/\\*# ")
+                if word_clean and "." in word_clean:
+                    try:
+                        target_path = Path(word_clean)
+                        if (project_root / target_path).exists():
+                            return str(target_path)
+                        resolved_path = (project_root / target_path).resolve()
+                        if project_root.resolve() in resolved_path.parents:
+                            if resolved_path.suffix in {".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".java", ".kt", ".json", ".toml", ".yaml", ".yml", ".ini", ".cfg"}:
+                                return str(target_path)
+                    except Exception:
+                        pass
         return None
 
     for block in blocks:

@@ -173,9 +173,14 @@ class TestSearchReplaceArgsNotTruncated:
             for tc in m.tool_calls:
                 if tc.function.name != "write_file":
                     continue
-                args = tc.function.arguments or ""
-                parsed = json.loads(args)
-                if parsed.get("_truncated"):
+                args = (tc.function.arguments or "").strip()
+                # 2026-05-29 (commit 54d801b): compaction stub format
+                # changed from `{path:..., _truncated:true, ...}` to
+                # empty args `{}`. Empty-args stubs cause pydantic
+                # "field 'content' required" — a clean error path the
+                # model handles natively, vs. the old placeholder
+                # value Gemma 4 was copying back as new call args.
+                if args == "{}":
                     truncated_count += 1
 
         assert truncated_count > 0, "write_file args should still be truncated"

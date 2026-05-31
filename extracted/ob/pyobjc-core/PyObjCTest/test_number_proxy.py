@@ -9,6 +9,7 @@ import sys
 import warnings
 import operator
 import struct
+import fractions
 
 import objc
 from objc import super  # noqa: A004
@@ -18,6 +19,8 @@ from PyObjCTest.pythonnumber import OC_NumberInt
 from PyObjCTest.objectint import OC_ObjectInt
 from PyObjCTools.TestSupport import TestCase, os_level_key, os_release
 from PyObjCTest.test_object_proxy import NoObjectiveC
+
+from .coding import PyObjC_TestCodingClass
 
 OC_PythonNumber = objc.lookUpClass("OC_PythonNumber")
 OC_BuiltinPythonNumber = objc.lookUpClass("OC_BuiltinPythonNumber")
@@ -31,6 +34,16 @@ except objc.error:
 NSOrderedAscending = -1
 NSOrderedSame = 0
 NSOrderedDescending = 1
+
+
+class FractionNotDouble(fractions.Fraction):
+    def __float__(self):
+        return str(self)
+
+
+class FractionNotInt(fractions.Fraction):
+    def __int__(self):
+        return str(self)
 
 
 def as_nsnumber(value, encoding=None):
@@ -167,6 +180,7 @@ class TestNSNumber(TestCase):
             "long": NSNumber.numberWithUnsignedLongLong_(2**63 + 5000),
             "int": NSNumber.numberWithInt_(42),
             "float": NSNumber.numberWithDouble_(2.0),
+            "fraction": fractions.Fraction(1, 2),
         }
         import pickle
 
@@ -174,14 +188,34 @@ class TestNSNumber(TestCase):
 
         w = pickle.loads(data)
         if os_level_key(os_release()) < os_level_key("10.5"):
-            self.assertEqual(w, {"long": -(2**63) + 5000, "int": 42, "float": 2.0})
+            self.assertEqual(
+                w,
+                {
+                    "long": -(2**63) + 5000,
+                    "int": 42,
+                    "float": 2.0,
+                    "fraction": fractions.Fraction(1, 2),
+                },
+            )
         else:
-            self.assertEqual(w, {"long": 2**63 + 5000, "int": 42, "float": 2.0})
+            self.assertEqual(
+                w,
+                {
+                    "long": 2**63 + 5000,
+                    "int": 42,
+                    "float": 2.0,
+                    "fraction": fractions.Fraction(1, 2),
+                },
+            )
 
         for o in v.values():
+            if isinstance(o, fractions.Fraction):
+                continue
             self.assertTrue(hasattr(o, "__pyobjc_object__"))
 
         for o in w.values():
+            if isinstance(o, fractions.Fraction):
+                continue
             self.assertFalse(hasattr(o, "__pyobjc_object__"))
 
     def testShortConversions(self):
@@ -480,6 +514,7 @@ class TestPyNumber(TestCase):
         # Ensure that python numbers are proxied using the right proxy type
         for v in (0, 1, 2**32 + 1, 2**64 + 1, 42.5):
             self.assertIs(OC_NumberInt.numberClass_(v), OC_BuiltinPythonNumber)
+            self.assertTrue(PyObjC_TestCodingClass.classSupportsSecureCoding_(v))
 
         # The booleans True and False must be proxied as the corresponding
         # NSNumber constants, otherwise lowlevel Cocoa/CoreFoundation code
@@ -518,43 +553,42 @@ class TestPyNumber(TestCase):
         # using C casts, without any exceptions when converting a
         # negative value to an unsigned one and without exceptions for
         # overflow.
-        v = 42
+        with self.subTest("small integer"):
+            v = 42
 
-        self.assertEqual(OC_NumberInt.numberAsBOOL_(v), 1)
-        self.assertEqual(OC_NumberInt.numberAsChar_(v), 42)
-        self.assertEqual(OC_NumberInt.numberAsShort_(v), 42)
-        self.assertEqual(OC_NumberInt.numberAsInt_(v), 42)
-        self.assertEqual(OC_NumberInt.numberAsInteger_(v), 42)
-        self.assertEqual(OC_NumberInt.numberAsLong_(v), 42)
-        self.assertEqual(OC_NumberInt.numberAsLongLong_(v), 42)
-        self.assertEqual(OC_NumberInt.numberAsUnsignedChar_(v), 42)
-        self.assertEqual(OC_NumberInt.numberAsUnsignedShort_(v), 42)
-        self.assertEqual(OC_NumberInt.numberAsUnsignedInt_(v), 42)
-        self.assertEqual(OC_NumberInt.numberAsUnsignedInteger_(v), 42)
-        self.assertEqual(OC_NumberInt.numberAsUnsignedLong_(v), 42)
-        self.assertEqual(OC_NumberInt.numberAsUnsignedLongLong_(v), 42)
-        self.assertEqual(OC_NumberInt.numberAsUnsignedLongLong_(v), 42)
-        self.assertEqual(OC_NumberInt.numberAsFloat_(v), 42.0)
-        self.assertEqual(OC_NumberInt.numberAsDouble_(v), 42.0)
+            self.assertEqual(OC_NumberInt.numberAsBOOL_(v), 1)
+            self.assertEqual(OC_NumberInt.numberAsChar_(v), 42)
+            self.assertEqual(OC_NumberInt.numberAsShort_(v), 42)
+            self.assertEqual(OC_NumberInt.numberAsInt_(v), 42)
+            self.assertEqual(OC_NumberInt.numberAsInteger_(v), 42)
+            self.assertEqual(OC_NumberInt.numberAsLong_(v), 42)
+            self.assertEqual(OC_NumberInt.numberAsLongLong_(v), 42)
+            self.assertEqual(OC_NumberInt.numberAsUnsignedChar_(v), 42)
+            self.assertEqual(OC_NumberInt.numberAsUnsignedShort_(v), 42)
+            self.assertEqual(OC_NumberInt.numberAsUnsignedInt_(v), 42)
+            self.assertEqual(OC_NumberInt.numberAsUnsignedInteger_(v), 42)
+            self.assertEqual(OC_NumberInt.numberAsUnsignedLong_(v), 42)
+            self.assertEqual(OC_NumberInt.numberAsUnsignedLongLong_(v), 42)
+            self.assertEqual(OC_NumberInt.numberAsUnsignedLongLong_(v), 42)
+            self.assertEqual(OC_NumberInt.numberAsFloat_(v), 42.0)
+            self.assertEqual(OC_NumberInt.numberAsDouble_(v), 42.0)
 
         # Negative values
-        v = -42
+        with self.subTest("negative value"):
+            v = -42
 
-        self.assertEqual(OC_NumberInt.numberAsBOOL_(v), 1)
-        self.assertEqual(OC_NumberInt.numberAsChar_(v), -42)
-        self.assertEqual(OC_NumberInt.numberAsShort_(v), -42)
-        self.assertEqual(OC_NumberInt.numberAsInt_(v), -42)
-        self.assertEqual(OC_NumberInt.numberAsInteger_(v), -42)
-        self.assertEqual(OC_NumberInt.numberAsLong_(v), -42)
-        self.assertEqual(OC_NumberInt.numberAsLongLong_(v), -42)
-        self.assertEqual(OC_NumberInt.numberAsUnsignedChar_(v), 214)
-        self.assertEqual(OC_NumberInt.numberAsUnsignedShort_(v), 65494)
-        self.assertEqual(OC_NumberInt.numberAsUnsignedInt_(v), 4_294_967_254)
+            self.assertEqual(OC_NumberInt.numberAsBOOL_(v), 1)
+            self.assertEqual(OC_NumberInt.numberAsChar_(v), -42)
+            self.assertEqual(OC_NumberInt.numberAsShort_(v), -42)
+            self.assertEqual(OC_NumberInt.numberAsInt_(v), -42)
+            self.assertEqual(OC_NumberInt.numberAsInteger_(v), -42)
+            self.assertEqual(OC_NumberInt.numberAsLong_(v), -42)
+            self.assertEqual(OC_NumberInt.numberAsLongLong_(v), -42)
+            self.assertEqual(OC_NumberInt.numberAsUnsignedChar_(v), 214)
+            self.assertEqual(OC_NumberInt.numberAsUnsignedShort_(v), 65494)
+            self.assertEqual(OC_NumberInt.numberAsUnsignedInt_(v), 4_294_967_254)
 
-        if sys.maxsize == (2**31) - 1:
-            self.assertEqual(OC_NumberInt.numberAsUnsignedLong_(v), 4_294_967_254)
-            self.assertEqual(OC_NumberInt.numberAsUnsignedInteger_(v), 4_294_967_254)
-        else:
+        with self.subTest("large value"):
             self.assertEqual(
                 OC_NumberInt.numberAsUnsignedLong_(v), 18_446_744_073_709_551_574
             )
@@ -569,33 +603,67 @@ class TestPyNumber(TestCase):
         self.assertEqual(OC_NumberInt.numberAsDouble_(v), -42.0)
 
         # Overflow
-        v = 892_455
+        with self.subTest("overflow"):
+            v = 892_455
 
-        self.assertEqual(OC_NumberInt.numberAsBOOL_(v), 1)
-        self.assertEqual(OC_NumberInt.numberAsChar_(v), 39)
-        self.assertEqual(OC_NumberInt.numberAsShort_(v), -25049)
-        self.assertEqual(OC_NumberInt.numberAsUnsignedChar_(v), 39)
-        self.assertEqual(OC_NumberInt.numberAsUnsignedShort_(v), 40487)
+            self.assertEqual(OC_NumberInt.numberAsBOOL_(v), 1)
+            self.assertEqual(OC_NumberInt.numberAsChar_(v), 39)
+            self.assertEqual(OC_NumberInt.numberAsShort_(v), -25049)
+            self.assertEqual(OC_NumberInt.numberAsUnsignedChar_(v), 39)
+            self.assertEqual(OC_NumberInt.numberAsUnsignedShort_(v), 40487)
 
         # Python integer
-        v = 42
+        with self.subTest("python integer"):
+            v = 42
 
-        self.assertEqual(OC_NumberInt.numberAsBOOL_(v), 1)
-        self.assertEqual(OC_NumberInt.numberAsChar_(v), 42)
-        self.assertEqual(OC_NumberInt.numberAsShort_(v), 42)
-        self.assertEqual(OC_NumberInt.numberAsInt_(v), 42)
-        self.assertEqual(OC_NumberInt.numberAsInteger_(v), 42)
-        self.assertEqual(OC_NumberInt.numberAsLong_(v), 42)
-        self.assertEqual(OC_NumberInt.numberAsLongLong_(v), 42)
-        self.assertEqual(OC_NumberInt.numberAsUnsignedChar_(v), 42)
-        self.assertEqual(OC_NumberInt.numberAsUnsignedShort_(v), 42)
-        self.assertEqual(OC_NumberInt.numberAsUnsignedInt_(v), 42)
-        self.assertEqual(OC_NumberInt.numberAsUnsignedInteger_(v), 42)
-        self.assertEqual(OC_NumberInt.numberAsUnsignedLong_(v), 42)
-        self.assertEqual(OC_NumberInt.numberAsUnsignedLongLong_(v), 42)
-        self.assertEqual(OC_NumberInt.numberAsUnsignedLongLong_(v), 42)
-        self.assertEqual(OC_NumberInt.numberAsFloat_(v), 42.0)
-        self.assertEqual(OC_NumberInt.numberAsDouble_(v), 42.0)
+            self.assertEqual(OC_NumberInt.numberAsBOOL_(v), 1)
+            self.assertEqual(OC_NumberInt.numberAsChar_(v), 42)
+            self.assertEqual(OC_NumberInt.numberAsShort_(v), 42)
+            self.assertEqual(OC_NumberInt.numberAsInt_(v), 42)
+            self.assertEqual(OC_NumberInt.numberAsInteger_(v), 42)
+            self.assertEqual(OC_NumberInt.numberAsLong_(v), 42)
+            self.assertEqual(OC_NumberInt.numberAsLongLong_(v), 42)
+            self.assertEqual(OC_NumberInt.numberAsUnsignedChar_(v), 42)
+            self.assertEqual(OC_NumberInt.numberAsUnsignedShort_(v), 42)
+            self.assertEqual(OC_NumberInt.numberAsUnsignedInt_(v), 42)
+            self.assertEqual(OC_NumberInt.numberAsUnsignedInteger_(v), 42)
+            self.assertEqual(OC_NumberInt.numberAsUnsignedLong_(v), 42)
+            self.assertEqual(OC_NumberInt.numberAsUnsignedLongLong_(v), 42)
+            self.assertEqual(OC_NumberInt.numberAsUnsignedLongLong_(v), 42)
+            self.assertEqual(OC_NumberInt.numberAsFloat_(v), 42.0)
+            self.assertEqual(OC_NumberInt.numberAsDouble_(v), 42.0)
+
+        # Fraction
+        with self.subTest("fractions.Fraction"):
+            v = fractions.Fraction(1, 2)
+            self.assertEqual(OC_NumberInt.numberAsInt_(v), 0)
+            self.assertEqual(OC_NumberInt.numberAsUnsignedLongLong_(v), 0)
+            self.assertEqual(OC_NumberInt.numberAsFloat_(v), 0.5)
+            self.assertEqual(OC_NumberInt.numberAsDouble_(v), 0.5)
+
+            v = fractions.Fraction(2, 1)
+            self.assertEqual(OC_NumberInt.numberAsInt_(v), 2)
+            self.assertEqual(OC_NumberInt.numberAsUnsignedLongLong_(v), 2)
+            self.assertEqual(OC_NumberInt.numberAsFloat_(v), 2.0)
+            self.assertEqual(OC_NumberInt.numberAsDouble_(v), 2.0)
+
+        with self.subTest("FractionNotDouble"):
+            v = FractionNotDouble(1, 2)
+            self.assertEqual(OC_NumberInt.numberAsInt_(v), 0)
+            self.assertEqual(OC_NumberInt.numberAsUnsignedLongLong_(v), 0)
+            with self.assertRaisesRegex(TypeError, r"non-float|(must return a float)"):
+                OC_NumberInt.numberAsFloat_(v)
+            with self.assertRaisesRegex(TypeError, r"non-float|(must return a float)"):
+                OC_NumberInt.numberAsDouble_(v)
+
+        with self.subTest("FractionNotInt"):
+            v = FractionNotInt(1, 2)
+            with self.assertRaisesRegex(TypeError, r"non-int|(must return an int)"):
+                OC_NumberInt.numberAsInt_(v)
+            with self.assertRaisesRegex(TypeError, r"non-int|(must return an int)"):
+                OC_NumberInt.numberAsUnsignedLongLong_(v)
+            self.assertEqual(OC_NumberInt.numberAsFloat_(v), 0.5)
+            self.assertEqual(OC_NumberInt.numberAsDouble_(v), 0.5)
 
     def testPythonLongConversions(self):
         v = 42
@@ -744,16 +812,22 @@ class TestPyNumber(TestCase):
             self.assertEqual(OC_NumberInt.numberAsUnsignedShort_(v), 0)
 
     def testCompare(self):
+        self.assertEqual(OC_NumberInt.compareA_andB_(-1, 1), NSOrderedAscending)
         self.assertEqual(OC_NumberInt.compareA_andB_(0, 1), NSOrderedAscending)
         self.assertEqual(OC_NumberInt.compareA_andB_(0, 2**64), NSOrderedAscending)
         self.assertEqual(OC_NumberInt.compareA_andB_(0, 42.0), NSOrderedAscending)
 
         self.assertEqual(OC_NumberInt.compareA_andB_(0, -1), NSOrderedDescending)
+        self.assertEqual(OC_NumberInt.compareA_andB_(-1, -2), NSOrderedDescending)
         self.assertEqual(OC_NumberInt.compareA_andB_(0, -(2**64)), NSOrderedDescending)
         self.assertEqual(OC_NumberInt.compareA_andB_(0, -42.0), NSOrderedDescending)
 
+        self.assertEqual(OC_NumberInt.compareA_andB_(-1, -1), NSOrderedSame)
         self.assertEqual(OC_NumberInt.compareA_andB_(0, 0), NSOrderedSame)
         self.assertEqual(OC_NumberInt.compareA_andB_(0, 0.0), NSOrderedSame)
+
+        self.assertEqual(OC_NumberInt.compareA_andB_(0.0, 0), NSOrderedSame)
+        self.assertEqual(OC_NumberInt.compareA_andB_(0.0, 0.0), NSOrderedSame)
 
         self.assertEqual(
             OC_NumberInt.compareA_andB_(
@@ -838,6 +912,26 @@ class TestPyNumber(TestCase):
             pass
 
         self.assertIs(OC_NumberInt.numberClass_(myint(1)), OC_PythonNumber)
+        self.assertFalse(PyObjC_TestCodingClass.classSupportsSecureCoding_(myint(1)))
+
+        self.assertIs(
+            OC_NumberInt.numberClass_(fractions.Fraction(1, 2)), OC_PythonNumber
+        )
+        self.assertFalse(
+            PyObjC_TestCodingClass.classSupportsSecureCoding_(fractions.Fraction(1, 2))
+        )
+
+        self.assertIs(
+            OC_NumberInt.numberClass_(FractionNotDouble(1, 2)), OC_PythonNumber
+        )
+        self.assertFalse(
+            PyObjC_TestCodingClass.classSupportsSecureCoding_(FractionNotDouble(1, 2))
+        )
+
+        self.assertIs(OC_NumberInt.numberClass_(FractionNotInt(1, 2)), OC_PythonNumber)
+        self.assertFalse(
+            PyObjC_TestCodingClass.classSupportsSecureCoding_(FractionNotInt(1, 2))
+        )
 
 
 class TestInteractions(TestCase):
@@ -1139,6 +1233,9 @@ class TestComparsionMethods(TestCase):
         self.assertEqual(OC_NumberInt.objCTypeOf_(False), objc._C_CHR)
         self.assertEqual(OC_NumberInt.objCTypeOf_(2**63 + 10), objc._C_ULNG_LNG)
         self.assertEqual(OC_NumberInt.objCTypeOf_(2**80 + 10), objc._C_LNG_LNG)
+        self.assertEqual(
+            OC_NumberInt.objCTypeOf_(fractions.Fraction(2, 1)), objc._C_DBL
+        )
 
     def test_getValue(self):
         value = OC_NumberInt.getValueOf_(42)

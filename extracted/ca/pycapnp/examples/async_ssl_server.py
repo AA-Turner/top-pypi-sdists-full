@@ -10,7 +10,6 @@ import socket
 import capnp
 import thread_capnp
 
-
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
@@ -37,9 +36,7 @@ async def new_connection(stream):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        usage="""Runs the server bound to the given address/port ADDRESS. """
-    )
+    parser = argparse.ArgumentParser(usage="""Runs the server bound to the given address/port ADDRESS. """)
     parser.add_argument("address", help="ADDRESS:PORT")
     return parser.parse_args()
 
@@ -57,14 +54,10 @@ async def main():
     # Handle both IPv4 and IPv6 cases
     try:
         print("Try IPv4")
-        server = await capnp.AsyncIoStream.create_server(
-            new_connection, host, port, ssl=ctx, family=socket.AF_INET
-        )
+        server = await capnp.AsyncIoStream.create_server(new_connection, host, port, ssl=ctx, family=socket.AF_INET)
     except Exception:
         print("Try IPv6")
-        server = await capnp.AsyncIoStream.create_server(
-            new_connection, host, port, ssl=ctx, family=socket.AF_INET6
-        )
+        server = await capnp.AsyncIoStream.create_server(new_connection, host, port, ssl=ctx, family=socket.AF_INET6)
 
     async with server:
         await server.serve_forever()

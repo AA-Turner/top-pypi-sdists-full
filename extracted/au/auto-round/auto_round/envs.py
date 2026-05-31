@@ -20,6 +20,9 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 if TYPE_CHECKING:
     AR_LOG_LEVEL: str = "INFO"
     AR_USE_MODELSCOPE: bool = "False"
+    AUTO_ROUND_CACHE: Optional[str] = None
+    AUTO_ROUND_GGUF_AUTO_UPDATE: bool = False
+    LLAMA_CPP_ROOT: Optional[str] = None
 
 environment_variables: dict[str, Callable[[], Any]] = {
     # this is used for configuring the default logging level
@@ -31,8 +34,30 @@ environment_variables: dict[str, Callable[[], Any]] = {
     in ["1", "true"],
     "AR_OMP_NUM_THREADS": lambda: os.getenv("AR_OMP_NUM_THREADS", None),
     "AR_DISABLE_OFFLOAD": lambda: os.getenv("AR_DISABLE_OFFLOAD", "0").lower() in ("1", "true", "yes"),
+    "AR_DISABLE_DATASET_SUBPROCESS": lambda: os.getenv("AR_DISABLE_DATASET_SUBPROCESS", "0").lower() in ("1", "true"),
     "AR_DISABLE_COPY_MTP_WEIGHTS": lambda: os.getenv("AR_DISABLE_COPY_MTP_WEIGHTS", "0").lower()
     in ("1", "true", "yes"),
+    "AR_ACT_SCALE": lambda: float(os.getenv("AR_ACT_SCALE", "1.0")),
+    "AR_ENABLE_ACT_MINMAX_TUNING": lambda: os.getenv("AR_ENABLE_ACT_MINMAX_TUNING", "0").lower()
+    in ("1", "true", "yes"),
+    "AR_FUSE_ONLINE_ROTATION": lambda: os.getenv("AR_FUSE_ONLINE_ROTATION", "0").lower() in ("1", "true", "yes"),
+    # Controls the search range ratio for symmetric int scale search in
+    # `auto_round.data_type.int.search_scales`. The search bound is
+    # `nmax * AR_SEARCH_SCALE_RATIO` (default None).
+    "AR_SEARCH_SCALE_RATIO": lambda: (
+        float(os.getenv("AR_SEARCH_SCALE_RATIO")) if os.getenv("AR_SEARCH_SCALE_RATIO") is not None else None
+    ),
+    # Minimum value to which torch._dynamo cache_size_limit /
+    # accumulated_cache_size_limit / recompile_limit are bumped when
+    # ``enable_torch_compile`` is used. The default of 16 is enough to cover
+    # all distinct linear-weight shapes inside one transformer block (q/k/v/
+    # o_proj, gate/up/down_proj, ...) so that per-layer static recompiles do
+    # not exceed dynamo's default limit (8) and fall back to eager.
+    "AR_DYNAMO_CACHE_SIZE_LIMIT": lambda: int(os.getenv("AR_DYNAMO_CACHE_SIZE_LIMIT", "16")),
+    "AUTO_ROUND_CACHE": lambda: os.getenv("AUTO_ROUND_CACHE", None),
+    "AUTO_ROUND_GGUF_AUTO_UPDATE": lambda: os.getenv("AUTO_ROUND_GGUF_AUTO_UPDATE", "0").lower()
+    in ("1", "true", "yes", "on"),
+    "LLAMA_CPP_ROOT": lambda: os.getenv("LLAMA_CPP_ROOT", None),
 }
 
 
@@ -69,7 +94,7 @@ def set_config(**kwargs):
         if key in environment_variables:
             # Convert value to appropriate string format
             if key == "AR_USE_MODELSCOPE":
-                # Handle boolean values for AR_USE_MODELSCOPE
+                # Handle boolean values for boolean env flags
                 str_value = "true" if value in [True, "True", "true", "1", 1] else "false"
             else:
                 # For other variables, convert to string

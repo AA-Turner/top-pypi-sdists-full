@@ -31,10 +31,12 @@ from auto_round.compressors.utils import (
     is_dynamic_afp8,
     is_dynamic_wint8aint8,
     is_mx_fp,
+    is_mx_int,
     is_nv_fp,
     is_standard_fp,
     is_static_wfp8afp8,
     is_wfp8afp8,
+    is_wint_woq,
 )
 from auto_round.export.export_to_gguf.config import ModelType
 from auto_round.schemes import (
@@ -43,7 +45,9 @@ from auto_round.schemes import (
     get_gguf_scheme,
 )
 from auto_round.utils import (
+    INNER_SUPPORTED_LAYER_TYPES,
     SUPPORTED_FORMATS,
+    SUPPORTED_LAYER_TYPES,
     check_to_quantized,
     compress_layer_names,
     copy_python_files_from_model_cache,
@@ -67,8 +71,11 @@ class AutoRoundExportFormat(str, Enum):
     NV_FP = "nv_fp"
     MX_FP_RCEIL = "mx_fp_rceil"
     NV_FP4_WITH_STATIC_GS = "nv_fp4_with_static_gs"
-    INT8_W8A8 = "int8_w8a8"
+    INT8 = "int8_w8a8"
     FP8_BLOCK = "fp8_block"
+    MXINT4 = "mxint4"
+    MX_INT = "mx_int"
+    WINT_A16 = "wint_a16"
 
 
 if TYPE_CHECKING:
@@ -94,11 +101,13 @@ def _check_compatibility(formats: list[str], ar: BaseCompressor):
                 f"since scheme {gguf_format_name} can only be exported to format {gguf_format_name.lower()} or fake"
             )
             formats = tmp_format_name.split(",")
+
     if isinstance(ar.group_size, tuple) and any(["auto_round" in f.lower() for f in formats]):
         logger.warning(
-            "`auto_round` format can't be used for deploying block-wise fp8 quantization now, use `fp8` instead."
+            "auto_round:fp8 format only supports vLLM inference for now. "
+            "We recommend using the FP8 format via `--format fp8` instead."
         )
-        formats = ["fp8" if "auto_round" in f.lower() else f for f in formats]
+
     return formats
 
 
@@ -118,6 +127,10 @@ def get_formats(
     formats = _check_compatibility(formats, ar)
 
     formats = remove_duplicates(formats)
+
+    for fmt in formats:
+        if fmt not in SUPPORTED_FORMATS:
+            raise ValueError(f"{fmt} is not supported, we only support {SUPPORTED_FORMATS}")
 
     for i in range(len(formats)):
         if formats[i].startswith("gguf:"):
@@ -153,7 +166,7 @@ def _check_divisible_by_32(ar):
     skipped_layers = []
     if default_dict["data_type"] == "int" and default_dict["act_bits"] >= 16:
         for n, m in ar.model.named_modules():
-            if type(m) in ar.supported_types or m.__class__.__name__ in ar.inner_supported_types:
+            if type(m) in SUPPORTED_LAYER_TYPES or m.__class__.__name__ in INNER_SUPPORTED_LAYER_TYPES:
                 if m.weight.shape[0] % 32 or m.weight.shape[1] % 32:
                     if ar.layer_config is None:
                         ar.layer_config = {}
@@ -264,7 +277,7 @@ class OutputFormat(ABC):
 
         if ar.act_bits <= 8 and (not is_standard_fp(ar.act_data_type) or ar.act_dynamic) and not is_block_dynamic_fp8:
             logger.warning(
-                f"{self.format_name} format not support for current activation quantization configuration,"
+                f"{self.format_name} format does not support the current activation quantization configuration,"
                 " reset to fake format and save."
             )
             return "fake"
@@ -345,7 +358,18 @@ class FakeFormat(OutputFormat):
 
 @OutputFormat.register("llm_compressor")
 class LLMCompressorFormat(OutputFormat):
-    support_schemes = ["MXFP4", "MXFP8", "NVFP4", "FPW8A16", "FP8_STATIC", "INT8_W8A8", "FP8_BLOCK"]
+    support_schemes = [
+        "MXFP4",
+        "MXFP8",
+        "NVFP4",
+        "FPW8A16",
+        "FP8_STATIC",
+        "INT8",
+        "INT8_W8A8",
+        "FP8_BLOCK",
+        "W4A16",
+        "W8A16",
+    ]
     format_name = "llm_compressor"
 
     def __init__(self, format, ar):
@@ -362,7 +386,7 @@ class LLMCompressorFormat(OutputFormat):
             if is_nv_fp(ar.data_type) or is_mx_fp(ar.data_type):
                 from auto_round.export.export_to_llmcompressor import check_compressed_tensors_supported
 
-                check_compressed_tensors_supported()
+                check_compressed_tensors_supported(raise_error=True)
                 self.backend = LLMCompressorFormat(ar.data_type, ar)
             elif is_dynamic_afp8(ar) and is_block_wfp8(ar):
                 self.backend = LLMCompressorFormat(AutoRoundExportFormat.FP8_BLOCK.value, ar)
@@ -383,7 +407,13 @@ class LLMCompressorFormat(OutputFormat):
                 from auto_round.export.export_to_llmcompressor import check_compressed_tensors_supported
 
                 check_compressed_tensors_supported()
-                self.backend = LLMCompressorFormat(AutoRoundExportFormat.INT8_W8A8.value, ar)
+                self.backend = LLMCompressorFormat(AutoRoundExportFormat.INT8.name, ar)
+                self.backend.output_format = f"llm_compressor:{AutoRoundExportFormat.INT8.value}"
+            elif is_wint_woq(ar):
+                from auto_round.export.export_to_llmcompressor import check_compressed_tensors_supported
+
+                check_compressed_tensors_supported()
+                self.backend = LLMCompressorFormat(AutoRoundExportFormat.WINT_A16.value, ar)
         else:
             if format.upper() not in list(AutoRoundExportFormat.__members__.keys()):
                 raise KeyError(f"Unsupported backend format llm_compressor:{format}, please check")
@@ -397,7 +427,9 @@ class LLMCompressorFormat(OutputFormat):
             error_logs.append(f"bits={scheme.bits}")
         if not re.search("mxfp|fp|nvfp|int", scheme.data_type):
             error_logs.append(f"data_type={scheme.data_type}")
-        if scheme.data_type in ["fp", "int"] and scheme.bits != 8:
+        if scheme.data_type == "fp" and scheme.bits != 8:
+            error_logs.append(f"data_type={scheme.data_type}, bits={scheme.bits}")
+        if scheme.data_type == "int" and scheme.bits not in [4, 8]:
             error_logs.append(f"data_type={scheme.data_type}, bits={scheme.bits}")
         if scheme.super_bits:
             error_logs.append(f"super_bits={scheme.super_bits}")
@@ -463,11 +495,15 @@ class LLMCompressorFormat(OutputFormat):
             from auto_round.export.export_to_llmcompressor.export_to_static_fp import pack_layer
 
             return pack_layer(layer_name, model, self.get_backend_name(), device=device)
-        elif re.search(f"{AutoRoundExportFormat.INT8_W8A8.value}", self.output_format):
+        elif re.search(f"{AutoRoundExportFormat.INT8.value}", self.output_format):
             from auto_round.export.export_to_llmcompressor.export import pack_layer
 
             return pack_layer(layer_name, model, device=device)
         elif re.search(f"{AutoRoundExportFormat.FP8_BLOCK.value}", self.output_format):
+            from auto_round.export.export_to_llmcompressor.export import pack_layer
+
+            return pack_layer(layer_name, model, device=device)
+        elif re.search(f"{AutoRoundExportFormat.WINT_A16.value}", self.output_format):
             from auto_round.export.export_to_llmcompressor.export import pack_layer
 
             return pack_layer(layer_name, model, device=device)
@@ -662,7 +698,7 @@ class AutoAWQFormat(OutputFormat):
         if not awq_supported:
             logger.warning(f"The AutoAWQ format may not be supported due to {info}")
         if ar.bits != 4:
-            raise ValueError("The AWQ format only supports W4 quantization ")
+            raise ValueError(f"auto_awq format support quantization scheme with W4A16 but got bits={ar.bits}")
 
         if self.backend is None:
             _check_divisible_by_32(ar)
@@ -731,6 +767,7 @@ class GGUFFormat(OutputFormat):
 
     def __init__(self, format: str, ar: BaseCompressor):
         if format.startswith("gguf:"):
+            self._original_format = format  # preserve "gguf:q2_k_mixed" etc. for Phase 2b
             self.gguf_args_check(ar, format, model_type=ModelType.TEXT)
             if ar.mllm:
                 self.gguf_args_check(ar, format, model_type=ModelType.MMPROJ)
@@ -766,14 +803,14 @@ class GGUFFormat(OutputFormat):
         return True
 
     def check_and_reset_format(self, ar):
-        if ar.iters != 0 and ar.bits != 3 and not ar.enable_alg_ext:
+        if getattr(ar, "iters", 0) != 0 and ar.bits != 3 and not ar.enable_alg_ext:
             logger.warning_once(
                 "`iters=0` is recommended when exporting to current GGUF format"
                 " or add `enable_alg_ext` for better accuracy with much more tuning cost."
                 " Please refer to https://github.com/intel/auto-round/tree/main/docs/gguf_alg_ext_acc.md"
                 " for the accuracy results."
             )
-        elif ar.bits >= 8 and ar.iters != 0:
+        elif ar.bits >= 8 and getattr(ar, "iters", 0) != 0:
             logger.warning_once("`iters=0` is recommended for bits>=8")
 
         if getattr(ar, "quant_nontext_module", False):
@@ -842,7 +879,7 @@ class GGUFFormat(OutputFormat):
         import argparse
 
         from auto_round.export.export_to_gguf.config import GGUF_CONFIG
-        from auto_round.export.export_to_gguf.convert import download_convert_file
+        from auto_round.export.export_to_gguf.llama_cpp_conversion import get_conversion
         from auto_round.logger import logger
         from auto_round.utils.model import download_or_get_path, get_gguf_architecture
 
@@ -856,59 +893,16 @@ class GGUFFormat(OutputFormat):
             if f.startswith("gguf") and f not in GGUF_CONFIG:
                 logger.error(f"{f} is not supported, please check.")
 
-        redownload = False
         if export_gguf:
-            try:
-                from auto_round.export.export_to_gguf.convert_hf_to_gguf import (  # pylint: disable=E0401
-                    ModelBase,
-                    ModelType,
-                    get_model_architecture,
-                )
-
-                if isinstance(args_or_ar.model, str):
-                    model_path = args_or_ar.model
-                else:
-                    model_path = args_or_ar.model.name_or_path
-                if not os.path.isdir(model_path):
-                    model_path = download_or_get_path(model_path, args_or_ar.platform)
-                model_architecture = get_gguf_architecture(model_path, model_type=ModelType.TEXT)
-                if model_architecture not in ModelBase._model_classes[ModelType.TEXT]:
-                    logger.warning(
-                        f"Current version of gguf export does not support for {model_architecture},"
-                        " will re-download dependency file. Please restart the task."
-                    )
-                    redownload = True
-            except ModuleNotFoundError as e:
-                if "convert_hf_to_gguf" in str(e):
-                    logger.warning("GGUF export dependency file is not found, download from github.")
-                    redownload = True
-            except AttributeError as e:
-                raise ImportError(
-                    "Please use the latest gguf-py, you can use the following command to install it:\n"
-                    "git clone https://github.com/ggml-org/llama.cpp.git && cd llama.cpp/gguf-py"
-                    " && pip install . sentencepiece"
-                )
-            download_convert_file(redownload)
-
-            try:
-                from auto_round.export.export_to_gguf.convert_hf_to_gguf import (  # pylint: disable=E0401
-                    ModelBase,
-                    ModelType,
-                )
-            except ImportError as e:
-                raise ImportError(
-                    "Please use the latest gguf-py, you can use the following command to install it:\n"
-                    "git clone https://github.com/ggml-org/llama.cpp.git && cd llama.cpp/gguf-py"
-                    " && pip install . sentencepiece"
-                )
             if isinstance(args_or_ar.model, str):
                 model_path = args_or_ar.model
             else:
                 model_path = args_or_ar.model.name_or_path
             if not os.path.isdir(model_path):
                 model_path = download_or_get_path(model_path, args_or_ar.platform)
+            conversion = get_conversion(model_path, model_type=ModelType.TEXT)
             model_architecture = get_gguf_architecture(model_path, model_type=ModelType.TEXT)
-            if model_architecture not in ModelBase._model_classes[ModelType.TEXT]:
+            if not conversion.is_supported(model_architecture, ModelType.TEXT):
                 logger.error(f"Model {model_architecture} is not supported to export gguf format.")
                 sys.exit(1)
 
@@ -1032,8 +1026,7 @@ class FP8Format(OutputFormat):
 
         backend = self.get_backend_name()
 
-        # weight_block_size & ignored_layers are required by fp8 format, skip them in auto_round:fp8 format
-        if isinstance(serialization_dict["group_size"], tuple) and "auto_round" not in backend:
+        if isinstance(serialization_dict["group_size"], tuple):
             serialization_dict["weight_block_size"] = serialization_dict["group_size"]
 
             ignored_layers = []
@@ -1056,11 +1049,67 @@ class FP8Format(OutputFormat):
         )
 
 
+@OutputFormat.register("mlx")
+class MLXFormat(OutputFormat):
+    support_schemes = ["W2A16", "W2A16G32", "W2A16G64", "W3A16", "W4A16", "W5A16", "W6A16", "W8A16", "BF16"]
+    format_name = "mlx"
+
+    @classmethod
+    def check_scheme_args(cls: OutputFormat, scheme: QuantizationScheme) -> bool:
+        error_logs = []
+        if scheme.bits not in [2, 3, 4, 5, 6, 8, 16]:
+            error_logs.append(f"bits={scheme.bits}")
+        if scheme.act_bits != 16:
+            error_logs.append(f"act_bits={scheme.act_bits}")
+        if not re.search("int", scheme.data_type):
+            error_logs.append(f"data_type={scheme.data_type}")
+        if scheme.super_bits:
+            error_logs.append(f"super_bits={scheme.super_bits}")
+        if scheme.super_group_size:
+            error_logs.append(f"super_group_size={scheme.super_group_size}")
+        if error_logs:
+            raise ValueError(
+                f"MLX format support quantization scheme with {','.join(cls.support_schemes)} "
+                f"but got {', '.join(error_logs)}, please have a check."
+            )
+        return True
+
+    def pack_layer(self, layer_name, model, device=None, **kwargs):
+        from auto_round.export.export_to_mlx.export import pack_layer
+
+        pack_layer(layer_name, model, device=device, **kwargs)
+
+    def save_quantized(
+        self,
+        output_dir: str,
+        model: torch.nn.Module = None,
+        tokenizer: Callable = None,
+        layer_config: dict = None,
+        inplace: bool = True,
+        device: Union[str, torch.device] = "cpu",
+        serialization_dict: dict = None,
+        **kwargs,
+    ) -> torch.nn.Module:
+        from auto_round.export.export_to_mlx.export import save_quantized_as_mlx
+
+        return save_quantized_as_mlx(
+            output_dir=output_dir,
+            model=model,
+            tokenizer=tokenizer,
+            layer_config=layer_config,
+            inplace=inplace,
+            device=device,
+            serialization_dict=serialization_dict,
+            **kwargs,
+        )
+
+
 @OutputFormat.register("auto_round")
 @OutputFormat.register("auto_round:auto_awq")
 @OutputFormat.register("auto_round:llm_compressor")
 @OutputFormat.register("auto_round:gptqmodel", "auto_round:auto_gptq")
 @OutputFormat.register("auto_round:fp8")
+@OutputFormat.register("auto_round:mlx")
 class AutoRoundFormat(OutputFormat):
     support_schemes = [
         "W4A16",
@@ -1077,6 +1126,7 @@ class AutoRoundFormat(OutputFormat):
         "FP8_STATIC",
         "BF16",
         "FP8_BLOCK",
+        "MXINT4",
     ]
     format_name = "auto_round"
 
@@ -1085,7 +1135,7 @@ class AutoRoundFormat(OutputFormat):
         self.backend = None
 
         if format == "auto_round":
-            if ar.sym and "int" in ar.data_type:
+            if ar.sym and "int" in ar.data_type and "mx" not in ar.data_type:
                 self.backend = AutoGPTQFormat("auto_round:auto_gptq", ar)
             elif ar.bits == 4 and not ar.sym and "int" in ar.data_type:
                 if ar.layer_config is None:
@@ -1097,6 +1147,8 @@ class AutoRoundFormat(OutputFormat):
                 if enable_awq:
                     self.backend = AutoAWQFormat("auto_round:auto_awq", ar)
             elif is_nv_fp(ar.data_type) or is_mx_fp(ar.data_type):
+                self.backend = AutoRoundFormat(ar.data_type, ar)
+            elif is_mx_int(ar.data_type) and ar.bits == 4:  # only add mx_int4 now
                 self.backend = AutoRoundFormat(ar.data_type, ar)
             elif is_static_wfp8afp8(ar):  # static wfp8afp8
                 self.backend = AutoRoundFormat(AutoRoundExportFormat.FP8_STATIC.value, ar)
@@ -1112,10 +1164,15 @@ class AutoRoundFormat(OutputFormat):
                 )
         # for auto_round:fp8_static, auto_round:nv_fp etc.
         elif not format.startswith("auto_round"):
-            if format.upper() not in list(AutoRoundExportFormat.__members__.keys()):
+            if format == "mlx":
+                self.backend = MLXFormat("mlx", ar)
+            elif format.upper() not in list(AutoRoundExportFormat.__members__.keys()):
                 raise KeyError(f"Unsupported backend format auto_round:{format}, please check")
-            self.output_format = f"auto_round:{format}"
-            self.backend = None
+            else:
+                self.output_format = f"auto_round:{format}"
+                self.backend = None
+        elif format == "auto_round:mlx":
+            self.backend = MLXFormat("mlx", ar)
         else:
             backend = format.split(":")[1] if ":" in format else None
             self.backend = self._format_list.get(backend)(format, ar) if backend else None
@@ -1155,7 +1212,11 @@ class AutoRoundFormat(OutputFormat):
             f"auto_round:{AutoRoundExportFormat.MX_FP_RCEIL.value}",
             f"auto_round:{AutoRoundExportFormat.NV_FP4_WITH_STATIC_GS.value}",
         ]:
-            from auto_round.export.export_to_autoround.export_to_nvfp_mxfp import pack_layer
+            from auto_round.export.export_to_autoround.export_to_nvfp_mx import pack_layer
+
+            pack_func = pack_layer
+        elif self.output_format in [f"auto_round:{AutoRoundExportFormat.MX_INT.value}"]:
+            from auto_round.export.export_to_autoround.export_to_nvfp_mx import pack_layer
 
             pack_func = pack_layer
         elif self.output_format in [
@@ -1184,6 +1245,9 @@ class AutoRoundFormat(OutputFormat):
         **kwargs,
     ) -> torch.nn.Module:
         if self.backend is not None:
+            extra_kwargs = {}
+            if isinstance(self.backend, MLXFormat):
+                extra_kwargs["autoround_format"] = True
             return self.backend.save_quantized(
                 output_dir=output_dir,
                 model=model,
@@ -1192,11 +1256,12 @@ class AutoRoundFormat(OutputFormat):
                 inplace=inplace,
                 device=device,
                 serialization_dict=serialization_dict,
+                **extra_kwargs,
                 **kwargs,
             )
         backend = self.get_backend_name()
         if re.search(f"{AutoRoundExportFormat.MX_FP.value}|{AutoRoundExportFormat.NV_FP.value}", backend):
-            from auto_round.export.export_to_autoround.export_to_nvfp_mxfp import save_quantized_as_fp
+            from auto_round.export.export_to_autoround.export_to_nvfp_mx import save_quantized_as_fp
 
             backend = "auto_round:llm_compressor"
             export_func = save_quantized_as_fp
@@ -1205,6 +1270,11 @@ class AutoRoundFormat(OutputFormat):
 
             backend = "auto_round:fp8_static" if serialization_dict.get("act_bits", 16) == 8 else None
             export_func = save_quantized_as_autoround
+        elif re.search(f"{AutoRoundExportFormat.MX_INT.value}", backend):
+            from auto_round.export.export_to_autoround.export_to_nvfp_mx import save_quantized_as_fp
+
+            backend = "auto_round"
+            export_func = save_quantized_as_fp
         else:
             from auto_round.export.export_to_autoround.export import save_quantized_as_autoround
 

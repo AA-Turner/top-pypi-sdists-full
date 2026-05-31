@@ -127,6 +127,9 @@ _register_template("deepseek_vl_v2", default_dataset="NeelNanda/pile-10k", proce
 _register_template("mistral3", default_dataset="NeelNanda/pile-10k", processor=PROCESSORS["hf"])
 _register_template("mistral3_2", default_dataset="liuhaotian/llava", processor=PROCESSORS["mistral3_2"])
 _register_template("gemma3", default_dataset="NeelNanda/pile-10k", processor=PROCESSORS["hf"])
+_register_template("longcat_next", default_dataset="liuhaotian/llava", processor=PROCESSORS["longcat_next"])
+_register_template("mimo_audio", default_dataset="NeelNanda/pile-10k", processor=PROCESSORS["mimo_audio"])
+_register_template("qwen3_tts", default_dataset="NeelNanda/pile-10k", processor=PROCESSORS["qwen3_tts"])
 
 
 def load_template(path: str):
@@ -182,7 +185,7 @@ def get_template(
             template = TEMPLATES[template_or_path]
         else:
             if not quiet:
-                logger.warning(f"Unable to recognize {template_or_path}, using default template instead.")
+                logger.warning_once(f"Unable to recognize {template_or_path}, using default template instead.")
             template = TEMPLATES["default"]
             template.model_type = template_or_path
 

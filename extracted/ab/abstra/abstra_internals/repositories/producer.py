@@ -26,6 +26,7 @@ from abstra_internals.environment import (
     RABBITMQ_RETRY_INITIAL_DELAY_SECONDS,
     RABBITMQ_RETRY_MAX_ATTEMPTS,
     WORKER_LOG_TO_QUEUE,
+    web_editor_uses_db,
 )
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.models import (
@@ -304,7 +305,9 @@ class RabbitMQProducerRepository(ProducerRepository):
     ) -> None:
         conn = self.enqueue(stage_id, context, user_jwt)
 
-        if WORKER_LOG_TO_QUEUE:
+        # DB mode ignores ABSTRA_WORKER_LOG_TO_QUEUE: the editor poller streams
+        # logs, so we don't keep the connection open to forward worker logs.
+        if WORKER_LOG_TO_QUEUE and not web_editor_uses_db():
             AbstraLogger.warning(
                 f"[Server] ABSTRA_WORKER_LOG_TO_QUEUE=true, keeping connection open "
                 f"to receive worker logs (stage_id={stage_id})"

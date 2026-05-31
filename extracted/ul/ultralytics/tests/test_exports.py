@@ -16,7 +16,17 @@ import torch
 from tests import SOURCE
 from ultralytics import YOLO
 from ultralytics.cfg import TASK2DATA, TASK2MODEL, TASKS
-from ultralytics.utils import ARM64, IS_DOCKER, IS_RASPBERRYPI, LINUX, MACOS, MACOS_VERSION, WINDOWS, checks
+from ultralytics.utils import (
+    ARM64,
+    IS_DOCKER,
+    IS_RASPBERRYPI,
+    LINUX,
+    MACOS,
+    MACOS_VERSION,
+    WEIGHTS_DIR,
+    WINDOWS,
+    checks,
+)
 from ultralytics.utils.export.engine import torch2onnx
 from ultralytics.utils.torch_utils import (
     TORCH_1_10,
@@ -34,6 +44,20 @@ def skip_rpi_semantic(task):
     """Skip semantic segmentation export tests on Raspberry Pi due to memory constraints."""
     if IS_RASPBERRYPI and task == "semantic":
         pytest.skip("Semantic segmentation export tests are skipped on Raspberry Pi due to memory constraints.")
+
+
+def isolated_task_model(task, tmp_path):
+    """Copy a task model to a per-test path so exported artifacts cannot collide under xdist."""
+    source = WEIGHTS_DIR / TASK2MODEL[task]
+    if not source.exists():
+        from ultralytics.utils.downloads import attempt_download_asset
+
+        source.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(attempt_download_asset(source.name), source)
+
+    dst = tmp_path / source.name
+    shutil.copy(source, dst)
+    return dst
 
 
 @pytest.mark.parametrize("end2end", [False, True])
@@ -171,10 +195,10 @@ def test_export_onnx_matrix(task, dynamic, int8, half, batch, simplify, nms, end
         if not ((task == "classify" and nms) or (end2end and nms))
     ],
 )
-def test_export_torchscript_matrix(task, dynamic, int8, half, batch, nms, end2end):
+def test_export_torchscript_matrix(task, dynamic, int8, half, batch, nms, end2end, tmp_path):
     """Test YOLO model export to TorchScript format under varied configurations."""
     skip_rpi_semantic(task)
-    file = YOLO(TASK2MODEL[task]).export(
+    file = YOLO(isolated_task_model(task, tmp_path)).export(
         format="torchscript", imgsz=32, dynamic=dynamic, int8=int8, half=half, batch=batch, nms=nms, end2end=end2end
     )
     YOLO(file)([SOURCE] * batch, imgsz=64 if dynamic else 32)  # exported model inference
@@ -184,7 +208,6 @@ def test_export_torchscript_matrix(task, dynamic, int8, half, batch, nms, end2en
 @pytest.mark.slow
 @pytest.mark.skipif(not MACOS, reason="CoreML inference only supported on macOS")
 @pytest.mark.skipif(not TORCH_1_11, reason="CoreML export requires torch>=1.11")
-@pytest.mark.skipif(checks.IS_PYTHON_3_13, reason="CoreML not supported in Python 3.13")
 @pytest.mark.skipif(
     MACOS and MACOS_VERSION and MACOS_VERSION >= "15", reason="CoreML YOLO26 matrix test crashes on macOS 15+"
 )
@@ -256,7 +279,10 @@ def test_export_tflite_matrix(task, dynamic, int8, half, batch, nms, end2end):
 @pytest.mark.skipif(not TORCH_1_11, reason="CoreML export requires torch>=1.11")
 @pytest.mark.skipif(WINDOWS, reason="CoreML not supported on Windows")  # RuntimeError: BlobWriter not loaded
 @pytest.mark.skipif(LINUX and ARM64, reason="CoreML not supported on aarch64 Linux")
-@pytest.mark.skipif(checks.IS_PYTHON_3_13, reason="CoreML not supported in Python 3.13")
+@pytest.mark.skipif(
+    MACOS and checks.IS_PYTHON_MINIMUM_3_13,
+    reason="coremltools deadlocks after OpenVINO on macOS Python 3.13 (conflicting OpenMP runtimes)",
+)
 def test_export_coreml(isolated_model):
     """Test YOLO export to CoreML format and check for errors."""
     # Capture stdout and stderr
@@ -271,6 +297,26 @@ def test_export_coreml(isolated_model):
     output = stdout.getvalue() + stderr.getvalue()
     assert "Error" not in output, f"CoreML export produced errors: {output}"
     assert "You will not be able to run predict()" not in output, "CoreML export has predict() error"
+
+
+@pytest.mark.skipif(not TORCH_1_11, reason="RTDETR CoreML export requires torch>=1.11")
+@pytest.mark.skipif(WINDOWS, reason="CoreML not supported on Windows")
+@pytest.mark.skipif(LINUX and ARM64, reason="CoreML not supported on aarch64 Linux")
+@pytest.mark.skipif(
+    MACOS and checks.IS_PYTHON_MINIMUM_3_13,
+    reason="coremltools deadlocks after OpenVINO on macOS Python 3.13 (conflicting OpenMP runtimes)",
+)
+def test_export_coreml_rtdetr():
+    """Test RT-DETR export to CoreML format and check for errors."""
+    stdout, stderr = io.StringIO(), io.StringIO()
+    with redirect_stdout(stdout), redirect_stderr(stderr):
+        file = YOLO(WEIGHTS_DIR / "rtdetr-l.pt").export(format="coreml", imgsz=160)
+        if MACOS:
+            YOLO(file)(SOURCE, imgsz=160)
+
+    output = stdout.getvalue() + stderr.getvalue()
+    assert "Error" not in output, f"RTDETR CoreML export produced errors: {output}"
+    assert "You will not be able to run predict()" not in output, "RTDETR CoreML export has predict() error"
 
 
 @pytest.mark.skipif(not checks.IS_PYTHON_MINIMUM_3_10, reason="TFLite export requires Python>=3.10")
@@ -299,6 +345,10 @@ def test_export_paddle(isolated_model):
 
 
 @pytest.mark.skipif(not TORCH_1_10, reason="MNN export requires torch>=1.10")
+@pytest.mark.skipif(
+    LINUX and checks.IS_PYTHON_MINIMUM_3_13,
+    reason="MNN ONNX-parser protobuf conflicts with TensorFlow protobuf>=6.31.1 loaded earlier in the shared Python 3.13 test process",
+)
 def test_export_mnn(isolated_model):
     """Test YOLO export to MNN format (WARNING: MNN test must precede NCNN test or CI error on Windows)."""
     file = YOLO(isolated_model).export(format="mnn", imgsz=32)
@@ -344,7 +394,7 @@ def test_export_ncnn_matrix(task, half, batch):
 
 
 @pytest.mark.skipif(not TORCH_2_9, reason="IMX export requires torch>=2.9.0")
-@pytest.mark.skipif(not checks.IS_PYTHON_MINIMUM_3_9, reason="Requires Python>=3.9")
+@pytest.mark.skipif(not checks.IS_PYTHON_MINIMUM_3_9, reason="IMX export requires Python>=3.9")
 @pytest.mark.skipif(not LINUX, reason="IMX export only supported on Linux")
 @pytest.mark.skipif(
     IS_RASPBERRYPI, reason="Test disabled as IMX export suffers from OOM (Out of Memory) on Raspberry Pi 5 16GB"
@@ -394,6 +444,7 @@ def test_export_executorch_matrix(task):
 
 @pytest.mark.slow
 @pytest.mark.skipif(not TORCH_2_8 or TORCH_2_12, reason="Axelera export requires 2.8.0<=torch<2.12.0")
+@pytest.mark.skipif(checks.IS_PYTHON_MINIMUM_3_13, reason="Axelera devkit 1.6.0 does not support Python 3.13")
 @pytest.mark.skipif(
     not LINUX or (ARM64 and IS_DOCKER),
     reason="Axelera export is only supported on Linux and is not supported on ARM64 Docker",
@@ -409,15 +460,15 @@ def test_export_axelera(isolated_model):
 
 
 @pytest.mark.slow
-@pytest.mark.skipif(not LINUX or ARM64, reason="DeepX export only supported on non-aarch64 Linux")
+@pytest.mark.skipif(not LINUX or ARM64, reason="DEEPX export only supported on non-aarch64 Linux")
 @pytest.mark.skipif(
-    not checks.IS_PYTHON_MINIMUM_3_12, reason="Requires Python>=3.12 for CI validation due to torch upgrades"
+    not checks.IS_PYTHON_3_12, reason="Requires Python 3.12; dx-com 2.3.0 does not provide Python 3.13 wheels"
 )
 def test_export_deepx(isolated_model):
-    """Test YOLO export to DeepX format."""
+    """Test YOLO export to DEEPX format."""
     file = YOLO(isolated_model).export(format="deepx", imgsz=32)
-    assert Path(file).exists(), f"DeepX export failed, directory not found: {file}"
-    # Note: Inference testing skipped as it requires DeepX hardware
+    assert Path(file).exists(), f"DEEPX export failed, directory not found: {file}"
+    # Note: Inference testing skipped as it requires DEEPX hardware
     shutil.rmtree(file, ignore_errors=True)  # cleanup
 
 

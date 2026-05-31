@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashSet};
 
 use cocoindex_utils::fingerprint::Fingerprint;
 
-use crate::engine::component::{Component, ComponentBgChildReadiness};
+use crate::engine::component::{Component, ComponentBgChildReadiness, StatsGroup};
 use crate::engine::id_sequencer::IdSequencerManager;
 use crate::engine::profile::EngineProfile;
 use crate::engine::stats::ProcessingStats;
@@ -18,7 +18,7 @@ use crate::state::target_state_path::TargetStatePath;
 use crate::{
     engine::environment::{AppRegistration, Environment},
     state::stable_path::StablePath,
-    state_store::{AppStore, WriteTxn},
+    state_store::AppStore,
 };
 
 use cocoindex_utils::deser::from_msgpack_slice;
@@ -310,26 +310,29 @@ impl<Prof: EngineProfile> FnMemoCache<Prof> {
         self.entries.iter()
     }
 
-    /// Consume the cache and apply its diff to storage in a single write
-    /// transaction.
+    /// Consume the cache, classify entries, and serialize the writes
+    /// into a [`FnMemoFlushPlan`] that can be re-applied to storage
+    /// across retries.
     ///
-    /// - If `is_fully_loaded` is true: for each entry, write `Ready(Some)`
-    ///   with `already_stored=false` (new or re-executed), delete
-    ///   `Stored(_)` and `Ready(None)` (untouched or memoization-disabled),
-    ///   skip `Ready(Some)` with `already_stored=true` (cache hit, row
-    ///   already in DB).
-    /// - Otherwise: prefix-delete every fn-memo row for `path`, then write
-    ///   the `Ready(Some)` `already_stored=false` entries. Covers
-    ///   `full_reprocess` and any path where the cache was not prefetched.
-    pub(crate) async fn flush_to_db(
-        self,
-        wtxn: &mut WriteTxn<'_>,
-        app_store: &AppStore,
-        path: &StablePath,
-    ) -> Result<()> {
-        if !self.is_fully_loaded {
-            app_store.delete_all_fn_memos(wtxn, path).await?;
-        }
+    /// Inclusion rule (same as the old `flush_to_db`):
+    ///
+    /// - `Ready(Some, already_stored=false)` → serialize bytes into
+    ///   `writes` (new or re-executed entries that must be written).
+    /// - `Ready(Some, already_stored=true)` → skip (DB row already correct).
+    /// - `Stored(_)` and `Ready(None)` → record in `deletes`, only when
+    ///   `is_fully_loaded=true` (otherwise these entries can't exist on
+    ///   disk because prefetch didn't run).
+    /// - `Pending` → no-op (the function errored before resolving; no
+    ///   DB row exists or needs to exist).
+    ///
+    /// `clear_all_first` is set when `!is_fully_loaded` so the apply
+    /// step prefix-deletes the whole range before writing `writes`.
+    pub(crate) fn into_flush_plan(self) -> Result<FnMemoFlushPlan> {
+        let mut plan = FnMemoFlushPlan {
+            clear_all_first: !self.is_fully_loaded,
+            writes: Vec::new(),
+            deletes: Vec::new(),
+        };
         for (fp, lock) in self.entries.into_iter() {
             // No other holders at flush time — extract by reference under
             // a try_write guard rather than unwrapping the Arc, since
@@ -359,13 +362,14 @@ impl<Prof: EngineProfile> FnMemoCache<Prof> {
                         memo_states: memo_states_serialized,
                         context_memo_states: context_memo_states_serialized,
                     };
-                    app_store.write_fn_memo(wtxn, path, fp, &entry).await?;
+                    let encoded = rmp_serde::to_vec_named(&entry)?;
+                    plan.writes.push((fp, encoded));
                 }
                 FnCallMemoEntry::Stored(_) | FnCallMemoEntry::Ready(None) => {
                     if self.is_fully_loaded {
                         // Stored: untouched prefetched entry, stale.
                         // Ready(None): memoization disabled at runtime.
-                        app_store.delete_fn_memo(wtxn, path, fp).await?;
+                        plan.deletes.push(fp);
                     }
                 }
                 FnCallMemoEntry::Pending => {
@@ -379,8 +383,18 @@ impl<Prof: EngineProfile> FnMemoCache<Prof> {
                 }
             }
         }
-        Ok(())
+        Ok(plan)
     }
+}
+
+/// A serialized, re-applyable diff produced by
+/// [`FnMemoCache::into_flush_plan`]. Owns the encoded bytes for every
+/// write so `apply_to_db` can be called repeatedly across retries
+/// without re-touching the cache.
+pub(crate) struct FnMemoFlushPlan {
+    pub(crate) clear_all_first: bool,
+    pub(crate) writes: Vec<(Fingerprint, Vec<u8>)>,
+    pub(crate) deletes: Vec<Fingerprint>,
 }
 
 impl<Prof: EngineProfile> Default for FnMemoCache<Prof> {
@@ -447,10 +461,27 @@ pub(crate) struct ComponentBuildContext<Prof: EngineProfile> {
     pub state: Mutex<Option<ComponentBuildingState<Prof>>>,
     pub full_reprocess: bool,
     pub live: bool,
+    /// Error handler routed to orphan-delete failures from this build's
+    /// commit-phase GC sweep. Same shape and meaning as
+    /// `ComponentDeleteContext::on_error` — see that doc for the
+    /// unified principle. `None` preserves the "log + swallow"
+    /// default (e.g. root `App.update`, `use_mount`'s foreground path,
+    /// `mount_inner_live`'s self-built parent context).
+    pub on_error: Option<crate::engine::component::OnError>,
 }
 
 pub(crate) struct ComponentDeleteContext<Prof: EngineProfile> {
     pub providers: rpds::HashTrieMapSync<TargetStatePath, TargetStateProvider<Prof>>,
+    /// Error handler that cascades through descendant deletes triggered
+    /// by this delete's GC sweep. `App.drop()` installs a raising handler
+    /// at the root; it propagates down so any descendant failure surfaces
+    /// back through `handle.ready()` to the awaiting caller. `None`
+    /// preserves the "log + swallow" default for callers that don't need
+    /// propagation (e.g. `operator.delete` without a user-installed
+    /// raising handler).
+    ///
+    /// See `specs/core/error_handling.md` for the unified principle.
+    pub on_error: Option<crate::engine::component::OnError>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -469,6 +500,7 @@ impl<Prof: EngineProfile> ComponentProcessingAction<Prof> {
         providers: rpds::HashTrieMapSync<TargetStatePath, TargetStateProvider<Prof>>,
         full_reprocess: bool,
         live: bool,
+        on_error: Option<crate::engine::component::OnError>,
     ) -> Self {
         Self::Build(ComponentBuildContext {
             state: Mutex::new(Some(ComponentBuildingState {
@@ -481,6 +513,7 @@ impl<Prof: EngineProfile> ComponentProcessingAction<Prof> {
             })),
             full_reprocess,
             live,
+            on_error,
         })
     }
 }
@@ -489,9 +522,7 @@ struct ComponentProcessorContextInner<Prof: EngineProfile> {
     component: Component<Prof>,
     parent_context: Option<ComponentProcessorContext<Prof>>,
     processing_action: ComponentProcessingAction<Prof>,
-    components_readiness: ComponentBgChildReadiness,
 
-    processing_stats: ProcessingStats,
     inflight_permit: Mutex<Option<tokio::sync::OwnedSemaphorePermit>>,
 
     /// Logic fingerprints accumulated from function calls and child components.
@@ -501,9 +532,22 @@ struct ComponentProcessorContextInner<Prof: EngineProfile> {
     host_ctx: Arc<Prof::HostCtx>,
 }
 
+/// A `ComponentProcessorContext` is a thin view over a shared `inner`
+/// (component identity, building state, providers — never forked) plus three
+/// **per-view** fields that a `stats_group` substitutes: the stats bucket, the
+/// child-readiness accumulator, and the enclosing-group list for liveness.
+/// `Clone` shares everything (all `Arc`-based handles), so an unscoped clone is
+/// byte-for-byte equivalent; only `with_stats_group` produces a divergent view.
 #[derive(Clone)]
 pub struct ComponentProcessorContext<Prof: EngineProfile> {
     inner: Arc<ComponentProcessorContextInner<Prof>>,
+    /// Where this view's components report stats (root's, or a group's).
+    processing_stats: ProcessingStats,
+    /// Where children mounted under this view register their readiness.
+    components_readiness: ComponentBgChildReadiness,
+    /// Enclosing stats groups, outermost-first, for live-member liveness
+    /// fan-out. Empty for the root / unscoped views.
+    stats_groups: Arc<Vec<Arc<StatsGroup<Prof>>>>,
 }
 
 impl<Prof: EngineProfile> ComponentProcessorContext<Prof> {
@@ -519,12 +563,39 @@ impl<Prof: EngineProfile> ComponentProcessorContext<Prof> {
                 component,
                 parent_context,
                 processing_action,
-                components_readiness: Default::default(),
-                processing_stats,
                 inflight_permit: Mutex::new(None),
                 logic_deps: Mutex::new(HashSet::new()),
                 host_ctx,
             }),
+            processing_stats,
+            components_readiness: Default::default(),
+            stats_groups: Arc::new(Vec::new()),
+        }
+    }
+
+    /// Derive a sibling view that reports into `group`'s stats, registers child
+    /// readiness into `group`'s readiness, and appends `group` to the
+    /// enclosing-group list (for live-member liveness). Shares `inner` — so
+    /// component identity, building state, providers, and the inflight permit
+    /// are unchanged.
+    pub(crate) fn with_stats_group(&self, group: &Arc<StatsGroup<Prof>>) -> Self {
+        let mut stats_groups = Vec::with_capacity(self.stats_groups.len() + 1);
+        stats_groups.extend(self.stats_groups.iter().cloned());
+        stats_groups.push(group.clone());
+        Self {
+            inner: self.inner.clone(),
+            processing_stats: group.stats().clone(),
+            components_readiness: group.readiness().clone(),
+            stats_groups: Arc::new(stats_groups),
+        }
+    }
+
+    /// Register a freshly-mounted child as an active member of every enclosing
+    /// stats group, so each group's liveness tracking sees it (and, via the
+    /// strong parent-chain, its whole subtree). No-op when not in a group.
+    pub fn push_active_member(&self, child: &Component<Prof>) {
+        for group in self.stats_groups.iter() {
+            group.push_member(child);
         }
     }
 
@@ -569,9 +640,7 @@ impl<Prof: EngineProfile> ComponentProcessorContext<Prof> {
         }
         let app_store = self.app_ctx().app_store();
         let path = self.stable_path();
-        let mut rtxn = self.app_ctx().env().read_txn().await?;
-        let rows = app_store.list_fn_memos(&mut rtxn, path).await?;
-        drop(rtxn);
+        let rows = app_store.list_fn_memos(path).await?;
         self.update_building_state(|s| {
             s.fn_memos.populate(rows);
             Ok(())
@@ -614,13 +683,53 @@ impl<Prof: EngineProfile> ComponentProcessorContext<Prof> {
     }
 
     pub fn components_readiness(&self) -> &ComponentBgChildReadiness {
-        &self.inner.components_readiness
+        &self.components_readiness
     }
 
     pub(crate) fn mode(&self) -> ComponentProcessingMode {
         match &self.inner.processing_action {
             ComponentProcessingAction::Build(_) => ComponentProcessingMode::Build,
             ComponentProcessingAction::Delete { .. } => ComponentProcessingMode::Delete,
+        }
+    }
+
+    /// Clone of the `on_error` handler installed at the context's creation,
+    /// available for both Build- and Delete-mode contexts.
+    ///
+    /// Read by:
+    /// - `Component::delete`'s spawned task (Delete only — invoke on this
+    ///   component's own failure).
+    /// - The commit-phase GC sweep (both modes — cascade to descendant
+    ///   deletes triggered by this component's submit/commit).
+    ///
+    /// For Delete-mode (`App.drop`'s root), the raising handler installed
+    /// at root cascades down through every recursive delete. For Build-mode
+    /// (a `coco.mount` child whose `process()` no longer declares a
+    /// previously-existing grandchild), the child's user-installed
+    /// exception handler chain — wired through `Component::mount`'s
+    /// `on_error` parameter — sees orphan-delete failures from the
+    /// commit-phase GC sweep.
+    ///
+    /// Returns `None` when no handler was installed (e.g. root `App.update`,
+    /// `use_mount`'s foreground path, `operator.delete` without a
+    /// user-installed raising handler).
+    pub(crate) fn processing_action_on_error(&self) -> Option<crate::engine::component::OnError> {
+        match &self.inner.processing_action {
+            ComponentProcessingAction::Build(b) => b.on_error.clone(),
+            ComponentProcessingAction::Delete(d) => d.on_error.clone(),
+        }
+    }
+
+    /// Delete-mode-only on_error accessor. Used by `Component::delete`'s
+    /// spawned task to invoke the handler on this component's own
+    /// execution failure (a *Build*-context's on_error is meant for
+    /// orphan-delete cascades, not for invoking on the build's own
+    /// failure — that flows through the `on_error` argument to
+    /// `run_in_background` directly).
+    pub(crate) fn delete_action_on_error(&self) -> Option<crate::engine::component::OnError> {
+        match &self.inner.processing_action {
+            ComponentProcessingAction::Delete(d) => d.on_error.clone(),
+            ComponentProcessingAction::Build(_) => None,
         }
     }
 
@@ -673,7 +782,7 @@ impl<Prof: EngineProfile> ComponentProcessorContext<Prof> {
     }
 
     pub fn processing_stats(&self) -> &ProcessingStats {
-        &self.inner.processing_stats
+        &self.processing_stats
     }
 
     pub fn full_reprocess(&self) -> bool {

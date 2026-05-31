@@ -754,7 +754,17 @@ class DrydockConfig(BaseSettings):
         cls._migrate()
         config = cls(**(overrides or {}))
 
-        # --local flag: inject local provider and model if env vars set
+        # --local flag: inject local provider and model if env vars set.
+        # 2026-05-30: if there's ALREADY a model with alias='local' in
+        # the loaded config (because the user's config.toml has one, OR
+        # because bootstrap_config_files just wrote one via the --local
+        # path), DO NOT prepend another — that triggers the
+        # _validate_model_uniqueness "Duplicate model alias 'local'"
+        # error. Surfaced when the harbor terminal-bench adapter ran
+        # with --local URL set: bootstrap wrote `local`, then load()
+        # added a second one, validator rejected the merge in
+        # AgentLoop.__init__. Instead, update the existing local
+        # entry's name + provider to honor the env-var override.
         import os as _os
         local_url = _os.environ.get("DRYDOCK_LOCAL_URL")
         if local_url:
@@ -764,13 +774,46 @@ class DrydockConfig(BaseSettings):
                 name="local-cli", api_base=local_url,
                 api_key_env_var="", backend=Backend.GENERIC,
             )
-            local_model_cfg = ModelConfig(
-                name=local_model, provider="local-cli",
-                alias="local", input_price=0, output_price=0,
+
+            existing_local_idx = next(
+                (i for i, m in enumerate(config.models) if m.alias == "local"),
+                None,
             )
-            config.providers = [local_provider] + list(config.providers)
-            config.models = [local_model_cfg] + list(config.models)
-            config.active_model = local_model
+            existing_provider_idx = next(
+                (i for i, p in enumerate(config.providers)
+                 if p.name == "local-cli"),
+                None,
+            )
+            if existing_provider_idx is not None:
+                # Replace existing local-cli provider in place.
+                providers_list = list(config.providers)
+                providers_list[existing_provider_idx] = local_provider
+                config.providers = providers_list
+            else:
+                config.providers = [local_provider] + list(config.providers)
+
+            if existing_local_idx is not None:
+                # Update the existing `local`-aliased entry to point at
+                # the env-var-specified backend + model name.
+                models_list = list(config.models)
+                old = models_list[existing_local_idx]
+                models_list[existing_local_idx] = old.model_copy(update={
+                    "name": local_model,
+                    "provider": "local-cli",
+                })
+                config.models = models_list
+            else:
+                local_model_cfg = ModelConfig(
+                    name=local_model, provider="local-cli",
+                    alias="local", input_price=0, output_price=0,
+                )
+                config.models = [local_model_cfg] + list(config.models)
+            # active_model must be an ALIAS (get_active_model matches
+            # `model.alias == self.active_model`). The alias here is
+            # always "local" regardless of the model's name — set it
+            # explicitly so a DRYDOCK_LOCAL_MODEL override like
+            # "gemma4" doesn't break the lookup.
+            config.active_model = "local"
 
         return config
 

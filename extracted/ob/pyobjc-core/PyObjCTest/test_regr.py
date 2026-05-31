@@ -16,12 +16,20 @@ from PyObjCTest.fnd import NSAutoreleasePool, NSObject
 from PyObjCTest.testbndl import OC_TestClass1
 from PyObjCTest.properties import OCPropertyDefinitions
 from PyObjCTools.TestSupport import TestCase
+from .objectint import OC_ObjectInt
+from .test_metadata import NoObjCClass, OC_MetaDataTest
 
 rct = structargs.StructArgClass.someRect.__metadata__()["retval"]["type"]
 
 NSInvocation = objc.lookUpClass("NSInvocation")
 NSArray = objc.lookUpClass("NSArray")
 NSString = objc.lookUpClass("NSString")
+
+# This metata will be ignored, overriding return value 'double'
+# with a much smaller type ('char')
+objc.registerMetaDataForSelector(
+    b"OC_TestClass1", b"sumA:B:C:D:E:F:", {"retval": {"type": b"c"}}
+)
 
 
 class OCTestRegrWithGetItem(NSObject):
@@ -226,6 +234,24 @@ class TestRegressions(TestCase):
         v = o.someRect()
         self.assertEqual(v, ((1, 2), (3, 4)))
 
+    def test_use_metaclass_as_self(self):
+        NSArray.array()
+        m = type(NSArray).__dict__["array"]
+
+        o = m(type(NSArray))
+        self.assertIsInstance(o, NSArray)
+        self.assertEqual(o, [])
+
+    def test_use_invalid__as_self_for_classmethod(self):
+        NSArray.array()
+        m = type(NSArray).__dict__["array"]
+
+        with self.assertRaisesRegex(
+            TypeError,
+            "Need objective-C object or class as self, not an instance of 'int'",
+        ):
+            m(42)
+
 
 if sys.byteorder == "little":
     # i386 has specific stack alignment requirements.
@@ -422,6 +448,24 @@ class TestTypedefedClass(TestCase):
 
         o = v.parent()
         self.assertIsInstance(o, objc.lookUpClass("NSArray"))
+
+
+class TestLargeSimpleMethod(TestCase):
+    def test_large_but_simple_signature(self):
+        o = OC_TestClass1.alloc().init()
+
+        a = (1.0,) * 8
+        b = (2.0,) * 8
+        c = (3.0,) * 8
+        d = (4.0,) * 8
+        e = (5.0,) * 8
+        f = (6.0,) * 8
+
+        self.assertEqual(
+            o.sumA_B_C_D_E_F_(a, b, c, d, e, f), 1.0 + 2.0 + 3.0 + 4.0 + 5.0 + 6.0
+        )
+
+        self.assertResultHasType(o.sumA_B_C_D_E_F_, objc._C_DBL)
 
 
 class TestReboundMethod(TestCase):
@@ -722,7 +766,7 @@ class TestSuperClassAttr(TestCase):
             getattr(objc.super(NSObject, NSObject.new()), 42)
 
 
-class TestSuperDealloc(TestCase):
+class TestSuperMisc(TestCase):
     def test_super_dealloc(self):
         deleted = False
 
@@ -734,6 +778,21 @@ class TestSuperDealloc(TestCase):
         s = super(D, D())
         del s
         assert deleted
+
+    def test_super_invalid_class(self):
+        with self.assertRaisesRegex(
+            TypeError, r"(not an instance)|(must be an instance)"
+        ):
+            objc.super(list, ()).index
+
+    def test_non_method(self):
+        class Base:
+            attr = 42
+
+        class Sub(Base):
+            pass
+
+        self.assertEqual(objc.super(Sub, Sub()).attr, 42)
 
 
 class TestMagic(TestCase):
@@ -826,7 +885,6 @@ class TestDelRevives(TestCase):
 
 class TestMisCConversions(TestCase):
     def test_sel(self):
-        # XXX: Fix me for PyObjC 12:
         self.assertEqual(objc.repythonify(b"hello", objc._C_SEL), "hello")
         self.assertEqual(objc.repythonify("hello", objc._C_SEL), "hello")
         self.assertEqual(
@@ -871,6 +929,9 @@ class TestMisCConversions(TestCase):
         ):
             objc.repythonify(inval[:-1], b"(p=fi)")
 
+        with self.assertRaisesRegex(objc.error, "invalid union encoding"):
+            objc.repythonify(inval, b"(p=fi")
+
     def test_vector(self):
         out = objc.repythonify((42,) * 4, b"<4i>")
         self.assertEqual(out, objc.simd.vector_int4(42, 42, 42, 42))
@@ -880,17 +941,71 @@ class TestMisCConversions(TestCase):
 
     def test_float(self):
         for encoding in (objc._C_FLT, objc._C_DBL, objc._C_LNG_DBL):
-            self.assertEqual(objc.repythonify(2.5, encoding), 2.5)
+            with self.subTest(encoding=encoding):
+                self.assertEqual(objc.repythonify(2.5, encoding), 2.5)
 
-            f = fractions.Fraction(1, 2)
-            self.assertEqual(float(f), 0.5)
+                f = fractions.Fraction(1, 2)
+                self.assertEqual(float(f), 0.5)
 
-            self.assertEqual(objc.repythonify(f, encoding), 0.5)
+                self.assertEqual(objc.repythonify(f, encoding), 0.5)
 
-            with self.assertRaisesRegex(
-                ValueError, "depythonifying '[a-z ]*', got 'str'"
-            ):
-                objc.repythonify("2.5", encoding)
+                with self.assertRaisesRegex(
+                    ValueError, "depythonifying '[a-z ]*', got 'str'"
+                ):
+                    objc.repythonify("2.5", encoding)
+
+                with self.assertRaisesRegex(
+                    OverflowError, "int too large to convert to float"
+                ):
+                    objc.repythonify(2**10000, encoding)
+
+                with self.assertRaisesRegex(
+                    ValueError, "depythonifying '.*', got 'object'"
+                ):
+                    objc.repythonify(object(), encoding)
+
+    def test_invalid_struct(self):
+        with self.assertRaisesRegex(objc.error, "invalid struct encoding"):
+            objc.repythonify([1, 2], type=b"{name=[2f]")
+
+        with self.assertRaisesRegex(
+            objc.error, r"Invalid array definition in type signature: \[2f}"
+        ):
+            objc.repythonify([1, 2], type=b"{name=[2f}")
+
+        with self.assertRaisesRegex(objc.error, r"Unhandled type"):
+            objc.repythonify([1, 2], type=b"{name=[2x]}")
+
+        with self.assertRaisesRegex(objc.error, r"Unhandled type"):
+            objc.repythonify([1, 2], type=b"{name=fx}")
+
+        with self.assertRaisesRegex(ValueError, "depythonifying unknown typespec 0x3f"):
+            objc.repythonify([1, 2], type=b"{name=f?}")
+
+        y = objc.repythonify([1, 2], type=b"{name=ff}44")
+        self.assertEqual(y, (1.0, 2.0))
+
+    def test_struct_conversion_failures(self):
+        o = ((object(), True),)
+        v = objc.repythonify(o, type=b"{name=[2@]}")
+        self.assertEqual(v, o)
+
+        o = ((object(), NoObjCClass()),)
+
+        with self.assertRaisesRegex(TypeError, "Cannot proxy"):
+            objc.repythonify(o, type=b"{name=[2@]}")
+
+    def test_int(self):
+        class NumberLike:
+            def __int__(self):
+                return 2**128
+
+        for typecode in (objc._C_INT, objc._C_LNG, objc._C_LNG_LNG):
+            v = objc.repythonify(1, type=typecode)
+            self.assertEqual(v, 1)
+
+            with self.assertRaises(OverflowError):
+                objc.repythonify(NumberLike(), type=typecode)
 
 
 class TestConvertNegativeToUnsigedWarns(TestCase):
@@ -911,12 +1026,6 @@ class TestConvertNegativeToUnsigedWarns(TestCase):
                 DeprecationWarning, "converting negative value to unsigned integer"
             ):
                 objc.repythonify(Number(), b"I")
-
-
-class TestKeywordArgumentsForSelect(TestCase):
-    def test_kwargs_not_allowed(self):
-        with self.assertRaisesRegex(TypeError, "does not accept keyword arguments"):
-            NSArray.arrayWithArray_(a=4)
 
 
 class TestInvokingMethods(TestCase):
@@ -1030,6 +1139,15 @@ class TestSelectorEdgeCases(TestCase):
         with self.assertRaisesRegex(TypeError, "cannot use staticmethod"):
             objc.selector(func)
 
+    def test_kwargs_not_allowed(self):
+        with self.assertRaisesRegex(TypeError, "does not accept keyword arguments"):
+            NSArray.arrayWithArray_(a=4)
+
+    def test_object_arg_cannot_be_converted(self):
+        a = NSArray.array()
+        with self.assertRaisesRegex(TypeError, "Cannot proxy"):
+            a.containsObject_(NoObjCClass())
+
 
 class TestStringSpecials(TestCase):
     def test_passing_string_as_self(self):
@@ -1053,10 +1171,6 @@ class TestStringSpecials(TestCase):
 
         self.assertEqual(m(o), 5)
         self.assertEqual(m(o.nsstring()), 5)
-        with self.assertRaisesRegex(
-            TypeError, "Expecting instance of .* as self, got one of str"
-        ):
-            m("Theo")
 
         with self.assertRaisesRegex(
             TypeError, "Expecting instance of .* as self, got one of int"
@@ -1095,14 +1209,19 @@ class TestStringSpecials(TestCase):
         self.assertEqual(m(o.nsstring(), None, (0, 3)), "hel")
 
         with self.assertRaisesRegex(
-            TypeError, "Expecting instance of .* as self, got one of str"
-        ):
-            m("Theo", None, (0, 3))
-
-        with self.assertRaisesRegex(
             TypeError, "Expecting instance of .* as self, got one of int"
         ):
             m(42, None, (0, 3))
+
+    def test_using_str_with_nsstring(self):
+        self.assertTrue(
+            NSString.localizedCaseInsensitiveCompare_("foo", "bar") == 1,
+            "NSString doesn't compare correctly",
+        )
+        self.assertTrue(
+            NSString.localizedCaseInsensitiveCompare_("foo", "Foo") == 0,
+            "NSString doesn't compare correctly",
+        )
 
 
 class TestClasses(TestCase):
@@ -1173,9 +1292,20 @@ class TestClasses(TestCase):
         self.assertFalse(objc.objc_object >= NSObject)
 
         self.assertFalse(NSObject < objc.objc_object)
+        self.assertFalse(NSObject < objc.objc_object)
         self.assertFalse(NSObject <= objc.objc_object)
         self.assertTrue(NSObject > objc.objc_object)
         self.assertTrue(NSObject >= objc.objc_object)
+
+        self.assertTrue(NSArray < NSString)
+        self.assertTrue(NSArray <= NSString)
+        self.assertFalse(NSArray >= NSString)
+        self.assertFalse(NSArray > NSString)
+
+        self.assertFalse(NSString < NSArray)
+        self.assertFalse(NSString <= NSArray)
+        self.assertTrue(NSString >= NSArray)
+        self.assertTrue(NSString > NSArray)
 
 
 class TestSelectorDetails(TestCase):
@@ -1312,3 +1442,51 @@ class TestSelectorDetails(TestCase):
         s.__get__(NSObject())
         with self.assertRaisesRegex(objc.error, " Unhandled type"):
             s.__metadata__()
+
+
+class TestMetaClasses(TestCase):
+    def test_class_of_class(self):
+        NSPort = objc.lookUpClass("NSPort")
+        cls = OC_ObjectInt.classOf_(NSPort)
+        self.assertIs(cls, NSPort)
+        self.assertIsNot(NSPort, type(NSPort))
+
+    def test_new_metaclass(self):
+        cls1 = OC_ObjectInt.newMetaClass()
+        cls2 = OC_ObjectInt.newClass()
+        cls3 = OC_ObjectInt.classOf_(cls2)
+        self.assertIs(cls3, cls2)
+        self.assertIs(cls1, type(cls2))
+        self.assertIsSubclass(cls2, objc.objc_object)
+        self.assertIsSubclass(cls2, NSObject)
+        self.assertIsSubclass(cls1, objc.objc_class)
+        self.assertIsSubclass(cls1, type(NSObject))
+
+
+class TestTransientHelper(OC_MetaDataTest):
+    def performAction_(self, a):
+        self.action = a
+
+
+class TestTransient(TestCase):
+    def test_transient_value(self):
+        o = TestTransientHelper.alloc().init()
+
+        with objc.autorelease_pool():
+            OC_MetaDataTest.performActionOn_class_(o, NSObject)
+
+        str(o.action)
+        del o.action
+
+    def test_transient_value2(self):
+        o = TestTransientHelper.alloc().init()
+
+        before = gDeallocCounter
+        with objc.autorelease_pool():
+            OC_MetaDataTest.performActionOn_class_(o, OC_LeakTest_20090704_noinit)
+
+        self.assertEqual(gDeallocCounter, before)
+
+        str(o.action)
+        del o.action
+        self.assertEqual(gDeallocCounter, before + 1)

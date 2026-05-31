@@ -17,6 +17,8 @@ Contents:
 """
 
 import datetime as _dt
+import logging
+import math
 import re
 from typing import Any
 
@@ -24,6 +26,8 @@ from typing import Any
 # they're reachable from ui/ without crossing the back↔ui boundary.
 # Re-exported here for back-internal callers.
 from dazzle.render.display_names import _inject_display_names, _resolve_display_name  # noqa: F401
+
+logger = logging.getLogger(__name__)
 
 # v0.61.55 (#892): profile_card template-string interpolation. Matches
 # `{{ field }}` and `{{ field.path.with.dots }}` — and (#1145 part 1)
@@ -213,11 +217,61 @@ def _initials_from(name: str) -> str:
     return "".join(w[0].upper() for w in words if w)
 
 
+def _apply_format_spec(value: Any, format_spec: str, *, context: str = "") -> str:
+    """Apply a Python format spec (or ``str.format`` template) to a value.
+
+    Shared (#1300) by bar_track's ``track_format`` and cohort_strip aggregate
+    lenses' ``primary_aggregate.format``. Empty spec → ``str(value)``. A spec
+    containing ``{`` is treated as a ``str.format`` template (``"{:.1f}"``);
+    otherwise as a ``format()`` spec (``".1f"``). An invalid spec warns and
+    falls back to the raw value — never raises into the render path.
+    """
+    if not format_spec:
+        return str(value)
+    try:
+        if "{" in format_spec:
+            return format_spec.format(value)
+        return format(value, format_spec)
+    except (ValueError, TypeError, KeyError, IndexError):
+        logger.warning(
+            "invalid format spec %r%s — rendering raw value",
+            format_spec,
+            f" ({context})" if context else "",
+        )
+        return str(value)
+
+
+def _default_round_numeric(value: Any) -> str:
+    """Render a numeric value cleanly when no explicit format is given (#1300).
+
+    Cohort aggregate lenses (``avg``) emit a Decimal/float that stringifies as
+    e.g. ``'7.7500000000000000'``. With no ``format:`` knob set we round to a
+    sensible default: 2 decimal places with trailing zeros trimmed, and
+    integral results rendered without a decimal point (``8.0`` → ``"8"``,
+    ``7.75`` → ``"7.75"``, ``7.3333`` → ``"7.33"``). Non-numeric values pass
+    through as ``str(value)`` unchanged (counts are already ints; a string
+    primary is left alone).
+    """
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    # nan/inf have no sensible rounded form and would blow up `int(...)`
+    # below (ValueError/OverflowError) — render them raw rather than crash.
+    if not math.isfinite(num):
+        return str(value)
+    rounded = round(num, 2)
+    if rounded == int(rounded):
+        return str(int(rounded))
+    return f"{rounded:.2f}".rstrip("0").rstrip(".")
+
+
 def _build_cohort_cells(
     *,
     items: list[dict[str, Any]],
     config: Any,
     active_lens_id: str,
+    source_display_field: str = "",
     row_action: Any = None,
     cohort_aggregate_values: dict[str, Any] | None = None,
     row_action_routes: dict[str, str] | None = None,
@@ -239,9 +293,12 @@ def _build_cohort_cells(
       1. The `member_via` FK target's `__display__` (resolved by
          _inject_display_names upstream)
       2. `<member_via>_display` sibling key
-      3. The member_via field's scalar value (id-shaped fallback)
-      4. The row's own `name` field
-      5. Empty string
+      3. The source entity's `display_field` column (#1299 — covers the
+         self-referential `member_via: id` case, where there is no FK
+         display sibling and the scalar value is the row's own UUID)
+      4. The member_via field's scalar value (id-shaped fallback)
+      5. The row's own `name` field
+      6. Empty string
 
     Tone derivation: when the active lens declares a numeric
     `threshold`, the renderer compares the primary value:
@@ -294,6 +351,12 @@ def _build_cohort_cells(
             member_name = _resolve_display_name(fk_value)
         else:
             member_name = str(item.get(f"{member_via}_display", "") or "")
+            if not member_name and source_display_field:
+                # #1299: self-referential member_via (e.g. `member_via: id`)
+                # has no `<member_via>_display` sibling — fk_value is the row's
+                # own PK (a UUID), not a name. Use the source entity's
+                # display_field column before the raw-id fallback below.
+                member_name = str(item.get(source_display_field, "") or "")
             if not member_name:
                 member_name = str(fk_value or "") or str(item.get("name", "") or "")
         # Primary value extraction. Three mutually-exclusive shapes
@@ -311,7 +374,20 @@ def _build_cohort_cells(
             # by compute_cohort_aggregate_primary. Missing key →
             # query failed / returned no rows → cell renders empty.
             primary_raw = aggregate_values.get(member_id)
-            primary_value = "" if primary_raw is None else str(primary_raw)
+            if primary_raw is None:
+                primary_value = ""
+            else:
+                # #1300: honour the lens's `format:` knob (mirrors bar_track's
+                # track_format); with no knob, default-round so an `avg` lens
+                # stops rendering raw floats like '7.7500000000000000'.
+                agg_format = str(getattr(aggregate_primary, "format", "") or "")
+                primary_value = (
+                    _apply_format_spec(
+                        primary_raw, agg_format, context=f"cohort lens {active_lens_id!r}"
+                    )
+                    if agg_format
+                    else _default_round_numeric(primary_raw)
+                )
         else:
             primary_raw = _resolve_path(item, primary_field) if primary_field else None
             primary_value = "" if primary_raw is None else str(primary_raw)
@@ -563,6 +639,7 @@ def _build_task_inbox_payload(
     items: list[dict[str, Any]],
     config: Any,
     items_per_source: dict[int, list[dict[str, Any]]] | None = None,
+    entity_detail_urls: dict[str, str] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Build (task_inbox_items, task_inbox_chips) from already-scoped
     source rows (#1015).
@@ -593,21 +670,32 @@ def _build_task_inbox_payload(
     sources = list(getattr(config, "sources", []) or [])
     if not sources:
         return [], []
+    # #1303: entity → detail-URL template map (drill-gated upstream — empty
+    # when the region opted out via `drill: none`). Per-source lookup
+    # populates each item's drill_url.
+    detail_urls = entity_detail_urls or {}
 
     if items_per_source:
-        return _resolve_task_inbox_multi_source(sources, items_per_source)
+        return _resolve_task_inbox_multi_source(sources, items_per_source, detail_urls)
 
     # Single-source MVP fallback — used when the upstream fan-out
     # hasn't been wired yet.
     primary_template = None
+    primary_source = ""
     for src in sources:
         if getattr(src, "as_task", None) is not None:
             primary_template = getattr(src, "as_task", None)
+            primary_source = str(getattr(src, "source", "") or "")
             break
 
     inbox_items: list[dict[str, Any]] = []
     if primary_template is not None and items:
-        for entry in _items_from_template(items, primary_template, prefix=""):
+        for entry in _items_from_template(
+            items,
+            primary_template,
+            prefix="",
+            detail_url_template=detail_urls.get(primary_source, ""),
+        ):
             inbox_items.append(entry)
 
     inbox_chips: list[dict[str, Any]] = []
@@ -628,14 +716,20 @@ def _build_task_inbox_payload(
 
 
 def _items_from_template(
-    items: list[dict[str, Any]], template: Any, *, prefix: str
+    items: list[dict[str, Any]], template: Any, *, prefix: str, detail_url_template: str = ""
 ) -> list[dict[str, Any]]:
     """Materialise typed task items from an `as_task` template +
     pre-scoped row list. Shared by single- and multi-source paths.
 
     `prefix` namespaces the resulting `item_id` so multiple sources
     can produce items with the same row-level id without collision
-    (e.g. source 0's row "i1" → item_id "src0-i1")."""
+    (e.g. source 0's row "i1" → item_id "src0-i1").
+
+    `detail_url_template` (#1303), when set (e.g. "/app/assessment-event/{id}"),
+    is substituted per row to populate each item's `drill_url` so the inbox
+    item links to the entity detail. The task_inbox item renderer already
+    wraps items in `<a href=drill_url>` when set; an unresolvable template
+    (row missing the key) yields no link rather than crashing."""
     icon = str(getattr(template, "icon", "") or "")
     title_tmpl = str(getattr(template, "title", "") or "")
     meta_tmpl = str(getattr(template, "meta", "") or "")
@@ -661,6 +755,12 @@ def _items_from_template(
         meta = _interpolate_card_template(meta_tmpl, row) if meta_tmpl else ""
         urgency_raw = row.get("urgency") or row.get("severity") or row.get("priority") or "later"
         urgency = _coerce_urgency(str(urgency_raw))
+        drill_url = ""
+        if detail_url_template:
+            try:
+                drill_url = detail_url_template.format(**item)
+            except (KeyError, IndexError, ValueError):
+                drill_url = ""  # row missing the template key — no link
         out.append(
             {
                 "item_id": item_id,
@@ -668,7 +768,7 @@ def _items_from_template(
                 "title": title,
                 "meta": meta,
                 "urgency": urgency,
-                "drill_url": "",
+                "drill_url": drill_url,
             }
         )
     return out
@@ -759,6 +859,7 @@ def _coerce_pipeline_progress(raw: Any) -> tuple[int | None, bool]:
 def _resolve_task_inbox_multi_source(
     sources: list[Any],
     items_per_source: dict[int, list[dict[str, Any]]],
+    entity_detail_urls: dict[str, str] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Fan-out resolution: each source's pre-scoped row list maps to
     typed items (as_task) or a count chip (count_as).
@@ -768,6 +869,7 @@ def _resolve_task_inbox_multi_source(
     base ordering. Chips emit in the same source order as the IR
     declares them.
     """
+    detail_urls = entity_detail_urls or {}
     inbox_items: list[dict[str, Any]] = []
     inbox_chips: list[dict[str, Any]] = []
     for idx, src in enumerate(sources):
@@ -775,7 +877,15 @@ def _resolve_task_inbox_multi_source(
         as_task = getattr(src, "as_task", None)
         count_as = str(getattr(src, "count_as", "") or "")
         if as_task is not None:
-            inbox_items.extend(_items_from_template(rows, as_task, prefix=f"src{idx}-"))
+            src_name = str(getattr(src, "source", "") or "")
+            inbox_items.extend(
+                _items_from_template(
+                    rows,
+                    as_task,
+                    prefix=f"src{idx}-",
+                    detail_url_template=detail_urls.get(src_name, ""),
+                )
+            )
         elif count_as:
             inbox_chips.append(
                 {

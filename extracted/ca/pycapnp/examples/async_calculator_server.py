@@ -7,7 +7,6 @@ import logging
 import capnp
 import calculator_capnp
 
-
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
@@ -112,9 +111,7 @@ async def new_connection(stream):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        usage="""Runs the server bound to the given address/port ADDRESS. """
-    )
+    parser = argparse.ArgumentParser(usage="""Runs the server bound to the given address/port ADDRESS. """)
 
     parser.add_argument("address", help="ADDRESS:PORT")
 

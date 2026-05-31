@@ -294,6 +294,8 @@ PyAPI_FUNC(PyObject* _Nullable) PySequence_Tuple(PyObject* o)
     __attribute__((warn_unused_result));
 PyAPI_FUNC(int) PySet_Add(PyObject* set, PyObject* key)
     __attribute__((warn_unused_result));
+PyAPI_FUNC(int) PySet_Contains(PyObject* set, PyObject* key)
+    __attribute__((warn_unused_result));
 PyAPI_FUNC(int) PySet_Clear(PyObject* set) __attribute__((warn_unused_result));
 PyAPI_FUNC(int) PySet_Discard(PyObject* set, PyObject* key)
     __attribute__((warn_unused_result));
@@ -517,6 +519,12 @@ static inline Py_ALWAYS_INLINE void(Py_INCREF)(PyObject* _Nonnull op);
 PyAPI_FUNC(int) PyUnstable_Object_IsUniquelyReferenced(PyObject*);
 PyAPI_FUNC(void) PyUnstable_EnableTryIncRef(PyObject* obj);
 PyAPI_FUNC(int) PyUnstable_TryIncRef(PyObject* obj);
+PyAPI_FUNC(Py_hash_t) Py_HashBuffer(const void* ptr, Py_ssize_t len);
+#endif
+
+#if PY_VERSION_HEX >= 0x030f0000
+PyAPI_FUNC(PyObject* _Nullable) PyFrozenDict_New(PyObject*)
+    __attribute__((warn_unused_result));
 #endif
 
 NS_ASSUME_NONNULL_END

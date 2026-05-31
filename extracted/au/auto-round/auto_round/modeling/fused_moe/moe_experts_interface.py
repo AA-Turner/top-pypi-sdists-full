@@ -31,7 +31,6 @@ Usage:
     # Now the model uses linear_loop forward which supports quantized nn.Linear layers
 """
 
-
 import torch
 from torch import nn
 
@@ -322,10 +321,15 @@ def _detect_expert_projections(module: nn.Module) -> dict[str, dict]:
         if param is not None and isinstance(param, nn.Parameter) and param.dim() == 3:
             detected[proj_name] = config
 
-    # If no known patterns found, scan for any 3D Parameter (future-proofing)
+    # If no known patterns found, scan for any 3D Parameter (future-proofing),
+    # but exclude known non-expert 3D parameters that exist on some transformer
+    # architectures (e.g. scale_shift_table on WanTransformer3DModel).
+    _NON_EXPERT_3D_PARAMS = frozenset(["scale_shift_table"])
     if not detected:
         for attr_name in dir(module):
             if attr_name.startswith("_"):
+                continue
+            if attr_name in _NON_EXPERT_3D_PARAMS:
                 continue
             param = getattr(module, attr_name, None)
             if param is not None and isinstance(param, nn.Parameter) and param.dim() == 3:
@@ -604,7 +608,11 @@ def _unfuse_experts_weights_inplace(
     return True
 
 
-def prepare_model_for_moe_quantization(model: nn.Module, implementation: str = LINEAR_LOOP_IMPL) -> list[str]:
+def prepare_model_for_moe_quantization(
+    model: nn.Module,
+    implementation: str = LINEAR_LOOP_IMPL,
+    skip_prefixes: list[str] | None = None,
+) -> list[str]:
     """Prepare a model for MOE quantization using transformers' experts interface.
 
     This function:
@@ -618,6 +626,9 @@ def prepare_model_for_moe_quantization(model: nn.Module, implementation: str = L
     Args:
         model: The model to prepare
         implementation: The experts implementation to use (default: "linear_loop")
+        skip_prefixes: Module name prefixes to skip (e.g. ["talker."]).
+            Modules under these prefixes stay in their original fused 3D format.
+            ShardWriter handles the fused→per-expert conversion at save time.
 
     Returns:
         List of module names that were unfused
@@ -631,6 +642,8 @@ def prepare_model_for_moe_quantization(model: nn.Module, implementation: str = L
     # Unfuse all fused experts modules (only those supporting @use_experts_implementation)
     unfused_modules = []
     for name, module in model.named_modules():
+        if skip_prefixes and any(name.startswith(p) for p in skip_prefixes):
+            continue
         if _unfuse_experts_weights_inplace(module):
             unfused_modules.append(name)
             logger.debug(f"[MoE Prep] Unfused '{name}'")
@@ -645,7 +658,7 @@ def prepare_model_for_moe_quantization(model: nn.Module, implementation: str = L
         # Set config for linear_loop forward
         if hasattr(model, "config"):
             saved_impl = getattr(model.config, "experts_implementation", None)
-            impl_to_set = saved_impl if saved_impl else implementation
+            impl_to_set = saved_impl or implementation
             model.config._experts_implementation = impl_to_set
             logger.debug(f"Set model.config._experts_implementation = '{impl_to_set}'")
 

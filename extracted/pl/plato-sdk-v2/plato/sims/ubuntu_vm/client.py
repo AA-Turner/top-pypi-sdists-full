@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json as _json
 import logging
 import os
@@ -31,6 +32,8 @@ ENV_PREFIX = "UBUNTU_VM"
 
 LIVEVIEW_PORT = 6080
 DESKTOP_AGENT_PORT = 9000
+# Both ubuntu and Windows expose Chrome CDP on 9224 via an nginx reverse proxy
+# (Host rewrite -> localhost:9225) — one port, one connection path for both.
 CDP_PORT = 9224
 
 # Pattern: https://{job_id}--{port}.sims.plato.so or https://{job_id}.sims.plato.so
@@ -80,6 +83,16 @@ def _get_env_config() -> tuple[str | None, dict[str, str]]:
     return base_url, headers
 
 
+# computer-use drives the desktop_agent as: request -> multi-second LLM wait ->
+# next request. Idle connections therefore sit in the pool long enough for the
+# server to close them on its idle timeout; reusing one then raises
+# RemoteProtocolError ("Server disconnected without sending a response"). Don't
+# keep idle connections around — open a fresh one per request. The extra TCP
+# setup is negligible for this low-rate, plain-HTTP-over-mesh workload, and
+# pooling bought nothing across the long idle gaps anyway.
+_NO_KEEPALIVE = httpx.Limits(max_keepalive_connections=0)
+
+
 class Client:
     """Sync HTTP client for Desktop Agent API."""
 
@@ -92,6 +105,8 @@ class Client:
         retry_on_status: tuple[int, ...] = (429, 500, 502, 503, 504),
         on_request: Callable[[httpx.Request], None] | None = None,
         on_response: Callable[[httpx.Response], None] | None = None,
+        provider: str | None = None,
+        cdp_port: int | None = None,
         **kwargs: Any,
     ):
         """Initialize the HTTP client.
@@ -111,6 +126,8 @@ class Client:
         self._headers = {"Accept": "application/json", **(headers or {})}
         self._max_retries = max_retries
         self._retry_on_status = retry_on_status
+        self._provider = provider
+        self._cdp_port = cdp_port if cdp_port is not None else CDP_PORT
         self._closed = False
 
         event_hooks: dict[str, list[Callable]] = {"request": [], "response": []}
@@ -126,9 +143,16 @@ class Client:
             timeout=timeout,
             headers=self._headers,
             follow_redirects=False,
+            limits=_NO_KEEPALIVE,
             event_hooks=event_hooks if any(event_hooks.values()) else None,
             **kwargs,
         )
+
+    def _resolve_cdp_port(self, port: int | None) -> int:
+        return self._cdp_port if port is None else port
+
+    def _is_qemu(self) -> bool:
+        return self._provider == "qemu"
 
     def _ensure_init(self) -> None:
         """Complete the sims proxy redirect/cookie dance on first use.
@@ -179,6 +203,7 @@ class Client:
             timeout=self._timeout,
             headers=self._headers,
             follow_redirects=False,
+            limits=_NO_KEEPALIVE,
             cookies=cookies,
         )
         old_client.close()
@@ -225,12 +250,13 @@ class Client:
 
     # -- CDP helpers ----------------------------------------------------------
 
-    def get_cdp_url(self, port: int = CDP_PORT) -> str:
+    def get_cdp_url(self, port: int | None = None) -> str:
         """Return the sims proxy URL for the Chrome CDP port."""
+        port = self._resolve_cdp_port(port)
         job_id = _extract_job_id(self._base_url)
         return f"https://{job_id}--{port}.sims.plato.so"
 
-    def ensure_chrome_cdp(self, port: int = CDP_PORT, timeout: int = 60) -> str:
+    def ensure_chrome_cdp(self, port: int | None = None, timeout: int = 60) -> str:
         """Ensure Chrome CDP is reachable on *port* inside the VM.
 
         First polls for an already-responsive CDP endpoint.  If it doesn't
@@ -244,6 +270,36 @@ class Client:
         Raises:
             TimeoutError: If Chrome CDP does not respond within *timeout*.
         """
+        port = self._resolve_cdp_port(port)
+        if self._is_qemu():
+            self._ensure_init()
+            # Windows has no google-chrome-stable / bash launch path, so Chrome
+            # is started via the agent's POST /browser/start (not present on
+            # ubuntu). Its readiness signal is running=True (its own server-side
+            # ~20s CDP wait). A cold start can miss that window; retry until it
+            # succeeds or we hit the overall timeout. Once up, CDP is reachable
+            # over the sims proxy on 9224 (nginx Host rewrite), same as ubuntu.
+            effective_timeout = max(timeout, 90)
+            deadline = time.monotonic() + effective_timeout
+            last_err: Any = None
+            while time.monotonic() < deadline:
+                try:
+                    response = self._client.request("POST", "/browser/start")
+                    response.raise_for_status()
+                    payload = response.json()
+                    if payload.get("running"):
+                        logger.info("Windows Chrome CDP started on port %s", port)
+                        return self.get_cdp_url(port)
+                    last_err = payload.get("error") or payload
+                    logger.warning("Windows browser CDP not up yet, retrying: %s", last_err)
+                except Exception as exc:
+                    last_err = exc
+                    logger.warning("browser/start call failed, retrying: %s", exc)
+                time.sleep(3)
+            raise TimeoutError(
+                f"Windows Chrome CDP not ready on port {port} after {effective_timeout}s. Last: {last_err}"
+            )
+
         cdp_probe = f"curl -sf --max-time 2 http://localhost:{port}/json/version 2>/dev/null || echo __NO_CDP__"
         try:
             check = self.bash(BashRequest(command=cdp_probe))
@@ -298,70 +354,51 @@ class Client:
 
         raise TimeoutError(f"Chrome CDP not ready on port {port} after {timeout}s. Last probe: {last_err}")
 
-    def get_cdp_ws_url(self, port: int = CDP_PORT) -> str:
+    def get_cdp_ws_url(self, port: int | None = None) -> str:
         """Return a Playwright-ready WebSocket URL for the VM's Chrome CDP.
 
-        Fetches ``/json/version`` from Chrome *inside* the VM and rewrites
-        the ``webSocketDebuggerUrl`` (which Chrome reports as
-        ``ws://localhost:…``) to point through the sims proxy so that
-        Playwright running *outside* the VM can connect.
-
-        .. note:: The returned URL may still require the sims proxy init
-           dance before a WebSocket connection succeeds.  Use
-           :meth:`prepare_cdp_connection` instead to get a URL + headers
-           tuple that works directly with ``connect_over_cdp``.
+        Thin wrapper over :meth:`prepare_cdp_connection` that drops the
+        routing headers. Prefer :meth:`prepare_cdp_connection` directly: the
+        returned ws URL needs the accompanying ``Cookie`` header to connect
+        through the sims proxy.
         """
-        result = self.bash(BashRequest(command=f"curl -s --max-time 5 http://localhost:{port}/json/version"))
-        try:
-            version_info = _json.loads(result.output or "")
-        except _json.JSONDecodeError as exc:
-            raise RuntimeError(f"Failed to parse /json/version from Chrome: {result.output}") from exc
-
-        ws_url: str = version_info["webSocketDebuggerUrl"]
-        job_id = _extract_job_id(self._base_url)
-        proxy_host = f"{job_id}--{port}.sims.plato.so"
-        ws_url = re.sub(
-            r"ws://(localhost|127\.0\.0\.1)(:\d+)?",
-            f"wss://{proxy_host}",
-            ws_url,
-        )
+        ws_url, _ = self.prepare_cdp_connection(port)
         return ws_url
 
-    def prepare_cdp_connection(self, port: int = CDP_PORT) -> tuple[str, dict[str, str]]:
+    def prepare_cdp_connection(self, port: int | None = None) -> tuple[str, dict[str, str]]:
         """Get the WebSocket URL **and** headers for Playwright ``connect_over_cdp``.
 
-        The sims proxy has a two-tier architecture:
+        Single path for both ubuntu and Windows (both expose Chrome CDP via an
+        nginx Host-rewrite proxy on the same port). The sims proxy is two-tier:
 
-        * **Subdomain** (``{job}--{port}.sims.plato.so``) — app nginx
-          always proxies to FastAPI which returns a **302** to the base
-          domain with ``Set-Cookie``.  This 302 cannot be followed by a
-          WebSocket client.
-        * **Base domain** (``sims.plato.so``) — OpenResty sims router
-          reads the ``plato-sims-session`` cookie and proxies directly to
-          the worker VM.  WebSocket upgrades work here.
+        * **Subdomain** (``{job}--{port}.sims.plato.so``) — app nginx always
+          302s to the base domain with a signed ``plato-sims-session`` cookie.
+          A WebSocket client can't follow that 302.
+        * **Base domain** (``sims.plato.so``) — the OpenResty sims router reads
+          the cookie and proxies directly to the VM; WebSocket upgrades work.
 
-        This method completes the redirect/cookie dance via HTTP and
-        returns a WebSocket URL on the **base domain** with the captured
-        cookies so Playwright can connect without hitting the 302.
+        We GET ``/json/version`` through the subdomain following redirects (which
+        completes the cookie dance and lands on the base host), then build the
+        ws URL on that base host from the reported ``webSocketDebuggerUrl`` path.
 
         Returns:
             ``(ws_url, headers)`` -- pass both to
             ``chromium.connect_over_cdp(ws_url, headers=headers)``.
         """
-        result = self.bash(BashRequest(command=f"curl -s --max-time 5 http://localhost:{port}/json/version"))
-        try:
-            version_info = _json.loads(result.output or "")
-        except _json.JSONDecodeError as exc:
-            raise RuntimeError(f"Failed to parse /json/version: {result.output}") from exc
-
-        ws_path = urlparse(version_info["webSocketDebuggerUrl"]).path
-
+        port = self._resolve_cdp_port(port)
         cdp_proxy_url = self.get_cdp_url(port)
+
         with httpx.Client(follow_redirects=True, timeout=30) as tmp:
             resp = tmp.get(f"{cdp_proxy_url}/json/version")
+            resp.raise_for_status()
             cookies = dict(tmp.cookies)
+            version_info = resp.json()
 
         ws_host = resp.url.host
+        if ws_host is None:
+            raise RuntimeError(f"Failed to resolve CDP proxy host from {resp.url}")
+
+        ws_path = urlparse(version_info["webSocketDebuggerUrl"]).path
         ws_url = f"wss://{ws_host}{ws_path}"
 
         headers: dict[str, str] = {}
@@ -376,16 +413,33 @@ class Client:
         )
         return ws_url, headers
 
-    def open_url(self, url: str, port: int = CDP_PORT) -> dict:
+    def open_url(self, url: str, port: int | None = None) -> dict:
         """Open *url* in a new Chrome tab via CDP."""
+        port = self._resolve_cdp_port(port)
+        if self._is_qemu():
+            with httpx.Client(follow_redirects=True, timeout=30) as tmp:
+                response = tmp.put(f"{self.get_cdp_url(port)}/json/new?{url}")
+                response.raise_for_status()
+                return response.json()
+
         result = self.bash(BashRequest(command=f"curl -s --max-time 5 -X PUT 'http://localhost:{port}/json/new?{url}'"))
         try:
             return _json.loads(result.output or "")
         except _json.JSONDecodeError:
             return {"url": url, "raw": (result.output or "").strip()}
 
-    def list_tabs(self, port: int = CDP_PORT) -> list[dict]:
+    def list_tabs(self, port: int | None = None) -> list[dict]:
         """Return the list of open Chrome tabs from CDP."""
+        port = self._resolve_cdp_port(port)
+        if self._is_qemu():
+            with httpx.Client(follow_redirects=True, timeout=30) as tmp:
+                response = tmp.get(f"{self.get_cdp_url(port)}/json/list")
+                response.raise_for_status()
+                payload = response.json()
+            if isinstance(payload, list):
+                return payload
+            return []
+
         result = self.bash(BashRequest(command=f"curl -s --max-time 5 http://localhost:{port}/json/list"))
         try:
             return _json.loads(result.output or "[]")
@@ -395,7 +449,7 @@ class Client:
     def login(
         self,
         session: Any,
-        cdp_port: int = CDP_PORT,
+        cdp_port: int | None = None,
         retries: int = 3,
         retry_delay: float = 2.0,
     ) -> list[str]:
@@ -486,11 +540,6 @@ class Client:
                     raise RuntimeError(f"Failed to get public URL for {env.alias}: {public_url_result.error}")
 
                 public_url = public_url_result.url
-                sim_name = getattr(env, "simulator", None) or env.alias
-                if sim_name and "_plato_router_target=" not in public_url:
-                    target_param = f"_plato_router_target={sim_name}.web.plato.so"
-                    sep = "&" if "?" in public_url else "?"
-                    public_url = f"{public_url}{sep}{target_param}"
                 logger.info("Navigating to %s for %s", public_url, env.alias)
                 print(f"  [{env.alias}] Navigating to {public_url}", flush=True)
                 page.goto(public_url, timeout=120_000)
@@ -648,7 +697,8 @@ class Client:
             environment: A plato.v2 Environment with a .job_id attribute.
             **kwargs: Additional arguments passed to Client.__init__
         """
-        return cls(base_url=_base_url_from_job_id(environment.job_id), **kwargs)
+        provider = getattr(environment, "provider", None)
+        return cls(base_url=_base_url_from_job_id(environment.job_id), provider=provider, **kwargs)
 
 
 class AsyncClient:
@@ -663,6 +713,8 @@ class AsyncClient:
         retry_on_status: tuple[int, ...] = (429, 500, 502, 503, 504),
         on_request: Callable[[httpx.Request], None] | None = None,
         on_response: Callable[[httpx.Response], None] | None = None,
+        provider: str | None = None,
+        cdp_port: int | None = None,
         **kwargs: Any,
     ):
         """Initialize the async HTTP client."""
@@ -671,6 +723,8 @@ class AsyncClient:
         self._headers = {"Accept": "application/json", **(headers or {})}
         self._max_retries = max_retries
         self._retry_on_status = retry_on_status
+        self._provider = provider
+        self._cdp_port = cdp_port if cdp_port is not None else CDP_PORT
         self._closed = False
 
         event_hooks: dict[str, list[Callable]] = {"request": [], "response": []}
@@ -686,9 +740,16 @@ class AsyncClient:
             timeout=timeout,
             headers=self._headers,
             follow_redirects=False,
+            limits=_NO_KEEPALIVE,
             event_hooks=event_hooks if any(event_hooks.values()) else None,
             **kwargs,
         )
+
+    def _resolve_cdp_port(self, port: int | None) -> int:
+        return self._cdp_port if port is None else port
+
+    def _is_qemu(self) -> bool:
+        return self._provider == "qemu"
 
     async def _ensure_init(self) -> None:
         """Complete the sims proxy redirect/cookie dance on first use.
@@ -726,6 +787,7 @@ class AsyncClient:
             timeout=self._timeout,
             headers=self._headers,
             follow_redirects=False,
+            limits=_NO_KEEPALIVE,
             cookies=cookies,
         )
         await old_client.aclose()
@@ -772,17 +834,47 @@ class AsyncClient:
 
     # -- CDP helpers ----------------------------------------------------------
 
-    def get_cdp_url(self, port: int = CDP_PORT) -> str:
+    def get_cdp_url(self, port: int | None = None) -> str:
         """Return the sims proxy URL for the Chrome CDP port."""
+        port = self._resolve_cdp_port(port)
         job_id = _extract_job_id(self._base_url)
         return f"https://{job_id}--{port}.sims.plato.so"
 
-    async def ensure_chrome_cdp(self, port: int = CDP_PORT, timeout: int = 60) -> str:
+    async def ensure_chrome_cdp(self, port: int | None = None, timeout: int = 60) -> str:
         """Ensure Chrome CDP is reachable on *port* inside the VM.
 
         See :meth:`Client.ensure_chrome_cdp` for details.
         """
-        import asyncio
+
+        port = self._resolve_cdp_port(port)
+        if self._is_qemu():
+            await self._ensure_init()
+            # Windows has no google-chrome-stable / bash launch path, so Chrome
+            # is started via the agent's POST /browser/start (not present on
+            # ubuntu). Its readiness signal is running=True (its own server-side
+            # ~20s CDP wait). A cold start can miss that window; retry until it
+            # succeeds or we hit the overall timeout. Once up, CDP is reachable
+            # over the sims proxy on 9224 (nginx Host rewrite), same as ubuntu.
+            effective_timeout = max(timeout, 90)
+            deadline = time.monotonic() + effective_timeout
+            last_err: Any = None
+            while time.monotonic() < deadline:
+                try:
+                    response = await self._client.request("POST", "/browser/start")
+                    response.raise_for_status()
+                    payload = response.json()
+                    if payload.get("running"):
+                        logger.info("Windows Chrome CDP started on port %s", port)
+                        return self.get_cdp_url(port)
+                    last_err = payload.get("error") or payload
+                    logger.warning("Windows browser CDP not up yet, retrying: %s", last_err)
+                except Exception as exc:
+                    last_err = exc
+                    logger.warning("browser/start call failed, retrying: %s", exc)
+                await asyncio.sleep(3)
+            raise TimeoutError(
+                f"Windows Chrome CDP not ready on port {port} after {effective_timeout}s. Last: {last_err}"
+            )
 
         cdp_probe = f"curl -sf --max-time 2 http://localhost:{port}/json/version 2>/dev/null || echo __NO_CDP__"
         try:
@@ -835,43 +927,30 @@ class AsyncClient:
 
         raise TimeoutError(f"Chrome CDP not ready on port {port} after {timeout}s. Last probe: {last_err}")
 
-    async def get_cdp_ws_url(self, port: int = CDP_PORT) -> str:
+    async def get_cdp_ws_url(self, port: int | None = None) -> str:
         """Return a Playwright-ready WebSocket URL for the VM's Chrome CDP.
 
         See :meth:`Client.get_cdp_ws_url` for details.
         """
-        result = await self.bash(BashRequest(command=f"curl -s --max-time 5 http://localhost:{port}/json/version"))
-        try:
-            version_info = _json.loads(result.output or "")
-        except _json.JSONDecodeError as exc:
-            raise RuntimeError(f"Failed to parse /json/version from Chrome: {result.output}") from exc
-
-        ws_url: str = version_info["webSocketDebuggerUrl"]
-        job_id = _extract_job_id(self._base_url)
-        proxy_host = f"{job_id}--{port}.sims.plato.so"
-        ws_url = re.sub(
-            r"ws://(localhost|127\.0\.0\.1)(:\d+)?",
-            f"wss://{proxy_host}",
-            ws_url,
-        )
+        ws_url, _ = await self.prepare_cdp_connection(port)
         return ws_url
 
-    async def prepare_cdp_connection(self, port: int = CDP_PORT) -> tuple[str, dict[str, str]]:
+    async def prepare_cdp_connection(self, port: int | None = None) -> tuple[str, dict[str, str]]:
         """Async version of :meth:`Client.prepare_cdp_connection`."""
-        result = await self.bash(BashRequest(command=f"curl -s --max-time 5 http://localhost:{port}/json/version"))
-        try:
-            version_info = _json.loads(result.output or "")
-        except _json.JSONDecodeError as exc:
-            raise RuntimeError(f"Failed to parse /json/version: {result.output}") from exc
-
-        ws_path = urlparse(version_info["webSocketDebuggerUrl"]).path
-
+        port = self._resolve_cdp_port(port)
         cdp_proxy_url = self.get_cdp_url(port)
+
         async with httpx.AsyncClient(follow_redirects=True, timeout=30) as tmp:
             resp = await tmp.get(f"{cdp_proxy_url}/json/version")
+            resp.raise_for_status()
             cookies = dict(tmp.cookies)
+            version_info = resp.json()
 
         ws_host = resp.url.host
+        if ws_host is None:
+            raise RuntimeError(f"Failed to resolve CDP proxy host from {resp.url}")
+
+        ws_path = urlparse(version_info["webSocketDebuggerUrl"]).path
         ws_url = f"wss://{ws_host}{ws_path}"
 
         headers: dict[str, str] = {}
@@ -886,8 +965,15 @@ class AsyncClient:
         )
         return ws_url, headers
 
-    async def open_url(self, url: str, port: int = CDP_PORT) -> dict:
+    async def open_url(self, url: str, port: int | None = None) -> dict:
         """Open *url* in a new Chrome tab via CDP."""
+        port = self._resolve_cdp_port(port)
+        if self._is_qemu():
+            async with httpx.AsyncClient(follow_redirects=True, timeout=30) as tmp:
+                response = await tmp.put(f"{self.get_cdp_url(port)}/json/new?{url}")
+                response.raise_for_status()
+                return response.json()
+
         result = await self.bash(
             BashRequest(command=f"curl -s --max-time 5 -X PUT 'http://localhost:{port}/json/new?{url}'")
         )
@@ -896,8 +982,18 @@ class AsyncClient:
         except _json.JSONDecodeError:
             return {"url": url, "raw": (result.output or "").strip()}
 
-    async def list_tabs(self, port: int = CDP_PORT) -> list[dict]:
+    async def list_tabs(self, port: int | None = None) -> list[dict]:
         """Return the list of open Chrome tabs from CDP."""
+        port = self._resolve_cdp_port(port)
+        if self._is_qemu():
+            async with httpx.AsyncClient(follow_redirects=True, timeout=30) as tmp:
+                response = await tmp.get(f"{self.get_cdp_url(port)}/json/list")
+                response.raise_for_status()
+                payload = response.json()
+            if isinstance(payload, list):
+                return payload
+            return []
+
         result = await self.bash(BashRequest(command=f"curl -s --max-time 5 http://localhost:{port}/json/list"))
         try:
             return _json.loads(result.output or "[]")
@@ -907,7 +1003,7 @@ class AsyncClient:
     async def login(
         self,
         session: Any,
-        cdp_port: int = CDP_PORT,
+        cdp_port: int | None = None,
         retries: int = 3,
         retry_delay: float = 2.0,
     ) -> list[str]:
@@ -915,24 +1011,27 @@ class AsyncClient:
 
         See the sync docstring for full details.
         """
-        import asyncio
         import importlib.util
-
-        if importlib.util.find_spec("playwright") is None:
-            raise ImportError("login() requires playwright. Install with: pip install playwright")
-
-        from playwright.async_api import async_playwright
 
         from plato._generated.api.v2.jobs import get_flows as jobs_get_flows
         from plato._generated.api.v2.jobs import public_url as jobs_public_url
         from plato._generated.models import Flow
         from plato.v2.async_.flow_executor import FlowExecutor
 
+        # Check playwright before starting Chrome CDP — ensure_chrome_cdp can
+        # poll a remote VM for up to 90s on qemu, so fail fast if the import
+        # is missing (mirrors the sync login ordering).
+        if importlib.util.find_spec("playwright") is None:
+            raise ImportError("login() requires playwright. Install with: pip install playwright")
+
+        from playwright.async_api import async_playwright
+
         await self.ensure_chrome_cdp(cdp_port)
-        ws_url, cdp_headers = await self.prepare_cdp_connection(cdp_port)
-        logger.info("Connecting Playwright to CDP: %s", ws_url)
 
         pages_logged_in: list[str] = []
+
+        ws_url, cdp_headers = await self.prepare_cdp_connection(cdp_port)
+        logger.info("Connecting Playwright to CDP: %s", ws_url)
 
         async with async_playwright() as pw:
             browser = await pw.chromium.connect_over_cdp(ws_url, headers=cdp_headers)
@@ -974,11 +1073,6 @@ class AsyncClient:
                     raise RuntimeError(f"Failed to get public URL for {env.alias}: {public_url_result.error}")
 
                 public_url = public_url_result.url
-                sim_name = getattr(env, "simulator", None) or env.alias
-                if sim_name and "_plato_router_target=" not in public_url:
-                    target_param = f"_plato_router_target={sim_name}.web.plato.so"
-                    sep = "&" if "?" in public_url else "?"
-                    public_url = f"{public_url}{sep}{target_param}"
                 logger.info("Navigating to %s for %s", public_url, env.alias)
                 await page.goto(public_url, timeout=120_000)
 
@@ -1113,4 +1207,5 @@ class AsyncClient:
             environment: A plato.v2 Environment with a .job_id attribute.
             **kwargs: Additional arguments passed to AsyncClient.__init__
         """
-        return cls(base_url=_base_url_from_job_id(environment.job_id), **kwargs)
+        provider = getattr(environment, "provider", None)
+        return cls(base_url=_base_url_from_job_id(environment.job_id), provider=provider, **kwargs)

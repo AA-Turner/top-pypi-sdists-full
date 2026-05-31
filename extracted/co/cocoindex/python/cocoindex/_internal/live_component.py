@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import asyncio
+import datetime
+import inspect
+import traceback
 from collections.abc import AsyncIterator
 from contextvars import ContextVar
 from typing import (
     Any,
+    Awaitable,
+    Callable,
     Final,
     Generic,
     ParamSpec,
@@ -15,7 +21,10 @@ from typing import (
 )  # noqa: F401
 
 from . import core
-from .component_ctx import ComponentSubpath
+from .component_ctx import (
+    ComponentSubpath,
+    get_context_from_ctx,
+)
 from .function import AnyCallable, create_core_component_processor
 from .environment import Environment
 
@@ -86,7 +95,8 @@ def check_not_in_process_live(api_name: str) -> None:
 
 
 async def _process_live_wrapper(instance: Any, operator: LiveComponentOperator) -> None:
-    """Wrap a `process_live` invocation to set `_in_process_live = True`.
+    """Wrap a `process_live` invocation to set `_in_process_live = True`
+    and detach the operator's controller on exit.
 
     Used by `_mount_live_component` (api.py) and the LiveCompClass branch
     of `LiveComponentOperator.update`.
@@ -98,6 +108,17 @@ async def _process_live_wrapper(instance: Any, operator: LiveComponentOperator) 
     `ValueError("Token was created in a different Context")`. Direct
     `set(prev)` always works because we're mutating whatever the
     current Context is.
+
+    The ``operator._detach()`` in the same finally is the framework's
+    fix for a subtle live-mode leak: if user code in ``process_live``
+    catches an exception and retains it (``self.last_err = e`` /
+    re-raises later), the exception's traceback holds the calling
+    frame's locals, which include ``operator`` — and ``operator`` owns a
+    Rust ``Arc`` to the live component's ``Component``. Without
+    detach, ``App.update``'s ``wait_until_inactive`` poll never observes
+    the live component as inactive. After detach, the Rust controller
+    drops on schedule; later operator method calls raise. See
+    ``specs/core/error_handling.md`` §4.1.
     """
     prev = _in_process_live.get()
     _in_process_live.set(True)
@@ -105,6 +126,7 @@ async def _process_live_wrapper(instance: Any, operator: LiveComponentOperator) 
         await instance.process_live(operator)
     finally:
         _in_process_live.set(prev)
+        operator._detach()
 
 
 @runtime_checkable
@@ -188,9 +210,27 @@ def is_live_component_class(cls: Any) -> bool:
 
 
 class LiveComponentOperator:
-    """Passed to process_live(). Wraps the Rust LiveComponentController."""
+    """Passed to process_live(). Wraps the Rust LiveComponentController.
+
+    Lifecycle: the operator is **scoped to one invocation of process_live**.
+    After process_live returns (normally or via exception), the wrapper that
+    invoked it calls :meth:`_detach` to release the Rust controller. This
+    matters because the Rust ``LiveComponentController`` holds a strong
+    ``Arc`` to the live component's ``Component``, and the framework's
+    ``wait_until_inactive`` poll (used by ``App.update`` in live mode to
+    detect "all done, safe to terminate") tracks that strong count.
+
+    Without detach, user code in ``process_live`` that catches an
+    exception and stores it (e.g. ``self.last_err = e``) would
+    accidentally pin the live component forever — Python exception
+    objects retain their traceback, which retains the caller's frame
+    locals, which retains ``operator``. See
+    ``specs/core/error_handling.md`` §4.1.
+    """
 
     __slots__ = ("_controller", "_instance", "_env", "_path")
+
+    _controller: core.LiveComponentController | None
 
     def __init__(
         self,
@@ -204,6 +244,43 @@ class LiveComponentOperator:
         self._env = env
         self._path = path
 
+    def _detach(self) -> None:
+        """Release the Rust controller; subsequent operator calls raise.
+
+        Called by ``_process_live_wrapper`` in a ``finally`` block once
+        ``process_live`` returns. After detach, the operator is usable only
+        for inspecting its own metadata (``_env``, ``_path``); the
+        controller-backed methods (:meth:`update_full`, :meth:`update`,
+        :meth:`delete`, :meth:`mark_ready`) raise :class:`RuntimeError`.
+        """
+        self._controller = None
+
+    def _require_controller(self) -> core.LiveComponentController:
+        """Return the controller or raise if already detached."""
+        ctrl = self._controller
+        if ctrl is None:
+            raise RuntimeError(
+                "LiveComponentOperator is no longer active. Operator "
+                "methods are only valid inside the body of process_live."
+            )
+        return ctrl
+
+    def _resolve_exception_handler(self) -> Callable[[str], Awaitable[None]]:
+        """Build a resolver for the parent's exception handler chain.
+
+        Delegates to :meth:`ComponentContext.resolve_exception_handler`
+        — the same path used by ``coco.mount`` / ``coco.mount_each`` —
+        so component-failure logs go through one canonical Python
+        fallback. Always non-None. Used both by :meth:`update_full`
+        (passes to Rust as ``on_error``) and :meth:`report_exception`
+        (invokes directly with a stringified exception).
+        """
+        return get_context_from_ctx().resolve_exception_handler(
+            stable_path=self._path.to_string(),
+            processor_name=type(self._instance).__name__,
+            mount_kind="process_live",
+        )
+
     async def update_full(self) -> None:
         """Trigger a full update via instance.process(). Blocks until fully ready.
 
@@ -213,14 +290,24 @@ class LiveComponentOperator:
         anymore — `process()` is a separate concern). The new Task that
         Rust spawns to run the processor's coroutine snapshots the
         current `Context` at spawn time, so it inherits `False`.
+
+        Exceptions raised inside `process()` (or its descendants) are
+        routed via the parent's exception handler chain — same shape as
+        background `coco.mount()` failures — and do NOT propagate to the
+        caller. This matches the framework's "background work failures
+        are reported, not raised" model and lets periodic-refresh
+        patterns (e.g. `coco.auto_refresh`) keep looping when a single
+        cycle fails, while still surfacing the failure to operators.
         """
+        controller = self._require_controller()
         processor = create_core_component_processor(
             self._instance.process, self._env, self._path, (), {}
         )
+        on_error = self._resolve_exception_handler()
         prev = _in_process_live.get()
         _in_process_live.set(False)
         try:
-            await self._controller.update_full_async(processor)
+            await controller.update_full_async(processor, on_error)
         finally:
             _in_process_live.set(prev)
 
@@ -237,6 +324,7 @@ class LiveComponentOperator:
         for part in subpath.parts:
             child_path = child_path.concat(part)
 
+        controller = self._require_controller()
         # Slice F: branch on processor type. A LiveComponent class triggers
         # the nested-mount path — we install a fresh inner controller at the
         # child path under the parent's `update_full_lock`, then spawn the
@@ -247,7 +335,7 @@ class LiveComponentOperator:
             (
                 inner_controller,
                 readiness_handle,
-            ) = await self._controller.mount_inner_live_async(child_path)
+            ) = await controller.mount_inner_live_async(child_path)
             inner_operator = LiveComponentOperator(
                 inner_controller, instance, self._env, child_path
             )
@@ -264,21 +352,74 @@ class LiveComponentOperator:
         processor = create_core_component_processor(
             processor_fn, self._env, child_path, args, kwargs
         )
-        core_handle = await self._controller.update_async(child_path, processor)
+        # Build on_error using the CHILD's path/processor_name (not the live
+        # component's own) so handlers attribute failures to the right unit.
+        on_error = get_context_from_ctx().resolve_exception_handler(
+            stable_path=child_path.to_string(),
+            processor_name=getattr(processor_fn, "__qualname__", None),
+            mount_kind="process_live",
+        )
+        core_handle = await controller.update_async(child_path, processor, on_error)
         return ComponentMountHandle([core_handle])
 
     async def delete(self, subpath: ComponentSubpath) -> Any:
+        """Delete a child component.
+
+        Symmetric with :meth:`update`: failures route through the
+        parent's exception handler chain. Handlers control whether the
+        failure propagates back to ``handle.ready()`` — returning
+        normally swallows; raising propagates. With no handler
+        registered, the framework logs at ``ERROR`` and ``handle.ready()``
+        returns ``Ok``.
+
+        Even when the delete fails, the tombstone is already written
+        synchronously by the framework — the next reconcile's GC sweep
+        retries the underlying target-state cleanup.
+        """
         from .api import ComponentMountHandle
 
+        controller = self._require_controller()
         child_path = self._path
         for part in subpath.parts:
             child_path = child_path.concat(part)
-        core_handle = await self._controller.delete_async(child_path)
+        on_error = get_context_from_ctx().resolve_exception_handler(
+            stable_path=child_path.to_string(),
+            processor_name=None,
+            mount_kind="process_live",
+        )
+        core_handle = await controller.delete_async(child_path, on_error)
         return ComponentMountHandle([core_handle])
 
     async def mark_ready(self) -> None:
         """Signal readiness. In catch-up mode, this never returns (terminates process_live)."""
-        await self._controller.mark_ready_async()
+        await self._require_controller().mark_ready_async()
+
+    async def report_exception(self, exc: BaseException) -> None:
+        """Route an exception raised during ``process_live`` to the parent's exception handler chain.
+
+        Walks the exception handler chain on the parent's
+        :class:`ComponentContext` (inherited via the asyncio Task that runs
+        ``process_live``). The constructed :class:`ExceptionContext` uses
+        this live component's own ``stable_path`` (not the parent's), so
+        handlers can attribute the failure to the correct component, and
+        ``mount_kind="process_live"`` so handlers can distinguish runtime
+        cycle failures from initial build failures (``"mount"`` /
+        ``"mount_each"``).
+
+        The exception is formatted via :func:`traceback.format_exception`
+        so handlers and the fallback log both see the full Python
+        traceback (when ``exc.__traceback__`` is set — i.e. when the
+        caller is reporting a caught exception). This matches the
+        text-with-trace shape that the Rust-side ``on_error`` path
+        produces for background ``mount`` / ``mount_each`` failures.
+
+        Falls back to ERROR-level logging if no handler is registered or
+        every handler re-raises. Intended for surfacing recoverable errors
+        (e.g. an external watcher emits a malformed event) without
+        tearing down the live component.
+        """
+        err_text = "".join(traceback.format_exception(exc))
+        await self._resolve_exception_handler()(err_text)
 
 
 @runtime_checkable
@@ -382,3 +523,68 @@ class _MountEachLiveComponent:
             operator, self._fn, self._args, self._kwargs
         )
         await self._items.watch(subscriber)
+
+
+def auto_refresh(
+    process_fn: AnyCallable[_P, None],
+    *,
+    interval: datetime.timedelta,
+) -> type[LiveComponent]:
+    """Wrap a process function as a LiveComponent that re-runs every ``interval``.
+
+    The returned class can be passed to :func:`coco.mount` (and
+    :meth:`LiveComponentOperator.update`) wherever a LiveComponent class is
+    accepted. Its ``__init__`` accepts the same positional and keyword
+    arguments as ``process_fn`` and forwards them to ``process_fn`` on each
+    invocation.
+
+    Semantics:
+
+    - ``process()`` calls ``process_fn(*args, **kwargs)``.
+    - ``process_live(operator)`` runs ``update_full`` once, ``mark_ready``,
+      then loops ``sleep(interval) -> update_full`` with a **fixed delay**
+      (the sleep happens after each cycle, so cycles never overlap).
+    - In catch-up mode (``live=False``), ``mark_ready`` terminates the live
+      component after the first full pass — observationally identical to
+      mounting ``process_fn`` directly; the interval is ignored.
+    - Cycle exceptions raised inside ``process_fn`` are routed via the
+      parent's exception handler chain (same shape as background
+      ``coco.mount`` failures — see ``advanced_topics/exception_handlers``).
+      ``update_full`` does NOT propagate them to the loop, so the next
+      cycle still runs.
+
+    Args:
+        process_fn: Async process function — same shape as a function passed
+            directly to ``coco.mount``.
+        interval: Delay between cycles. Applied between the end of one cycle
+            and the start of the next (fixed delay, not fixed rate).
+
+    Example::
+
+        await coco.mount(
+            coco.auto_refresh(sync_users, interval=datetime.timedelta(minutes=5)),
+            db, target,
+        )
+    """
+    sleep_seconds = interval.total_seconds()
+    fn_name = getattr(process_fn, "__name__", "auto_refresh")
+
+    class _AutoRefresh:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            self._args = args
+            self._kwargs = kwargs
+
+        async def process(self) -> None:
+            result: Any = process_fn(*self._args, **self._kwargs)
+            if inspect.isawaitable(result):
+                await result
+
+        async def process_live(self, operator: LiveComponentOperator) -> None:
+            await operator.update_full()
+            await operator.mark_ready()
+            while True:
+                await asyncio.sleep(sleep_seconds)
+                await operator.update_full()
+
+    _AutoRefresh.__coco_subpath_name__ = fn_name  # type: ignore[attr-defined]
+    return _AutoRefresh

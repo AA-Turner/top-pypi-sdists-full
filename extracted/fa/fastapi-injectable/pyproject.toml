@@ -1,6 +1,6 @@
 [project]
 name = "fastapi-injectable"
-version = "1.4.7"
+version = "1.5.0"
 description = "Use FastAPI's Depends() anywhere — in CLI tools, Celery tasks, background workers, and more. No refactoring needed."
 authors = [{ name = "Jasper Sui", email = "suiyang03@gmail.com" }]
 requires-python = ">=3.10"
@@ -50,7 +50,7 @@ dev = [
     "Pygments>=2.18.0",
     "ruff>=0.8.3,<0.9",
     "mypy>=1.13.0,<2",
-    "pytest>=8.3.2,<9",
+    "pytest>=8.3.2,<10",
     "pytest-asyncio>=1.2.0,<2",
     "sphinx>=8.1.3",
     "sphinx-autobuild>=2024.10.3,<2025",
@@ -157,9 +157,15 @@ tests = ["test", "*/test"]
 [tool.coverage.run]
 parallel = true
 branch = true
+# Most tests import the package via the ``src.fastapi_injectable`` path, but a
+# few (e.g. test_scope) import it as the installed ``fastapi_injectable``
+# package. Measure both so coverage is captured regardless of import style;
+# [tool.coverage.paths] then folds the two into a single source tree.
 source = ["src"]
+source_pkgs = ["fastapi_injectable"]
 omit = [
     "src/fastapi_injectable/mypy.py", # The mypy plugin is fragile
+    "*/fastapi_injectable/mypy.py", # ...also when measured via the installed package path
 ]
 
 [tool.coverage.report]

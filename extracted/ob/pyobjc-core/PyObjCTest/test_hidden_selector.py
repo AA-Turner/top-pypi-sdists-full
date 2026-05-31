@@ -137,51 +137,104 @@ class TestHiddenSelector(TestCase):
         self.assertIn("boolMethod", o.pyobjc_instanceMethods.__dict__)
 
     def testHiddenCanBeIntrospected(self):
-        # XXX: This test fails, and will also fail in versions
-        #      before 9.1. It would be better if the test didn't
-        #      fail though...
         o = OCTestHidden.alloc().init()
         m = o.pyobjc_instanceMethods.body
         self.assertIsInstance(m, objc.selector)
         self.assertNotIsInstance(m, objc.native_selector)
         self.assertTrue(m.isHidden)
 
+        self.assertNotIn("body", dir(o))
+        self.assertIn("init", dir(o))
+
     def testHiddenInSetupHook(self):
         o = OCTestHidden.alloc().init()
 
         # Instance method
-        with self.assertRaisesRegex(
-            AttributeError, "'OCTestHidden' object has no attribute 'method'"
-        ):
-            o.method()
+        with self.subTest("instance method resolve normally"):
+            with self.assertRaisesRegex(
+                AttributeError, "'OCTestHidden' object has no attribute 'method'"
+            ):
+                o.method()
 
-        v = o.performSelector_(b"method")
-        self.assertEqual(v, 42)
+        with self.subTest("instance method with performSelector"):
+            v = o.performSelector_(b"method")
+            self.assertEqual(v, 42)
 
-        v = o.pyobjc_instanceMethods.method()
-        self.assertEqual(v, 42)
+        with self.subTest("instance method with methodForSelector"):
+            v = o.methodForSelector_(b"method")(o)
+            self.assertEqual(v, 42)
 
-        # Class method
-        with self.assertRaisesRegex(AttributeError, "clsmethod"):
-            OCTestHidden.clsmethod()
+        with self.subTest("instance method with instanceMethodForSelector"):
+            v = OCTestHidden.instanceMethodForSelector_(b"method")(o)
+            self.assertEqual(v, 42)
 
-        with self.assertRaisesRegex(AttributeError, "clsmethod2"):
-            OCTestHidden.clsmethod2()
+        with self.subTest("instance method with pyobjc_instanceMethods"):
+            v = o.pyobjc_instanceMethods.method()
+            self.assertEqual(v, 42)
 
-        with self.assertRaisesRegex(AttributeError, "anotherclsmethod"):
-            OCTestHidden.anotherclsmethod()
+        with self.subTest("instance method with pyobjc_instanceMethods on class"):
+            v = OCTestHidden.pyobjc_instanceMethods.method(o)
+            self.assertEqual(v, 42)
 
-        v = OCTestHidden.performSelector_(b"clsmethod")
-        self.assertEqual(v, 99)
+        with self.subTest("class method with pyobjc_classMethods"):
+            v = OCTestHidden.pyobjc_classMethods.clsmethod()
+            self.assertEqual(v, 99)
 
-        v = OCTestHidden.performSelector_(b"anotherclsmethod")
-        self.assertEqual(v, -99)
+        with self.subTest("class method with methodForSelector"):
+            v = OCTestHidden.methodForSelector_(b"clsmethod")(OCTestHidden)
+            self.assertEqual(v, 99)
 
-        v = OCTestHidden.pyobjc_classMethods.clsmethod()
-        self.assertEqual(v, 99)
+        with self.subTest("class method resolve normall"):
+            with self.assertRaisesRegex(AttributeError, "clsmethod"):
+                OCTestHidden.clsmethod()
 
-        v = OCTestHidden.pyobjc_classMethods.anotherclsmethod()
-        self.assertEqual(v, -99)
+            with self.assertRaisesRegex(AttributeError, "clsmethod2"):
+                OCTestHidden.clsmethod2()
+
+            with self.assertRaisesRegex(AttributeError, "anotherclsmethod"):
+                OCTestHidden.anotherclsmethod()
+
+        with self.subTest("validate class __dict__"):
+            cls_dict = OCTestHidden.__dict__
+            self.assertNotIn("method", cls_dict)
+            self.assertNotIn("clsmethod", cls_dict)
+            self.assertNotIn("clsmethod2", cls_dict)
+            self.assertNotIn("anotherclsmethod", cls_dict)
+
+        with self.subTest("validate meta class __dict__"):
+            cls_dict = type(OCTestHidden).__dict__
+            self.assertNotIn("method", cls_dict)
+            self.assertNotIn("clsmethod", cls_dict)
+            self.assertNotIn("clsmethod2", cls_dict)
+            self.assertNotIn("anotherclsmethod", cls_dict)
+
+        with self.subTest("validate class dir()"):
+            cls_dir = dir(OCTestHidden)
+            self.assertNotIn("method", cls_dir)
+            self.assertNotIn("clsmethod", cls_dir)
+            self.assertNotIn("clsmethod2", cls_dir)
+            self.assertNotIn("anotherclsmethod", cls_dir)
+
+        with self.subTest("validate meta class __dict__"):
+            cls_dir = dir(type(OCTestHidden))
+            self.assertNotIn("method", cls_dir)
+            self.assertNotIn("clsmethod", cls_dir)
+            self.assertNotIn("clsmethod2", cls_dir)
+            self.assertNotIn("anotherclsmethod", cls_dir)
+
+        with self.subTest("class method with performSelector"):
+            v = OCTestHidden.performSelector_(b"clsmethod")
+            self.assertEqual(v, 99)
+
+            v = OCTestHidden.performSelector_(b"anotherclsmethod")
+            self.assertEqual(v, -99)
+
+        with self.subTest("class method with pyobjc_classMethods"):
+            v = OCTestHidden.pyobjc_classMethods.clsmethod()
+            self.assertEqual(v, 99)
+
+            v = OCTestHidden.pyobjc_classMethods.anotherclsmethod()
+            self.assertEqual(v, -99)
 
     def test_hidden_flag_invalid(self):
         @objc.selector

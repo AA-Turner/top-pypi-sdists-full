@@ -326,6 +326,8 @@ def _build_list_adapter_ctx(
         adapter_ctx["empty_message"] = ctx.surface_empty_message or ctx_region.empty_message
         # #1233 — action_id → POST URL map for row_action buttons.
         adapter_ctx["row_action_routes"] = getattr(ctx, "row_action_routes", None) or {}
+        # #1303 — per-row drill-to-detail URL template (empty = no row links).
+        adapter_ctx["detail_url_template"] = getattr(ctx, "detail_url_template", "") or ""
     elif display_upper == "KANBAN":
         adapter_ctx["items"] = inputs.items
         adapter_ctx["columns"] = inputs.columns
@@ -462,6 +464,12 @@ async def _build_dashboard_adapter_ctx(
                 items=inputs.items,
                 config=cohort_cfg,
                 active_lens_id=active_lens_id,
+                # #1299: the source entity's display_field, so a self-referential
+                # `member_via: id` resolves cell labels to the display name
+                # instead of the raw UUID.
+                source_display_field=str(
+                    getattr(getattr(ctx, "entity_spec", None), "display_field", "") or ""
+                ),
                 # #1148: thread the IR-declared row_action through so
                 # each cell can carry a per-row click-to-POST button.
                 row_action=getattr(ir_region, "row_action", None),
@@ -500,6 +508,8 @@ async def _build_dashboard_adapter_ctx(
                 items=inputs.items,
                 config=inbox_cfg,
                 items_per_source=items_per_source,
+                # #1303 — drill-gated entity→detail-URL map for per-item drill_url.
+                entity_detail_urls=getattr(ctx, "entity_detail_urls", None),
             )
             adapter_ctx["task_inbox_items"] = inbox_items
             adapter_ctx["task_inbox_chips"] = inbox_chips

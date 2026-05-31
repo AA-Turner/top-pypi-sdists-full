@@ -30,7 +30,7 @@ from xlsxwriter import (  # pyright: ignore[reportMissingTypeStubs]
     Workbook as XlsxWorkbook,
 )
 
-from pandas._libs.lib import NoDefaultDoNotUse
+from pandas._libs.lib import NoDefault
 from pandas._typing import (
     Dtype,
     DtypeBackend,
@@ -85,7 +85,7 @@ def read_excel(
     comment: str | None = ...,
     skipfooter: int = ...,
     storage_options: StorageOptions = ...,
-    dtype_backend: DtypeBackend | NoDefaultDoNotUse = ...,
+    dtype_backend: DtypeBackend | NoDefault = ...,
     engine_kwargs: dict[str, Any] | None = ...,
 ) -> dict[IntStrT, DataFrame]: ...
 @overload
@@ -128,7 +128,7 @@ def read_excel(
     comment: str | None = ...,
     skipfooter: int = ...,
     storage_options: StorageOptions = ...,
-    dtype_backend: DtypeBackend | NoDefaultDoNotUse = ...,
+    dtype_backend: DtypeBackend | NoDefault = ...,
     engine_kwargs: dict[str, Any] | None = ...,
 ) -> dict[str, DataFrame]: ...
 @overload
@@ -172,7 +172,7 @@ def read_excel(  # type: ignore[overload-cannot-match]
     comment: str | None = ...,
     skipfooter: int = ...,
     storage_options: StorageOptions = ...,
-    dtype_backend: DtypeBackend | NoDefaultDoNotUse = ...,
+    dtype_backend: DtypeBackend | NoDefault = ...,
     engine_kwargs: dict[str, Any] | None = ...,
 ) -> dict[int | str, DataFrame]: ...
 @overload
@@ -215,7 +215,7 @@ def read_excel(
     comment: str | None = ...,
     skipfooter: int = ...,
     storage_options: StorageOptions = ...,
-    dtype_backend: DtypeBackend | NoDefaultDoNotUse = ...,
+    dtype_backend: DtypeBackend | NoDefault = ...,
     engine_kwargs: dict[str, Any] | None = ...,
 ) -> DataFrame: ...
 
@@ -305,62 +305,6 @@ class ExcelFile:
         engine_kwargs: dict[str, Any] | None = ...,
     ) -> None: ...
     def __fspath__(self) -> str: ...
-    @overload
-    def parse(
-        self,
-        sheet_name: list[int | str] | None,
-        header: int | Sequence[int] | None = ...,
-        names: ListLikeHashable | None = ...,
-        index_col: int | Sequence[int] | None = ...,
-        usecols: str | UsecolsArgType = ...,
-        converters: dict[int | str, Callable[[Any], Any]] | None = ...,
-        true_values: Iterable[Hashable] | None = ...,
-        false_values: Iterable[Hashable] | None = ...,
-        skiprows: int | Sequence[int] | Callable[[object], bool] | None = ...,
-        nrows: int | None = ...,
-        na_values: Sequence[str] | dict[str | int, Sequence[str]] = ...,
-        parse_dates: (
-            bool
-            | Sequence[int]
-            | Sequence[Sequence[str] | Sequence[int]]
-            | dict[str, Sequence[int] | list[str]]
-        ) = ...,
-        date_parser: Callable[..., Any] | None = ...,
-        thousands: str | None = ...,
-        comment: str | None = ...,
-        skipfooter: int = ...,
-        keep_default_na: bool = ...,
-        na_filter: bool = ...,
-        **kwds: Any,
-    ) -> dict[int | str, DataFrame]: ...
-    @overload
-    def parse(
-        self,
-        sheet_name: int | str,
-        header: int | Sequence[int] | None = ...,
-        names: ListLikeHashable | None = ...,
-        index_col: int | Sequence[int] | None = ...,
-        usecols: str | UsecolsArgType = ...,
-        converters: dict[int | str, Callable[[Any], Any]] | None = ...,
-        true_values: Iterable[Hashable] | None = ...,
-        false_values: Iterable[Hashable] | None = ...,
-        skiprows: int | Sequence[int] | Callable[[object], bool] | None = ...,
-        nrows: int | None = ...,
-        na_values: Sequence[str] | dict[str | int, Sequence[str]] = ...,
-        parse_dates: (
-            bool
-            | Sequence[int]
-            | Sequence[Sequence[str] | Sequence[int]]
-            | dict[str, Sequence[int] | list[str]]
-        ) = ...,
-        date_parser: Callable[..., Any] | None = ...,
-        thousands: str | None = ...,
-        comment: str | None = ...,
-        skipfooter: int = ...,
-        keep_default_na: bool = ...,
-        na_filter: bool = ...,
-        **kwds: Any,
-    ) -> DataFrame: ...
     @property
     def book(self) -> Workbook | Book | OpenDocument | PyXlsbWorkbook: ...
     @property

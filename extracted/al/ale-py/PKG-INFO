@@ -1,29 +1,27 @@
 Metadata-Version: 2.4
 Name: ale-py
-Version: 0.11.2
+Version: 0.12.0
 Summary: The Arcade Learning Environment (ALE) - a platform for AI research.
-Author: Marc G. Bellemare, Yavar Naddaf, Joel Veness, Michael Bowling
-Maintainer-email: Farama Foundation <contact@farama.org>, Jesse Farebrother <jfarebro@cs.mcgill.ca>
-License-Expression: GPL-2.0-only
-Project-URL: homepage, https://github.com/Farama-Foundation/Arcade-Learning-Environment
-Project-URL: documentation, https://ale.farama.org
-Project-URL: changelog, https://github.com/Farama-Foundation/Arcade-Learning-Environment/blob/master/CHANGELOG.md
 Keywords: reinforcement-learning,arcade-learning-environment,atari
+Author: Marc G. Bellemare, Yavar Naddaf, Joel Veness, Michael Bowling
+Maintainer-Email: Farama Foundation <contact@farama.org>, Jesse Farebrother <jfarebro@cs.mcgill.ca>
+License-Expression: GPL-2.0-only
+License-File: LICENSE.md
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Science/Research
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: >=3.9
-Description-Content-Type: text/markdown
-License-File: LICENSE.md
+Project-URL: homepage, https://github.com/Farama-Foundation/Arcade-Learning-Environment
+Project-URL: documentation, https://ale.farama.org
+Project-URL: changelog, https://github.com/Farama-Foundation/Arcade-Learning-Environment/blob/master/CHANGELOG.md
+Requires-Python: >=3.10
 Requires-Dist: numpy>1.20
-Requires-Dist: importlib-metadata>=4.10.0; python_version < "3.10"
 Requires-Dist: typing-extensions; python_version < "3.11"
 Provides-Extra: vector
 Requires-Dist: gymnasium>=1.1.0; extra == "vector"
@@ -31,23 +29,23 @@ Requires-Dist: opencv-python>=3.0; extra == "vector"
 Provides-Extra: xla
 Requires-Dist: gymnasium>=1.1.0; extra == "xla"
 Requires-Dist: opencv-python>=3.0; extra == "xla"
-Requires-Dist: jax>=0.4.31; (python_version > "3.9" and (sys_platform == "win32" or sys_platform == "linux")) and extra == "xla"
+Requires-Dist: jax>=0.4.31; (sys_platform == "win32" or sys_platform == "linux") and extra == "xla"
+Requires-Dist: chex; (sys_platform == "win32" or sys_platform == "linux") and extra == "xla"
 Provides-Extra: test
 Requires-Dist: pytest>=7.0; extra == "test"
 Requires-Dist: gymnasium>=1.1.0; extra == "test"
 Requires-Dist: opencv-python>=3.0; extra == "test"
-Requires-Dist: jax>=0.4.31; (python_version > "3.9" and (sys_platform == "win32" or sys_platform == "linux")) and extra == "test"
-Requires-Dist: chex; (python_version > "3.9" and (sys_platform == "win32" or sys_platform == "linux")) and extra == "test"
-Dynamic: license-file
-
-The Arcade Learning Environment
-<a href="#the-arcade-learning-environment">
-  <img alt="Arcade Learning Environment" align="right" width=75 src="https://github.com/Farama-Foundation/Arcade-Learning-Environment/blob/master/docs/_static/img/ale.svg" />
-</a>
-===============================
+Requires-Dist: jax>=0.4.31; (sys_platform == "win32" or sys_platform == "linux") and extra == "test"
+Requires-Dist: chex; (sys_platform == "win32" or sys_platform == "linux") and extra == "test"
+Description-Content-Type: text/markdown
 
 [![Python](https://img.shields.io/pypi/pyversions/ale-py.svg)](https://badge.fury.io/py/ale-py)
 [![PyPI Version](https://img.shields.io/pypi/v/ale-py)](https://pypi.org/project/ale-py)
+
+<p align="center">
+    <a href="https://ale.farama.org/" target = "_blank">
+    <img src="https://github.com/Farama-Foundation/Arcade-Learning-Environment/blob/main/docs/_static/img/ale.svg" width="500px" />
+</a>
 
 **The Arcade Learning Environment (ALE) is a simple framework that allows researchers and hobbyists to develop AI agents for Atari 2600 games.**
 It is built on top of the Atari 2600 emulator [Stella](https://stella-emu.github.io) and separates the details of emulation from agent design.
@@ -63,15 +61,16 @@ Features
 - Emulation core uncoupled from rendering and sound generation modules for fast emulation with minimal library dependencies.
 - Automatic extraction of game score and end-of-game signal for more than 100  Atari 2600 games.
 - Multi-platform code (compiled and tested under macOS, Windows, and several Linux distributions).
-- Python bindings through [pybind11](https://github.com/pybind/pybind11).
-- Native support for [Gymnasium](http://github.com/farama-Foundation/gymnasium), a maintained fork of OpenAI Gym.
-- C++ based vectorizer for acting in multiple ROMs at the same time.
+- Python bindings through [nanobind](https://github.com/wjakob/nanobind).
+- Native support for [Gymnasium](http://github.com/farama-Foundation/gymnasium), the maintained fork of OpenAI Gym.
 - Atari roms are packaged within the pip package.
+- C++ based vectorizer for acting in multiple ROMs at the same time.
+- WebAssembly support for running ALE in the Browser
 
 Quick Start
 ===========
 
-The ALE currently supports three different interfaces: C++, Python, and Gymnasium.
+The ALE currently supports three different interfaces: C++, Python, Gymnasium and WASM.
 
 Python
 ------
@@ -82,6 +81,8 @@ You simply need to install the `ale-py` package distributed via PyPI:
 pip install ale-py
 ```
 Note: Make sure you're using an up-to-date version of `pip` or the installation may fail.
+
+Note: Free-threaded CPython (the `t` ABI, e.g. `python3.14t`) aren't supported as OpenCV doesn't build compatible wheels on any system which is necessary for preprocessing. We will look to add support when OpenCV does.
 
 You can now import the ALE in your Python projects with providing a direct interface to Stella for interacting with games
 ```python
@@ -149,6 +150,32 @@ Finally, you can link against the ALE in your own CMake project as follows
 find_package(ale REQUIRED)
 target_link_libraries(YourTarget ale::ale-lib)
 ```
+
+WebAssembly
+---
+
+The ALE can be compiled to WebAssembly for use directly in web browsers, enabling interactive demos, educational tools, and browser-based RL experiments without any installation.
+
+This be used through NPM (`> npm install @farama/ale-wasm`) or through a standalone compiled zip (see the release artifacts).
+
+**Example NPM usage:**
+```javascript
+import createALEModule from './ale.js';
+
+const ALE = await createALEModule();
+const ale = new ALE.ALEInterface();
+
+await ale.loadROM('roms/breakout.bin');
+ale.resetGame();
+
+while (!ale.gameOver()) {
+    const actions = ale.getMinimalActionSet();
+    const action = actions[Math.floor(Math.random() * actions.length)];
+    const reward = ale.act(action);
+}
+```
+
+For more examples for NPM and standalone installs, see [docs/wasm/](docs/wasm/).
 
 Citing
 ======

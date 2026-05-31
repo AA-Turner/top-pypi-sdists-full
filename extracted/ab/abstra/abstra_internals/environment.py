@@ -102,6 +102,30 @@ RABBITMQ_EXECUTION_QUEUE = os.getenv("ABSTRA_RABBITMQ_EXECUTION_QUEUE", "executi
 RABBITMQ_DEFAUT_EXCHANGE = os.getenv("ABSTRA_RABBITMQ_DEFAUT_EXCHANGE", "")
 RABBITMQ_CONNECTION_URI = os.getenv("ABSTRA_RABBITMQ_CONNECTION_URI")
 
+# WEB EDITOR POSTGRES STORAGE
+# Single switch between the file-based (EFS) backend and the PostgreSQL backend
+# for the web-editor pods. Captured ONCE at import; presence is decided once at
+# boot in the repository factory and never re-evaluated at runtime. Absence ⇒
+# behavior identical to the current file-based path. No default by design.
+WEB_EDITOR_DATABASE_URI = os.getenv("ABSTRA_WEB_EDITOR_DATABASE_URI")
+
+
+def web_editor_uses_db() -> bool:
+    """Single source of truth for the web-editor backend switch (§6/§12): the
+    PostgreSQL backend is used iff the DB URI was injected. Every site that needs
+    to know the backend (factory, editor/worker boot, stdio gating) calls this so
+    the predicate can never drift between modules."""
+    return WEB_EDITOR_DATABASE_URI is not None
+
+
+# NOTE on ABSTRA_WORKER_LOG_TO_QUEUE: it only ever made sense for queue-based
+# log streaming. On the DB backend the editor poller streams logs/events straight
+# from Postgres, so the queue path is bypassed and the env var is IGNORED. Sites
+# that gate on it spell out `WORKER_LOG_TO_QUEUE and not web_editor_uses_db()`
+# inline (rather than a helper) so existing tests can still patch the module-level
+# WORKER_LOG_TO_QUEUE constant.
+
+
 # NATS
 NATS_URL = os.getenv("ABSTRA_NATS_URL")
 NATS_CREDS = os.getenv("ABSTRA_NATS_CREDS")

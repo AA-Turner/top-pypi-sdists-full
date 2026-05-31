@@ -1,4 +1,4 @@
-import csv, io, os, subprocess, pytest
+import csv, io, json, os, subprocess, pytest
 from sling.bin import SLING_BIN
 from sling import Connection, SlingConnectionError, Sling, Replication
 
@@ -322,7 +322,10 @@ class TestCSVStreaming:
 @requires_binary
 class TestEnvVarConnection:
     def test_env_var_defined_connection(self, tmp_path):
-        os.environ["DUCK_TEST_CONN"] = f"duckdb://{tmp_path / 'dt.db'}"
+        db_path = (tmp_path / "dt.db").as_posix()
+        os.environ["DUCK_TEST_CONN"] = json.dumps(
+            {"type": "duckdb", "instance": db_path}
+        )
         try:
             assert Connection("DUCK_TEST_CONN").test().success is True
         finally:

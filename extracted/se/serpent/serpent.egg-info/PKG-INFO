@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: serpent
-Version: 1.42
+Version: 1.43
 Summary: Serialization based on ast.literal_eval
 Home-page: https://github.com/irmen/Serpent
 Author: Irmen de Jong

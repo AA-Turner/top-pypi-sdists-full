@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-import contextlib
 import os
 import random
 import warnings
@@ -195,7 +194,8 @@ def _find_all_functions_via_language_support(file_path: Path) -> dict[Path, list
 
     try:
         lang_support = get_language_support(file_path)
-        criteria = FunctionFilterCriteria(require_return=True)
+        require_return = lang_support.language != Language.JAVA
+        criteria = FunctionFilterCriteria(require_return=require_return)
         functions[file_path] = lang_support.discover_functions(file_path, criteria)
     except Exception as e:
         logger.debug(f"Failed to discover functions in {file_path}: {e}")
@@ -454,7 +454,8 @@ def find_all_functions_in_file(file_path: Path) -> dict[Path, list[FunctionToOpt
         from codeflash.languages.base import FunctionFilterCriteria
 
         lang_support = get_language_support(file_path)
-        criteria = FunctionFilterCriteria(require_return=True)
+        require_return = lang_support.language != Language.JAVA
+        criteria = FunctionFilterCriteria(require_return=require_return)
         source = file_path.read_text(encoding="utf-8")
         return {file_path: lang_support.discover_functions(source, file_path, criteria)}
     except Exception as e:
@@ -771,8 +772,10 @@ def was_function_previously_optimized(
     # already_optimized_count = 0
     owner = None
     repo = None
-    with contextlib.suppress(git.exc.InvalidGitRepositoryError):
-        owner, repo = get_repo_owner_and_name()
+    try:
+        owner, repo = get_repo_owner_and_name(git_remote=getattr(args, "git_remote", "origin"))
+    except Exception as exc:
+        logger.debug("Skipping previous optimization lookup because repository metadata is unavailable: %s", exc)
 
     pr_number = get_pr_number()
 

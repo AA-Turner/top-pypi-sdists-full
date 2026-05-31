@@ -34,7 +34,20 @@ def generate_tests(
     # TODO: Sometimes this recreates the original Class definition. This overrides and messes up the original
     #  class import. Remove the recreation of the class definition
     start_time = time.perf_counter()
-    test_module_path = Path(module_name_from_file_path(test_path, test_cfg.tests_project_rootdir))
+
+    # Compute test module path - handle case where test file is outside tests_project_rootdir
+    # (e.g., JavaScript/TypeScript tests generated in __tests__ subdirectories adjacent to source files)
+    # Similar to javascript/parse.py:330-333 fallback pattern
+    try:
+        # Use traverse_up=True to handle co-located __tests__ directories that may be outside
+        # the configured tests_root (e.g., src/gateway/__tests__/ when tests_root is test/)
+        test_module_path = Path(module_name_from_file_path(test_path, test_cfg.tests_project_rootdir, traverse_up=True))
+    except ValueError:
+        # Test file is not within tests_project_rootdir - use just the filename
+        # This can happen for JavaScript/TypeScript when get_test_dir_for_source()
+        # places tests adjacent to source files (e.g., in src/foo/__tests__/)
+        # instead of within the configured tests_root
+        test_module_path = Path(test_path.name)
 
     # Detect module system via language support (non-None for JS/TS, None for Python)
     lang_support = current_language_support()
@@ -48,10 +61,11 @@ def generate_tests(
 
         source_file_abs = source_file.resolve().with_suffix("")
         test_dir_abs = test_path.resolve().parent
-        # Compute relative path from test directory to source file
-        rel_import_path = os.path.relpath(str(source_file_abs), str(test_dir_abs))
+        # Compute relative path from test directory to source file.
+        # JavaScript import specifiers must always use forward slashes, even on Windows.
+        rel_import_path = os.path.relpath(str(source_file_abs), str(test_dir_abs)).replace("\\", "/")
         # Ensure path starts with ./ or ../ for JavaScript/TypeScript imports
-        if not rel_import_path.startswith("../"):
+        if not rel_import_path.startswith(("../", "./")):
             rel_import_path = f"./{rel_import_path}"
         # ESM requires explicit file extensions in import specifiers.
         # TypeScript ESM also uses .js extensions (TS resolves .js → .ts).

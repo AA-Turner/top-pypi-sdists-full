@@ -195,11 +195,27 @@ def build_prod_repositories():
 
 
 def build_web_editor_repositories(rabbitmq_connection_uri: str):
-    """Build repositories for web editor using RabbitMQ for producer/consumer."""
+    """Build repositories for the web editor.
+
+    ``WEB_EDITOR_DATABASE_URI`` is the single switch (invariant §6, tabela-verdade
+    §12) between the file-based backend (current behavior, unchanged) and the
+    PostgreSQL backend. Only ``tasks``/``execution``/``execution_logs`` differ
+    between the two paths; everything else is identical. This factory does NOT run
+    migrations (decision D11) — it also runs in the executor warmup, so migrating
+    here would take the advisory lock on every warmup. Migrations are owned by the
+    boot entrypoints (editor/worker).
+    """
+    from abstra_internals.environment import (
+        WEB_EDITOR_DATABASE_URI,
+        web_editor_uses_db,
+    )
     from abstra_internals.logger import AbstraLogger
 
+    # Never log the connection URIs (they carry passwords). Log presence only.
     AbstraLogger.info(
-        f"[Factory] Building web editor repositories with RabbitMQ URI: {rabbitmq_connection_uri}"
+        "[Factory] Building web editor repositories "
+        f"(rabbitmq={'SET' if rabbitmq_connection_uri else 'NOT SET'}, "
+        f"db={'SET' if WEB_EDITOR_DATABASE_URI else 'NOT SET'})"
     )
 
     http_client = HTTPClient(
@@ -207,20 +223,46 @@ def build_web_editor_repositories(rabbitmq_connection_uri: str):
     )
 
     linter = LocalLinterRepository()
-
     mp_context_repo = get_mp_context_repository()
+
+    # Only tasks/execution/execution_logs differ between the two backends; the
+    # rest are identical. Select the backend-specific trio, then build the bundle
+    # with explicit keyword args (a **dict spread would erase the per-field types
+    # for the type checker).
+    tasks: TasksRepository
+    execution: ExecutionRepository
+    execution_logs: ExecutionLogsRepository
+    if web_editor_uses_db():
+        # PostgreSQL backend. Lazy imports (decision D8) so the legacy path never
+        # imports psycopg.
+        from abstra_internals.repositories.execution import (
+            PgWebEditorExecutionRepository,
+        )
+        from abstra_internals.repositories.execution_logs import (
+            PgWebEditorExecutionLogsRepository,
+        )
+        from abstra_internals.repositories.tasks import PgWebEditorTasksRepository
+
+        tasks = PgWebEditorTasksRepository()
+        execution = PgWebEditorExecutionRepository(rabbitmq_connection_uri)
+        execution_logs = PgWebEditorExecutionLogsRepository()
+    else:
+        # File-based backend (unchanged).
+        tasks = LocalTasksRepository()
+        execution = WebEditorExecutionRepository(rabbitmq_connection_uri)
+        execution_logs = LocalExecutionLogsRepository()
 
     return Repositories(
         project=LocalProjectRepository(),
-        execution=WebEditorExecutionRepository(rabbitmq_connection_uri),
+        execution=execution,
         producer=WebEditorProducerRepository(rabbitmq_connection_uri),
         connectors=ConnectorsRepository(client=http_client),
-        tasks=LocalTasksRepository(),
+        tasks=tasks,
         tables=LocalTablesRepository(client=http_client),
         email=EmailRepository(client=http_client),
         roles=LocalRolesRepository(client=http_client),
         ai=LocalAIRepository(client=http_client),
-        execution_logs=LocalExecutionLogsRepository(),
+        execution_logs=execution_logs,
         users=LocalUsersRepository(client=http_client),
         passwordless=LocalPasswordlessRepository(),
         kv=LocalKVRepository(),

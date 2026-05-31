@@ -34,6 +34,12 @@ from accelerate.utils import get_balanced_memory, get_max_memory
 from auto_round.logger import logger
 from auto_round.utils.model import check_to_quantized, get_block_names, get_layer_features, get_module
 
+DEVICE_ENVIRON_VARIABLE_MAPPING = {
+    "cuda": "CUDA_VISIBLE_DEVICES",
+    "xpu": "ZE_AFFINITY_MASK",
+    "hpu": "HABANA_VISIBLE_MODULES",
+}
+
 # Note on HPU usage:
 # There are two modes available for enabling auto-round on HPU:
 # 1. Compile Mode
@@ -81,13 +87,44 @@ def _use_hpu_compile_mode():
     return TORCH_VERSION_AT_LEAST_2_4 and not is_hpu_lazy_mode()
 
 
+def _bump_dynamo_cache_limit(min_size: Optional[int] = None):
+    """Raise torch._dynamo cache/recompile limits.
+
+    The same quant function (e.g. ``quant_tensor_sym``) is reused across
+    every linear layer in a transformer block (q/k/v/o_proj, gate/up/
+    down_proj, ...), each with a different weight shape. Because dynamo's
+    compile cache is keyed by the function's code object (shared across
+    all WrapperLinear instances), per-layer static recompiles quickly
+    exceed the default ``recompile_limit`` (8) and trigger a fallback to
+    eager with a noisy warning. We keep static-shape compilation (best
+    perf) and just allow more cache entries.
+
+    The threshold can be overridden via the ``AR_DYNAMO_CACHE_SIZE_LIMIT``
+    environment variable (default: 16).
+    """
+    try:
+        if min_size is None:
+            from auto_round import envs
+
+            min_size = envs.AR_DYNAMO_CACHE_SIZE_LIMIT
+        from torch._dynamo import config as _dynamo_config
+
+        for attr in ("cache_size_limit", "accumulated_cache_size_limit", "recompile_limit"):
+            if hasattr(_dynamo_config, attr) and getattr(_dynamo_config, attr) < min_size:
+                setattr(_dynamo_config, attr, min_size)
+    except Exception:  # pragma: no cover - best effort
+        pass
+
+
 def compile_func_on_hpu(func):
     if _use_hpu_compile_mode():
+        _bump_dynamo_cache_limit()
         return torch.compile(func, backend="hpu_backend")
     return func
 
 
 def compile_func_on_cuda_or_cpu(func):
+    _bump_dynamo_cache_limit()
     return torch.compile(func)
 
 
@@ -176,6 +213,82 @@ else:
 @lru_cache(None)
 def is_hpex_available():
     return _hpex_available
+
+
+_xpu_sdpa_patched = False
+
+
+# TODO: This is a workaround for the XPU SDPA memory blow-up issue.
+# We should remove this patch after the issue is fixed in XPU side.
+# https://github.com/intel/auto-round/issues/990
+def patch_xpu_sdpa_drop_causal_mask():
+    """Workaround for XPU peak-VRAM blow-up in SDPA.
+
+    On Intel XPU, ``torch.nn.functional.scaled_dot_product_attention`` falls back
+    to the MATH backend whenever ``attn_mask`` is non-None (FLASH on XPU does
+    not support explicit attn_mask, EFFICIENT/CUDNN are not implemented).
+    The MATH backend materializes the full ``(B, H, S, S)`` probability matrix
+    in both forward and backward, costing several GB at typical
+    ``batch_size=8, seqlen=2048``.
+
+    HuggingFace transformers happily passes a *pure causal* 4D mask, even
+    though the same effect is achievable via ``is_causal=True`` (which the
+    FLASH backend supports and which uses ~12x less memory).
+
+    This monkey-patch detects a pure causal mask, drops it, and forwards
+    ``is_causal=True`` instead -- only on XPU and only when no real mask info
+    would be lost. CPU/CUDA/HPU paths are left untouched.
+
+    Idempotent. Safe to call multiple times.
+    """
+    global _xpu_sdpa_patched
+    if _xpu_sdpa_patched:
+        return
+    if not (hasattr(torch, "xpu") and torch.xpu.is_available()):
+        return
+    torch.use_deterministic_algorithms(False)
+
+    _orig_sdpa = torch.nn.functional.scaled_dot_product_attention
+
+    def _is_pure_causal_mask(mask: torch.Tensor, s: int) -> bool:
+        # Cheap shape check first
+        if mask.shape[-1] != s or mask.shape[-2] != s:
+            return False
+        if mask.dtype not in (torch.float16, torch.bfloat16, torch.float32):
+            return False
+        # Pick the first (B,H) slice; HF mask is broadcast across batch/heads.
+        m2d = mask.reshape(-1, s, s)[0]
+        tri_up = torch.triu(torch.ones(s, s, dtype=torch.bool, device=mask.device), 1)
+        return bool(torch.isinf(m2d[tri_up]).all().item()) and bool((m2d[~tri_up] == 0).all().item())
+
+    def _patched_sdpa(query, key, value, attn_mask=None, dropout_p=0.0, is_causal=False, scale=None, **kwargs):
+        if (
+            query.device.type == "xpu"
+            and attn_mask is not None
+            and not is_causal
+            and query.shape[-2] == key.shape[-2]  # square QK length (no kv-cache)
+            and _is_pure_causal_mask(attn_mask, query.shape[-2])
+        ):
+            attn_mask = None
+            is_causal = True
+        return _orig_sdpa(
+            query,
+            key,
+            value,
+            attn_mask=attn_mask,
+            dropout_p=dropout_p,
+            is_causal=is_causal,
+            scale=scale,
+            **kwargs,
+        )
+
+    torch.nn.functional.scaled_dot_product_attention = _patched_sdpa
+    _xpu_sdpa_patched = True
+    logger.info("torch.use_deterministic_algorithms(False) is set for XPU.")
+    logger.info(
+        "Patched torch SDPA on XPU to use is_causal=True for pure causal masks "
+        "(avoids ~10x peak-VRAM blow-up from MATH backend)."
+    )
 
 
 def check_is_cpu(device):
@@ -277,7 +390,16 @@ def detect_device(device: Union[None, str, int, torch.device] = None) -> str:
     return device
 
 
-def get_device_and_parallelism(device: Union[str, torch.device, int]) -> tuple[str, bool]:
+def get_device_and_parallelism(device: Union[str, torch.device, int, dict]) -> tuple[str, bool]:
+    if device is None:
+        device = detect_device(device)
+        return device, False
+    if isinstance(device, dict):
+        unique_devices = set(device.values())
+        if len(unique_devices) == 1:
+            device = next(iter(unique_devices))
+        else:
+            device = "auto"
     if isinstance(device, str):
         if device in ["cuda", "xpu", "hpu"]:
             device = detect_device(device)
@@ -398,6 +520,7 @@ class fake_triton_for_hpu(ContextDecorator):
 
             # Create and inject fake triton module
             class FakeTriton:
+
                 def __getattr__(self, name):
                     return None
 
@@ -563,6 +686,25 @@ def _clear_memory_for_cpu_and_cuda(
 _malloc_trim_counter = 0
 
 
+def _force_trim_malloc() -> None:
+    """Unconditionally release glibc heap pages back to the OS on Linux.
+
+    Unlike :func:`_maybe_trim_malloc`, this ignores the call-count throttle and
+    always invokes ``malloc_trim(0)``.  Use at critical lifecycle boundaries
+    (end of model loading, end of post_init, start of quantize loop) where a
+    one-time trim has a meaningful impact on peak RSS.
+    """
+    if os.name != "posix":
+        return
+    if os.environ.get("AR_ENABLE_MALLOC_TRIM", "1") != "1":
+        return
+    try:
+        libc = ctypes.CDLL("libc.so.6")
+        libc.malloc_trim(0)
+    except Exception:
+        pass
+
+
 def _maybe_trim_malloc() -> None:
     """Optionally release glibc heap pages back to OS on Linux.
 
@@ -595,6 +737,7 @@ def _maybe_trim_malloc() -> None:
 
 
 class ClearMemory:
+
     def __init__(self, device_list: list | tuple | None = None):
         self.device_list = device_list
 
@@ -606,6 +749,13 @@ class ClearMemory:
         from auto_round.utils.device import is_hpex_available
 
         if is_hpex_available():
+            # Clear CPU-side references so Python can reclaim them.
+            if isinstance(tensor, list):
+                for i in range(len(tensor)):
+                    tensor[i] = None
+            tensor = None
+            gc.collect()
+            _force_trim_malloc()
             memory_monitor.update_hpu(device_list)
             return
         else:
@@ -1114,15 +1264,6 @@ def estimate_tuning_block_mem(
         # and multiple expert activations. Here we use a conservative estimate.
         moe_additional_memory = additional_memory * 6  # GB
         additional_memory += moe_additional_memory
-    if torch.xpu.is_available():
-        # https://github.com/intel/torch-xpu-ops/issues/2232
-        # TODO: XPU takes more memory than expected. for llama 8B, it's about 12 GB
-        xpu_additional_memory = 12  # GB
-        additional_memory += xpu_additional_memory
-    # logger.warning_once(
-    #     "[Memory Estimation]: If there is an abnormal memory issue, please collect log with "
-    #     + "AR_LOG_LEVEL=debug and raise issue to us."
-    # )
 
     return layer_memory_dict, layer_activation_memory, block_input_output_memory, additional_memory
 
@@ -1348,7 +1489,8 @@ def dispatch_model_block_wise(model: torch.nn.Module, device_map: str, max_mem_r
         max_memory=new_max_memory,
         no_split_module_classes=no_split_modules,
     )
-    model.tie_weights()
+    if hasattr(model, "tie_weights"):
+        model.tie_weights()
     device_map = infer_auto_device_map(model, max_memory=new_max_memory, no_split_module_classes=no_split_modules)
     if len(devices) > 1 and "cpu" in device_map.values():
         logger.warning(
@@ -1599,11 +1741,17 @@ class MemoryMonitor:
             if str(device) == "cpu":
                 continue
             if torch.cuda.is_available():
-                current_vram = torch.cuda.memory_reserved(device) / 1024**3  # GB
+                try:
+                    current_vram = torch.cuda.memory_reserved(device) / 1024**3  # GB
+                except (RuntimeError, Exception):
+                    continue  # Skip devices that are not initialized or out of range
                 if device == "cuda":
                     device = "0"
             elif torch.xpu.is_available():
-                current_vram = torch.xpu.memory_reserved(device) / 1024**3  # GB
+                try:
+                    current_vram = torch.xpu.memory_reserved(device) / 1024**3  # GB
+                except (RuntimeError, Exception):
+                    continue  # Skip devices that are not initialized or out of range
                 if device == "xpu":
                     device = "0"
             elif is_hpex_available():
@@ -1694,18 +1842,6 @@ class MemoryMonitor:
         return summary
 
 
-def get_device_str():
-    """Get a string representation of the automatically detected device."""
-    if torch.cuda.is_available():
-        return "cuda"
-    elif torch.xpu.is_available():  # pragma: no cover
-        return "xpu"
-    elif is_hpex_available():  # pragma: no cover
-        return "hpu"
-    else:  # pragma: no cover
-        return "cpu"
-
-
 # Global singleton instance
 memory_monitor = MemoryMonitor()
 
@@ -1727,6 +1863,7 @@ def dump_mem_usage(msg: str = "", log_level: str = "info"):
     """Decorator to dump memory usage before and after a function call."""
 
     def decorator(func):
+
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             memory_monitor.update_cpu()
@@ -1740,3 +1877,170 @@ def dump_mem_usage(msg: str = "", log_level: str = "info"):
         return wrapper
 
     return decorator
+
+
+# This function is designed for Auto Scheme and Diffusion Pipeline,
+# which requires dispatching the whole model on all available devices.
+def dispatch_model_by_all_available_devices(
+    model: torch.nn.Module, device_map: Union[str, int, dict, None]
+) -> torch.nn.Module:
+    # Important Notice: This dispatch does not follow dict device_map, just extract all available devices and use them
+    device_type = detect_device()
+    if device_type in DEVICE_ENVIRON_VARIABLE_MAPPING:
+        existing_env = os.environ.get(DEVICE_ENVIRON_VARIABLE_MAPPING[device_type])
+        if existing_env is None:
+            logger.warning_once(
+                "`get_balanced_memory` is used here, but no environment variable "
+                + "is set to specify device visibility. This may lead to OOM issue even the memory "
+                + "is large enough."
+            )
+
+    # Handle DiffusionPipeline: dispatch only the main sub-model (transformer / unet)
+    # across devices and move the remaining pipeline components to the primary device.
+    is_diffusion_pipeline = False
+    try:
+        from diffusers.pipelines.pipeline_utils import DiffusionPipeline
+
+        if isinstance(model, DiffusionPipeline):
+            is_diffusion_pipeline = True
+    except ImportError:
+        pass
+    if is_diffusion_pipeline:
+        pipe = model
+        _device_map = 0 if device_map is None else device_map
+        devices = parse_available_devices(_device_map)
+        # Identify the main quantisable sub-model
+        main_attr = next(
+            (attr for attr in ("transformer", "unet") if isinstance(getattr(pipe, attr, None), torch.nn.Module)),
+            None,
+        )
+        if main_attr is None or len(devices) == 1:
+            # No identifiable main sub-model, or single target device:
+            # move the entire pipeline to the (first) device.
+            pipe.to(devices[0] if devices else "cuda:0")
+            return pipe
+        # Multi-device path: dispatch the main sub-model across devices,
+        # reserving memory on the primary device for non-target components
+        # (text encoder, VAE, etc.) to avoid OOM.
+        main_model = getattr(pipe, main_attr)
+        primary_device = devices[0]
+        # Place non-main components on the last device
+        comp_device = devices[-1]
+        for attr, component in pipe.components.items():
+            if attr == main_attr:
+                continue
+            if not isinstance(component, torch.nn.Module):
+                continue
+            # Align dtype on CPU first to avoid wasting GPU memory
+            if hasattr(component, "dtype") and component.dtype != main_model.dtype:
+                try:
+                    component.to(dtype=main_model.dtype)
+                except Exception:
+                    pass
+            try:
+                component.to(comp_device)
+            except (NotImplementedError, RuntimeError):
+                pass
+
+        from auto_round.utils.common import normalize_no_split_modules
+
+        no_split_modules = normalize_no_split_modules(getattr(main_model, "_no_split_modules", []))
+
+        # dispatch_model_block_wise queries free memory after non-main
+        # components are already placed, so the budget naturally accounts for
+        # them.  Use the same approach here.
+        dispatched = dispatch_model_block_wise(main_model, device_map)
+        setattr(pipe, main_attr, dispatched)
+
+        # Install manual pre/post hooks to move tensors.
+        unique_devices = set()
+        if hasattr(dispatched, "hf_device_map"):
+            unique_devices = {v for v in dispatched.hf_device_map.values() if v not in ("cpu", "disk")}
+        if len(unique_devices) <= 1:
+            execution_device = primary_device
+            try:
+                execution_device = next(dispatched.parameters()).device
+            except StopIteration:
+                execution_device = torch.device(primary_device)
+
+            if hasattr(dispatched, "_hf_hook") and hasattr(dispatched._hf_hook, "execution_device"):
+                dispatched._hf_hook.execution_device = execution_device
+
+            if not getattr(dispatched, "_autoround_align_inputs_hook_installed", False):
+                _first_param_device = execution_device
+                _pipeline_device = torch.device(comp_device)
+
+                def _align_all_inputs_pre_hook(module, args, kwargs):
+                    try:
+                        target = next(module.parameters()).device
+                    except StopIteration:
+                        target = _first_param_device
+                    new_args = tuple(a.to(target) if isinstance(a, torch.Tensor) else a for a in args)
+                    new_kwargs = {k: v.to(target) if isinstance(v, torch.Tensor) else v for k, v in kwargs.items()}
+                    return new_args, new_kwargs
+
+                def _move_outputs_back_hook(module, input, output):
+                    def _to_device(obj, device):
+                        if isinstance(obj, torch.Tensor):
+                            return obj.to(device) if obj.device != device else obj
+                        if isinstance(obj, (tuple, list)):
+                            converted = [_to_device(o, device) for o in obj]
+                            return type(obj)(converted)
+                        if isinstance(obj, dict):
+                            return {k: _to_device(v, device) for k, v in obj.items()}
+                        return obj
+
+                    return _to_device(output, _pipeline_device)
+
+                dispatched.register_forward_pre_hook(_align_all_inputs_pre_hook, with_kwargs=True)
+                dispatched.register_forward_hook(_move_outputs_back_hook)
+                dispatched._autoround_align_inputs_hook_installed = True
+
+        return pipe
+
+    if device_map is None:
+        device_map = 0
+
+    from auto_round.utils.common import normalize_no_split_modules
+
+    no_split_modules = normalize_no_split_modules(getattr(model, "_no_split_modules", []))
+    if device_map == "auto":
+        max_memory = get_balanced_memory(
+            model,
+            max_memory=None,
+            no_split_module_classes=no_split_modules,
+        )
+        device_map = infer_auto_device_map(model, max_memory=max_memory, no_split_module_classes=no_split_modules)
+        model = dispatch_model(model, device_map=device_map)
+        return model
+
+    devices = parse_available_devices(device_map)
+
+    if len(devices) == 1:
+        model.to(devices[0])
+        return model
+
+    max_memory = get_balanced_memory(
+        model,
+        max_memory=None,
+        no_split_module_classes=no_split_modules,
+    )
+
+    # Filter max_memory with devices
+    #  assume only one GPU model
+    new_max_memory = {}
+    for device in devices:
+        if ":" in device:
+            device = int(device.split(":")[-1])
+        elif device == "cpu":
+            device = "cpu"
+        elif isinstance(device, str):
+            device = 0
+        else:
+            raise ValueError(f"Unsupported device {device} in device_map: {device_map}")
+        new_max_memory[device] = max_memory[device]
+    if hasattr(model, "tie_weights") and callable(model.tie_weights):
+        model.tie_weights()
+    device_map = infer_auto_device_map(model, max_memory=new_max_memory, no_split_module_classes=no_split_modules)
+    model = dispatch_model(model, device_map=device_map)
+    return model

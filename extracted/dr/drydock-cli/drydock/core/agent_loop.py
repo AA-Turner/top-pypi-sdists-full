@@ -566,7 +566,11 @@ class AgentLoop:
 
         JSON-safe: tuples become lists, dicts pass through. Missing
         attributes default to None so older sessions don't crash on
-        restore.
+        restore. Nested dicts are sanitized so any tuple keys
+        (observed 19× in last hour 2026-05-30 as silent
+        `[checkpoint] record skipped` warnings) become str
+        representations, letting the checkpoint persist instead of
+        being lost.
         """
         snap: dict = {}
         for name in self._CHECKPOINT_STATE_FIELDS:
@@ -576,8 +580,30 @@ class AgentLoop:
             if isinstance(value, tuple):
                 snap[name] = {"_kind": "tuple", "items": list(value)}
             else:
-                snap[name] = value
+                snap[name] = self._sanitize_for_json(value)
         return snap
+
+    @staticmethod
+    def _sanitize_for_json(value):
+        """Recursively make a value json.dumps-safe.
+
+        Converts tuple keys in nested dicts to repr-strings so
+        json.dumps doesn't throw 'keys must be str, int, float, bool
+        or None, not tuple'. Tuple values become lists. Other types
+        pass through (json's default handler will catch anything
+        truly unserializable upstream).
+        """
+        if isinstance(value, dict):
+            return {
+                (k if isinstance(k, (str, int, float, bool)) or k is None
+                 else repr(k)): AgentLoop._sanitize_for_json(v)
+                for k, v in value.items()
+            }
+        if isinstance(value, tuple):
+            return [AgentLoop._sanitize_for_json(v) for v in value]
+        if isinstance(value, list):
+            return [AgentLoop._sanitize_for_json(v) for v in value]
+        return value
 
     def _apply_agent_state(self, snap: dict) -> None:
         """Restore the counters/flags from a snapshot."""
@@ -726,6 +752,23 @@ class AgentLoop:
             except ValueError:
                 pass
         if _compact_thresh > 0:
+            # Defensive minimum (production only — tests use
+            # threshold=1 to force compaction). Observed 2026-05-30:
+            # dozens of `AUTO-COMPACT firing at 2 tokens (threshold 1)`
+            # in the production log — config drift somewhere is
+            # producing threshold=1, causing the middleware to
+            # compact on every single turn. Below 4000 tokens there's
+            # not enough headroom for a system prompt + one exchange,
+            # so a threshold below this is always wrong in real use.
+            if (_compact_thresh < 4_000
+                    and "PYTEST_CURRENT_TEST" not in os.environ):
+                logger.warning(
+                    "[AUTO-COMPACT init] active_model.auto_compact_threshold=%d "
+                    "below minimum 4000 — clamping. Check "
+                    "~/.drydock/config.toml.",
+                    _compact_thresh,
+                )
+                _compact_thresh = 4_000
             self.middleware_pipeline.add(
                 AutoCompactMiddleware(_compact_thresh)
             )
@@ -1574,6 +1617,51 @@ class AgentLoop:
                         )
                         self.clear_goal()
 
+                # 2026-05-30: ARTIFACT CHECK. If the initial user task
+                # explicitly named files (backtick-quoted, with a known
+                # extension) and any of those files are missing from cwd
+                # when the model tries to end its turn, inject a one-shot
+                # nudge listing the missing artifacts and don't break.
+                # Targets surgery-wall failure mode where Gemma 4
+                # completes the primary code change but skips an
+                # explicit side artifact (test file, backup, new module).
+                # Capped at 2 nudges per session — additive, never blocks.
+                if (should_break_loop
+                        and os.environ.get(
+                            "DRYDOCK_ARTIFACT_CHECK", "1"
+                        ).strip().lower() in ("1", "true", "yes")):
+                    if not hasattr(self, "_artifact_check_count"):
+                        self._artifact_check_count = 0
+                    if self._artifact_check_count < 2:
+                        try:
+                            ok, missing = self._verify_explicit_artifacts(
+                                Path.cwd()
+                            )
+                        except Exception as _e:
+                            logger.warning(
+                                "[ARTIFACT-CHECK] verifier crashed (%s) — "
+                                "letting model end turn", _e,
+                            )
+                            ok, missing = True, []
+                        if not ok and missing:
+                            self._artifact_check_count += 1
+                            bullet = "\n".join(f"  - {m}" for m in missing)
+                            note = (
+                                "Before finishing: these files were "
+                                "explicitly named in the task but are not "
+                                "yet present in the working directory:\n"
+                                f"{bullet}\n\n"
+                                "Create them with write_file (or move/"
+                                "rename, if the task said to back up an "
+                                "existing file), then verify your work."
+                            )
+                            self._inject_system_note(note)
+                            should_break_loop = False
+                            logger.warning(
+                                "[ARTIFACT-CHECK] %d/2 — missing: %s",
+                                self._artifact_check_count, missing,
+                            )
+
                 # No circuit breakers, no loop detection, no forced nudges.
                 # The model works on its own. The only hard stop is MAX_TOOL_TURNS.
 
@@ -2120,6 +2208,30 @@ class AgentLoop:
         # model a growing signal that nothing has changed.  Preserve last_result
         # so the message always shows the real bash/tool output, not a prior NOTE.
         self._tool_call_history[sig] = (count + 1, last_result)
+        # 2026-05-30: if the cached last_result is itself the
+        # "File path is required" sentinel from search_replace's empty-call
+        # path, echoing it back baits Gemma 4 into copying the error text
+        # as the next call's `content` arg — observed in operator session
+        # cycling 24+ identical empty calls. Strip the result preview and
+        # emit a terse, non-copyable directive instead.
+        # Same trap shape as compaction-stub bait — see commit 54d801b.
+        _empty_sentinel = (
+            tool_name == "search_replace"
+            and "File path is required" in last_result
+        )
+        if _empty_sentinel:
+            return (
+                f"NOTE: your `search_replace` call has been made "
+                f"{count} times this session with NO file_path. "
+                f"Each empty call returns the same 'File path is required' "
+                f"error. Do NOT repeat. Either:\n"
+                f"  - call read_file on a specific path first to see the "
+                f"content you want to edit\n"
+                f"  - or call write_file(file_path=..., content=...) to "
+                f"create a new file\n"
+                f"  - or end your turn with a text summary explaining "
+                f"what you need from the user."
+            )
         # For read-only tools include the full cached content so the model
         # has the data it needs and doesn't retry just to see more output.
         result_preview = last_result if is_readonly else last_result[:200]
@@ -3328,6 +3440,20 @@ class AgentLoop:
                     continue
                 for tc in msg.tool_calls:
                     if not tc.function or not tc.function.arguments:
+                        continue
+                    # Only compact tools that legitimately carry large
+                    # payloads in their args. write_file passes the full
+                    # file content (the original target of this loop).
+                    # search_replace args (SEARCH/REPLACE blocks) are
+                    # typically small AND preserving them lets the model
+                    # see what it tried previously — relitigated 2026-05-29
+                    # when a blanket `{}` compaction regressed the
+                    # test_search_replace_args_not_truncated test. Tools
+                    # whose args are intrinsically small (bash, read_file,
+                    # retrieve, etc.) never trip SOFT_CAP_BYTES anyway, but
+                    # listing write_file as the only target makes the
+                    # intent explicit.
+                    if tc.function.name != "write_file":
                         continue
                     args = tc.function.arguments
                     if len(args) <= SOFT_CAP_BYTES:
@@ -5981,6 +6107,90 @@ class AgentLoop:
             f"summary until both are green."
         )
         return (False, msg)
+
+    # Known file extensions used by the artifact-check verifier.
+    # Backtick-quoted tokens ending in one of these extensions are treated
+    # as required file artifacts; everything else (e.g. `module.func`,
+    # `--flag`) is ignored. Keep narrow to avoid false positives.
+    _ARTIFACT_EXTS = (
+        "py", "rs", "ts", "tsx", "js", "jsx", "go", "rb", "java", "c", "cpp",
+        "h", "sh", "bash", "ps1",
+        "json", "yaml", "yml", "toml", "ini", "cfg", "conf", "env",
+        "md", "rst", "txt", "csv", "tsv", "log", "html", "css",
+        "sql", "lock", "bak", "old", "tmp",
+    )
+    _ARTIFACT_RE = re.compile(
+        r"`([A-Za-z0-9_./\-]+\.(?:" + "|".join(_ARTIFACT_EXTS) + r"))`"
+    )
+    # Bare ALL_CAPS_WITH_UNDERSCORES.md/.txt/.rst artifacts. Comprehension
+    # tasks in the harness reference these without backticks ("Write your
+    # answer to ANSWER.md", "Write the trace to TRACE.md"). The all-caps
+    # filter is intentional — `setup.py` or `routes.py` bare are
+    # ambiguous, but ANSWER.md / API_AUDIT.md / FINDINGS.md / TRACE.md
+    # only appear as deliverable instructions.
+    _ARTIFACT_ALLCAPS_RE = re.compile(
+        r"\b([A-Z][A-Z0-9_]+\.(?:md|rst|txt|json|yaml|yml|toml|csv|tsv))\b"
+    )
+
+    def _extract_required_artifacts(self) -> list[str]:
+        """Pull file paths explicitly named in the first user message.
+
+        Returns paths in source order, deduped. Only backtick-quoted tokens
+        ending in a known file extension qualify — narrow on purpose to
+        avoid flagging `module.func` or `--flag` style strings.
+        """
+        for msg in self.messages:
+            if msg.role != Role.user:
+                continue
+            # Skip tool-result messages (they carry tool_call_id).
+            if getattr(msg, "tool_call_id", None):
+                continue
+            text = msg.content or ""
+            if not isinstance(text, str):
+                continue
+            hits = (self._ARTIFACT_RE.findall(text)
+                    + self._ARTIFACT_ALLCAPS_RE.findall(text))
+            # Dedupe while preserving order.
+            return list(dict.fromkeys(hits))
+        return []
+
+    def _verify_explicit_artifacts(self, cwd: Path) -> tuple[bool, list[str]]:
+        """Check that every artifact named in the task exists in cwd.
+
+        Returns (ok, missing). Skips absolute paths (model would never
+        legitimately produce one) and paths that escape cwd.
+        """
+        artifacts = self._extract_required_artifacts()
+        if not artifacts:
+            return (True, [])
+        missing: list[str] = []
+        for a in artifacts:
+            p = Path(a)
+            if p.is_absolute() or ".." in p.parts:
+                continue  # paranoia: don't reach outside cwd
+            if "/" in a:
+                # Slash-containing paths are checked at exact location —
+                # the prompt was explicit about where the file lives
+                # (e.g. `keystore/backend.py`, `tests/test_nginx.py`).
+                if not (cwd / p).exists():
+                    missing.append(a)
+            else:
+                # Bare filenames (e.g. `__init__.py`, `cli.py`, `core.py`,
+                # `tasks.json.v1.bak`) — match anywhere in the tree. Models
+                # legitimately scaffold into a subpackage when the prompt
+                # says "create a project called X". Glob is bounded by the
+                # standard skip-dirs to keep the scan fast.
+                _SKIP = {".git", "__pycache__", "node_modules", ".venv",
+                         ".drydock", ".pytest_cache"}
+                found = False
+                for sub in cwd.rglob(a):
+                    if any(part in _SKIP for part in sub.parts):
+                        continue
+                    found = True
+                    break
+                if not found:
+                    missing.append(a)
+        return (not missing, missing)
 
     def _inject_subgoal_scaffold(self, user_msg: str) -> None:
         """Inject a generic subgoal-decomposition scaffold (PRD §5.3).

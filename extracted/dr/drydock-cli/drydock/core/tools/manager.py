@@ -203,6 +203,23 @@ class ToolManager:
             # inline — the auto-continue loop (tool_turns > 0 → don't
             # break) keeps it going without needing an explicit list.
             "todo",
+            # search_replace disabled for Gemma 4: ROOT CAUSE analysis
+            # 2026-05-30 — after 8+ fixes addressing specific SR failure
+            # modes (truncation stub bait, placeholder loops, indent
+            # diffs, sentinel echoes, multi-file detection, sed -i
+            # interception), the failure pattern keeps reappearing
+            # because Gemma 4 constructs tool_call args by COPYING
+            # shapes from prior calls in history. Every error message
+            # we emit becomes the next call's args. SR has the largest
+            # argument surface and the most failure modes, so it's
+            # the biggest copy-bait target. Each fix breaks one feedback
+            # path but creates a new sentinel that becomes the next
+            # bait. Operator session 2026-05-30 hit a 27-iteration
+            # empty-call loop. Disable entirely — write_file (much
+            # simpler args: just path + content) absorbs all edits.
+            # Cost: extra tokens to rewrite whole files. Benefit:
+            # eliminates the entire failure class.
+            "search_replace",
         }
         # Gemma-derived models served under different names (navygpt etc.)
         # need the same scaffolding — the loop-prone tools aren't a Gemma

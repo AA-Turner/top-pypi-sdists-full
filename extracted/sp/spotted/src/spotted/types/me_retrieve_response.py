@@ -39,7 +39,15 @@ class MeRetrieveResponse(BaseModel):
     id: Optional[str] = None
     """
     The [Spotify user ID](/documentation/web-api/concepts/spotify-uris-ids) for the
-    user.
+    user. Do not use this field for account linking — use `account_id` instead,
+    which is immutable.
+    """
+
+    account_id: Optional[str] = None
+    """A public, immutable, pseudoanonymous identifier for the user's account.
+
+    Use this field for account linking rather than the `id` field, as it is stable
+    and will not change over the lifetime of the account.
     """
 
     country: Optional[str] = None

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.715
+Version: 0.4.716
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -50,13 +50,42 @@ Requires-Dist: cartopy>=0.22
 Requires-Dist: Rbeast>=0.1.20
 Requires-Dist: scikit-learn>=1.4
 Requires-Dist: bottleneck>=1.3
+Requires-Dist: mapclassify>=2.5
+Requires-Dist: pymannkendall>=1.4
+Requires-Dist: pangres>=4.0
+Requires-Dist: kneed>=0.8
+Requires-Dist: lifelines>=0.27
+Requires-Dist: esda>=2.5
+Requires-Dist: libpysal>=4.10
+Requires-Dist: crepes>=0.6
+Requires-Dist: cubist>=1.0
+Requires-Dist: mapie>=0.8
+Requires-Dist: desReg>=0.1
+Requires-Dist: geospaNN>=0.1
+Requires-Dist: merf>=1.0
+Requires-Dist: ngboost>=0.5
+Requires-Dist: tabpfn-extensions>=0.4
+Requires-Dist: treeple>=0.10
+Requires-Dist: ydf>=0.6
+Requires-Dist: BorutaShap>=1.0
+Requires-Dist: arfs>=2.0
+Requires-Dist: fasttreeshap>=0.1
+Requires-Dist: feature-engine>=1.6
+Requires-Dist: mrmr-selection>=0.2
+Requires-Dist: powershap>=0.0.10
+Requires-Dist: sklearn-genetic-opt>=0.10
+Requires-Dist: stabl>=0.0.1
 Requires-Dist: cachetools>=5.0
 Requires-Dist: geopy>=2.0
 Requires-Dist: scikit-image>=0.21
 Provides-Extra: dashboard
 Requires-Dist: panel>=1.4.0; extra == "dashboard"
 Requires-Dist: hvplot>=0.10.0; extra == "dashboard"
+Requires-Dist: holoviews>=1.18; extra == "dashboard"
+Provides-Extra: aquacrop
+Requires-Dist: aquacrop>=3.0; extra == "aquacrop"
 Provides-Extra: aquacrop-calibration
+Requires-Dist: aquacrop>=3.0; extra == "aquacrop-calibration"
 Requires-Dist: pygmo>=2.19; extra == "aquacrop-calibration"
 Requires-Dist: SALib>=1.5; extra == "aquacrop-calibration"
 Provides-Extra: spatial
@@ -64,6 +93,11 @@ Requires-Dist: pysal>=2.6; extra == "spatial"
 Provides-Extra: gee
 Requires-Dist: earthengine-api>=1.0; extra == "gee"
 Requires-Dist: geemap>=0.30; extra == "gee"
+Provides-Extra: narrative
+Requires-Dist: pymupdf>=1.23; extra == "narrative"
+Requires-Dist: pdfplumber>=0.10; extra == "narrative"
+Requires-Dist: reportlab>=4.0; extra == "narrative"
+Requires-Dist: anthropic>=0.30; extra == "narrative"
 Dynamic: license-file
 
 # geocif

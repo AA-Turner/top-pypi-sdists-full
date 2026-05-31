@@ -10,7 +10,11 @@ from abstra_internals.controllers.sdk.sdk_context import (
 )
 from abstra_internals.entities.execution import Execution
 from abstra_internals.env_masker import GLOBAL_MASKER
-from abstra_internals.environment import IS_PRODUCTION, WORKER_LOG_TO_QUEUE
+from abstra_internals.environment import (
+    IS_PRODUCTION,
+    WORKER_LOG_TO_QUEUE,
+    web_editor_uses_db,
+)
 from abstra_internals.interface.sdk.user_exceptions import ExecutionNotFound
 from abstra_internals.logger import AbstraLogger
 
@@ -93,11 +97,27 @@ class BroadcastController:
         if not execution:
             return
 
+        # Don't persist/stream whitespace-only writes: print() emits the content
+        # and its trailing "\n" as SEPARATE writes (and arg separators too), so
+        # each print would otherwise create a junk "\n"/" " log row. The frontend
+        # already discards whitespace-only log messages (services/log.ts: it
+        # returns early when msg.log.trim() === ''), rendering one entry per
+        # event, so skipping these here changes nothing visible — it only keeps
+        # the spurious rows out of storage. The real stdout echo (sys_write in
+        # _handle_stdio) is unaffected, so terminal/Docker output is unchanged.
+        if not text.strip():
+            return
+
         self.execution_logs_repository.insert_stdio(
             execution.id, execution.stage_id, std_type, text
         )
 
-        if WORKER_LOG_TO_QUEUE:
+        # Persistence above always runs. The RabbitMQ broadcast below is the
+        # legacy live-streaming path; on the DB path the editor poller streams
+        # logs instead, so it is bypassed (the env var is ignored in DB mode).
+        # Kept as explicit module-level reads (not the worker_logs_via_queue
+        # helper) so existing tests can patch WORKER_LOG_TO_QUEUE here.
+        if WORKER_LOG_TO_QUEUE and not web_editor_uses_db():
             self._send_stdio_via_queue(execution, std_type, text)
 
     def _send_stdio_via_queue(

@@ -978,7 +978,8 @@ const styles = StyleSheet.create({ container: { flex: 1 } });"""
             elif "flutter_bloc" in filtered_history:
                 filename = "main.dart"
                 file_content = "import 'package:flutter/material.dart';\nvoid main() => runApp(MaterialApp(home: Scaffold(body: Center(child: Text('Hello Flutter')))));"
-            elif "unity_controller" in filtered_history:
+            elif "unity_controller" in filtered_history or "playercontroller.cs" in filtered_history or "writing unity c#" in filtered_history:
+                domain = "task_generation"
                 filename = "PlayerController.cs"
                 file_content = "using UnityEngine;\npublic class PlayerController : MonoBehaviour {\n    void Update() {}\n}"
             elif "godot_movement" in filtered_history:
@@ -1097,6 +1098,10 @@ SCAFFOLD_COMPLETE"""
                 }
                 lang = lang_map.get(domain, "text")
                 response_text = f"Here is the implementation.\n\nFILE: {filename}\n```{lang}\n{file_content}\n```\nSCAFFOLD_COMPLETE"
+
+        # Override response for self-healing loop compilation error repair test
+        if "python compile" in filtered_history and "app/main.py" in filtered_history:
+            response_text = '{"app/main.py": "def run_app():\\n    print(\'broken\')\\n"}'
 
         # Return OpenAI-compatible stream or non-stream JSON
         stream = payload.get("stream", False)

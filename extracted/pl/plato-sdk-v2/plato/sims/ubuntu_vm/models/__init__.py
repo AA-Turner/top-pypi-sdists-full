@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from enum import Enum
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 
 class Resolution(BaseModel):
@@ -24,6 +24,18 @@ class StatusResponse(BaseModel):
     status: str
     display: str
     resolution: Resolution
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_windows_status(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+        if "display" in data:
+            return data
+
+        normalized = dict(data)
+        normalized["display"] = str(normalized.get("platform") or "unknown")
+        return normalized
 
 
 class ToolResult(BaseModel):

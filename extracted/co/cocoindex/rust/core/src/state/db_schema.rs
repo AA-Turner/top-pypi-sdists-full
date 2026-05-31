@@ -286,6 +286,28 @@ impl<'a> TargetStateInfoItem<'a> {
             provider_generation: self.provider_generation,
         }
     }
+
+    /// True iff this item's `states` carries an unsettled push from a
+    /// pre_commit that hasn't been finalized by `commit_in_txn`'s retention
+    /// pass — either an in-flight modification by *this* process, a crashed
+    /// prior process, or a rolled-back failed attempt.
+    ///
+    /// Used in the pre_commit detection sub-pass to recognize a *live*
+    /// in-flight lifecycle (paired with `pending_process_token == self`).
+    /// It does NOT drive `prev_may_be_missing`: multi-state means the sink
+    /// holds one of the enumerated `states`, all of which are passed to
+    /// reconcile as `prev_states`, so the handler's own `all(prev == desired)`
+    /// check decides whether an action is needed. The "sink may be absent"
+    /// case is signalled separately by a `Deleted` entry among the states.
+    ///
+    /// Invariant: at rest (after a successful `commit_in_txn`), every item
+    /// has `states.len() <= 1`. Retention always reduces the vec by dropping
+    /// pre-curr_version entries and curr_version-Deleted entries. Multi-state
+    /// only exists during the write→commit window or after a crash/rollback
+    /// of a prior lifecycle.
+    pub fn is_pending(&self) -> bool {
+        self.states.len() > 1
+    }
 }
 
 /// Inverted tracking: maps a `TargetStatePath` to the component that owns it.
@@ -310,6 +332,16 @@ pub struct StablePathEntryTrackingInfo<'a> {
     pub target_state_items: BTreeMap<TargetStatePathWithProviderId, TargetStateInfoItem<'a>>,
     #[serde(rename = "N", borrow, default = "unknown_processor_name")]
     pub processor_name: Cow<'a, str>,
+    /// Set by `pre_commit` when it queues at least one sink action against
+    /// this component; cleared by `commit_in_txn` and by
+    /// `rollback_pending_tokens` on failure. Distinguishes a live in-flight
+    /// lifecycle in *this* process (token equals the process's startup token
+    /// → preempting components must back off and retry) from one left by a
+    /// crashed prior process (token is something else → observers proceed,
+    /// using the per-item multi-state signal to force
+    /// `prev_may_be_missing = true`). At-rest value is `None`.
+    #[serde(rename = "T", default, skip_serializing_if = "Option::is_none")]
+    pub pending_process_token: Option<u128>,
 }
 
 impl<'a> StablePathEntryTrackingInfo<'a> {
@@ -318,6 +350,7 @@ impl<'a> StablePathEntryTrackingInfo<'a> {
             version: 0,
             target_state_items: BTreeMap::new(),
             processor_name,
+            pending_process_token: None,
         }
     }
 }

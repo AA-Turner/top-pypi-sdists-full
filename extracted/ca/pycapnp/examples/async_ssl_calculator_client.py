@@ -9,7 +9,6 @@ import socket
 import capnp
 import calculator_capnp
 
-
 this_dir = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -29,9 +28,7 @@ class PowerFunction(calculator_capnp.Calculator.Function.Server):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        usage="Connects to the Calculator server at the given address and does some RPCs"
-    )
+    parser = argparse.ArgumentParser(usage="Connects to the Calculator server at the given address and does some RPCs")
     parser.add_argument("host", help="HOST:PORT")
 
     return parser.parse_args()
@@ -41,21 +38,15 @@ async def main(host):
     addr, port = host.split(":")
 
     # Setup SSL context
-    ctx = ssl.create_default_context(
-        ssl.Purpose.SERVER_AUTH, cafile=os.path.join(this_dir, "selfsigned.cert")
-    )
+    ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH, cafile=os.path.join(this_dir, "selfsigned.cert"))
 
     # Handle both IPv4 and IPv6 cases
     try:
         print("Try IPv4")
-        stream = await capnp.AsyncIoStream.create_connection(
-            addr, port, ssl=ctx, family=socket.AF_INET
-        )
+        stream = await capnp.AsyncIoStream.create_connection(addr, port, ssl=ctx, family=socket.AF_INET)
     except Exception:
         print("Try IPv6")
-        stream = await capnp.AsyncIoStream.create_connection(
-            addr, port, ssl=ctx, family=socket.AF_INET6
-        )
+        stream = await capnp.AsyncIoStream.create_connection(addr, port, ssl=ctx, family=socket.AF_INET6)
 
     client = capnp.TwoPartyClient(stream)
 
@@ -328,5 +319,5 @@ if __name__ == "__main__":
     # Using asyncio.run hits an asyncio ssl bug
     # https://bugs.python.org/issue36709
     # asyncio.run(main(parse_args().host), loop=loop, debug=True)
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
     loop.run_until_complete(capnp.run(main(parse_args().host)))

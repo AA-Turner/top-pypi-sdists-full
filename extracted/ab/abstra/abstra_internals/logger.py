@@ -20,6 +20,38 @@ from abstra_internals.utils.env import is_dev_env, is_test_env
 internal_logger = lambda: logging.getLogger("abstra_internal")  # noqa: E731
 
 
+class _DirectStderrStream:
+    """A logging stream that writes straight to fd 2, bypassing sys.stderr.
+
+    StdioPatcher monkey-patches ``sys.stderr.write`` to capture an execution's
+    output into its logs. Internal framework logging must NOT be captured that
+    way, so the abstra_internal logger writes through this stream (like
+    AbstraLogger.lifecycle writes to fd 1) and never touches the patched
+    sys.stderr."""
+
+    def write(self, s: str) -> int:
+        try:
+            return os.write(2, s.encode("utf-8", "replace"))
+        except Exception:
+            return 0
+
+    def flush(self) -> None:
+        pass
+
+
+def _configure_internal_logger() -> None:
+    """Send abstra_internal logs to fd 2 directly and stop them propagating to
+    the root handler (whose sys.stderr write is patched during executions)."""
+    il = internal_logger()
+    il.propagate = False
+    for handler in list(il.handlers):
+        il.removeHandler(handler)
+    handler = logging.StreamHandler(stream=_DirectStderrStream())
+    handler.setFormatter(logging.Formatter(LOGFORMAT()))
+    il.addHandler(handler)
+    il.setLevel(LOGLEVEL())
+
+
 class DevSDK:
     @classmethod
     def init(cls, *_args, **_kwargs):
@@ -41,6 +73,69 @@ class DevSDK:
 
 
 LoggerEnvironment = Literal["cloud", "local"]
+
+
+def _scrub_secrets_in_event(event, _hint):
+    """Sentry before_send hook: redact any DB DSN password that a connection
+    error may have embedded, before the event leaves the process. Backstop for
+    every capture site (poller, unhandled boot exceptions, etc.)."""
+    try:
+        from abstra_internals.services.db.connection import mask_dsn_password
+    except Exception:
+        return event
+
+    def _s(v):
+        return mask_dsn_password(v) if isinstance(v, str) else v
+
+    def _scrub(v):
+        # Walk strings/dicts/lists so a DSN that Sentry serialized into a
+        # stack-frame local (vars), breadcrumb, or request payload is redacted
+        # too — not just the message/exception value. Sentry's own serialization
+        # bounds the depth, so plain recursion is safe.
+        if isinstance(v, str):
+            return mask_dsn_password(v)
+        if isinstance(v, dict):
+            for k in v:
+                v[k] = _scrub(v[k])
+            return v
+        if isinstance(v, list):
+            return [_scrub(item) for item in v]
+        return v
+
+    try:
+        if isinstance(event.get("message"), str):
+            event["message"] = _s(event["message"])
+        logentry = event.get("logentry")
+        if isinstance(logentry, dict) and isinstance(logentry.get("message"), str):
+            logentry["message"] = _s(logentry["message"])
+        exception = event.get("exception")
+        if isinstance(exception, dict):
+            for value in exception.get("values", []) or []:
+                if not isinstance(value, dict):
+                    continue
+                if isinstance(value.get("value"), str):
+                    value["value"] = _s(value["value"])
+                # include_local_variables=True serializes each frame's locals
+                # into stacktrace.frames[*].vars — a DSN local would land there.
+                stacktrace = value.get("stacktrace")
+                if isinstance(stacktrace, dict):
+                    for frame in stacktrace.get("frames", []) or []:
+                        if isinstance(frame, dict) and isinstance(
+                            frame.get("vars"), dict
+                        ):
+                            _scrub(frame["vars"])
+        for section in ("extra", "request"):
+            if isinstance(event.get(section), dict):
+                _scrub(event[section])
+        breadcrumbs = event.get("breadcrumbs")
+        # Sentry sends breadcrumbs either as a bare list or wrapped in {"values": [...]}.
+        if isinstance(breadcrumbs, dict):
+            breadcrumbs = breadcrumbs.get("values")
+        if isinstance(breadcrumbs, list):
+            _scrub(breadcrumbs)
+    except Exception:
+        pass
+    return event
 
 
 def _format(message: str, attrs: Optional[Dict[str, Any]]) -> str:
@@ -66,6 +161,10 @@ class AbstraLogger:
         cls.environment = environment or "local"
         logging.basicConfig(level=LOGLEVEL(), format=LOGFORMAT())
 
+        # Route internal framework logs to fd 2 directly so they are never
+        # captured into an execution's logs by the stdout/stderr patcher.
+        _configure_internal_logger()
+
         # Silence verbose dependencies
         logging.getLogger("pika").setLevel(NOISY_LOGLEVEL())
         logging.getLogger("werkzeug").setLevel(NOISY_LOGLEVEL())
@@ -86,6 +185,7 @@ class AbstraLogger:
                 else LOCAL_SAMPLE_RATE,
                 release=importlib.metadata.distribution("abstra").version,
                 shutdown_timeout=0,
+                before_send=_scrub_secrets_in_event,
                 disabled_integrations=[
                     LoggingIntegration(),
                 ],
