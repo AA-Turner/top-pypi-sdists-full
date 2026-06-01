@@ -19,12 +19,14 @@ from inspect_ai.model import (
     Model,
     ModelName,
     get_model,
+    get_model_info,
 )
 from inspect_ai.scorer import score
 from inspect_ai.tool import MCPServerConfig, Skill, install_skills, read_skills
 from inspect_ai.util import SandboxEnvironment, store
 from inspect_ai.util import sandbox as sandbox_env
 from inspect_ai.util._sandbox import ExecRemoteAwaitableOptions
+from inspect_ai.util._span import current_span_id
 from typing_extensions import Unpack
 
 from inspect_swe._util._async import is_callable_coroutine
@@ -36,6 +38,7 @@ from inspect_swe._util.toml import to_toml
 from inspect_swe._util.trace import trace
 
 from .._util.agentbinary import ensure_agent_binary_installed
+from ._events.consumer import CodexConsumer
 from .agentbinary import (
     codex_binary_version,
     codex_cli_binary_source,
@@ -95,12 +98,9 @@ def codex_cli(
         description: Agent description (used in multi-agent systems with `as_tool()` and `handoff()`)
         system_prompt: Additional system prompt to append to default system prompt.
         model_config: Codex model slug used to select the system prompt and tool
-            set (Codex picks these from its model catalog, independent of the real
-            model served via the bridge). Defaults to `None`, which derives the
-            slug from the real model so Codex's prompt/tooling aligns with what's
-            actually running (OpenAI models map to the matching catalog entry, or
-            the latest entry if not yet in the catalog; non-OpenAI models use
-            Codex's generic prompt). Pass an explicit slug to override.
+            set. Defaults to `None`, which derives the slug from the real model so
+            Codex's prompt/tooling aligns with what's actually running. Pass an
+            explicit slug to override.
         skills: Additional [skills](https://inspect.aisi.org.uk/tools-standard.html#sec-skill) to make available to the agent.
         mcp_servers: MCP servers to make available to the agent.
         bridged_tools: Host-side Inspect tools to expose to the agent via MCP.
@@ -155,6 +155,13 @@ def codex_cli(
         port = store().get(MODEL_PORT, 3000) + 1
         store().set(MODEL_PORT, port)
 
+        # Bridge ModelEventSink: the bridge hands us every ModelEvent instead of
+        # emitting it to the transcript, and we attribute each to the correct
+        # (sub-)agent span. Captures this @agent's span as the outer span so
+        # sub-agent spans we discover are parented correctly. Reconstructs spans
+        # bridge-only (no Codex --json parsing); see consumer.py.
+        consumer = CodexConsumer(outer_span_id=current_span_id())
+
         async with sandbox_agent_bridge(
             state,
             model=bridge_model,
@@ -164,6 +171,7 @@ def codex_cli(
             retry_refusals=retry_refusals,
             port=port,
             bridged_tools=bridged_tools,
+            model_event_sink=consumer,
         ) as bridge:
             # ensure codex is installed and get binary location
             codex_binary = await ensure_agent_binary_installed(
@@ -182,14 +190,21 @@ def codex_cli(
 
             # align Codex's prompt/tooling to the real bridged model by deriving
             # the `--model` slug from it (overridden by an explicit model_config).
-            real_model = ModelName(get_model(model))
+            resolved_model = get_model(model)
+            real_model = ModelName(resolved_model)
             codex_version = await codex_binary_version(sbox, codex_binary, user)
             codex_catalog = await codex_models_catalog(codex_version)
-            codex_model = resolve_codex_model_slug(
+            resolution = resolve_codex_model_slug(
                 real_model.name,
                 api=real_model.api,
                 catalog=codex_catalog,
                 override=model_config,
+                known_to_inspect=get_model_info(resolved_model) is not None,
+            )
+            codex_model = resolution.slug
+            trace(
+                f"Codex model alignment: real model '{real_model}' "
+                f"→ --model '{resolution.slug}' ({resolution.reason})"
             )
 
             # determine CODEX_HOME (default to whatever sandbox working dir is)
@@ -339,6 +354,11 @@ def codex_cli(
                     # record output for debug
                     debug_output.append(result.stdout)
                     debug_output.append(result.stderr)
+
+                    # close any sub-agent spans left open by this attempt so the
+                    # span tree stays balanced across restarts and on error
+                    # (Codex doesn't carry sub-agent spans across resumes)
+                    consumer.reset()
 
                     # raise for error
                     if not result.success:

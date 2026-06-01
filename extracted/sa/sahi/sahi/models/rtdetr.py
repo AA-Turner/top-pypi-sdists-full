@@ -1,15 +1,20 @@
+"""RT-DETR detection model wrapper for SAHI.
+
+Provides integration with Ultralytics RT-DETR real-time detection transformer models.
+"""
+
 from __future__ import annotations
 
 from sahi.models.ultralytics import UltralyticsDetectionModel
 
 
 class RTDetrDetectionModel(UltralyticsDetectionModel):
-    def __init__(self, **kwargs):
-        existing_packages = getattr(self, "required_packages", None) or []
-        self.required_packages = [*list(existing_packages), "ultralytics"]
-        super().__init__(**kwargs)
+    """RT-DETR object detection model.
 
-    def load_model(self):
+    Wraps Ultralytics RT-DETR for real-time detection inference.
+    """
+
+    def load_model(self) -> None:
         """Detection model is initialized and set to self.model."""
         from ultralytics import RTDETR
 
@@ -19,4 +24,4 @@ class RTDetrDetectionModel(UltralyticsDetectionModel):
             model.to(self.device)
             self.set_model(model)
         except Exception as e:
-            raise TypeError("model_path is not a valid rtdet model path: ", e)
+            raise TypeError("model_path is not a valid rtdetr model path: ", e)

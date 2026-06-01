@@ -1,1 +1,0 @@
-from spotlight.main import run

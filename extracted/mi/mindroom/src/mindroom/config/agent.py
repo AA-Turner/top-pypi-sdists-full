@@ -1,0 +1,492 @@
+"""Agent, team, and culture configuration models."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any, Literal, Self
+
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializerFunctionWrapHandler,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
+
+from mindroom.config.knowledge import KnowledgeGitConfig  # noqa: TC001
+from mindroom.config.memory import MemoryBackend  # noqa: TC001
+from mindroom.config.models import (
+    AgentLearningMode,
+    CompactionOverrideConfig,
+    ToolConfigEntry,
+    validate_unique_tool_entries,
+)
+from mindroom.config.validation import duplicate_items, validate_history_limit_choice
+from mindroom.tool_system.worker_routing import WorkerScope, agent_workspace_relative_path
+
+CultureMode = Literal["automatic", "agentic", "manual"]
+_PrivateWorkerScope = Literal["user", "user_agent"]
+_RESERVED_PRIVATE_ROOT_FIRST_PARTS = frozenset({"sessions", "learning", "knowledge_db", "chroma", "culture"})
+
+
+def _validate_safe_relative_path(
+    value: str,
+    *,
+    field_name: str,
+    allow_current_dir: bool = False,
+    reserved_first_parts: frozenset[str] = frozenset(),
+) -> str:
+    stripped = value.strip()
+    if not stripped:
+        msg = f"{field_name} must not be empty"
+        raise ValueError(msg)
+
+    path = Path(stripped)
+    if path.is_absolute():
+        msg = f"{field_name} must be a relative path"
+        raise ValueError(msg)
+    if ".." in path.parts:
+        msg = f"{field_name} must stay within the workspace root"
+        raise ValueError(msg)
+    if not allow_current_dir and path == Path():
+        msg = f"{field_name} must not be the workspace root"
+        raise ValueError(msg)
+
+    first_part = next(iter(path.parts), None)
+    if first_part in reserved_first_parts:
+        msg = f"{field_name} must not use reserved runtime directory '{first_part}'"
+        raise ValueError(msg)
+
+    return stripped
+
+
+class AgentPrivateKnowledgeConfig(BaseModel):
+    """PrivateAgentKnowledge indexed from the agent's private root."""
+
+    enabled: bool = Field(
+        default=True,
+        description="Whether to index private agent knowledge for this private agent instance",
+    )
+    description: str = Field(
+        default="",
+        description="Short description of what this private knowledge contains, shown to agents in knowledge-search tool metadata",
+    )
+    path: str | None = Field(
+        default=None,
+        description="Path to a private knowledge directory relative to the private root",
+    )
+    watch: bool = Field(
+        default=True,
+        description="When true, private agent knowledge schedules background refresh on access; when false, direct external edits require explicit refresh",
+    )
+    chunk_size: int = Field(
+        default=5000,
+        ge=128,
+        description="Maximum number of characters per indexed chunk for text-like private knowledge files",
+    )
+    chunk_overlap: int = Field(
+        default=0,
+        ge=0,
+        description="Number of overlapping characters between adjacent private knowledge chunks",
+    )
+    git: KnowledgeGitConfig | None = Field(
+        default=None,
+        description="Optional Git sync configuration for private agent knowledge",
+    )
+
+    @field_validator("path")
+    @classmethod
+    def validate_private_knowledge_path(cls, value: str | None) -> str | None:
+        """Private knowledge paths must stay inside the private root."""
+        if value is None:
+            return None
+        return _validate_safe_relative_path(
+            value,
+            field_name="private.knowledge.path",
+            allow_current_dir=True,
+        )
+
+    @model_validator(mode="after")
+    def validate_chunking(self) -> Self:
+        """Ensure chunk overlap is always smaller than chunk size."""
+        if self.chunk_overlap >= self.chunk_size:
+            msg = "private.knowledge.chunk_overlap must be smaller than private.knowledge.chunk_size"
+            raise ValueError(msg)
+        return self
+
+
+class AgentPrivateConfig(BaseModel):
+    """Requester-private materialized state for one shared agent definition."""
+
+    per: _PrivateWorkerScope = Field(
+        description="Worker boundary that gets its own private copy of this agent's state",
+    )
+    root: str | None = Field(
+        default=None,
+        description="Private root path relative to the canonical private-instance state root; defaults to <agent_name>_data",
+    )
+    template_dir: str | None = Field(
+        default=None,
+        description="Optional local directory copied into each requester root on first use",
+    )
+    context_files: list[str] | None = Field(
+        default=None,
+        description="Optional private-root-relative context files loaded into the agent's role context",
+    )
+    knowledge: AgentPrivateKnowledgeConfig | None = Field(
+        default=None,
+        description="Optional private agent knowledge indexed from the private root",
+    )
+
+    @field_validator("root")
+    @classmethod
+    def validate_private_root(cls, value: str | None) -> str | None:
+        """Private roots must stay relative so requester scoping remains deterministic."""
+        if value is None:
+            return None
+        return _validate_safe_relative_path(
+            value,
+            field_name="private.root",
+            reserved_first_parts=_RESERVED_PRIVATE_ROOT_FIRST_PARTS,
+        )
+
+    @field_validator("template_dir")
+    @classmethod
+    def validate_template_dir(cls, value: str | None) -> str | None:
+        """Normalize configured template directories."""
+        if value is None:
+            return None
+        stripped = value.strip()
+        if not stripped:
+            msg = "private.template_dir must not be empty"
+            raise ValueError(msg)
+        return stripped
+
+    @field_validator("context_files")
+    @classmethod
+    def validate_private_context_files(cls, value: list[str] | None) -> list[str] | None:
+        """Private context files must stay inside the private root."""
+        if value is None:
+            return None
+        return [_validate_safe_relative_path(path, field_name="private.context_files") for path in value]
+
+
+class AgentConfig(BaseModel):
+    """Configuration for a single agent."""
+
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+    display_name: str = Field(description="Human-readable name for the agent")
+    role: str = Field(default="", description="Description of the agent's purpose")
+    tools: list[ToolConfigEntry] = Field(
+        default_factory=list,
+        description="List of tool entries with optional inline per-agent overrides",
+    )
+    include_default_tools: bool = Field(
+        default=True,
+        description="Whether to merge defaults.tools into this agent's tools",
+    )
+    allowed_toolkits: list[str] = Field(
+        default_factory=list,
+        description="Dynamic toolkit names this agent may load at runtime",
+    )
+    initial_toolkits: list[str] = Field(
+        default_factory=list,
+        description="Dynamic toolkit names loaded for a new session before any runtime changes",
+    )
+    skills: list[str] = Field(default_factory=list, description="List of skill names")
+    instructions: list[str] = Field(default_factory=list, description="Agent instructions")
+    rooms: list[str] = Field(default_factory=list, description="List of room IDs or names to auto-join")
+    accept_invites: bool = Field(default=True, description="Whether this agent accepts room invites")
+    markdown: bool | None = Field(default=None, description="Whether to use markdown formatting")
+    learning: bool | None = Field(default=None, description="Enable Agno Learning (defaults to true when omitted)")
+    learning_mode: AgentLearningMode | None = Field(
+        default=None,
+        description="Learning mode for Agno Learning: always (automatic) or agentic (tool-driven)",
+    )
+    model: str = Field(default="default", description="Model name")
+    memory_backend: MemoryBackend | None = Field(
+        default=None,
+        description=(
+            "Memory backend override for this agent ('mem0', 'file', or 'none'); inherits memory.backend when omitted"
+        ),
+    )
+    compaction: CompactionOverrideConfig | None = Field(
+        default=None,
+        description="Per-agent required-compaction overrides",
+    )
+    private: AgentPrivateConfig | None = Field(
+        default=None,
+        description="Optional requester-private state materialized per private.per partition",
+    )
+    knowledge_bases: list[str] = Field(
+        default_factory=list,
+        description="Knowledge base IDs assigned to this agent",
+    )
+    context_files: list[str] = Field(
+        default_factory=list,
+        description="Workspace-relative file paths loaded into each freshly built agent instance and prepended to role context",
+    )
+    thread_mode: Literal["thread", "room"] = Field(
+        default="thread",
+        description="Conversation threading mode: 'thread' creates Matrix threads per conversation, 'room' uses a single continuous conversation per room (ideal for bridges/mobile)",
+    )
+    startup_thread_prewarm: bool = Field(
+        default=True,
+        description=(
+            "Whether this bot participates in room-level startup prewarming of recent thread snapshots "
+            "for rooms already joined when first sync completes"
+        ),
+    )
+    room_thread_modes: dict[str, Literal["thread", "room"]] = Field(
+        default_factory=dict,
+        description="Per-room thread mode overrides keyed by room alias/name or Matrix room ID",
+    )
+    num_history_runs: int | None = Field(
+        default=None,
+        ge=1,
+        description="Number of prior Agno runs to include as history context (per-agent override)",
+    )
+    num_history_messages: int | None = Field(
+        default=None,
+        ge=1,
+        description="Max messages from history (mutually exclusive with num_history_runs)",
+    )
+    compress_tool_results: bool | None = Field(
+        default=None,
+        description=(
+            "Compress tool results in history to save context (per-agent override). On Anthropic/Vertex Claude, "
+            "setting this to true can mutate replayed tool messages and invalidate prompt-cache prefixes."
+        ),
+    )
+    max_tool_calls_from_history: int | None = Field(
+        default=None,
+        ge=0,
+        description="Max tool call messages replayed from history (per-agent override)",
+    )
+    show_tool_calls: bool | None = Field(
+        default=None,
+        description="Whether to show tool call details inline in responses (per-agent override)",
+    )
+    worker_tools: list[str] | None = Field(
+        default=None,
+        description="Tool names to route through scoped workers (overrides defaults; None = use the built-in default routing policy)",
+    )
+    worker_scope: WorkerScope | None = Field(
+        default=None,
+        description="Worker runtime reuse mode for routed tools: shared, user, or user_agent. user reuses one runtime per requester across agents and is not an agent-level filesystem isolation boundary",
+    )
+    allow_self_config: bool | None = Field(
+        default=None,
+        description="Allow this agent to modify its own configuration via a tool",
+    )
+    delegate_to: list[str] = Field(
+        default_factory=list,
+        description="List of agent names this agent can delegate tasks to via tool calls",
+    )
+
+    @property
+    def tool_names(self) -> list[str]:
+        """Return authored tool names without inline override details."""
+        return [entry.name for entry in self.tools]
+
+    def get_tool_overrides(self, tool_name: str) -> dict[str, object] | None:
+        """Return normalized per-agent runtime overrides for one configured tool."""
+        # why-lazy: config.agent is imported by config.main; the tool catalog loads hook/runtime helpers.
+        from mindroom.tool_system.catalog import TOOL_METADATA, normalize_authored_tool_overrides  # noqa: PLC0415
+
+        for entry in self.tools:
+            if entry.name == tool_name and entry.overrides:
+                metadata = TOOL_METADATA.get(tool_name)
+                allowed_fields = {field.name for field in metadata.agent_override_fields or []} if metadata else set()
+                if not allowed_fields:
+                    return None
+                overrides = {name: value for name, value in entry.overrides.items() if name in allowed_fields}
+                if not overrides:
+                    return None
+                normalized = normalize_authored_tool_overrides(tool_name, overrides)
+                return normalized or None
+        return None
+
+    def authored_model_dump(self) -> dict[str, object]:
+        """Serialize the authored agent config."""
+        return self.model_dump(exclude_unset=True)
+
+    @model_validator(mode="after")
+    def _check_history_config(self) -> Self:
+        validate_history_limit_choice(
+            num_history_runs=self.num_history_runs,
+            num_history_messages=self.num_history_messages,
+        )
+        if self.private is not None and self.worker_scope is not None:
+            msg = "Private agents derive their execution scope from private.per; configure private or worker_scope, not both"
+            raise ValueError(msg)
+        return self
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_legacy_agent_fields(cls, data: object) -> object:
+        """Reject removed legacy fields to prevent silent misconfiguration."""
+        if isinstance(data, dict):
+            if "knowledge_base" in data:
+                msg = "Agent field 'knowledge_base' was removed. Use 'knowledge_bases' (list) instead."
+                raise ValueError(msg)
+            if "memory_dir" in data:
+                msg = "Agent field 'memory_dir' was removed. Use 'context_files' and memory.backend=file instead."
+                raise ValueError(msg)
+            if "memory_file_path" in data:
+                msg = (
+                    "Agent field 'memory_file_path' was removed. File-backed agent memory now lives in the "
+                    "canonical agent workspace root; keep memory_backend=file and configure context_files "
+                    "relative to that workspace."
+                )
+                raise ValueError(msg)
+            if "sandbox_tools" in data:
+                msg = "Agent field 'sandbox_tools' was removed. Use 'worker_tools' instead."
+                raise ValueError(msg)
+        return data
+
+    @field_validator("tools")
+    @classmethod
+    def validate_unique_tools(cls, tools: list[ToolConfigEntry]) -> list[ToolConfigEntry]:
+        """Ensure each normalized tool appears at most once."""
+        return validate_unique_tool_entries(tools, scope_name="agent")
+
+    @field_validator("allowed_toolkits")
+    @classmethod
+    def validate_unique_allowed_toolkits(cls, toolkits: list[str]) -> list[str]:
+        """Ensure each allowed toolkit is listed at most once."""
+        duplicates = duplicate_items(toolkits)
+        if duplicates:
+            msg = f"Duplicate allowed_toolkits are not allowed: {', '.join(duplicates)}"
+            raise ValueError(msg)
+        return toolkits
+
+    @field_validator("initial_toolkits")
+    @classmethod
+    def validate_unique_initial_toolkits(cls, toolkits: list[str]) -> list[str]:
+        """Ensure each initial toolkit is listed at most once."""
+        duplicates = duplicate_items(toolkits)
+        if duplicates:
+            msg = f"Duplicate initial_toolkits are not allowed: {', '.join(duplicates)}"
+            raise ValueError(msg)
+        return toolkits
+
+    @field_validator("knowledge_bases")
+    @classmethod
+    def validate_unique_knowledge_bases(cls, knowledge_bases: list[str]) -> list[str]:
+        """Ensure each knowledge base assignment appears at most once per agent."""
+        duplicates = duplicate_items(knowledge_bases)
+        if duplicates:
+            msg = f"Duplicate knowledge bases are not allowed: {', '.join(duplicates)}"
+            raise ValueError(msg)
+        return knowledge_bases
+
+    @field_validator("context_files")
+    @classmethod
+    def validate_context_files(cls, values: list[str]) -> list[str]:
+        """Ensure configured context files stay inside the canonical workspace."""
+        return [agent_workspace_relative_path(value).as_posix() for value in values]
+
+
+class TeamConfig(BaseModel):
+    """Configuration for a team of agents."""
+
+    display_name: str = Field(description="Human-readable name for the team")
+    role: str = Field(description="Description of the team's purpose")
+    agents: list[str] = Field(min_length=1, description="List of agent names that compose this team")
+    rooms: list[str] = Field(default_factory=list, description="List of room IDs or names to auto-join")
+    model: str | None = Field(default="default", description="Default model for this team (optional)")
+    mode: str = Field(default="coordinate", description="Team collaboration mode: coordinate or collaborate")
+    startup_thread_prewarm: bool = Field(
+        default=True,
+        description=(
+            "Whether this bot participates in room-level startup prewarming of recent thread snapshots "
+            "for rooms already joined when first sync completes"
+        ),
+    )
+    compaction: CompactionOverrideConfig | None = Field(
+        default=None,
+        description="Per-team required-compaction overrides",
+    )
+    num_history_runs: int | None = Field(
+        default=None,
+        ge=1,
+        description="Number of prior scoped runs to include as team history context",
+    )
+    num_history_messages: int | None = Field(
+        default=None,
+        ge=1,
+        description="Max messages from team-scoped history (mutually exclusive with num_history_runs)",
+    )
+    max_tool_calls_from_history: int | None = Field(
+        default=None,
+        ge=0,
+        description="Max tool call messages replayed from team history",
+    )
+
+    @field_validator("agents")
+    @classmethod
+    def validate_unique_agents(cls, agents: list[str]) -> list[str]:
+        """Ensure each team member appears at most once."""
+        duplicates = duplicate_items(agents)
+        if duplicates:
+            msg = f"Duplicate agents are not allowed in a team: {', '.join(duplicates)}"
+            raise ValueError(msg)
+        return agents
+
+    @model_validator(mode="after")
+    def validate_history_settings(self) -> Self:
+        """Ensure team history replay knobs stay unambiguous."""
+        validate_history_limit_choice(
+            num_history_runs=self.num_history_runs,
+            num_history_messages=self.num_history_messages,
+        )
+        return self
+
+
+class RoomConfig(BaseModel):
+    """Configuration for a managed Matrix room."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    display_name: str | None = Field(default=None, description="Human-readable Matrix room name")
+    description: str = Field(default="", description="Dashboard-facing room purpose")
+
+    @field_validator("display_name")
+    @classmethod
+    def normalize_display_name(cls, value: str | None) -> str | None:
+        """Keep room display names absent or trimmed non-empty strings."""
+        stripped = value.strip() if value is not None else ""
+        return stripped or None
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        """Omit empty display-name metadata from authored serialization."""
+        data = handler(self)
+        if data.get("display_name") is None:
+            data.pop("display_name", None)
+        return data
+
+
+class CultureConfig(BaseModel):
+    """Configuration for a shared culture."""
+
+    description: str = Field(default="", description="Description of shared principles and practices")
+    agents: list[str] = Field(default_factory=list, description="List of agent names assigned to this culture")
+    mode: CultureMode = Field(
+        default="automatic",
+        description="Culture update mode: automatic, agentic, or manual",
+    )
+
+    @field_validator("agents")
+    @classmethod
+    def validate_unique_agents(cls, agents: list[str]) -> list[str]:
+        """Ensure each agent is assigned at most once per culture."""
+        duplicates = duplicate_items(agents)
+        if duplicates:
+            msg = f"Duplicate agents are not allowed in a culture: {', '.join(duplicates)}"
+            raise ValueError(msg)
+        return agents

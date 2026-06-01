@@ -1,0 +1,28 @@
+[package]
+name = "oai-statsig-grpc"
+description = "Statsig with gRPC support."
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+authors.workspace = true
+readme = "README.md"
+homepage.workspace = true
+repository.workspace = true
+
+[dependencies]
+tokio = { version = "1.39.1", features = ["full"] }
+async-trait = "0.1.81"
+tonic = { version = "0.12.1", features = ["tls"] }
+parking_lot = "0.12.1"
+prost = "0.13.1"
+tonic-build = "0.12.1"
+log = "0.4.22"
+chrono = "0.4.38"
+lazy_static = "1.5.0"
+
+[build-dependencies]
+tonic-build = "0.12.1"
+
+[[bin]]
+name = "mock_grpc_server"
+path = "src/mock_forward_proxy.rs"

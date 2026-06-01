@@ -1,0 +1,124 @@
+"""
+IXMP4 provides a command line interface for some of its functionality.
+Use the ``--help`` option to find out more about any command:
+
+.. code:: bash
+
+    ixmp4 --help
+    ixmp4 platforms --help
+    ixmp4 alembic --help
+    ixmp4 test --help
+    ixmp4 server --help
+
+"""
+
+import typer
+from toolkit.client.auth import ManagerAuth
+from toolkit.exceptions import InvalidCredentials as InvalidCredentials
+
+from ixmp4.cli import alembic, platforms, server
+from ixmp4.cli.banner import print_banner
+from ixmp4.conf.settings import Settings
+
+app = typer.Typer()
+app.add_typer(platforms.app, name="platforms")
+app.add_typer(alembic.app, name="alembic")
+app.add_typer(server.app, name="server")
+
+
+@app.callback(invoke_without_command=True)
+def main(ctx: typer.Context) -> None:
+    if ctx.invoked_subcommand is None:
+        print_banner()
+        typer.echo(ctx.get_help())
+
+
+@app.command(help="Logs into the configured manager service.")
+def login(
+    username: str = typer.Argument(..., help="Your username."),
+    password: str = typer.Option(
+        ...,
+        help="Your password. Will be saved in plain-text.",
+        prompt=True,
+        hide_input=True,
+    ),
+) -> None:
+    settings = Settings()
+    try:
+        auth = ManagerAuth(username, password, str(settings.manager_url))
+        user = auth.access_token.user
+        assert user is not None
+        typer.secho(
+            f"Successfully authenticated as user '{user.username}'.",
+            fg=typer.colors.GREEN,
+        )
+        if typer.confirm(
+            text=(
+                "Are you sure you want to save your credentials in plain-text for "
+                "future use?"
+            )
+        ):
+            credentials = settings.get_credentials()
+            credentials.set("default", username, password)
+            typer.secho("Done.", fg=typer.colors.GREEN)
+
+    except InvalidCredentials:
+        raise typer.BadParameter(
+            "The credentials you provided are not valid. (Wrong username or password?)"
+        )
+
+
+@app.command(help="Logs out and deletes local credentials.")
+def logout() -> None:
+    settings = Settings()
+    if typer.confirm(
+        "Are you sure you want to log out and delete locally saved credentials?"
+    ):
+        credentials = settings.get_credentials()
+        credentials.clear("default")
+        typer.secho("Done.", fg=typer.colors.GREEN)
+
+
+try:
+    import pytest
+
+    @app.command(
+        context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+        help="Runs tests.",
+    )
+    def test(
+        ctx: typer.Context,
+        with_backend: bool = typer.Argument(False),
+        with_benchmarks: bool = typer.Argument(False),
+        dry: bool = typer.Argument(False),
+    ) -> None:
+        opts = [
+            "--cov-report",
+            "xml:.coverage.xml",
+            "--cov-report",
+            "term",
+            "--cov=ixmp4",
+            "-rsx",
+        ] + ctx.args
+
+        if not with_backend:
+            opts += ["--ignore=tests/data"]
+
+        if not with_benchmarks:
+            opts += ["--benchmark-skip"]
+        else:
+            opts += ["--benchmark-group-by=func", "--benchmark-columns=min"]
+
+        if dry:
+            typer.echo("pytest " + " ".join(opts))
+            raise typer.Exit(0)
+        exit_code = pytest.main(opts)
+        raise typer.Exit(
+            code=exit_code.value
+            if isinstance(exit_code, pytest.ExitCode)
+            else exit_code
+        )
+
+except ImportError:
+    # No pytest installed
+    pass

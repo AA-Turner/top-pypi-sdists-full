@@ -3621,19 +3621,66 @@ def _validate_unique_pubsub_source(
     fqn: str,
     error_builder: ResolverErrorBuilder | FunctionCallErrorBuilder,
     lsp_range: RangeGQL | ast.AST | None,
+    message_header_filters: list[tuple[str, bytes]] | None = None,
 ) -> None:
-    """A PubSub subscription can only be consumed by one stream resolver — multiple
-    resolvers on the same subscription cause silent message-stealing at runtime."""
+    """A PubSub subscription can only be consumed by one stream resolver unless every
+    resolver on the subscription declares non-empty, non-identical message_header_filters
+    for unambiguous routing."""
     if source.streaming_type != "pubsub" or source.name is None:
         return
-    for existing in RESOLVER_REGISTRY.get_stream_resolvers():
-        if existing.source.streaming_type == "pubsub" and existing.source.name == source.name:
+    existing_on_source = [
+        r
+        for r in RESOLVER_REGISTRY.get_stream_resolvers()
+        if r.source.streaming_type == "pubsub" and r.source.name == source.name
+    ]
+    if not existing_on_source:
+        return
+
+    # Sharing is allowed only when the new resolver supplies header filters.
+    if message_header_filters is None or len(message_header_filters) == 0:
+        error_builder.add_diagnostic(
+            message=(
+                f"Stream resolver '{fqn}' uses PubSub source '{source.name}', "
+                f"which is already consumed by stream resolver '{existing_on_source[0].fqn}'. "
+                "To share one subscription across multiple resolvers, every resolver must "
+                "declare message_header_filters for unambiguous routing."
+            ),
+            code="117",
+            label="duplicate PubSub source",
+            range=lsp_range,
+            raise_error=ValueError,
+        )
+        return
+
+    # message_header_filters is list[tuple[str, bytes]] here (narrowed by is None check above).
+    new_filters_set = frozenset(message_header_filters)
+
+    for existing in existing_on_source:
+        existing_filters = existing.message_header_filters
+        # Every existing resolver must also have header filters; otherwise it receives all
+        # messages and the new resolver would steal some of them.
+        if not existing_filters:
             error_builder.add_diagnostic(
                 message=(
-                    f"Stream resolver '{fqn}' uses PubSub source '{source.name}', "
-                    f"which is already consumed by stream resolver '{existing.fqn}'. "
-                    "A PubSub subscription can only be consumed by one stream resolver — "
-                    "split the work into separate subscriptions."
+                    f"Stream resolver '{fqn}' uses PubSub source '{source.name}' with "
+                    f"message_header_filters, but existing resolver '{existing.fqn}' on the "
+                    "same subscription has no message_header_filters. All resolvers sharing "
+                    "a subscription must declare message_header_filters."
+                ),
+                code="117",
+                label="duplicate PubSub source",
+                range=lsp_range,
+                raise_error=ValueError,
+            )
+            return
+        # Disallow identical filter sets — two resolvers with the same filters would both
+        # receive every matching message, producing duplicate writes.
+        if frozenset(existing_filters) == new_filters_set:
+            error_builder.add_diagnostic(
+                message=(
+                    f"Stream resolver '{fqn}' has the same message_header_filters as "
+                    f"'{existing.fqn}' on PubSub source '{source.name}'. "
+                    "Each resolver sharing a subscription must have distinct filters."
                 ),
                 code="117",
                 label="duplicate PubSub source",
@@ -3751,6 +3798,9 @@ def parse_and_register_stream_resolver(
                     raise_error=ValueError,
                 )
 
+    # The @stream decorator does not support message_header_filters or sharing a PubSub
+    # source across multiple resolvers. Each @stream resolver must have its own source.
+    # Use make_stream_resolver with distinct message_header_filters to share a subscription.
     _validate_unique_pubsub_source(
         source=source,
         fqn=fqn,
@@ -4065,6 +4115,7 @@ def make_stream_resolver(
         fqn=name,
         error_builder=error_builder,
         lsp_range=error_builder.function_arg_range_by_name("source"),
+        message_header_filters=message_header_filters,
     )
 
     resolver = StreamResolver(

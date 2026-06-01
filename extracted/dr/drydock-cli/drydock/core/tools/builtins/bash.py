@@ -322,7 +322,9 @@ class BashToolConfig(BaseToolConfig):
 
 
 class BashArgs(BaseModel):
-    command: str
+    command: str | None = Field(
+        default=None, description="The shell command to run."
+    )
     timeout: int | None = Field(
         default=None, description="Override the default command timeout."
     )
@@ -343,7 +345,7 @@ class Bash(
 
     @classmethod
     def format_call_display(cls, args: BashArgs) -> ToolCallDisplay:
-        return ToolCallDisplay(summary=f"bash: {args.command}")
+        return ToolCallDisplay(summary=f"bash: {args.command or '(empty)'}")
 
     @classmethod
     def get_result_display(cls, event: ToolResultEvent) -> ToolResultDisplay:
@@ -359,7 +361,7 @@ class Bash(
         return "Running command"
 
     def resolve_permission(self, args: BashArgs) -> ToolPermission | None:
-        if is_windows():
+        if is_windows() or not args.command:
             return None
 
         command_parts = _extract_commands(args.command)
@@ -531,6 +533,172 @@ class Bash(
         return any(c.startswith(p) for p in prefixes)
 
     @staticmethod
+    def _detect_inplace_file_edit(command: str) -> str | None:
+        """Pre-execution check: is this bash command an inplace file edit
+        that should use search_replace (or write_file) instead?
+
+        Why this exists (2026-05-31 operator session): Gemma 4 ignores
+        explicit "use search_replace" instructions and routes file edits
+        through bash like `sed -i '4s/return a - b/return a + b/' file.py`.
+        Every safety net we built on the file-edit path (write_file's
+        pre-write syntax gate, search_replace's fuzzy match + already-
+        applied detection, validation-scrub, dedup, multifile-rename
+        intercept) becomes useless if the model can launder the edit
+        through bash. This redirect closes that loophole.
+
+        Gated by DRYDOCK_BASH_INPLACE_REDIRECT (default ON — to disable
+        in CI/scripts, set DRYDOCK_BASH_INPLACE_REDIRECT=0).
+
+        Returns a redirect-to-search_replace message, or None if the
+        command is not an inplace edit.
+        """
+        import os as _os
+        if _os.environ.get(
+            "DRYDOCK_BASH_INPLACE_REDIRECT", "1"
+        ).strip().lower() in ("0", "false", "no"):
+            return None
+
+        import re as _re
+
+        # Inplace-edit signatures. Each pattern matches a recognizable
+        # form; the `tool` label is what we mention in the refusal so the
+        # model knows which command we caught.
+        # The patterns are deliberately narrow: only forms that modify
+        # files on disk inplace, not commands that just print to stdout
+        # (e.g. `sed 's/x/y/' f.py` without -i is fine — it streams).
+        patterns: list[tuple[str, str, str]] = [
+            # sed: -i [SUFFIX] [-e SCRIPT] file...    (GNU + BSD inplace)
+            # Catches: sed -i, sed -i'.bak', sed -i .bak, sed -i'',
+            # sed -ie, sed -i -e, sed --in-place, sed -ibak
+            ("sed", r"(?:^|\s|;|&&|\|\|)sed\b[^|<>;]*?(?:\s-i(?:\s|\b|'|\"|[A-Za-z.])|--in-place\b)", "sed -i (inplace)"),
+            # awk -i inplace (gawk)
+            ("awk", r"(?:^|\s|;|&&|\|\|)(?:g?awk)\b[^|<>;]*?-i\s+inplace\b", "awk -i inplace"),
+            # perl -i (inplace mode), -i.bak, -pi, -pie, -i -pe
+            ("perl", r"(?:^|\s|;|&&|\|\|)perl\b[^|<>;]*?(?:\s-[A-Za-z]*i(?:\.[A-Za-z0-9]+)?\b|\s-i\s)", "perl -i (inplace)"),
+            # ruby -i (matches the same family)
+            ("ruby", r"(?:^|\s|;|&&|\|\|)ruby\b[^|<>;]*?\s-[A-Za-z]*i(?:\.[A-Za-z0-9]+)?\b", "ruby -i (inplace)"),
+            # patch FILE < diff   (only when FILE is a .py / common source path)
+            ("patch", r"(?:^|\s|;|&&|\|\|)patch\b[^|<>;]*?\s+[^\s]+\.(?:py|js|ts|tsx|jsx|go|rs|java|c|cpp|h|hpp|rb|sh|md|toml|yaml|yml|json)\b", "patch"),
+        ]
+
+        # `python -c "<script>"` / `python3 -c '<script>'` body inspection.
+        # Quote-balancing the body across an entire bash command with one
+        # regex is fragile (Gemma 4 routinely emits scripts containing
+        # single quotes around path strings INSIDE a double-quoted -c
+        # argument). Instead: extract everything after `-c` to the end
+        # of the command and substring-check for inplace-write idioms.
+        # This catches the laundering pattern the operator hit in
+        # session 2026-05-31 11:19 where `sed -i` redirect fired and
+        # the model fell back to:
+        #   python3 -c "import sys; f = open('broken.py','r'); c = f.read();
+        #               f.close(); new_c = c.replace(...); f = open('broken.py','w');
+        #               f.write(new_c); f.close()"
+        py_c_match = _re.search(
+            r"(?:^|\s|;|&&|\|\|)python3?\b[^|<>;]*?-c\s+(['\"])(?P<body>.*)",
+            command, _re.DOTALL,
+        )
+        if py_c_match:
+            body = py_c_match.group("body")
+            # write_text / Path().write_bytes / open(...).write — any of
+            # these on a source-file extension is an inplace edit.
+            has_write = bool(
+                _re.search(r"\.write(?:_text|_bytes)?\s*\(", body)
+                or "open(" in body.replace(" ", "")
+                and _re.search(r"open\s*\([^)]*?,\s*['\"][wa]['\"]", body)
+            )
+            mentions_source = bool(
+                _re.search(
+                    r"['\"][^'\"]*?\.(?:py|js|ts|tsx|jsx|go|rs|java|c|cpp|h|hpp|rb|sh|md|toml|yaml|yml|json)['\"]",
+                    body,
+                )
+            )
+            if has_write and mentions_source:
+                return (
+                    f"REFUSED: bash inplace file edit (python -c "
+                    f"'open(...).write(...)') blocked.\n"
+                    f"  Reason: bash file edits bypass every safety net on "
+                    f"the file-edit path (pre-write syntax gate, fuzzy "
+                    f"match, already-applied detection, dedup, validation "
+                    f"scrub, multifile-rename intercept). Months of operator "
+                    f"sessions have hit corrupted writes / silent loops via "
+                    f"this exact pattern. Wrapping the edit in `python -c` "
+                    f"does NOT change that — drydock still can't see the "
+                    f"resulting content.\n"
+                    f"  Action: use `search_replace` for targeted line "
+                    f"changes, or `write_file` for a full rewrite. Both "
+                    f"validate the result before committing to disk.\n"
+                    f"  To disable this guard set "
+                    f"DRYDOCK_BASH_INPLACE_REDIRECT=0."
+                )
+
+        # Special-case fast reject: shell heredocs / "EOF" forms that
+        # WRITE A WHOLE NEW FILE are arguably legit when the file doesn't
+        # exist (e.g. `cat > NEW.py <<EOF`). We don't intercept those —
+        # write_file already handles the new-file case. We only catch
+        # APPENDS and OVERWRITES of EXISTING source files via redirect.
+        for tool, pattern, label in patterns:
+            if _re.search(pattern, command):
+                return (
+                    f"REFUSED: bash inplace file edit ({label}) blocked.\n"
+                    f"  Reason: bash file edits bypass every safety net on "
+                    f"the file-edit path (pre-write syntax gate, fuzzy "
+                    f"match, already-applied detection, dedup, validation "
+                    f"scrub, multifile-rename intercept). Months of operator "
+                    f"sessions have hit corrupted writes / silent loops via "
+                    f"this exact pattern.\n"
+                    f"  Action: use `search_replace` for targeted line "
+                    f"changes, or `write_file` for a full rewrite. Both "
+                    f"validate the result before committing to disk.\n"
+                    f"  To disable this guard for a specific run (e.g. "
+                    f"build scripts that intentionally use sed -i on "
+                    f"generated files), set "
+                    f"DRYDOCK_BASH_INPLACE_REDIRECT=0 in the environment."
+                )
+
+        # Output-redirect to EXISTING source file (`echo X > f.py`,
+        # `cat > f.py`, `printf ... > f.py`). Limited to common source
+        # extensions so we don't block log writes / config rotation.
+        # ONLY block if file already exists in cwd — new-file creation
+        # via `cat > NEW.py <<EOF` is a legitimate write_file substitute.
+        # We can't easily check "already exists" here without doing I/O,
+        # so we use a heuristic: if the command does both `>` and refers
+        # to a path with a source extension, refuse.
+        redirect_pat = _re.compile(
+            r">>?\s+(?P<path>[^\s|<>;&]+\.(?:py|js|ts|tsx|jsx|go|rs|java|c|cpp|h|hpp|rb|md|toml|yaml|yml|json))\b"
+        )
+        m = redirect_pat.search(command)
+        if m:
+            # Allow append-redirect for known log/debug files.
+            path_str = m.group("path")
+            if any(part in path_str for part in (".log.", "/logs/", "/.cache/", "/tmp/")):
+                return None
+            # Allow if file genuinely doesn't exist — that's a write_file
+            # alternative the model is using legitimately.
+            from pathlib import Path as _Path
+            try:
+                target = _Path(path_str)
+                if not target.is_absolute():
+                    target = _Path.cwd() / target
+                if not target.exists():
+                    return None
+            except Exception:
+                pass
+            return (
+                f"REFUSED: bash redirect-to-source-file ({path_str}) "
+                f"blocked.\n"
+                f"  Reason: overwriting / appending to an existing source "
+                f"file via shell redirect bypasses the same safety nets "
+                f"the inplace edit (sed -i) does. The file on disk gets "
+                f"corrupted before any check fires.\n"
+                f"  Action: use `search_replace` for targeted line "
+                f"changes, or `write_file` for a full rewrite.\n"
+                f"  To disable this guard set "
+                f"DRYDOCK_BASH_INPLACE_REDIRECT=0."
+            )
+
+        return None
+
+    @staticmethod
     def _detect_sed_multifile_rename(command: str) -> str | None:
         """Pre-execution check: is this bash command a multi-file rename
         cascade that should use `mechanical_rename` instead?
@@ -659,6 +827,42 @@ class Bash(
     async def run(
         self, args: BashArgs, ctx: InvokeContext | None = None
     ) -> AsyncGenerator[ToolStreamEvent | BashResult, None]:
+        # bash({}) with no command field — return a clear error instead of
+        # raising ToolError (which the model retries identically, creating a
+        # loop). Returning a BashResult with returncode=1 gives the model
+        # parseable feedback so it can recover. See feedback_no_tool_errors_for_loop_detection.md.
+        if not args.command:
+            yield BashResult(
+                command="",
+                stdout=(
+                    "Error: 'command' field is required.\n"
+                    'Usage: bash({"command": "<shell command>"})'
+                ),
+                stderr="",
+                returncode=1,
+            )
+            return
+
+        # 2026-05-31: INPLACE-EDIT REDIRECT. Operator hands-on TUI session
+        # confirmed Gemma 4 ignores "use search_replace" instructions and
+        # routes file edits through bash (`sed -i '4s/.../.../' f.py`).
+        # That bypasses every safety net on the file-edit path:
+        # write_file's pre-write syntax gate, search_replace's fuzzy
+        # match + already-applied detection, the validation-scrub, dedup,
+        # multifile-rename intercept. Hard-refuse inplace edits and
+        # redirect to search_replace. See
+        # ~/.claude/projects/-data3-drydock/memory/feedback_actually_use_drydock_tui.md
+        # for why pytest passing wasn't enough to catch this.
+        redirect = self._detect_inplace_file_edit(args.command)
+        if redirect:
+            yield BashResult(
+                command=args.command,
+                stdout=redirect,
+                stderr="",
+                returncode=1,
+            )
+            return
+
         # Multi-file rename interception via the bash escape hatch.
         # When the model emits `sed -i 's/X/Y/g' ...` and X is a Python
         # identifier present in 2+ .py files of the cwd's package, this
@@ -670,7 +874,7 @@ class Bash(
         if redirect:
             yield BashResult(
                 command=args.command,
-                exit_code=2,
+                returncode=2,
                 stdout="",
                 stderr=redirect,
             )
@@ -686,6 +890,27 @@ class Bash(
                     "[bash: empty or placeholder command — nothing was executed. "
                     "Supply a real shell command such as `ls`, `python3 script.py`, "
                     "or `cat file.py`. Do NOT resend '{}' or an empty string.]"
+                ),
+                stderr="",
+                returncode=1,
+            )
+            return
+
+        # addresses pattern harness:loop:bash_generic (comment-only subvariant)
+        # Gemma 4 sends comment-only commands like "# No command needed. Preparing
+        # search_replace." as a placeholder before a tool switch. Running it is a
+        # silent no-op that stalls the loop waiting for output.
+        _nonblank_lines = [
+            ln for ln in args.command.splitlines() if ln.strip()
+        ]
+        if _nonblank_lines and all(ln.strip().startswith("#") for ln in _nonblank_lines):
+            yield BashResult(
+                command=args.command,
+                stdout=(
+                    "[bash: comment-only command — no shell code was executed. "
+                    "If you intended to run a command, supply executable code. "
+                    "If you meant to do a search_replace or write_file next, "
+                    "call that tool directly — do NOT send a bash placeholder comment first.]"
                 ),
                 stderr="",
                 returncode=1,
@@ -876,6 +1101,49 @@ class Bash(
                             f"  write_file path='/tmp/script.py' content='...'\n"
                             f"  bash command='python3 /tmp/script.py'\n"
                             f"Do NOT retry the inline -c form again.]"
+                        ),
+                        stderr="",
+                        returncode=returncode,
+                    )
+                    return
+
+            # Echo-escape loop-breaker: fires on the 3rd+ command per session
+            # that uses `echo -e` / `printf` with \n or \t escape sequences.
+            # The model loops trying different echo-e variants when the shell
+            # doesn't interpret them (/bin/sh ignores -e; compound commands
+            # swallow backslashes before the shell sees them).  The exact
+            # command and output vary each iteration so hash-check and the
+            # repetition-count check don't fire.  Track across the session.
+            # addresses pattern harness:bash:escape_loop
+            _echo_esc_state = self.state.__dict__.setdefault(
+                "_echo_escape_count", 0
+            )
+            _is_echo_esc_cmd = (
+                bool(__import__("re").search(
+                    r'(?:echo\s+.*-[eE]|printf)\b', args.command
+                ))
+                and bool(__import__("re").search(r'\\[nt]', args.command))
+            )
+            if _is_echo_esc_cmd:
+                _esc_new = _echo_esc_state + 1
+                self.state.__dict__["_echo_escape_count"] = _esc_new
+                if _esc_new >= 3:
+                    yield self._build_result(
+                        command=args.command,
+                        stdout=(
+                            f"[LOOP-BREAKER: `echo -e` / `printf` with "
+                            f"\\n / \\t escape sequences has been used "
+                            f"{_esc_new} times this session. "
+                            f"These escapes are unreliable across shells — "
+                            f"/bin/sh ignores `echo -e`; compound commands "
+                            f"can swallow backslashes before the shell sees "
+                            f"them. Use write_file with literal content "
+                            f"instead of echo-e to create test input files:\n"
+                            f"  write_file path='input.txt' "
+                            f"content='line1\\nline2\\nline3'\n"
+                            f"(write_file always interprets \\n as a real "
+                            f"newline.) Do NOT retry with another echo-e or "
+                            f"printf variant — use write_file.]"
                         ),
                         stderr="",
                         returncode=returncode,

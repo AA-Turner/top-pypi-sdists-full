@@ -1,0 +1,62 @@
+Metadata-Version: 2.4
+Name: tobler
+Version: 0.14.0
+Summary: Tobler is a Python library for areal interpolation.
+Author-email: Eli Knaap <ek@knaaptime.com>, Serge Rey <sjsrey@gmail.com>
+Maintainer: pysal contributors
+License: BSD 3-Clause
+Project-URL: Home, https://github.com/pysal/tobler/
+Project-URL: Repository, https://github.com/pysal/tobler
+Keywords: dasymetric mapping, spatial analysis, interpolation, change of support
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Scientific/Engineering :: GIS
+Requires-Python: >=3.12
+Description-Content-Type: text/x-rst
+License-File: LICENSE.txt
+Requires-Dist: geopandas>=1.0
+Requires-Dist: joblib>=1.4
+Requires-Dist: libpysal>=4.10
+Requires-Dist: numpy>=2.0
+Requires-Dist: pandas>=2.2
+Requires-Dist: rasterio>=1.4
+Requires-Dist: rasterstats>=0.20
+Requires-Dist: scipy>=1.13
+Requires-Dist: statsmodels>=0.14
+Requires-Dist: tqdm>=4.67
+Provides-Extra: plus
+Requires-Dist: astropy; extra == "plus"
+Requires-Dist: dask-geopandas; extra == "plus"
+Requires-Dist: h3; extra == "plus"
+Requires-Dist: pointpats; extra == "plus"
+Provides-Extra: dev
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: nbsphinx; extra == "docs"
+Requires-Dist: numpydoc; extra == "docs"
+Requires-Dist: pandoc; extra == "docs"
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinxcontrib-bibtex; extra == "docs"
+Requires-Dist: sphinx_bootstrap_theme; extra == "docs"
+Requires-Dist: mkdocs-jupyter; extra == "docs"
+Requires-Dist: myst-parser; extra == "docs"
+Requires-Dist: sphinx-immaterial; extra == "docs"
+Requires-Dist: myst_nb; extra == "docs"
+Requires-Dist: sphinx-copybutton; extra == "docs"
+Provides-Extra: tests
+Requires-Dist: codecov; extra == "tests"
+Requires-Dist: coverage; extra == "tests"
+Requires-Dist: pytest; extra == "tests"
+Requires-Dist: pytest-mpl; extra == "tests"
+Requires-Dist: pytest-cov; extra == "tests"
+Requires-Dist: pytest-xdist; extra == "tests"
+Requires-Dist: watermark; extra == "tests"
+Provides-Extra: all
+Requires-Dist: tobler[dev,docs,plus,tests]; extra == "all"
+Dynamic: license-file
+
+Spatial interpolation, Dasymetric Mapping, & Change of Support"
+

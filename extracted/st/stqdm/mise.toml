@@ -1,0 +1,55 @@
+[settings]
+python.uv_venv_auto = "create|source"
+
+[env]
+PROJECT_NAME = "{{ config_root | basename }}"
+
+[tools]
+github-cli = "latest"
+python = "{{ get_env(name='PYTHON_VERSION', default='3.12') }}"
+uv = "latest"
+
+[tasks.install]
+description = "Install project and development dependencies"
+alias = "i"
+run = "uv sync --all-groups"
+
+[tasks.hooks]
+description = "Install git hooks with the uv-managed pre-commit"
+run = "uv run pre-commit install --install-hooks --hook-type pre-commit --hook-type commit-msg"
+
+[tasks.commitlint]
+description = "Check commit messages with Commitizen"
+run = "uv run nox -s commitlint"
+
+[tasks.test]
+description = "Run the pytest suite"
+run = "uv run pytest"
+
+[tasks.nox-list]
+description = "List nox compatibility sessions"
+run = "uv run nox --list"
+
+[tasks.compat]
+description = "Run the nox compatibility test matrix"
+run = "uv run nox -s tests"
+
+[tasks.lint]
+description = "Run formatting and lint checks"
+run = "uv run nox -s ruff_format ruff_check lint"
+
+[tasks.build]
+description = "Build package artifacts"
+run = "uv build"
+
+[tasks.release-check]
+description = "Build and validate release artifacts"
+run = "uv run nox -s release"
+
+[tasks.info]
+description = "Print project environment information"
+run = '''
+echo "Project: $PROJECT_NAME"
+echo "Python: $(python --version)"
+echo "Virtual Environment: $VIRTUAL_ENV"
+'''

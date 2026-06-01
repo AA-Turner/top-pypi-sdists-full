@@ -1,0 +1,131 @@
+Metadata-Version: 2.4
+Name: sap-cloud-sdk
+Version: 0.22.0
+Summary: SAP Cloud SDK for Python
+Author-email: SAP SE <ospo@sap.com>
+License-Expression: Apache-2.0
+License-File: LICENSE
+Requires-Python: >=3.11
+Requires-Dist: grpcio>=1.60.0
+Requires-Dist: hatchling~=1.27.0
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: mcp>=1.1.0
+Requires-Dist: minio~=7.2.16
+Requires-Dist: opentelemetry-api>=1.28.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc~=1.41.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http~=1.41.0
+Requires-Dist: opentelemetry-processor-baggage~=0.61b0
+Requires-Dist: opentelemetry-sdk>=1.28.0
+Requires-Dist: protobuf>=4.25.0
+Requires-Dist: protovalidate>=0.13.0
+Requires-Dist: pydantic~=2.12.3
+Requires-Dist: pyjwt~=2.12.1
+Requires-Dist: requests-oauthlib~=2.0.0
+Requires-Dist: requests>=2.33.0
+Requires-Dist: setuptools~=80.9.0
+Requires-Dist: traceloop-sdk~=0.54.0
+Requires-Dist: wrapt<2
+Provides-Extra: extensibility
+Requires-Dist: a2a-sdk>=0.2.0; extra == 'extensibility'
+Provides-Extra: langchain
+Requires-Dist: langchain-core>=1.2.7; extra == 'langchain'
+Provides-Extra: starlette
+Requires-Dist: starlette>=0.40.0; extra == 'starlette'
+Description-Content-Type: text/markdown
+
+[![Build & Package](https://github.com/SAP/cloud-sdk-python/actions/workflows/build.yaml/badge.svg)](https://github.com/SAP/cloud-sdk-python/actions/workflows/build.yaml) [![REUSE status](https://api.reuse.software/badge/github.com/SAP/cloud-sdk-python)](https://api.reuse.software/info/github.com/SAP/cloud-sdk-python)
+
+# SAP Cloud SDK for Python
+
+## About this project
+
+This SDK provides consistent interfaces for interacting with foundational services such as object storage, destination management, audit logging, data anonymization, telemetry, and secure credential handling.
+
+The Python SDK offers a clean, type-safe API following Python best practices while maintaining compatibility with the SAP Application Foundation ecosystem.
+
+### Key Features
+
+- **Agent Decorators**
+- **Agent Gateway**
+- **Agent Memory**
+- **AI Core Integration**
+- **Audit Log Service**
+- **Audit Log NG**
+- **Destination Service**
+- **Document Management Service**
+- **Extensibility**
+- **IAS (Identity and Access Service)**
+- **ObjectStore Service**
+- **Secret Resolver**
+- **Telemetry & Observability**
+- **Data Anonymization Service**
+
+## Requirements and Setup
+
+- **Python**: 3.11 or higher
+
+### Installation
+
+#### uv
+
+```bash
+uv add sap-cloud-sdk
+```
+
+#### Poetry
+
+```bash
+poetry add sap-cloud-sdk
+```
+
+#### pip
+
+```bash
+pip install sap-cloud-sdk
+```
+
+### Environment Configuration
+
+The SDK automatically resolves configuration from multiple sources with the following priority:
+
+1. **Kubernetes-mounted secrets**: `$SERVICE_BINDING_ROOT/<module>/<instance>/<field>`
+   - `SERVICE_BINDING_ROOT` defaults to `/etc/secrets/appfnd` when not set (follows the [servicebinding.io](https://servicebinding.io/spec/core/1.1.0/) spec). See the [Secret Resolver guide](../core/secret_resolver/user-guide.md) for details.
+
+2. **Environment variables**: `CLOUD_SDK_CFG_<MODULE>_<INSTANCE>_<FIELD>`
+   - For instance names, hyphens (`"-"`) are replaced with underscores (`"_"`) for compatibility with system environment variables.
+   - You can see examples in our [env_integration_tests.example](.env_integration_tests.example)
+
+### Usage Guides
+
+Each module has comprehensive usage guides:
+
+- [Agent Decorators](src/sap_cloud_sdk/agent_decorators/user-guide.md)
+- [Agent Gateway](src/sap_cloud_sdk/agentgateway/user-guide.md)
+- [Agent Memory](src/sap_cloud_sdk/agent_memory/user-guide.md)
+- [AI Core](src/sap_cloud_sdk/aicore/user-guide.md)
+- [AuditLog](src/sap_cloud_sdk/core/auditlog/user-guide.md)
+- [AuditLog NG](src/sap_cloud_sdk/core/auditlog_ng/user-guide.md)
+- [Destination](src/sap_cloud_sdk/destination/user-guide.md)
+- [DMS](src/sap_cloud_sdk/dms/user-guide.md)
+- [Extensibility](src/sap_cloud_sdk/extensibility/user-guide.md)
+- [IAS](src/sap_cloud_sdk/ias/user-guide.md)
+- [ObjectStore](src/sap_cloud_sdk/objectstore/user-guide.md)
+- [Secret Resolver](src/sap_cloud_sdk/core/secret_resolver/user-guide.md)
+- [Telemetry](src/sap_cloud_sdk/core/telemetry/user-guide.md)
+- [Data Anonymization](src/sap_cloud_sdk/core/data_anonymization/user-guide.md)
+
+## Support, Feedback, Contributing
+
+This project is open to feature requests/suggestions, bug reports etc. via [GitHub issues](https://github.com/SAP/cloud-sdk-python/issues). Contribution and feedback are encouraged and always welcome. For more information about how to contribute, the project structure, as well as additional contribution information, see our [Contribution Guidelines](CONTRIBUTING.md).
+
+## Security / Disclosure
+
+If you find any bug that may be a security problem, please follow our instructions at [in our security policy](https://github.com/SAP/cloud-sdk-python/security/policy) on how to report it. Please do not create GitHub issues for security-related doubts or problems.
+
+## Code of Conduct
+
+We as members, contributors, and leaders pledge to make participation in our community a harassment-free experience for everyone. By participating in this project, you agree to abide by its [Code of Conduct](https://github.com/SAP/.github/blob/main/CODE_OF_CONDUCT.md) at all times.
+
+## Licensing
+
+Copyright 2026 SAP SE or an SAP affiliate company and Cloud SDK Python contributors. Please see our [LICENSE](LICENSE) for copyright and license information. Detailed information including third-party components and their licensing/copyright information is available [via the REUSE tool](https://api.reuse.software/info/github.com/SAP/cloud-sdk-python)

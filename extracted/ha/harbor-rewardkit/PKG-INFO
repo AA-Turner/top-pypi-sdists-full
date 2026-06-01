@@ -1,0 +1,73 @@
+Metadata-Version: 2.4
+Name: harbor-rewardkit
+Version: 0.1.4
+Summary: Lightweight grading toolkit for environment-based tasks.
+Keywords: grading,evaluation,rewards,llm,agents,benchmarks
+Author: benediktstroebl
+License-Expression: Apache-2.0
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Testing
+Requires-Dist: litellm>=1.83
+Requires-Dist: pillow>=10.0 ; extra == 'all'
+Requires-Dist: markitdown[pdf,docx,pptx,xlsx,xls,outlook]>=0.1 ; extra == 'all'
+Requires-Dist: markitdown[pdf,docx,pptx,xlsx,xls,outlook]>=0.1 ; extra == 'documents'
+Requires-Dist: pillow>=10.0 ; extra == 'image'
+Requires-Python: >=3.12
+Project-URL: Repository, https://github.com/harbor-framework/harbor
+Project-URL: Issues, https://github.com/harbor-framework/harbor/issues
+Provides-Extra: all
+Provides-Extra: documents
+Provides-Extra: image
+Description-Content-Type: text/markdown
+
+# Harbor Rewardkit
+
+[![](https://dcbadge.limes.pink/api/server/https://discord.gg/6xWPKhGDbA)](https://discord.gg/6xWPKhGDbA)
+[![Docs](https://img.shields.io/badge/Docs-000000?style=for-the-badge&logo=mdbook&color=105864)](https://harborframework.com/docs/rewardkit)
+
+The Harbor Rewardkit is a lightweight package to define and run verifiers. Rewardkit is designed to be used with the Harbor task format but you can use it on its own.
+
+## Installation
+
+```bash
+uv tool install harbor-rewardkit
+```
+
+## Example: Programmatic criteria
+
+```python
+# tests/check.py
+from rewardkit import criteria
+
+criteria.file_exists("output.txt")
+criteria.file_contains("output.txt", "hello")
+```
+
+## Example: LLM judge
+
+```toml
+# tests/quality.toml
+[judge]
+judge = "anthropic/claude-sonnet-4-6"
+files = ["/app/main.py"]
+
+[[criterion]]
+description = "Is the code correct?"
+type = "binary"
+```
+
+## Usage
+
+Add rewardkit to your `test.sh` file:
+
+```bash
+# tests/test.sh
+uvx harbor-rewardkit@0.1 /tests
+```
+
+See the [documentation](https://harborframework.com/docs/rewardkit) and a full [working example](https://github.com/harbor-framework/harbor/tree/main/examples/tasks/reward-kit-example).

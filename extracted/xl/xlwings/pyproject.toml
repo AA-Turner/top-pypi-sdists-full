@@ -31,7 +31,7 @@ classifiers = [
 ]
 
 dynamic = ["version"]
-license = {text = "BSD 3-clause"}
+license = { text = "BSD 3-clause" }
 keywords = ["xls", "excel", "spreadsheet", "workbook", "vba", "macro"]
 
 
@@ -48,7 +48,9 @@ all = [
     "requests",
     "pdfrw",
     "pytest",
+    "anyio",
     "mistune",
+    "pytest",
 ]
 vba_edit = ["watchgod"]
 
@@ -61,6 +63,32 @@ Documentation = "https://docs.xlwings.org"
 Funding = "https://www.xlwings.org/pricing"
 Source = "https://github.com/xlwings/xlwings"
 Changelog = "https://docs.xlwings.org/en/stable/whatsnew.html"
+
+[dependency-groups]
+docs = [
+    "furo",
+    "myst-parser[linkify]",
+    "sphinx",
+    "sphinx-autobuild",
+    "sphinx-copybutton",
+    "sphinx-design",
+]
+
+all = [
+    { include-group = "docs" },
+    "black",
+    "isort",
+    "Jinja2",
+    "pandas",
+    "matplotlib",
+    "plotly",
+    "flask",
+    "requests",
+    "pdfrw",
+    "pytest",
+    "anyio",
+    "mistune",
+]
 
 [tool.maturin]
 exclude = ["xlwings/js/tsconfig.json", "xlwings/js/excel.d.ts"]

@@ -1,0 +1,694 @@
+"""FleetQ Bridge `agent.request` → MCP tool dispatcher.
+
+v3.0.0a1: closes the publish-surface loop opened by v2.0.0a7. The
+relay's `ChunkHandler` accepts the agent.request payload and yields
+text chunks; this module is the canonical handler that maps the
+request to a local FastMCP tool call and serializes the response.
+
+Wire shape (from `docs/fleetq-relay-protocol.md`):
+
+    payload = {
+        "request_id": "<uuid>",
+        "server": "harbormaster",
+        "method": "tools/call" | "tools/list",
+        "params": {...},          # for tools/call: {"name": str, "arguments": dict}
+        "timeout": <int>,         # advisory only — local dispatch is in-process
+    }
+
+The dispatcher yields exactly one chunk: a JSON-encoded MCP-style
+response envelope, e.g.
+
+    {"result": {"content": [{"type": "text", "text": "..."}]}}
+    {"result": {"tools": [{"name": "...", "description": "..."}, ...]}}
+    {"result": {"isError": true, "content": [{"type": "text", "text": "<msg>"}]}}
+
+The relay's `_dispatch_chunk_handler` wraps each chunk in a
+`client-relay.chunk` event (final sentinel `done=true` follows
+automatically). FleetQ-side `popChunk` concatenates chunks, so a
+single-chunk envelope is fine for tool responses.
+
+Validation errors (bad method, missing params, unknown tool) become
+`isError: true` envelopes — surfaced to FleetQ as a normal MCP error
+result, NOT as a `client-relay.error`. Truly internal failures (e.g.
+a tool implementation raising) also become `isError: true`. The
+relay-level `client-relay.error` path is reserved for the dispatcher
+itself crashing on a malformed payload.
+"""
+from __future__ import annotations
+
+import contextlib
+import json
+import logging
+import threading
+import time
+from collections.abc import Iterator
+from dataclasses import dataclass
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+
+SERVER_NAME = "harbormaster"
+
+
+# v16.0.0a6: thread-local current-span context. Backends look this up
+# (via ``current_span_id()``) so child spans they emit (e.g. tool_use
+# blocks observed in claude.py's stream-json output) can be attributed
+# to the dispatch that spawned them.
+#
+# Use the ``span_context()`` context manager — never set the attribute
+# manually. Nested ``with`` blocks restore the previous value on exit
+# so child spans don't leak across dispatches.
+_thread_local = threading.local()
+
+
+def current_span_id() -> int | None:
+    """Return the active dispatch's span_id, or None outside a span."""
+    return getattr(_thread_local, "span_id", None)
+
+
+def current_trace_id() -> int | None:
+    """Return the active dispatch's trace_id, or None outside a span."""
+    return getattr(_thread_local, "trace_id", None)
+
+
+@contextlib.contextmanager
+def span_context(*, span_id: int, trace_id: int | None) -> Iterator[None]:
+    """Bind ``span_id`` + ``trace_id`` for the duration of the block.
+
+    Used by the dispatcher around the actual MCP tool invocation so
+    backends called inside that invocation see the parent span via
+    :func:`current_span_id` / :func:`current_trace_id`. Restores any
+    previously-bound values on exit (supports nested dispatches in
+    the same thread).
+    """
+    prev_span = getattr(_thread_local, "span_id", None)
+    prev_trace = getattr(_thread_local, "trace_id", None)
+    _thread_local.span_id = span_id
+    _thread_local.trace_id = trace_id
+    try:
+        yield
+    finally:
+        _thread_local.span_id = prev_span
+        _thread_local.trace_id = prev_trace
+
+
+# v9.0.0a2: per-tool runtime counters for the dispatcher.
+# Exposed via GET /api/dispatcher/status (UI route) and consumed by
+# the dispatcher CLI when running against an HTTP server.
+#
+# All mutations go through DispatcherStats; the lock guards both the
+# per-tool counters dict and the active-running-spans list. Read
+# methods snapshot under the lock so the consumer never observes a
+# torn dict.
+@dataclass
+class _ToolCounters:
+    in_flight: int = 0
+    total_completed: int = 0
+    total_failed: int = 0
+
+
+@dataclass
+class _RunningSpan:
+    tool: str
+    project: str | None
+    started_at: float  # epoch seconds
+    span_id: int = 0  # monotonically incrementing per-process
+    # v16.0.0a6: parent/child + trace correlation. Root span has
+    # parent_span_id = None; child spans (e.g. tool_use blocks
+    # observed inside a backend stream) point at the dispatch span
+    # that spawned them. trace_id == root span_id so the waterfall
+    # renderer can group every span belonging to one operator action.
+    parent_span_id: int | None = None
+    trace_id: int | None = None
+
+
+@dataclass
+class _CompletedSpan:
+    """v9.0.0a3: an immutable snapshot of a finished dispatch.
+
+    Lives in DispatcherStats._completed (bounded ring buffer) so the
+    trace waterfall surface can show the last-N completions without
+    a separate persistent store.
+
+    v16.0.0a6: ``parent_span_id`` + ``trace_id`` carry parent/child
+    + trace-correlation context for the waterfall renderer. Default
+    None preserves the v9.a3 byte-shape for callers that never
+    populated them.
+    """
+    span_id: int
+    tool: str
+    project: str | None
+    started_at: float
+    ended_at: float
+    ok: bool
+    parent_span_id: int | None = None
+    trace_id: int | None = None
+
+
+# Bounded number of completed spans to retain. Pure UI data — sized to
+# fit one screen of waterfall rows on a typical monitor without paging.
+_COMPLETED_RING_MAX: int = 100
+
+
+class _SpanSubscription:
+    """v9.0.0a3: one SSE consumer's queue of pending span events.
+
+    Each subscription gets its own queue; emit() fans out to every
+    live subscriber. Drops are silent — if a consumer falls more than
+    `maxsize` events behind, the oldest is dropped (the trace surface
+    is best-effort, not a billing system).
+    """
+
+    __slots__ = ("queue", "_lock", "_maxsize")
+
+    def __init__(self, maxsize: int = 256) -> None:
+        from collections import deque
+
+        self.queue: Any = deque(maxlen=maxsize)  # deque drops oldest on overflow
+        self._lock = threading.Lock()
+        self._maxsize = maxsize
+
+    def push(self, event: dict[str, Any]) -> None:
+        with self._lock:
+            self.queue.append(event)
+
+    def drain(self) -> list[dict[str, Any]]:
+        with self._lock:
+            out = list(self.queue)
+            self.queue.clear()
+        return out
+
+
+class DispatcherStats:
+    """Thread-safe live metrics for the in-process MCP dispatcher.
+
+    Designed for low overhead — every call to ``dispatch`` mutates
+    two counters and ~once per call walks a small list.
+
+    v21.0.0a8: counter mutations are forwarded to a cross-process
+    ``DispatcherMetricsStore`` (SQLite-backed) so that ``snapshot()``
+    reflects the union of every harbormaster process. The in-process
+    ``_tools`` dict is kept as a fallback fast path used only when
+    no store is wired (test harnesses / library mode) — it mirrors
+    the cross-process counters so callers that depend on the legacy
+    behaviour still get the same shape.
+
+    Spans (running list, completed ring, SSE subscribers) remain
+    in-process; they are inherently single-process UI surfaces.
+    """
+
+    def __init__(self, store: Any = None) -> None:
+        from collections import deque
+
+        self._lock = threading.Lock()
+        self._tools: dict[str, _ToolCounters] = {}
+        self._running: list[_RunningSpan] = []
+        self._completed: Any = deque(maxlen=_COMPLETED_RING_MAX)
+        self._last_dispatched_at: float | None = None
+        self._next_span_id: int = 1
+        self._subscribers: list[_SpanSubscription] = []
+        # Cross-process counter store. Optional injected override;
+        # when None, ``_get_store()`` defers to the module-level
+        # singleton on every call so tests that reset that singleton
+        # (via ``set_metrics_store(None)``) immediately observe the
+        # new store on the next dispatch.
+        self._store_override: Any = store
+
+    def _get_store(self) -> Any:
+        """Resolve the cross-process metrics store.
+
+        Returns the injected override when set; otherwise the lazy
+        module singleton. Returns None when resolution fails (e.g.
+        read-only home directory) so callers fall back to the
+        in-process dict.
+        """
+        if self._store_override is not None:
+            return self._store_override
+        try:
+            from harbormaster.dispatcher_metrics_store import get_metrics_store
+            return get_metrics_store()
+        except Exception:  # noqa: BLE001 — best-effort; fall back to in-proc
+            return None
+
+    def record_start(
+        self,
+        tool: str,
+        project: str | None = None,
+        *,
+        parent_span_id: int | None = None,
+        trace_id: int | None = None,
+    ) -> _RunningSpan:
+        """Note that a tool dispatch has begun. Returns the span the
+        caller must pass back to ``record_end``.
+
+        v16.0.0a6: ``parent_span_id`` and ``trace_id`` are optional
+        carry-throughs. When both are None (the legacy v9.a3 path),
+        the new span becomes a root: ``trace_id = span_id`` so every
+        descendant emitted under it can be grouped without needing
+        the dispatcher to look anything up. When ``parent_span_id``
+        is set but ``trace_id`` is not, the trace_id propagates from
+        the running parent.
+        """
+        with self._lock:
+            new_span_id = self._next_span_id
+            self._next_span_id += 1
+            # Root spans carry trace_id = own span_id so descendants
+            # can group by trace_id without a parent lookup chain.
+            if parent_span_id is None and trace_id is None:
+                effective_trace_id: int | None = new_span_id
+            elif trace_id is not None:
+                effective_trace_id = trace_id
+            else:
+                # parent_span_id is set; inherit its trace_id.
+                # mypy: the outer branches guarantee parent_span_id is int.
+                assert parent_span_id is not None  # noqa: S101
+                effective_trace_id = self._lookup_trace_id_locked(parent_span_id)
+                if effective_trace_id is None:
+                    # Parent already finished and rolled out of the
+                    # ring; treat the child as a new root.
+                    effective_trace_id = new_span_id
+            span = _RunningSpan(
+                tool=tool,
+                project=project,
+                started_at=time.time(),
+                span_id=new_span_id,
+                parent_span_id=parent_span_id,
+                trace_id=effective_trace_id,
+            )
+            counters = self._tools.setdefault(tool, _ToolCounters())
+            counters.in_flight += 1
+            self._running.append(span)
+            event = {
+                "kind": "span_start",
+                "span_id": span.span_id,
+                "parent_span_id": span.parent_span_id,
+                "trace_id": span.trace_id,
+                "tool": span.tool,
+                "project": span.project,
+                "started_at": span.started_at,
+            }
+            self._fanout_locked(event)
+        # v21.0.0a8: cross-process counter write happens OUTSIDE the
+        # in-process lock — SQLite has its own locking and we don't
+        # want a DB stall to block in-process readers.
+        store = self._get_store()
+        if store is not None:
+            with contextlib.suppress(Exception):
+                store.increment_in_flight(tool)
+        return span
+
+    def _lookup_trace_id_locked(self, span_id: int) -> int | None:
+        """Walk both the running list and the recently-completed ring
+        to find the trace_id of the span with the given id.
+
+        Caller MUST hold ``self._lock``.
+        """
+        for s in self._running:
+            if s.span_id == span_id:
+                return s.trace_id
+        # _completed is typed as Any (it's a deque held inside an
+        # Any-typed slot for stdlib-compatibility), so explicitly
+        # narrow each entry to _CompletedSpan to satisfy mypy --strict.
+        for raw in self._completed:
+            c: _CompletedSpan = raw
+            if c.span_id == span_id:
+                return c.trace_id
+        return None
+
+    def record_end(self, span: _RunningSpan, *, ok: bool) -> None:
+        """Note that a previously-started dispatch has ended."""
+        ended_at = time.time()
+        with self._lock:
+            counters = self._tools.setdefault(span.tool, _ToolCounters())
+            counters.in_flight = max(0, counters.in_flight - 1)
+            if ok:
+                counters.total_completed += 1
+            else:
+                counters.total_failed += 1
+            # Concurrent reset() between start and end can drop the span
+            # ahead of us — counters still update; running list is best-effort.
+            with contextlib.suppress(ValueError):
+                self._running.remove(span)
+            self._last_dispatched_at = ended_at
+            completed = _CompletedSpan(
+                span_id=span.span_id,
+                tool=span.tool,
+                project=span.project,
+                started_at=span.started_at,
+                ended_at=ended_at,
+                ok=ok,
+                parent_span_id=span.parent_span_id,
+                trace_id=span.trace_id,
+            )
+            self._completed.append(completed)
+            event = {
+                "kind": "span_end",
+                "span_id": span.span_id,
+                "parent_span_id": span.parent_span_id,
+                "trace_id": span.trace_id,
+                "tool": span.tool,
+                "project": span.project,
+                "started_at": span.started_at,
+                "ended_at": ended_at,
+                "ok": ok,
+            }
+            self._fanout_locked(event)
+        # v21.0.0a8: cross-process counter write outside the in-proc lock.
+        store = self._get_store()
+        if store is not None:
+            with contextlib.suppress(Exception):
+                store.decrement_in_flight(span.tool, ok)
+
+    def _fanout_locked(self, event: dict[str, Any]) -> None:
+        """Push an event to every live subscriber. Caller holds self._lock."""
+        for sub in self._subscribers:
+            sub.push(event)
+
+    def subscribe(self) -> _SpanSubscription:
+        """v9.0.0a3: get a new SSE subscription. Caller must call
+        ``unsubscribe`` when done."""
+        sub = _SpanSubscription()
+        with self._lock:
+            self._subscribers.append(sub)
+        return sub
+
+    def unsubscribe(self, sub: _SpanSubscription) -> None:
+        with self._lock, contextlib.suppress(ValueError):
+            self._subscribers.remove(sub)
+
+    def recent_completed(self, limit: int = 20) -> list[dict[str, Any]]:
+        """Return the most-recently completed spans (newest last)."""
+        with self._lock:
+            spans = list(self._completed)[-max(1, limit):]
+        return [
+            {
+                "span_id": s.span_id,
+                "parent_span_id": s.parent_span_id,
+                "trace_id": s.trace_id,
+                "tool": s.tool,
+                "project": s.project,
+                "started_at": s.started_at,
+                "ended_at": s.ended_at,
+                "duration_ms": int((s.ended_at - s.started_at) * 1000),
+                "ok": s.ok,
+            }
+            for s in spans
+        ]
+
+    def snapshot(self) -> dict[str, Any]:
+        """Capture a consistent point-in-time view of the current state.
+
+        Shape mirrors the v9.0.0a2 ``/api/dispatcher/status`` schema:
+        ``{running: [...], active_workers: int, queue_depth: int,
+        last_dispatched_at: float | None, tools: {name: {...}}}``.
+        ``queue_depth`` is always 0 for the in-process dispatcher;
+        the field is preserved so consumers don't have to special-case
+        the in-process vs. pool-backed deployment.
+
+        v21.0.0a8: ``tools``, ``active_workers``, and
+        ``last_dispatched_at`` are sourced from the cross-process
+        ``DispatcherMetricsStore`` when available (so the UI sees every
+        process's counters). ``running`` remains in-process — each
+        process only knows its own live spans.
+        """
+        with self._lock:
+            running = [
+                {
+                    "tool": s.tool,
+                    "project": s.project,
+                    "started_at": s.started_at,
+                }
+                for s in self._running
+            ]
+            in_proc_tools = {
+                name: {
+                    "in_flight": c.in_flight,
+                    "total_completed": c.total_completed,
+                    "total_failed": c.total_failed,
+                }
+                for name, c in self._tools.items()
+            }
+            in_proc_active = sum(c.in_flight for c in self._tools.values())
+            in_proc_last = self._last_dispatched_at
+        store = self._get_store()
+        if store is not None:
+            try:
+                cross = store.snapshot()
+                return {
+                    "running": running,
+                    "active_workers": cross["active_workers"],
+                    "queue_depth": 0,
+                    "last_dispatched_at": cross["last_dispatched_at"],
+                    "tools": cross["tools"],
+                }
+            except Exception:  # noqa: BLE001 — fall back to in-proc view
+                pass
+        return {
+            "running": running,
+            "active_workers": in_proc_active,
+            "queue_depth": 0,
+            "last_dispatched_at": in_proc_last,
+            "tools": in_proc_tools,
+        }
+
+    def reset(self) -> None:
+        """Clear all counters. Test helper — production code never calls this."""
+        with self._lock:
+            self._tools.clear()
+            self._running.clear()
+            self._completed.clear()
+            self._last_dispatched_at = None
+            self._next_span_id = 1
+            # Subscribers stay attached — tests that assert SSE fan-out
+            # build subscribers BEFORE reset() to capture a deterministic
+            # event sequence.
+        # v21.0.0a8: also clear the cross-process store so tests
+        # observe a fresh snapshot.
+        store = self._get_store()
+        if store is not None:
+            with contextlib.suppress(Exception):
+                store.reset()
+
+
+# Process-wide singleton. Tests can grab it via ``get_dispatcher_stats``
+# and call ``reset`` between cases; production code should never hold
+# a reference longer than a single dispatch.
+_STATS = DispatcherStats()
+
+
+def get_dispatcher_stats() -> DispatcherStats:
+    return _STATS
+
+# v5.0.0a3: tools verified safe to run concurrently under the v4.0.0a6
+# dispatcher pool. Operators with custom plugin tools should add them
+# to this set explicitly OR list them under [fleetq] dispatcher_unsafe_tools
+# to keep them on the single-worker path.
+#
+# All current first-party tools passed the v5.0.0a2 fake-claude stress;
+# read-only tools are inherently safe; backend-invoking tools were proven
+# safe by the 50-concurrent stress test. Any future tool that holds
+# process-global state (e.g. a write-side cache) must be added to the
+# operator's unsafe list until proven otherwise.
+SAFE_FOR_PARALLEL: frozenset[str] = frozenset({
+    # read-only
+    "list_projects",
+    "list_hosts",
+    "project_status",
+    "project_graph",
+    "recall_qa",
+    # backend-invoking (subprocess-isolated)
+    "ask_project",
+    "delegate_task",
+    "fan_out_ask",
+})
+
+
+def is_tool_safe_for_parallel(
+    payload: dict[str, Any],
+    *,
+    unsafe_tools: frozenset[str] | None = None,
+) -> bool:
+    """Decide whether a given dispatch payload is safe to run on the pool.
+
+    tools/list calls have no tool name and are inherently safe (pure
+    introspection). For tools/call, the tool name is checked against the
+    SAFE_FOR_PARALLEL allowlist AND the operator's optional deny list.
+
+    The deny list always wins — even an allowlisted tool can be excluded
+    by name without redeploying harbormaster.
+    """
+    method = payload.get("method")
+    if method == "tools/list":
+        return True
+    if method != "tools/call":
+        # Unsupported methods get error envelopes anyway; let them
+        # take the same path as tools/call so the response shape is
+        # consistent regardless of pool routing.
+        return True
+    params = payload.get("params") or {}
+    name = params.get("name") if isinstance(params, dict) else None
+    if not isinstance(name, str) or not name:
+        # Malformed: send to single-worker so it gets a deterministic
+        # error envelope rather than racing through the pool.
+        return False
+    if unsafe_tools and name in unsafe_tools:
+        return False
+    return name in SAFE_FOR_PARALLEL
+
+
+class MCPDispatcher:
+    """Translate agent.request payloads into local FastMCP tool calls.
+
+    Held by reference to the FastMCP server so the tool registry stays
+    a single source of truth. The dispatcher does not own the lifecycle
+    of the MCP server — `__main__.py` creates both and wires them.
+    """
+
+    def __init__(self, mcp: Any) -> None:
+        # mcp is FastMCP; typed `Any` to avoid forcing the dependency
+        # on the relay path when [fleetq] is not installed.
+        self.mcp = mcp
+
+    def dispatch(self, payload: dict[str, Any]) -> Iterator[str]:
+        """ChunkHandler implementation — yields one JSON-encoded chunk.
+
+        Catches every dispatch-level exception and turns it into an
+        `isError: true` MCP envelope so the FleetQ side always sees a
+        well-formed result chunk. Truly malformed payloads (wrong type,
+        non-dict) still raise so the relay surfaces a `client-relay.error`.
+
+        v9.0.0a2: per-dispatch metrics recorded via DispatcherStats so
+        the GET /api/dispatcher/status endpoint can surface live worker
+        counts. Spans cover the entire dispatch including serialization;
+        failures (envelope contains `isError: true` OR an unhandled
+        exception escapes _dispatch_envelope) increment total_failed.
+        """
+        tool_name = _extract_tool_name(payload)
+        project = _extract_project(payload)
+        span = _STATS.record_start(tool=tool_name, project=project)
+        ok = False
+        # v16.0.0a6: bind the active span so backends invoked inside
+        # the dispatch can attribute child spans (e.g. tool_use blocks
+        # observed in claude.py's stream-json output) via
+        # `current_span_id()` / `current_trace_id()`.
+        with span_context(span_id=span.span_id, trace_id=span.trace_id):
+            try:
+                envelope = self._dispatch_envelope(payload)
+                ok = not _envelope_is_error(envelope)
+                yield json.dumps(envelope, default=str)
+            finally:
+                _STATS.record_end(span, ok=ok)
+
+    def _dispatch_envelope(self, payload: dict[str, Any]) -> dict[str, Any]:
+        method = payload.get("method")
+        if method == "tools/list":
+            return self._handle_list()
+        if method == "tools/call":
+            return self._handle_call(payload.get("params") or {})
+        return _error_envelope(
+            f"unsupported method: {method!r} (expected 'tools/list' or 'tools/call')"
+        )
+
+    def _handle_list(self) -> dict[str, Any]:
+        return {
+            "result": {
+                "tools": [
+                    {
+                        "name": t.name,
+                        "description": getattr(t, "description", "") or "",
+                    }
+                    for t in self.mcp._tool_manager.list_tools()
+                ]
+            }
+        }
+
+    def _handle_call(self, params: dict[str, Any]) -> dict[str, Any]:
+        if not isinstance(params, dict):
+            return _error_envelope("params must be an object for tools/call")
+
+        name = params.get("name")
+        if not isinstance(name, str) or not name:
+            return _error_envelope("params.name (string) is required for tools/call")
+
+        arguments = params.get("arguments") or {}
+        if not isinstance(arguments, dict):
+            return _error_envelope("params.arguments must be an object")
+
+        tool = next(
+            (t for t in self.mcp._tool_manager.list_tools() if t.name == name),
+            None,
+        )
+        if tool is None:
+            return _error_envelope(f"tool not found: {name!r}")
+
+        try:
+            result = tool.fn(**arguments)
+        except TypeError as e:
+            return _error_envelope(f"tool argument error: {e}")
+        except Exception as e:  # noqa: BLE001 - propagate as MCP error envelope
+            logger.exception(
+                "MCPDispatcher: tool %r raised during dispatch", name
+            )
+            return _error_envelope(f"{type(e).__name__}: {e}")
+
+        return {"result": {"content": [_serialize_tool_result(result)]}}
+
+
+def _extract_tool_name(payload: dict[str, Any]) -> str:
+    """Pull the tool name out of a dispatch payload for stats keying.
+
+    Falls back to a sentinel when the payload is malformed so the
+    counter table doesn't collapse mismatched payloads under one bucket.
+    """
+    method = payload.get("method")
+    if method == "tools/list":
+        return "tools/list"
+    if method != "tools/call":
+        return f"<bad-method:{method}>"
+    params = payload.get("params") or {}
+    if isinstance(params, dict):
+        name = params.get("name")
+        if isinstance(name, str) and name:
+            return name
+    return "<bad-tool>"
+
+
+def _extract_project(payload: dict[str, Any]) -> str | None:
+    """Pull the project name from `params.arguments.project` (if present)."""
+    params = payload.get("params") or {}
+    if not isinstance(params, dict):
+        return None
+    args = params.get("arguments") or {}
+    if not isinstance(args, dict):
+        return None
+    project = args.get("project")
+    return project if isinstance(project, str) and project else None
+
+
+def _envelope_is_error(envelope: dict[str, Any]) -> bool:
+    """True when the MCP envelope carries `result.isError == True`."""
+    result = envelope.get("result")
+    if not isinstance(result, dict):
+        return True
+    return bool(result.get("isError", False))
+
+
+def _error_envelope(message: str) -> dict[str, Any]:
+    return {
+        "result": {
+            "isError": True,
+            "content": [{"type": "text", "text": message}],
+        }
+    }
+
+
+def _serialize_tool_result(result: Any) -> dict[str, Any]:
+    """MCP tool results land as `content` entries — text for strings,
+    JSON serialization for everything else."""
+    if isinstance(result, str):
+        return {"type": "text", "text": result}
+    try:
+        return {"type": "text", "text": json.dumps(result, default=str)}
+    except (TypeError, ValueError):
+        return {"type": "text", "text": str(result)}

@@ -36,10 +36,13 @@ from weblate.trans.forms import (
     ComponentLinkAddForm,
     ComponentLinkCategoryForm,
     ComponentRenameForm,
+    CostEstimateReportsForm,
+    CountsReportsForm,
     DownloadForm,
     ProjectDeleteForm,
     ProjectFilterForm,
     ProjectLanguageDeleteForm,
+    ProjectMoveForm,
     ProjectRenameForm,
     ReplaceForm,
     ReportsForm,
@@ -66,6 +69,7 @@ from weblate.trans.models.component import (
 from weblate.trans.models.project import prefetch_project_flags
 from weblate.trans.models.translation import GhostTranslation
 from weblate.trans.util import render, sort_unicode, translation_percent
+from weblate.trans.workspace_move import can_offer_project_move
 from weblate.utils import messages
 from weblate.utils.decorators import engage_login_not_required
 from weblate.utils.ratelimit import reset_rate_limit, session_ratelimit_post
@@ -238,6 +242,7 @@ def show_engage(request: AuthenticatedHttpRequest, path):
             "percent": translation_percent(stats["translated"], stats["all"]),
             "language": language,
             "translate_object": translate_object,
+            "target_language": translate_object.language if translate_object else None,
             "project_link": format_html(
                 '<a href="{}">{}</a>', project.get_absolute_url(), project.name
             ),
@@ -472,8 +477,10 @@ def show_project(request: AuthenticatedHttpRequest, obj: Project) -> HttpRespons
     user = request.user
 
     all_changes = obj.change_set.filter_components(request.user).prefetch()
-    last_changes = all_changes.recent()
-    last_announcements = all_changes.filter_announcements().recent()
+    last_changes = all_changes.recent(skip_preload="project")
+    last_announcements = all_changes.filter_announcements().recent(
+        skip_preload="project"
+    )
 
     all_components = obj.get_child_components_access(user, filter_no_category)
     all_components = get_paginator(
@@ -513,6 +520,8 @@ def show_project(request: AuthenticatedHttpRequest, obj: Project) -> HttpRespons
             "last_changes": last_changes,
             "last_announcements": last_announcements,
             "reports_form": ReportsForm({"project": obj}),
+            "reports_count_form": CountsReportsForm({"project": obj}),
+            "reports_cost_form": CostEstimateReportsForm({"project": obj}),
             "language_stats": [stat.obj or stat for stat in language_stats],
             "search_form": SearchForm(
                 request=request,
@@ -535,6 +544,9 @@ def show_project(request: AuthenticatedHttpRequest, obj: Project) -> HttpRespons
                 request=request,
                 instance=obj,
             ),
+            "move_form": ProjectMoveForm(request, instance=obj)
+            if can_offer_project_move(user, obj)
+            else None,
             "replace_form": optional_form(ReplaceForm, user, "unit.edit", obj, obj=obj),
             "bulk_state_form": optional_form(
                 BulkEditForm,
@@ -605,6 +617,8 @@ def show_category(request: AuthenticatedHttpRequest, obj: Category) -> HttpRespo
             "last_changes": last_changes,
             "last_announcements": last_announcements,
             "reports_form": ReportsForm({"category": obj}),
+            "reports_count_form": CountsReportsForm({"category": obj}),
+            "reports_cost_form": CostEstimateReportsForm({"category": obj}),
             "language_stats": [stat.obj or stat for stat in language_stats],
             "search_form": SearchForm(
                 request=request,
@@ -685,6 +699,8 @@ def show_component(request: AuthenticatedHttpRequest, obj: Component) -> HttpRes
             "component": obj,
             "translations": translations,
             "reports_form": ReportsForm({"component": obj}),
+            "reports_count_form": CountsReportsForm({"component": obj}),
+            "reports_cost_form": CostEstimateReportsForm({"component": obj}),
             "last_changes": last_changes,
             "replace_form": optional_form(ReplaceForm, user, "unit.edit", obj, obj=obj),
             "bulk_state_form": optional_form(
@@ -930,6 +946,7 @@ def new_component_language(
             "component": obj,
             "form": form,
             "can_add": obj.can_add_new_language(user),
+            "new_lang": obj.effective_new_lang,
         },
     )
 
@@ -1071,7 +1088,7 @@ def add_languages_to_component(
                     lang_counts[f"added_{lang_code}"] += 1
                     continue
 
-            elif component.new_lang == "contact":
+            elif component.effective_new_lang == "contact":
                 if component.translation_set.filter(language_code=lang_code).exists():
                     continue
                 change_set.create(action=ActionEvents.REQUESTED_LANGUAGE, **kwargs)
@@ -1143,17 +1160,7 @@ def show_component_list(request: AuthenticatedHttpRequest, name) -> HttpResponse
 def guide(request: AuthenticatedHttpRequest, path):
     obj = parse_path(request, path, (Component,))
 
-    return render(
-        request,
-        "guide.html",
-        {
-            "object": obj,
-            "path_object": obj,
-            "project": obj.project,
-            "component": obj,
-            "guidelines": obj.guidelines,
-        },
-    )
+    return redirect(f"{obj.get_absolute_url()}?alerts=1#alerts")
 
 
 class ProjectLanguageRedirectView(RedirectView):

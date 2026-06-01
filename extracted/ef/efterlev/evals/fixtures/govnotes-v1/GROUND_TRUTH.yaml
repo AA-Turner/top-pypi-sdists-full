@@ -1,0 +1,209 @@
+# Ground-truth labels for the govnotes-v1 eval fixture.
+#
+# This is the synthetic Terraform fixture that's been the canonical
+# `efterlev quickstart` / `e2e_smoke.py` target since v0.1.18. v0.2
+# Phase 1 ports it into the eval-harness corpus shape so we can
+# measure agent-quality regression against a stable baseline.
+#
+# 2026-05-09 rev 4: the eval fixture has DIVERGED from the quickstart
+# FIXTURE (src/efterlev/quickstart/__init__.py). This copy adds three
+# resource families to exercise detectors the quickstart fixture
+# intentionally leaves out for 5-minute-demo discipline:
+#   - aws_security_group (mixed: app_lb HTTPS-from-VPN + bastion_open
+#     SSH-from-internet) -> security_group_open_ingress detector
+#   - aws_network_acl (mixed: private_subnet HTTPS+deny + public_subnet_open
+#     wide-open egress) -> nacl_open_egress + nacl_restrictiveness
+#   - aws_backup_plan + _vault + _selection -> rpl_backup_configured
+# These extensions let KSI-CNA-MAT, KSI-CNA-RNT, and KSI-RPL-ARP
+# attach real evidence rather than running into the structural-ELI
+# fallback that pre-rev-4 forced via alternation.
+#
+# Phase 1 labeling discipline:
+#   - Only label KSIs where the fixture's evidence-vs-rationale
+#     mapping is unambiguous. The loader SKIPS unlabeled KSIs in
+#     metric calculation rather than penalizing — so partial
+#     coverage is fine; conservative coverage > overconfident
+#     coverage.
+#   - Use `<status>|<status>` alternation when more than one
+#     verdict is defensible (e.g., a KSI where the fixture's
+#     evidence could honestly be classified `partial` OR
+#     `not_implemented` depending on how the agent weighs the
+#     mix-of-states).
+#   - Phase 2+ work expands coverage as the maintainer (or a
+#     FedRAMP-experienced labeler) walks the remaining KSIs.
+
+fixture_id: govnotes-v1
+description: |
+  Synthetic mid-journey FedRAMP boundary fixture. Mixed S3 posture
+  (1 encrypted + PAB-covered, 1 plain), mixed TLS posture
+  (TLS 1.3 listener + plain-HTTP listener), CloudTrail with log
+  validation, RDS with backup+encryption, mixed IAM MFA posture
+  (1 admin policy with MFA gate, 1 without), KMS CMK with rotation,
+  VPC flow log, strict password policy, plus an Evidence Manifest
+  attesting to KSI-AFR-FSI's security-inbox operational state.
+
+  Rev 4 (2026-05-09) extends the fixture beyond the quickstart copy
+  with mixed network-side posture (security groups + NACLs) and a
+  full AWS Backup orchestration stack (plan + vault + selection
+  covering the RDS instance), so KSI-CNA-MAT/CNA-RNT and KSI-RPL-ARP
+  exercise real detectors instead of falling through to ELI.
+
+authored_by: maintainer@efterlev.com
+authored_at: 2026-05-09
+revision: 4
+frmr_version: 0.9.43-beta
+
+# Expected KSI classifications. Conservative labeling — Phase 2+
+# expands as the maintainer / 3PAO-track labeler walks more KSIs.
+# Loader SKIPS unlabeled KSIs in metric calculation (see
+# `GroundTruth.acceptable_statuses`).
+expected_classifications:
+  # --- AFR ---
+  # FedRAMP Security Inbox — manifest attests to a 24/7-monitored
+  # security@example.com inbox + 15-min SLA + PagerDuty routing.
+  # Manifest evidences operational existence; per the gap_prompt
+  # rule "manifest evidence never reaches `implemented`" (a manifest
+  # is operator self-attestation, not independently verified), the
+  # honest verdict is `partial`.
+  KSI-AFR-FSI: partial
+
+  # Using Cryptographic Modules — added in v0.1.42 via mapping on
+  # 7 detectors (KMS rotation + CMK + LB TLS policies + CloudFront
+  # viewer protocol + EBS/S3/RDS at-rest encryption). Fixture
+  # evidences a subset (KMS rotation, RDS encryption, mixed S3
+  # encryption, TLS 1.3 listener); honest verdict is `partial`.
+  KSI-AFR-UCM: partial
+
+  # --- IAM ---
+  # MFA gate on IAM policies — mixed (1 admin-with-mfa, 1 admin-no-mfa).
+  # Honest verdict is `partial`; `not_implemented` would be acceptable
+  # if the agent weights the absence-of-MFA on the second policy
+  # heavily enough to call it a failed test.
+  KSI-IAM-MFA: partial|not_implemented
+
+  # --- SVC ---
+  # Securing Network Traffic — mixed TLS posture (TLS 1.3 listener
+  # AND plain HTTP listener). Honest verdict is `partial`.
+  KSI-SVC-SNT: partial
+
+  # Verifying Robust Implementation — same TLS evidence + the
+  # FIPS-aligned cipher suite. Honest verdict is `partial`.
+  KSI-SVC-VRI: partial
+
+  # Automating Secret Management — KMS CMK with rotation enabled.
+  # Single resource so coverage is narrow; `partial` is the right
+  # call; `implemented` would be over-classification (only ONE
+  # cryptographic key in scope).
+  KSI-SVC-ASM: partial
+
+  # --- MLA ---
+  # CloudTrail with multi-region + log file validation enabled,
+  # plus VPC flow log to S3. Solid logging evidence on the audit
+  # tier. `partial` accounts for what the scanner can't see (log
+  # access control, retention beyond default).
+  KSI-MLA-LET: partial
+
+  # --- RPL ---
+  # Aligning Recovery Plan — rev 4 adds aws_backup_plan with
+  # cross-region copy_action, aws_backup_vault with KMS encryption,
+  # and aws_backup_selection covering the RDS instance. Plus the
+  # existing RDS native backup_retention_period=14. Honest verdict
+  # is `partial` (orchestration is in place; alignment of recovery
+  # objectives with stated RTO/RPO is procedural and not visible
+  # to the scanner).
+  KSI-RPL-ARP: partial
+
+  # --- CMT ---
+  # Reviewing Change Procedures — pure procedural; no IaC angle.
+  # Without a manifest, `evidence_layer_inapplicable` is the right
+  # verdict. `not_applicable` could also work depending on how the
+  # agent reads the boundary.
+  KSI-CMT-RVP: evidence_layer_inapplicable|not_applicable
+
+  # --- CED ---
+  # Reviewing General Training — pure HR; no IaC. Same as
+  # CMT-RVP — manifest-only KSI without a manifest.
+  KSI-CED-RGT: evidence_layer_inapplicable|not_applicable
+
+  # --- INR ---
+  # Reviewing Incident Response Procedures — procedural-only,
+  # no manifest in this fixture.
+  KSI-INR-RIR: evidence_layer_inapplicable|not_applicable
+
+  # --- CNA ---
+  # Minimizing Attack Surface — rev 4 adds aws_security_group
+  # (app_lb HTTPS-only + bastion_open SSH-to-internet) and
+  # aws_network_acl (private_subnet restrictive + public_subnet_open
+  # wide-open egress). Combined with the existing s3_pab evidence,
+  # honest verdict is `partial` (mixed posture across all three
+  # surfaces). `not_implemented` is acceptable alternation if the
+  # agent weights the open SG/NACL heavily.
+  KSI-CNA-MAT: partial|not_implemented
+
+  # Restricting Network Traffic — same SG + NACL evidence as
+  # CNA-MAT, narrower KSI scope. Honest verdict is `partial`.
+  KSI-CNA-RNT: partial|not_implemented
+
+# M3 (resource-naming): for each KSI listed, the gap-agent's rationale
+# MUST mention at least one of the named resources (case-insensitive
+# substring match). Catches the v0.1.5-0.1.9 bug class where rationales
+# cited evidence by `sha256:abc12345...` instead of human-readable
+# resource_names.
+#
+# 2026-05-09 rev 2: broadened labels for KSI-AFR-UCM and KSI-SVC-VRI
+# based on the 5-run noise-floor study. Rev 4 adds resources for the
+# new SG/NACL/backup detectors and broadens KSI-CNA-MAT to include
+# the network-side names.
+expected_rationale_resources:
+  KSI-IAM-MFA:
+    - admin_with_mfa     # the policy that DOES enforce MFA
+    - admin_no_mfa       # the policy that DOES NOT (the gap)
+  KSI-SVC-SNT:
+    - https              # the TLS 1.3 listener
+    - http               # the plain-HTTP listener (the gap)
+    - TLS                # rationales typically paraphrase as "TLS 1.x"
+  KSI-SVC-VRI:
+    - https
+    - TLS                # paraphrase form (rev 1's ELBSecurityPolicy was too narrow)
+    - FIPS               # the FIPS-aligned policy descriptor
+  KSI-CNA-MAT:
+    - reports            # the bucket WITH public-access block
+    - public_assets      # the bucket WITHOUT (the gap)
+    - app_lb             # restrictive SG (rev 4)
+    - bastion_open       # open SG — the SSH-to-internet gap (rev 4)
+    - private_subnet     # restrictive NACL (rev 4)
+    - public_subnet_open # wide-open NACL — the egress gap (rev 4)
+  KSI-CNA-RNT:
+    - app_lb             # restrictive SG
+    - bastion_open       # open SG
+    - private_subnet     # restrictive NACL with explicit deny
+    - public_subnet_open # wide-open NACL
+  KSI-AFR-UCM:
+    - app_data           # the KMS CMK with rotation enabled
+    - primary            # the RDS instance with storage_encrypted=true
+    - reports            # encrypted S3 — also UCM-relevant per v0.1.42 mapping
+    - public_assets      # unencrypted S3 — UCM gap
+    - KMS                # generic term covering both kms_key resources
+  KSI-RPL-ARP:
+    - primary            # RDS instance name; backup_retention_period=14
+    - daily_with_dr      # the aws_backup_plan with cross-region copy (rev 4)
+    - primary_vault      # the aws_backup_vault (rev 4)
+    - backup             # generic term covering plan/vault/selection
+
+# M4 (manifest-quoting): for each KSI with a manifest in this fixture,
+# the documentation-agent's narrative MUST quote at least one of the
+# named substrings from that manifest. Catches the v0.1.8 F5 cross-
+# wiring bug shape (KSI-AFR-FSI's narrative quoted PagerDuty when it
+# should have quoted security@... and only PagerDuty belongs to a
+# different KSI's manifest).
+expected_manifest_quoting:
+  KSI-AFR-FSI:
+    - "security@example.com"      # the inbox address from the manifest
+    - "PagerDuty"                  # the routing destination
+    - "15-minute"                  # the SLA spec
+
+# POAM scope expectations (M5; computed in PR γ).
+expected_poam:
+  excluded_count_min: 0
+  excluded_count_max: 12
+  must_not_mention: []

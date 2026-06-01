@@ -1,0 +1,212 @@
+interactions:
+  - request:
+      body:
+        '{"messages": [{"role": "system", "content": "Respond with single words."},
+        {"role": "user", "content": "What is the meaning of the universe?"}], "model":
+        "gpt-5-mini-2025-08-07", "n": 1, "temperature": 1.0}'
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate
+        connection:
+          - keep-alive
+        content-length:
+          - "192"
+        content-type:
+          - application/json
+        host:
+          - api.openai.com
+        user-agent:
+          - AsyncOpenAI/Python 2.30.0
+        x-stainless-arch:
+          - arm64
+        x-stainless-async:
+          - async:asyncio
+        x-stainless-lang:
+          - python
+        x-stainless-os:
+          - MacOS
+        x-stainless-package-version:
+          - 2.30.0
+        x-stainless-raw-response:
+          - "true"
+        x-stainless-read-timeout:
+          - "60.0"
+        x-stainless-retry-count:
+          - "0"
+        x-stainless-runtime:
+          - CPython
+        x-stainless-runtime-version:
+          - 3.13.5
+      method: POST
+      uri: https://api.openai.com/v1/chat/completions
+    response:
+      body:
+        string: !!binary |
+          H4sIAAAAAAAA/3VSy26DMBC88xXIZ6gIKaX0WPVxSqreGlURcswCbo1NbRMljfLvtU0SiJpcLLGz
+          s8zM7s7zfUQL9OAjUmNNmpaFTx+PUV3F2eqHvs8Xi7K732S/69eX5/nbTKHAMsTqC4g+sm6IMDzQ
+          VPAeJhKwBjt1kqZ3aZYlk8wBjSiAWVrV6jAJG8ppGEdxEkb3YZQeyLWgBJTp+jSfvr9zr5XJC9iY
+          chQcKw0ohSswtWOTKUrBbAVhpajSmGsUDCARXAN3ymdbpUFux6iEslPYCuQdYyMAcy40tgadruUB
+          2Z+UlMaJqnPjW5kQzHSlRYscujfv0jnrzsSiVprYdK7FN7ix8bQfh4Y4B3A6nRxQbZSwEZDcBhfm
+          5QVoTJkaZYMIJjUUA3UIEncFFSPAG7n7L+fS7N455dVIWXz9BwNACLTmVvJWQkHJuemhTYI9uGtt
+          p5ydZKRArs0J5ZqCtLsooMQd6+8AKbv2JjcLq0C2krpjsOv29t4f8FqWGw4DAAA=
+      headers:
+        Access-Control-Expose-Headers:
+          - X-Request-ID
+        CF-Cache-Status:
+          - DYNAMIC
+        CF-Ray:
+          - 9efec6245cc4b873-SJC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - gzip
+        Content-Type:
+          - application/json
+        Date:
+          - Tue, 21 Apr 2026 19:25:25 GMT
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - <FILTERED>
+        Strict-Transport-Security:
+          - max-age=31536000; includeSubDomains; preload
+        Transfer-Encoding:
+          - chunked
+        X-Content-Type-Options:
+          - nosniff
+        alt-svc:
+          - h3=":443"; ma=86400
+        openai-organization:
+          - <FILTERED>
+        openai-processing-ms:
+          - "5910"
+        openai-project:
+          - <FILTERED>
+        openai-version:
+          - "2020-10-01"
+        x-openai-proxy-wasm:
+          - v0.1
+        x-ratelimit-limit-requests:
+          - "180000"
+        x-ratelimit-limit-tokens:
+          - "500000000"
+        x-ratelimit-remaining-requests:
+          - "179999"
+        x-ratelimit-remaining-tokens:
+          - "499999983"
+        x-ratelimit-reset-requests:
+          - 0s
+        x-ratelimit-reset-tokens:
+          - 0s
+        x-request-id:
+          - req_f0da4300696041569c6a4d321fee7914
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        '{"messages": [{"role": "system", "content": "Respond with single words."},
+        {"role": "user", "content": "What is the meaning of the universe?"}], "model":
+        "gpt-5-mini-2025-08-07", "n": 1, "temperature": 1.0}'
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate
+        connection:
+          - keep-alive
+        content-length:
+          - "192"
+        content-type:
+          - application/json
+        host:
+          - api.openai.com
+        user-agent:
+          - AsyncOpenAI/Python 2.30.0
+        x-stainless-arch:
+          - arm64
+        x-stainless-async:
+          - async:asyncio
+        x-stainless-lang:
+          - python
+        x-stainless-os:
+          - MacOS
+        x-stainless-package-version:
+          - 2.30.0
+        x-stainless-raw-response:
+          - "true"
+        x-stainless-read-timeout:
+          - "60.0"
+        x-stainless-retry-count:
+          - "0"
+        x-stainless-runtime:
+          - CPython
+        x-stainless-runtime-version:
+          - 3.13.5
+      method: POST
+      uri: https://api.openai.com/v1/chat/completions
+    response:
+      body:
+        string: !!binary |
+          H4sIAAAAAAAA/3VSy26DMBC88xXIZ6gIKaHpra+0l5zaQ6UqQo5ZwC3YyF6qplH+vbZJAlGTiyV2
+          dpaZ2d16vk94Tm59wiqKrGnr8PH9PpJLvi4WuH5+mf027CERi8nb/JXdPZHAMuT6ExgeWFdMGh4g
+          l6KHmQKKYKdO0nSWzudJPHNAI3OoLa1sMUzChgsexlGchNFNGKV7ciU5A226Psyn72/da2WKHH5M
+          OQoOlQa0piWY2qHJFJWsbYVQrblGKpAEA8ikQBBO+XKjEdRmjCooOk2tQNHV9QigQkik1qDTtdoj
+          u6OSwjjRVWZ8axOCma5RtsShO/OunLPuRCxplYkNM5Rf4MbG034cGeIcwOl0skfRKKlHQHIdnJmX
+          5YCU13qUDWGUVZAP1CFI2uVcjgBv5O6/nHOze+dclCNl8eUfDABj0JpbyVoFOWenpoc2BfbgLrUd
+          c3aSiQb1bU4oQw7K7iKHgnZ1fwdE27U3mVlYCapV3B2DXbe38/4A/XtxJA4DAAA=
+      headers:
+        Access-Control-Expose-Headers:
+          - X-Request-ID
+        CF-Cache-Status:
+          - DYNAMIC
+        CF-Ray:
+          - 9efec649fb27b873-SJC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - gzip
+        Content-Type:
+          - application/json
+        Date:
+          - Tue, 21 Apr 2026 19:25:32 GMT
+        Server:
+          - cloudflare
+        Strict-Transport-Security:
+          - max-age=31536000; includeSubDomains; preload
+        Transfer-Encoding:
+          - chunked
+        X-Content-Type-Options:
+          - nosniff
+        alt-svc:
+          - h3=":443"; ma=86400
+        openai-organization:
+          - <FILTERED>
+        openai-processing-ms:
+          - "6011"
+        openai-project:
+          - <FILTERED>
+        openai-version:
+          - "2020-10-01"
+        x-openai-proxy-wasm:
+          - v0.1
+        x-ratelimit-limit-requests:
+          - "180000"
+        x-ratelimit-limit-tokens:
+          - "500000000"
+        x-ratelimit-remaining-requests:
+          - "179999"
+        x-ratelimit-remaining-tokens:
+          - "499999983"
+        x-ratelimit-reset-requests:
+          - 0s
+        x-ratelimit-reset-tokens:
+          - 0s
+        x-request-id:
+          - req_a0e2329446a346bc929463e58f4c3296
+      status:
+        code: 200
+        message: OK
+version: 1

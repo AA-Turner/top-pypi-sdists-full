@@ -1,0 +1,3 @@
+DOMAIN: str
+DEFAULT_NAME: str
+API_MAX_RETRIES: int

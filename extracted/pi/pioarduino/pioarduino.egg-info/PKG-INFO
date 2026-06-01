@@ -1,0 +1,104 @@
+Metadata-Version: 2.4
+Name: pioarduino
+Version: 6.1.19
+Summary: pioarduino core is needed to run pioarduino Platform espressif32. 
+Home-page: https://github.com/pioarduino
+Author: PlatformIO Labs and pioarduino
+Author-email: 
+License: Apache-2.0
+Keywords: iot,embedded,arduino,mbed,esp8266,esp32,fpga,firmware,continuous-integration,cloud-ide,avr,arm,ide,unit-testing,hardware,verilog,microcontroller,debug
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: C
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: Topic :: Software Development :: Compilers
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: bottle==0.13.*
+Requires-Dist: click<8.4,>=8.0.4
+Requires-Dist: colorama
+Requires-Dist: marshmallow==3.*
+Requires-Dist: pyelftools<1,>=0.27
+Requires-Dist: pyserial==3.5.*
+Requires-Dist: requests==2.*
+Requires-Dist: semantic_version==2.10.*
+Requires-Dist: tabulate==0.*
+Requires-Dist: certifi
+Requires-Dist: intelhex
+Requires-Dist: rich_click
+Requires-Dist: ajsonrpc==1.2.*
+Requires-Dist: starlette<1
+Requires-Dist: uvicorn<0.43,>=0.16
+Requires-Dist: wsproto==1.*
+Requires-Dist: chardet<6,>=3.0.2; platform_system == "Darwin" and "arm" in platform_machine
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+pioarduino Core (independent fork of PlatformIO)
+=================================================
+
+**pioarduino** is an independent fork of `PlatformIO Core <https://github.com/pioarduino/platformio-core>`_.
+It does **not** require or use the PlatformIO Registry.
+
+Unlock the true potential of embedded software development with
+a collaborative ecosystem, embracing declarative principles,
+test-driven methodologies, and modern toolchains for unrivaled success.
+
+* Open source, maximum permissive Apache 2.0 license
+* Cross-platform IDE and Unified Debugger
+* Static Code Analyzer and Remote Unit Testing
+* Multi-platform and Multi-architecture Build System
+* Firmware File Explorer and Memory Inspection
+
+Get Started
+-----------
+
+* `pioarduino IDE for VS Code <https://github.com/pioarduino/pioarduino-vscode-ide>`_
+* `pioarduino Core (CLI) <https://github.com/pioarduino/platformio-core>`_
+
+Solutions
+---------
+
+* `Desktop IDEs Integration (VS Code) <https://github.com/pioarduino/pioarduino-vscode-ide>`_
+
+**Advanced**
+
+* `Debugging <https://github.com/pioarduino/pioarduino-vscode-debug>`_
+
+Contributing
+------------
+
+See `contributing guidelines <https://github.com/pioarduino/platformio-core/blob/develop/CONTRIBUTING.md>`_.
+
+Telemetry
+---------
+
+Removed
+
+
+License
+-------
+
+Copyright (c) 2014-present PlatformIO <contact@platformio.org>, pioarduino contributors
+
+The pioarduino Core is licensed under the permissive Apache 2.0 license,
+so you can use it in both commercial and personal projects with confidence.
+
+.. image:: https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/banner-direct.svg
+    :target: https://github.com/vshymanskyy/StandWithUkraine/blob/main/docs/README.md
+    :alt:  SWUbanner

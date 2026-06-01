@@ -25,6 +25,8 @@ class UpdateAppJsonBody:
         preserve_on_behalf_of (Union[Unset, bool]): When true and the caller is a member of the 'wm_deployers' group,
             preserves the original on_behalf_of value in the policy instead of overwriting it.
         labels (Union[Unset, List[str]]):
+        skip_draft_deletion (Union[Unset, bool]): When true (set by the CLI / git sync), deploying this app does not
+            delete an existing user draft at the same path.
     """
 
     path: Union[Unset, str] = UNSET
@@ -35,6 +37,7 @@ class UpdateAppJsonBody:
     custom_path: Union[Unset, str] = UNSET
     preserve_on_behalf_of: Union[Unset, bool] = UNSET
     labels: Union[Unset, List[str]] = UNSET
+    skip_draft_deletion: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -51,6 +54,8 @@ class UpdateAppJsonBody:
         labels: Union[Unset, List[str]] = UNSET
         if not isinstance(self.labels, Unset):
             labels = self.labels
+
+        skip_draft_deletion = self.skip_draft_deletion
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -71,6 +76,8 @@ class UpdateAppJsonBody:
             field_dict["preserve_on_behalf_of"] = preserve_on_behalf_of
         if labels is not UNSET:
             field_dict["labels"] = labels
+        if skip_draft_deletion is not UNSET:
+            field_dict["skip_draft_deletion"] = skip_draft_deletion
 
         return field_dict
 
@@ -100,6 +107,8 @@ class UpdateAppJsonBody:
 
         labels = cast(List[str], d.pop("labels", UNSET))
 
+        skip_draft_deletion = d.pop("skip_draft_deletion", UNSET)
+
         update_app_json_body = cls(
             path=path,
             summary=summary,
@@ -109,6 +118,7 @@ class UpdateAppJsonBody:
             custom_path=custom_path,
             preserve_on_behalf_of=preserve_on_behalf_of,
             labels=labels,
+            skip_draft_deletion=skip_draft_deletion,
         )
 
         update_app_json_body.additional_properties = d

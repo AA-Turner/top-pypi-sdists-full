@@ -1,0 +1,212 @@
+[project]
+name = "airbyte-internal-ops"
+dynamic = ["version"]
+description = "MCP and API interfaces that let the agents do the admin work"
+readme = "README.md"
+authors = [
+    { name = "Aaron Steers", email = "aj@airbyte.io" }
+]
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "airbyte>=0.45.0,<1.0.0",
+    "airbyte-cdk>=7.3.9,<8.0",
+    # NOTE: Version capped at 0.1.4 due to upcoming breaking change in 0.2.0+
+    # The next release will use snake_case Python field names (e.g., `definition_id` instead of `definitionId`)
+    # See: https://github.com/airbytehq/airbyte-connector-models/pull/31
+    "airbyte-connector-models>=0.1.3,<=0.1.4",
+    "airbyte-protocol-models-pdv2>=0.13.0",
+    "asyncclick>=8.1.7,<9.0",
+    "asyncer>=0.0.4,<1.0",
+    "click>=8.1.3,<9.0",
+    "cloud-sql-python-connector[pg8000]>=1.7.0,<2.0",
+    "cyclopts>=4.0.0,<5.0",
+    "docker>=6.0,<7.0",
+    "dpath>=2.1.5,<3.0",
+    "fastmcp>=3.0,<4.0",
+    "fastmcp-extensions>=0.4.0,<1.0.0",
+    "fsspec>=2024.0.0",
+    "gcsfs>=2024.0.0",
+    "s3fs>=2024.0.0",
+    "gitpython>=3.1.29,<4.0",
+    "google-cloud-logging>=3.9.0,<4.0",
+    "google-cloud-secret-manager>=2.18.0,<3.0",
+    "google-cloud-storage>=2.8.0,<3.0",
+    "jinja2>=3.1.2,<4.0",
+    "markdown-it-py>=2.2.0,<3.0",
+    "packaging>=23.0",
+    "pydantic>=2.0.0",
+    "pydash>=6.0.2,<8.0",
+    "PyGithub>=2.0,<3.0",
+    "python-dotenv>=1.0.0,<2.0",
+    "pyyaml>=6.0.0,<7.0",
+    "requests>=2.31.0,<3.0",
+    "rich>=13.0.0,<14.0",
+    "semver>=3.0.1,<4.0",
+    "sentry-sdk>=2.50.0",
+    "simpleeval>=0.9.13,<1.0",
+    "slack-sdk>=3.36.0,<4.0",
+    "sqlalchemy>=2.0.0,<3.0",
+    "toml>=0.10.2,<1.0",
+    "ruamel-yaml>=0.18",
+]
+keywords = ["airbyte", "mcp", "admin", "api"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+[project.scripts]
+airbyte-ops-mcp = "airbyte_ops_mcp.mcp.server:main"
+airbyte-ops-mcp-http = "airbyte_ops_mcp.mcp.server:main_http"
+airbyte-ops = "airbyte_ops_mcp.cli.app:main"
+airbyte-internal-ops = "airbyte_ops_mcp.cli.app:main"
+
+[dependency-groups]
+dev = [
+    "airbyte-cloud-cli",
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.1.0",
+    "poethepoet>=0.24.0",
+    "deptry>=0.12.0",
+    "mypy>=1.8.0",
+    "pdoc>=15.0.0",
+    "types-pyyaml>=6.0.12",
+    "types-requests>=2.32.0",
+    "types-beautifulsoup4>=4.12.0",
+    "pyrefly>=0.45.2",
+]
+erd = [
+    "google-generativeai>=0.7.2,<1.0",
+    "markdown-it-py>=2.2.0,<3.0",
+    "pydbml>=1.1.0,<2.0",
+]
+insights = [
+    "asyncclick>=8.1.7,<9.0",
+    "beautifulsoup4>=4.12.3,<5.0",
+    "google-cloud-storage>=2.17.0,<3.0",
+]
+live-tests = [
+    "asyncclick",
+    "cachetools",
+    "cloud-sql-python-connector[pg8000]>=1.7.0,<2.0",
+    "decorator",
+    "deepdiff",
+    "duckdb",
+    "genson",
+    "google-cloud-logging>=3.9.0,<4.0",
+    "google-cloud-secret-manager>=2.18.0,<3.0",
+    "jsonschema",
+    "mitmproxy",
+    "pandas",
+    "pydash",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-sugar",
+    "python-slugify",
+    "segment-analytics-python",
+    "sqlalchemy>=2.0.0,<3.0",
+    "uuid7",
+]
+ops-tools = [
+    "freezegun>=1.1.0,<2.0",
+    "google-cloud-storage>=2.8.0,<3.0",
+    "pandas>=2.0.3,<3.0",
+    "PyGithub>=2.0,<3.0",
+    "pydash>=6.0.2,<8.0",
+    "pytest-mock>=3.10.0,<4.0",
+    "simpleeval>=0.9.13,<1.0",
+]
+metadata-service = [
+    "datamodel-code-generator>=0.17.1,<1.0",
+    "gcloud>=0.18.3,<1.0",
+    "google>=3.0.0,<4.0",
+    "google-cloud-storage>=2.8.0,<3.0",
+    "pandas>=2.2.2,<3.0",
+    "pydash>=6.0.2,<8.0",
+    "pygithub>=2.7.0,<3.0",
+    "tabulate>=0.9.0,<1.0",
+]
+orchestrator = [
+    "dagster>=1.5.14,<2.0",
+    "dagster-cloud>=1.5.14,<2.0",
+    "dagster-gcp>=0.21.14,<1.0",
+    "dagster-slack>=0.21.14,<1.0",
+    "deepdiff>=6.3.0,<7.0",
+    "google>=3.0.0,<4.0",
+    "grpcio>=1.47.0,<2.0",
+    "humanize>=4.7.0,<5.0",
+    "mergedeep>=1.3.4,<2.0",
+    "numpy==1.26.4",
+    "pandas>=2.2.2,<3.0",
+    "pendulum>=2.0.0,<3.0",
+    "pydash>=6.0.2,<8.0",
+    "pygithub>=2.7.0,<3.0",
+    "python-dateutil>=2.8.2,<3.0",
+]
+
+[tool.uv.workspace]
+members = [".", "airbyte-cloud-cli"]
+
+[tool.uv.sources]
+airbyte-cloud-cli = { workspace = true }
+
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+[tool.uv-dynamic-versioning]
+vcs = "git"
+style = "pep440"
+fallback-version = "0.0.0"
+
+[tool.hatch.metadata]
+# We allow git-based dependencies during development.
+# However, PyPI does not allow this so we toggle to `false` in CI build checks
+# to ensure dependencies are properly pinned before merge.
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/airbyte_ops_mcp"]
+
+[tool.deptry]
+exclude = [
+    ".*\\.venv/.*",
+    ".*venv/.*",
+    ".*__pycache__.*",
+    ".*\\.pytest_cache.*",
+    ".*\\.git.*",
+    ".*dist.*",
+    ".*build.*",
+    ".*docs.*",
+    # Exclude standalone Pulumi projects (they have their own dependency definitions)
+    "infra/sentry/.*",
+    "infra/agent-message-bus/.*",
+]
+
+extend_exclude = []
+
+pep621_dev_dependency_groups = ["dev"]
+
+ignore_notebooks = false
+
+known_first_party = [
+    "airbyte_ops_mcp",
+    "airbyte_cloud_cli",
+]
+
+# DEP004: Ignore missing dev dependencies (expected for optional dependency groups)
+# DEP002: Temporarily ignore unused dependencies.
+ignore = ["DEP004", "DEP002"]
+
+# Per-rule ignores for optional dependencies that are imported conditionally
+[tool.deptry.per_rule_ignores]
+# segment-analytics-python is an optional dependency in the live-tests group
+DEP001 = ["segment", "pulumi", "pulumi_gcp", "fastapi"]

@@ -1,0 +1,95 @@
+GOOSE_PROVIDER: anthropic
+GOOSE_MODEL: claude-opus-4-5-20251101
+extensions:
+  context7:
+    enabled: true
+    type: stdio
+    name: Context7
+    description: Use up-to-date code and docs
+    cmd: npx
+    args:
+    - -y
+    - '@upstash/context7-mcp'
+    envs: {}
+    env_keys: []
+    timeout: 300
+    bundled: null
+    available_tools: []
+  filesystem:
+    enabled: true
+    type: stdio
+    name: Filesystem
+    description: Access filesystem operations
+    cmd: npx
+    args:
+    - -y
+    - '@modelcontextprotocol/server-filesystem'
+    - /tmp
+    envs:
+      HOME: /Users/test
+    env_keys: []
+    timeout: 300
+    bundled: null
+    available_tools: []
+  remote_sse:
+    enabled: true
+    type: sse
+    name: Remote SSE Server
+    description: A remote MCP server using SSE transport
+    uri: https://api.example.com/mcp/sse
+    envs: {}
+    headers:
+      Authorization: Bearer token123
+    timeout: 300
+    available_tools: []
+  remote_streamable:
+    enabled: true
+    type: streamable_http
+    name: Remote Streamable HTTP
+    description: A remote MCP server using streamable_http transport
+    uri: https://api.example.com/mcp/stream
+    envs:
+      API_KEY: secret
+    timeout: 300
+    available_tools: []
+  extensionmanager:
+    enabled: true
+    type: platform
+    name: Extension Manager
+    description: Enable extension management tools for discovering, enabling, and disabling extensions
+    bundled: true
+    available_tools: []
+  todo:
+    enabled: true
+    type: platform
+    name: todo
+    description: Enable a todo list for Goose so it can keep track of what it is doing
+    bundled: true
+    available_tools: []
+  developer:
+    enabled: true
+    type: builtin
+    name: developer
+    description: General development tools useful for software engineering.
+    display_name: Developer
+    timeout: 300
+    bundled: true
+    available_tools: []
+  disabled_server:
+    enabled: false
+    type: stdio
+    name: Disabled Server
+    description: This server is disabled and should not be parsed
+    cmd: npx
+    args:
+    - -y
+    - disabled-server
+    envs: {}
+  disabled_sse:
+    enabled: false
+    type: sse
+    name: Disabled SSE Server
+    description: This SSE server is disabled and should not be parsed
+    uri: https://api.example.com/mcp/disabled
+GOOSE_TELEMETRY_ENABLED: false
+

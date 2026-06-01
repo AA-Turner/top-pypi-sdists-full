@@ -1,0 +1,126 @@
+name: Devin Reminders Workflow
+run-name: "Devin Reminders (${{ inputs.action || 'cron' }})"
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Action to perform: put, list, cancel, or cron"
+        required: true
+        type: choice
+        options:
+          - cron
+          - list
+          - put
+          - cancel
+      reminder_message:
+        description: "Reminder message to deliver (required for 'put')."
+        required: false
+        type: string
+      remind_at:
+        description: >
+          ISO 8601 timestamp with timezone offset for when the reminder fires
+          (required for 'put'). Must be in the future and no more than 3 days ahead.
+          Example: 2026-02-20T17:00:00-08:00
+        required: false
+        type: string
+      agent_session_url:
+        description: "Devin session URL to ping when the reminder is due (required for 'put')."
+        required: false
+        type: string
+      slack_users_cc:
+        description: >
+          Comma-delimited list of Slack user tags to CC on notifications.
+          Example: '<@U12345>, <@U67890>'
+        required: false
+        type: string
+      cancel_guids:
+        description: >
+          JSON array of reminder GUIDs to cancel (required for 'cancel' action).
+          Must be used together with agent_session_url.
+        required: false
+        type: string
+
+jobs:
+  list-reminders:
+    name: List Reminders
+    runs-on: ubuntu-latest
+    if: ${{ inputs.action == 'list' }}
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Execute reminder action
+        uses: aaronsteers/devin-reminders-action@main
+        with:
+          action: 'list'
+          reminder-timezone: America/Los_Angeles
+          devin-token: ${{ secrets.DEVIN_AI_API_KEY }}
+          org-id: ${{ vars.DEVIN_AI_ORG_ID }}
+
+  create-new-reminder:
+    name: Create New Reminder
+    runs-on: ubuntu-latest
+    if: ${{ inputs.action == 'put' }}
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Execute reminder action
+        uses: aaronsteers/devin-reminders-action@main
+        with:
+          action: 'put'
+          lock-mode: auto
+          reminder-timezone: America/Los_Angeles
+          # Used for 'put' and 'cron' actions:
+          devin-token: ${{ secrets.DEVIN_AI_API_KEY }}
+          org-id: ${{ vars.DEVIN_AI_ORG_ID }}
+          slack-token: ${{ secrets.SLACK_HYDRA_BOT_TOKEN }}
+          slack-channel: devin-reminders
+          # Only used for 'put' action:
+          remind-at: ${{ inputs.remind_at }}
+          reminder-message: ${{ inputs.reminder_message }}
+          agent-session-url: ${{ inputs.agent_session_url }}
+          slack-users-cc: ${{ inputs.slack_users_cc }}
+
+  cancel-reminders:
+    name: Cancel Reminders
+    runs-on: ubuntu-latest
+    if: ${{ inputs.action == 'cancel' }}
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Execute reminder action
+        uses: aaronsteers/devin-reminders-action@main
+        with:
+          action: 'cancel'
+          lock-mode: auto
+          devin-token: ${{ secrets.DEVIN_AI_API_KEY }}
+          org-id: ${{ vars.DEVIN_AI_ORG_ID }}
+          slack-token: ${{ secrets.SLACK_HYDRA_BOT_TOKEN }}
+          slack-channel: devin-reminders
+          agent-session-url: ${{ inputs.agent_session_url }}
+          cancel-guids: ${{ inputs.cancel_guids }}
+
+  process-reminders-due:
+    name: Process Reminders Due
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'schedule' || inputs.action == 'cron' }}
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Execute reminder action
+        uses: aaronsteers/devin-reminders-action@main
+        with:
+          action: 'cron'
+          lock-mode: auto
+          reminder-timezone: America/Los_Angeles
+          devin-token: ${{ secrets.DEVIN_AI_API_KEY }}
+          org-id: ${{ vars.DEVIN_AI_ORG_ID }}
+          slack-token: ${{ secrets.SLACK_HYDRA_BOT_TOKEN }}
+          slack-channel: devin-reminders

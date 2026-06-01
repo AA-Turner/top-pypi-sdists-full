@@ -1,0 +1,316 @@
+# Copyright (c) 2023 Oracle and/or its affiliates.
+# Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl/
+
+"""Shared utility functions for langchain-oci."""
+
+import json
+import re
+import uuid
+from typing import Any, Dict, List, Optional, Union
+
+from langchain_core.messages import AIMessage, BaseMessage, ToolCall, ToolMessage
+from pydantic import BaseModel
+
+try:
+    from langchain_core.messages import UsageMetadata
+except ImportError:
+    UsageMetadata = None  # type: ignore[assignment,misc,unused-ignore]
+
+
+class OCIUtils:
+    """Utility functions for OCI Generative AI integration."""
+
+    @staticmethod
+    def is_pydantic_class(obj: Any) -> bool:
+        """Check if an object is a Pydantic BaseModel subclass."""
+        return isinstance(obj, type) and issubclass(obj, BaseModel)
+
+    @staticmethod
+    def remove_signature_from_tool_description(name: str, description: str) -> str:
+        """
+        Remove the tool signature and Args section from a tool description.
+
+        The signature is typically prefixed to the description and followed
+        by an Args section.
+        """
+        description = re.sub(rf"^{name}\(.*?\) -(?:> \w+? -)? ", "", description)
+        description = re.sub(r"(?s)(?:\n?\n\s*?)?Args:.*$", "", description)
+        return description
+
+    @staticmethod
+    def convert_oci_tool_call_to_langchain(tool_call: Any) -> ToolCall:
+        """Convert an OCI tool call to a LangChain ToolCall.
+
+        Handles both GenericProvider (uses 'arguments' as JSON string) and
+        CohereProvider (uses 'parameters' as dict) tool call formats.
+        """
+        # Determine if this is a Generic or Cohere tool call
+        has_arguments = "arguments" in getattr(tool_call, "attribute_map", {})
+
+        if has_arguments:
+            # Generic provider: arguments is a JSON string
+            try:
+                parsed = json.loads(tool_call.arguments)
+
+                # If the parsed result is a string, it means the JSON was escaped
+                if isinstance(parsed, str):
+                    try:
+                        parsed = json.loads(parsed)
+                    except json.JSONDecodeError:
+                        pass
+            except json.JSONDecodeError:
+                # LLM returned malformed JSON - preserve raw string for debugging
+                parsed = {"_raw_arguments": tool_call.arguments}
+        else:
+            # Cohere provider: parameters is already a dict
+            parsed = tool_call.parameters
+
+        # Get or generate tool call ID
+        if "id" in getattr(tool_call, "attribute_map", {}) and tool_call.id:
+            tool_id = tool_call.id
+        else:
+            tool_id = uuid.uuid4().hex
+
+        return ToolCall(
+            name=tool_call.name,
+            args=parsed,
+            id=tool_id,
+        )
+
+    @staticmethod
+    def resolve_schema_refs(schema: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        OCI Generative AI doesn't support $ref and $defs, so we inline all references.
+        """
+        defs = schema.get("$defs", {})  # OCI Generative AI doesn't support $defs
+        resolving_stack: set[str] = set()
+
+        def resolve(obj: Any) -> Any:
+            if isinstance(obj, dict):
+                if "$ref" in obj:
+                    ref = obj["$ref"]
+                    if ref.startswith("#/$defs/"):
+                        key = ref.split("/")[-1]
+                        if key in resolving_stack:
+                            return {"type": "object"}
+                        resolving_stack.add(key)
+                        try:
+                            return resolve(defs.get(key, obj))
+                        finally:
+                            resolving_stack.discard(key)
+                    return obj  # Cannot resolve $ref, return unchanged
+                return {k: resolve(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [resolve(item) for item in obj]
+            return obj
+
+        resolved = resolve(schema)
+        if isinstance(resolved, dict):
+            resolved.pop("$defs", None)
+        return resolved
+
+    @staticmethod
+    def resolve_anyof(obj: Any) -> Any:
+        """Resolve Pydantic v2 ``anyOf`` patterns (from ``Optional[T]``).
+
+        Pydantic v2 emits ``{"anyOf": [{"type": "integer"}, {"type": "null"}]}``
+        for ``Optional[int]``.  OCI models don't understand ``anyOf``, so we
+        pick the first non-null branch and merge any top-level metadata
+        (description, default, enum, etc.) into it.
+        """
+        if isinstance(obj, dict):
+            if "anyOf" in obj and "type" not in obj:
+                non_null = [
+                    t
+                    for t in obj["anyOf"]
+                    if not (isinstance(t, dict) and t.get("type") == "null")
+                ]
+                if non_null:
+                    resolved = {**obj, **non_null[0]}
+                    resolved.pop("anyOf", None)
+                    return OCIUtils.resolve_anyof(resolved)
+            return {k: OCIUtils.resolve_anyof(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [OCIUtils.resolve_anyof(item) for item in obj]
+        return obj
+
+    @staticmethod
+    def overlay_schema_extras(
+        schema: Dict[str, Any],
+        args_schema: Union[type, Dict[str, Any]],
+    ) -> None:
+        """Overlay ``json_schema_extra`` constraints from ``args_schema`` onto a schema.
+
+        ``tool_call_schema.model_json_schema()`` drops ``json_schema_extra`` (enum,
+        format, pattern, etc.). This restores those constraints from the original
+        ``args_schema`` field definitions for fields present in both.
+
+        Mutates ``schema`` in place.
+        """
+        properties = schema.get("properties", {})
+        if not properties:
+            return
+        fields = getattr(args_schema, "model_fields", {})
+        for field_name, prop in properties.items():
+            field_info = fields.get(field_name)
+            if field_info is None:
+                continue
+            extras = getattr(field_info, "json_schema_extra", None)
+            if extras and isinstance(extras, dict):
+                prop.update(extras)
+
+    @staticmethod
+    def sanitize_schema(schema: Any) -> Any:
+        """Recursively sanitize a schema for OCI tool compatibility."""
+        if isinstance(schema, list):
+            return [OCIUtils.sanitize_schema(item) for item in schema]
+
+        if not isinstance(schema, dict):
+            return schema
+
+        sanitized: Dict[str, Any] = {}
+        for key, value in schema.items():
+            if key == "title":
+                continue
+            if key == "default" and value is None:
+                continue
+
+            if key == "type":
+                if value == "any":
+                    sanitized[key] = "object"
+                    continue
+                if isinstance(value, list):
+                    non_null_types = [item for item in value if item != "null"]
+                    sanitized[key] = non_null_types[0] if non_null_types else "string"
+                    continue
+
+            sanitized[key] = OCIUtils.sanitize_schema(value)
+
+        if sanitized.get("type") == "array" and "items" not in sanitized:
+            sanitized["items"] = {"type": "object"}
+
+        required = sanitized.get("required")
+        properties = sanitized.get("properties")
+        if "required" in sanitized:
+            if isinstance(required, list) and isinstance(properties, dict):
+                property_names = set(properties)
+                sanitized["required"] = [
+                    field
+                    for field in required
+                    if isinstance(field, str) and field in property_names
+                ]
+            elif not isinstance(required, list):
+                sanitized["required"] = []
+
+        return sanitized
+
+    @staticmethod
+    def create_usage_metadata(usage: Any) -> Optional[Any]:
+        """
+        Create UsageMetadata from OCI SDK usage object.
+
+        Args:
+            usage: OCI SDK usage object containing token counts and details
+
+        Returns:
+            UsageMetadata object with token usage information,
+            or None if usage is not available.
+        """
+        if not usage or UsageMetadata is None:
+            return None
+
+        from oci.util import to_dict
+
+        usage_kwargs: Dict[str, Any] = {
+            "input_tokens": getattr(usage, "prompt_tokens", None) or 0,
+            "output_tokens": getattr(usage, "completion_tokens", None) or 0,
+            "total_tokens": getattr(usage, "total_tokens", None) or 0,
+        }
+
+        # Convert OCI SDK objects to dictionaries using built-in utility
+        if (
+            prompt_details := getattr(usage, "prompt_tokens_details", None)
+        ) is not None:
+            usage_kwargs["input_token_details"] = to_dict(prompt_details)
+        if (
+            completion_details := getattr(usage, "completion_tokens_details", None)
+        ) is not None:
+            usage_kwargs["output_token_details"] = to_dict(completion_details)
+
+        return UsageMetadata(**usage_kwargs)  # type: ignore
+
+    @staticmethod
+    def flatten_parallel_tool_calls(
+        messages: List[BaseMessage],
+    ) -> List[BaseMessage]:
+        """Flatten parallel tool calls into sequential AI->Tool pairs.
+
+        Gemini models require each function call turn to have exactly one
+        matching function response. When the model makes N parallel tool
+        calls (one AIMessage with N tool_calls followed by N ToolMessages),
+        this method splits them into N sequential (AIMessage, ToolMessage)
+        pairs so each turn has a 1:1 call-to-response mapping.
+
+        Non-Gemini models are unaffected — this is only called when needed.
+        """
+        result: List[BaseMessage] = []
+        i = 0
+        while i < len(messages):
+            msg = messages[i]
+
+            if isinstance(msg, AIMessage) and len(msg.tool_calls or []) > 1:
+                tool_calls = msg.tool_calls
+
+                # Collect consecutive ToolMessages following this AIMessage
+                j = i + 1
+                while j < len(messages) and isinstance(messages[j], ToolMessage):
+                    j += 1
+                tool_msgs = messages[i + 1 : j]
+
+                # Map tool_call_id -> ToolMessage for correct pairing
+                tool_msg_map = {
+                    tm.tool_call_id: tm
+                    for tm in tool_msgs
+                    if isinstance(tm, ToolMessage)
+                }
+
+                # Create sequential AI -> Tool pairs
+                for idx, tc in enumerate(tool_calls):
+                    # First keeps original content; rest get placeholder
+                    content = msg.content if idx == 0 else "."
+                    if not content:
+                        content = "."
+
+                    synthetic_ai = AIMessage(
+                        content=content,
+                        tool_calls=[tc],
+                    )
+                    result.append(synthetic_ai)
+
+                    # Add matching ToolMessage
+                    tc_id = tc.get("id") or ""
+                    matching = tool_msg_map.get(tc_id)
+                    if matching:
+                        result.append(matching)
+
+                i = j  # Skip past processed ToolMessages
+            else:
+                result.append(msg)
+                i += 1
+
+        return result
+
+
+# Prefix for custom endpoint OCIDs
+CUSTOM_ENDPOINT_PREFIX = "ocid1.generativeaiendpoint"
+
+# Mapping of JSON schema types to Python types
+JSON_TO_PYTHON_TYPES = {
+    "string": "str",
+    "number": "float",
+    "boolean": "bool",
+    "integer": "int",
+    "array": "List",
+    "object": "Dict",
+    "any": "any",
+}

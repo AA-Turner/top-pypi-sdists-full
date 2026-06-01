@@ -1,0 +1,36 @@
+[project]
+name = "pycpfcnpj"
+version = "1.9"
+description = "Python module for brazilian register numbers for persons (CPF) and companies (CNPJ)."
+authors = [{ name = "Matheus CAS", email = "matheus.mcas@gmail.com" }]
+requires-python = ">=3.8,<4"
+readme = "README.md"
+license = "MIT"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=7.4.4,<8",
+    "codecov>=2.1.13,<3",
+    "pytest-codecov>=0.5.1,<0.6",
+    "coverage>=7.4.0,<8",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.0,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

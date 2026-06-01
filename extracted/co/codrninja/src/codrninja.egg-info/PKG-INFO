@@ -1,0 +1,184 @@
+Metadata-Version: 2.4
+Name: codrninja
+Version: 1.5.114
+Summary: Multi-access agentic coding tool — TUI, CLI, and REST API with JSON output
+Author: 20ZollCoder
+License: MIT
+Project-URL: Homepage, https://github.com/20ZollCoder/codrninja
+Project-URL: Repository, https://github.com/20ZollCoder/codrninja
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: requests>=2.25.0
+Requires-Dist: prompt_toolkit>=3.0.0
+Requires-Dist: beautifulsoup4>=4.12.0
+Requires-Dist: cryptography>=41.0.0
+Requires-Dist: rich>=10.0.0
+Requires-Dist: textual>=0.50.0
+Requires-Dist: fastapi>=0.100.0
+Requires-Dist: uvicorn>=0.20.0
+Requires-Dist: sse-starlette>=1.6.0
+Requires-Dist: pydantic>=2.0.0
+Dynamic: license-file
+
+# 🥷 codrninja
+
+**Multi-Access Agentic Coding Tool** — use it from a terminal TUI, shell scripts, or as a backend for AI agents. Every command outputs structured JSON, so humans and machines use the exact same interface.
+
+## How you can access it
+
+| Access | Use case |
+|--------|----------|
+| `codrninja` | Interactive TypeScript TUI for humans |
+| `codrninja send <session> "<msg>"` | Scripting, CI pipelines |
+| `codrninja build <session> "<task>"` | Agent-driven coding tasks |
+| REST API on `localhost:7384` | External agents (openclaw, n8n, custom) |
+
+An external agent can list your sessions, send messages into them, trigger builds, run tests, and read results — all in JSON — without touching the TUI at all.
+
+## Providers
+
+| Provider | Setup | Notes |
+|----------|-------|-------|
+| **claude-cli** | Claude Code installed | Uses your Claude Code subscription — no API key needed |
+| **OpenAI** | OAuth or API key | gpt-4o, gpt-5, codex models |
+| **Anthropic** | OAuth or API key | claude-sonnet, claude-opus |
+| **Ollama** | Local server | Any local model |
+| **OpenRouter** | API key | Access to all major models |
+
+## Install
+
+```bash
+pip3 install codrninja
+```
+
+Start the TUI:
+
+```bash
+codrninja
+```
+
+The server starts automatically on port `7384`. Configure your provider on first launch with `/provider`.
+
+### TypeScript TUI
+
+codrninja looks for the TUI at `~/codrninja-tui`. Clone it once:
+
+```bash
+git clone https://github.com/20ZollCoder/codrninja-tui ~/codrninja-tui
+cd ~/codrninja-tui && npm install
+```
+
+## Agent / CLI access
+
+All commands output JSON with a `$schema` field — ready to pipe into `jq` or any agent.
+
+```bash
+# List sessions
+codrninja list-sessions
+
+# Send a message to a session
+codrninja send my-project "what does this file do?"
+
+# Run the coding agent on a task (build mode — writes files, runs commands)
+codrninja build my-project "add input validation to the login form"
+
+# Run in plan mode (reasons and plans, doesn't execute)
+codrninja plan my-project "how should we restructure the auth module?"
+
+# Show session history
+codrninja show-session my-project
+
+# Run tests
+codrninja test "pytest -q"
+
+# Execute a shell command
+codrninja exec "npm run build"
+
+# Web search
+codrninja search "fastapi streaming response"
+
+# Git commit
+codrninja commit "feat: add login validation"
+```
+
+Example: an openclaw agent picks up a session you already have open in the TUI:
+
+```bash
+# You're working in the TUI on session "backend-api"
+# An openclaw agent can continue in the same session:
+codrninja build backend-api "add rate limiting to the /auth endpoint"
+
+# Or create its own session
+codrninja create-session agent-task-1
+codrninja build agent-task-1 "write unit tests for auth.py"
+```
+
+## TUI slash commands
+
+| Command | Description |
+|---------|-------------|
+| `/provider` | Switch or configure AI provider |
+| `/model` | Change model for this session |
+| `/build <task>` | Run build agent |
+| `/plan <task>` | Run plan agent |
+| `/exec <cmd>` | Run a shell command |
+| `/diff` | Show current git diff |
+| `/commit <msg>` | Git add -A and commit |
+| `/test` | Run tests |
+| `/search <query>` | Web search |
+| `/fetch <url>` | Fetch a web page |
+| `/clear` | Clear the conversation |
+| `/undo` | Remove the last message pair |
+| `/session` | Show session info |
+| `/status` | Show provider / model status |
+| `/help` | Show all commands |
+| `/exit` | Quit |
+
+## Sessions
+
+Sessions store conversation history, model/provider settings, and file change tracking. They're shared across all access methods — what you do in the TUI is visible via CLI and vice versa.
+
+```bash
+# Open a specific session directly
+codrninja my-project
+
+# Or via env var (useful for agents)
+CODRNINJA_SESSION=my-project codrninja
+```
+
+## REST API
+
+The server exposes a full REST API that external agents can use directly:
+
+```
+GET  /sessions           → list all sessions
+POST /sessions           → create session
+GET  /sessions/{name}    → get session history
+POST /sessions/{name}/stream → stream agent execution (SSE)
+GET  /providers          → list providers and auth status
+POST /config/provider    → set active provider
+POST /config/model       → set model
+GET  /models             → list available models
+GET  /version            → server version
+```
+
+## Configuration
+
+Settings live in `~/.config/codrninja/config.json` and can be changed from the TUI via `/provider` and `/model`.
+
+Override the server address:
+
+```bash
+codrninja serve --port 8000
+CODRNINJA_SERVER=http://127.0.0.1:8000 codrninja
+```
+
+## Links
+
+- **GitHub:** https://github.com/20ZollCoder/codrninja
+- **Issues:** https://github.com/20ZollCoder/codrninja/issues
+
+## License
+
+MIT

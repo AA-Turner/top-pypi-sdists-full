@@ -1,0 +1,504 @@
+"""Tests for memory configuration."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from mindroom.config.main import Config
+from mindroom.config.memory import MemoryConfig, _MemoryEmbedderConfig, _MemoryLLMConfig
+from mindroom.config.models import EmbedderConfig, RouterConfig
+from mindroom.constants import RuntimePaths, resolve_primary_runtime_paths
+from mindroom.credentials import get_runtime_shared_credentials_manager
+from mindroom.memory.config import _get_memory_config, _memory_collection_name, create_memory_instance
+from mindroom.model_defaults import MEMORY_OLLAMA_LLM, OLLAMA_HOST_DEFAULT
+from mindroom.orchestrator import _MultiAgentOrchestrator
+from tests.conftest import orchestrator_runtime_paths
+
+
+def _runtime_paths(tmp_path: Path) -> RuntimePaths:
+    return resolve_primary_runtime_paths(config_path=tmp_path / "config.yaml", storage_path=tmp_path / "mindroom_data")
+
+
+class TestMemoryConfig:
+    """Test memory configuration."""
+
+    def test_get_memory_config_with_ollama(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Test memory config creation with Ollama embedder."""
+        # Create config with Ollama embedder
+        embedder_config = _MemoryEmbedderConfig(
+            provider="ollama",
+            config=EmbedderConfig(
+                model="nomic-embed-text",
+                host="http://localhost:11434",
+            ),
+        )
+        llm_config = _MemoryLLMConfig(
+            provider="ollama",
+            config={
+                "model": "llama3.2",
+                "host": "http://localhost:11434",
+                "temperature": 0.1,
+                "top_p": 1,
+            },
+        )
+        memory = MemoryConfig(embedder=embedder_config, llm=llm_config)
+        config = Config(memory=memory, router=RouterConfig(model="default"))
+
+        # Test config generation
+        storage_path = tmp_path / "memory"
+        result = _get_memory_config(storage_path, config, _runtime_paths(tmp_path))
+
+        # Verify embedder config
+        assert result["embedder"]["provider"] == "ollama"
+        assert result["embedder"]["config"]["model"] == "nomic-embed-text"
+        assert result["embedder"]["config"]["ollama_base_url"] == "http://localhost:11434"
+
+        # Verify LLM config
+        assert result["llm"]["provider"] == "ollama"
+        assert result["llm"]["config"]["model"] == "llama3.2"
+        assert result["llm"]["config"]["ollama_base_url"] == "http://localhost:11434"
+
+        # Verify vector store config
+        assert result["vector_store"]["provider"] == "chroma"
+        assert result["vector_store"]["config"]["collection_name"] == _memory_collection_name(config)
+        assert str(storage_path / "chroma") in result["vector_store"]["config"]["path"]
+
+    def test_get_memory_config_with_openai(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Test memory config creation with OpenAI embedder."""
+        runtime_paths = _runtime_paths(tmp_path)
+        get_runtime_shared_credentials_manager(runtime_paths).save_credentials("openai", {"api_key": "test-key"})
+
+        # Create config with OpenAI embedder
+        embedder_config = _MemoryEmbedderConfig(
+            provider="openai",
+            config=EmbedderConfig(model="text-embedding-ada-002"),
+        )
+        llm_config = _MemoryLLMConfig(
+            provider="openai",
+            config={"model": "gpt-4", "temperature": 0.1, "top_p": 1},
+        )
+        memory = MemoryConfig(embedder=embedder_config, llm=llm_config)
+        config = Config(memory=memory, router=RouterConfig(model="default"))
+
+        # Test config generation
+        storage_path = tmp_path / "memory"
+        result = _get_memory_config(storage_path, config, runtime_paths)
+
+        # Verify embedder config
+        assert result["embedder"]["provider"] == "openai"
+        assert result["embedder"]["config"]["model"] == "text-embedding-ada-002"
+        assert result["embedder"]["config"]["api_key"] == "test-key"
+
+        # Verify LLM config
+        assert result["llm"]["provider"] == "openai"
+        assert result["llm"]["config"]["model"] == "gpt-4"
+        assert result["llm"]["config"]["api_key"] == "test-key"
+
+    def test_get_memory_config_passes_configured_embedding_dimensions(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Configured embedding dimensions should be forwarded to Mem0."""
+        embedder_config = _MemoryEmbedderConfig(
+            provider="openai",
+            config=EmbedderConfig(
+                model="gemini-embedding-001",
+                host="http://example.com/v1",
+                dimensions=3072,
+            ),
+        )
+        memory = MemoryConfig(embedder=embedder_config, llm=None)
+        config = Config(memory=memory, router=RouterConfig(model="default"))
+
+        result = _get_memory_config(tmp_path / "memory", config, _runtime_paths(tmp_path))
+
+        assert result["embedder"]["config"]["embedding_dims"] == 3072
+
+    def test_get_memory_config_with_sentence_transformers(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Sentence-transformers should map to Mem0's local huggingface embedder."""
+        embedder_config = _MemoryEmbedderConfig(
+            provider="sentence_transformers",
+            config=EmbedderConfig(
+                model="sentence-transformers/all-MiniLM-L6-v2",
+                dimensions=384,
+            ),
+        )
+        memory = MemoryConfig(embedder=embedder_config, llm=None)
+        config = Config(memory=memory, router=RouterConfig(model="default"))
+
+        result = _get_memory_config(tmp_path / "memory", config, _runtime_paths(tmp_path))
+
+        assert result["embedder"]["provider"] == "huggingface"
+        assert result["embedder"]["config"]["model"] == "sentence-transformers/all-MiniLM-L6-v2"
+        assert result["embedder"]["config"]["embedding_dims"] == 384
+
+    def test_get_memory_config_keeps_existing_huggingface_provider_support(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Existing Mem0 providers should remain valid after adding sentence-transformers."""
+        config = Config(
+            memory={
+                "embedder": {
+                    "provider": "huggingface",
+                    "config": {
+                        "model": "sentence-transformers/all-MiniLM-L6-v2",
+                    },
+                },
+            },
+            router=RouterConfig(model="default"),
+        )
+
+        result = _get_memory_config(tmp_path / "memory", config, _runtime_paths(tmp_path))
+
+        assert result["embedder"]["provider"] == "huggingface"
+        assert result["embedder"]["config"]["model"] == "sentence-transformers/all-MiniLM-L6-v2"
+
+    def test_memory_collection_name_changes_when_embedder_changes(self) -> None:
+        """Different embedder settings should isolate memories into different collections."""
+        openai_memory = MemoryConfig(
+            embedder=_MemoryEmbedderConfig(
+                provider="openai",
+                config=EmbedderConfig(model="text-embedding-3-small"),
+            ),
+            llm=None,
+        )
+        local_memory = MemoryConfig(
+            embedder=_MemoryEmbedderConfig(
+                provider="sentence_transformers",
+                config=EmbedderConfig(model="sentence-transformers/all-MiniLM-L6-v2"),
+            ),
+            llm=None,
+        )
+        openai_config = Config(memory=openai_memory, router=RouterConfig(model="default"))
+        local_config = Config(memory=local_memory, router=RouterConfig(model="default"))
+
+        assert _memory_collection_name(openai_config) != _memory_collection_name(local_config)
+
+    def test_get_memory_config_uses_runtime_shared_credentials_path(self, tmp_path: Path) -> None:
+        """Runtime-shared credential overrides should be visible to Mem0 provider config."""
+        runtime_paths = resolve_primary_runtime_paths(
+            config_path=tmp_path / "config.yaml",
+            storage_path=tmp_path / "storage",
+            process_env={"MINDROOM_SHARED_CREDENTIALS_PATH": str(tmp_path / ".shared_credentials")},
+        )
+        get_runtime_shared_credentials_manager(runtime_paths).save_credentials(
+            "openai",
+            {"api_key": "shared-openai-key"},
+        )
+
+        config = Config(
+            memory={
+                "embedder": {
+                    "provider": "openai",
+                    "config": {"model": "text-embedding-3-small"},
+                },
+            },
+            router=RouterConfig(model="default"),
+        )
+
+        result = _get_memory_config(tmp_path / "memory", config, runtime_paths)
+
+        assert result["embedder"]["config"]["api_key"] == "shared-openai-key"
+
+    def test_get_memory_config_openai_embedder_maps_provider_settings(self, tmp_path: Path) -> None:
+        """OpenAI Mem0 embedder config should keep the provider-specific field names."""
+        runtime_paths = _runtime_paths(tmp_path)
+        get_runtime_shared_credentials_manager(runtime_paths).save_credentials(
+            "openai",
+            {"api_key": "shared-openai-key"},
+        )
+        config = Config(
+            memory={
+                "embedder": {
+                    "provider": "openai",
+                    "config": {
+                        "model": "custom-embedding-model",
+                        "host": "http://embeddings.local/v1",
+                        "dimensions": 1024,
+                    },
+                },
+            },
+            router=RouterConfig(model="default"),
+        )
+
+        result = _get_memory_config(tmp_path / "memory", config, runtime_paths)
+
+        assert result["embedder"]["provider"] == "openai"
+        assert result["embedder"]["config"] == {
+            "model": "custom-embedding-model",
+            "api_key": "shared-openai-key",
+            "openai_base_url": "http://embeddings.local/v1",
+            "embedding_dims": 1024,
+        }
+
+    def test_get_memory_config_ollama_embedder_uses_credential_host_before_config(self, tmp_path: Path) -> None:
+        """Credential-backed Ollama host should override the embedder config host."""
+        runtime_paths = _runtime_paths(tmp_path)
+        get_runtime_shared_credentials_manager(runtime_paths).save_credentials(
+            "ollama",
+            {"host": "http://credential-ollama:11434"},
+        )
+        config = Config(
+            memory={
+                "embedder": {
+                    "provider": "ollama",
+                    "config": {
+                        "model": "nomic-embed-text",
+                        "host": "http://config-ollama:11434",
+                    },
+                },
+            },
+            router=RouterConfig(model="default"),
+        )
+
+        result = _get_memory_config(tmp_path / "memory", config, runtime_paths)
+
+        assert result["embedder"]["provider"] == "ollama"
+        assert result["embedder"]["config"] == {
+            "model": "nomic-embed-text",
+            "ollama_base_url": "http://credential-ollama:11434",
+        }
+
+    @pytest.mark.parametrize(
+        ("model", "effective_dimensions"),
+        [
+            ("text-embedding-3-small", 1536),
+            ("text-embedding-3-large", 3072),
+        ],
+    )
+    def test_memory_collection_name_ignores_equivalent_mem0_openai_default_dimensions(
+        self,
+        model: str,
+        effective_dimensions: int,
+    ) -> None:
+        """Equivalent Mem0 OpenAI defaults should reuse the same memory collection."""
+        implicit_default = MemoryConfig(
+            embedder=_MemoryEmbedderConfig(
+                provider="openai",
+                config=EmbedderConfig(model=model),
+            ),
+            llm=None,
+        )
+        explicit_default = MemoryConfig(
+            embedder=_MemoryEmbedderConfig(
+                provider="openai",
+                config=EmbedderConfig(model=model, dimensions=effective_dimensions),
+            ),
+            llm=None,
+        )
+        implicit_config = Config(memory=implicit_default, router=RouterConfig(model="default"))
+        explicit_config = Config(memory=explicit_default, router=RouterConfig(model="default"))
+
+        assert _memory_collection_name(implicit_config) == _memory_collection_name(explicit_config)
+
+    def test_custom_openai_compatible_memory_collection_name_tracks_explicit_dimensions(self) -> None:
+        """Custom OpenAI-compatible embedders must not treat omitted dimensions as explicit 1536."""
+        implicit_dimensions = MemoryConfig(
+            embedder=_MemoryEmbedderConfig(
+                provider="openai",
+                config=EmbedderConfig(
+                    model="gemini-embedding-001",
+                    host="http://example.com/v1",
+                ),
+            ),
+            llm=None,
+        )
+        explicit_dimensions = MemoryConfig(
+            embedder=_MemoryEmbedderConfig(
+                provider="openai",
+                config=EmbedderConfig(
+                    model="gemini-embedding-001",
+                    host="http://example.com/v1",
+                    dimensions=1536,
+                ),
+            ),
+            llm=None,
+        )
+        implicit_config = Config(memory=implicit_dimensions, router=RouterConfig(model="default"))
+        explicit_config = Config(memory=explicit_dimensions, router=RouterConfig(model="default"))
+
+        assert _memory_collection_name(implicit_config) != _memory_collection_name(explicit_config)
+
+    def test_get_memory_config_no_model_fallback(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Test memory config falls back to Ollama when no model configured."""
+        # Create config with no models
+        embedder_config = _MemoryEmbedderConfig(
+            provider="ollama",
+            config=EmbedderConfig(model="nomic-embed-text", host=None),
+        )
+        # No memory.llm configured - should trigger fallback
+        memory = MemoryConfig(embedder=embedder_config, llm=None)
+        config = Config(memory=memory, router=RouterConfig(model="default"))
+
+        # Test config generation
+        storage_path = tmp_path / "memory"
+        result = _get_memory_config(storage_path, config, _runtime_paths(tmp_path))
+
+        # Verify LLM fallback config
+        assert result["llm"]["provider"] == "ollama"
+        assert result["llm"]["config"]["model"] == MEMORY_OLLAMA_LLM
+        assert result["llm"]["config"]["ollama_base_url"] == OLLAMA_HOST_DEFAULT
+
+    def test_chroma_directory_creation(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Test that ChromaDB directory is created."""
+        # Create minimal config
+        embedder_config = _MemoryEmbedderConfig(
+            provider="ollama",
+            config=EmbedderConfig(model="test", host=None),
+        )
+        memory = MemoryConfig(embedder=embedder_config, llm=None)
+        config = Config(memory=memory, router=RouterConfig(model="default"))
+
+        # Get config
+        result = _get_memory_config(tmp_path, config, _runtime_paths(tmp_path))
+
+        # Verify chroma path in config
+        chroma_path = tmp_path / "chroma"
+        assert str(chroma_path) == result["vector_store"]["config"]["path"]
+
+        # Verify directory was created
+        assert chroma_path.exists()
+        assert chroma_path.is_dir()
+
+    def test_relative_storage_path_remains_stable_after_cwd_change(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Relative storage paths should be anchored once and survive later cwd changes."""
+        project_root = tmp_path / "project"
+        project_root.mkdir(parents=True, exist_ok=True)
+        monkeypatch.chdir(project_root)
+
+        orchestrator = _MultiAgentOrchestrator(runtime_paths=orchestrator_runtime_paths(Path("mindroom_data")))
+
+        other_cwd = tmp_path / "other"
+        other_cwd.mkdir(parents=True, exist_ok=True)
+        monkeypatch.chdir(other_cwd)
+
+        embedder_config = _MemoryEmbedderConfig(
+            provider="ollama",
+            config=EmbedderConfig(model="test", host=None),
+        )
+        memory = MemoryConfig(embedder=embedder_config, llm=None)
+        config = Config(memory=memory, router=RouterConfig(model="default"))
+
+        result = _get_memory_config(orchestrator.storage_path, config, orchestrator.runtime_paths)
+
+        expected_storage = (project_root / "mindroom_data").resolve()
+        expected_chroma = (expected_storage / "chroma").resolve()
+        assert orchestrator.storage_path == expected_storage
+        assert Path(result["vector_store"]["config"]["path"]) == expected_chroma
+
+    @pytest.mark.asyncio
+    @patch("mindroom.memory.config.ensure_sentence_transformers_dependencies")
+    @patch("mindroom.memory.config.AsyncMemory.from_config")
+    async def test_create_memory_instance_auto_installs_sentence_transformers(
+        self,
+        mock_from_config: MagicMock,
+        mock_ensure_sentence_transformers_dependencies: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Creating a local-embedder Mem0 instance should trigger optional runtime install."""
+        memory = MemoryConfig(
+            embedder=_MemoryEmbedderConfig(
+                provider="sentence_transformers",
+                config=EmbedderConfig(model="sentence-transformers/all-MiniLM-L6-v2"),
+            ),
+            llm=None,
+        )
+        config = Config(memory=memory, router=RouterConfig(model="default"))
+        expected_memory = object()
+        mock_from_config.return_value = expected_memory
+
+        result = await create_memory_instance(tmp_path / "memory", config, _runtime_paths(tmp_path))
+
+        assert result is expected_memory
+        mock_ensure_sentence_transformers_dependencies.assert_called_once_with(_runtime_paths(tmp_path))
+        mock_from_config.assert_called_once()
+
+    def test_memory_auto_flush_batch_config_is_parameterized(self) -> None:
+        """Auto-flush batch/extractor limits should be configurable."""
+        memory = MemoryConfig.model_validate(
+            {
+                "backend": "file",
+                "team_reads_member_memory": True,
+                "auto_flush": {
+                    "enabled": True,
+                    "batch": {
+                        "max_sessions_per_cycle": 7,
+                        "max_sessions_per_agent_per_cycle": 2,
+                    },
+                    "extractor": {
+                        "max_messages_per_flush": 12,
+                        "max_chars_per_flush": 9000,
+                    },
+                },
+            },
+        )
+        assert memory.backend == "file"
+        assert memory.team_reads_member_memory is True
+        assert memory.auto_flush.enabled is True
+        assert memory.auto_flush.batch.max_sessions_per_cycle == 7
+        assert memory.auto_flush.batch.max_sessions_per_agent_per_cycle == 2
+        assert memory.auto_flush.extractor.max_messages_per_flush == 12
+        assert memory.auto_flush.extractor.max_chars_per_flush == 9000
+
+    def test_memory_auto_flush_default_interval_is_30_minutes(self) -> None:
+        """Auto-flush should default to a half-hour worker interval."""
+        memory = MemoryConfig()
+        assert memory.auto_flush.flush_interval_seconds == 1800
+
+    def test_memory_config_accepts_disabled_backend(self) -> None:
+        """The memory config should accept disabled memory in object and shorthand form."""
+        explicit = MemoryConfig.model_validate({"backend": "none"})
+        shorthand = MemoryConfig.model_validate("none")
+
+        assert explicit.backend == "none"
+        assert shorthand.backend == "none"
+
+    def test_config_accepts_global_disabled_memory_shorthand(self) -> None:
+        """The root config should normalize memory: none to a disabled memory config."""
+        config = Config(
+            agents={"scratch": {"display_name": "Scratch"}},
+            memory="none",
+            router=RouterConfig(model="default"),
+        )
+
+        assert config.memory.backend == "none"
+        assert config.get_agent_memory_backend("scratch") == "none"
+        assert config.uses_file_memory() is False
+
+    def test_config_accepts_per_agent_disabled_memory_backend(self) -> None:
+        """Per-agent memory_backend should support disabling memory for one agent."""
+        config = Config(
+            agents={
+                "general": {"display_name": "General"},
+                "scratch": {"display_name": "Scratch", "memory_backend": "none"},
+            },
+            memory={"backend": "mem0"},
+            router=RouterConfig(model="default"),
+        )
+
+        assert config.get_agent_memory_backend("general") == "mem0"
+        assert config.get_agent_memory_backend("scratch") == "none"
+        assert config.uses_file_memory() is False

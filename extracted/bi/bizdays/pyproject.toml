@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "bizdays"
+version = "1.0.19"
+description = "Functions to handle business days calculations"
+authors = ["wilsonfreitas <wilson.freitas@gmail.com>"]
+readme = "README.md"
+include = ["bizdays/*.cal"]
+
+[tool.poetry.dependencies]
+python = ">=3.9"
+pandas-market-calendars = "^4"
+pandas = "^2"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+pycodestyle = "*"
+ipykernel = "*"
+
+[tool.poetry.group.docs.dependencies]
+Sphinx = "*"
+nbsphinx = "*"
+matplotlib = "*"
+lxml = "*"
+alabaster = "*"
+ipywidgets = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

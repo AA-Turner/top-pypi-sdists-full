@@ -1,0 +1,85 @@
+Metadata-Version: 2.3
+Name: picsellia
+Version: 6.32.0
+Summary: Python SDK package for Picsellia MLOps platform
+Keywords: ai,picsellia,sdk,cvops
+Author: Pierre-Nicolas Tiffreau, Thomas Darget, Lucien Haurat, Sonia Garrouch
+Author-email: Pierre-Nicolas Tiffreau <<pierre-nicolas@picsellia.com>>, Thomas Darget <<thomas.darget@picsellia.com>>, Lucien Haurat <<lucien.haurat@picsellia.com>>, Sonia Garrouch <<sonia.garrouch@picsellia.com>>
+License: MIT License
+         
+         Copyright (c) [2026] [Picsellia]
+         
+         Permission is hereby granted, free of charge, to any person obtaining a copy
+         of this software and associated documentation files (the "Software"), to deal
+         in the Software without restriction, including without limitation the rights
+         to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+         copies of the Software, and to permit persons to whom the Software is
+         furnished to do so, subject to the following conditions:
+         
+         The above copyright notice and this permission notice shall be included in all
+         copies or substantial portions of the Software.
+         
+         THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+         IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+         FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+         AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+         LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+         OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+         SOFTWARE.
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Dist: beartype>=0.16.0,<1
+Requires-Dist: deprecation>=2.1,<3
+Requires-Dist: orjson>=3.9,<4
+Requires-Dist: picsellia-annotations>=0.13.1,<1
+Requires-Dist: pillow>=9.2
+Requires-Dist: pydantic>=2,<3
+Requires-Dist: pyyaml>=6.0.1,<7
+Requires-Dist: requests>=2.32,<3
+Requires-Dist: semantic-version>=2.10,<3
+Requires-Dist: tqdm>=4.66.5,<5
+Requires-Python: >=3.10, <3.15
+Description-Content-Type: text/markdown
+
+# Picsellia SDK
+
+Picsellia Python SDK is a python library that allows connecting to Picsellia platform.
+
+## Documentation
+
+Reference of the SDK can be found at [reference](https://documentation.picsellia.com/reference/client)
+
+## Getting started
+Documentation can be found at [docs](https://documentation.picsellia.com/docs/getting-started).
+Start by installing the Picsellia python package in your environment.
+```
+pip install picsellia
+```
+
+Then, initialize a client
+```python
+from picsellia import Client
+client = Client(api_token="<your api token>")
+```
+
+Now, use it to upload data and create a dataset !
+```python
+lake = client.get_datalake()
+uploaded_data = lake.upload_data(filepaths=["pics/twingo.png", "pics/ferrari.png"], tags=["tag_car"])
+
+dataset = client.create_dataset("cars").create_version("first")
+dataset.add_data(uploaded_data)
+```
+
+## What is Picsellia ?
+
+Our mission is to give you all the necessary tools to relieve the burden of AI projects off of your shoulders. As a data scientist / ML engineer / Researcher, you shouldn't have to worry about the following topics :
+
+- [💾 Data Management](https://documentation.picsellia.com/docs/data-management)
+- [📈 Experiment Tracking](https://documentation.picsellia.com/docs/experiment-tracking)
+- [📘 Model Management](https://documentation.picsellia.com/docs/export-an-experiment)
+- [🚀 Model Deployment](https://documentation.picsellia.com/docs/serverless)
+- [👀 Model Monitoring](https://documentation.picsellia.com/docs/monitor-model)
+
+Picsellia is the one-stop place for all the life-cycle of your Computer Vision projects, from ideation to production in a single platform 🚀.

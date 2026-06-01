@@ -1,0 +1,32 @@
+# KSI-AFR-MAS — Minimum Assessment Scope
+#
+# DRAFT — this is a starter-pack template. Copy it to
+# `.efterlev/manifests/<ksi-id>.yml` (drop the `.template` suffix) and
+# fill in the DRAFT placeholders before letting it land in your
+# attestation pipeline. The `_template_help` block carries the
+# questions you should answer; remove that block once filled in.
+
+ksi: KSI-AFR-MAS
+name: "Minimum Assessment Scope"
+
+_template_help:
+  description: >
+    KSI-AFR-MAS applies the FedRAMP Minimum Assessment Scope to define what's in your authorization boundary. The attestation should name the boundary document, what's in/out of scope, and the review cadence.
+  questions:
+      - "Where is your authorization-boundary document (SSP §5 or equivalent)?"
+      - "What AWS account(s) / VPC(s) / cluster(s) are in scope?"
+      - "What's explicitly out-of-scope, and why?"
+      - "How are scope changes reviewed and approved?"
+      - "When is the boundary document reviewed (quarterly, on significant change)?"
+
+evidence:
+  - type: attestation
+    statement: >
+      DRAFT — Example: Authorization boundary documented in compliance/ssp.md §5. In scope: AWS GovCloud account 123456789012, all resources in vpc-fedramp-prod. Out of scope: all commercial-AWS resources, dev/staging environments. Boundary changes require VP-Security approval; quarterly review by the compliance team.
+    attested_by: "DRAFT — your-vp-security@example.com"
+    attested_at: "DRAFT — YYYY-MM-DD"
+    reviewed_at: "DRAFT — YYYY-MM-DD"
+    next_review: "DRAFT — YYYY-MM-DD (recommend 6-month review cadence)"
+    supporting_docs:
+      - "DRAFT — ./policies/your-runbook.pdf"
+      - "DRAFT — https://wiki.your-company.example/path-to-relevant-docs"

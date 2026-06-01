@@ -63,8 +63,16 @@ from advanced_alchemy.base import ModelProtocol
 if TYPE_CHECKING:
     from sqlalchemy.orm import InstrumentedAttribute
 
+    FilterFieldName: TypeAlias = Union[str, ColumnElement[Any], InstrumentedAttribute[Any]]
+    InstrumentedField: TypeAlias = Union[ColumnElement[Any], InstrumentedAttribute[Any]]
+else:
+    FilterFieldName: TypeAlias = Any
+    InstrumentedField: TypeAlias = Any
+
 __all__ = (
     "BeforeAfter",
+    "BooleanFilter",
+    "ChoicesFilter",
     "CollectionFilter",
     "ComparisonFilter",
     "ExistsFilter",
@@ -106,6 +114,8 @@ logger = logging.getLogger("advanced_alchemy")
 class FilterMap(TypedDict):
     before_after: "type[BeforeAfter]"
     on_before_after: "type[OnBeforeAfter]"
+    boolean: "type[BooleanFilter]"
+    choices: "type[ChoicesFilter[Any]]"
     collection: "type[CollectionFilter[Any]]"
     not_in_collection: "type[NotInCollectionFilter[Any]]"
     limit_offset: "type[LimitOffset]"
@@ -160,9 +170,7 @@ class StatementFilter(ABC):
         return statement
 
     @staticmethod
-    def _get_instrumented_attr(
-        model: Any, key: "Union[str, ColumnElement[Any], InstrumentedAttribute[Any]]"
-    ) -> "Union[ColumnElement[Any], InstrumentedAttribute[Any]]":
+    def _get_instrumented_attr(model: Any, key: FilterFieldName) -> InstrumentedField:
         """Get SQLAlchemy instrumented attribute from model.
 
         Args:
@@ -193,7 +201,7 @@ class BeforeAfter(StatementFilter):
 
     """
 
-    field_name: "Union[str, ColumnElement[Any], InstrumentedAttribute[Any]]"
+    field_name: FilterFieldName
     """Field name, model attribute, or func expression."""
     before: Optional[datetime.datetime]
     """Filter results where field is earlier than this value."""
@@ -239,7 +247,7 @@ class OnBeforeAfter(StatementFilter):
 
     """
 
-    field_name: "Union[str, ColumnElement[Any], InstrumentedAttribute[Any]]"
+    field_name: FilterFieldName
     """Field name, model attribute, or func expression."""
     on_or_before: Optional[datetime.datetime]
     """Filter results where field is on or earlier than this value."""
@@ -287,7 +295,7 @@ class CollectionFilter(InAnyFilter, Generic[T]):
     Use ``prefer_any=True`` in ``append_to_statement`` to use the ``ANY`` operator.
     """
 
-    field_name: "Union[str, ColumnElement[Any], InstrumentedAttribute[Any]]"
+    field_name: FilterFieldName
     """Field name, model attribute, or func expression."""
     values: Union[Collection[T], None]
     """Values for the ``IN`` clause. If this is None, no filter is applied.
@@ -328,6 +336,31 @@ class CollectionFilter(InAnyFilter, Generic[T]):
 
 
 @dataclass
+class ChoicesFilter(CollectionFilter[T]):
+    """Filter records whose field matches one of a fixed set of choices."""
+
+
+@dataclass
+class BooleanFilter(StatementFilter):
+    """Filter records by a boolean field value.
+
+    If ``value`` is ``None``, the statement is returned unchanged.
+    """
+
+    field_name: "Union[str, ColumnElement[Any], InstrumentedAttribute[Any]]"
+    """Field name, model attribute, or func expression."""
+    value: Optional[bool]
+    """Boolean value to match. If None, no filter is applied."""
+
+    def append_to_statement(self, statement: StatementTypeT, model: type[ModelT]) -> StatementTypeT:
+        """Apply a boolean equality condition to the statement."""
+        if self.value is None:
+            return statement
+        field = self._get_instrumented_attr(model, self.field_name)
+        return cast("StatementTypeT", statement.where(field == self.value))
+
+
+@dataclass
 class NotInCollectionFilter(InAnyFilter, Generic[T]):
     """Data required to construct a WHERE ... NOT IN (...) clause.
 
@@ -346,7 +379,7 @@ class NotInCollectionFilter(InAnyFilter, Generic[T]):
 
     """
 
-    field_name: "Union[str, ColumnElement[Any], InstrumentedAttribute[Any]]"
+    field_name: FilterFieldName
     """Field name, model attribute, or func expression."""
     values: Union[Collection[T], None]
     """Values for the ``NOT IN`` clause. If None or empty, no filter is applied."""
@@ -419,7 +452,7 @@ class NullFilter(StatementFilter):
         - :meth:`sqlalchemy.sql.expression.ColumnOperators.is_`: IS NULL operator
     """
 
-    field_name: "Union[str, ColumnElement[Any], InstrumentedAttribute[Any]]"
+    field_name: FilterFieldName
     """Field name, model attribute, or func expression."""
 
     def append_to_statement(self, statement: StatementTypeT, model: type[ModelT]) -> StatementTypeT:
@@ -472,7 +505,7 @@ class NotNullFilter(StatementFilter):
         - :meth:`sqlalchemy.sql.expression.ColumnOperators.is_not`: IS NOT NULL operator
     """
 
-    field_name: "Union[str, ColumnElement[Any], InstrumentedAttribute[Any]]"
+    field_name: FilterFieldName
     """Field name, model attribute, or func expression."""
 
     def append_to_statement(self, statement: StatementTypeT, model: type[ModelT]) -> StatementTypeT:
@@ -556,7 +589,7 @@ class OrderBy(StatementFilter):
         - :meth:`sqlalchemy.sql.expression.ColumnElement.desc`: Descending order
     """
 
-    field_name: "Union[str, ColumnElement[Any], InstrumentedAttribute[Any]]"
+    field_name: FilterFieldName
     """Field name, model attribute, or func expression (e.g., ``func.random()``)."""
     sort_order: Literal["asc", "desc"] = "asc"
     """Sort direction ("asc" or "desc")."""
@@ -728,7 +761,7 @@ class ComparisonFilter(StatementFilter):
         ValueError: If an invalid operator is provided
     """
 
-    field_name: "Union[str, ColumnElement[Any], InstrumentedAttribute[Any]]"
+    field_name: FilterFieldName
     """Field name, model attribute, or func expression."""
     operator: str
     """Comparison operator to use (one of 'eq', 'ne', 'gt', 'ge', 'lt', 'le')."""
@@ -1132,6 +1165,8 @@ class MultiFilter(StatementFilter):
     _filter_map: ClassVar[FilterMap] = {
         "before_after": BeforeAfter,
         "on_before_after": OnBeforeAfter,
+        "boolean": BooleanFilter,
+        "choices": ChoicesFilter,
         "collection": CollectionFilter,
         "not_in_collection": NotInCollectionFilter,
         "limit_offset": LimitOffset,
@@ -1228,6 +1263,8 @@ class MultiFilter(StatementFilter):
 FilterTypes: TypeAlias = Union[
     BeforeAfter,
     OnBeforeAfter,
+    BooleanFilter,
+    ChoicesFilter[Any],
     CollectionFilter[Any],
     LimitOffset,
     NullFilter,

@@ -543,18 +543,26 @@ def _send_imessage(recipient: str, text: str, attachment_paths: list[str] | None
             elif os.path.isfile(os.path.join(os.getcwd(), p_clean)):
                 attachment_paths.append(os.path.abspath(os.path.join(os.getcwd(), p_clean)))
 
-    def _run_send_script(target_keyword: str) -> tuple[bool, str]:
+    def _run_send_script(target_keyword: str, use_service: bool = True) -> tuple[bool, str]:
         """Run the send via osascript with `participant` or `buddy` keyword."""
         attachment_cmds = ""
         if attachment_paths:
             for ap in attachment_paths:
                 safe_ap = ap.replace("\\", "\\\\").replace('"', '\\"')
                 attachment_cmds += f'        send POSIX file "{safe_ap}" to targetBuddy\n'
+        
+        if use_service:
+            service_setup = '        set targetService to 1st service whose service type = iMessage\n'
+            buddy_setup = f'        set targetBuddy to {target_keyword} "{safe_to}" of targetService\n'
+        else:
+            service_setup = ''
+            buddy_setup = f'        set targetBuddy to {target_keyword} "{safe_to}"\n'
+
         script = (
             'tell application "Messages"\n'
             '    try\n'
-            '        set targetService to 1st service whose service type = iMessage\n'
-            f'        set targetBuddy to {target_keyword} "{safe_to}" of targetService\n'
+            f'{service_setup}'
+            f'{buddy_setup}'
             f'{attachment_cmds}'
             f'        send "{safe_text}" to targetBuddy\n'
             '        return "ok"\n'
@@ -572,19 +580,21 @@ def _send_imessage(recipient: str, text: str, attachment_paths: list[str] | None
         except Exception as exc:
             return False, f"exception: {exc}"
 
-    # Try modern `participant`, then legacy `buddy`. Either may script-succeed
-    # without iMessage queuing anything; chat.db is the ground truth.
+    # Try modern `participant` and legacy `buddy`, with and without service constraint.
+    # Either may script-succeed without iMessage queuing anything; chat.db is the ground truth.
     script_errors: list[str] = []
     success = False
     
-    for keyword in ("participant", "buddy"):
-        ok, msg = _run_send_script(keyword)
-        if ok and msg == "ok":
-            success = True
+    for use_service in (True, False):
+        for keyword in ("participant", "buddy"):
+            ok, msg = _run_send_script(keyword, use_service=use_service)
+            if ok and msg == "ok":
+                success = True
+                break
+            script_errors.append(f"{keyword}(service={use_service}): {msg}")
+            logger.debug("osascript iMessage (%s, service=%s) to %s: %s", keyword, use_service, recipient, msg)
+        if success:
             break
-            
-        script_errors.append(f"{keyword}: {msg}")
-        logger.debug("osascript iMessage (%s) to %s: %s", keyword, recipient, msg)
 
     if not success:
         combined_errors = " ".join(script_errors)
@@ -603,11 +613,10 @@ def _send_imessage(recipient: str, text: str, attachment_paths: list[str] | None
         return False
         
     # If chat.db is unreadable, we cannot VERIFY delivery, but the osascript
-    # above just returned "ok". We must fail the message so it falls back to SMTP,
-    # because silently succeeding means the user never receives it if osascript drops it.
+    # above just returned "ok". We must trust the status and warn the user.
     if baseline == -1:
-        logger.error("Full Disk Access missing: SAGE cannot verify iMessage delivery and will treat this send as failed.")
-        return False
+        logger.warning("Full Disk Access missing: SAGE cannot verify iMessage delivery via chat.db. Trusting osascript return status.")
+        return True
 
     # Give Messages.app up to 5s to write to chat.db
     for _ in range(20):  # 20 × 0.25s = 5s
@@ -697,44 +706,65 @@ def _send_macos_sms(recipient: str, text: str) -> bool:
         return False
     safe_text = text.replace("\\", "\\\\").replace('"', '\\"')
     safe_to   = recipient.replace("\\", "\\\\").replace('"', '\\"')
-    script = (
-        'tell application "Messages"\n'
-        '    try\n'
-        '        set smsService to first service whose service type = SMS\n'
-        f'        set theBuddy to buddy "{safe_to}" of smsService\n'
-        f'        send "{safe_text}" to theBuddy\n'
-        '        return "ok"\n'
-        '    on error errMsg\n'
-        '        return "err: " & errMsg\n'
-        '    end try\n'
-        'end tell'
-    )
-    try:
-        baseline = _imessage_max_rowid()
-        result = subprocess.run(
-            ["osascript", "-e", script],
-            capture_output=True, text=True, timeout=10,
+
+    def _run_send_script(target_keyword: str, use_service: bool = True) -> tuple[bool, str]:
+        if use_service:
+            service_setup = '        set smsService to first service whose service type = SMS\n'
+            buddy_setup = f'        set targetBuddy to {target_keyword} "{safe_to}" of smsService\n'
+        else:
+            service_setup = ''
+            buddy_setup = f'        set targetBuddy to {target_keyword} "{safe_to}"\n'
+
+        script = (
+            'tell application "Messages"\n'
+            '    try\n'
+            f'{service_setup}'
+            f'{buddy_setup}'
+            f'        send "{safe_text}" to targetBuddy\n'
+            '        return "ok"\n'
+            '    on error errMsg\n'
+            '        return "err: " & errMsg\n'
+            '    end try\n'
+            'end tell'
         )
-        out = (result.stdout or "").strip()
-        if result.returncode != 0 or out != "ok":
-            logger.debug("Messages.app SMS send failed: %s", out)
-            return False
-            
-        if baseline == -1:
-            logger.error("Full Disk Access missing: SAGE cannot verify SMS delivery and will treat this send as failed.")
-            return False
-            
-        for _ in range(20):
-            time.sleep(0.25)
-            if _imessage_row_matches(baseline, text):
-                logger.info("SMS delivery verified for %s", recipient)
-                return True
-                
-        logger.warning("SMS to %s: osascript said ok but no row appeared in chat.db", recipient)
+        try:
+            r = subprocess.run(
+                ["osascript", "-e", script],
+                capture_output=True, text=True, timeout=10,
+            )
+            return r.returncode == 0, (r.stdout or "").strip() or (r.stderr or "").strip()
+        except Exception as exc:
+            return False, f"exception: {exc}"
+
+    success = False
+    script_errors = []
+    for use_service in (True, False):
+        for keyword in ("buddy", "participant"):
+            ok, msg = _run_send_script(keyword, use_service=use_service)
+            if ok and msg == "ok":
+                success = True
+                break
+            script_errors.append(f"{keyword}(service={use_service}): {msg}")
+        if success:
+            break
+
+    if not success:
+        logger.debug("Messages.app SMS send failed: %s", "; ".join(script_errors))
         return False
-    except Exception as exc:
-        logger.debug("Messages.app SMS send exception: %s", exc)
-        return False
+
+    baseline = _imessage_max_rowid()
+    if baseline == -1:
+        logger.warning("Full Disk Access missing: SAGE cannot verify SMS delivery via chat.db. Trusting osascript return status.")
+        return True
+        
+    for _ in range(20):
+        time.sleep(0.25)
+        if _imessage_row_matches(baseline, text):
+            logger.info("SMS delivery verified for %s", recipient)
+            return True
+            
+    logger.warning("SMS to %s: osascript said ok but no row appeared in chat.db", recipient)
+    return False
 
 
 def _kdeconnectd_running() -> tuple[bool, str]:
@@ -821,32 +851,65 @@ def _send_via_kdeconnect(phone_number: str, text: str) -> bool:
     cli = _find_kdeconnect_cli()
     if not cli:
         return False
+
+    # Try to start daemon on macOS if not running
+    if sys.platform == "darwin" and "pytest" not in sys.modules:
+        try:
+            from sage.core.kdeconnect_listener import _is_daemon_running
+            if not _is_daemon_running():
+                logger.info("kdeconnectd is not running — attempting to start it")
+                _start_kdeconnectd_macos()
+        except Exception as exc:
+            logger.debug("Failed to check/start daemon: %s", exc)
+
     try:
         # Find a paired+reachable device.
         result = subprocess.run(
             [cli, "--list-available", "--id-only"],
             capture_output=True, text=True, timeout=5,
         )
+        
+        # Robustly parse device IDs (supports standard format, list format, and lines with bullet decorators)
+        import re
         devices = []
         for line in (result.stdout or "").splitlines():
             line = line.strip()
-            if not line or "devices found" in line.lower() or " " in line:
+            if not line or "devices found" in line.lower():
                 continue
-            devices.append(line)
+            line_clean = re.sub(r'^[\-\*\+\s]+', '', line)
+            if ":" in line_clean:
+                parts = line_clean.split(":")
+                id_candidate = parts[-1].strip().split()[0]
+                devices.append(id_candidate)
+            else:
+                words = line_clean.split()
+                if words:
+                    devices.append(words[0])
+
         if not devices:
-            logger.debug("KDE Connect: no paired+reachable devices")
+            logger.debug("KDE Connect: no paired+reachable devices found")
             return False
-        device_id = devices[0]
-        send_result = subprocess.run(
-            [cli, "--send-sms", text,
-             "--destination", phone_number,
-             "-d", device_id],
-            capture_output=True, text=True, timeout=10,
-        )
-        # Trust exit code only. The Mac App Store build always emits DBus
-        # activation noise to stderr but still delivers; treating that as
-        # failure rejects working sends.
-        return send_result.returncode == 0
+
+        # Loop through all found devices and try sending the SMS. If one succeeds, we return True.
+        sent_any = False
+        for raw_device_id in devices:
+            device_id = re.sub(r'[^\w\-]', '', raw_device_id)
+            if not device_id:
+                continue
+            send_result = subprocess.run(
+                [cli, "--send-sms", text,
+                 "--destination", phone_number,
+                 "-d", device_id],
+                capture_output=True, text=True, timeout=10,
+            )
+            if send_result.returncode == 0:
+                sent_any = True
+                logger.info("KDE Connect: successfully sent SMS to %s via device %s", phone_number, device_id)
+                break
+            else:
+                logger.debug("KDE Connect send to device %s failed (exit %d): %s",
+                             device_id, send_result.returncode, (send_result.stderr or "").strip())
+        return sent_any
     except Exception as exc:
         logger.debug("KDE Connect send failed: %s", exc)
         return False

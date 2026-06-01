@@ -196,6 +196,7 @@ impl Access for AliyunDriveBackend {
     type Writer = AliyunDriveWriter;
     type Lister = oio::PageLister<AliyunDriveLister>;
     type Deleter = oio::OneShotDeleter<AliyunDriveDeleter>;
+    type Copier = ();
 
     fn info(&self) -> Arc<AccessorInfo> {
         self.core.info.clone()
@@ -238,9 +239,15 @@ impl Access for AliyunDriveBackend {
         Ok(RpRename::default())
     }
 
-    async fn copy(&self, from: &str, to: &str, _args: OpCopy) -> Result<RpCopy> {
+    async fn copy(
+        &self,
+        from: &str,
+        to: &str,
+        _args: OpCopy,
+        _opts: OpCopier,
+    ) -> Result<(RpCopy, Self::Copier)> {
         if from == to {
-            return Ok(RpCopy::default());
+            return Ok((RpCopy::default(), ()));
         }
         let res = self.core.get_by_path(from).await?;
         let file: AliyunDriveFile =
@@ -279,7 +286,7 @@ impl Access for AliyunDriveBackend {
             self.core.update_path(&file_id, to_name).await?;
         }
 
-        Ok(RpCopy::default())
+        Ok((RpCopy::default(), ()))
     }
 
     async fn stat(&self, path: &str, _args: OpStat) -> Result<RpStat> {
@@ -320,9 +327,10 @@ impl Access for AliyunDriveBackend {
 
         let status = resp.status();
         match status {
-            StatusCode::OK | StatusCode::PARTIAL_CONTENT => {
-                Ok((RpRead::default(), resp.into_body()))
-            }
+            StatusCode::OK | StatusCode::PARTIAL_CONTENT => Ok((
+                RpRead::new(parse_into_metadata(path, resp.headers())?),
+                resp.into_body(),
+            )),
             _ => {
                 let (part, mut body) = resp.into_parts();
                 let buf = body.to_buffer().await?;

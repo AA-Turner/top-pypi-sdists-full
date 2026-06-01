@@ -1,0 +1,60 @@
+[project]
+name = "exactextract"
+description = "Fast and accurate raster zonal statistics"
+license.file = "LICENSE"
+authors = [
+  { "name" = "Daniel Baston" }
+]
+requires-python = ">=3.9"
+dependencies = [
+    "numpy",
+]
+classifiers = [
+    "Operating System :: Unix",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dynamic = ["version"]
+readme = "README.md"
+
+[project.urls]
+Homepage = "https://isciences.github.io/exactextract/"
+Documentation = "https://isciences.github.io/exactextract/"
+Repository = "https://github.com/isciences/exactextract"
+Issues = "https://github.com/isciences/exactextract/issues"
+Changelog = "https://github.com/isciences/exactextract/blob/master/NEWS.md"
+
+[build-system]
+requires=["scikit-build-core", "pybind11"]
+build-backend="scikit_build_core.build"
+
+[tool.scikit-build]
+sdist.exclude=[
+  ".clang-format",
+  ".dockerignore",
+  ".github",
+  ".git-blame-ignore-revs",
+  ".gitignore",
+  ".gitlab-ci.yml",
+  ".pre-commit-config.yaml",
+  ".pytest_cache",
+  "Dockerfile",
+  "benchmark",
+  "ci",
+  "codecov.yml",
+  "test"
+]
+build.targets = ["_exactextract"]
+cmake.define = {"BUILD_CLI"= "NO", "BUILD_DOC"= "NO", "BUILD_BENCHMARKS"= "NO", "BUILD_TEST"= "NO"}
+wheel.packages=["python/src/exactextract"]
+
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.regex"
+input = "cmake/VersionSource.cmake"
+regex = "EXACTEXTRACT_VERSION_SOURCE \"(?P<value>.+)\""

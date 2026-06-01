@@ -53,6 +53,7 @@ def _build_overlay_graph() -> graph_pb2.OverlayGraph | None:
         feature_sets=graph.feature_sets,
         resolvers=graph.resolvers,
         feature_fields=overlay_field_protos,
+        captured_global_values=graph.captured_global_values,
     )
 
 

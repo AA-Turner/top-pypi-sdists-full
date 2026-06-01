@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openapi_downgrade"
+version = "1.0.1"
+description = "Convert OpenAPI 3.1.x specifications to 3.0.x while preserving logic"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Rajesh Roy", email = "rajeshroy362000@gmail.com" }]
+dependencies = [
+    "typer",
+    "requests",
+    "pyyaml",
+    "jsonschema>=4.19.0"
+]
+requires-python = ">=3.7"
+keywords = ["openapi", "spec", "converter", "swagger", "openapi3.1", "cli", "openapi3.0"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+
+[project.urls]
+Homepage = "https://github.com/RajeshRoy4426/openapi_downgrade_3_0"
+Repository = "https://github.com/RajeshRoy4426/openapi_downgrade_3_0"
+Issues = "https://github.com/RajeshRoy4426/openapi_downgrade_3_0/issues"
+
+[project.scripts]
+openapi_downgrade = "openapi_downgrade.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["."]

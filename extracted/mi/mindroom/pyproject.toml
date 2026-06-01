@@ -1,0 +1,563 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = [ "hatch-vcs", "hatchling" ]
+
+[project]
+name = "mindroom"
+description = "A universal interface for AI agents with persistent memory, where every conversation has a home"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.12"
+classifiers = [
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+]
+dynamic = [ "version" ]
+dependencies = [
+  "agno[anthropic,google,ollama,openai]==2.5.13",
+  "aiohttp>=3.13.3",
+  "aiosqlite>=0.20",
+  "anthropic>=0.70",
+  "anyio>=4.10",
+  "authlib>=1.6",
+  "cerebras-cloud-sdk>=1.46",
+  "chromadb>=1.0.15",
+  "cron-descriptor>=1.4.5",
+  "croniter>=6",
+  "cryptography>=47",
+  "fastapi[standard]>=0.116.1",
+  "filetype>=1.2",
+  "google-auth>=2.40.3",
+  "google-genai",
+  "groq>=0.31",
+  "httpx>=0.27",
+  "humanize>=4.12.3",
+  "json5>=0.13",
+  "markdown-it-py>=4",
+  "mcp[cli]>=1.12.4",
+  "mdit-py-plugins>=0.5",
+  "mem0ai>=0.1.115",
+  "mindroom-nio[e2e]>=0.25.2",
+  "openai",
+  "pydantic>=2",
+  "pydantic-settings>=2.10.1",
+  "pygments>=2.20",
+  "pyjwt>=2.8",
+  "python-dotenv>=1",
+  "pyyaml>=6",
+  "rich",
+  "structlog>=24.1",
+  "tenacity>=9.1.2",
+  "typer>=0.24",
+  "uvicorn>=0.35",
+  "watchfiles>=1",
+]
+[[project.authors]]
+name = "mindroom team"
+[project.optional-dependencies]
+agentql = [
+  "agentql",
+  "playwright",
+]
+airflow = []
+apify = [
+  "apify-client>=1.12.2; platform_machine!='aarch64'",
+]
+arxiv = [
+  "arxiv",
+  "pypdf",
+]
+attachments = []
+aws_lambda = [
+  "boto3>=1.40.8",
+]
+aws_ses = [
+  "boto3>=1.40.8",
+]
+baidusearch = [
+  "baidusearch",
+  "pycountry",
+]
+bitbucket = [
+  "requests",
+]
+brandfetch = [
+  "httpx>=0.27",
+]
+brightdata = [
+  "requests",
+]
+browser = [
+  "playwright",
+]
+browserbase = [
+  "browserbase",
+  "playwright",
+]
+cal_com = [
+  "pytz",
+  "requests",
+]
+calculator = []
+cartesia = [
+  "cartesia",
+]
+claude_agent = [
+  "claude-agent-sdk>=0.1.35",
+]
+clickup = [
+  "requests",
+]
+coding = []
+compact_context = []
+composio = [
+  "composio-agno",
+]
+config_manager = [
+  "pydantic>=2",
+  "pyyaml>=6",
+]
+confluence = [
+  "atlassian-python-api",
+]
+crawl4ai = [
+  "crawl4ai>=0.7.3",
+]
+csv = [
+  "duckdb",
+]
+custom_api = [
+  "requests",
+]
+dalle = [
+  "openai",
+]
+daytona = [
+  "daytona",
+]
+delegate = []
+desi_vocal = [
+  "requests",
+]
+discord = [
+  "requests",
+]
+docker = [
+  "docker",
+]
+duckdb = [
+  "duckdb",
+]
+duckduckgo = [
+  "ddgs",
+]
+dynamic_tools = []
+e2b = [
+  "e2b-code-interpreter",
+]
+eleven_labs = [
+  "elevenlabs",
+]
+email = []
+exa = [
+  "exa-py",
+]
+fal = [
+  "fal-client",
+]
+file = []
+file_generation = [
+  "reportlab",
+]
+financial_datasets_api = [
+  "requests",
+]
+firecrawl = [
+  "firecrawl-py>=3",
+]
+gemini = [
+  "google-genai",
+]
+giphy = [
+  "httpx>=0.27",
+]
+github = [
+  "pygithub>=2.5",
+]
+gmail = [
+  "google-api-python-client>=2.178",
+  "google-auth>=2.40.3",
+  "google-auth-httplib2>=0.2",
+  "google-auth-oauthlib>=1.2.2",
+]
+google_bigquery = [
+  "google-cloud-bigquery",
+]
+google_calendar = [
+  "google-api-python-client>=2.178",
+  "google-auth>=2.40.3",
+  "google-auth-httplib2>=0.2",
+  "google-auth-oauthlib>=1.2.2",
+]
+google_drive = [
+  "google-api-python-client>=2.178",
+  "google-auth>=2.40.3",
+  "google-auth-httplib2>=0.2",
+  "google-auth-oauthlib>=1.2.2",
+]
+google_maps = [
+  "google-maps-places",
+  "googlemaps",
+]
+google_sheets = [
+  "google-api-python-client>=2.178",
+  "google-auth-httplib2>=0.2",
+  "google-auth-oauthlib>=1.2.2",
+]
+googlesearch = [
+  "ddgs",
+]
+groq = [
+  "groq>=0.31",
+]
+hackernews = [
+  "httpx>=0.27",
+]
+homeassistant = [
+  "httpx>=0.27",
+]
+jina = [
+  "httpx>=0.27",
+  "pydantic>=2",
+]
+jira = [
+  "jira>=3.10.5",
+]
+linear = [
+  "requests",
+]
+linkup = [
+  "linkup-sdk>=0.2.8",
+]
+lumalabs = [
+  "lumaai",
+]
+matrix_api = []
+matrix-e2ee = []
+matrix_message = []
+matrix_room = []
+mem0 = [
+  "mem0ai>=0.1.115",
+]
+memory = []
+modelslabs = [
+  "requests",
+]
+moviepy_video_tools = [
+  "moviepy",
+]
+neo4j = [
+  "neo4j",
+]
+newspaper = [
+  "lxml-html-clean",
+  "newspaper4k",
+]
+notion = [
+  "notion-client",
+]
+openai = [
+  "openai",
+]
+openbb = [
+  "openbb",
+]
+openclaw_compat = []
+openweather = [
+  "requests",
+]
+oxylabs = [
+  "oxylabs",
+]
+pandas = [
+  "pandas>=2.2",
+]
+postgres = [
+  "psycopg[binary]",
+]
+pubmed = [
+  "httpx>=0.27",
+]
+python = []
+reasoning = []
+reddit = [
+  "praw",
+]
+redshift = [
+  "redshift-connector",
+]
+replicate = [
+  "replicate>=1.0.7",
+]
+resend = [
+  "resend",
+]
+scheduler = []
+scrapegraph = [
+  "scrapegraph-py<2",
+]
+searxng = []
+self_config = [
+  "pydantic>=2",
+  "pyyaml>=6",
+]
+sentence-transformers = [
+  "sentence-transformers",
+]
+serpapi = [
+  "google-search-results>=2.4.2",
+]
+serper = [
+  "requests",
+]
+shell = []
+shopify = [
+  "httpx>=0.27",
+]
+slack = [
+  "slack-sdk",
+]
+sleep = []
+spider = [
+  "spider-client",
+]
+spotify = [
+  "httpx>=0.27",
+  "spotipy>=2.25.1",
+]
+sql = [
+  "sqlalchemy",
+]
+subagents = []
+supabase = [
+  "supabase>=2.18.1",
+]
+tavily = [
+  "tavily-python",
+]
+telegram = [
+  "httpx>=0.27",
+]
+thread_summary = []
+thread_tags = []
+todoist = [
+  "todoist-api-python",
+]
+trafilatura = [
+  "trafilatura",
+]
+trello = [
+  "py-trello",
+]
+twilio = [
+  "twilio",
+]
+unsplash = []
+visualization = [
+  "matplotlib",
+]
+web_browser_tools = []
+webex = [
+  "webexpythonsdk",
+]
+website = [
+  "beautifulsoup4",
+  "httpx>=0.27",
+]
+whatsapp = [
+  "httpx>=0.27",
+]
+wikipedia = [
+  "wikipedia",
+]
+x = [
+  "tweepy",
+]
+yfinance = [
+  "yfinance",
+]
+youtube = [
+  "youtube-transcript-api",
+]
+zendesk = [
+  "requests",
+]
+zep = [
+  "zep-cloud>=3.3",
+]
+zoom = [
+  "requests",
+]
+[project.scripts]
+mindroom = "mindroom.cli.main:main"
+[project.urls]
+documentation = "https://github.com/mindroom-ai/mindroom"
+homepage = "https://github.com/mindroom-ai/mindroom"
+repository = "https://github.com/mindroom-ai/mindroom"
+
+[dependency-groups]
+dev = [
+  "aioresponses>=0.7.8",
+  "markdown-code-runner>=2.4",
+  "markdown-gfm-admonition",
+  "pre-commit>=4.2",
+  "pre-commit-uv>=4.1.4",
+  "privata>=0.2.1",
+  "pytest>=8.4.1",
+  "pytest-asyncio>=1.1",
+  "pytest-cov>=6.2.1",
+  "pytest-mock>=3.14.1",
+  "pytest-sugar>=1",
+  "pytest-timeout>=2.4",
+  "pytest-xdist>=3.8",
+  "requests>=2.32.4",
+  "ruff>=0.12.5",
+  "tach>=0.34.1",
+  "ty>=0.0.17",
+  "vulture>=2.16",
+  "zensical",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = [ "src/mindroom" ]
+[tool.hatch.build.targets.wheel.force-include]
+skills = "mindroom/_bundled_skills"
+[tool.hatch.build.targets.wheel.hooks.custom]
+[tool.hatch.version]
+source = "vcs"
+[tool.hatch.version.raw-options]
+version_scheme = "no-guess-dev"
+
+[tool.uv]
+override-dependencies = [
+  # crawl4ai 0.8.6 declares lxml~=5.3, which caps lxml below 6.
+  # The locked lxml 5.4.0 has no cp314 Linux wheels.
+  # On Python 3.14 it source-builds against libxml2/libxslt, so use lxml 6.1+ there.
+  "lxml>=5.3,<6; python_version < '3.14'",
+  "lxml>=6.1.0; python_version >= '3.14'",
+  # composio-core 0.7.21 declares Pillow<11,>=10.2.0.
+  # The locked Pillow 10.4.0 has no cp314 Linux wheels.
+  # On Python 3.14 it source-builds against zlib, so use Pillow 11.x there.
+  "pillow>=10.2,<11; python_version < '3.14'",
+  "pillow>=11,<12; python_version >= '3.14'",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+[tool.ruff.lint]
+select = [
+  "ALL",
+]
+ignore = [
+  "ASYNC240", # Async pathlib guidance is too broad for this asyncio codebase/tests
+  "ASYNC250", # Blocking input in async manual tests is intentional
+  "B905",     # `zip()` without an explicit `strict=` parameter
+  "BLE001",   # Do not catch blind exception
+  "D203",     # Incompatible with D211; prefer no blank line before class docstrings
+  "D107",     # Missing docstring in `__init__`
+  "D213",     # Incompatible with D212; prefer multi-line summaries on the first line
+  "D401",     # First line of docstring should be in imperative mood
+  "D402",     # First line should not be the function's signature
+  "E501",     # Line too long
+  "FBT001",   # Boolean-typed positional argument in function definition
+  "FBT002",   # Boolean default value
+  "FBT003",   # Boolean positional value in call
+  "FIX002",   # Line contains TODO
+  "G004",     # Logging statement uses f-string
+  "PLR0913",  # Too many arguments to function call (N > 5)
+  "PLR2004",  # Magic value used
+  "PLW0108",  # Lambda warnings from dependency injection and test doubles are not actionable here
+  "PLW0603",  # Using the global statement to update `X` is discouraged
+  "PYI034",   # `Self` guidance is not useful in concrete test doubles
+  "S101",     # Use of assert detected
+  "S603",     # `subprocess` call: check for execution of untrusted input
+  "S607",     # Starting a process with a partial executable path
+  "SLF001",   # Private member accessed
+  "T20",      # flake8-print
+  "TD002",    # Missing author in TODO; try: `# TODO(<author_name>): ...`
+  "TD003",    # Missing issue link on the line following this TODO
+  "UP042",    # `StrEnum` migration is outside the scope of hook maintenance
+  "UP047",    # PEP 695 type-parameter migration is outside the scope of hook maintenance
+]
+per-file-ignores.".github/scripts/*" = [
+  "INP001", # Part of an implicit namespace package (standalone scripts)
+]
+per-file-ignores."cluster/k8s/kind/*" = [
+  "INP001", # Part of an implicit namespace package (namespace package for python -m invocation)
+]
+per-file-ignores."src/mindroom/tools/*" = [
+  "PLC0415", # `import` should be at the top-level of a file"
+]
+
+[tool.ty.environment]
+python-version = "3.13"
+[[tool.ty.overrides]]
+include = [ "tests/" ]
+[tool.ty.overrides.rules]
+# Mock patterns cause many false positives in tests (e.g., mock.call_args
+# returns _Call | None, attribute access on MagicMock, passing mocks as
+# typed arguments).
+call-non-callable = "ignore"
+invalid-argument-type = "ignore"
+invalid-assignment = "ignore"
+invalid-return-type = "ignore"
+no-matching-overload = "ignore"
+not-iterable = "ignore"
+not-subscriptable = "ignore"
+too-many-positional-arguments = "ignore"
+unresolved-attribute = "ignore"
+unsupported-operator = "ignore"
+[tool.ty.rules]
+deprecated = "ignore"  # FastAPI on_event deprecation; refactor to lifespan separately
+[tool.ty.src]
+include = [ "src", "tests" ]
+[tool.ty.terminal]
+error-on-warning = true
+
+[tool.pytest.ini_options]
+testpaths = [ "tests" ]
+python_files = "test_*.py"
+asyncio_mode = "auto"
+pythonpath = [ "src" ]
+addopts = """
+    -vvv
+    -n auto
+    --cov=mindroom
+    --cov-report term
+    --cov-report html
+    --cov-report xml
+    --asyncio-mode=strict
+    --timeout 60
+    --durations 20
+"""
+markers = [
+  "requires_matrix: marks tests that require a real Matrix server connection (deselect with '-m \"not requires_matrix\"')",
+  "e2e: marks end-to-end tests",
+  "slow: marks tests as slow",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "raise NotImplementedError",
+  "if TYPE_CHECKING",
+  "if __name__ == .__main__.:",
+]
+
+[tool.vulture]
+paths = [ "src/mindroom", "vulture_whitelist.py" ]
+min_confidence = 60
+sort_by_size = true

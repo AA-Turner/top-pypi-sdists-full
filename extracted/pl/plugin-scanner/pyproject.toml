@@ -1,0 +1,110 @@
+[build-system]
+requires = ["hatchling<1.28"]
+build-backend = "hatchling.build"
+
+[project]
+name = "plugin-scanner"
+version = "2.0.400"
+description = "Lint, verify, and gate plugin ecosystems for maintainers, CI, and publish workflows."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+authors = [
+    { name = "HOL", email = "support@hol.org" },
+]
+keywords = ["plugin", "scanner", "security", "mcp", "cli", "codex", "claude", "gemini", "opencode", "ecosystem"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = [
+    "rich>=13.0",
+    "cryptography>=47.0.0",
+    "packaging>=24.0",
+    "tomli>=2.0; python_version < '3.11'",
+    "cisco-ai-skill-scanner~=2.0.9",
+]
+
+[project.optional-dependencies]
+cisco = [
+    "cisco-ai-mcp-scanner~=4.6; python_version >= '3.11'",
+]
+dev = [
+    "build>=1.2.2",
+    "jsonschema>=4.26.0",
+    "pyyaml>=6.0.3",
+    "pytest>=9.0.3",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.15.11",
+]
+publish = [
+    "twine>=6.2.0",
+]
+
+[tool.uv]
+override-dependencies = [
+    "aiohttp==3.13.5",
+    "click==8.3.3",
+    "cisco-ai-skill-scanner==2.0.9",
+    "importlib-metadata==9.0.0",
+    "jsonschema==4.26.0",
+    "litellm==1.83.10",
+    "openai==2.36.0",
+    "python-dotenv==1.2.2",
+    "python-multipart==0.0.28",
+    "tokenizers==0.23.1",
+    "urllib3==2.7.0",
+]
+
+[project.scripts]
+plugin-scanner = "codex_plugin_scanner.cli:main"
+plugin-ecosystem-scanner = "codex_plugin_scanner.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/hashgraph-online/hol-guard"
+Repository = "https://github.com/hashgraph-online/hol-guard"
+Issues = "https://github.com/hashgraph-online/hol-guard/issues"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+extend-exclude = ["tests/test-trust-scoring.py", "tests/test-trust-specs.py"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/codex_plugin_scanner"]
+
+[tool.hatch.build]
+artifacts = ["src/codex_plugin_scanner/guard/daemon/static/**"]
+exclude = [
+    ".guard-live/**",
+    ".guard-package-venv/**",
+    ".guard-e2e/**",
+    ".guard-e2e-prod/**",
+    ".guard-e2e-prod2/**",
+    ".guard-prod-venv/**",
+    ".guard-prod-venv-fresh/**",
+    "dashboard/node_modules/**",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/fixtures/mcp-canary-server.py" = ["N999"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = ["-m", "not slow"]
+markers = [
+  "slow: marks tests as slow (deselected by default; run with -m slow to include)",
+]

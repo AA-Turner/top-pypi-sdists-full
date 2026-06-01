@@ -1,5 +1,0 @@
-PIP_DEPENDENCY_FILE = "requirements.txt"
-CONDA_YML_DEPENDENCY_FILE = "conda.yml"
-CONDA_YAML_DEPENDENCY_FILE = "conda.yaml"
-POETRY_DEPENDENCY_FILE = "pyproject.toml"
-POETRY_LOCK_DEPENDENCY_FILE = "poetry.lock"

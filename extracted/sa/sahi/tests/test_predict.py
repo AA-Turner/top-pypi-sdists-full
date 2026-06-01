@@ -1,7 +1,12 @@
+"""Tests for prediction and model inference."""
+
+from __future__ import annotations
+
 import shutil
 import sys
 from collections import Counter
 from os import path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -11,14 +16,15 @@ from sahi.predict import get_prediction, get_sliced_prediction, predict
 from sahi.utils.cv import read_image
 from sahi.utils.file import download_from_url
 
-from .utils.ultralytics import UltralyticsConstants, download_yolo11n_model
+from .utils.ultralytics import UltralyticsConstants, download_yolo11n_model, download_yolo26n_model
 
 MODEL_DEVICE = "cpu"
 CONFIDENCE_THRESHOLD = 0.5
 IMAGE_SIZE = 320
 
 
-def test_prediction_score():
+def test_prediction_score() -> None:
+    """Test PredictionScore value and comparison operations."""
     from sahi.prediction import PredictionScore
 
     prediction_score = PredictionScore(np.array(0.6))  # type: ignore
@@ -33,7 +39,8 @@ def test_prediction_score():
 
 
 @pytest.mark.skipif(sys.version_info[:2] != (3, 11), reason="MMDet tests only run on Python 3.11")
-def test_get_prediction_mmdet():
+def test_get_prediction_mmdet() -> None:
+    """Test full-image prediction with MMDet model."""
     # Skip if mmdet is not installed
     pytest.importorskip("mmdet", reason="MMDet is not installed")
     pytest.importorskip("mmcv", reason="MMCV is not installed")
@@ -85,7 +92,8 @@ def test_get_prediction_mmdet():
     assert num_car == 2
 
 
-def test_get_prediction_automodel_yolo11():
+def test_get_prediction_automodel_yolo11() -> None:
+    """Test full-image prediction with auto-loaded YOLO11 model."""
     from sahi.auto_model import AutoDetectionModel
     from sahi.predict import get_prediction
 
@@ -125,7 +133,8 @@ def test_get_prediction_automodel_yolo11():
     assert result_counts["person"] == 0
 
 
-def test_prediction_category_remapping():
+def test_prediction_category_remapping() -> None:
+    """Test category remapping during prediction."""
     from sahi.auto_model import AutoDetectionModel
     from sahi.predict import get_prediction
 
@@ -166,7 +175,8 @@ def test_prediction_category_remapping():
 
 
 @pytest.mark.skipif(sys.version_info[:2] != (3, 11), reason="MMDet tests only run on Python 3.11")
-def test_get_sliced_prediction_mmdet():
+def test_get_sliced_prediction_mmdet() -> None:
+    """Test sliced prediction with MMDet model."""
     # Skip if mmdet is not installed
     pytest.importorskip("mmdet", reason="MMDet is not installed")
     pytest.importorskip("mmcv", reason="MMCV is not installed")
@@ -215,6 +225,8 @@ def test_get_sliced_prediction_mmdet():
         postprocess_match_threshold=match_threshold,
         postprocess_match_metric=match_metric,
         postprocess_class_agnostic=class_agnostic,
+        progress_bar=True,
+        progress_callback=None,
     )
     object_prediction_list = prediction_result.object_prediction_list
 
@@ -237,7 +249,8 @@ def test_get_sliced_prediction_mmdet():
     assert num_car == 15
 
 
-def test_get_prediction_yolo11():
+def test_get_prediction_yolo11() -> None:
+    """Test full-image prediction with YOLO11 model."""
     # init model
     download_yolo11n_model()
 
@@ -280,7 +293,8 @@ def test_get_prediction_yolo11():
     assert num_car > 0
 
 
-def test_get_sliced_prediction_yolo11():
+def test_get_sliced_prediction_yolo11() -> None:
+    """Test sliced prediction with YOLO11 model."""
     # init model
     download_yolo11n_model()
 
@@ -341,8 +355,117 @@ def test_get_sliced_prediction_yolo11():
     assert num_car > 0
 
 
+def test_confidence_threshold_override_yolo26() -> None:
+    """Per-call confidence_threshold override takes effect and is always restored."""
+    download_yolo26n_model()
+
+    model = UltralyticsDetectionModel(
+        model_path=UltralyticsConstants.YOLO26N_MODEL_PATH,
+        confidence_threshold=0.3,
+        device=MODEL_DEVICE,
+        category_remapping=None,
+        load_at_init=False,
+        image_size=IMAGE_SIZE,
+    )
+    model.load_model()
+    original = model.confidence_threshold
+
+    image_path = "tests/data/small-vehicles1.jpeg"
+
+    # override filters more aggressively than the baseline
+    baseline = get_prediction(image=image_path, detection_model=model, postprocess=None)
+    high = get_prediction(image=image_path, detection_model=model, confidence_threshold=0.99, postprocess=None)
+    assert len(high.object_prediction_list) <= len(baseline.object_prediction_list)
+    assert model.confidence_threshold == original
+
+    # sliced path: threshold sweep should be monotonically non-increasing in count
+    counts = []
+    for thresh in (0.2, 0.5, 0.9):
+        res = get_sliced_prediction(
+            image=image_path,
+            detection_model=model,
+            confidence_threshold=thresh,
+            slice_height=512,
+            slice_width=512,
+            overlap_height_ratio=0.1,
+            overlap_width_ratio=0.2,
+            perform_standard_pred=False,
+        )
+        counts.append(len(res.object_prediction_list))
+        assert model.confidence_threshold == original
+    assert counts == sorted(counts, reverse=True)
+
+    # threshold must be restored even if inference raises
+    original_perform_inference = model.perform_inference
+
+    def boom(*_args: Any, **_kwargs: Any) -> None:
+        raise RuntimeError("inference failure")
+
+    model.perform_inference = boom  # type: ignore[assignment]
+    try:
+        with pytest.raises(RuntimeError):
+            get_prediction(image=image_path, detection_model=model, confidence_threshold=0.123, postprocess=None)
+        assert model.confidence_threshold == original
+    finally:
+        model.perform_inference = original_perform_inference  # type: ignore[assignment]
+
+
+def test_get_sliced_prediction_batch_size() -> None:
+    """Test that different batch sizes produce identical results."""
+    download_yolo11n_model()
+
+    yolo11_detection_model = UltralyticsDetectionModel(
+        model_path=UltralyticsConstants.YOLO11N_MODEL_PATH,
+        confidence_threshold=CONFIDENCE_THRESHOLD,
+        device=MODEL_DEVICE,
+        category_remapping=None,
+        load_at_init=False,
+        image_size=IMAGE_SIZE,
+    )
+    yolo11_detection_model.load_model()
+
+    image_path = "tests/data/small-vehicles1.jpeg"
+    common_kwargs: dict[str, Any] = dict(
+        image=image_path,
+        detection_model=yolo11_detection_model,
+        slice_height=512,
+        slice_width=512,
+        overlap_height_ratio=0.1,
+        overlap_width_ratio=0.2,
+        perform_standard_pred=False,
+        postprocess_type="GREEDYNMM",
+        postprocess_match_threshold=0.5,
+        postprocess_match_metric="IOS",
+        postprocess_class_agnostic=True,
+    )
+
+    result_bs1 = get_sliced_prediction(**common_kwargs, batch_size=1)
+    result_bs4 = get_sliced_prediction(**common_kwargs, batch_size=4)
+
+    preds_bs1 = result_bs1.object_prediction_list
+    preds_bs4 = result_bs4.object_prediction_list
+
+    assert len(preds_bs1) > 0, "batch_size=1 should produce predictions"
+    assert len(preds_bs1) == len(preds_bs4), (
+        f"batch_size=1 gave {len(preds_bs1)} predictions, batch_size=4 gave {len(preds_bs4)}"
+    )
+
+    def serialize_pred(pred: Any) -> tuple[Any, ...]:
+        return (
+            pred.category.id,
+            pred.category.name,
+            tuple(round(c, 2) for c in pred.bbox.to_voc_bbox()),
+            round(pred.score.value, 4),
+        )
+
+    set_bs1 = sorted(serialize_pred(p) for p in preds_bs1)
+    set_bs4 = sorted(serialize_pred(p) for p in preds_bs4)
+    assert set_bs1 == set_bs4, "batch_size=1 and batch_size=4 should produce identical predictions"
+
+
 @pytest.mark.skipif(sys.version_info[:2] != (3, 11), reason="MMDet tests only run on Python 3.11")
-def test_mmdet_yolox_tiny_prediction():
+def test_mmdet_yolox_tiny_prediction() -> None:
+    """Test MMDet YOLOX tiny model prediction and export."""
     # Skip if mmdet is not installed
     pytest.importorskip("mmdet", reason="MMDet is not installed")
     pytest.importorskip("mmcv", reason="MMCV is not installed")
@@ -396,7 +519,8 @@ def test_mmdet_yolox_tiny_prediction():
     )
 
 
-def test_ultralytics_yolo11n_prediction():
+def test_ultralytics_yolo11n_prediction() -> None:
+    """Test Ultralytics YOLO11n model prediction and export."""
     from sahi.predict import predict
 
     # init model
@@ -444,7 +568,8 @@ def test_ultralytics_yolo11n_prediction():
     )
 
 
-def test_video_prediction():
+def test_video_prediction() -> None:
+    """Test video file prediction with various configurations."""
     # download video file
     source_url = "https://github.com/obss/sahi/releases/download/0.9.2/test.mp4"
     destination_path = "tests/data/test.mp4"

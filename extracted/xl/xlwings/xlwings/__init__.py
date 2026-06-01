@@ -4,7 +4,7 @@ import os
 import sys
 from typing import Any, Callable, TypeVar, overload
 
-__version__ = "0.35.3"
+__version__ = "0.36.0"
 
 # Platform specifics
 if sys.platform.startswith("darwin"):

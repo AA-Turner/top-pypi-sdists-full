@@ -1,0 +1,105 @@
+# ASFF generator-id → KSI + 800-53 control mapping table.
+#
+# Each entry maps a Security Hub control identifier (the GeneratorId
+# field from ASFF findings) to the FRMR KSI(s) and 800-53 control(s)
+# the finding evidences. Many KSIs map 1:N to control IDs.
+#
+# How to extend:
+# 1. Run `aws securityhub describe-standards-controls --standards-subscription-arn <arn>`
+#    to enumerate the controls in a Security Hub standard.
+# 2. Match each control's NIST 800-53 reference to FRMR KSIs (use
+#    `efterlev.frmr.loader` to load the catalog and look up by control).
+# 3. Add a new entry below. `evidence_strength` is "high" when the
+#    Security Hub control is a strict superset of what the KSI requires,
+#    "medium" when partial overlap, "low" for indirect mapping.
+#
+# Initial v0.1.113 set: 5 high-impact mappings across CNA + IAM themes.
+# Expansion in v0.1.113.x batches as additional Security Hub standards
+# get characterized.
+#
+# Source standards covered at v0.1.113:
+# - AWS Foundational Security Best Practices (AFSBP) v1.0.0
+# - NIST SP 800-53 Rev 5 (Security Hub coverage)
+
+mappings:
+  # --- AWS Foundational Security Best Practices ---
+
+  - generator_id: "aws-foundational-security-best-practices/v/1.0.0/EC2.2"
+    title: "VPC default security group should not allow inbound and outbound traffic"
+    ksis: ["KSI-CNA-RNT"]
+    controls: ["sc-7", "ac-4"]
+    evidence_strength: high
+
+  - generator_id: "aws-foundational-security-best-practices/v/1.0.0/IAM.6"
+    title: "Hardware MFA should be enabled for the root user"
+    ksis: ["KSI-IAM-MFA"]
+    controls: ["ia-2"]
+    evidence_strength: high
+
+  - generator_id: "aws-foundational-security-best-practices/v/1.0.0/S3.1"
+    title: "S3 general purpose buckets should have block public access settings enabled"
+    ksis: ["KSI-CNA-RNT"]
+    controls: ["ac-3", "ac-4"]
+    evidence_strength: high
+
+  - generator_id: "aws-foundational-security-best-practices/v/1.0.0/CloudTrail.1"
+    title: "CloudTrail should be enabled and configured with at least one multi-region trail"
+    ksis: ["KSI-MLA-CMA"]
+    controls: ["au-2", "au-12"]
+    evidence_strength: high
+
+  - generator_id: "aws-foundational-security-best-practices/v/1.0.0/KMS.1"
+    title: "IAM customer-managed policies should not allow decryption actions on all KMS keys"
+    ksis: ["KSI-IAM-ELP"]
+    controls: ["ac-6"]
+    evidence_strength: medium
+
+  # --- v0.1.121 batch: 8 high-confidence additions across CMT/CNA/MLA/RPL/SVC themes ---
+
+  - generator_id: "aws-foundational-security-best-practices/v/1.0.0/CloudTrail.2"
+    title: "CloudTrail should have encryption at rest enabled"
+    ksis: ["KSI-MLA-CMA"]
+    controls: ["au-9"]
+    evidence_strength: high
+
+  - generator_id: "aws-foundational-security-best-practices/v/1.0.0/CloudTrail.4"
+    title: "CloudTrail log file validation should be enabled"
+    ksis: ["KSI-MLA-CMA"]
+    controls: ["au-10"]
+    evidence_strength: high
+
+  - generator_id: "aws-foundational-security-best-practices/v/1.0.0/Config.1"
+    title: "AWS Config should be enabled and use the service-linked role"
+    ksis: ["KSI-CNA-EIS"]
+    controls: ["ca-7"]
+    evidence_strength: high
+
+  - generator_id: "aws-foundational-security-best-practices/v/1.0.0/EC2.6"
+    title: "VPC flow logging should be enabled in all VPCs"
+    ksis: ["KSI-MLA-LET"]
+    controls: ["au-12"]
+    evidence_strength: high
+
+  - generator_id: "aws-foundational-security-best-practices/v/1.0.0/EC2.18"
+    title: "Security groups should only allow unrestricted incoming traffic for authorized ports"
+    ksis: ["KSI-CNA-RNT"]
+    controls: ["sc-7"]
+    evidence_strength: high
+
+  - generator_id: "aws-foundational-security-best-practices/v/1.0.0/RDS.6"
+    title: "Enhanced monitoring should be configured for RDS DB instances"
+    ksis: ["KSI-RPL-ABO"]
+    controls: ["cp-9"]
+    evidence_strength: medium
+
+  - generator_id: "aws-foundational-security-best-practices/v/1.0.0/RDS.7"
+    title: "RDS clusters should have deletion protection enabled"
+    ksis: ["KSI-RPL-ABO"]
+    controls: ["cp-9"]
+    evidence_strength: high
+
+  - generator_id: "aws-foundational-security-best-practices/v/1.0.0/SecretsManager.1"
+    title: "Secrets Manager secrets should have automatic rotation enabled"
+    ksis: ["KSI-SVC-ASM"]
+    controls: ["ia-5"]
+    evidence_strength: high

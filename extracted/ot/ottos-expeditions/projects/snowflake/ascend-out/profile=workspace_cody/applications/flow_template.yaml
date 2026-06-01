@@ -1,5 +1,0 @@
-application:
-  name: flow_template
-  python:
-    entrypoint: ascend.application.application.builtin.flow_template.FlowTemplate
-    source: ''

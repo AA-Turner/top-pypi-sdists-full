@@ -865,6 +865,8 @@ class Connection(pulumi.CustomResource):
                 "sign_out_endpoint": "https://saml.provider/sign_out",
                 "global_token_revocation_jwt_iss": "issuer.example.com",
                 "global_token_revocation_jwt_sub": "user123",
+                "destination_url": "https://example.com/saml/destination",
+                "recipient_url": "https://example.com/saml/recipient",
                 "disable_sign_out": True,
                 "strategy_version": 2,
                 "tenant_domain": "example.com",
@@ -1012,7 +1014,7 @@ class Connection(pulumi.CustomResource):
 
         ### Okta Connection
 
-        !> When configuring an Okta Workforce connection, the `scopes` attribute must be explicitly set. If omitted, the connection may not function correctly.
+        > When configuring an Okta Workforce connection, the `scopes` attribute must be explicitly set. If omitted, the connection may not function correctly.
         To ensure proper behavior, always specify:  `scopes = ["openid", "profile", "email"]`
 
         ```python
@@ -1593,6 +1595,8 @@ class Connection(pulumi.CustomResource):
                 "sign_out_endpoint": "https://saml.provider/sign_out",
                 "global_token_revocation_jwt_iss": "issuer.example.com",
                 "global_token_revocation_jwt_sub": "user123",
+                "destination_url": "https://example.com/saml/destination",
+                "recipient_url": "https://example.com/saml/recipient",
                 "disable_sign_out": True,
                 "strategy_version": 2,
                 "tenant_domain": "example.com",
@@ -1740,7 +1744,7 @@ class Connection(pulumi.CustomResource):
 
         ### Okta Connection
 
-        !> When configuring an Okta Workforce connection, the `scopes` attribute must be explicitly set. If omitted, the connection may not function correctly.
+        > When configuring an Okta Workforce connection, the `scopes` attribute must be explicitly set. If omitted, the connection may not function correctly.
         To ensure proper behavior, always specify:  `scopes = ["openid", "profile", "email"]`
 
         ```python

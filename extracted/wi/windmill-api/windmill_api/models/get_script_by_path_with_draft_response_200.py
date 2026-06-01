@@ -68,6 +68,8 @@ class GetScriptByPathWithDraftResponse200:
         modules (Union[Unset, None, GetScriptByPathWithDraftResponse200Modules]): Additional script modules keyed by
             relative file path
         labels (Union[Unset, List[str]]):
+        skip_draft_deletion (Union[Unset, bool]): When true (set by the CLI / git sync), deploying this script does not
+            delete an existing user draft at the same path.
         draft (Union[Unset, GetScriptByPathWithDraftResponse200Draft]):
         draft_created_at (Union[Unset, datetime.datetime]): Timestamp at which the most recent DB draft was created.
             Used by the frontend's UserDraft staleness check.
@@ -113,6 +115,7 @@ class GetScriptByPathWithDraftResponse200:
     assets: Union[Unset, List["GetScriptByPathWithDraftResponse200AssetsItem"]] = UNSET
     modules: Union[Unset, None, "GetScriptByPathWithDraftResponse200Modules"] = UNSET
     labels: Union[Unset, List[str]] = UNSET
+    skip_draft_deletion: Union[Unset, bool] = UNSET
     draft: Union[Unset, "GetScriptByPathWithDraftResponse200Draft"] = UNSET
     draft_created_at: Union[Unset, datetime.datetime] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -184,6 +187,7 @@ class GetScriptByPathWithDraftResponse200:
         if not isinstance(self.labels, Unset):
             labels = self.labels
 
+        skip_draft_deletion = self.skip_draft_deletion
         draft: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.draft, Unset):
             draft = self.draft.to_dict()
@@ -273,6 +277,8 @@ class GetScriptByPathWithDraftResponse200:
             field_dict["modules"] = modules
         if labels is not UNSET:
             field_dict["labels"] = labels
+        if skip_draft_deletion is not UNSET:
+            field_dict["skip_draft_deletion"] = skip_draft_deletion
         if draft is not UNSET:
             field_dict["draft"] = draft
         if draft_created_at is not UNSET:
@@ -394,6 +400,8 @@ class GetScriptByPathWithDraftResponse200:
 
         labels = cast(List[str], d.pop("labels", UNSET))
 
+        skip_draft_deletion = d.pop("skip_draft_deletion", UNSET)
+
         _draft = d.pop("draft", UNSET)
         draft: Union[Unset, GetScriptByPathWithDraftResponse200Draft]
         if isinstance(_draft, Unset):
@@ -449,6 +457,7 @@ class GetScriptByPathWithDraftResponse200:
             assets=assets,
             modules=modules,
             labels=labels,
+            skip_draft_deletion=skip_draft_deletion,
             draft=draft,
             draft_created_at=draft_created_at,
         )

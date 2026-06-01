@@ -974,3 +974,20 @@ def test_attempt_repair_with_unlisted_files(tmp_path):
     assert 'user?: string' in broken_file_path.read_text()
     assert any("wrote src/app/session.ts" in m for m in mock_log)
     assert not any("could not parse fix" in m for m in mock_log)
+
+
+def test_init_py_interceptor(tmp_path):
+    """Verify that writing to __init__.py is intercepted and results in a 0-byte file on disk."""
+    init_path = tmp_path / "__init__.py"
+    
+    # Write using builtins.open
+    with open(init_path, "w") as f:
+        f.write("import os\n")
+        
+    assert init_path.exists()
+    assert init_path.stat().st_size == 0
+    
+    # Write using pathlib.Path
+    init_path.write_text("some content")
+    assert init_path.stat().st_size == 0
+

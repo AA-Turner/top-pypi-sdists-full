@@ -1,0 +1,84 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "newb"
+version = "0.26.7"
+description = "A fresh AI agent tries to use your package — pytest-style. If it succeeds, your docs work."
+readme = "README.md"
+license = "AGPL-3.0-only"
+requires-python = ">=3.10"
+authors = [{name = "Yusuke Watanabe", email = "ywata1989@gmail.com"}]
+dependencies = ["click>=8.0", "claude-agent-sdk>=0.1.0"]
+keywords = ["agentic-test", "newbie-test", "skill-verify", "documentation-testing", "ai-agent", "llm"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+]
+
+[project.optional-dependencies]
+yaml = ["PyYAML>=6.0"]
+mcp  = ["fastmcp>=2.0"]
+# Battle-tested OSS prompt-injection detector from Protect AI. Optional
+# because the model download is ~700MB; users opt in for stricter
+# pre-flight scanning beyond the in-template self-check question.
+security = [
+    "transformers>=4.40",
+    "torch>=2.0",
+    "sentencepiece>=0.1.99",
+]
+all  = [
+    "PyYAML>=6.0",
+    "fastmcp>=2.0",
+    "transformers>=4.40",
+    "torch>=2.0",
+    "sentencepiece>=0.1.99",
+]
+# PS210 — `[dev]` includes every dependency that the test suite imports
+# unguarded so a fresh `pip install -e .[dev]` runs the full suite.
+# - PyYAML / fastmcp: extras (yaml/mcp) used transitively via `from newb…`
+#   in tests; surfaced here so `pip install -e .[dev]` resolves cleanly.
+# - scitex-dev[cli-audit]: brings click + pyyaml so the `scitex-dev`
+#   console script (used by tests/develop/test_audit.py) can launch.
+# - coverage>=7: needed by tests/conftest.py subprocess-coverage shim
+#   (process_startup); transitive via pytest-cov but pinned explicitly
+#   for the parallel/concurrency keys (skill leaf
+#   05_development_06_subprocess-coverage.md).
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "pytest-timeout",
+    "coverage>=7.0",
+    "PyYAML>=6.0",
+    "fastmcp>=2.0",
+    "scitex-dev[cli-audit]>=0.11.5",
+]
+
+[project.scripts]
+newb = "newb._cli:cli_entrypoint"
+scitex-newb = "newb._cli:cli_entrypoint"   # SciTeX-namespaced alias
+
+[project.urls]
+Homepage = "https://github.com/ywatanabe1989/newb"
+Repository = "https://github.com/ywatanabe1989/newb"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.scitex-linter]
+# `containers/runner.py` runs INSIDE the docker/apptainer container; it
+# is library-style (no scitex deps), not a SciTeX session script.
+library_dirs = ["src", "tests", "containers"]
+
+# Subprocess coverage wiring (see scitex-dev skill leaf
+# 05_development_06_subprocess-coverage.md). `parallel = true` lets each
+# child Python interpreter (`subprocess.run([sys.executable, ...])`,
+# container runners) write its own `.coverage.<host>.<pid>.<rand>` shard
+# instead of racing on a single file; pytest-cov calls `coverage combine`
+# at session end. Without this, demo / container subprocess coverage
+# silently disappears.
+[tool.coverage.run]
+parallel = true
+source = ["newb"]
+concurrency = ["multiprocessing", "thread"]

@@ -1,0 +1,38 @@
+Metadata-Version: 2.4
+Name: metatensor-core
+Version: 0.2.0
+Summary: Python bindings for metatensor
+Author: Guillaume Fraux, Rohit Goswami, Philip Loche, Filippo Bigi, Joseph W. Abbott, Davide Tisi, Alexander Goscinski, Michele Ceriotti
+License-Expression: BSD-3-Clause
+Project-URL: homepage, https://docs.metatensor.org/latest/
+Project-URL: documentation, https://docs.metatensor.org/latest/
+Project-URL: repository, https://github.com/metatensor/metatensor
+Project-URL: changelog, https://docs.metatensor.org/latest/core/CHANGELOG.html
+Keywords: machine learning,molecular modeling
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
+Classifier: Topic :: Scientific/Engineering :: Chemistry
+Classifier: Topic :: Scientific/Engineering :: Physics
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+License-File: AUTHORS
+Requires-Dist: numpy
+Dynamic: author
+Dynamic: license-file
+
+metatensor-core
+===============
+
+This package contains the Python bindings to the core C API of metatensor. Most
+users will want to use the ``metatensor`` meta package instead, which also
+includes function to operate on the data.

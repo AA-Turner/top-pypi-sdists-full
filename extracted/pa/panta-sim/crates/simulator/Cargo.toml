@@ -1,0 +1,28 @@
+[package]
+name = "qsim-simulator"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+qsim-core = { path = "../core" }
+qsim-gpu = { path = "../gpu" }
+qsim-mps = { path = "../mps" }
+num-complex = "0.4"
+num-traits = "0.2"
+rand = "0.8"
+
+[features]
+default = []
+# NVIDIA cuStateVec backend pass-through (qsim-gpu/gpu-cuda).
+gpu-cuda = ["qsim-gpu/gpu-cuda"]
+
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "statevector"
+harness = false
+
+[[bench]]
+name = "mps_bench"
+harness = false

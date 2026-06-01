@@ -1,0 +1,19 @@
+resource_registry:
+  OS::TripleO::ControllerExtraConfigPre: /usr/share/openstack-tripleo-heat-templates/puppet/extraconfig/pre_deploy/controller/neutron-ml2-bigswitch.yaml
+  OS::TripleO::ComputeExtraConfigPre: /usr/share/openstack-tripleo-heat-templates/puppet/extraconfig/pre_deploy/compute/neutron-ml2-bigswitch.yaml
+
+parameter_defaults:
+  NeutronMechanismDrivers: openvswitch,bsn_ml2
+  NeutronServicePlugins: router,qos,trunk,bsn_service_plugin
+  NeutronDebug: True
+
+  NovaComputeExtraConfig:
+    neutron::agents::bigswitch::lldp_enabled: true
+
+  NeutronBigswitchRestproxyServers: <Update-this-value>
+  NeutronBigswitchRestproxyServerAuth: <Update-this-value>
+  NeutronBigswitchRestproxyAutoSyncOnFailure: True
+  NeutronBigswitchRestproxyConsistencyInterval: 10
+  NeutronBigswitchRestproxyNeutronId: <Update-this-value> # <<< Name used to prefix the tenant/project name on BCF.
+  NeutronBigswitchRestproxyServerSsl: True
+  NeutronBigswitchRestproxySslCertDirectory: /var/lib/neutron

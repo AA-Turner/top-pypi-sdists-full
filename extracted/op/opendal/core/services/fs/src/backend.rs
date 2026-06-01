@@ -188,6 +188,7 @@ impl Access for FsBackend {
     type Writer = FsWriters;
     type Lister = Option<FsLister<tokio::fs::ReadDir>>;
     type Deleter = oio::OneShotDeleter<FsDeleter>;
+    type Copier = ();
 
     fn info(&self) -> Arc<AccessorInfo> {
         self.core.info.clone()
@@ -203,15 +204,6 @@ impl Access for FsBackend {
         Ok(RpStat::new(m))
     }
 
-    /// # Notes
-    ///
-    /// There are three ways to get the total file length:
-    ///
-    /// - call std::fs::metadata directly and then open. (400ns)
-    /// - open file first, and then use `f.metadata()` (300ns)
-    /// - open file first, and then use `seek`. (100ns)
-    ///
-    /// Benchmark could be found [here](https://gist.github.com/Xuanwo/48f9cfbc3022ea5f865388bb62e1a70f)
     async fn read(&self, path: &str, args: OpRead) -> Result<(RpRead, Self::Reader)> {
         let f = self.core.fs_read(path, &args).await?;
         let r = FsReader::new(
@@ -219,7 +211,7 @@ impl Access for FsBackend {
             f,
             args.range().size().unwrap_or(u64::MAX) as _,
         );
-        Ok((RpRead::new(), r))
+        Ok((RpRead::default(), r))
     }
 
     async fn write(&self, path: &str, op: OpWrite) -> Result<(RpWrite, Self::Writer)> {
@@ -258,9 +250,15 @@ impl Access for FsBackend {
         }
     }
 
-    async fn copy(&self, from: &str, to: &str, _args: OpCopy) -> Result<RpCopy> {
+    async fn copy(
+        &self,
+        from: &str,
+        to: &str,
+        _args: OpCopy,
+        _opts: OpCopier,
+    ) -> Result<(RpCopy, Self::Copier)> {
         self.core.fs_copy(from, to).await?;
-        Ok(RpCopy::default())
+        Ok((RpCopy::default(), ()))
     }
 
     async fn rename(&self, from: &str, to: &str, _args: OpRename) -> Result<RpRename> {

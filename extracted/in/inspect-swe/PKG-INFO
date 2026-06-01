@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_swe
-Version: 0.2.57
+Version: 0.2.59
 Summary: Software engineering agents for Inspect AI.
 Project-URL: Documentation, https://meridianlabs-ai.github.io/inspect_swe/
 Project-URL: Source Code, https://github.com/meridianlabs-ai/inspect_swe
@@ -12,7 +12,7 @@ Requires-Python: >=3.10
 Requires-Dist: agent-client-protocol>=0.10.0
 Requires-Dist: anyio
 Requires-Dist: httpx
-Requires-Dist: inspect-ai>=0.3.231
+Requires-Dist: inspect-ai>=0.3.232
 Requires-Dist: nest-asyncio
 Requires-Dist: platformdirs
 Requires-Dist: pydantic>=2.13.0

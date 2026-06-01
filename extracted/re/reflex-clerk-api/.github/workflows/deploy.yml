@@ -1,0 +1,94 @@
+name: Deploy Demo to VPS
+
+on:
+  workflow_run:
+    workflows: ["Publish"]
+    types:
+      - completed
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    # If previous workflow was successful or this was triggered manually
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.repository == 'TimChild/reflex-clerk-api' }} || github.event_name == 'workflow_dispatch'
+    environment:
+      name: demo
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check env vars set
+        run: |
+          if [ -z "${{ vars.CLERK_PUBLISHABLE_KEY }}" ]; then
+            echo "CLERK_PUBLISHABLE_KEY is not set"
+            exit 1
+          fi
+
+      - name: Create .env
+        run: |
+          echo "CLERK_PUBLISHABLE_KEY=${{ vars.CLERK_PUBLISHABLE_KEY }}" >> .env
+          # echo "CLERK_SECRET_KEY=${{ secrets.CLERK_SECRET_KEY }}" >> .env
+
+      - name: Deploy frontend
+        uses: TimChild/webserver-template/actions/deploy-reflex-frontend@main
+        with:
+          vps-ip: ${{ vars.VPS_IP }}
+          site-name: ${{ vars.SITE_NAME }}
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-user: "webadmin"
+          working-directory: clerk_api_demo
+
+      - name: Remove .env
+        if: always()
+        run: rm .env
+
+  deploy-backend:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.repository == 'TimChild/reflex-clerk-api' }} || github.event_name == 'workflow_dispatch'
+    environment:
+      name: demo
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check env vars set
+        run: |
+          if [ -z "${{ vars.CLERK_PUBLISHABLE_KEY }}" ]; then
+            echo "CLERK_PUBLISHABLE_KEY is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.CLERK_SECRET_KEY }}" ]; then
+            echo "CLERK_SECRET_KEY is not set"
+            exit 1
+          fi
+
+      - name: Create .env
+        run: |
+          echo "CLERK_PUBLISHABLE_KEY=${{ vars.CLERK_PUBLISHABLE_KEY }}" >> .env
+          echo "CLERK_SECRET_KEY=${{ secrets.CLERK_SECRET_KEY }}" >> .env
+
+      - name: Deploy backend
+        uses: TimChild/webserver-template/actions/deploy-reflex-backend@main
+        with:
+          vps-ip: ${{ vars.VPS_IP }}
+          site-name: ${{ vars.SITE_NAME }}
+          dotenv-path: .env
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-user: "webadmin"
+          working-directory: clerk_api_demo
+
+      - name: Remove .env
+        if: always()
+        run: rm .env

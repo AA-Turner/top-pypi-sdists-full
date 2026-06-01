@@ -98,6 +98,10 @@ def get_function_capture_global_variable_values(
 ) -> list[types_pb.CodeVariableValue]:
     with safe_trace("get_function_capture_global_variable_values"):
         resolver_captured_global_variables: dict[bytes, types_pb.CodeVariable] = {}
+        captured_global_values = {
+            captured_value.id: captured_value.value
+            for captured_value in getattr(proto_export.graph, "captured_global_values", ())
+        }
         globals_to_visit = [
             glbl for resolver in proto_export.graph.resolvers for glbl in resolver.function.captured_globals
         ]
@@ -111,6 +115,9 @@ def get_function_capture_global_variable_values(
                 )
             elif glbl.HasField("function"):
                 globals_to_visit.extend(glbl.function.captured_globals)
+            elif glbl.HasField("value_ref"):
+                if glbl.value_ref.id in captured_global_values:
+                    globals_to_visit.append(captured_global_values[glbl.value_ref.id])
         return list(get_variables(resolver_captured_global_variables.values()))
 
 

@@ -1,0 +1,38 @@
+"""Config Manager tool configuration."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from mindroom.tool_system.metadata import (
+    SetupType,
+    ToolCategory,
+    ToolManagedInitArg,
+    ToolStatus,
+    register_tool_with_metadata,
+)
+
+if TYPE_CHECKING:
+    from mindroom.custom_tools.config_manager import ConfigManagerTools
+
+
+@register_tool_with_metadata(
+    name="config_manager",
+    display_name="Config Manager",
+    description="Build and manage MindRoom agents with expert knowledge of the system",
+    category=ToolCategory.DEVELOPMENT,
+    status=ToolStatus.AVAILABLE,
+    setup_type=SetupType.NONE,
+    icon="Settings",
+    icon_color="text-purple-500",
+    config_fields=[],
+    managed_init_args=(ToolManagedInitArg.RUNTIME_PATHS,),
+    dependencies=["agno", "pydantic", "pyyaml"],
+    docs_url="https://github.com/mindroom-ai/mindroom",
+    function_names=("get_info", "manage_agent", "manage_team"),
+)
+def config_manager_tools() -> type[ConfigManagerTools]:
+    """Return config manager tools for agent building."""
+    from mindroom.custom_tools.config_manager import ConfigManagerTools
+
+    return ConfigManagerTools

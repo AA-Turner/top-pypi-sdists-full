@@ -1,0 +1,30 @@
+name: airbyte-sentry
+runtime:
+  name: python
+  options:
+    virtualenv: venv
+description: |
+  Pulumi Infrastructure as Code for managing Airbyte's Sentry configuration.
+
+  This project manages:
+  - Sentry projects and teams
+  - Issue alerts and metric alerts
+  - Dashboard configurations
+  - Organization settings
+  - Fingerprint rules and stack trace grouping rules
+  - Ownership rules for alert routing
+
+  SETUP: Before running `pulumi up`, generate the Sentry provider SDK:
+    pulumi package add terraform-provider jianyuan/sentry 0.14.13
+
+  This uses the Terraform Sentry provider directly (v0.14.13) which supports
+  fingerprinting_rules, grouping_enhancements, and project_ownership on Project resources.
+
+  The SDK is generated locally in sdks/sentry/ and is gitignored.
+packages:
+  sentry:
+    source: terraform-provider
+    version: 1.0.2
+    parameters:
+      - jianyuan/sentry
+      - 0.14.13

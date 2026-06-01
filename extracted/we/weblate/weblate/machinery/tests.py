@@ -76,7 +76,7 @@ from weblate.machinery.yandex import YandexTranslation
 from weblate.machinery.yandexv2 import YandexV2Translation
 from weblate.machinery.youdao import YoudaoTranslation
 from weblate.memory.machine import WeblateMemory
-from weblate.trans.models import Project, Unit
+from weblate.trans.models import Category, Component, Project, Unit
 from weblate.trans.tests.factories import make_language, make_unit
 from weblate.trans.tests.test_views import (
     FixtureComponentTestCase,
@@ -1077,12 +1077,17 @@ class MicrosoftCognitiveTranslationTest(BaseMachineTranslationTest):
     def mock_error(self) -> NoReturn:
         self.skipTest("Not tested")
 
+    def mock_token_response(self, url: str) -> None:
+        def request_callback(request: PreparedRequest):
+            self.assertEqual(urlparse(request.url).query, "")
+            self.assertEqual(request.headers["Ocp-Apim-Subscription-Key"], "KEY")
+            return 200, {}, "TOKEN"
+
+        responses.add_callback(responses.POST, url, callback=request_callback)
+
     def mock_response(self) -> None:
-        responses.add(
-            responses.POST,
+        self.mock_token_response(
             "https://api.cognitive.microsoft.com/sts/v1.0/issueToken"
-            "?Subscription-Key=KEY",
-            body="TOKEN",
         )
         responses.add(
             responses.GET,
@@ -1125,11 +1130,8 @@ class MicrosoftCognitiveTranslationRegionTest(MicrosoftCognitiveTranslationTest)
     }
 
     def mock_response(self) -> None:
-        responses.add(
-            responses.POST,
+        self.mock_token_response(
             "https://westeurope.api.cognitive.microsoft.com/sts/v1.0/issueToken"
-            "?Subscription-Key=KEY",
-            body="TOKEN",
         )
         responses.add(
             responses.GET,
@@ -1163,11 +1165,8 @@ class MicrosoftCognitiveTranslationRegionTest(MicrosoftCognitiveTranslationTest)
                 "base_url": "api-eur.cognitive.microsofttranslator.com",
             }
         )
-        responses.add(
-            responses.POST,
+        self.mock_token_response(
             "https://westeurope.api.cognitive.microsoft.com/sts/v1.0/issueToken"
-            "?Subscription-Key=KEY",
-            body="TOKEN",
         )
         responses.add(
             responses.GET,
@@ -1197,26 +1196,52 @@ class GoogleTranslationTest(BaseMachineTranslationTest):
 
     def mock_error(self) -> None:
         responses.add(responses.GET, f"{GOOGLE_API_ROOT}languages", body="", status=500)
-        responses.add(responses.GET, GOOGLE_API_ROOT, body="", status=500)
+        responses.add(responses.POST, GOOGLE_API_ROOT, body="", status=500)
 
     def mock_response(self) -> None:
-        responses.add(
+        def languages_callback(request: PreparedRequest):
+            self.assertEqual(urlparse(request.url).query, "")
+            self.assertEqual(request.headers["X-Goog-Api-Key"], "KEY")
+            return (
+                200,
+                {},
+                json.dumps(
+                    {
+                        "data": {
+                            "languages": [
+                                {"language": "en"},
+                                {"language": "iw"},
+                                {"language": "cs"},
+                            ]
+                        }
+                    }
+                ),
+            )
+
+        def translate_callback(request: PreparedRequest):
+            self.assertEqual(urlparse(request.url).query, "")
+            self.assertEqual(request.headers["X-Goog-Api-Key"], "KEY")
+            payload = json.loads(request.body or "{}")
+            self.assertEqual(payload["source"], "en")
+            self.assertIn(payload["target"], {"cs", "de"})
+            self.assertIn(payload["q"], {self.SOURCE_TRANSLATED, "test"})
+            self.assertEqual(payload["format"], "text")
+            self.assertNotIn("key", payload)
+            return (
+                200,
+                {},
+                json.dumps({"data": {"translations": [{"translatedText": "svet"}]}}),
+            )
+
+        responses.add_callback(
             responses.GET,
             f"{GOOGLE_API_ROOT}languages",
-            json={
-                "data": {
-                    "languages": [
-                        {"language": "en"},
-                        {"language": "iw"},
-                        {"language": "cs"},
-                    ]
-                }
-            },
+            callback=languages_callback,
         )
-        responses.add(
-            responses.GET,
+        responses.add_callback(
+            responses.POST,
             GOOGLE_API_ROOT,
-            json={"data": {"translations": [{"translatedText": "svet"}]}},
+            callback=translate_callback,
         )
 
     @responses.activate
@@ -1613,6 +1638,22 @@ class YandexV2TranslationTest(BaseMachineTranslationTest):
         )
 
     def mock_response(self) -> None:
+        def translate_callback(request: PreparedRequest):
+            self.assertEqual(urlparse(request.url).query, "")
+            self.assertEqual(request.headers["Authorization"], "Api-Key KEY")
+            payload = json.loads(request.body or "{}")
+            self.assertEqual(payload["sourceLanguageCode"], "en")
+            self.assertIn(payload["targetLanguageCode"], {"cs", "de"})
+            self.assertEqual(len(payload["texts"]), 1)
+            self.assertIn(payload["texts"][0], {self.SOURCE_TRANSLATED, "test"})
+            return (
+                200,
+                {},
+                json.dumps(
+                    {"translations": [{"text": "svet", "detectedLanguageCode": "en"}]}
+                ),
+            )
+
         responses.add(
             responses.POST,
             "https://translate.api.cloud.yandex.net/translate/v2/languages",
@@ -1623,10 +1664,10 @@ class YandexV2TranslationTest(BaseMachineTranslationTest):
                 ]
             },
         )
-        responses.add(
+        responses.add_callback(
             responses.POST,
             "https://translate.api.cloud.yandex.net/translate/v2/translate",
-            json={"translations": [{"text": "svet", "detectedLanguageCode": "en"}]},
+            callback=translate_callback,
         )
 
     @responses.activate
@@ -1667,14 +1708,29 @@ class YoudaoTranslationTest(BaseMachineTranslationTest):
 
     def mock_error(self) -> None:
         responses.add(
-            responses.GET, "https://openapi.youdao.com/api", json={"errorCode": 1}
+            responses.POST, "https://openapi.youdao.com/api", json={"errorCode": 1}
         )
 
     def mock_response(self) -> None:
-        responses.add(
-            responses.GET,
+        def request_callback(request: PreparedRequest):
+            self.assertEqual(urlparse(request.url).query, "")
+            body = parse_qs(
+                request.body.decode()
+                if isinstance(request.body, bytes)
+                else str(request.body)
+            )
+            self.assertEqual(body["appKey"], ["id"])
+            self.assertIn(body["q"][0], {self.SOURCE_TRANSLATED, "test"})
+            self.assertIn(body["_from"][0], {"EN", "en"})
+            self.assertEqual(body["to"], ["de"])
+            self.assertIn("salt", body)
+            self.assertIn("sign", body)
+            return 200, {}, json.dumps({"errorCode": 0, "translation": ["hello"]})
+
+        responses.add_callback(
+            responses.POST,
             "https://openapi.youdao.com/api",
-            json={"errorCode": 0, "translation": ["hello"]},
+            callback=request_callback,
         )
 
 
@@ -1715,20 +1771,41 @@ class BaiduTranslationTest(BaseMachineTranslationTest):
 
     def mock_error(self) -> None:
         responses.add(
-            responses.GET, BAIDU_API, json={"error_code": 1, "error_msg": "Error"}
+            responses.POST, BAIDU_API, json={"error_code": 1, "error_msg": "Error"}
         )
 
     def mock_response(self) -> None:
-        responses.add(
-            responses.GET,
+        def request_callback(request: PreparedRequest):
+            self.assertEqual(urlparse(request.url).query, "")
+            body = parse_qs(
+                request.body.decode()
+                if isinstance(request.body, bytes)
+                else str(request.body)
+            )
+            self.assertEqual(body["appid"], ["id"])
+            self.assertIn(body["q"][0], {self.SOURCE_TRANSLATED, "test"})
+            self.assertEqual(body["from"], ["en"])
+            self.assertIn(body["to"][0], {"cs", "de"})
+            self.assertIn("salt", body)
+            self.assertIn("sign", body)
+            return (
+                200,
+                {},
+                json.dumps({"trans_result": [{"src": "hello", "dst": "hallo"}]}),
+            )
+
+        responses.add_callback(
+            responses.POST,
             BAIDU_API,
-            json={"trans_result": [{"src": "hello", "dst": "hallo"}]},
+            callback=request_callback,
         )
 
     @responses.activate
     def test_ratelimit(self) -> None:
         responses.add(
-            responses.GET, BAIDU_API, json={"error_code": "54003", "error_msg": "Error"}
+            responses.POST,
+            BAIDU_API,
+            json={"error_code": "54003", "error_msg": "Error"},
         )
         with self.assertRaises(MachineryRateLimitError):
             self.assert_translate(self.SUPPORTED, self.SOURCE_TRANSLATED, 0)
@@ -1736,7 +1813,9 @@ class BaiduTranslationTest(BaseMachineTranslationTest):
     @responses.activate
     def test_bug(self) -> None:
         responses.add(
-            responses.GET, BAIDU_API, json={"error_code": "bug", "error_msg": "Error"}
+            responses.POST,
+            BAIDU_API,
+            json={"error_code": "bug", "error_msg": "Error"},
         )
         with self.assertRaises(MachineTranslationError):
             self.assert_translate(self.SUPPORTED, self.SOURCE_TRANSLATED, 0)
@@ -1756,22 +1835,36 @@ class SystranTranslationTest(BaseMachineTranslationTest):
         self.skipTest("Not tested")
 
     def mock_response(self) -> None:
+        def supported_languages_callback(request: PreparedRequest):
+            self.assertEqual(urlparse(request.url).query, "")
+            self.assertEqual(request.headers["Authorization"], "Key key")
+            return 200, {}, json.dumps(SYSTRAN_LANGUAGE_JSON)
+
+        def translate_callback(request: PreparedRequest):
+            query = parse_qs(urlparse(request.url).query)
+            self.assertEqual(request.headers["Authorization"], "Key key")
+            self.assertNotIn("key", query)
+            self.assertEqual(query["source"], ["en"])
+            self.assertIn(query["target"][0], {"cs", "de"})
+            self.assertIn(query["input"][0], {self.SOURCE_TRANSLATED, "test"})
+            return 200, {}, json.dumps({"outputs": [{"output": "ahoj"}]})
+
         responses.add(
             responses.GET,
             "https://api-translate.systran.net/translation/apiVersion",
             json={"version": "2.11.0"},
         )
 
-        responses.add(
+        responses.add_callback(
             responses.GET,
             "https://api-translate.systran.net/translation/supportedLanguages",
-            json=SYSTRAN_LANGUAGE_JSON,
+            callback=supported_languages_callback,
         )
 
-        responses.add(
+        responses.add_callback(
             responses.POST,
             "https://api-translate.systran.net/translation/text/translate",
-            json={"outputs": [{"output": "ahoj"}]},
+            callback=translate_callback,
         )
 
 
@@ -4021,6 +4114,18 @@ class OpenAITranslationTest(BaseMachineTranslationTest):
             )
 
     @responses.activate
+    def test_translate_rejects_literal_placeholder_repair_mismatch(self) -> None:
+        self.mock_response('["@@PH5@@"]')
+
+        with self.assertRaises(MachineTranslationError):
+            self.assert_translate(
+                "fr",
+                "Keep @@PH5@@ %s",
+                1,
+                unit_args={"flags": "python-format"},
+            )
+
+    @responses.activate
     def test_translate_recovers_spaced_placeholder_syntax(self) -> None:
         self.mock_response('["Bonjour @@PH7@ @! <<foo>>"]')
 
@@ -4032,6 +4137,63 @@ class OpenAITranslationTest(BaseMachineTranslationTest):
         )
 
         self.assertEqual(translation[0][0]["text"], "Bonjour %s! <<foo>>")
+
+    @responses.activate
+    def test_translate_drops_trailing_empty_extra_reply(self) -> None:
+        self.mock_response('["**Konfigurēt paziņojumus**:", ""]')
+
+        translation = self.assert_translate(
+            "lv",
+            "**Configure notifications**:",
+            1,
+            unit_args={"flags": "rst-text"},
+        )
+
+        self.assertEqual(translation[0][0]["text"], "**Konfigurēt paziņojumus**:")
+
+    @responses.activate
+    def test_translate_recovers_extra_rst_closing_placeholder(self) -> None:
+        machine = self.get_machine()
+        source = (
+            "If upstream no longer contains Weblate commits because they were squash "
+            "merged, updating the repository might not be enough. Use "
+            ":guilabel:`Reset and reapply` from :guilabel:`Repository maintenance` "
+            "to reset Weblate to upstream while keeping pending translations; see "
+            ":ref:`manage-vcs-reset-reapply`. Use :guilabel:`Reset and discard` "
+            "only when upstream should fully replace Weblate's local changes."
+        )
+
+        def request_callback(
+            _prompt: str,
+            content: str,
+            _previous_content: str,
+            _previous_response: str,
+        ) -> str:
+            cleaned_source = json.loads(content)["strings"][0]["source"]
+            return json.dumps(
+                [
+                    cleaned_source.replace(
+                        "Reset and reapply@@PH157@@",
+                        "Reset und @@PH157@@erneut anwenden@@PH157@@",
+                    )
+                ]
+            )
+
+        with patch.object(
+            machine, "fetch_llm_translations", side_effect=request_callback
+        ):
+            translation = self.assert_translate(
+                "de",
+                source,
+                1,
+                machine=machine,
+                unit_args={"flags": "rst-text"},
+            )
+
+        self.assertIn(
+            ":guilabel:`Reset und erneut anwenden`",
+            translation[0][0]["text"],
+        )
 
     @responses.activate
     def test_translate_restores_placeholder_before_literal_at(self) -> None:
@@ -4125,6 +4287,51 @@ class OpenAITranslationTest(BaseMachineTranslationTest):
             )
 
     @responses.activate
+    def test_translate_rejects_non_empty_extra_reply(self) -> None:
+        self.mock_response('["Premier", "Deuxieme"]')
+
+        with self.assertRaises(MachineTranslationError):
+            self.get_machine().download_multiple_translations(
+                "en",
+                "fr",
+                [("One", None)],
+            )
+
+    def test_translate_rejects_ambiguous_rst_duplicate_placeholders(self) -> None:
+        machine = self.get_machine()
+
+        def request_callback(
+            _prompt: str,
+            content: str,
+            _previous_content: str,
+            _previous_response: str,
+        ) -> str:
+            cleaned_source = json.loads(content)["strings"][0]["source"]
+            placeholders = re.findall(r"@@PH\d+@@", cleaned_source)
+            return json.dumps(
+                [
+                    (
+                        f"{placeholders[0]}Save{placeholders[1]}{placeholders[1]} "
+                        f"and {placeholders[2]}Open{placeholders[3]}{placeholders[3]}"
+                    )
+                ]
+            )
+
+        with (
+            patch.object(
+                machine, "fetch_llm_translations", side_effect=request_callback
+            ),
+            self.assertRaises(MachineTranslationError),
+        ):
+            self.assert_translate(
+                "fr",
+                ":guilabel:`Save` and :guilabel:`Open`",
+                1,
+                machine=machine,
+                unit_args={"flags": "rst-text"},
+            )
+
+    @responses.activate
     def test_translate_blank_reply_reports_single_exception_event(self) -> None:
         machine = self.get_machine()
         handled_cause = f"machinery[{machine.name}]: Blank assistant reply"
@@ -4205,6 +4412,8 @@ class OpenAILLMContextTest(FixtureComponentTestCase):
             self.component.add_new_language(language, None)
 
         self.change_unit("Hallo Welt\n", language="de")
+        self.component.inherit_secondary_language = True
+        self.component.save(update_fields=["inherit_secondary_language"])
         self.project.secondary_language = language
         self.project.save(update_fields=["secondary_language"])
 
@@ -4727,8 +4936,8 @@ class WeblateTranslationTest(FixtureComponentTestCase):
 
     @patch("weblate.machinery.weblatetm.adjust_similarity_threshold")
     def test_matches_still_probe_fuzzy_lookup(self, adjust_threshold) -> None:
-        unit = Unit.objects.filter(translation__language_code="cs")[0]
-        other = unit.translation.unit_set.exclude(pk=unit.pk)[0]
+        unit = Unit.objects.get(translation__language_code="cs", position=1)
+        other = unit.translation.unit_set.exclude(pk=unit.pk).order_by("pk")[0]
         other.source = unit.source
         other.target = "Preklad"
         other.state = STATE_TRANSLATED
@@ -4840,27 +5049,53 @@ class CyrTranslitTranslationTest(ViewTestCase, BaseMachineTranslationTest):
 
         cyrillic_lang = Language.objects.get(code="sr_Cyrl")
         latin_lang = Language.objects.get(code="sr_Latn")
+        self.component.inherit_secondary_language = True
+        self.component.save(update_fields=["inherit_secondary_language"])
 
         # Not matching source language
         self.project.secondary_language = latin_lang
         self.project.save(update_fields=["secondary_language"])
+        latn_unit = self.get_unit("Hello, world!\n", language="sr_Latn")
         results = machine.translate(latn_unit, self.user)
         self.assertEqual(results, [])
 
         # Matching source language
         self.project.secondary_language = cyrillic_lang
         self.project.save(update_fields=["secondary_language"])
+        latn_unit = self.get_unit("Hello, world!\n", language="sr_Latn")
         results = machine.translate(latn_unit, self.user)
         self.assertEqual(results[0][0]["text"], "Moj hoverkraft je pun jegulja\n")
 
         # Component secondary overrides project
         self.component.secondary_language = latin_lang
         self.component.save(update_fields=["secondary_language"])
+        latn_unit = self.get_unit("Hello, world!\n", language="sr_Latn")
         results = machine.translate(latn_unit, self.user)
         self.assertEqual(results, [])
 
         self.component.secondary_language = cyrillic_lang
         self.component.save(update_fields=["secondary_language"])
+        latn_unit = self.get_unit("Hello, world!\n", language="sr_Latn")
+        results = machine.translate(latn_unit, self.user)
+        self.assertEqual(results[0][0]["text"], "Moj hoverkraft je pun jegulja\n")
+
+        # Category secondary overrides project for inherited components
+        category = Category.objects.create(
+            name="Cyrillic category",
+            slug="cyrillic-category",
+            project=self.project,
+            secondary_language=cyrillic_lang,
+            inherit_secondary_language=False,
+        )
+        self.project.secondary_language = latin_lang
+        self.project.save(update_fields=["secondary_language"])
+        Component.objects.filter(pk=self.component.pk).update(
+            category=category,
+            secondary_language=None,
+            inherit_secondary_language=True,
+        )
+        self.component.refresh_from_db()
+        latn_unit = self.get_unit("Hello, world!\n", language="sr_Latn")
         results = machine.translate(latn_unit, self.user)
         self.assertEqual(results[0][0]["text"], "Moj hoverkraft je pun jegulja\n")
 

@@ -1,0 +1,136 @@
+from typing import TYPE_CHECKING, Any, TypeVar, Union
+
+from attrs import define as _attrs_define
+from attrs import field as _attrs_field
+
+from ..types import UNSET, Unset
+
+if TYPE_CHECKING:
+    from ..models.entrypoint_args_item import EntrypointArgsItem
+    from ..models.entrypoint_env import EntrypointEnv
+    from ..models.entrypoint_super_gateway_args_item import EntrypointSuperGatewayArgsItem
+
+
+T = TypeVar("T", bound="Entrypoint")
+
+
+@_attrs_define
+class Entrypoint:
+    """Entrypoint of the artifact
+
+    Attributes:
+        args (Union[Unset, list['EntrypointArgsItem']]): Args of the entrypoint
+        command (Union[Unset, str]): Command of the entrypoint
+        env (Union[Unset, EntrypointEnv]): Env of the entrypoint
+        super_gateway_args (Union[Unset, list['EntrypointSuperGatewayArgsItem']]): Super Gateway args of the entrypoint
+    """
+
+    args: Union[Unset, list["EntrypointArgsItem"]] = UNSET
+    command: Union[Unset, str] = UNSET
+    env: Union[Unset, "EntrypointEnv"] = UNSET
+    super_gateway_args: Union[Unset, list["EntrypointSuperGatewayArgsItem"]] = UNSET
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+
+        args: Union[Unset, list[dict[str, Any]]] = UNSET
+        if not isinstance(self.args, Unset):
+            args = []
+            for args_item_data in self.args:
+                if type(args_item_data) is dict:
+                    args_item = args_item_data
+                else:
+                    args_item = args_item_data.to_dict()
+                args.append(args_item)
+
+        command = self.command
+
+        env: Union[Unset, dict[str, Any]] = UNSET
+        if self.env and not isinstance(self.env, Unset) and not isinstance(self.env, dict):
+            env = self.env.to_dict()
+        elif self.env and isinstance(self.env, dict):
+            env = self.env
+
+        super_gateway_args: Union[Unset, list[dict[str, Any]]] = UNSET
+        if not isinstance(self.super_gateway_args, Unset):
+            super_gateway_args = []
+            for super_gateway_args_item_data in self.super_gateway_args:
+                if type(super_gateway_args_item_data) is dict:
+                    super_gateway_args_item = super_gateway_args_item_data
+                else:
+                    super_gateway_args_item = super_gateway_args_item_data.to_dict()
+                super_gateway_args.append(super_gateway_args_item)
+
+        field_dict: dict[str, Any] = {}
+        field_dict.update(self.additional_properties)
+        field_dict.update({})
+        if args is not UNSET:
+            field_dict["args"] = args
+        if command is not UNSET:
+            field_dict["command"] = command
+        if env is not UNSET:
+            field_dict["env"] = env
+        if super_gateway_args is not UNSET:
+            field_dict["superGatewayArgs"] = super_gateway_args
+
+        return field_dict
+
+    @classmethod
+    def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T | None:
+        from ..models.entrypoint_args_item import EntrypointArgsItem
+        from ..models.entrypoint_env import EntrypointEnv
+        from ..models.entrypoint_super_gateway_args_item import EntrypointSuperGatewayArgsItem
+
+        if not src_dict:
+            return None
+        d = src_dict.copy()
+        args = []
+        _args = d.pop("args", UNSET)
+        for args_item_data in _args or []:
+            args_item = EntrypointArgsItem.from_dict(args_item_data)
+
+            args.append(args_item)
+
+        command = d.pop("command", UNSET)
+
+        _env = d.pop("env", UNSET)
+        env: Union[Unset, EntrypointEnv]
+        if isinstance(_env, Unset):
+            env = UNSET
+        else:
+            env = EntrypointEnv.from_dict(_env)
+
+        super_gateway_args = []
+        _super_gateway_args = d.pop("superGatewayArgs", d.pop("super_gateway_args", UNSET))
+        for super_gateway_args_item_data in _super_gateway_args or []:
+            super_gateway_args_item = EntrypointSuperGatewayArgsItem.from_dict(
+                super_gateway_args_item_data
+            )
+
+            super_gateway_args.append(super_gateway_args_item)
+
+        entrypoint = cls(
+            args=args,
+            command=command,
+            env=env,
+            super_gateway_args=super_gateway_args,
+        )
+
+        entrypoint.additional_properties = d
+        return entrypoint
+
+    @property
+    def additional_keys(self) -> list[str]:
+        return list(self.additional_properties.keys())
+
+    def __getitem__(self, key: str) -> Any:
+        return self.additional_properties[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self.additional_properties[key] = value
+
+    def __delitem__(self, key: str) -> None:
+        del self.additional_properties[key]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.additional_properties

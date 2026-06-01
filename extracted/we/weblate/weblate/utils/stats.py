@@ -11,7 +11,6 @@ from operator import itemgetter
 from types import GeneratorType
 from typing import TYPE_CHECKING, TypedDict, cast
 
-import sentry_sdk
 from django.conf import settings
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
@@ -37,6 +36,7 @@ from weblate.utils.state import (
     STATE_READONLY,
     STATE_TRANSLATED,
 )
+from weblate.utils.tracing import start_span
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable
@@ -442,7 +442,7 @@ class BaseStats:
             self.save(update_parents=update_parents)
 
     def calculate_basic(self) -> None:
-        with sentry_sdk.start_span(op="stats", name=f"CALCULATE {self.cache_key}"):
+        with start_span(op="stats", name=f"CALCULATE {self.cache_key}"):
             self.ensure_loaded()
             self._calculate_basic()
 
@@ -1306,6 +1306,18 @@ class ProjectLanguage(BaseURLMixin, TranslationChecklistMixin):
     def get_translate_url(self):
         return reverse("translate", kwargs={"path": self.get_url_path()})
 
+    @property
+    def action_translation_set(self):
+        return self.language.translation_set.filter(component__project=self.project)
+
+    @cached_property
+    def has_action_translations(self) -> bool:
+        return self.action_translation_set.exists()
+
+    @cached_property
+    def has_restricted_action_translations(self) -> bool:
+        return self.action_translation_set.filter(component__restricted=True).exists()
+
     @cached_property
     def translation_set(self):
         all_langs = self.language.translation_set.prefetch()
@@ -1455,6 +1467,25 @@ class CategoryLanguage(BaseURLMixin, TranslationChecklistMixin):
     def get_translate_url(self):
         return reverse("translate", kwargs={"path": self.get_url_path()})
 
+    def _translation_filter(self) -> Q:
+        return (
+            Q(component__category__category__category=self.category)
+            | Q(component__category__category=self.category)
+            | Q(component__category=self.category)
+        )
+
+    @property
+    def action_translation_set(self):
+        return self.language.translation_set.filter(self._translation_filter())
+
+    @cached_property
+    def has_action_translations(self) -> bool:
+        return self.action_translation_set.exists()
+
+    @cached_property
+    def has_restricted_action_translations(self) -> bool:
+        return self.action_translation_set.filter(component__restricted=True).exists()
+
     @cached_property
     def translation_set(self):
         from weblate.trans.models.component import ComponentLink  # noqa: PLC0415
@@ -1463,10 +1494,7 @@ class CategoryLanguage(BaseURLMixin, TranslationChecklistMixin):
             category=self.category
         ).values_list("component_id", flat=True)
         result = self.language.translation_set.filter(
-            Q(component__category__category__category=self.category)
-            | Q(component__category__category=self.category)
-            | Q(component__category=self.category)
-            | Q(component__pk__in=shared_component_ids)
+            self._translation_filter() | Q(component__pk__in=shared_component_ids)
         ).prefetch()
         for item in result:
             item.is_shared = (

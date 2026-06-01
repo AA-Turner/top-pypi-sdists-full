@@ -1,0 +1,39 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+import yarl
+
+from ...const import APP_BASE_HOST, LATEST_VERSION
+from ...exception import TiebaServerError
+from ...helper import parse_json
+from ._classdef import UserForumInfo
+
+if TYPE_CHECKING:
+    from ...core import HttpCore
+
+
+def parse_body(body: bytes) -> UserForumInfo:
+    res_json = parse_json(body)
+    if code := int(res_json.get("error_code", 0) or 0):
+        err_msg = res_json.get("error_msg") or res_json.get("error") or res_json.get("errmsg") or ""
+        raise TiebaServerError(code, err_msg)
+
+    data_map = res_json.get("data", {})
+    return UserForumInfo.from_json(data_map)
+
+
+async def request(http_core: HttpCore, fid: int, friend_portrait: str) -> UserForumInfo:
+    data = [
+        ("BDUSS", http_core.account.BDUSS),
+        ("_client_version", LATEST_VERSION),
+        ("forum_id", fid),
+        ("friend_portrait", friend_portrait),
+    ]
+
+    request = http_core.pack_form_request(
+        yarl.URL.build(scheme="https", host=APP_BASE_HOST, path="/c/f/forum/getUserForumLevelInfo"), data
+    )
+
+    body = await http_core.net_core.send_request(request, read_bufsize=4 * 1024)
+    return parse_body(body)

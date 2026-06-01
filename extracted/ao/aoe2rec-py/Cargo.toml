@@ -1,0 +1,7 @@
+
+[workspace]
+members = ["crates/aoe2rec", "crates/aoe2rec-py"]
+
+[profile.release]
+# Tell `rustc` to optimize for small code size.
+opt-level = "s"

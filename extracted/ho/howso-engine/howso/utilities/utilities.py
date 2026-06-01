@@ -1,0 +1,1783 @@
+from __future__ import annotations
+
+from collections.abc import (
+    Callable,
+    Collection,
+    Generator,
+    Iterable,
+    Mapping,
+    Sequence,
+)
+from concurrent.futures import (
+    as_completed,
+    FIRST_COMPLETED,
+    Future,
+    ProcessPoolExecutor,
+    ThreadPoolExecutor,
+    wait,
+)
+import datetime as dt
+import inspect
+import json
+import locale as python_locale
+from math import (
+    ceil,
+    isnan,
+)
+import pickle
+import re
+import sys
+import threading
+from typing import Any, cast, TYPE_CHECKING, TypeVar
+import uuid
+import warnings
+
+from dateutil.parser import isoparse, parse as dt_parse
+from dateutil.tz import tzoffset
+import mmh3
+import numpy as np
+import pandas as pd
+
+from .internals import serialize_models
+from .tokenizing import TokenizerProtocol
+
+if TYPE_CHECKING:
+    from howso.client.typing import NormalizeMethod
+
+_BASE_FEATURE_TYPES = ["nominal", "continuous", "ordinal"]
+DATETIME_TIMEZONE_PATTERN = re.compile(r"(?<!%)(?:%%)*(%z)", re.IGNORECASE)
+DATETIME_UTC_Z_PATTERN = re.compile(r"\dZ$")
+EPOCH = dt.datetime.fromtimestamp(0, dt.timezone.utc)
+ISO_8601_DATE_FORMAT = "%Y-%m-%d"
+ISO_8601_FORMAT = "%Y-%m-%dT%H:%M:%S"
+ISO_8601_FORMAT_FRACTIONAL = "%Y-%m-%dT%H:%M:%S.%f"
+# The number of Sequences to check in a non-thorough validation of case_indices
+NON_THOROUGH_NUM = 100
+# 1 hour in seconds
+ONE_HOUR = 3600
+# 1 minute in seconds
+ONE_MINUTE = 60
+# Match unescaped timezone character in datetime format strings
+SMALLEST_TIME_DELTA = 0.001
+# Regex that matches common time strings
+# <hour> AM/PM
+SIMPLE_TIME_PATTERN = r"^\s*([1-9]|1[0-2])\s?[aApP][mM]\s*$"
+# Other time formats (H:M:S, H:M, etc.)
+TIME_PATTERN = (
+    r"^\s*(T)?(?P<hour>[01]?\d|2[0-3]|\d):(?P<minute>[0-5]?\d)(?::(?P<second>[0-5]?\d)("
+    r"?:\.(?P<fraction>\d{1,2}))?)?\s?(?P<ampm>[APap][Mm])?\s*$"
+)
+# 24 hours in seconds
+TWENTY_FOUR_HOURS = 86400
+
+
+def date_to_epoch(date_obj: dt.date | dt.datetime | dt.time | str, time_format: str) -> str | float | None:
+    """
+    Convert date into epoch (i.e seconds counted from Jan 1st 1970).
+
+    .. note::
+        If `date_str` is None or nan, it will be returned as is.
+
+    Parameters
+    ----------
+    date_obj : str or datetime.date or datetime.time or datetime.datetime
+        Time object.
+    time_format : str
+        Specify format of the time.
+        Ex: ``%a %b %d %H:%M:%S %Y``
+
+    Returns
+    -------
+    str | float | None
+        The epoch date as a floating point value or 'np.nan', et al.
+    """
+    # pd.isnull/pd.isna covers the cases - None, `np.nan` and `pd.na`
+    if pd.isna(date_obj):  # pyright: ignore[reportArgumentType, reportCallIssue]
+        return None
+
+    # if timestamp is passed in, convert it to string in the correct
+    # format first
+    if isinstance(date_obj, (dt.date, dt.datetime)):
+        date_str = date_obj.strftime(time_format)
+    elif isinstance(date_obj, dt.time):
+        return time_to_seconds(date_obj)
+    else:
+        # Some date-only data will include an empty time segment that will cause an error
+        # during conversion below. Try coercing the string to the given format.
+        try:
+            date_str = pd.to_datetime(str(date_obj), format=time_format).strftime(time_format)
+        except ValueError:
+            date_str = str(date_obj)
+
+    # if there is time zone info in the format, use dt_parse because
+    # datetime.strptime doesn't handle time zones
+    if DATETIME_TIMEZONE_PATTERN.findall(time_format):
+        datetime_object = dt_parse(date_str)
+        time_zero = dt.datetime(1970, 1, 1, tzinfo=datetime_object.tzinfo)
+    else:
+        datetime_object = dt.datetime.strptime(date_str, time_format)
+        time_zero = dt.datetime(1970, 1, 1)
+
+    return (datetime_object - time_zero).total_seconds()
+
+
+def epoch_to_date(epoch: str | float, time_format: str, tzinfo: dt.tzinfo | None = None) -> str:
+    """
+    Convert epoch to date if epoch is not `None` or `nan` else, return as it is.
+
+    Parameters
+    ----------
+    epoch : str or float
+        The epoch date as a floating point value (or str if np.nan, et al)
+    time_format : str
+        Specify format of the time.
+        Ex: ``%a %b %d %H:%M:%S %Y``
+    tzinfo : datetime.tzinfo, optional
+        Time zone information to include in datetime.
+
+    Returns
+    -------
+    str
+        A date string in the format similar to "Wed May 21 00:00:00 2008"
+    """
+    # pd.isnull/pd.isna covers the cases - None, `np.nan` and `pd.na`
+    if pd.isna(epoch):
+        return epoch  # pyright: ignore[reportReturnType]
+
+    dt_value = EPOCH + dt.timedelta(seconds=float(epoch))
+    if tzinfo is not None:
+        dt_value = dt_value.replace(tzinfo=tzinfo)
+    return dt_value.strftime(time_format)
+
+
+def time_to_seconds(time: dt.time | None) -> float | None:
+    """
+    Convert a time object to seconds since midnight.
+
+    Parameters
+    ----------
+    time : datetime.time
+        The time to convert.
+
+    Returns
+    -------
+    float or None
+        Seconds since midnight.
+    """
+    if not isinstance(time, dt.time):
+        return None
+    date = dt.datetime.combine(dt.date.min, time)
+    delta = date - dt.datetime(1, 1, 1, tzinfo=time.tzinfo)
+    return delta.total_seconds()
+
+
+def seconds_to_time(seconds: int | float | None, *, tzinfo: dt.tzinfo | None = None) -> dt.time | None:
+    """
+    Convert seconds to a time object.
+
+    Parameters
+    ----------
+    seconds : int or float
+        The seconds to convert to time.
+    tzinfo : datetime.tzinfo, optional
+        Time zone to use for resulting time object.
+
+    Returns
+    -------
+    datetime.time or None
+        The time object.
+    """
+    if pd.isnull(seconds):
+        return None
+    time_value = (dt.datetime.min + dt.timedelta(seconds=seconds)).time()
+    if tzinfo:
+        return time_value.replace(tzinfo=tzinfo)
+    return time_value
+
+
+def is_valid_datetime_format(value: Any, time_format: str | None) -> bool:
+    """
+    Check if a date time format is valid against one or more string formatted date time values.
+
+    Parameters
+    ----------
+    value: Any
+        The value to test the format against. If the value is already a kind
+        of date object the format is assumed valid since it can be used to
+        serialize the value to string.
+    time_format: str
+        The format string to parse with.
+
+    Returns
+    -------
+    bool
+        True if the value can be parsed using the provided format.
+    """
+    if not time_format:
+        return False
+    if isinstance(value, (dt.date, dt.datetime, dt.time, np.datetime64)):
+        # Value is a date/time type
+        return True
+    try:
+        dt.datetime.strptime(str(value), time_format)
+        return True
+    except Exception:
+        return False
+
+
+def replace_none_with_nan(dat: list[Mapping[str, Any]] | pd.DataFrame) -> list[dict] | pd.DataFrame:
+    """
+    Replace None values with NaN values.
+
+    For use when retrieving data from Howso via the scikit module to
+    conform to sklearn convention on missing values.
+
+    Parameters
+    ----------
+    dat : list of dict of key-values or DataFrame
+
+    Returns
+    -------
+    list[dict]
+    """
+    if isinstance(dat, pd.DataFrame):
+        return dat.where(pd.notnull(dat), np.nan)
+
+    return [{key: np.nan if value is None else value for key, value in action.items()} for action in dat]
+
+
+def replace_nan_with_none(dat: list[list]) -> list[list[object]]:
+    """
+    Replace None values with NaN values.
+
+    For use when feeding data to Howso from the scikit module to account
+    for the different ways howso and sklearn represent missing values.
+
+    Parameters
+    ----------
+    dat : list of list of object
+        A 2d list of values.
+
+    Returns
+    -------
+    list[list[object]]
+    """
+    return [[None if isinstance(value, (int, float)) and isnan(value) else value for value in case] for case in dat]
+
+
+def reshape_data(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Reshapes X as a matrix and y as a vector.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Feature values ndarray.
+    y : np.ndarray
+        target values ndarray.
+
+    Returns
+    -------
+    np.ndarray
+        X
+    np.ndarray
+        y
+    """
+    if len(x.shape) < 2:
+        x = x.reshape(-1, 1)
+    if len(y.shape) > 1:
+        y = y.reshape(-1)
+    return x, y
+
+
+def align_data(x: np.ndarray, y: np.ndarray | None = None) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
+    """
+    Check and fix type problems with the data and reshape it.
+
+    X is a Matrix and y is a vector.
+
+    Parameters
+    ----------
+    x : numpy.ndarray
+        Feature values ndarray.
+    y : numpy.ndarray, default None
+        Target values ndarray.
+
+    Returns
+    -------
+    numpy.ndarray or tuple of numpy.ndarray
+        The aligned data.
+    """
+    if x.dtype == object:
+        x = x.astype(float)
+    if len(x.shape) < 2:
+        x = x.reshape(-1, 1)
+    if y is not None:
+        if y.dtype == object:
+            y = y.astype(float)
+        return x, y
+    return x
+
+
+def replace_doublemax_with_infinity(dat: Any) -> Any:
+    """
+    Replace values of Double.MAX_VALUE (1.79769313486232E+308) with Infinity.
+
+    For use when retrieving data from Howso.
+
+    Parameters
+    ----------
+    dat : Any
+        The data to replace infinity in.
+
+    Returns
+    -------
+    Any
+        The same value back, with float max values converted to infinity.
+    """
+    if isinstance(dat, dict):
+        dat = {k: replace_doublemax_with_infinity(v) for (k, v) in dat.items()}
+    elif isinstance(dat, list):
+        dat = [replace_doublemax_with_infinity(item) for item in dat]
+    elif dat == sys.float_info.max:
+        dat = float("inf")
+
+    return dat
+
+
+def dprint(debug: bool | int, *args: Any, **kwargs: Any) -> None:
+    """
+    Print based on debug levels.
+
+    Parameters
+    ----------
+    debug : bool or int
+        If true, user_debug level would be 1.
+        Possible levels: 1, 2, 3 (print all)
+    kwargs:
+        default_priority : int, default 1
+            The message is printed only if the `debug` >= `default_priority`.
+
+    Examples
+    --------
+    >>> dprint(True, "hello", "howso", priority=1)
+    `hello howso`
+    """
+    if debug:
+        user_priority = debug
+        if not isinstance(debug, int):
+            user_priority = 1
+
+        priority = kwargs.get("default_priority", 1)
+        if user_priority >= priority:
+            for item in args:
+                print(item, end=" ")
+            if "end" in kwargs:
+                print("", end=kwargs["end"])
+            else:
+                print()
+
+
+def determine_iso_format(str_date: str, fname: str) -> str:  # noqa: C901
+    """
+    Determine which specific ISO8601 format the passed in date is in.
+
+    Specifically if it's just a date, if it's zoned, and if zoned, whether it's
+    a zone or an offset.
+
+    Parameters
+    ----------
+    str_date: str
+        The Date time passed in as a string.
+    fname: str
+        Name of feature to guess bounds for.
+
+    Returns
+    -------
+    str
+        The ISO_8601 format string that most matches the passed in date.
+    """
+    # prevent circular import
+    from howso.client.exceptions import DatetimeFormatWarning
+
+    # parse with the standard parser first to support single digit month/day
+    dt_object = dt_parse(str_date)
+    format_checks = [ISO_8601_FORMAT, ISO_8601_FORMAT_FRACTIONAL]
+    # support variants without T separator
+    format_checks.extend([f.replace("T", " ") for f in format_checks])
+    warning_text: str = (
+        f'Feature "{fname}" is a datetime but may not work properly if user does not specify the correct format.'
+    )
+
+    if dt_object.tzinfo is None:
+        if len(str_date) <= 10:
+            # Check for date only
+            for fmt in [ISO_8601_DATE_FORMAT, "%Y%m%d"]:
+                if is_valid_datetime_format(str_date, fmt):
+                    return fmt
+
+        for fmt in format_checks:
+            if is_valid_datetime_format(str_date, fmt):
+                return fmt
+
+        warnings.warn(warning_text, DatetimeFormatWarning)
+        return ISO_8601_FORMAT
+
+    # detect iso formats ending in Z, signifying UTC
+    if dt_object.utcoffset() == dt.timedelta(0) and DATETIME_UTC_Z_PATTERN.findall(str_date):
+        for fmt in format_checks:
+            if is_valid_datetime_format(str_date, fmt + "Z"):
+                return fmt + "Z"
+        warnings.warn(warning_text, DatetimeFormatWarning)
+        return ISO_8601_FORMAT + "Z"
+
+    # if date has time zone info, determine whether it's an offset.
+    # offsets of +0000 or -0000 won't parse as a TZ offset, but
+    # the format still matches using %z, thus check if last char is '0'
+    if isinstance(dt_object.tzinfo, tzoffset) or str_date[-1] == "0":
+        for fmt in format_checks:
+            if is_valid_datetime_format(str_date, fmt + "%z"):
+                return fmt + "%z"
+        warnings.warn(warning_text, DatetimeFormatWarning)
+        return ISO_8601_FORMAT + "%z"
+
+    else:
+        for fmt in format_checks:
+            if is_valid_datetime_format(str_date, fmt + "%Z"):
+                return fmt + "%Z"
+        warnings.warn(warning_text, DatetimeFormatWarning)
+        return ISO_8601_FORMAT + "%Z"
+
+
+def validate_list_shape(
+    values: Collection | None, dimensions: int, variable_name: str, var_types: str, allow_none: bool = True
+) -> None:
+    """
+    Validate the shape of a list.
+
+    Parameters
+    ----------
+    values : Collection or None
+        A single or multidimensional list.
+    dimensions : int
+        The number of dimensions the list should be.
+    variable_name : str
+        The variable name for output.
+    var_types : str
+        The expected type of the data.
+    allow_none : bool, default True
+        If None should be allowed.
+
+    Raises
+    ------
+    ValueError if variable_name is None
+    """
+    if values is None:
+        if not allow_none:
+            raise ValueError(f"Invalid value for `{variable_name}`, must not be `None`")
+        return
+    if len(np.array(values).shape) != dimensions:
+        raise ValueError(
+            f"Improper shape of `{variable_name}` values passed. "
+            f"`{variable_name}` must be a {dimensions}d list of {var_types}."
+        )
+
+
+def validate_case_indices(case_indices: Sequence[Sequence[str | int]], thorough: bool = False) -> None:
+    """
+    Validate the case_indices parameter to the react() method of a Howso client.
+
+    Raises a ValueError if case_indices has sequences that do not contain the expected
+    data types of (str, int).
+
+    Parameters
+    ----------
+    case_indices : Sequence of Sequence of str or int
+        The case_indices argument to validate.
+    thorough : bool, default False
+        Whether to verify the data types in all sequences or only some (for performance)
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    ValueError
+        if case_indices : sequences that do not contain the expect data types of str | int
+    """
+    try:
+        amount_to_verify = case_indices[: len(case_indices) if thorough else NON_THOROUGH_NUM]
+        if not all(
+            (
+                len(sequence) == 2
+                and not isinstance(sequence, str)
+                and isinstance(sequence[0], str)
+                and isinstance(sequence[1], (np.integer, int))
+            )
+            for sequence in amount_to_verify
+        ):
+            raise ValueError()
+    except (TypeError, ValueError):
+        raise ValueError("Argument case_indices must be type Iterable of (non-string) Sequence[str, int].")
+
+
+def num_list_dimensions(obj: list) -> int:
+    """
+    Return number of dimensions for a list.
+
+    Assumption is that the input nested lists are also lists,
+    or a list of DataFrames.
+
+    Parameters
+    ----------
+    lst : list
+        The nested list of objects.
+
+    Returns
+    -------
+    int
+        The number of dimensions in the passed in list.
+    """
+    d = 0
+    while True:
+        if not isinstance(obj, list):
+            if isinstance(obj, pd.DataFrame):
+                # add the number of dimensions in the dataframe
+                d += obj.ndim
+            break
+        try:
+            obj = obj[0]
+            d += 1
+        except (IndexError, TypeError):
+            break
+    return d
+
+
+def validate_features(features: Mapping[str, Mapping], extended_feature_types: Iterable[str] | None = None) -> None:
+    """
+    Validate the feature types in `features`.
+
+    Parameters
+    ----------
+    features : dict
+        The dict of feature name to feature attributes.
+
+        The valid feature names are:
+
+        a. "nominal"
+        b. "continuous"
+        c. "ordinal"
+        d. along with passed in `extended_feature_types`
+    extended_feature_types : list of str, optional
+        (Optional) If a list is passed in, the feature types specified in the
+        list will be considered as valid features.
+
+    Returns
+    -------
+    None
+
+    """
+    valid_feature_types = _BASE_FEATURE_TYPES
+
+    if extended_feature_types is not None:
+        # Append extended types to valid feature types
+        valid_feature_types += list(extended_feature_types)
+
+    for f_name, f_desc in features.items():
+        f_type = f_desc.get("type")
+        if f_type not in valid_feature_types:
+            raise ValueError(f"The feature name '{f_name}' has invalid feature type - '{f_type}'")
+
+
+def validate_datetime_iso8061(datetime_value: str, feature: str) -> None:
+    """
+    Check that the passed in datetime value adheres to the ISO 8601 format.
+
+    Warn the user if it doesn't check out.
+
+    Parameters
+    ----------
+    datetime_value : str
+        The date value as a string
+    feature : str
+        Name of feature
+    """
+    try:
+        # general iso8601 checker, allows various 8601 formats
+        isoparse(datetime_value)
+    except Exception:  # noqa: Intentionally broad
+        warnings.warn(
+            f"Feature {feature} detected as having datetime values, but are "
+            f"not in an ISO 8601 format, such as '{ISO_8601_FORMAT}', for "
+            f"example: '2020-10-02T12:43:39'"
+        )
+
+
+def serialize_datetimes(  # noqa: C901
+    cases: list[list],
+    columns: Iterable[str],
+    features: Mapping,
+    *,
+    warn: bool = False,
+) -> None:
+    """
+    Serialize datetimes in the given list of cases, in-place.
+
+    Iterate over the passed in case values and serializes any datetime
+    values according to the specified datetime format in feature attributes.
+
+    Parameters
+    ----------
+    cases : list of list
+        A 2d list of case values corresponding to the features of the cases.
+    columns : list of str
+        A list of feature names.
+    features : Mapping
+        Dictionary of feature attributes.
+    warn : bool, default: False
+        If set to true, will warn user when specified datetime format
+        doesn't match the datetime strings.
+
+    Returns
+    -------
+    None
+
+    """
+    # Import here to avoid circular import dependencies
+    from .features import FeatureType
+
+    features = serialize_models(features)
+    if isinstance(columns, Iterable):
+        columns = list(columns)
+
+    # Populate the list of indices for the specified features for all
+    # features that contain datetime values.
+    dt_indices = list()
+    for i, feature_name in enumerate(columns):
+        if feature_name not in features:
+            # Feature has no feature attributes, skip
+            continue
+        feature = features[feature_name]
+        date_time_format = feature.get("date_time_format")
+        try:
+            original_data_type = feature["original_type"]["data_type"]
+        except (TypeError, KeyError):
+            original_data_type = None
+
+        if date_time_format is not None or original_data_type == FeatureType.TIME.value:
+            # If datetime format defined or time only without format we need to
+            # serialize the value
+            dt_indices.append(i)
+
+    if not dt_indices:
+        # If no datetime features found, nothing to serialize
+        return
+
+    warned_features = set()
+    for case in cases:
+        if case is None:  # pyright: ignore[reportUnnecessaryComparison]
+            continue
+
+        for i in dt_indices:
+            feature_name = columns[i]
+            feature = features[feature_name]
+            dt_value = case[i]
+            dt_format = feature.get("date_time_format")
+            locale = feature.get("locale")
+
+            # NaN may be passed from a dataframe if a value is null.
+            if repr(dt_value).lower() in ["nan", "inf", "nat"]:
+                dt_value = None
+            # if the value is a datetime object, just serialize it
+            elif isinstance(dt_value, (dt.date, dt.datetime)):
+                if pd.isna(dt_value):
+                    dt_value = None
+                else:
+                    dt_value = dt_value.strftime(dt_format)
+            elif isinstance(dt_value, dt.time):
+                if pd.isna(dt_value):  # pyright: ignore[reportCallIssue, reportArgumentType]
+                    dt_value = None
+                elif not dt_format:
+                    dt_value = time_to_seconds(dt_value)
+                else:
+                    dt_value = dt.datetime.combine(dt.date(1970, 1, 1), dt_value)
+                    dt_value = dt_value.strftime(dt_format)
+            # deal with string dates using default locale
+            elif isinstance(dt_value, str):
+                if locale is None:
+                    bad_format = False
+                    try:
+                        # convert to datetime object, then serialize
+                        dt_value = dt.datetime.strptime(dt_value, dt_format).strftime(dt_format)
+                    except ValueError:
+                        bad_format = True
+                        if warn and feature_name not in warned_features:
+                            warnings.warn(
+                                f'"{feature_name}" has values with an incorrect '
+                                f'datetime format, should be "{dt_format}". '
+                                f"This feature may not work properly."
+                            )
+                            warned_features.add(feature_name)
+
+                    # if the format was ISO_8601 but the date string
+                    # didn't match it, attempt to parse it
+                    if bad_format and dt_format in ISO_8601_FORMAT:
+                        try:
+                            dt_object = dt_parse(dt_value)
+                            dt_value = dt.datetime.strftime(dt_object, dt_format)
+                        except Exception:  # noqa: Intentionally broad
+                            # do nothing because we already know that this is
+                            # a bad format value and already warned the user
+                            pass
+                else:
+                    # Given a locale string, use it instead of the system
+                    # locale.
+                    # NOTE: The provided locale must be installed on the
+                    # system.
+                    try:
+                        with LocaleOverride(language_code=locale, category=python_locale.LC_TIME):
+                            dt_value = dt.datetime.strptime(dt_value, dt_format).strftime(dt_format)
+                    except python_locale.Error:
+                        warnings.warn(
+                            f"The locale provided: '{locale}' does not appear "
+                            f"to be available on this system. The provided "
+                            f"value is left unchanged. This feature may not "
+                            f"work properly until it is installed."
+                        )
+                    except (TypeError, ValueError):
+                        warnings.warn(
+                            f"{feature_name} has values with incorrect "
+                            f"datetime format for the given locale, should be "
+                            f"{dt_format}. The provided value is left "
+                            f"unchanged. This feature may not work properly."
+                        )
+            else:
+                # At this point, no valid date type has been processed. This
+                # could mean the value is None which is an acceptable input.
+                # Otherwise it meant that the value is malformed or of the
+                # wrong type (ex int or other non datetime object) and a
+                # warning should be issued and the value replaced with None.
+                if dt_value is not None:
+                    warnings.warn(
+                        f"{feature_name} has a malformed value {dt_value} "
+                        f"that cannot be parsed. Expected datetime formatted "
+                        f"string or object. Replacing with None."
+                    )
+                dt_value = None
+
+            # store the serialized datetime value
+            case[i] = dt_value
+
+
+def stringify_json(cases: list[list[Any]], features: Iterable[str], feature_attributes: Mapping) -> None:
+    """
+    Ensure that any JSON features have their cases stringified.
+
+    Parameters
+    ----------
+    cases : list of list of Any
+        A 2d list of case values corresponding to the provided feature names.
+    features : list of str
+        The list of feature names.
+    feature_attributes : Mapping
+        The feature attributes of the provided features.
+    """
+    for idx, feature_name in enumerate(features):
+        if feature_attributes.get(feature_name, {}).get("data_type") == "json":
+            orig_type_info = feature_attributes[feature_name].get("original_type", {})
+            # Applicable if original type is an object (Python list/dict) or string, tokenized into a list
+            if orig_type_info.get("data_type", {}) in ["container", "tokenizable_string"]:
+                if orig_type_info.get("coercion") == "set":
+                    # If an original type indicates a set, convert to list for serialization
+                    for case_group in cases:
+                        case_group[idx] = json.dumps(list(case_group[idx]))
+                    # Deserialize only
+                else:
+                    for case_group in cases:
+                        case_group[idx] = json.dumps(case_group[idx])
+
+
+def destringify_json(cases: pd.Series, feature_attributes: Mapping) -> pd.Series:  # noqa: ARG001
+    """
+    Ensure that any JSON features have their cases destringified.
+
+    Parameters
+    ----------
+    cases : pd.Series
+        A Pandas Series of case values.
+    feature_attributes : Mapping
+        The feature attributes of the feature to which the provided cases belong.
+    """
+    destringified_cases = []
+    typing_info = feature_attributes.get("original_type", {})
+    for case_to_destringify in cases:
+        formatted_case = json.loads(case_to_destringify)
+        if typing_info.get("coercion") == "set":
+            formatted_case = set(formatted_case)
+        destringified_cases.append(formatted_case)
+    return pd.Series(destringified_cases)
+
+
+def tokenize_strings(
+    cases: list[list[Any]], features: Iterable[str], feature_attributes: Mapping, tokenizer: TokenizerProtocol
+) -> None:
+    """
+    Process tokenizable strings in the provided cases by tokenizing or detokenizing them in place.
+
+    Parameters
+    ----------
+    cases : list of list of Any
+        A 2d list of case values corresponding to the provided feature names.
+    features : list of str
+        The list of feature names.
+    feature_attributes : Mapping
+        The feature attributes of the provided features.
+    tokenizer : TokenizerProtocol
+        An object satisfying :class:`howso.client.protocols.TokenizerProtocol` to use for (de-)tokenizing.
+    """
+    if not isinstance(tokenizer, TokenizerProtocol):
+        raise ValueError("The class provided under `token_processor` must satisfy the `TokenizerProtocol` protocol.")
+    for idx, feature_name in enumerate(features):
+        if feature_attributes.get(feature_name, {}).get("original_type", {}).get("data_type") != "tokenizable_string":
+            continue
+        for case_group in cases:
+            case_group[idx] = tokenizer.tokenize(case_group[idx])
+
+
+def is_valid_uuid(value: str | uuid.UUID, version: int = 4) -> bool:
+    """
+    Check if a given string is a valid uuid.
+
+    Parameters
+    ----------
+    value : str or UUID
+        The value to test
+    version : int, optional
+        The uuid version (Default: 4)
+
+    Returns
+    -------
+    bool
+        True if `value` is a valid uuid string
+    """
+    try:
+        uuid_obj = uuid.UUID(str(value), version=version)
+    except (TypeError, ValueError):
+        return False
+    return str(uuid_obj) == value
+
+
+class LocaleOverride:
+    """
+    Implements a thread-safe context manager for switching locales temporarily.
+
+    Background
+    ----------
+    Python's locale.setlocale() is not thread safe. In order to work with
+    alternate locales temporarily, this ContextDecorator will use a thread
+    lock on __enter__ and release said lock on __exit__.
+
+    Important Notes
+    ---------------
+    All other threads will be blocked within the scope of the context. It is
+    important to avoid time-consuming execution inside.
+
+    Example Usage
+    -------------
+    >>> # Parse date string from French and format it in English.
+    >>>
+    >>> # System locale is 'en-us' (in this example)
+    >>> from datetime import datetime
+    >>> dt_format = '<some format>'
+    >>> dt_obj = datetime()
+    >>> with locale_override('fr-fr', category=locale.LC_DATE):
+    >>>     # We're in French date-formatting zone here...
+    >>>     date_obj = datetime.strptime(dt_value, dt_format)
+    >>>
+    >>> # Back in the 'en-us' locale again.
+    >>> dt_value = dt_obj.strftime(dt_format)
+
+    Parameters
+    ----------
+    language_code : str
+        A language code /usually/ given as either:
+            - 2 lower case letters for the base language Ex: `fr` for French.
+            - 5 characters such as `fr_CA` where the first 2 designate the
+              base language (French in this example) followed by an `_`
+              followed by 2 upper case characters designating the country-
+              specific dialect (Canada, in this example). This example
+              designates the French-Canadian locale.
+            - Any of the above, plus an optional encoding following a '.' Ex:
+              `fr_FR.UTF-8`
+    encoding : str
+        An encoding such as 'UTF-8' or 'ISO8859-1', etc. If not provided and
+        there is no embedded encoding within the language_code parameter,
+        'UTF-8' is used. If an encoding is embedded in the `language_code`
+        parameter and an explicit encoding provided here, the embedded encoding
+        is dropped and ignored.
+    category : int
+        This is one of the constants set within the locale object.
+        See: https://docs.python.org/3/library/locale.html for details.
+        `locale.LC_ALL` is used if nothing provided.
+    """
+
+    def __init__(  # pyright: ignore[reportMissingSuperCall]
+        self, language_code: str, encoding: str | None = None, category: int = python_locale.LC_ALL
+    ) -> None:
+        """Construct the context manager."""
+        if "." in language_code:
+            language_code, embedded_encoding = language_code.split(".", 1)
+        else:
+            embedded_encoding = "UTF-8"
+
+        if encoding is None:
+            encoding = embedded_encoding
+
+        self.new_locale = (language_code, encoding)
+        self.category = category
+        self.lock = threading.Lock()
+        self._old_locale = None
+
+    def setup(self) -> None:
+        """
+        Set a thread lock and the locale as desired.
+
+        Use this method directly to setup a locale context when not using this
+        class as a context manager.
+        """
+        self.lock.acquire()
+        self._old_locale = python_locale.getlocale(self.category)
+        python_locale.setlocale(self.category, self.new_locale)
+
+    def restore(self) -> None:
+        """
+        Restore the original locale and release the thread lock.
+
+        Use this method directly to restore the current context when not using
+        this class as a context manager.
+        """
+        python_locale.setlocale(self.category, self._old_locale)
+        if self.lock and self.lock.locked():
+            self.lock.release()
+
+    def __enter__(self) -> LocaleOverride:
+        """Set a thread lock and the locale as desired."""
+        self.setup()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:  # noqa: ANN001
+        """Restore the original locale and release the thread lock."""
+        self.restore()
+
+
+class StopExecution(Exception):
+    """Raise a StopExecution as this is a cleaner `exit()` for Notebooks."""
+
+    def _render_traceback_(self) -> None:
+        pass
+
+
+class UserFriendlyExit:
+    """
+    Return a callable that, when called, simply prints `msg` and cleanly exits.
+
+    Parameters
+    ----------
+    verbose : bool
+        If True, emit more information
+    """
+
+    def __init__(self, verbose: bool = False) -> None:  # pyright: ignore[reportMissingSuperCall]
+        """Construct a UserFriendlyExit instance."""
+        self.verbose = verbose
+
+    def __call__(self, msg: str = "An unexpected exit occurred.", exception: Exception | None = None) -> None:
+        """
+        Exit, but print the exception first.
+
+        Parameters
+        ----------
+        msg : str
+            The **user-friendly** message to display before exiting.
+        exception : Exception
+            An exception to produce the message from.
+
+        Raises
+        ------
+        StopExecution if self.verbose and exception is None
+        """
+        print("Howso Client Error: " + msg)
+        if self.verbose and exception is not None:
+            print("More information:\n")
+            print(str(exception))
+
+        raise StopExecution
+
+
+def get_kwargs(  # noqa: C901
+    kwargs: dict, descriptors: Iterable[Mapping | Collection | str], warn_on_extra: bool = False
+) -> tuple[Any, ...]:
+    """
+    Decompose kwargs into a tuple of return values.
+
+    Each tuple corresponds to a descriptor in 'descriptors'. Optionally issue a
+    warning on any items in `kwargs` that are not "consumed" by the descriptors.
+
+    Parameters
+    ----------
+    kwargs : dict
+        Mapping of keys and values (kwargs)
+
+    descriptors : Iterable of {Mapping or Collection or str}
+        An iterable of descriptors for how to handle each item in kwargs. Each
+        descriptor can be a mapping, another iterable, or a single string.
+
+        If a mapping, it must at least include the key: 'key' but can also
+        optionally include the keys: 'default' and 'test'.
+
+        If a non-mapping iterable, the values will be interpreted as 'key'
+        'default', 'test, in that order. Only the first is absolutely required
+        the remaining will be evaluated to `None` if not provided.
+
+        If a string provided, it is used as the 'key'. 'default' and 'test are
+        set to `None`.
+
+        If a 'key' is not found in the kwargs, then the 'default' value is
+        returned.
+
+        If a descriptor contains a 'test', it should be a callable that returns
+        a boolean. If False, the 'default' value is returned.
+
+        If the 'default' provided is an instance of an Exception, then, the
+        exception is raised when the 'key' is not present, or the 'test' fails.
+
+    warn_on_extra : bool
+        If `True`, will issue warnings about any keys provided in kwargs that
+        were not consumed by the descriptors. Default is `False`
+
+    Returns
+    -------
+        A tuple of the found values in the same order as the
+        provided descriptor.
+
+    Raises
+    ------
+        May raise any exception given as a 'default' in the
+        `descriptors` parameter.
+
+    Usage
+    -----
+    An example of usage showing various ways to use descriptors:
+
+    >>> def my_method(self, required, **kwargs):
+    >>>     apple, banana, cherry, durian, elderberry = get_kwargs(kwargs, (
+    >>>         # A simple string is interpreted as the 'key' with 'default of
+    >>>         # `None` and no test. Very common use-case made simple.
+    >>>         'apple',
+    >>>
+    >>>         # Another common use-case. Set value to 5 if not in kwargs.
+    >>>         # This also shows using an tuple for the descriptor.
+    >>>         ('banana', 5),
+    >>>
+    >>>         # Verbose input including a test using dict
+    >>>         {'key': 'cherry', 'default': 5, 'test': lambda x: x > 0},
+    >>>
+    >>>         # The test, `is_durian`, is defined elsewhere
+    >>>         ('durian', None, is_durian),
+    >>>
+    >>>         # Full example using iterable descriptor rather than mapping.
+    >>>         ('elderberry', ValueError('"elderberry" must be > 5.'),
+    >>>             lambda x: x > 5),
+    >>>     ))
+
+    """
+    returns = []
+    for descriptor in descriptors:
+        if isinstance(descriptor, Mapping):
+            key = descriptor["key"]  # 'key' is required
+            default = descriptor.get("default", None)
+            test = descriptor.get("test", None)
+        elif isinstance(descriptor, str):
+            # A naked key name was provided.
+            key, default, test = descriptor, None, None
+        elif isinstance(descriptor, Collection):
+            descriptor = list(descriptor)
+            descriptor.extend([None, None])
+            key, default, test = descriptor[0:3]
+        else:
+            raise ValueError("Each item of `descriptors` should be either a dict, an ordered Iterable or a string.")
+
+        try:
+            value = kwargs.pop(key)
+        except KeyError:
+            # If the value doesn't exist, set the value to the default, unless
+            # the default given is an instance of an exception, in that case,
+            # raise it.
+            if isinstance(default, Exception):
+                raise default
+            else:
+                value = default
+
+        if callable(test):
+            if test(value):
+                returns.append(value)
+            else:
+                if isinstance(default, Exception):
+                    raise default
+                else:
+                    returns.append(default)
+        else:
+            returns.append(value)
+
+    if warn_on_extra:
+        # Attempt to provide the context of the caller...
+        try:
+            caller = inspect.stack()[1][3]
+        except Exception:  # noqa: Intentionally broad
+            caller = "[unknown]"
+        num_extra_kwargs = len(kwargs)
+        if num_extra_kwargs == 1:
+            unexpected_param = list(kwargs.keys())[0]
+            warnings.warn(
+                f'The function/method "{caller}" received an '
+                f'unexpected parameter "{unexpected_param}". '
+                f"This will be ignored."
+            )
+        elif num_extra_kwargs > 1:
+            params = ", ".join(list(kwargs.keys()))
+            warnings.warn(
+                f'The function/method "{caller}" received unexpected parameters: [{params}]. These will be ignored.'
+            )
+
+    return tuple(returns)
+
+
+def check_feature_names(features: Mapping, expected_feature_names: Collection, raise_error: bool = False) -> bool:
+    """
+    Check if features in `features` dict matches `expected_feature_names`.
+
+    Parameters
+    ----------
+    features : Mapping
+        A feature dictionary that maps feature names to its attributes.
+    expected_feature_names : Collection
+        A list (or a set) of expected column names in the given `features`
+        dictionary.
+    raise_error : bool, defaults to False
+        Raise a value error in case the feature names doesn't match between
+        `features` and `expected_feature_names`.
+
+    Returns
+    -------
+    bool
+        Returns `True` if the feature names in `features` matches the
+        expected feature names passed via `expected_feature_names`. Otherwise,
+        returns `False`.
+
+    Raises
+    ------
+        If `raise_error` is `True`, raises `ValueError` to indicate that
+        the feature names in `features` dict doesn't match the feature names
+        `expected_feature_names`.
+    """
+    feature_names = set(features.keys())
+
+    if isinstance(expected_feature_names, list):
+        expected_feature_names = set(expected_feature_names)
+
+    ret_value = True
+    if feature_names != expected_feature_names:
+        ret_value = False
+        if raise_error:
+            raise ValueError(
+                f"The feature names in `features` differs from "
+                f"`expected_feature_names`\n"
+                f"Trained features names: {set(feature_names)} \n"
+                f"Input column names: {expected_feature_names} \n"
+                f"Please make sure that the feature names matches the columns "
+                f"of the input DataFrame."
+            )
+
+    return ret_value
+
+
+def build_react_series_df(react_series_response: Mapping, series_index: str | None = None) -> pd.DataFrame:
+    """
+    Build a DataFrame from the response from react_series.
+
+    If series_index is set, use that
+    as a name for an additional feature that will be the series index.
+
+    Parameters
+    ----------
+    react_series_response : Mapping
+        The response dictionary from a call to react_series.
+    series_index : str
+        The name of the series index feature, which will index each series in
+        the form 'series_<idx>', e.g., series_1, series_1, ..., series_n.
+        If None, does not include the series index feature in the returned
+        DataFrame.
+
+    Returns
+    -------
+    pd.DataFrame
+        A Pandas DataFrame defined by the action features and series data in
+        the react_series response. Optionally includes a series index feature.
+    """
+    # Columns are defined by action_features
+    columns = react_series_response["details"]["action_features"]
+    # Series data from the response
+    series = react_series_response["action"]
+
+    if series_index:
+        # If series_index is specified, include it as a feature
+        columns.insert(0, series_index)
+        # >> 'row.insert(...) or row':
+        # Insert the series index into the row and append that row to
+        # the 'data' list immediately. 'insert()' returns None, so 'None or row' will resolve
+        # to 'row' which will, at that point, have the series index inserted.
+        #
+        # >> 'row for idx, sublist in enumerate(series) for row in sublist':
+        # Each item (aka 'sublist') in series is a list of data rows; evaluate every row in
+        # sublist for every sublist in series.
+        data = [row.insert(0, f"series_{idx + 1}") or row for idx, sublist in enumerate(series) for row in sublist]
+    else:
+        # Else use just the data returned by react_series
+        data = [row for sublist in series for row in sublist]
+
+    return pd.DataFrame(data, columns=columns)
+
+
+def date_format_is_iso(f: str) -> bool:
+    """
+    Check if datetime format is ISO8601.
+
+    Does format match the iso8601 set that can be handled by the C parser?
+    Generally of form YYYY-MM-DDTHH:MM:SS - date separator can be different
+    but must be consistent.  Leading 0s in dates and times are optional.
+
+    Sourced from Pandas:
+    https://github.com/pandas-dev/pandas/blob/v1.5.3/pandas/_libs/tslibs/parsing.pyx
+    """
+    iso_template = "%Y{date_sep}%m{date_sep}%d{time_sep}%H:%M:%S{micro_or_tz}".format
+    excluded_formats = ["%Y%m%d", "%Y%m", "%Y"]
+
+    for date_sep in [" ", "/", "\\", "-", ".", ""]:
+        for time_sep in [" ", "T"]:
+            for micro_or_tz in ["", "Z", "%z", "%Z", ".%f", ".%f%z", ".%f%Z", ".%fZ"]:
+                if (
+                    iso_template(
+                        date_sep=date_sep,
+                        time_sep=time_sep,
+                        micro_or_tz=micro_or_tz,
+                    ).startswith(f)
+                    and f not in excluded_formats
+                ):
+                    return True
+    return False
+
+
+def deep_update(base: dict | None, updates: dict) -> dict:
+    """
+    Update dict `base` with updates from dict `updates` in a "deep" fashion.
+
+    NOTE: This is a recursive function. Care should be taken to ensure that
+    neither of the input dictionaries are self-referencing.
+
+    Parameters
+    ----------
+    base : dict
+        A dictionary
+    updates : dict
+        A dictionary of updates
+
+    Returns
+    -------
+    dict
+        The updated dictionary.
+    """
+    _V = TypeVar("_V")
+
+    def _recurse(b: dict | None, u: _V) -> dict | _V:
+        if isinstance(b, dict) and isinstance(u, dict):
+            for k, v in u.items():
+                b[k] = _recurse(b.get(k), v)
+            return b
+        return u
+
+    return _recurse(base, updates)
+
+
+def matrix_processing(  # noqa
+    matrix: pd.DataFrame,
+    normalize: bool = False,
+    normalize_method: Iterable[NormalizeMethod | Callable] | NormalizeMethod | Callable = "fractional",
+    ignore_diagonals_normalize: bool = True,
+    absolute: bool = False,
+    fill_diagonal: bool = False,
+    fill_diagonal_value: float | int = 1,
+) -> pd.DataFrame:
+    """
+    Preprocess a matrix including options to normalize, take the absolute value, and fill in the diagonals.
+
+    The order of operation for this method is first it then normalizes, then takes the absolute value, and
+    lastly fills in the diagonals. This method automatically sorts the matrix indexes.
+
+    Parameters
+    ----------
+    matrix : Dataframe
+        Matrix in Dataframe form.
+    normalize : bool, default False
+        Whether to normalize the matrix row wise. Normalization method is set by the `normalize_method` parameter.
+    normalize_method : Iterable of NormalizeMethod | Callable or NormalizeMethod | Callable, default "relative"
+        The normalization method. The method may either one of the strings below that correspond to a
+        default method or a custom Callable.
+
+        These methods may be passed in as an individual string or in a iterable where they will
+        be processed sequentially.
+
+        Default Methods:
+        - 'relative': normalizes each row by dividing each value by the maximum absolute value in the row.
+        - 'fractional': normalizes each row by dividing each value by the sum of the values in the row, so the relative
+           values sum to 1.
+        - 'fractional_absolute': normalizes each row by dividing each value by the sum of absolute values in the row.
+
+        Custom Callable:
+        - If a custom Callable is provided, then it will be passed onto the DataFrame apply function:
+            `matrix.apply(Callable)`
+    ignore_diagonals_normalize : bool, default True
+        Whether to ignore the diagonals when normalizing the matrix. Useful for matrices where the diagonals are a
+        constant value such as correlation matrices.
+    absolute : bool, default False
+        Whether to transform the matrix values into the absolute values.
+    fill_diagonal : bool, default False
+        Whether to fill in the diagonals of the matrix. If set to true,
+        the diagonal values will be filled in based on the `fill_diagonal_value` value.
+    fill_diagonal_value : float | int default 1
+        The value to fill in the diagonals with. `fill_diagonal` must be set to True in order
+        for the diagonal values to be filled in. If `fill_diagonal` is set to false, then this
+        parameter will be ignored.
+
+    Returns
+    -------
+    Dataframe
+        Dataframe of the result.
+    """
+    if matrix.shape[0] != matrix.shape[1]:
+        raise ValueError(f"Invalid matrix shape: ({matrix.shape[0]}, {matrix.shape[1]}), matrix must be square.")
+
+    # Ensures sorting
+    matrix = matrix.sort_index(axis=0)
+    matrix = matrix.sort_index(axis=1)
+
+    if isinstance(normalize_method, (str, Callable)):
+        methods = cast("list[NormalizeMethod | Callable]", [normalize_method])
+    else:
+        methods = normalize_method
+
+    # Default normalization methods
+    def sum_if_not_zero(row: pd.Series) -> pd.Series:
+        """Return standard sum."""
+        row_sum = row.sum()
+        if row_sum != 0:
+            return row / row_sum
+        else:
+            warnings.warn(
+                f"Sum of row {row.name} is 0. Division cannot be performed. Row values will remain unnormalized."
+            )
+            return row
+
+    def abs_sum_if_not_zero(row: pd.Series) -> pd.Series:
+        """Sum of the absolute values."""
+        row_sum = row.abs().sum()
+        if row_sum != 0:
+            return row / row_sum
+        else:
+            warnings.warn(
+                f"Absolute sum of row {row.name} is 0. Division cannot be performed. "
+                "Row values will remain unnormalized."
+            )
+            return row
+
+    def divide_by_max_abs(row: pd.Series) -> pd.Series:
+        """Division by the maximum absolute value."""
+        max_abs_value = row.abs().max()
+        if max_abs_value != 0:
+            return row / max_abs_value
+        else:
+            warnings.warn(
+                f"Maximum absolute value of row {row.name} is 0. Division cannot be performed. "
+                "Row values will remain unnormalized."
+            )
+            return row
+
+    if normalize:
+        # Replace all diagonal values with NaN, then put them back after normalization.
+        diagonal_values = np.diag(matrix).copy() if ignore_diagonals_normalize else None
+        if diagonal_values is not None:
+            for i in range(len(matrix)):
+                matrix.iat[i, i] = np.nan
+
+        for method in methods:
+            if method == "relative":
+                matrix = matrix.apply(divide_by_max_abs, axis=1)  # type: ignore
+            elif method == "fractional":
+                matrix = matrix.apply(sum_if_not_zero, axis=1)  # type: ignore
+            elif method == "fractional_absolute":
+                matrix = matrix.apply(abs_sum_if_not_zero, axis=1)  # type: ignore
+            elif callable(method):
+                matrix = matrix.apply(method, axis=1)  # type: ignore
+            else:
+                raise ValueError(
+                    f"Invalid normalization method: {normalize_method}. "
+                    "Must be 'relative', 'fractional', 'fractional_absolute', or a Callable."
+                )
+
+        if diagonal_values is not None:
+            for i, value in enumerate(diagonal_values):
+                matrix.iat[i, i] = value
+
+    if absolute:
+        matrix = matrix.abs()
+
+    if fill_diagonal:
+        for i in range(len(matrix)):
+            matrix.iloc[i, i] = fill_diagonal_value
+
+    return matrix
+
+
+def format_confusion_matrix(confusion_matrix: dict[str, dict[str, int]]) -> tuple[np.ndarray, list[str]]:
+    """
+    Convert a Howso dict confusion matrix into the same format as `sklearn.metrics.confusion_matrix`.
+
+    Parameters
+    ----------
+    confusion_matrix : dict of str -> dict of str -> int
+        Confusion matrix in dictionary form. Standard form of confusion matrices returned when
+        retrieving Howso's prediction stats through :meth:`howso.engine.Trainee.react_aggregate`.
+
+    Returns
+    -------
+    ndarray
+        The array of the confusion matrix values.
+    list of str
+        List of the confusion matrix row labels. These labels denotes the labels
+        of the confusion matrix going top to bottom and left to right.
+    """
+    predicted_labels_keys = set()
+    for sub_matrix in confusion_matrix.values():
+        predicted_labels_keys.update(sub_matrix.keys())
+
+    true_labels_unique = set(confusion_matrix.keys())
+
+    # Row labels is the combination of all unique actual and predicted values
+    row_labels = sorted(true_labels_unique.union(predicted_labels_keys))
+
+    # Warn if a predicted value doesn't actually exist
+    predicted_labels_diff = predicted_labels_keys.difference(true_labels_unique)
+    if len(predicted_labels_diff) > 0:
+        warnings.warn(
+            f"There are predicted values that do not exist as actual values : {predicted_labels_diff}", UserWarning
+        )
+
+    confusion_matrix_array = np.zeros((len(row_labels), len(row_labels)), dtype=int)
+
+    for i, actual_label in enumerate(row_labels):
+        for j, predicted_label in enumerate(row_labels):
+            confusion_matrix_array[i, j] = confusion_matrix.get(actual_label, {}).get(predicted_label, 0)
+
+    return confusion_matrix_array, row_labels
+
+
+def yield_dataframe_as_chunks(df: pd.DataFrame, num_chunks: int) -> Generator[pd.DataFrame, None, None]:
+    """
+    Yield a DataFrame in chunks using iloc. Np.array_split is deprecated.
+
+    Parameters
+    ----------
+    df : DataFrame
+        Pandas DataFrame to be split.
+    num_chunks : int
+        The number of chunks to split the DataFrame into.
+
+    Yields
+    ------
+    DataFrame
+        A DataFrame chunk.
+    """
+    total_rows = len(df)
+
+    if num_chunks > total_rows:
+        warnings.warn(
+            f"Number of chunks requested: {num_chunks} is greater than "
+            f"the number of rows in the DataFrame. Yielding the original DataFrame."
+        )
+        yield df
+
+    rows_per_chunk = ceil(total_rows / num_chunks)
+
+    for i in range(num_chunks):
+        start = i * rows_per_chunk
+        # Cap the end index at total_rows to avoid out-of-bounds
+        end = ((i + 1) * rows_per_chunk) if i != num_chunks - 1 else total_rows
+        yield df.iloc[start:end]
+
+
+def infer_time_format(time_str: str) -> str:
+    """
+    Attempt to infer a time format given an arbitrary time string.
+
+    Parameters
+    ----------
+    time_str : str
+        The time to infer the format of
+
+    Returns
+    -------
+    str
+        The format of the given time string, if a format can be inferred.
+        For example, the input `13:05:59` would return `%H:%M:%S`.
+
+    Raises
+    ------
+    ValueError
+        If the format of the time string cannot be determined.
+    """
+    match = re.match(TIME_PATTERN, time_str)
+    if not match:
+        # First try the simple time pattern (<hour AM/PM)
+        simple_match = re.match(SIMPLE_TIME_PATTERN, time_str)
+        if simple_match:
+            return "%I %p" if " " in time_str else "%I%p"
+        else:
+            raise ValueError(f"The time '{time_str}' does not match a known time format")
+
+    format_string = ""
+
+    # Hours
+    hour = match.group("hour")
+    if hour:
+        format_string += "%I" if match.group("ampm") else "%H"
+
+    # Minutes
+    minute = match.group("minute")
+    if minute:
+        format_string += ":%M"
+
+    # Seconds
+    second = match.group("second")
+    if second:
+        format_string += ":%S"
+
+    # Fractional seconds
+    fraction = match.group("fraction")
+    if fraction:
+        format_string += ".%f"
+
+    # AM/PM designation
+    ampm = match.group("ampm")
+    if ampm:
+        # Ensure whitespace or lack thereof is preserved
+        split = time_str.lower().split(" ")
+        format_string += " %p" if "am" in split or "pm" in split else "%p"
+
+    return format_string
+
+
+def infer_time_feature_cycle_length(time_format_str: str) -> int:
+    """
+    Determine the cycle length of a time-only feature given its format string.
+
+    Parameters
+    ----------
+    time_format_str : str
+        The format string of the time-only feature.
+
+    Returns
+    -------
+    int
+        The appropriate cycle length
+
+    Raises
+    ------
+    ValueError
+        If the given format does not contain one of "%H", "%M", "%S", or "%f"
+    """
+    if "%H" in time_format_str or "%I" in time_format_str:
+        return TWENTY_FOUR_HOURS
+    elif "%M" in time_format_str:
+        return ONE_HOUR
+    elif "%S" in time_format_str:
+        return ONE_MINUTE
+    elif "%f" in time_format_str:
+        # One second
+        return 1
+    else:
+        raise ValueError("Unsupported time format")
+
+
+def lazy_map(
+    executor: ProcessPoolExecutor | ThreadPoolExecutor,
+    func: Callable,
+    *iterables: Iterable,
+    queue_length: int | None = None,
+) -> Generator[Future, None, None]:
+    """
+    Generate completed futures of ``func`` with arguments ``*iterables``.
+
+    This function acts as a combination of ``map()`` and ``as_completed()``,
+    but with lazy consumption from the iterables. Completed futures are
+    returned as they are completed, which may be in a different order than
+    they were fed into the executor.
+
+    Typical usage:
+
+    ```
+        # Note that this also works with ThreadPoolExecutor
+        with ProcessPoolExecutor(max_workers=4) as ex:
+            for future in lazy_map(ex, some_func, iterable1, iterable2):
+                try:
+                    result = future.result()
+                except Exception:
+                    # Do something with an exception raised in `some_func`
+                    ...
+                else:
+                    # Do something with the result
+                    ...
+    ```
+
+    Besides conveniently combining the ``map`` and ``as_completed`` functions
+    as described, this function only consumed from the given iterables when
+    workers in the pool are ready to process them. This can be paramount when
+    the iterables contain large datasets to keep memory usage at a minimum.
+
+    The function will stop drawing from ``*iterables`` once it reaches the end
+    of the shortest one (same as functools.zip()).
+
+    The futures returned are already on their ``done`` state, but returned as
+    futures (rather than results) to allow for the caller to handle the
+    exceptions, if any, as future.result() will raise the exception if there
+    was one during the processing of ``func``.
+
+    Parameters
+    ----------
+    executor : ProcessPoolExecutor or ThreadPoolExecutor
+        The instance of an executor.
+    func : callable
+        A Callable that will take as many arguments as there are
+        passed iterables.
+    iterables : iterables
+        One or more iterables that correspond to the args of ``func``.
+    queue_length : int, optional
+        The number of items, drawn from the provided ``iterables`` to queue-up
+        to be processed by ``func``. Setting this greater than the number of
+        max_workers of the executor can be useful when it requires some time to
+        prepare the inputs. If left unset, will be set to the same as
+        ``executor._max_workers``.
+
+    Returns
+    -------
+    Generator of Futures
+        A generator that yields the futures of ``func(*iterables)``.
+
+    Raises
+    ------
+    TimeoutError
+        If the entire result iterator could not be generated before the
+        given timeout.
+    Exception
+        If fn(*args) raises for any values.
+    """
+    futures: set[Future] = set()
+    args_iter = iter(zip(*iterables))
+    if queue_length:
+        queue_length = max(executor._max_workers, queue_length)  # type: ignore
+    else:
+        queue_length = executor._max_workers  # type: ignore
+
+    try:
+        while True:
+            for _ in range(max(0, queue_length - len(futures))):
+                # Take `next()` until StopIteration is raised.
+                args = next(args_iter)
+                # Submit the work to the executor
+                future = executor.submit(func, *args)
+                futures.add(future)
+
+            # Yield completed futures and remove them from the queue.
+            done, futures = wait(futures, return_when=FIRST_COMPLETED)
+            for future in done:
+                yield future
+
+    except StopIteration:
+        for future in as_completed(futures):
+            yield future
+
+
+def get_hash(value: Any) -> int:
+    """Get a hashed pickle of the provided value."""
+    # Use pickle to serialize
+    pickled = pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL)
+    # Return a hash of the pickled bytes for efficient comparison
+    return mmh3.hash128(pickled)
+
+
+def get_optimized_max_chunk_size(
+    *,
+    row_count: int,
+    max_chunk_size: int,
+    min_chunk_size: int | None = None,
+) -> tuple[int, int]:
+    """Optimize chunk_size such that the number of chunks is a power of 2.
+
+    Computes the power-of-2 chunk count that yields the largest chunk size
+    less than or equal to ``max_chunk_size``. The ``min_chunk_size`` floor
+    may force the result above ``max_chunk_size`` when the two constraints
+    conflict.
+
+    Parameters
+    ----------
+    row_count : int
+        The total number of rows to chunk.
+    max_chunk_size : int
+        The maximum desired chunk size. The result will be ``<=`` this value
+        unless capped by ``min_chunk_size``.
+    min_chunk_size : int, default 1
+        The minimum size to return.
+
+    Returns
+    -------
+    ideal_chunk_size : int
+        The optimized number of rows per chunk. This chunk size will result in
+        some power of 2 chunks in total -- which produces optimal results for
+        Federated Learning.
+    num_chunks : int
+        The number of chunks (a power of 2)
+    """
+    # This is necessary because `None` may be explicitly passed in.
+    min_chunk_size = min_chunk_size or 1
+
+    # Clamp max up to the floor so the rest of the algorithm preserves the
+    # power-of-2 invariant. Also avoids a ZeroDivisionError on max_chunk_size = 0.
+    max_chunk_size = max(max_chunk_size, min_chunk_size)
+
+    # 2 ** floor(log2(row_count / min_chunk_size)), but stays in integer math.
+    max_num_chunks = (
+        1 << (row_count // min_chunk_size).bit_length() - 1
+        if row_count >= min_chunk_size
+        else 1
+    )
+
+    # Smallest power of 2 >= ceil(row_count / max_chunk_size), so that
+    # ceil(row_count / num_chunks) <= max_chunk_size.
+    needed_chunks = -(-row_count // max_chunk_size)
+    ideal_num_chunks = 1 << (needed_chunks - 1).bit_length() if needed_chunks > 1 else 1
+
+    num_chunks = min(ideal_num_chunks, max_num_chunks)
+
+    # math.ceil, except stays in integer math
+    ideal_chunk_size = -(-row_count // num_chunks)
+
+    return ideal_chunk_size, num_chunks

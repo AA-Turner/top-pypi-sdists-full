@@ -1,0 +1,54 @@
+# Example metadata.yaml demonstrating smoke test scenarios with interpolation placeholders.
+#
+# This file illustrates the convention-driven smoke-test configuration format:
+# secrets are referenced inline via `${secret-ref:...}` and relative dates are
+# expressed via `${relative-date:-P...}`. There is intentionally no `testSecrets`
+# block — the runner resolves vault/provider/account from environment, so the
+# metadata stays portable across forks.
+data:
+  allowedHosts:
+    hosts:
+      - "api.ashby.com"
+  registryOverrides:
+    oss:
+      enabled: true
+    cloud:
+      enabled: true
+  connectorSubtype: api
+  connectorType: source
+  definitionId: 12345678-1234-1234-1234-123456789012
+  dockerImageTag: 0.1.0
+  dockerRepository: airbyte/source-ashby
+  githubIssueLabel: source-ashby
+  icon: ashby.svg
+  license: MIT
+  name: Ashby
+  releaseDate: "2024-01-01"
+  releaseStage: alpha
+  supportLevel: community
+  documentationUrl: https://docs.airbyte.com/integrations/sources/ashby
+  tags:
+    - language:manifest-only
+  connectorTestSuitesOptions:
+    - suite: smokeTests
+      scenarios:
+        # Each `${secret-ref:...}` requires three segments: item / section /
+        # field. The section segment matches the 1Password section name
+        # verbatim (e.g. `test-credentials-api_key`). The OPS CLI fetches
+        # credentials ahead of time and writes one `.env.<section>` file per
+        # 1Password section under `secrets/` (e.g.
+        # `secrets/.env.test-credentials-api_key`); the test runner resolves
+        # placeholders by reading those files.
+        - name: default
+          configSettings:
+            api_key: "${secret-ref:ashby/test-credentials-api_key/api_key}"
+            start_date: "${relative-date:-P30D}"
+        # Alternate credential set, sourced from 1P section `test-credentials-oauth`
+        # (written to `secrets/.env.test-credentials-oauth` by the OPS CLI).
+        - name: oauth
+          configSettings:
+            client_id: "${secret-ref:ashby/test-credentials-oauth/client_id}"
+            client_secret: "${secret-ref:ashby/test-credentials-oauth/client_secret}"
+            refresh_token: "${secret-ref:ashby/test-credentials-oauth/refresh_token}"
+            start_date: "${relative-date:-P30D}"
+metadataSpecVersion: "1.0"

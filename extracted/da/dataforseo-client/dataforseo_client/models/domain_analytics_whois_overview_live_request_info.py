@@ -1,0 +1,85 @@
+from __future__ import annotations
+import pprint
+import re  # noqa: F401
+import json
+
+from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr, StrictBool
+from typing import Any, ClassVar, Dict, List, Optional, Union
+from typing import Optional, Set, Any, Dict, List
+from typing_extensions import Self
+
+
+
+
+class DomainAnalyticsWhoisOverviewLiveRequestInfo(BaseModel):
+    """
+    DomainAnalyticsWhoisOverviewLiveRequestInfo
+    """ # noqa: E501
+    limit: Optional[StrictInt] = Field(default=None, description=r"the maximum number of returned domainsoptional fielddefault value: 100maximum value: 1000")
+    offset: Optional[StrictInt] = Field(default=None, description=r"offset in the results array of returned itemsoptional fielddefault value: 0if you specify the 10 value, the first ten items in the results array will be omitted and the data will be provided for the successive items;Note: we recommend using this parameter only when retrieving up to 10,000 results for retrieving over 10,000 results, use the offset_token instead")
+    offset_token: Optional[StrictStr] = Field(default=None, description=r"token for subsequent requestsoptional fieldprovided in the identical filed of the response to each request;use this parameter to avoid timeouts while trying to obtain over 100,000 results in a single request;by specifying the unique offset_token value from the response array, you will get the subsequent results of the initial task;offset_token values are unique for each subsequent taskNote: if the offset_token is specified in the request, all other parameters should be identical to the previous requestlearn more about this parameter on our Help Center")
+    filters: Optional[List[Optional[Any]]] = Field(default=None, description=r"array of results filtering parametersoptional fieldyou can add several filters at once (8 filters maximum)you should set a logical operator and, or between the conditionsthe following operators are supported:regex, <, <=, >, >=, =, <>, in, not_in, like, not_likeyou can use the % operator with like and not_like to match any string of zero or more characters")
+    order_by: Optional[List[Optional[StrictStr]]] = Field(default=None, description=r"results sorting rulesoptional fieldyou can use the same values as in the filters array to sort the resultspossible sorting types:asc - results will be sorted in the ascending orderdesc - results will be sorted in the descending orderthe comma is used as a separatorexample:['metrics.organic.pos_1,desc']default rule:['metrics.organic.count,desc']note that you can set no more than three sorting rules in a single requestyou should use a comma to separate several sorting rulesexample:['expiration_datetime,asc','metrics.organic.etv,desc','metrics.organic.pos_1,desc']")
+    tag: Optional[StrictStr] = Field(default=None, description=r"user-defined task identifieroptional fieldthe character limit is 255you can use this parameter to identify the task and match it with the resultyou will find the specified tag value in the data object of the response")
+    __properties: ClassVar[List[str]] = [
+        "limit", 
+        "offset", 
+        "offset_token", 
+        "filters", 
+        "order_by", 
+        "tag", 
+        ]
+
+    additional_properties: Dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        validate_assignment=True,
+        protected_namespaces=(),
+    )
+
+    def to_str(self) -> str:
+        return pprint.pformat(self.model_dump(by_alias=True))
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> Optional[Self]:
+        return cls.from_dict(json.loads(json_str))
+
+    def to_dict(self) -> Dict[str, Any]:
+        excluded_fields: Set[str] = set([
+        ])
+
+        _dict = {}
+
+        _dict['limit'] = self.limit
+        _dict['offset'] = self.offset
+        _dict['offset_token'] = self.offset_token
+        _dict['filters'] = self.filters
+        _dict['order_by'] = self.order_by
+        _dict['tag'] = self.tag
+        return _dict
+
+
+    @classmethod
+    def from_dict(cls, obj: Optional[Dict[str, Any]]) -> Optional[Self]:
+        if obj is None:
+            return None
+
+        if not isinstance(obj, dict):
+            return cls.model_validate(obj)
+
+        _obj = cls.model_validate({
+            "limit": obj.get("limit"),
+            "offset": obj.get("offset"),
+            "offset_token": obj.get("offset_token"),
+            "filters": obj.get("filters"),
+            "order_by": obj.get("order_by"),
+            "tag": obj.get("tag"),
+        })
+
+        additional_properties = {k: v for k, v in obj.items() if k not in cls.__properties}
+        _obj.additional_properties = additional_properties
+        return _obj

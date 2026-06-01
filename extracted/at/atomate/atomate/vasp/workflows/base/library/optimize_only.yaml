@@ -1,4 +1,0 @@
-# Optimize the structure (only)
-# Author: Anubhav Jain (ajain@lbl.gov)
-fireworks:
-- fw: atomate.vasp.fireworks.core.OptimizeFW

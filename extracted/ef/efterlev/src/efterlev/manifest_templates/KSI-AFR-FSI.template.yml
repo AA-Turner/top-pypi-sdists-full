@@ -1,0 +1,32 @@
+# KSI-AFR-FSI — FedRAMP Security Inbox
+#
+# DRAFT — this is a starter-pack template. Copy it to
+# `.efterlev/manifests/<ksi-id>.yml` (drop the `.template` suffix) and
+# fill in the DRAFT placeholders before letting it land in your
+# attestation pipeline. The `_template_help` block carries the
+# questions you should answer; remove that block once filled in.
+
+ksi: KSI-AFR-FSI
+name: "FedRAMP Security Inbox"
+
+_template_help:
+  description: >
+    KSI-AFR-FSI asks you to operate a secure inbox for FedRAMP and government communications. The attestation should name the inbox address, the SLA for acknowledging messages, and where the runbook lives.
+  questions:
+      - "What email address receives FedRAMP and government communications?"
+      - "Who monitors the inbox and what's the acknowledgment SLA?"
+      - "Where is the runbook documented (URL or filesystem path)?"
+      - "Where do high-severity messages get routed (PagerDuty, on-call, etc.)?"
+      - "When did you last review the inbox's coverage and routing?"
+
+evidence:
+  - type: attestation
+    statement: >
+      DRAFT — Example: security@example.com is monitored by the SOC team 24/7. The inbox is configured in Google Workspace with a 15-minute acknowledgment SLA documented in runbooks/security-inbox.md, and auto-forwards high-severity reports to the on-call PagerDuty rotation. A weekly audit of acknowledgment timings is reviewed by the security lead.
+    attested_by: "DRAFT — your-vp-security@example.com"
+    attested_at: "DRAFT — YYYY-MM-DD"
+    reviewed_at: "DRAFT — YYYY-MM-DD"
+    next_review: "DRAFT — YYYY-MM-DD (recommend 6-month review cadence)"
+    supporting_docs:
+      - "DRAFT — ./policies/your-runbook.pdf"
+      - "DRAFT — https://wiki.your-company.example/path-to-relevant-docs"

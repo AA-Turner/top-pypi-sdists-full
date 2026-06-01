@@ -1,0 +1,104 @@
+[build-system]
+requires = [
+    "setuptools>=41.0.1",
+    "ninja>=1.10.2",
+
+    # manual sync with requirements/build.txt
+    "scikit-build >= 0.11.1",
+    "cmake >= 3.21.2",
+    "cython >= 0.29.32",
+    "setuptools_scm >= 8.2.0",
+
+    # manual sync numpy version with requirements/runtime.txt
+    "numpy>=2.1.0      ; python_version < '4.0'  and python_version >= '3.13'",  # Python 3.13+
+    "numpy>=2.0.0  ; python_version < '3.13' and python_version >= '3.11'",  # Python 3.11+ 
+    "numpy>=2.0.0  ; python_version < '3.11' and python_version >= '3.10'",  # Python 3.10
+    "numpy>=2.0.0  ; python_version < '3.10' and python_version >= '3.9' ",  # Python 3.9
+]
+[tool.setuptools_scm]
+local_scheme = "no-local-version"
+[tool.xcookie]
+url = 'https://github.com/Remote-Sensing-of-Land-Resource-Lab/pyxccd'
+tags = [ "github", "binpy", "cv2"]
+mod_name = "pyxccd"
+repo_name = "pyxccd"
+rel_mod_parent_dpath = "src/python"
+os = [ 
+    "osx",
+    "linux", 
+    "win", 
+    #"all"
+]
+min_python = 3.9
+author = "Su Ye"
+enable_gpg = false
+defaultbranch = "devel"
+author_email = "remotesensingsuy@gmail.com"
+description = "A PYthon library for latest and eXtended COntinuous Change Detection algorithms"
+dev_status = "beta"
+license = "Apache 2"
+ci_pypi_live_password_varname = 'PYPI'
+ci_pypi_test_password_varname = 'PYPY_TEST'
+
+
+[tool.cibuildwheel]
+# Options for this section are documented here
+# https://cibuildwheel.readthedocs.io/en/stable/options/
+build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
+#build = "cp310-manylinux_x86_64"
+build-frontend = "build"
+skip = "*-win32 *-musllinux_* *i686 pp*"
+test-requires = ["-r requirements/tests.txt", "-r requirements/headless.txt"]
+test-command = "python {project}/run_tests.py"
+
+build-verbosity = 1
+
+[tool.cibuildwheel.macos]
+    archs = ["x86_64", "arm64"]
+    before-build = "brew update && brew install gsl gcc cmake"
+
+[tool.cibuildwheel.linux]
+    archs = ["x86_64"]
+    # Use custom manylinux images to get precompiled build-time deps
+    # manylinux-x86_64-image = "quay.io/erotemic/manylinux2014_x86_64_for:zlib-build-fortran-gsl"
+    # manylinux-i686-image = "quay.io/erotemic/manylinux2014_i686_for:zlib-build-fortran-gsl"
+    # Uncomment to work with official manylinux images 
+    # manylinux-x86_64-image = "quay.io/pypa/manylinux2014_x86_64"
+    before-build="yum install gcc-c++ zlib-devel gcc-gfortran libgomp blas-devel -y && curl https://ftp.gnu.org/gnu/gsl/gsl-2.7.1.tar.gz  > gsl.tar.gz && tar xfv gsl.tar.gz && cd gsl-2.7.1 && ./configure --prefix=/usr --disable-static && make && make install"
+    # manylinux-i686-image = "quay.io/erotemic/manylinux2014_i686_for:zlib-build-fortran-gsl"
+    #before-build = "yum install gcc gcc-c++ make zlib-devel gcc-gfortran libgomp blas-devel -y && curl https://ftp.gnu.org/gnu/gsl/gsl-2.7.1.tar.gz  > gsl.tar.gz && tar xfv gsl.tar.gz && cd gsl-2.7.1 && ./configure --prefix=/usr --disable-static && make && make install"
+    #before-build = "yum install libgomp blas-devel -y"
+
+[tool.cibuildwheel.windows]
+    archs = ["AMD64"]
+    #archs = ["i686"]
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = "-p no:doctest --xdoctest --xdoctest-style=google --ignore-glob=setup.py --ignore-glob=dev"
+norecursedirs = ".git ignore build __pycache__ dev _skbuild"
+filterwarnings = [
+    "default",
+    "ignore:.*No cfgstr given in Cacher constructor or call.*:Warning", 
+    "ignore:.*Define the __nice__ method for.*:Warning", "ignore:.*private pytest class or function.*:Warning",
+]
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+     ".*  # pragma: no cover",
+     ".*  # nocover", 
+    "def __repr__",
+     "raise AssertionError",
+     "raise NotImplementedError",
+     "if 0:",
+     "^ *raise",
+     "^ *pass *$",
+     "if __name__ == .__main__.:",
+]
+omit = ["*/setup.py",]

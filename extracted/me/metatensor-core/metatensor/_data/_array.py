@@ -1,0 +1,738 @@
+import ctypes
+from typing import Union
+
+import numpy as np
+
+from .._c_api import (
+    DLDataType,
+    DLDevice,
+    DLDeviceType,
+    DLManagedTensorVersioned,
+    DLPackVersion,
+    c_uintptr_t,
+    mts_array_t,
+    mts_data_movement_t,
+    mts_data_origin_t,
+)
+from .._status import catch_exceptions, check_status
+from ._dlpack import (
+    DLPACK_NAME,
+    DLPACK_VERSIONED_NAME,
+    PYTHON_API,
+    USED_DLPACK_NAME,
+    USED_DLPACK_VERSIONED_NAME,
+    DLManagedTensor,
+    DLPackArray,
+    wrap_unversioned_as_versioned,
+)
+
+
+try:
+    import torch
+
+    HAS_TORCH = True
+except ImportError:
+    HAS_TORCH = False
+
+
+def _register_origin(name):
+    from .._c_lib import _get_library
+
+    lib = _get_library()
+    origin = mts_data_origin_t(0)
+    lib.mts_register_data_origin(name.encode("utf8"), origin)
+    return origin.value
+
+
+def _is_numpy_array(array):
+    return isinstance(array, np.ndarray)
+
+
+def _is_torch_array(array):
+    if not HAS_TORCH:
+        return False
+
+    return isinstance(array, torch.Tensor)
+
+
+_NUMPY_STORAGE_ORIGIN = None
+_TORCH_STORAGE_ORIGIN = None
+
+
+def _origin_numpy():
+    global _NUMPY_STORAGE_ORIGIN
+    if _NUMPY_STORAGE_ORIGIN is None:
+        _NUMPY_STORAGE_ORIGIN = _register_origin("python.numpy")
+
+    return _NUMPY_STORAGE_ORIGIN
+
+
+def _origin_pytorch():
+    global _TORCH_STORAGE_ORIGIN
+    if _TORCH_STORAGE_ORIGIN is None:
+        _TORCH_STORAGE_ORIGIN = _register_origin("python.torch")
+
+    return _TORCH_STORAGE_ORIGIN
+
+
+if HAS_TORCH:
+    torch_dtype = torch.dtype
+    torch_device = torch.device
+else:
+
+    class torch_dtype:
+        pass
+
+    class torch_device:
+        pass
+
+
+DType = Union[np.dtype, torch_dtype]
+"""Type representing a dtype in either numpy or torch"""
+
+Device = Union[str, torch_device]
+"""Type representing a device in either numpy or torch"""
+
+
+def array_dtype(array) -> DType:
+    """Get the dtype of an array"""
+    if _is_numpy_array(array) or _is_torch_array(array):
+        return array.dtype
+    else:
+        raise TypeError(f"unknown array type: {type(array)}")
+
+
+def array_change_dtype(array, dtype: DType, non_blocking: bool):
+    """Change the dtype of an array"""
+    if _is_numpy_array(array):
+        return array.astype(dtype)
+    elif _is_torch_array(array):
+        return array.to(dtype=dtype, non_blocking=non_blocking)
+    else:
+        raise TypeError(f"unknown array type: {type(array)}")
+
+
+def array_device(array) -> Device:
+    """Get the device of an array"""
+    if _is_numpy_array(array):
+        return "cpu"
+    elif _is_torch_array(array):
+        return array.device
+    else:
+        raise TypeError(f"unknown array type: {type(array)}")
+
+
+def array_device_is_cpu(array) -> bool:
+    """Check if the device of an array is CPU"""
+    if _is_numpy_array(array):
+        return True
+    elif _is_torch_array(array):
+        return array.device.type == torch.device("cpu").type
+    else:
+        raise TypeError(f"unknown array type: {type(array)}")
+
+
+def array_change_device(array, device: Device, non_blocking: bool):
+    """Change the device of an array"""
+    if _is_numpy_array(array):
+        if device != "cpu":
+            raise ValueError(f"can not move numpy array to non-cpu device: {device}")
+        return array
+    elif _is_torch_array(array):
+        return array.to(device=device, non_blocking=non_blocking)
+    else:
+        raise TypeError(f"unknown array type: {type(array)}")
+
+
+def array_change_backend(array, backend: str):
+    if _is_numpy_array(array):
+        if backend == "numpy":
+            return array
+        elif backend == "torch":
+            if not HAS_TORCH:
+                raise ModuleNotFoundError(
+                    "can not convert to `torch` arrays since PyTorch is not installed"
+                )
+            else:
+                return torch.from_numpy(array)
+        else:
+            raise ValueError(f"unknown array backend: '{backend}'")
+
+    elif _is_torch_array(array):
+        if backend == "numpy":
+            return array.numpy()
+        elif backend == "torch":
+            return array
+        else:
+            raise ValueError(f"unknown array backend: '{backend}'")
+
+    else:
+        raise TypeError(f"unknown array type: {type(array)}")
+
+
+class DeviceWarning(RuntimeWarning):
+    """
+    Custom warning class for device mismatch in :py:class:`TensorBlock` and
+    :py:class:`TensorMap`.
+    """
+
+
+class ArrayWrapper:
+    """Store together some Python array and it's shape as C-compatible data"""
+
+    __slots__ = ["array", "c_shape"]
+
+    def __init__(self, array, c_shape):
+        self.array = array
+        self.c_shape = c_shape
+
+
+# We keep wrappers of Python arrays alive by storing a reference to them in this
+# dictionary. Each value is stored under the `id(value)` key, which makes sure no two
+# values have the same key.
+_KNOWN_ARRAY_WRAPPERS = {}
+
+# cache array types by array length, since creating the type everytime is a bit slow
+_POSSIBLE_C_SHAPE_TYPES = [ctypes.ARRAY(c_uintptr_t, N) for N in range(64)]
+
+
+def create_mts_array(array):
+    """
+    Create a ``mts_array_t`` corresponding to the given ``array``, which should be
+    either :py:class:`torch.Tensor` or :py:class:`numpy.ndarray`.
+    """
+    c_shape = _POSSIBLE_C_SHAPE_TYPES[len(array.shape)]()
+    c_shape[:] = array.shape
+
+    wrapper = ArrayWrapper(array, c_shape)
+
+    if _is_numpy_array(array):
+        mts_array_origin = _MTS_ARRAY_ORIGIN_NUMPY
+        mts_array_device = _MTS_ARRAY_DEVICE_NUMPY
+        mts_array_dtype = _MTS_ARRAY_DTYPE_NUMPY
+    elif _is_torch_array(array):
+        mts_array_origin = _MTS_ARRAY_ORIGIN_PYTORCH
+        mts_array_device = _MTS_ARRAY_DEVICE_PYTORCH
+        mts_array_dtype = _MTS_ARRAY_DTYPE_PYTORCH
+    else:
+        raise ValueError(f"unknown array type: {type(array)}")
+
+    global _KNOWN_ARRAY_WRAPPERS
+    _KNOWN_ARRAY_WRAPPERS[id(wrapper)] = wrapper
+
+    mts_array = mts_array_t.from_buffer_copy(_DEFAULT_MTS_ARRAY)
+
+    # we use id(wrapper) as the C API user-data "pointer", since we can use it together
+    # with `_KNOWN_ARRAY_WRAPPERS` to recover the corresponding Python object.
+    mts_array.ptr = id(wrapper)
+    mts_array.origin = mts_array_origin
+    mts_array.device = mts_array_device
+    mts_array.dtype = mts_array_dtype
+
+    return mts_array
+
+
+@catch_exceptions
+def _mts_array_shape(this, shape_ptr, shape_count):
+    wrapper = _KNOWN_ARRAY_WRAPPERS[this]
+
+    shape_ptr[0] = wrapper.c_shape
+    shape_count[0] = len(wrapper.c_shape)
+
+
+@catch_exceptions
+def _mts_array_reshape(this, shape_ptr, shape_count):
+    wrapper = _KNOWN_ARRAY_WRAPPERS[this]
+
+    shape = []
+    for i in range(shape_count):
+        shape.append(shape_ptr[i])
+
+    wrapper.array = wrapper.array.reshape(shape)
+    wrapper.c_shape = _POSSIBLE_C_SHAPE_TYPES[len(shape)]()
+    wrapper.c_shape[:] = shape
+
+
+@catch_exceptions
+def _mts_array_swap_axes(this, axis_1, axis_2):
+    wrapper = _KNOWN_ARRAY_WRAPPERS[this]
+    wrapper.array = wrapper.array.swapaxes(axis_1, axis_2)
+
+    shape = wrapper.array.shape
+    wrapper.c_shape = _POSSIBLE_C_SHAPE_TYPES[len(shape)]()
+    wrapper.c_shape[:] = shape
+
+
+def _extract_scalar_from_mts_array(mts_array):
+    """
+    Extract a scalar value from an mts_array_t using as_dlpack.
+
+    This is the generic, safe way to get data from any array implementation,
+    not just Python wrappers.
+    """
+    # Get shape to verify it's a scalar
+    shape_ptr = ctypes.POINTER(c_uintptr_t)()
+    shape_count = c_uintptr_t()
+    status = mts_array.shape(
+        mts_array.ptr, ctypes.byref(shape_ptr), ctypes.byref(shape_count)
+    )
+    check_status(status)
+
+    if shape_count.value != 0:
+        shape = [shape_ptr[i] for i in range(shape_count.value)]
+        raise ValueError(f"`fill_value` must be a single scalar, got shape {shape}")
+
+    # Use as_dlpack to get the data
+    dl_managed_ptr = ctypes.POINTER(DLManagedTensorVersioned)()
+    device = DLDevice(device_type=DLDeviceType.kDLCPU, device_id=0)
+    version = DLPackVersion(major=1, minor=0)
+    status = mts_array.as_dlpack(
+        mts_array.ptr,
+        ctypes.byref(dl_managed_ptr),
+        device,
+        None,
+        version,
+    )
+    check_status(status)
+
+    array = np.from_dlpack(DLPackArray(dl_managed_ptr))
+    return array[()]
+
+
+@catch_exceptions
+def _mts_array_create(this, shape_ptr, shape_count, fill_value, new_array):
+    wrapper = _KNOWN_ARRAY_WRAPPERS[this]
+
+    shape = []
+    for i in range(shape_count):
+        shape.append(shape_ptr[i])
+    dtype = wrapper.array.dtype
+
+    # Extract the scalar fill value from the fill_value mts_array_t using as_dlpack
+    scalar = _extract_scalar_from_mts_array(fill_value)
+
+    if _is_numpy_array(wrapper.array):
+        array = np.full(shape, scalar, dtype=dtype)
+    elif _is_torch_array(wrapper.array):
+        array = torch.full(shape, scalar, dtype=dtype, device=wrapper.array.device)
+
+    if ctypes.cast(fill_value.destroy, ctypes.c_void_p).value is not None:
+        fill_value.destroy(fill_value.ptr)
+
+    new_array[0] = create_mts_array(array)
+
+
+@catch_exceptions
+def _mts_array_copy(this, device, new_array):
+    wrapper = _KNOWN_ARRAY_WRAPPERS[this]
+
+    if _is_numpy_array(wrapper.array):
+        if device.device_type != DLDeviceType.kDLCPU:
+            raise ValueError(
+                f"can not copy numpy array to non-cpu device: {device.device_type}"
+            )
+        array = wrapper.array.copy()
+    elif _is_torch_array(wrapper.array):
+        array = wrapper.array
+
+        if array.device.type == "meta":
+            # for some reason, meta device is not supported by __dlpack_device__
+            current_device = DLDeviceType.kDLExtDev
+            current_id = 0
+        else:
+            (current_device, current_id) = wrapper.array.__dlpack_device__()
+
+        if current_device != device.device_type or current_id != device.device_id:
+            dlpack = wrapper.array.__dlpack__(
+                dl_device=(device.device_type.value, int(device.device_id)),
+                max_version=(1, 0),
+            )
+            array = torch.from_dlpack(dlpack)
+        else:
+            array = wrapper.array.clone()
+
+    new_array[0] = create_mts_array(array)
+
+
+@catch_exceptions
+def _mts_array_destroy(this):
+    del _KNOWN_ARRAY_WRAPPERS[this]
+
+
+@catch_exceptions
+def _mts_array_move_data(
+    this,
+    input,
+    movements_ptr,
+    movements_count,
+):
+    output = _KNOWN_ARRAY_WRAPPERS[this].array
+    input = _KNOWN_ARRAY_WRAPPERS[input].array
+
+    if movements_count == 0:
+        return
+
+    # mts_data_movement_t has 5 c_uintptr_t fields.
+    assert len(mts_data_movement_t._fields_) == 5
+    movements = np.ctypeslib.as_array(
+        ctypes.cast(movements_ptr, ctypes.POINTER(c_uintptr_t)),
+        shape=(movements_count, 5),
+    )
+
+    # Check if we can use the optimized path (all moves have same property structure)
+    #
+    # We want to check if all rows have the same values for columns 2, 3, 4 (i.e.
+    # `properties_start_in`, `properties_start_out`, and `properties_length`)
+    #
+    # We can do this by checking if the min and max of each column are equal.
+    # This is faster than `np.all(movements[:, 2:] == movements[0, 2:])` because
+    # it avoids creating the large intermediate boolean array.
+    props = movements[:, 2:]
+    min_props = props.min(axis=0)
+    max_props = props.max(axis=0)
+
+    if np.all(min_props == max_props):
+        sample_in = movements[:, 0]
+        sample_out = movements[:, 1]
+        property_start_in = int(min_props[0])
+        property_start_out = int(min_props[1])
+        property_len = int(min_props[2])
+
+        # If sample_in/sample_out are just arange, we can use slice
+        # Check if sample_in is contiguous
+        s_in_min = int(sample_in.min())
+        s_in_max = int(sample_in.max())
+        if (s_in_max - s_in_min + 1) == len(sample_in):
+            if np.all(sample_in == np.arange(s_in_min, s_in_max + 1)):
+                sample_in = slice(s_in_min, s_in_max + 1)
+
+        # Check if sample_out is contiguous
+        s_out_min = int(sample_out.min())
+        s_out_max = int(sample_out.max())
+        if (s_out_max - s_out_min + 1) == len(sample_out):
+            if np.all(sample_out == np.arange(s_out_min, s_out_max + 1)):
+                sample_out = slice(s_out_min, s_out_max + 1)
+
+        output[
+            sample_out, ..., property_start_out : property_start_out + property_len
+        ] = input[sample_in, ..., property_start_in : property_start_in + property_len]
+
+    else:
+        for i in range(movements_count):
+            sample_in = int(movements[i, 0])
+            sample_out = int(movements[i, 1])
+            property_start_in = int(movements[i, 2])
+            property_start_out = int(movements[i, 3])
+            property_len = int(movements[i, 4])
+
+            output[
+                sample_out, ..., property_start_out : property_start_out + property_len
+            ] = input[
+                sample_in, ..., property_start_in : property_start_in + property_len
+            ]
+
+
+@catch_exceptions
+def _mts_array_as_dlpack(this, dl_managed_tensor_ptr_ptr, device, stream, max_version):
+    """
+    Implementation of `mts_array_t.as_dlpack`.
+
+    This function calls the array's __dlpack__ method, gets the PyCapsule,
+    extracts the raw pointer, and transfers
+    ownership to the C-API caller.
+
+    When the PyCapsule contains a `dltensor_versioned`, we just need to rename
+    the capsule to `used_dltensor_versioned` after giving the data to the C API.
+
+    When the PyCapsule contains a deprecated `dltensor`, we re-wrap the data
+    inside `DLManagedTensorVersioned`.
+    """
+    wrapper = _KNOWN_ARRAY_WRAPPERS[this]
+    array = wrapper.array
+
+    dl_device = (device.device_type.value, device.device_id)
+    stream = stream.contents if stream else None
+    max_version = (max_version.major, max_version.minor)
+
+    capsule = None
+
+    try:
+        # Try requesting versioned DLPack
+        capsule = array.__dlpack__(
+            stream=stream, max_version=max_version, dl_device=dl_device
+        )
+    except Exception as _:
+        # Fallback to legacy signatures. Each fallback drops one parameter.
+        try:
+            capsule = array.__dlpack__(stream=stream, dl_device=dl_device)
+        except Exception:
+            try:
+                capsule = array.__dlpack__(dl_device=dl_device)
+            except Exception:
+                capsule = array.__dlpack__()
+
+    capsule_name = PYTHON_API.PyCapsule_GetName(capsule)
+
+    # Versioned Capsule
+    if capsule_name == DLPACK_VERSIONED_NAME:
+        pointer = PYTHON_API.PyCapsule_GetPointer(capsule, DLPACK_VERSIONED_NAME)
+        if not pointer:
+            raise
+
+        versioned_ptr = ctypes.cast(pointer, ctypes.POINTER(DLManagedTensorVersioned))
+        actual_device = versioned_ptr.contents.dl_tensor.device
+        if (
+            actual_device.device_type != device.device_type
+            or actual_device.device_id != device.device_id
+        ):
+            raise ValueError(
+                f"DLPack device mismatch: expected type={device.device_type} "
+                f"id={device.device_id}, got type={actual_device.device_type} "
+                f"id={actual_device.device_id}"
+            )
+
+        status = PYTHON_API.PyCapsule_SetName(capsule, USED_DLPACK_VERSIONED_NAME)
+        if status != 0:
+            raise
+
+        dl_managed_tensor_ptr_ptr[0] = versioned_ptr
+        return
+
+    # Legacy Capsule
+    if capsule_name == DLPACK_NAME:
+        pointer = PYTHON_API.PyCapsule_GetPointer(capsule, DLPACK_NAME)
+        if not pointer:
+            raise
+
+        unversioned_ptr = ctypes.cast(pointer, ctypes.POINTER(DLManagedTensor))
+
+        actual_device = unversioned_ptr.contents.dl_tensor.device
+        if (
+            actual_device.device_type != device.device_type
+            or actual_device.device_id != device.device_id
+        ):
+            raise ValueError(
+                f"DLPack device mismatch: expected type {device.device_type}"
+                f" id {device.device_id}, "
+                f"got type {actual_device.device_type}"
+                f" id {actual_device.device_id}"
+            )
+
+        # We must do this to ensure that the deletion of the PyCapsule does not run the
+        # deleter and cause double-free issues. Instead we call legacy deleter
+        # explicitly as part of the versioned tensor's deleter.
+        status = PYTHON_API.PyCapsule_SetName(capsule, USED_DLPACK_NAME)
+        if status != 0:
+            raise
+
+        # Wrap it
+        versioned_ptr = wrap_unversioned_as_versioned(unversioned_ptr)
+        dl_managed_tensor_ptr_ptr[0] = versioned_ptr
+        return
+
+    raise ValueError(
+        "Unexpected DLPack capsule name:"
+        f" '{capsule_name.decode() if capsule_name else 'NULL'}'. "
+        f"Expected '{DLPACK_VERSIONED_NAME.decode()}' or '{DLPACK_NAME.decode()}'"
+    )
+
+
+@catch_exceptions
+def _mts_array_from_dlpack(this, dl_tensor, new_array):
+    """
+    Implementation of `mts_array_t.from_dlpack`.
+
+    This function takes ownership of the given `DLManagedTensorVersioned` pointer
+    and creates a new array from it.
+    """
+
+    wrapper = _KNOWN_ARRAY_WRAPPERS[this]
+
+    if _is_numpy_array(wrapper.array):
+        array = np.from_dlpack(DLPackArray(dl_tensor))
+    elif _is_torch_array(wrapper.array):
+        array = torch.from_dlpack(DLPackArray(dl_tensor))
+    else:
+        raise ValueError(f"unknown array type: {type(wrapper.array)}")
+
+    new_array[0] = create_mts_array(array)
+
+
+# ============================================================================ #
+# Setup mts_array_t function pointers
+# ============================================================================ #
+
+
+def _cast_to_ctype_functype(function, field_name):
+    for name, klass in mts_array_t._fields_:
+        if name == field_name:
+            return klass(function)
+
+    raise ValueError(f"no field named {field_name} in mts_array_t")
+
+
+_MTS_ARRAY_SHAPE = _cast_to_ctype_functype(_mts_array_shape, "shape")
+_MTS_ARRAY_RESHAPE = _cast_to_ctype_functype(_mts_array_reshape, "reshape")
+_MTS_ARRAY_SWAP_AXES = _cast_to_ctype_functype(_mts_array_swap_axes, "swap_axes")
+_MTS_ARRAY_CREATE = _cast_to_ctype_functype(_mts_array_create, "create")
+_MTS_ARRAY_COPY = _cast_to_ctype_functype(_mts_array_copy, "copy")
+_MTS_ARRAY_DESTROY = _cast_to_ctype_functype(_mts_array_destroy, "destroy")
+_MTS_ARRAY_MOVE_DATA = _cast_to_ctype_functype(_mts_array_move_data, "move_data")
+_MTS_ARRAY_AS_DLPACK = _cast_to_ctype_functype(_mts_array_as_dlpack, "as_dlpack")
+_MTS_ARRAY_FROM_DLPACK = _cast_to_ctype_functype(_mts_array_from_dlpack, "from_dlpack")
+
+
+@catch_exceptions
+def mts_array_origin_numpy(this, origin):
+    origin[0] = _origin_numpy()
+
+
+@catch_exceptions
+def mts_array_origin_pytorch(this, origin):
+    origin[0] = _origin_pytorch()
+
+
+_MTS_ARRAY_ORIGIN_NUMPY = _cast_to_ctype_functype(mts_array_origin_numpy, "origin")
+_MTS_ARRAY_ORIGIN_PYTORCH = _cast_to_ctype_functype(mts_array_origin_pytorch, "origin")
+
+
+@catch_exceptions
+def _mts_array_device_numpy(this, device_ptr):
+    wrapper = _KNOWN_ARRAY_WRAPPERS[this]
+    array = wrapper.array
+    try:
+        device_type, device_id = array.__dlpack_device__()
+        device_ptr[0] = DLDevice(device_type=device_type, device_id=device_id)
+    except Exception:
+        # Fallback for older numpy versions that don't have __dlpack_device__
+        device_ptr[0] = DLDevice(device_type=DLDeviceType.kDLCPU, device_id=0)
+
+
+@catch_exceptions
+def _mts_array_device_pytorch(this, device_ptr):
+    wrapper = _KNOWN_ARRAY_WRAPPERS[this]
+    tensor = wrapper.array
+    try:
+        device_type, device_id = tensor.__dlpack_device__()
+        device_ptr[0] = DLDevice(device_type=device_type, device_id=device_id)
+    except Exception as e:
+        # Fallback for older torch version that don't support all devices in
+        # `__dlpack_device__``
+        torch_dev = tensor.device
+        device_id = torch_dev.index if torch_dev.index is not None else 0
+        if torch_dev.type == "meta":
+            device_ptr[0] = DLDevice(
+                device_type=DLDeviceType.kDLExtDev, device_id=device_id
+            )
+        elif torch_dev.type == "mps":
+            device_ptr[0] = DLDevice(
+                device_type=DLDeviceType.kDLMetal, device_id=device_id
+            )
+        else:
+            raise ValueError(
+                f"__dlpack_device__ failed for tensor with device={torch_dev}"
+            ) from e
+
+
+_MTS_ARRAY_DEVICE_NUMPY = _cast_to_ctype_functype(_mts_array_device_numpy, "device")
+_MTS_ARRAY_DEVICE_PYTORCH = _cast_to_ctype_functype(_mts_array_device_pytorch, "device")
+
+
+# DLPack dtype type codes
+_KDLINT = 0
+_KDLUINT = 1
+_KDLFLOAT = 2
+_KDLBFLOAT = 4
+_KDLCOMPLEX = 5
+_KDLBOOL = 6
+
+# Numpy dtype.kind -> (DLDataType code, use dtype.itemsize for bits)
+_NUMPY_KIND_TO_DLPACK = {
+    "f": _KDLFLOAT,
+    "i": _KDLINT,
+    "u": _KDLUINT,
+    "b": _KDLBOOL,
+    "c": _KDLCOMPLEX,
+}
+
+# Torch scalar type name -> (code, bits)
+_TORCH_DTYPE_TO_DLPACK = {}
+if HAS_TORCH:
+    _TORCH_DTYPE_TO_DLPACK = {
+        torch.float16: (_KDLFLOAT, 16),
+        torch.float32: (_KDLFLOAT, 32),
+        torch.float64: (_KDLFLOAT, 64),
+        torch.bfloat16: (_KDLBFLOAT, 16),
+        torch.int8: (_KDLINT, 8),
+        torch.int16: (_KDLINT, 16),
+        torch.int32: (_KDLINT, 32),
+        torch.int64: (_KDLINT, 64),
+        torch.uint8: (_KDLUINT, 8),
+        torch.bool: (_KDLBOOL, 8),
+        torch.complex64: (_KDLCOMPLEX, 64),
+        torch.complex128: (_KDLCOMPLEX, 128),
+    }
+
+
+@catch_exceptions
+def _mts_array_dtype_numpy(this, dtype_ptr):
+    wrapper = _KNOWN_ARRAY_WRAPPERS[this]
+    dt = wrapper.array.dtype
+    code = _NUMPY_KIND_TO_DLPACK.get(dt.kind)
+    if code is None:
+        raise ValueError(f"unsupported numpy dtype kind: '{dt.kind}' ({dt})")
+    dtype_ptr[0] = DLDataType(code=code, bits=dt.itemsize * 8, lanes=1)
+
+
+@catch_exceptions
+def _mts_array_dtype_pytorch(this, dtype_ptr):
+    wrapper = _KNOWN_ARRAY_WRAPPERS[this]
+    dt = wrapper.array.dtype
+    entry = _TORCH_DTYPE_TO_DLPACK.get(dt)
+    if entry is None:
+        raise ValueError(f"unsupported torch dtype: {dt}")
+    code, bits = entry
+    dtype_ptr[0] = DLDataType(code=code, bits=bits, lanes=1)
+
+
+_MTS_ARRAY_DTYPE_NUMPY = _cast_to_ctype_functype(_mts_array_dtype_numpy, "dtype")
+_MTS_ARRAY_DTYPE_PYTORCH = _cast_to_ctype_functype(_mts_array_dtype_pytorch, "dtype")
+
+
+@catch_exceptions
+def _mts_array_dummy_origin(this, origin_ptr):
+    raise RuntimeError("this is a dummy function that should never be called")
+
+
+@catch_exceptions
+def _mts_array_dummy_dtype(this, dtype_ptr):
+    raise RuntimeError("this is a dummy function that should never be called")
+
+
+@catch_exceptions
+def _mts_array_dummy_device(this, device_ptr):
+    raise RuntimeError("this is a dummy function that should never be called")
+
+
+_MTS_ARRAY_DUMMY_ORIGIN = _cast_to_ctype_functype(_mts_array_dummy_origin, "origin")
+_MTS_ARRAY_DUMMY_DTYPE = _cast_to_ctype_functype(_mts_array_dummy_dtype, "dtype")
+_MTS_ARRAY_DUMMY_DEVICE = _cast_to_ctype_functype(_mts_array_dummy_device, "device")
+
+# The default value for all Python-provided `mts_array_t`. Only the first two members
+# will change, having a pre-allocated instance will make it faster to create new ones
+# with `mts_array_t.from_buffer_copy`.
+_DEFAULT_MTS_ARRAY = mts_array_t(
+    ptr=0,
+    destroy=_MTS_ARRAY_DESTROY,
+    origin=_MTS_ARRAY_DUMMY_ORIGIN,
+    device=_MTS_ARRAY_DUMMY_DEVICE,
+    dtype=_MTS_ARRAY_DUMMY_DTYPE,
+    as_dlpack=_MTS_ARRAY_AS_DLPACK,
+    from_dlpack=_MTS_ARRAY_FROM_DLPACK,
+    shape=_MTS_ARRAY_SHAPE,
+    reshape=_MTS_ARRAY_RESHAPE,
+    swap_axes=_MTS_ARRAY_SWAP_AXES,
+    create=_MTS_ARRAY_CREATE,
+    copy=_MTS_ARRAY_COPY,
+    move_data=_MTS_ARRAY_MOVE_DATA,
+)

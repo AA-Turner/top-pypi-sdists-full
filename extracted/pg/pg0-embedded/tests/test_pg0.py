@@ -1,0 +1,329 @@
+"""Tests for pg0 Python client."""
+
+import os
+import signal
+import sys
+import time
+
+import pytest
+import pg0
+from pg0 import Pg0, InstanceInfo, Pg0AlreadyRunningError, Pg0Error
+
+
+# Use a unique port to avoid conflicts
+TEST_PORT = 15432
+TEST_NAME = "pytest-test"
+
+
+@pytest.fixture
+def clean_instance():
+    """Ensure test instance is dropped before and after test."""
+    # Cleanup before - drop to remove any existing data/config
+    pg0.drop(TEST_NAME)
+
+    yield
+
+    # Cleanup after
+    pg0.drop(TEST_NAME)
+
+
+class TestPg0:
+    """Tests for Pg0 class."""
+
+    def test_start_stop(self, clean_instance):
+        """Test starting and stopping Pg0."""
+        pg = Pg0(name=TEST_NAME, port=TEST_PORT)
+
+        # Start
+        info = pg.start()
+        assert info.running is True
+        assert info.port == TEST_PORT
+        assert info.uri is not None
+        assert f":{TEST_PORT}/" in info.uri
+
+        # Stop
+        pg.stop()
+        info = pg.info()
+        assert info.running is False
+
+    def test_context_manager(self, clean_instance):
+        """Test using Pg0 as context manager."""
+        with Pg0(name=TEST_NAME, port=TEST_PORT) as pg:
+            assert pg.running is True
+            assert pg.uri is not None
+
+        # Should be stopped after exiting context
+        info = pg0.info(TEST_NAME)
+        assert info.running is False
+
+    def test_execute_sql(self, clean_instance):
+        """Test executing SQL commands."""
+        pg = Pg0(name=TEST_NAME, port=TEST_PORT)
+        pg.start()
+
+        try:
+            # Execute a simple query
+            result = pg.execute("SELECT 1 as num;")
+            assert "1" in result
+
+            # Create and query a table
+            pg.execute("CREATE TABLE test_table (id serial, name text);")
+            pg.execute("INSERT INTO test_table (name) VALUES ('hello');")
+            result = pg.execute("SELECT name FROM test_table;")
+            assert "hello" in result
+        finally:
+            pg.stop()
+
+    def test_custom_credentials(self, clean_instance):
+        """Test custom username, password, database."""
+        pg = Pg0(
+            name=TEST_NAME,
+            port=TEST_PORT,
+            username="testuser",
+            password="testpass",
+            database="testdb",
+        )
+        info = pg.start()
+
+        try:
+            assert "testuser" in info.uri
+            assert "testpass" in info.uri
+            assert "testdb" in info.uri
+        finally:
+            pg.stop()
+
+    def test_custom_config(self, clean_instance):
+        """Test custom Pg0 configuration."""
+        pg = Pg0(
+            name=TEST_NAME,
+            port=TEST_PORT,
+            config={"work_mem": "128MB"},
+        )
+        pg.start()
+
+        try:
+            result = pg.execute("SHOW work_mem;")
+            assert "128MB" in result
+        finally:
+            pg.stop()
+
+    def test_already_running_error(self, clean_instance):
+        """Test that starting twice raises error."""
+        pg = Pg0(name=TEST_NAME, port=TEST_PORT)
+        pg.start()
+
+        try:
+            with pytest.raises(Pg0AlreadyRunningError):
+                pg.start()
+        finally:
+            pg.stop()
+
+    def test_stop_when_not_running(self, clean_instance):
+        """Test that stopping when not running does not raise error."""
+        pg = Pg0(name=TEST_NAME, port=TEST_PORT)
+        # Should not raise - stop is idempotent
+        pg.stop()
+
+    def test_info_when_not_running(self, clean_instance):
+        """Test getting info when not running."""
+        pg = Pg0(name=TEST_NAME, port=TEST_PORT)
+        info = pg.info()
+
+        assert info.running is False
+        assert info.uri is None
+
+    def test_port_conflict_error(self, clean_instance):
+        """Test that starting two instances on the same port gives a readable error."""
+        pg1 = Pg0(name=TEST_NAME, port=TEST_PORT)
+        pg2 = Pg0(name=f"{TEST_NAME}-2", port=TEST_PORT)
+
+        pg1.start()
+
+        try:
+            with pytest.raises(Pg0Error) as exc_info:
+                pg2.start()
+
+            # Verify the error message mentions the port conflict
+            error_message = str(exc_info.value).lower()
+            assert "port" in error_message or "address" in error_message or "in use" in error_message, \
+                f"Error message should mention port conflict, got: {exc_info.value}"
+        finally:
+            pg1.stop()
+            pg2.stop()
+            pg0.drop(f"{TEST_NAME}-2")
+
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="os.kill(pid, 0) probe semantics differ on Windows; the wait-for-shutdown contract is exercised by the Unix matrix.",
+    )
+    def test_stop_waits_for_postmaster_exit(self, clean_instance):
+        """pg0 stop must not return until the postmaster has fully exited.
+
+        Regression test for https://github.com/vectorize-io/pg0/issues/17
+        Previously, `pg0 stop` sent SIGTERM, slept 2s, and returned — so a
+        stop → start sequence could race a still-draining postmaster, leaving
+        a live postmaster.pid that broke the next start.
+        """
+        pg = Pg0(name=TEST_NAME, port=TEST_PORT)
+        info = pg.start()
+        pid = info.pid
+        assert pid is not None
+
+        # Generate some shutdown work (WAL + checkpoint) to widen the race window
+        pg.execute("CREATE TABLE shutdown_test (id int);")
+        pg.execute("INSERT INTO shutdown_test SELECT generate_series(1, 10000);")
+        pg.execute("CHECKPOINT;")
+
+        pg.stop()
+
+        # After stop returns, the postmaster must be gone — sending signal 0
+        # to a dead pid raises ProcessLookupError.
+        with pytest.raises(ProcessLookupError):
+            os.kill(pid, 0)
+
+        # And an immediate restart must succeed (no stale postmaster.pid race).
+        info = pg.start()
+        assert info.running is True
+        pg.stop()
+
+    def test_restart_with_custom_database(self, clean_instance):
+        """Restarting an instance with a non-default database must be idempotent.
+
+        Regression test for https://github.com/vectorize-io/pg0/issues/13
+        Previously, the second start failed because pg0 only matched the English
+        substring "already exists" when CREATE DATABASE returned a duplicate
+        error, so restarts on PostgreSQL builds with a non-English lc_messages
+        (e.g. Chinese on Windows: `数据库 "x" 已经存在`) crashed startup.
+        """
+        pg = Pg0(name=TEST_NAME, port=TEST_PORT, database="testdb")
+        pg.start()
+        pg.execute("CREATE TABLE restart_test (id int);")
+        pg.execute("INSERT INTO restart_test VALUES (42);")
+        pg.stop()
+
+        # Second start must succeed and preserve data
+        info = pg.start()
+        assert info.running is True
+        assert "testdb" in info.uri
+        result = pg.execute("SELECT id FROM restart_test;")
+        assert "42" in result
+        pg.stop()
+
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="signal.SIGKILL does not exist on Windows; crash-recovery behavior is exercised by the Unix matrix.",
+    )
+    def test_data_survives_crash(self, clean_instance):
+        """Test that data is preserved after an unclean shutdown (SIGKILL).
+
+        Regression test for https://github.com/vectorize-io/pg0/issues/6
+        Simulates a crash by sending SIGKILL to the PostgreSQL process,
+        which leaves a stale postmaster.pid. On restart, data must still exist.
+        """
+        pg = Pg0(name=TEST_NAME, port=TEST_PORT)
+        info = pg.start()
+
+        # Create a table and insert data
+        pg.execute("CREATE TABLE crash_test (id serial PRIMARY KEY, value text);")
+        pg.execute("INSERT INTO crash_test (value) VALUES ('survive_crash');")
+        result = pg.execute("SELECT value FROM crash_test;")
+        assert "survive_crash" in result
+
+        # Simulate a crash: SIGKILL the postgres process (leaves stale postmaster.pid)
+        pid = info.pid
+        assert pid is not None
+        os.kill(pid, signal.SIGKILL)
+        time.sleep(1)  # Wait for process to die
+
+        # Restart — this must NOT lose data
+        info = pg.start()
+        assert info.running is True
+
+        # Verify data survived the crash
+        result = pg.execute("SELECT value FROM crash_test;")
+        assert "survive_crash" in result
+
+        pg.stop()
+
+
+class TestConvenienceFunctions:
+    """Tests for module-level convenience functions."""
+
+    def test_start_stop_info(self, clean_instance):
+        """Test start, stop, info functions."""
+        info = pg0.start(name=TEST_NAME, port=TEST_PORT)
+        assert info.running is True
+
+        info = pg0.info(TEST_NAME)
+        assert info.running is True
+        assert info.port == TEST_PORT
+
+        pg0.stop(TEST_NAME)
+        info = pg0.info(TEST_NAME)
+        assert info.running is False
+
+    def test_list_instances(self, clean_instance):
+        """Test listing instances."""
+        # Start an instance
+        pg0.start(name=TEST_NAME, port=TEST_PORT)
+
+        try:
+            instances = pg0.list_instances()
+            names = [i.name for i in instances]
+            assert TEST_NAME in names
+        finally:
+            pg0.stop(TEST_NAME)
+
+    def test_logs(self, clean_instance):
+        """Test getting logs."""
+        pg = Pg0(name=TEST_NAME, port=TEST_PORT)
+        pg.start()
+
+        try:
+            # Run a query to generate some log activity
+            pg.execute("SELECT 1;")
+
+            # Get logs via instance method
+            logs = pg.logs()
+            assert isinstance(logs, str)
+
+            # Get logs with line limit
+            logs_limited = pg.logs(lines=10)
+            assert isinstance(logs_limited, str)
+
+            # Get logs via module function
+            logs_module = pg0.logs(TEST_NAME)
+            assert isinstance(logs_module, str)
+        finally:
+            pg.stop()
+
+
+class TestInstanceInfo:
+    """Tests for InstanceInfo dataclass."""
+
+    def test_from_dict(self):
+        """Test creating InstanceInfo from dict."""
+        data = {
+            "name": "test",
+            "running": True,
+            "pid": 1234,
+            "port": 5432,
+            "uri": "postgresql://localhost:5432/test",
+        }
+        info = InstanceInfo.from_dict(data)
+
+        assert info.name == "test"
+        assert info.running is True
+        assert info.pid == 1234
+        assert info.port == 5432
+        assert info.uri == "postgresql://localhost:5432/test"
+
+    def test_from_dict_minimal(self):
+        """Test creating InstanceInfo from minimal dict."""
+        data = {"running": False}
+        info = InstanceInfo.from_dict(data)
+
+        assert info.name == "default"
+        assert info.running is False
+        assert info.pid is None
+        assert info.uri is None

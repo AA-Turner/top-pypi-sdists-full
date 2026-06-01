@@ -1,0 +1,128 @@
+Metadata-Version: 2.4
+Name: mistralai-workflows
+Version: 3.4.0
+Summary: Mistral Workflows - Build reliable AI workflows with Python
+Project-URL: Homepage, https://mistral.ai
+Project-URL: Documentation, https://docs.mistral.ai/workflows/getting-started/introduction
+Author-email: Mistral AI <support@mistral.ai>
+License: Apache-2.0
+License-File: LICENSE
+Keywords: ai,llm,mistral,orchestration,temporal,workflows
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: <3.15,>=3.12
+Requires-Dist: asynciolimiter<2.0.0,>=1.2.0
+Requires-Dist: httpx<1.0.0,>=0.27.0
+Requires-Dist: jsonpatch<2.0.0,>=1.33
+Requires-Dist: mistralai<3.0.0,>=2.4.2
+Requires-Dist: opentelemetry-api<2.0.0,>=1.30.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0
+Requires-Dist: opentelemetry-instrumentation-asyncio<0.61b0,>=0.60b1
+Requires-Dist: opentelemetry-instrumentation-httpx<0.61b0,>=0.60b1
+Requires-Dist: opentelemetry-sdk<2.0.0,>=1.30.0
+Requires-Dist: orjson<4.0.0,>=3.10.15
+Requires-Dist: pydantic-settings<3.0.0,>=2.9.0
+Requires-Dist: pydantic<3.0.0,>=2.12.0
+Requires-Dist: structlog<26,>=24
+Requires-Dist: temporalio<1.25.0,>=1.24.0
+Requires-Dist: tenacity<10.0.0,>=9.1.2
+Provides-Extra: all
+Requires-Dist: aiocache<1.0.0,>=0.12.3; extra == 'all'
+Requires-Dist: mcp<2.0.0,>=1.12.4; extra == 'all'
+Requires-Dist: mistralai-workflows-plugins-mistralai<4.0.0,>=3.0.0a1; extra == 'all'
+Requires-Dist: mistralai-workflows-plugins-webhook<4.0.0,>=3.0.0a1; extra == 'all'
+Requires-Dist: mistralai[workflow-payload-encryption]; extra == 'all'
+Requires-Dist: mistralai[workflow-payload-offloading]; extra == 'all'
+Provides-Extra: all-plugins
+Requires-Dist: aiocache<1.0.0,>=0.12.3; extra == 'all-plugins'
+Requires-Dist: mcp<2.0.0,>=1.12.4; extra == 'all-plugins'
+Requires-Dist: mistralai-workflows-plugins-mistralai<4.0.0,>=3.0.0a1; extra == 'all-plugins'
+Requires-Dist: mistralai-workflows-plugins-webhook<4.0.0,>=3.0.0a1; extra == 'all-plugins'
+Requires-Dist: mistralai[workflow-payload-encryption]; extra == 'all-plugins'
+Requires-Dist: mistralai[workflow-payload-offloading]; extra == 'all-plugins'
+Provides-Extra: azure
+Requires-Dist: mistralai[workflow-payload-offloading-azure]; extra == 'azure'
+Provides-Extra: encryption
+Requires-Dist: mistralai[workflow-payload-encryption]; extra == 'encryption'
+Provides-Extra: gcs
+Requires-Dist: mistralai[workflow-payload-offloading-gcs]; extra == 'gcs'
+Provides-Extra: mistralai
+Requires-Dist: aiocache<1.0.0,>=0.12.3; extra == 'mistralai'
+Requires-Dist: mcp<2.0.0,>=1.12.4; extra == 'mistralai'
+Requires-Dist: mistralai-workflows-plugins-mistralai<4.0.0,>=3.0.0a1; extra == 'mistralai'
+Provides-Extra: s3
+Requires-Dist: mistralai[workflow-payload-offloading-s3]; extra == 's3'
+Provides-Extra: storage
+Requires-Dist: mistralai[workflow-payload-offloading]; extra == 'storage'
+Provides-Extra: webhook
+Requires-Dist: mistralai-workflows-plugins-webhook<4.0.0,>=3.0.0a1; extra == 'webhook'
+Description-Content-Type: text/markdown
+
+# Mistral Workflows
+
+Build reliable, production-grade AI workflows with Python.
+
+## Overview
+
+Mistral Workflows is a Python SDK for building AI-powered workflows with built-in reliability, observability, and scalability. It provides fault tolerance, durability, and exactly-once execution guarantees.
+
+## Features
+
+- **Simple Python API**: Define workflows using Python decorators
+- **Built-in Reliability**: Automatic retries, timeouts, and error handling
+- **Distributed Execution**: Scale workflows across multiple workers
+- **LLM Integration**: Native support for Mistral AI and other LLM providers
+- **Observability**: Distributed tracing, structured logging, and event streaming
+- **Type Safety**: Full type hints and Pydantic validation
+
+## Installation
+
+```bash
+pip install mistralai-workflows
+```
+
+## Quick Start
+
+```python
+from datetime import timedelta
+
+from mistralai.workflows import workflow, activity
+
+@activity
+async def get_weather(city: str) -> str:
+    # Your activity implementation
+    return f"Weather in {city}: Sunny"
+
+@workflow.define
+class WeatherWorkflow:
+    @workflow.run
+    async def run(self, city: str) -> str:
+        weather = await workflow.execute_activity(
+            get_weather,
+            city,
+            start_to_close_timeout=timedelta(seconds=10),
+        )
+        return weather
+```
+
+## Documentation
+
+For full documentation, visit [docs.mistral.ai/workflows/getting-started/introduction](https://docs.mistral.ai/workflows/getting-started/introduction)
+
+## Examples
+
+The SDK includes comprehensive examples in the `mistralai/workflows/examples` directory. You can run all examples with a single command:
+
+```bash
+# Run all example workflows in a single worker
+python -m mistralai.workflows.examples.all_workflows_worker
+```
+
+## License
+
+Apache License 2.0 - see [LICENSE](LICENSE) for details.

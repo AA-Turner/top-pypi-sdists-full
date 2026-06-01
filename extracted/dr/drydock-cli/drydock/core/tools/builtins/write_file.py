@@ -415,6 +415,14 @@ class WriteFile(
     @classmethod
     def get_result_display(cls, event: ToolResultEvent) -> ToolResultDisplay:
         if isinstance(event.result, WriteFileResult):
+            # 2026-05-31: empty-path branch returns WriteFileResult with
+            # path="(missing)" and bytes_written=0 — display as failure
+            # so the operator sees a clear error and doesn't mistake
+            # the empty-arg loop for productive work.
+            if event.result.path == "(missing)" or event.result.bytes_written == 0:
+                return ToolResultDisplay(
+                    success=False, message="write_file: missing path"
+                )
             action = "Overwritten" if event.result.file_existed else "Created"
             return ToolResultDisplay(
                 success=True, message=f"{action} {Path(event.result.path).name}"
@@ -451,14 +459,26 @@ class WriteFile(
                 hint = f"Package dirs in {cwd.name}/: {', '.join(pkg_dirs)}" if pkg_dirs else f"cwd: {cwd}"
             except OSError:
                 hint = f"cwd: {cwd}"
+            # 2026-05-31: do NOT echo a sample call shape in the error
+            # content. Gemma 4 copies whatever it sees from prior tool
+            # results as the next call's args — a literal call-syntax
+            # template in the error message gets re-emitted as the next
+            # call (operator session 2026-05-31 hit 5+ identical
+            # empty-path errors in a row). Keep the error terse and
+            # actionable; the tool schema in the system prompt is the
+            # canonical reference, not the error message. Same
+            # root-cause as the search_replace empty-call loop fixed
+            # via dedup-strip in commit dee310a.
             yield WriteFileResult(
                 path="(missing)",
                 bytes_written=0,
                 file_existed=False,
                 content=(
-                    f"write_file requires a path argument — you sent an empty or missing path. "
-                    f"Retry as: write_file(path='<package>/<file>.py', content='...'). "
-                    f"{hint}."
+                    f"NO path supplied. Pick a concrete file path "
+                    f"under the current project (e.g. one of the "
+                    f"existing source files you just read), then "
+                    f"re-emit the call with that path and the full "
+                    f"file content. {hint}."
                 ),
             )
             return
@@ -625,6 +645,53 @@ class WriteFile(
         if warning := check_content_for_injection(args.content, args.path):
             import logging
             logging.getLogger(__name__).warning("write_file: %s", warning)
+
+        # 2026-05-31: PRE-WRITE SYNTAX GATE. Operator session showed
+        # drydock writing a syntactically-broken Python file (stripped
+        # docstring quotes), then recovering on the next turn. The
+        # corrupted file sits on disk for 1-2 turns — destroys git
+        # blame, breaks any concurrent process reading the file, makes
+        # the loop look like a happy-path "✓ Overwritten" success.
+        # The post-write syntax check at lines ~664–740 still runs as
+        # a defense-in-depth net for non-SyntaxError issues (stub
+        # classes, missing imports, etc.); this gate stops broken
+        # source from landing on disk in the first place.
+        if file_path.suffix == ".py":
+            try:
+                compile(args.content, str(file_path), "exec")
+            except SyntaxError as e:
+                # Build context block (same shape as the post-write
+                # warning) so the model can see ±3 lines around the
+                # error and fix targeted.
+                context_block = ""
+                try:
+                    src_lines = args.content.splitlines()
+                    err_line = (e.lineno or 1) - 1
+                    start = max(0, err_line - 3)
+                    end = min(len(src_lines), err_line + 4)
+                    numbered = [
+                        f"  {'>' if i == err_line else ' '} {i+1:>4}: {src_lines[i]}"
+                        for i in range(start, end)
+                    ]
+                    context_block = "\n" + "\n".join(numbered)
+                except Exception:
+                    pass
+                msg = (
+                    f"REFUSED: write blocked because the proposed content "
+                    f"has a Python syntax error and would break "
+                    f"{file_path.name} on disk.\n"
+                    f"⚠ SYNTAX ERROR line {e.lineno}: {e.msg}"
+                    f"{context_block}\n"
+                    f"Fix the syntax and resubmit. The file on disk was "
+                    f"NOT modified."
+                )
+                yield WriteFileResult(
+                    path=str(file_path),
+                    bytes_written=0,
+                    file_existed=file_existed,
+                    content=msg,
+                )
+                return
 
         await self._write_file(args, file_path)
 
@@ -842,11 +909,32 @@ class WriteFile(
                 hint = f"Package dirs in {cwd.name}/: {', '.join(pkg_dirs)}" if pkg_dirs else f"cwd: {cwd}"
             except OSError:
                 hint = f"cwd: {cwd}"
+            # Same bait-strip as the streaming yield path above —
+            # no literal call-shape example in the error.
             raise ToolError(
-                f"write_file requires a path argument — you sent an empty path. "
-                f"Retry as: write_file(path='<package>/<file>.py', content='...'). "
-                f"{hint}."
+                f"NO path supplied. Pick a concrete file path under "
+                f"the current project, then re-emit with that path "
+                f"and the full file content. {hint}."
             )
+
+        # 2026-05-31: refuse pathologically-long filenames. Operator
+        # session showed Gemma 4 emit a single component of 500+ chars
+        # (`cli._RETRYINGFIXEDCODEONLYFORREALNOWLASTTIMEACTUALLYFINAL…`)
+        # which raised OSError(ENAMETOOLONG) deep in _write_file and
+        # crashed the tool. Linux NAME_MAX is 255 bytes per path
+        # component. Anything over 200 is almost certainly model
+        # going off the rails.
+        for component in Path(args.path).parts:
+            if len(component.encode("utf-8")) > 200:
+                preview = component[:60] + "…" if len(component) > 60 else component
+                raise ToolError(
+                    f"REFUSED: path component is {len(component)} chars long "
+                    f"({len(component.encode('utf-8'))} bytes), exceeds the "
+                    f"200-char per-component limit. Component preview: "
+                    f"{preview!r}. This usually means a model loop emitted "
+                    f"a runaway filename. Use a normal short filename "
+                    f"(<60 chars) like main.py or cli.py."
+                )
 
         # Warn about binary file extensions
         ext = Path(args.path).suffix.lower()

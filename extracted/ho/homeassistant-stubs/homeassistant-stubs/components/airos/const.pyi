@@ -1,0 +1,14 @@
+from _typeshed import Incomplete
+
+DOMAIN: str
+SCAN_INTERVAL: Incomplete
+UPDATE_SCAN_INTERVAL: Incomplete
+MANUFACTURER: str
+DEFAULT_VERIFY_SSL: bool
+DEFAULT_SSL: bool
+SECTION_ADVANCED_SETTINGS: str
+DEFAULT_USERNAME: str
+HOSTNAME: str
+IP_ADDRESS: str
+MAC_ADDRESS: str
+DEVICE_NAME: str

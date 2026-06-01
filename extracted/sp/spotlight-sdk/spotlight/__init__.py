@@ -1,3 +1,0 @@
-"""
-Spotlight software development kit.
-"""

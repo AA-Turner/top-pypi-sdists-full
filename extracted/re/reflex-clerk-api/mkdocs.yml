@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
+
+site_name: Reflex Clerk API Docs
+site_url: https://timchild.github.io/reflex-clerk-api
+repo_url: https://github.com/TimChild/reflex-clerk-api
+site_description: Documentation reflex-clerk-api
+site_author: Tim Child
+copyright: Copyright 2025
+
+nav:
+  - About: about.md
+  - Getting Started: getting_started.md
+  - Reference:
+      - full_docs/clerk_provider.md
+      - full_docs/control_components.md
+      - full_docs/unstyled_components.md
+      - full_docs/pages.md
+      - full_docs/user_components.md
+      - full_docs/authentication_components.md
+
+  - Features: features.md
+  - Migrating: migrating.md
+
+theme:
+  name: material
+  features:
+    - content.action.edit
+    - navigation.instant
+  palette:
+    - scheme: slate
+      media: "(prefers-color-scheme: dark)"
+      toggle:
+        icon: material/eye
+        name: Switch to light mode
+    - scheme: default
+      media: "(prefers-color-scheme: light)"
+      toggle:
+        icon: material/eye-outline
+        name: Switch to dark mode
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+
+plugins:
+  - search
+  # - sitemap
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          options:
+            members_order: source
+            show_symbol_type_heading: true

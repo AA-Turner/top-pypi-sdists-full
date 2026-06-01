@@ -1,0 +1,57 @@
+Metadata-Version: 2.4
+Name: corva-sdk
+Version: 2.1.1
+Summary: SDK for building Corva DevCenter Python apps.
+Author-email: Jordan Ambra <jordan.ambra@corva.ai>
+License: The Unlicense
+Project-URL: Homepage, https://github.com/corva-ai/python-sdk
+Keywords: corva,sdk
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Typing :: Typed
+Requires-Python: <4.0,>=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: fakeredis<2.32.0,>=2.30.0
+Requires-Dist: pydantic<3.0,>=2.0
+Requires-Dist: pydantic-settings<3.0,>=2.0
+Requires-Dist: redis<8.0.0,>=7.1.0
+Requires-Dist: requests<3.0.0,>=2.32.3
+Requires-Dist: urllib3<3.0.0,>=2.6.3
+Requires-Dist: semver==3.0.4
+Provides-Extra: dev
+Requires-Dist: ruff==0.12.11; extra == "dev"
+Requires-Dist: mypy<2,>=1.10; extra == "dev"
+Requires-Dist: types-freezegun~=1.1.9; extra == "dev"
+Requires-Dist: types-redis~=4.6.0; extra == "dev"
+Requires-Dist: types-requests~=2.27.27; extra == "dev"
+Requires-Dist: coverage==7.6.1; extra == "dev"
+Requires-Dist: freezegun==1.5.1; extra == "dev"
+Requires-Dist: pytest==6.2.5; extra == "dev"
+Requires-Dist: pytest-mock==3.3.1; extra == "dev"
+Requires-Dist: requests-mock==1.8.0; extra == "dev"
+
+# corva-sdk
+
+**corva-sdk** is a framework for building
+[Corva DevCenter](https://app.corva.ai/dev-center/docs)
+Python apps.
+
+## Help
+
+See
+[documentation](https://corva-ai.github.io/python-sdk/)
+for more details.
+
+## Install
+
+Install using `pip install corva-sdk`.
+
+## Contributing
+
+For guidance on setting up a development environment see
+[Development - Contributing](https://corva-ai.github.io/python-sdk/#_development_contributing).

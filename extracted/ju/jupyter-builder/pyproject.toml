@@ -1,0 +1,156 @@
+# Copyright (c) Jupyter Development Team.
+# Distributed under the terms of the Modified BSD License.
+
+[build-system]
+requires = ["hatchling>=1.21.1", "hatch-nodejs-version>=0.3.2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jupyter_builder"
+description = "JupyterLab build tools"
+readme = "README.md"
+license = "BSD-3-Clause AND MIT AND ISC"
+license-files = ["LICENSE", "THIRD_PARTY_LICENSES/*.txt"]
+requires-python = ">=3.10"
+authors = [
+    { name = "Jupyter Development Team", email = "jupyter@googlegroups.com" },
+]
+keywords = ["ipython", "jupyter"]
+classifiers = [
+    "Framework :: Jupyter",
+    "Framework :: Jupyter :: JupyterLab",
+    "Framework :: Jupyter :: JupyterLab :: 4",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = ["traitlets", "jupyter-core", "tomli; python_version < '3.11'"]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://jupyter.org"
+Source = "https://github.com/jupyterlab/jupyter-builder"
+Issues = "https://github.com/jupyterlab/jupyter-builder/issues/new/choose"
+Zulip = "https://jupyter.zulipchat.com/#narrow/channel/469762-jupyterlab"
+Pypi = "https://pypi.org/project/jupyter-builder"
+
+[project.optional-dependencies]
+test = [
+    "coverage",
+    "pytest>=7.0",
+    "pytest-check-links>=0.7",
+    "pytest-cov",
+    "copier>=9.3,<10",
+    "jinja2-time"
+]
+# Check ruff version is aligned with the one in .pre-commit-config.yaml
+dev = ["build", "mypy", "pre-commit", "hatch", "ruff==0.15.11"]
+
+[project.scripts]
+jupyter-builder = "jupyter_builder.main:main"
+jlpm = "jupyter_builder.jlpm:main"
+
+[tool.check-wheel-contents]
+ignore = ["W002", "W004"]
+
+[tool.hatch.version]
+source = "nodejs"
+
+[tool.hatch.build.hooks.version]
+path = "jupyter_builder/_version.py"
+
+[tool.hatch.build.targets.sdist]
+exclude = [".github"]
+
+[tool.jupyter-releaser.options]
+version-cmd = "python scripts/bump_version.py --skip-if-dirty"
+
+[tool.jupyter-releaser.hooks]
+before-build-npm = [
+    "node jupyter_builder/yarn.js",
+    "node jupyter_builder/yarn.js clean:lib",
+    "node jupyter_builder/yarn.js build:lib:prod",
+]
+before-build-python = [
+    "node jupyter_builder/yarn.js clean:lib",
+    "node jupyter_builder/yarn.js clean:lintcache",
+]
+
+[tool.mypy]
+python_version = "3.10"
+explicit_package_bases = true
+strict = true
+pretty = true
+warn_unreachable = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+exclude = [
+    "__pycache__"
+]
+
+[[tool.mypy.overrides]]
+module = "jupyter_builder.debug_log_file_mixin"
+disable_error_code = ["attr-defined"]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "error",
+    "module:pkg_resources is deprecated:DeprecationWarning",
+    "module:This template was designed for Copier:copier.errors.OldTemplateWarning",
+    "ignore::ImportWarning",
+]
+
+log_cli_level = "INFO"
+minversion = "7"
+testpaths = ["tests/"]
+norecursedirs = ".git _build .ipynb_checkpoints"
+addopts = [
+    "-ra",
+    "--strict-config",
+    "--strict-markers",
+    "--pdbcls=IPython.terminal.debugger:Pdb",
+    "--junitxml=junit.xml",
+]
+xfail_strict = true
+
+[tool.repo-review]
+ignore = ["PC111", "PC180", "PY004", "PY007", "RTD100"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = ["FBT001", "FBT002", "FBT003"]
+
+[tool.ruff.lint.per-file-ignores]
+# S101 Use of `assert` detected
+# ANN* / D1xx adding full annotations and docstrings to test helpers is a large refactor
+# SLF001 tests intentionally call private helpers to unit-test them
+"tests/*" = [
+    "ANN001",
+    "ANN002",
+    "ANN003",
+    "ANN201",
+    "ANN202",
+    "ANN204",
+    "D100",
+    "D103",
+    "S101",
+    "S603",
+    "S607",
+    "SLF001",
+]
+"jupyter_builder/main.py" = ["RUF012"]
+# ANN401 noop helper must match the semver Callable signature which uses Any
+"jupyter_builder/commands.py" = ["ANN401"]
+# Ported from the node-semver JS library; preserve original style/structure
+# rather than refactoring to Python idioms or adding annotations/docstrings.
+"jupyter_builder/jupyterlab_semver.py" = ["ALL"]
+"scripts/*" = ["INP001"]

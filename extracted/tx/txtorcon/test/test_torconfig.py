@@ -1332,11 +1332,11 @@ HiddenServicePort=90 127.0.0.1:2345'''.format(fake0, fake1))
 
     def test_hidden_service_parse_error(self):
         conf = TorConfig(FakeControlProtocol(['config/names=']))
-        try:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
             conf._setup_hidden_services('''FakeHiddenServiceKey=foo''')
-            self.fail()
-        except RuntimeError as e:
-            self.assertTrue('parse' in str(e))
+            self.assertEqual(len(w), 1)
+            self.assertTrue('unknown' in str(w[0].message).lower())
 
     def test_hidden_service_directory_absolute_path(self):
         conf = TorConfig(FakeControlProtocol(['config/names=']))
@@ -1457,11 +1457,8 @@ class LegacyLaunchTorTests(unittest.TestCase):
             )
             self.assertIs(tpp, fake_tor.process)
         calls = warn.mock_calls
-        # on Twisted 24.7.0 and higher, there's an extra deprecation
-        # warning due to returnValue being deprecated
-        self.assertTrue(len(calls) >= 1)
-        for call in calls:
-            self.assertEqual(call[1][1], DeprecationWarning)
+        self.assertEqual(1, len(calls))
+        self.assertEqual(calls[0][1][1], DeprecationWarning)
 
 
 class ErrorTests(unittest.TestCase):

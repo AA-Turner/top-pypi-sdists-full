@@ -1,0 +1,117 @@
+Metadata-Version: 2.4
+Name: pymultirole-plugins
+Version: 1.8.33
+Summary: Sherpa multirole plugins
+Project-URL: Homepage, https://kairntech.com/
+Author-email: Olivier Terrier <olivier.terrier@kairntech.com>
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Web Environment
+Classifier: Framework :: AsyncIO
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Internet
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Internet :: WWW/HTTP :: HTTP Servers
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Python: >=3.12
+Requires-Dist: fastapi>=0.115.0
+Requires-Dist: pydantic<3.0,>=2.0
+Requires-Dist: pytest
+Requires-Dist: python-singleton-metaclasses
+Provides-Extra: docs
+Requires-Dist: lxml-html-clean; extra == 'docs'
+Requires-Dist: m2r2; extra == 'docs'
+Requires-Dist: sphinx; extra == 'docs'
+Requires-Dist: sphinx-rtd-theme; extra == 'docs'
+Requires-Dist: sphinxcontrib-apidoc; extra == 'docs'
+Provides-Extra: sbom
+Requires-Dist: cyclonedx-bom; extra == 'sbom'
+Requires-Dist: pip-audit; extra == 'sbom'
+Provides-Extra: test
+Requires-Dist: dirty-equals; extra == 'test'
+Requires-Dist: pytest; extra == 'test'
+Requires-Dist: pytest-cov; extra == 'test'
+Requires-Dist: ruff; extra == 'test'
+Description-Content-Type: text/markdown
+
+## Requirements
+
+- Python 3.12+
+- uv for package management and building
+- Pydantic for the data parts.
+
+## Installation
+```
+pip install uv
+uv pip install pymultirole-plugins
+```
+
+## Development Setup
+```
+uv sync
+```
+
+## Running Tests
+```
+uv run pytest
+```
+
+## Linting and Formatting
+```
+uv run ruff check .
+uv run ruff format --check .
+```
+
+## Generate Documentation
+```
+uv run --extra docs sphinx-build docs docs/_build
+```
+
+## SBOM & vulnerability check
+
+Install the SBOM dependencies:
+
+```
+uv sync --extra sbom
+```
+
+Generate a CycloneDX SBOM from the current environment:
+
+```
+uv run cyclonedx-py environment -o sbom.cdx.json --output-format json
+```
+
+Audit dependencies for known vulnerabilities:
+
+```
+uv run pip-audit --format json --output audit-report.json
+```
+
+To fail on any known vulnerability (useful in CI):
+
+```
+uv run pip-audit --strict
+```
+
+## Publish the Python Package to PyPI
+- Increment the version of your package in the `__init__.py` file:
+```
+"""Sherpa multirole plugins"""
+
+__version__ = 'x.y.z'
+```
+- Build and publish
+```
+uv build
+uv publish
+```

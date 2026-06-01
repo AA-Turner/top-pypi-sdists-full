@@ -5,12 +5,12 @@ Definition of the beans of the v1 parser
 
 :authors: Volodymyr Buell, Thomas Calmant
 :license: Apache License 2.0
-:version: 0.4.4
+:version: 0.5.0
 :status: Alpha
 
 ..
 
-    Copyright 2024 Thomas Calmant
+    Copyright 2026 Thomas Calmant
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -27,8 +27,8 @@ Definition of the beans of the v1 parser
 
 from __future__ import absolute_import
 
-from typing import List
 import struct
+from typing import List  # noqa: F401
 
 from ..utils import UNICODE_TYPE
 
@@ -62,12 +62,12 @@ class JavaClass(object):  # pylint:disable=R0205
         """
         Sets up members
         """
-        self.name = None  # type: str
-        self.serialVersionUID = None  # type: int  # pylint:disable=C0103
-        self.flags = None  # type: int
+        self.name = None  # type: str | None
+        self.serialVersionUID = None  # type: int | None  # pylint:disable=C0103
+        self.flags = None  # type: int | None
         self.fields_names = []  # type: List[str]
         self.fields_types = []  # type: List[JavaString]
-        self.superclass = None  # type: JavaClass
+        self.superclass = None  # type: JavaClass | None
 
     def __str__(self):
         """
@@ -110,7 +110,7 @@ class JavaObject(object):  # pylint:disable=R0205
         """
         Sets up members
         """
-        self.classdesc = None  # type: JavaClass
+        self.classdesc = None  # type: JavaClass | None
         self.annotations = []
 
     def get_class(self):
@@ -173,9 +173,14 @@ class JavaString(UNICODE_TYPE):
         return UNICODE_TYPE.__hash__(self)
 
     def __eq__(self, other):
-        if not isinstance(other, UNICODE_TYPE):
+        # Accept both UNICODE_TYPE and plain str.
+        # In Python 2, UNICODE_TYPE is unicode while str literals are bytes;
+        # including str here lets assertEqual(java_string, "literal") work
+        # in Python 2 as well as Python 3 (where str == UNICODE_TYPE).
+        if not isinstance(other, (UNICODE_TYPE, str)):
             return False
-        return UNICODE_TYPE.__eq__(self, other)
+        result = UNICODE_TYPE.__eq__(self, other)
+        return False if result is NotImplemented else result
 
 
 class JavaEnum(JavaObject):
@@ -199,7 +204,7 @@ class JavaArray(list, JavaObject):
         self.classdesc = classdesc
 
     def __hash__(self):
-        return list.__hash__(self)
+        return object.__hash__(self)
 
 
 class JavaByteArray(JavaObject):

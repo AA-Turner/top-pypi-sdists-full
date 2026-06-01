@@ -1,0 +1,102 @@
+[project]
+name = "pyStrich"
+version = "0.14"
+description = "PyStrich is a Python module to generate 1D and 2D barcodes (Code 39, Code 128, DataMatrix, QRCode and EAN13). Forked from huBarcode."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+authors = [
+    { name = "Michael Mulqueen", email = "mike@method-b.uk" },
+    # Previous authors not listed here. Refer to git log or https://www.method-b.uk/pyStrich/docs/contributors.html
+]
+maintainers = [
+    { name = "Michael Mulqueen", email = "mike@method-b.uk" },
+]
+keywords = [
+    "barcode",
+    "qrcode",
+    "datamatrix",
+    "ean13",
+    "code39",
+    "code128",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Office/Business",
+]
+dependencies = [
+    "pillow>=10.3; python_version < '3.11'",
+    "pillow>=12.2; python_version >= '3.11'",
+]
+
+[project.urls]
+Homepage = "https://github.com/mmulqueen/pyStrich"
+Repository = "https://github.com/mmulqueen/pyStrich"
+Documentation = "https://www.method-b.uk/pyStrich/docs/"
+
+[project.scripts]
+pystrich = "pystrich.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "mypy>=1.13",
+    "ezdxf>=1.3",
+    "fonttools>=4.55",
+    "ruff>=0.15.12",
+    "zxing-cpp>=2.2",
+]
+docs = [
+    "sphinx>=8.1",
+    "furo>=2024.8.6",
+    "sphinx-copybutton>=0.5",
+    "sphinx-argparse>=0.5",
+    "sphinxext-opengraph>=0.13.0",
+    "sphinx-sitemap>=2.9.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pystrich"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "pystrich",
+    "README.md",
+    "LICENSE",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = [
+    # Generated glyph data.
+    "pystrich/_courier_glyphs.py",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "RUF", # ruff-specific
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Test fixtures contain long expected hex/encoded strings that don't wrap cleanly.
+"**/test_*.py" = ["E501"]
+
+[tool.mypy]
+files = ["pystrich"]
+python_version = "3.10"
+

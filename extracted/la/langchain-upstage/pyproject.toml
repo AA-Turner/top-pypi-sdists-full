@@ -1,0 +1,103 @@
+[tool.poetry]
+name = "langchain-upstage"
+version = "0.7.7"
+description = "An integration package connecting Upstage and LangChain"
+authors = []
+readme = "README.md"
+repository = "https://github.com/langchain-ai/langchain-upstage"
+license = "MIT"
+
+[tool.poetry.urls]
+"Source Code" = "https://github.com/langchain-ai/langchain-upstage/tree/main/libs/upstage"
+
+[tool.poetry.dependencies]
+python = ">=3.10,<4.0"
+pypdf = ">=4.2.0,<7.0.0"
+requests = "^2.31.0"
+tokenizers = "^0.20.0"
+langchain-openai = "^1.0.2"
+langchain-core = "^1.2.5"
+# CVE-2025-66418, CVE-2025-66471, CVE-2026-21441: urllib3 < 2.6.3 has multiple high-severity vulnerabilities.
+# urllib3 is transitive (via requests). Remove this floor once requests pulls in >= 2.6.3 directly.
+urllib3 = ">=2.6.3,<3"
+
+[tool.poetry.group.test]
+optional = true
+
+[tool.poetry.group.test_integration]
+optional = true
+
+[tool.poetry.group.test.dependencies]
+pytest = "^7.3.0"
+freezegun = "^1.2.2"
+pytest-mock = "^3.10.0"
+syrupy = "^4.0.2"
+pytest-watcher = "^0.3.4"
+pytest-asyncio = "^0.21.1"
+docarray = ">=0.32.1,<0.42.0"
+langchain-tests = "^1.1.0"
+
+[tool.poetry.group.codespell]
+optional = true
+
+[tool.poetry.group.codespell.dependencies]
+codespell = "^2.2.0"
+
+[tool.poetry.group.lint]
+optional = true
+
+[tool.poetry.group.lint.dependencies]
+ruff = "^0.14.0"
+
+[tool.poetry.group.typing.dependencies]
+mypy = "^1.11"
+types-requests = ">=2.31.0"
+
+[tool.poetry.group.test_integration.dependencies]
+httpx = "^0.28.1"
+pillow = "^12.1.1"
+numpy = "^2.1.0"
+
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+
+[tool.ruff.lint]
+select = [
+  "E", # pycodestyle
+  "F", # pyflakes
+  "I", # isort
+]
+
+[tool.mypy]
+disallow_untyped_defs = "True"
+ignore_missing_imports = "True"
+
+[tool.coverage.run]
+omit = ["tests/*"]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+# --strict-markers will raise errors on unknown marks.
+# https://docs.pytest.org/en/7.1.x/how-to/mark.html#raising-errors-on-unknown-marks
+#
+# https://docs.pytest.org/en/7.1.x/reference/reference.html
+# --strict-config       any warnings encountered while parsing the `pytest`
+#                       section of the configuration file raise errors.
+#
+# https://github.com/tophat/syrupy
+# --snapshot-warn-unused    Prints a warning on unused snapshots rather than fail the test suite.
+addopts = "--snapshot-warn-unused --strict-markers --strict-config --durations=5"
+# Registering custom markers.
+# https://docs.pytest.org/en/7.1.x/example/markers.html#registering-markers
+markers = [
+  "requires: mark tests as requiring a specific library",
+  "asyncio: mark tests as requiring asyncio",
+  "compile: mark placeholder test used to compile integration tests without running them",
+]
+asyncio_mode = "auto"

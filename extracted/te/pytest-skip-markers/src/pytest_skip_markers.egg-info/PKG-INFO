@@ -1,0 +1,158 @@
+Metadata-Version: 2.1
+Name: pytest-skip-markers
+Version: 1.5.2
+Summary: Pytest Salt Plugin
+Home-page: https://github.com/saltstack/pytest-skip-markers
+Author: Pedro Algarvio
+Author-email: pedro@algarvio.me
+License: Apache Software License 2.0
+Project-URL: Source, https://github.com/saltstack/pytest-skip-markers
+Project-URL: Tracker, https://github.com/saltstack/pytest-skip-markers/issues
+Project-URL: Documentation, https://pytest-skip-markers.readthedocs.io
+Platform: unix
+Platform: linux
+Platform: osx
+Platform: cygwin
+Platform: win32
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Cython
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Framework :: Pytest
+Classifier: Typing :: Typed
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Requires-Python: >=3.8
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+License-File: NOTICE
+Requires-Dist: pytest>=7.1.0
+Requires-Dist: attrs>=19.2.0
+Requires-Dist: pywin32; sys_platform == "win32"
+Requires-Dist: distro
+Provides-Extra: docker
+Requires-Dist: docker; extra == "docker"
+Provides-Extra: salt
+Requires-Dist: salt>=3001; extra == "salt"
+Provides-Extra: docs
+Requires-Dist: furo; extra == "docs"
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx-copybutton; extra == "docs"
+Requires-Dist: sphinx-prompt; extra == "docs"
+Requires-Dist: sphinxcontrib-spelling; extra == "docs"
+Requires-Dist: sphinxcontrib-towncrier>=0.2.1a0; extra == "docs"
+Provides-Extra: lint
+Requires-Dist: pylint==2.12.2; extra == "lint"
+Requires-Dist: pyenchant; extra == "lint"
+Requires-Dist: black; python_version >= "3.8" and extra == "lint"
+Requires-Dist: reorder-python-imports; python_version >= "3.8" and extra == "lint"
+Requires-Dist: flake8>=4.0.1; extra == "lint"
+Requires-Dist: flake8-mypy-fork; extra == "lint"
+Requires-Dist: flake8-docstrings; extra == "lint"
+Requires-Dist: flake8-typing-imports; extra == "lint"
+Provides-Extra: tests
+Requires-Dist: docker; extra == "tests"
+Requires-Dist: pytest-subtests; extra == "tests"
+Requires-Dist: pyfakefs==4.4.0; python_version == "3.5" and extra == "tests"
+Requires-Dist: pyfakefs; python_version > "3.5" and extra == "tests"
+Requires-Dist: cryptography; extra == "tests"
+Provides-Extra: changelog
+Requires-Dist: towncrier==21.9.0rc1; extra == "changelog"
+
+.. image:: https://img.shields.io/github/workflow/status/saltstack/pytest-skip-markers/CI?style=plastic
+   :target: https://github.com/saltstack/pytest-skip-markers/actions/workflows/testing.yml
+   :alt: CI
+
+
+.. image:: https://readthedocs.org/projects/pytest-skip-markers/badge/?style=plastic
+   :target: https://pytest-skip-markers.readthedocs.io
+   :alt: Docs
+
+
+.. image:: https://img.shields.io/codecov/c/github/saltstack/pytest-skip-markers?style=plastic&token=CqV7t0yKTb
+   :target: https://codecov.io/gh/saltstack/pytest-skip-markers
+   :alt: Codecov
+
+
+.. image:: https://img.shields.io/pypi/pyversions/pytest-skip-markers?style=plastic
+   :target: https://pypi.org/project/pytest-skip-markers
+   :alt: Python Versions
+
+
+.. image:: https://img.shields.io/pypi/wheel/pytest-skip-markers?style=plastic
+   :target: https://pypi.org/project/pytest-skip-markers
+   :alt: Python Wheel
+
+
+.. image:: https://img.shields.io/badge/code%20style-black-000000.svg?style=plastic
+   :target: https://github.com/psf/black
+   :alt: Code Style: black
+
+
+.. image:: https://img.shields.io/pypi/l/pytest-skip-markers?style=plastic
+   :alt: PyPI - License
+
+
+..
+   include-starts-here
+
+====================
+What is Skip Markers
+====================
+
+This pytest plugin was extracted from `pytest-salt-factories`_. It's a collection of
+of useful skip markers created to simplify and reduce code required to skip tests in
+some common scenarios, for example, platform specific tests.
+
+.. _pytest-salt-factories: https://github.com/saltstack/pytest-salt-factories
+
+
+Install
+=======
+
+Installing Skip Markers is as simple as:
+
+.. code-block:: bash
+
+   python -m pip install pytest-skip-markers
+
+
+And, that's honestly it.
+
+
+Usage
+=====
+
+Once installed, you can now skip some tests with some simple pytest markers, for example.
+
+.. code-block:: python
+
+   import pytest
+
+
+   @pytest.mark.skip_unless_on_linux
+   def test_on_linux():
+       assert True
+
+
+Contributing
+============
+
+The pytest-skip-markers project team welcomes contributions from the community.
+For more detailed information, refer to `CONTRIBUTING`_.
+
+.. _CONTRIBUTING: https://github.com/saltstack/pytest-skip-markers/blob/main/CONTRIBUTING.md
+
+..
+   include-ends-here
+
+Documentation
+=============
+
+The full documentation can be seen `here <https://pytest-skip-markers.readthedocs.io>`_.

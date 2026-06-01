@@ -1,0 +1,26 @@
+[package]
+name = "protos-client-control"
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+
+[dependencies]
+bytes = { workspace = true }
+prost = { workspace = true }
+protos-client-compute = { workspace = true }
+protos-common = { workspace = true }
+tonic = { workspace = true }
+tonic-prost = { workspace = true }
+trait-variant = { workspace = true }
+
+[build-dependencies]
+build-deps = { workspace = true }
+
+[lints]
+workspace = true
+
+[lib]
+test = false
+doctest = false

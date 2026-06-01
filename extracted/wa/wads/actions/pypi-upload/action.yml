@@ -1,0 +1,70 @@
+name: "PyPI Upload"
+description: "Upload distributions to PyPI using twine"
+
+inputs:
+  pypi-username:
+    description: "PyPI username (use __token__ for token-based auth)"
+    required: true
+  pypi-password:
+    description: "PyPI password or token"
+    required: true
+  repository-url:
+    description: "PyPI repository URL (defaults to pypi.org, use https://test.pypi.org/legacy/ for test)"
+    required: false
+    default: "https://upload.pypi.org/legacy/"
+  packages-path:
+    description: "Path to packages to upload (glob pattern)"
+    required: false
+    default: "dist/*"
+  skip-existing:
+    description: "Skip files that already exist on PyPI"
+    required: false
+    default: "false"
+  verbose:
+    description: "Verbose output"
+    required: false
+    default: "true"
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Upload to PyPI
+      shell: bash
+      env:
+        UV_PUBLISH_TOKEN: ${{ inputs.pypi-password }}
+      run: |
+        set -e
+
+        echo "Uploading packages from: ${{ inputs.packages-path }}"
+        echo "Repository URL: ${{ inputs.repository-url }}"
+
+        if command -v uv &> /dev/null; then
+          echo "Using uv for publishing"
+          uv_args=""
+          if [ "${{ inputs.repository-url }}" != "https://upload.pypi.org/legacy/" ]; then
+            uv_args="--publish-url ${{ inputs.repository-url }}"
+          fi
+          uv publish $uv_args ${{ inputs.packages-path }}
+        else
+          echo "Installing twine"
+          python -m pip install --upgrade twine
+
+          twine_args="--non-interactive"
+
+          if [ "${{ inputs.verbose }}" = "true" ]; then
+            twine_args="$twine_args --verbose"
+          fi
+
+          if [ "${{ inputs.skip-existing }}" = "true" ]; then
+            twine_args="$twine_args --skip-existing"
+          fi
+
+          twine upload \
+            $twine_args \
+            --repository-url "${{ inputs.repository-url }}" \
+            --username "${{ inputs.pypi-username }}" \
+            --password "${{ inputs.pypi-password }}" \
+            ${{ inputs.packages-path }}
+        fi
+
+        echo "Upload complete!"

@@ -1,0 +1,41 @@
+name: Test
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11', '3.12']
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install .[testing]
+    - name: Test with pytest
+      run: |
+        pytest --cov=keepachangelog --cov-fail-under=100 --cov-report=term-missing
+    - name: Create packages
+      run: |
+        python -m pip install build
+        python -m build .
+        rm -Rf keepachangelog
+    - name: Install wheel
+      run: |
+        python -m pip install dist/keepachangelog-2.0.0-py3-none-any.whl --force-reinstall
+        python -c 'import keepachangelog'
+    - name: Install source distribution
+      run: |
+        python -m pip install dist/keepachangelog-2.0.0.tar.gz --force-reinstall
+        python -c 'import keepachangelog'
+    - name: Run executable
+      run: |
+        keepachangelog --version

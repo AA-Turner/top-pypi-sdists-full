@@ -1,0 +1,120 @@
+Metadata-Version: 2.1
+Name: hydride
+Version: 1.2.3
+Summary: Adding hydrogen atoms to molecular models
+Author: The 'Hydride' contributors
+License: BSD 3-Clause License
+        --------------------
+        
+        Copyright 2020-2021, The 'Hydride' contributors
+        All rights reserved.
+        
+        Redistribution and use in source and binary forms, with or without modification,
+        are permitted provided that the following conditions are met:
+        
+        1. Redistributions of source code must retain the above copyright notice, this
+        list of conditions and the following disclaimer.
+        
+        2. Redistributions in binary form must reproduce the above copyright notice,
+        this list of conditions and the following disclaimer in the documentation and/or
+        other materials provided with the distribution.
+        
+        3. Neither the name of the copyright holder nor the names of its contributors
+        may be used to endorse or promote products derived from this software without
+        specific prior written permission.
+        
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+        ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+        WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+        ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+        (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+        LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+        ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+        (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+        SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+        
+Project-URL: homepage, https://hydride.biotite-python.org
+Project-URL: repository, https://github.com/biotite-dev/hydride
+Project-URL: documentation, https://hydride.biotite-python.org
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Natural Language :: English
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
+License-File: LICENSE.rst
+Requires-Dist: biotite>=0.40
+Requires-Dist: numpy>=1.25
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Provides-Extra: lint
+Requires-Dist: ruff==0.5.2; extra == "lint"
+
+.. image:: doc/static/assets/hydride_logo.svg
+   :width: 400
+   :align: center
+
+Hydride - Adding hydrogen atoms to molecular models
+===================================================
+
+Many tasks in structural biology ranging from simulations and hydrogen
+bond detection to mere visual analysis, require complete molecular
+models.
+However, most experimentally determined structures do not include
+the position of hydrogen atoms, due to their small size and electron
+density.
+
+*Hydride* is an easy-to-use program and library written in Python that
+adds missing hydrogen atoms to molecular models based on known bond
+lengths and angles.
+Since it does not require force-field parameters for the specific
+molecule(s), it can be used for adding hydrogen atoms to almost any
+organic molecule - from small ligands to large protein complexes.
+
+.. image:: doc/images/cover_structure.svg
+   :width: 400
+   :align: center
+
+|
+
+Installation
+------------
+
+In order to use *Hydride* you need to have Python (at least 3.7) installed.
+
+You can install *Hydride* via
+
+.. code-block:: console
+
+   $ pip install hydride
+
+
+Usage
+-----
+
+In its basic invocation *Hydride* reads an input structure file, adds hydrogen
+atoms to the molecular model and writes the resulting model into an output
+structure file.
+
+.. code-block:: console
+
+   $ hydride -i input_structure.pdb -o output_structure.pdb
+
+Python API
+----------
+
+*Hydride* also provides a Python API to add hydrogen atoms to ``AtomArray``
+objects from `Biotite <https://www.biotite-python.org/>`_.
+
+.. code-block:: python
+
+   atom_array, _ = hydride.add_hydrogen(atom_array)
+   atom_array.coord = hydride.relax_hydrogen(atom_array)

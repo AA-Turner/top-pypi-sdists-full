@@ -1,0 +1,462 @@
+"""Tests for sovyx.context.formatter — Context formatting."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+
+import pytest
+
+from sovyx.brain.models import Concept, ConceptCategory, Episode
+from sovyx.context.formatter import ContextFormatter
+from sovyx.context.tokenizer import TokenCounter
+from sovyx.engine.types import ConceptId, ConversationId, EpisodeId, MindId
+
+MIND = MindId("aria")
+
+
+def _concept(
+    name: str,
+    content: str = "",
+    category: ConceptCategory = ConceptCategory.FACT,
+    confidence: float = 0.8,
+) -> Concept:
+    return Concept(
+        id=ConceptId(name),
+        mind_id=MIND,
+        name=name,
+        content=content or name,
+        category=category,
+        confidence=confidence,
+    )
+
+
+def _episode(user_input: str, created_at: datetime | None = None) -> Episode:
+    return Episode(
+        id=EpisodeId("ep1"),
+        mind_id=MIND,
+        conversation_id=ConversationId("conv1"),
+        user_input=user_input,
+        assistant_response="response",
+        created_at=created_at or datetime.now(tz=UTC),
+    )
+
+
+@pytest.fixture
+def formatter() -> ContextFormatter:
+    return ContextFormatter(TokenCounter())
+
+
+class TestFormatConcept:
+    """Concept formatting."""
+
+    def test_fact_emoji(self, formatter: ContextFormatter) -> None:
+        c = _concept("test", "A fact", ConceptCategory.FACT)
+        result = formatter.format_concept(c)
+        assert result.startswith("📋")
+
+    def test_preference_emoji(self, formatter: ContextFormatter) -> None:
+        c = _concept("test", "Likes coffee", ConceptCategory.PREFERENCE)
+        result = formatter.format_concept(c)
+        assert result.startswith("❤️")
+
+    def test_entity_emoji(self, formatter: ContextFormatter) -> None:
+        c = _concept("test", "Guipe", ConceptCategory.ENTITY)
+        result = formatter.format_concept(c)
+        assert result.startswith("👤")
+
+    def test_skill_emoji(self, formatter: ContextFormatter) -> None:
+        c = _concept("test", "Python", ConceptCategory.SKILL)
+        result = formatter.format_concept(c)
+        assert result.startswith("🔧")
+
+    def test_belief_emoji(self, formatter: ContextFormatter) -> None:
+        c = _concept("test", "Freedom", ConceptCategory.BELIEF)
+        result = formatter.format_concept(c)
+        assert result.startswith("💭")
+
+    def test_event_emoji(self, formatter: ContextFormatter) -> None:
+        c = _concept("test", "Birthday", ConceptCategory.EVENT)
+        result = formatter.format_concept(c)
+        assert result.startswith("📅")
+
+    def test_relationship_emoji(self, formatter: ContextFormatter) -> None:
+        c = _concept("test", "Married", ConceptCategory.RELATIONSHIP)
+        result = formatter.format_concept(c)
+        assert result.startswith("🔗")
+
+    def test_very_low_confidence_marker(self, formatter: ContextFormatter) -> None:
+        c = _concept("test", "Maybe true", confidence=0.2)
+        result = formatter.format_concept(c)
+        assert "very uncertain" in result
+        assert "do NOT state as fact" in result
+
+    def test_low_confidence_marker(self, formatter: ContextFormatter) -> None:
+        c = _concept("test", "Uncertain", confidence=0.35)
+        result = formatter.format_concept(c)
+        assert "uncertain — verify" in result
+
+    def test_medium_confidence_marker(self, formatter: ContextFormatter) -> None:
+        c = _concept("test", "Probably", confidence=0.55)
+        result = formatter.format_concept(c)
+        assert "possibly" in result
+
+    def test_high_confidence_no_marker(self, formatter: ContextFormatter) -> None:
+        c = _concept("test", "Definitely", confidence=0.9)
+        result = formatter.format_concept(c)
+        assert "uncertain" not in result
+        assert "sure" not in result
+        assert "possibly" not in result
+
+    # TASK-12: Importance prefix
+    def test_core_knowledge_star_prefix(self, formatter: ContextFormatter) -> None:
+        c = _concept("test", "User's name is Alice", confidence=0.9)
+        c.importance = 0.90
+        result = formatter.format_concept(c)
+        assert "⭐" in result
+
+    def test_normal_importance_no_prefix(self, formatter: ContextFormatter) -> None:
+        c = _concept("test", "Likes coffee", confidence=0.7)
+        c.importance = 0.5
+        result = formatter.format_concept(c)
+        assert "⭐" not in result
+
+
+class TestFormatEpisode:
+    """Episode formatting."""
+
+    def test_recent_episode(self, formatter: ContextFormatter) -> None:
+        ep = _episode("Hello there")
+        result = formatter.format_episode(ep)
+        assert result.startswith("🕐")
+        assert "Hello there" in result
+
+    def test_long_input_truncated(self, formatter: ContextFormatter) -> None:
+        long_input = "x" * 200
+        ep = _episode(long_input)
+        result = formatter.format_episode(ep)
+        assert len(result) < 200  # noqa: PLR2004
+        assert "..." in result
+
+    def test_summary_used_when_available(self, formatter: ContextFormatter) -> None:
+        ep = _episode("Very long user input that would be truncated")
+        ep.summary = "User asked a question about coding."
+        result = formatter.format_episode(ep)
+        assert "User asked a question about coding." in result
+        assert "Very long user input" not in result
+
+    def test_fallback_to_input_without_summary(self, formatter: ContextFormatter) -> None:
+        ep = _episode("Hello there")
+        ep.summary = None
+        result = formatter.format_episode(ep)
+        assert "Hello there" in result
+
+
+class TestFormatConceptsBlock:
+    """Concepts block formatting."""
+
+    def test_empty(self, formatter: ContextFormatter) -> None:
+        assert formatter.format_concepts_block([], 1000) == ""
+
+    def test_with_concepts(self, formatter: ContextFormatter) -> None:
+        concepts = [
+            (_concept("coffee", "Loves coffee", ConceptCategory.PREFERENCE), 0.9),
+            (_concept("name", "Name is Guipe", ConceptCategory.ENTITY), 0.8),
+        ]
+        result = formatter.format_concepts_block(concepts, 1000)
+        assert "What you know" in result
+        assert "coffee" in result
+        assert "Guipe" in result
+
+    def test_respects_budget(self, formatter: ContextFormatter) -> None:
+        concepts = [(_concept(f"c{i}", f"Content number {i}" * 10), float(i)) for i in range(20)]
+        result = formatter.format_concepts_block(concepts, 50)
+        counter = TokenCounter()
+        assert counter.count(result) <= 50  # noqa: PLR2004
+
+    # TASK-12: importance-weighted ordering
+    def test_high_importance_survives_budget(self, formatter: ContextFormatter) -> None:
+        """High-importance concept survives even with lower search score."""
+        important = _concept("identity", "User name is Alice", ConceptCategory.ENTITY)
+        important.importance = 0.90
+        trivial = _concept("trivia", "It was raining yesterday", ConceptCategory.FACT)
+        trivial.importance = 0.10
+
+        # Trivial has higher search score but lower importance
+        concepts = [
+            (trivial, 0.9),  # High search relevance
+            (important, 0.3),  # Low search relevance
+        ]
+        # Tight budget: only 1 concept fits besides header
+        result = formatter.format_concepts_block(concepts, 30)
+        # Important concept should be included (weighted score wins)
+        assert "Alice" in result
+
+    def test_context_inclusion_count_increments(self, formatter: ContextFormatter) -> None:
+        """Concepts included in context get context_inclusion_count bumped."""
+        c1 = _concept("coffee", "Loves coffee", ConceptCategory.PREFERENCE)
+        c1.metadata = {}
+        c2 = _concept("name", "Name is Guipe", ConceptCategory.ENTITY)
+        c2.metadata = {"context_inclusion_count": 3}
+
+        concepts = [(c1, 0.9), (c2, 0.8)]
+        formatter.format_concepts_block(concepts, 1000)
+
+        assert c1.metadata["context_inclusion_count"] == 1
+        assert c2.metadata["context_inclusion_count"] == 4  # noqa: PLR2004
+
+    def test_context_inclusion_not_incremented_when_excluded(
+        self, formatter: ContextFormatter
+    ) -> None:
+        """Concepts that don't fit in budget don't get counted."""
+        c1 = _concept("coffee", "Loves coffee", ConceptCategory.PREFERENCE)
+        c1.metadata = {}
+        concepts = [(c1, 0.9)]
+        # Budget too small — nothing fits
+        formatter.format_concepts_block(concepts, 5)
+        assert c1.metadata.get("context_inclusion_count", 0) == 0
+
+
+class TestFormatEpisodesBlock:
+    """Episodes block formatting."""
+
+    def test_empty(self, formatter: ContextFormatter) -> None:
+        assert formatter.format_episodes_block([], 1000) == ""
+
+    def test_with_episodes(self, formatter: ContextFormatter) -> None:
+        episodes = [_episode("Hello"), _episode("How are you?")]
+        result = formatter.format_episodes_block(episodes, 1000)
+        assert "Recent conversations" in result
+
+    def test_respects_budget(self, formatter: ContextFormatter) -> None:
+        """Episodes exceeding budget are truncated."""
+        episodes = [_episode(f"Long episode number {i} " * 20) for i in range(30)]
+        result = formatter.format_episodes_block(episodes, 50)
+        counter = TokenCounter()
+        assert counter.count(result) <= 50  # noqa: PLR2004
+
+    def test_budget_too_small_for_any_episode(self, formatter: ContextFormatter) -> None:
+        """When budget only fits header, return empty."""
+        episodes = [_episode("Hello world")]
+        # Budget of 1 token — only header won't fit, or header fits but no episodes
+        result = formatter.format_episodes_block(episodes, 5)
+        # With 5 tokens, header "## Recent conversations:" takes ~5+ tokens
+        # Either returns empty (header doesn't fit) or header only (returns "")
+        assert result == "" or "Recent conversations" in result
+
+
+class TestBpeNonSubadditivityCorrection:
+    """Pin the post-fix two-phase budget enforcement contract.
+
+    BPE is NOT subadditive — piecewise sum of per-line ``count()``
+    values can underestimate the true joined token count by up to
+    ``max(byte_len(line))`` per concatenation boundary in
+    pathological cases (see
+    ``tests/unit/test_brain_invariants.py::test_bpe_concatenation_can_exceed_constant_slack``).
+
+    The ``_trim_to_budget`` final-count + trim pass corrects this
+    by counting the actual joined output and popping items from
+    the end until under budget.
+    """
+
+    def test_concepts_block_final_count_never_exceeds_budget(
+        self, formatter: ContextFormatter
+    ) -> None:
+        """Joined output's actual token count never exceeds budget,
+        regardless of BPE boundary effects between concepts.
+
+        Stress with content built from BPE-pathological strings:
+        ``FILENAME`` + ``MODEL`` are single cl100k_base merges that
+        fragment to 6 tokens when concatenated. Multiple concepts
+        with such content concatenated by the formatter should
+        never push the joined output past ``budget_tokens``.
+        """
+        concepts = [
+            (
+                _concept(f"c{i}", "FILENAMEMODEL" * 5, ConceptCategory.FACT),
+                float(i),
+            )
+            for i in range(20)
+        ]
+        budget = 100
+        result = formatter.format_concepts_block(concepts, budget)
+        counter = TokenCounter()
+        # The hard contract: post-fix the joined output ALWAYS fits.
+        # Pre-fix this would occasionally exceed budget when the
+        # piecewise sum underestimated the true joined cost.
+        assert counter.count(result) <= budget
+
+    def test_episodes_block_final_count_never_exceeds_budget(
+        self, formatter: ContextFormatter
+    ) -> None:
+        """Same contract for episodes — joined output never exceeds
+        ``budget_tokens`` regardless of BPE non-subadditivity.
+        """
+        episodes = [_episode("FILENAMEMODEL" * 5) for _ in range(20)]
+        budget = 100
+        result = formatter.format_episodes_block(episodes, budget)
+        counter = TokenCounter()
+        assert counter.count(result) <= budget
+
+    def test_inclusion_count_not_bumped_for_items_trimmed_by_bpe_correction(
+        self, formatter: ContextFormatter
+    ) -> None:
+        """The metadata bump must reflect the FINAL admitted set
+        (post-trim), not the piecewise-admit set. A concept that
+        the piecewise loop tentatively admitted but the BPE-
+        correction pass trimmed back out must NOT have its
+        ``context_inclusion_count`` bumped — otherwise we'd over-
+        count exposure in the feedback loop.
+
+        Construction: two concepts with content that exposes BPE
+        non-subadditivity. Tight budget forces the BPE-correction
+        to trim at least one. The trimmed concept's metadata must
+        be unchanged.
+        """
+        c1 = _concept("c1", "FILENAMEMODEL" * 8, ConceptCategory.FACT)
+        c1.metadata = {}
+        c2 = _concept("c2", "FILENAMEMODEL" * 8, ConceptCategory.FACT)
+        c2.metadata = {}
+
+        # Budget that fits ONE of them with comfortable headroom but
+        # not both joined (BPE non-subadditivity widens the gap).
+        # The exact threshold depends on tiktoken vocab; the
+        # invariant we pin is: total bumps == admitted concepts in
+        # the final output, never more.
+        result = formatter.format_concepts_block([(c1, 0.9), (c2, 0.8)], 50)
+
+        counter = TokenCounter()
+        joined_count = counter.count(result)
+        assert joined_count <= 50  # noqa: PLR2004 — see budget above
+
+        bumps_total = c1.metadata.get("context_inclusion_count", 0) + c2.metadata.get(
+            "context_inclusion_count", 0
+        )
+        # Count "##" occurrences as a proxy for "header was emitted"
+        # (1 if any concepts admitted, else 0).
+        admitted_count = result.count("📋") if result else 0
+        assert bumps_total == admitted_count, (
+            f"metadata bump mismatch — bumps={bumps_total}, "
+            f"admitted in final output={admitted_count}. The "
+            "BPE-correction trim must revert metadata bumps for items "
+            "that didn't survive the final-count pass."
+        )
+
+    def test_trim_to_budget_returns_empty_when_header_alone_exceeds(
+        self, formatter: ContextFormatter
+    ) -> None:
+        """Edge case: budget so small that even the header alone is
+        over budget. ``_trim_to_budget`` pops everything (including
+        the header isn't in the admitted list — only items are);
+        the result is empty list. Caller returns ``""``.
+        """
+        # Header "## What you know about this person:" is ~10 tokens.
+        # Budget of 3 — header alone exceeds. Result should be "".
+        c = _concept("c", "anything")
+        c.metadata = {}
+        result = formatter.format_concepts_block([(c, 0.9)], 3)
+        assert result == ""
+        # Critical: metadata MUST NOT be bumped for an item that
+        # never made it into the output.
+        assert c.metadata.get("context_inclusion_count", 0) == 0
+
+
+class TestFormatTemporal:
+    """Temporal context."""
+
+    def test_contains_timezone(self, formatter: ContextFormatter) -> None:
+        result = formatter.format_temporal("America/Sao_Paulo")
+        assert "America/Sao_Paulo" in result
+
+    def test_contains_date(self, formatter: ContextFormatter) -> None:
+        result = formatter.format_temporal()
+        assert "202" in result  # year
+
+    def test_invalid_timezone_falls_back_to_utc(self, formatter: ContextFormatter) -> None:
+        """Invalid timezone name should fallback to UTC without crashing."""
+        result = formatter.format_temporal("Invalid/NotATimezone")
+        assert "Invalid/NotATimezone" in result
+        assert "Current date and time:" in result
+
+
+class TestLostInMiddle:
+    """Lost-in-the-Middle ordering."""
+
+    def test_ordering(self) -> None:
+        items = [
+            (_concept("a"), 1.0),
+            (_concept("b"), 0.8),
+            (_concept("c"), 0.6),
+            (_concept("d"), 0.4),
+            (_concept("e"), 0.2),
+        ]
+        ordered = ContextFormatter._order_for_attention(items)
+        # Most relevant at start, second at end
+        scores = [s for _, s in ordered]
+        assert scores[0] >= scores[-1] or scores[-1] >= scores[len(scores) // 2]
+        # First item should be highest (now weighted: 0.65*1.0 + 0.35*0.5 = 0.825)
+        assert scores[0] == max(scores)
+
+
+class TestHumanTimeAgo:
+    """Human-readable time ago."""
+
+    def test_just_now(self) -> None:
+        result = ContextFormatter._human_time_ago(datetime.now(tz=UTC))
+        assert "just now" in result
+
+    def test_minutes(self) -> None:
+        t = datetime.now(tz=UTC) - timedelta(minutes=30)
+        result = ContextFormatter._human_time_ago(t)
+        assert "minute" in result
+
+    def test_single_minute(self) -> None:
+        t = datetime.now(tz=UTC) - timedelta(minutes=1, seconds=5)
+        result = ContextFormatter._human_time_ago(t)
+        assert "1 minute ago" in result
+
+    def test_single_hour(self) -> None:
+        t = datetime.now(tz=UTC) - timedelta(hours=1, minutes=5)
+        result = ContextFormatter._human_time_ago(t)
+        assert "1 hour ago" in result
+
+    def test_hours(self) -> None:
+        t = datetime.now(tz=UTC) - timedelta(hours=5)
+        result = ContextFormatter._human_time_ago(t)
+        assert "hour" in result
+
+    def test_yesterday(self) -> None:
+        t = datetime.now(tz=UTC) - timedelta(days=1, hours=5)
+        result = ContextFormatter._human_time_ago(t)
+        assert "yesterday" in result
+
+    def test_days(self) -> None:
+        t = datetime.now(tz=UTC) - timedelta(days=4)
+        result = ContextFormatter._human_time_ago(t)
+        assert "day" in result
+
+    def test_single_week(self) -> None:
+        t = datetime.now(tz=UTC) - timedelta(weeks=1, days=1)
+        result = ContextFormatter._human_time_ago(t)
+        assert "1 week ago" in result
+
+    def test_weeks(self) -> None:
+        t = datetime.now(tz=UTC) - timedelta(weeks=2)
+        result = ContextFormatter._human_time_ago(t)
+        assert "week" in result
+
+    def test_about_a_month(self) -> None:
+        """~28-30 days: past 4 weeks but months < 1."""
+        t = datetime.now(tz=UTC) - timedelta(days=29)
+        result = ContextFormatter._human_time_ago(t)
+        assert "about a month ago" in result
+
+    def test_months(self) -> None:
+        t = datetime.now(tz=UTC) - timedelta(days=90)
+        result = ContextFormatter._human_time_ago(t)
+        assert "month" in result
+
+    def test_naive_datetime_handled(self) -> None:
+        """Naive datetime (no tzinfo) should be treated as UTC."""
+        t = datetime.now(tz=UTC).replace(tzinfo=None) - timedelta(hours=2)
+        result = ContextFormatter._human_time_ago(t)
+        assert "hour" in result

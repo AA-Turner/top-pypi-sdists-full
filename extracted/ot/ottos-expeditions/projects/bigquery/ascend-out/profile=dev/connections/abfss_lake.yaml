@@ -1,8 +1,0 @@
-connection:
-  abfs:
-    account: ascendiosampledata
-    root: abfss://ottos-expeditions/
-  metadata:
-    source:
-      path: connections/abfss_lake.yaml
-  name: abfss_lake

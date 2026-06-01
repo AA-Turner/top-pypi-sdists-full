@@ -1,16 +1,18 @@
 use crate::core::BitCollection;
-use crate::enums::{BitOrder, Codec, Endianness};
+use crate::dtype::{Dtype, extract_dtype};
+use crate::enums::{BitOrder, Codec, DtypeKind, Endianness};
 use crate::helpers;
 use crate::helpers::{
     BS, BV, bv_from_bin, bv_from_bools, bv_from_bytes_slice, bv_from_f64, bv_from_hex,
     bv_from_i128, bv_from_oct, bv_from_ones, bv_from_random, bv_from_u128, bv_from_zeros,
     compute_lps, find_bitvec_aligned, promote_to_bv, rfind_bitvec_aligned, str_to_bv,
-    validate_logical_op_lengths, validate_shift, validate_slice,
+    validate_length, validate_logical_op_lengths, validate_shift, validate_slice,
 };
-use crate::iterator::{BoolIterator, ChunksIterator, FindAllIterator};
+use crate::iterator::{BoolIterator, ChunksIterator, FindAllIterator, ValuesIterator};
 use crate::mutibs::Mutibs;
 use crate::view::View;
 use bitvec::prelude::*;
+use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PySlice, PyType};
@@ -131,6 +133,7 @@ impl Tibs {
 
     pub(crate) fn find_impl(
         &self,
+        py: Python<'_>,
         needle: Tibs,
         start: Option<isize>,
         end: Option<isize>,
@@ -145,20 +148,22 @@ impl Tibs {
 
         let found = if !reverse {
             find_bitvec_aligned(
+                py,
                 self.to_bitslice(),
                 needle.as_bitslice(),
                 start,
                 end,
                 alignment_mod8,
-            )
+            )?
         } else {
             rfind_bitvec_aligned(
+                py,
                 self.to_bitslice(),
                 needle.as_bitslice(),
                 start,
                 end,
                 alignment_mod8,
-            )
+            )?
         };
         Ok(found)
     }
@@ -212,6 +217,103 @@ impl<'a, 'py> FromPyObject<'a, 'py> for Tibs {
     }
 }
 
+pub(crate) fn bv_from_value(dtype: &Dtype, value: &Bound<'_, PyAny>) -> PyResult<BV> {
+    let is_little_endian = Endianness::is_little_endian(Some(dtype.byte_order), dtype.length)?;
+    match dtype.kind {
+        DtypeKind::Float => bv_from_f64(value.extract::<f64>()?, dtype.length, is_little_endian),
+        DtypeKind::Uint => bv_from_u128(value.extract::<u128>()?, dtype.length, is_little_endian),
+        DtypeKind::Int => bv_from_i128(value.extract::<i128>()?, dtype.length, is_little_endian),
+        DtypeKind::Bytes => {
+            bv_from_bytes_slice(value.extract::<Vec<u8>>()?, Some(0), Some(dtype.length))
+        }
+        DtypeKind::Bin => bv_from_bin(&value.extract::<String>()?),
+        DtypeKind::Oct => bv_from_oct(&value.extract::<String>()?),
+        DtypeKind::Hex => bv_from_hex(&value.extract::<String>()?),
+    }
+}
+
+pub(crate) fn bv_from_values_iter(
+    py: Python<'_>,
+    dtype: &Dtype,
+    iterable: &Bound<'_, PyAny>,
+) -> PyResult<BV> {
+    let capacity = iterable
+        .len()
+        .ok()
+        .and_then(|len| len.checked_mul(dtype.length));
+    let mut bv = capacity.map_or_else(BV::new, BV::with_capacity);
+    let mut check_at = helpers::SIGNAL_CHECK_INTERVAL;
+    for (index, item) in iterable.try_iter()?.enumerate() {
+        if index >= check_at {
+            py.check_signals()?;
+            check_at = index.saturating_add(helpers::SIGNAL_CHECK_INTERVAL);
+        }
+        bv.extend(bv_from_value(dtype, &item?)?);
+    }
+    Ok(bv)
+}
+
+pub(crate) fn py_from_value_parts(
+    py: Python<'_>,
+    dtype_kind: DtypeKind,
+    dtype_length: usize,
+    byte_order: Endianness,
+    value: &Tibs,
+) -> PyResult<Py<PyAny>> {
+    if value.len() != dtype_length {
+        return Err(PyValueError::new_err(format!(
+            "Cannot convert {} bits using a dtype with length {} bits.",
+            value.len(),
+            dtype_length
+        )));
+    }
+
+    let is_little_endian = Endianness::is_little_endian(Some(byte_order), dtype_length)?;
+    match dtype_kind {
+        DtypeKind::Float => BitCollection::to_f64(value, is_little_endian)?.into_py_any(py),
+        DtypeKind::Uint => BitCollection::to_u128(value, is_little_endian)?.into_py_any(py),
+        DtypeKind::Int => BitCollection::to_i128(value, is_little_endian)?.into_py_any(py),
+        DtypeKind::Bytes => BitCollection::to_byte_data(value)?.into_py_any(py),
+        DtypeKind::Bin => BitCollection::to_binary(value).into_py_any(py),
+        DtypeKind::Oct => BitCollection::to_octal(value)?.into_py_any(py),
+        DtypeKind::Hex => BitCollection::to_hexadecimal(value)?.into_py_any(py),
+    }
+}
+
+pub(crate) fn py_from_value(py: Python<'_>, dtype: &Dtype, value: &Tibs) -> PyResult<Py<PyAny>> {
+    py_from_value_parts(py, dtype.kind, dtype.length, dtype.byte_order, value)
+}
+
+pub(crate) fn py_values_from_range(
+    py: Python<'_>,
+    bits: &Tibs,
+    dtype: &Dtype,
+    start: Option<isize>,
+    end: Option<isize>,
+) -> PyResult<Vec<Py<PyAny>>> {
+    let (start, end) = validate_slice(bits.len(), start, end)?;
+    let selected_len = end - start;
+    if !selected_len.is_multiple_of(dtype.length) {
+        return Err(PyValueError::new_err(format!(
+            "Cannot convert to values - selected length of {selected_len} bits is not a multiple of dtype length {} bits.",
+            dtype.length
+        )));
+    }
+
+    let count = selected_len / dtype.length;
+    let mut values = Vec::with_capacity(count);
+    let mut check_at = helpers::SIGNAL_CHECK_INTERVAL;
+    for index in 0..count {
+        if index >= check_at {
+            py.check_signals()?;
+            check_at = index.saturating_add(helpers::SIGNAL_CHECK_INTERVAL);
+        }
+        let value = bits.get_slice_unchecked(start + index * dtype.length, dtype.length);
+        values.push(py_from_value(py, dtype, &value)?);
+    }
+    Ok(values)
+}
+
 /// Public Python-facing methods.
 #[pymethods]
 impl Tibs {
@@ -240,11 +342,13 @@ impl Tibs {
 
     /// Return a new instance with the byte order swapped.
     ///
-    /// The whole of the data will be byte-swapped. It must be a multiple
-    /// of byte_length long.
+    /// The selected slice will be byte-swapped. It must be a multiple of
+    /// byte_length long.
     ///
     /// :param int | None byte_length: An int giving the number of bytes in each swap, or None (the default)
-    ///   to do a single reverse over the whole data.
+    ///   to do a single reverse over the selected slice.
+    /// :param int | None start: Start of slice to byte-swap. Defaults to 0.
+    /// :param int | None end: End of slice to byte-swap. Defaults to len(self).
     /// :return: Tibs
     ///
     /// .. code-block:: pycon
@@ -254,9 +358,16 @@ impl Tibs {
     ///     >>> b
     ///     Tibs('0x34127856')
     ///
-    #[pyo3(signature = (byte_length = None), text_signature = "($self, byte_length=None)")]
-    pub fn byte_swapped(&self, byte_length: Option<i64>) -> PyResult<Tibs> {
-        BitCollection::byte_swap_copy(self, byte_length)
+    #[pyo3(signature = (byte_length = None, start=None, end=None), text_signature = "($self, byte_length=None, start=None, end=None)")]
+    pub fn byte_swapped(
+        &self,
+        byte_length: Option<i64>,
+        start: Option<isize>,
+        end: Option<isize>,
+    ) -> PyResult<Tibs> {
+        let mut out = self.to_mutibs();
+        out.apply_byte_swap(byte_length, start, end)?;
+        Ok(out.to_tibs())
     }
 
     /// Return a copy of the raw byte information.
@@ -469,7 +580,7 @@ impl Tibs {
             Some(c) => {
                 if c < 0 {
                     return Err(PyValueError::new_err(format!(
-                        "Cannot create chunk generator - count of {c} given, but it must be > 0 if present."
+                        "Cannot create chunk generator - count of {c} given, but it must be >= 0 if present."
                     )));
                 }
                 c as usize
@@ -578,6 +689,7 @@ impl Tibs {
     #[pyo3(signature = (needle, start=None, end=None, byte_aligned=false), text_signature = "($self, needle, start=None, end=None, byte_aligned=False)")]
     pub fn find_all(
         slf: PyRef<'_, Self>,
+        py: Python<'_>,
         needle: Tibs,
         start: Option<isize>,
         end: Option<isize>,
@@ -590,14 +702,15 @@ impl Tibs {
         let haystack_len = slf.len();
         let (start, end) = validate_slice(haystack_len, start, end)?;
 
-        Ok(helpers::collect_find_all_positions(
+        helpers::collect_find_all_positions(
+            py,
             slf.as_bitslice(),
             needle.as_bitslice(),
             haystack_len,
             start,
             end,
             byte_aligned,
-        ))
+        )
     }
 
     /// Find all occurrences of a bit sequence, returning an iterator of bit positions.
@@ -649,7 +762,7 @@ impl Tibs {
             (Some(haystack), Some(needle), base)
         });
         let py = slf.py();
-        let lps = { compute_lps(needle.to_bitslice()) };
+        let lps = { compute_lps(py, needle.to_bitslice())? };
         let iter_obj = FindAllIterator {
             haystack: slf.into(),
             haystack_len,
@@ -716,7 +829,7 @@ impl Tibs {
             (Some(haystack), Some(needle), base)
         });
         let py = slf.py();
-        let lps = { compute_lps(needle.to_bitslice()) };
+        let lps = { compute_lps(py, needle.to_bitslice())? };
         let iter_obj = FindAllIterator {
             haystack: slf.into(),
             haystack_len,
@@ -754,13 +867,154 @@ impl Tibs {
     #[classmethod]
     #[pyo3(signature = (length, /), text_signature = "(cls, length, /)")]
     pub fn from_zeros(_cls: &Bound<'_, PyType>, length: i64) -> PyResult<Self> {
-        if length < 0 {
+        let length = validate_length(length)?;
+        Ok(Self::from_bv(bv_from_zeros(length)))
+    }
+
+    /// Create a new instance by encoding one Python value with a dtype.
+    ///
+    /// :param Dtype | str dtype: The value encoding to use.
+    /// :param object value: The value to encode.
+    /// :return: A newly constructed ``Tibs``.
+    ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> Tibs.from_value("u8", 15)
+    ///     Tibs('0x0f')
+    ///
+    #[classmethod]
+    #[pyo3(signature = (dtype, value, /), text_signature = "(cls, dtype, value, /)")]
+    pub fn from_value(
+        _cls: &Bound<'_, PyType>,
+        dtype: &Bound<'_, PyAny>,
+        value: &Bound<'_, PyAny>,
+    ) -> PyResult<Self> {
+        let dtype = extract_dtype(dtype)?;
+        Ok(Tibs::from_bv(bv_from_value(&dtype, value)?))
+    }
+
+    /// Create a new instance by encoding and concatenating values with a dtype.
+    ///
+    /// :param Dtype | str dtype: The value encoding to use for each item.
+    /// :param Iterable iterable: The values to encode.
+    /// :return: A newly constructed ``Tibs``.
+    ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> Tibs.from_values("u8", [1, 2, 3])
+    ///     Tibs('0x010203')
+    ///
+    #[classmethod]
+    #[pyo3(signature = (dtype, iterable, /), text_signature = "(cls, dtype, iterable, /)")]
+    pub fn from_values(
+        _cls: &Bound<'_, PyType>,
+        py: Python<'_>,
+        dtype: &Bound<'_, PyAny>,
+        iterable: &Bound<'_, PyAny>,
+    ) -> PyResult<Self> {
+        let dtype = extract_dtype(dtype)?;
+        Ok(Tibs::from_bv(bv_from_values_iter(py, &dtype, iterable)?))
+    }
+
+    /// Return an iterator over values decoded with a dtype.
+    ///
+    /// The selected range must be a whole number of dtype values.
+    ///
+    /// :param Dtype | str dtype: The value encoding to use for each yielded item.
+    /// :param int | None start: Start bit position. Defaults to 0.
+    /// :param int | None end: End bit position. Defaults to len(self).
+    /// :return: An iterator yielding decoded Python values.
+    ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> list(Tibs('0x010203').to_values_iter("u8"))
+    ///     [1, 2, 3]
+    ///
+    #[pyo3(signature = (dtype, start = None, end = None), text_signature = "($self, dtype, start=None, end=None)")]
+    pub fn to_values_iter(
+        slf: PyRef<'_, Self>,
+        dtype: &Bound<'_, PyAny>,
+        start: Option<isize>,
+        end: Option<isize>,
+    ) -> PyResult<Py<ValuesIterator>> {
+        let dtype = extract_dtype(dtype)?;
+        let (start, end) = validate_slice(slf.len(), start, end)?;
+        let selected_len = end - start;
+        let chunk_size = dtype.length;
+        if !selected_len.is_multiple_of(chunk_size) {
             return Err(PyValueError::new_err(format!(
-                "Negative bit length given: {}.",
-                length
+                "Cannot create values iterator - selected length of {selected_len} bits is not a multiple of dtype length {} bits.",
+                dtype.length
             )));
         }
-        Ok(Self::from_bv(bv_from_zeros(length as usize)))
+
+        let py = slf.py();
+        Py::new(
+            py,
+            ValuesIterator {
+                bits_object: slf.into(),
+                dtype_kind: dtype.kind,
+                dtype_length: dtype.length,
+                byte_order: dtype.byte_order,
+                chunk_size,
+                current_pos: start,
+                end_pos: end,
+            },
+        )
+    }
+
+    /// Return a list of values decoded with a dtype.
+    ///
+    /// The selected range must be a whole number of dtype values.
+    ///
+    /// :param Dtype | str dtype: The value encoding to use for each item.
+    /// :param int | None start: Start bit position. Defaults to 0.
+    /// :param int | None end: End bit position. Defaults to len(self).
+    /// :return: A list of decoded Python values.
+    ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> Tibs('0x010203').to_values("u8")
+    ///     [1, 2, 3]
+    ///
+    #[pyo3(signature = (dtype, start = None, end = None), text_signature = "($self, dtype, start=None, end=None)")]
+    pub fn to_values(
+        &self,
+        py: Python<'_>,
+        dtype: &Bound<'_, PyAny>,
+        start: Option<isize>,
+        end: Option<isize>,
+    ) -> PyResult<Vec<Py<PyAny>>> {
+        let dtype = extract_dtype(dtype)?;
+        py_values_from_range(py, self, &dtype, start, end)
+    }
+
+    /// Return one value decoded with a dtype.
+    ///
+    /// The selected range must have exactly the dtype length.
+    ///
+    /// :param Dtype | str dtype: The value encoding to use.
+    /// :param int | None start: Start bit position. Defaults to 0.
+    /// :param int | None end: End bit position. Defaults to len(self).
+    /// :return: The decoded Python value.
+    ///
+    /// .. code-block:: pycon
+    ///
+    ///     >>> Tibs('0x0f').to_value("u8")
+    ///     15
+    ///
+    #[pyo3(signature = (dtype, start = None, end = None), text_signature = "($self, dtype, start=None, end=None)")]
+    pub fn to_value(
+        &self,
+        py: Python<'_>,
+        dtype: &Bound<'_, PyAny>,
+        start: Option<isize>,
+        end: Option<isize>,
+    ) -> PyResult<Py<PyAny>> {
+        let dtype = extract_dtype(dtype)?;
+        let (start, end) = validate_slice(self.len(), start, end)?;
+        let value = self.get_slice_unchecked(start, end - start);
+        py_from_value(py, &dtype, &value)
     }
 
     /// Create a new instance with all bits set to '1'.
@@ -776,13 +1030,8 @@ impl Tibs {
     #[classmethod]
     #[pyo3(signature = (length, /), text_signature = "(cls, length, /)")]
     pub fn from_ones(_cls: &Bound<'_, PyType>, length: i64) -> PyResult<Self> {
-        if length < 0 {
-            return Err(PyValueError::new_err(format!(
-                "Negative bit length given: {}.",
-                length
-            )));
-        }
-        Ok(Tibs::from_bv(bv_from_ones(length as usize)))
+        let length = validate_length(length)?;
+        Ok(Tibs::from_bv(bv_from_ones(length)))
     }
 
     /// Create a new instance from a formatted string.
@@ -830,11 +1079,15 @@ impl Tibs {
         length: i64,
         byte_order: Option<Endianness>,
     ) -> PyResult<Self> {
+        let length = validate_length(length)?;
         let is_little_endian = Endianness::is_little_endian(byte_order, length)?;
         Ok(Tibs::from_bv(bv_from_u128(u, length, is_little_endian)?))
     }
 
     /// Return the unsigned integer representation of the Tibs.
+    ///
+    /// :param int | None start: Start bit position. Defaults to 0.
+    /// :param int | None end: End bit position. Defaults to len(self).
     ///
     /// :return: The value as an unsigned integer.
     ///
@@ -843,18 +1096,23 @@ impl Tibs {
     ///     >>> Tibs('0x0f').to_u()
     ///     15
     ///
-    pub fn to_u(&self) -> PyResult<u128> {
-        BitCollection::to_u128(self, false)
+    #[pyo3(signature = (start = None, end = None), text_signature = "($self, start=None, end=None)")]
+    pub fn to_u(&self, start: Option<isize>, end: Option<isize>) -> PyResult<u128> {
+        if start.is_none() && end.is_none() {
+            return BitCollection::to_u128(self, false);
+        }
+        let (start, end) = validate_slice(self.len(), start, end)?;
+        BitCollection::to_u128(&self.get_slice_unchecked(start, end - start), false)
     }
 
     /// Read-only property of the unsigned integer representation of the Tibs.
     ///
-    /// Equivalent to using :meth:`~to_u`.
+    /// Equivalent to using :meth:`~to_u` with no parameters.
     ///
     /// :return: The value as an unsigned integer.
     #[getter]
     fn u(&self) -> PyResult<u128> {
-        self.to_u()
+        self.to_u(None, None)
     }
 
     /// Create a new instance from a signed integer.
@@ -879,11 +1137,15 @@ impl Tibs {
         length: i64,
         byte_order: Option<Endianness>,
     ) -> PyResult<Self> {
+        let length = validate_length(length)?;
         let is_little_endian = Endianness::is_little_endian(byte_order, length)?;
         Ok(Tibs::from_bv(bv_from_i128(i, length, is_little_endian)?))
     }
 
     /// Return the signed integer representation of the Tibs.
+    ///
+    /// :param int | None start: Start bit position. Defaults to 0.
+    /// :param int | None end: End bit position. Defaults to len(self).
     ///
     /// :return: The value as a signed integer.
     ///
@@ -892,18 +1154,23 @@ impl Tibs {
     ///     >>> Tibs('0xe').to_i()
     ///     -2
     ///
-    pub fn to_i(&self) -> PyResult<i128> {
-        BitCollection::to_i128(self, false)
+    #[pyo3(signature = (start = None, end = None), text_signature = "($self, start=None, end=None)")]
+    pub fn to_i(&self, start: Option<isize>, end: Option<isize>) -> PyResult<i128> {
+        if start.is_none() && end.is_none() {
+            return BitCollection::to_i128(self, false);
+        }
+        let (start, end) = validate_slice(self.len(), start, end)?;
+        BitCollection::to_i128(&self.get_slice_unchecked(start, end - start), false)
     }
 
     /// Read-only property of the signed integer representation of the Tibs.
     ///
-    /// Equivalent to using :meth:`~to_i`.
+    /// Equivalent to using :meth:`~to_i` with no parameters.
     ///
     /// :return: The value as a signed integer.
     #[getter]
     fn i(&self) -> PyResult<i128> {
-        self.to_i()
+        self.to_i(None, None)
     }
 
     /// Create a new instance from a floating point number.
@@ -926,6 +1193,7 @@ impl Tibs {
         length: i64,
         byte_order: Option<Endianness>,
     ) -> PyResult<Self> {
+        let length = validate_length(length)?;
         let is_little_endian = Endianness::is_little_endian(byte_order, length)?;
         let bv = bv_from_f64(f, length, is_little_endian)?;
         Ok(Tibs::from_bv(bv))
@@ -935,6 +1203,9 @@ impl Tibs {
     ///
     /// The length must be 16, 32 or 64.
     ///
+    /// :param int | None start: Start bit position. Defaults to 0.
+    /// :param int | None end: End bit position. Defaults to len(self).
+    ///
     /// :return: The value as a Python float.
     ///
     /// .. code-block:: pycon
@@ -942,18 +1213,23 @@ impl Tibs {
     ///     >>> Tibs('0x3fc00000').to_f()
     ///     1.5
     ///
-    pub fn to_f(&self) -> PyResult<f64> {
-        BitCollection::to_f64(self, false)
+    #[pyo3(signature = (start = None, end = None), text_signature = "($self, start=None, end=None)")]
+    pub fn to_f(&self, start: Option<isize>, end: Option<isize>) -> PyResult<f64> {
+        if start.is_none() && end.is_none() {
+            return BitCollection::to_f64(self, false);
+        }
+        let (start, end) = validate_slice(self.len(), start, end)?;
+        BitCollection::to_f64(&self.get_slice_unchecked(start, end - start), false)
     }
 
     /// Read-only property of the floating point representation of the Tibs.
     ///
-    /// Equivalent to using :meth:`~to_f`.
+    /// Equivalent to using :meth:`~to_f` with no parameters.
     ///
     /// :return: The value as a Python float.
     #[getter]
     fn f(&self) -> PyResult<f64> {
-        self.to_f()
+        self.to_f(None, None)
     }
 
     /// Create a new instance from a binary string.
@@ -974,16 +1250,26 @@ impl Tibs {
 
     /// Return the binary representation of the Tibs as a string.
     ///
-    /// Equivalent to using the ``bin`` property.
+    /// Equivalent to using the ``bin`` property when called with no parameters.
+    ///
+    /// :param int | None start: Start bit position. Defaults to 0.
+    /// :param int | None end: End bit position. Defaults to len(self).
     ///
     /// :return: The binary representation.
-    pub fn to_bin(&self) -> String {
-        BitCollection::to_binary(self)
+    #[pyo3(signature = (start = None, end = None), text_signature = "($self, start=None, end=None)")]
+    pub fn to_bin(&self, start: Option<isize>, end: Option<isize>) -> PyResult<String> {
+        if start.is_none() && end.is_none() {
+            return Ok(BitCollection::to_binary(self));
+        }
+        let (start, end) = validate_slice(self.len(), start, end)?;
+        Ok(BitCollection::to_binary(
+            &self.get_slice_unchecked(start, end - start),
+        ))
     }
 
     /// Read-only property of the binary representation of the Tibs.
     ///
-    /// Equivalent to using :meth:`~to_bin`.
+    /// Equivalent to using :meth:`~to_bin` with no parameters.
     ///
     /// :return: The binary representation.
     #[getter]
@@ -1010,17 +1296,25 @@ impl Tibs {
 
     /// Return the octal representation of the Tibs as a string.
     ///
-    /// Equivalent to using the ``oct`` property.
+    /// Equivalent to using the ``oct`` property when called with no parameters.
+    ///
+    /// :param int | None start: Start bit position. Defaults to 0.
+    /// :param int | None end: End bit position. Defaults to len(self).
     ///
     /// :return: The octal representation.
     /// :raises ValueError: if the length is not a multiple of 3.
-    pub fn to_oct(&self) -> PyResult<String> {
-        BitCollection::to_octal(self)
+    #[pyo3(signature = (start = None, end = None), text_signature = "($self, start=None, end=None)")]
+    pub fn to_oct(&self, start: Option<isize>, end: Option<isize>) -> PyResult<String> {
+        if start.is_none() && end.is_none() {
+            return BitCollection::to_octal(self);
+        }
+        let (start, end) = validate_slice(self.len(), start, end)?;
+        BitCollection::to_octal(&self.get_slice_unchecked(start, end - start))
     }
 
     /// Read-only property of the octal representation of the Tibs.
     ///
-    /// Equivalent to using :meth:`~to_oct`.
+    /// Equivalent to using :meth:`~to_oct` with no parameters.
     ///
     /// :return: The octal representation.
     /// :raises ValueError: if the length is not a multiple of 3.
@@ -1048,17 +1342,25 @@ impl Tibs {
 
     /// Return the hexadecimal representation of the Tibs as a string.
     ///
-    /// Equivalent to using the ``hex`` property.
+    /// Equivalent to using the ``hex`` property when called with no parameters.
+    ///
+    /// :param int | None start: Start bit position. Defaults to 0.
+    /// :param int | None end: End bit position. Defaults to len(self).
     ///
     /// :return: The hexadecimal representation.
     /// :raises ValueError: if the length is not a multiple of 4.
-    pub fn to_hex(&self) -> PyResult<String> {
-        BitCollection::to_hexadecimal(self)
+    #[pyo3(signature = (start = None, end = None), text_signature = "($self, start=None, end=None)")]
+    pub fn to_hex(&self, start: Option<isize>, end: Option<isize>) -> PyResult<String> {
+        if start.is_none() && end.is_none() {
+            return BitCollection::to_hexadecimal(self);
+        }
+        let (start, end) = validate_slice(self.len(), start, end)?;
+        BitCollection::to_hexadecimal(&self.get_slice_unchecked(start, end - start))
     }
 
     /// Read-only property of the hexadecimal representation of the Tibs.
     ///
-    /// Equivalent to using :meth:`~to_hex`.
+    /// Equivalent to using :meth:`~to_hex` with no parameters.
     ///
     /// :return: The hexadecimal representation.
     /// :raises ValueError: if the length is not a multiple of 4.
@@ -1087,6 +1389,14 @@ impl Tibs {
         offset: Option<i64>,
         length: Option<i64>,
     ) -> PyResult<Self> {
+        let length = match length {
+            Some(length) => Some(validate_length(length)?),
+            None => None,
+        };
+        let offset = match offset {
+            Some(offset) => Some(validate_length(offset)?),
+            None => None,
+        };
         let bv = bv_from_bytes_slice(data, offset, length)?;
         Ok(Self::from_bv(bv))
     }
@@ -1155,15 +1465,23 @@ impl Tibs {
 
     /// Return the Tibs as a bytes object.
     ///
+    /// :param int | None start: Start bit position. Defaults to 0.
+    /// :param int | None end: End bit position. Defaults to len(self).
+    ///
     /// :return: The bytes representation.
     /// :raises ValueError: if the length is not a multiple of 8.
-    pub fn to_bytes(&self) -> PyResult<Vec<u8>> {
-        BitCollection::to_byte_data(self)
+    #[pyo3(signature = (start = None, end = None), text_signature = "($self, start=None, end=None)")]
+    pub fn to_bytes(&self, start: Option<isize>, end: Option<isize>) -> PyResult<Vec<u8>> {
+        if start.is_none() && end.is_none() {
+            return BitCollection::to_byte_data(self);
+        }
+        let (start, end) = validate_slice(self.len(), start, end)?;
+        BitCollection::to_byte_data(&self.get_slice_unchecked(start, end - start))
     }
 
     /// Read-only property of the ``bytes`` representation of the Tibs.
     ///
-    /// Equivalent to using :meth:`~to_bytes`.
+    /// Equivalent to using :meth:`~to_bytes` with no parameters.
     ///
     /// :return: The bytes representation.
     /// :raises ValueError: if the length is not a multiple of 8.
@@ -1192,20 +1510,19 @@ impl Tibs {
     #[pyo3(signature = (needle, start=None, end=None, byte_aligned=false), text_signature = "($self, needle, start=None, end=None, byte_aligned=False)")]
     pub fn find(
         &self,
+        py: Python<'_>,
         needle: Tibs,
         start: Option<isize>,
         end: Option<isize>,
         byte_aligned: bool,
     ) -> PyResult<Option<usize>> {
-        self.find_impl(needle, start, end, byte_aligned, false)
+        self.find_impl(py, needle, start, end, byte_aligned, false)
     }
 
     /// Return True if b is a sub-sequence of self.
-    pub fn __contains__(&self, b: Tibs) -> bool {
-        match self.find(b, None, None, false) {
-            Ok(Some(_)) => true,
-            _ => false,
-        }
+    pub fn __contains__(&self, py: Python<'_>, b: Tibs) -> PyResult<bool> {
+        self.find(py, b, None, None, false)
+            .map(|found| found.is_some())
     }
 
     /// As Tibs is immutable, this returns the same instance.
@@ -1233,12 +1550,13 @@ impl Tibs {
     #[pyo3(signature = (needle, start=None, end=None, byte_aligned=false), text_signature = "($self, needle, start=None, end=None, byte_aligned=False)")]
     pub fn rfind(
         &self,
+        py: Python<'_>,
         needle: Tibs,
         start: Option<isize>,
         end: Option<isize>,
         byte_aligned: bool,
     ) -> PyResult<Option<usize>> {
-        self.find_impl(needle, start, end, byte_aligned, true)
+        self.find_impl(py, needle, start, end, byte_aligned, true)
     }
 
     /// Return whether the current Tibs starts with prefix.
@@ -1286,13 +1604,13 @@ impl Tibs {
     ///     >>> Tibs.from_bin('0011010101100').count('0b01')
     ///     4
     ///
-    pub fn count(&self, value: &Bound<'_, PyAny>) -> PyResult<usize> {
+    pub fn count(&self, py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<usize> {
         match Tibs::extract(value.as_borrowed()) {
             Ok(v) => {
                 if v.len() == 1 {
                     Ok(<Tibs as BitCollection>::count(self, v.get_index(0)?))
                 } else {
-                    Ok(helpers::count_bitvec(self.to_bitslice(), v.as_bitslice()))
+                    helpers::count_bitvec(py, self.to_bitslice(), v.as_bitslice())
                 }
             }
             Err(_) => {
@@ -1440,6 +1758,7 @@ impl Tibs {
     #[pyo3(signature = (old, new, start=None, end=None, count=None, byte_aligned=false), text_signature = "($self, old, new, start=None, end=None, count=None, byte_aligned=False)")]
     pub fn replaced(
         &self,
+        py: Python<'_>,
         old: &Bound<'_, PyAny>,
         new: &Bound<'_, PyAny>,
         start: Option<isize>,
@@ -1450,7 +1769,7 @@ impl Tibs {
         let old = Tibs::extract(old.as_borrowed())?;
         let new = Tibs::extract(new.as_borrowed())?;
         let mut out = self.to_mutibs();
-        out.apply_replace_bits(old, new, start, end, count, byte_aligned)?;
+        let _ = out.apply_replace_bits(py, old, new, start, end, count, byte_aligned)?;
         Ok(out.to_tibs())
     }
 
@@ -1763,7 +2082,7 @@ impl Tibs {
     /// :return: The bytes representation.
     /// :raises ValueError: if the length is not a multiple of 8.
     pub fn __bytes__(&self) -> PyResult<Vec<u8>> {
-        self.to_bytes()
+        self.to_bytes(None, None)
     }
 
     /// Return new Tibs consisting of n concatenations of self.

@@ -163,10 +163,13 @@ class EnumField(ChoiceField):
                     data = self.primitive(data)
                     data = self.enum(data)
                 except (TypeError, ValueError, DecimalException):
-                    if self.strict:
-                        self.fail("invalid_choice", input=data)
-                    elif self.primitive_field:
-                        return self.primitive_field.to_internal_value(data)
+                    try:
+                        data = self.enum[data]
+                    except KeyError:
+                        if self.strict:
+                            self.fail("invalid_choice", input=data)
+                        elif self.primitive_field:
+                            return self.primitive_field.to_internal_value(data)
         return data
 
     def to_representation(self, value: Any) -> Any:

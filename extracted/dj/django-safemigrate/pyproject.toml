@@ -1,0 +1,49 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "django-safemigrate"
+version = "6.0"
+description = "Safely run migrations before deployment"
+authors = [{ name = "Ryan Hiebert", email = "ryan@ryanhiebert.com" }]
+license = { text = "MIT" }
+readme = "README.rst"
+requires-python = ">=3.9"
+dependencies = ["django>=4.2"]
+
+[project.urls]
+homepage = "https://github.com/ryanhiebert/django-safemigrate"
+source = "https://github.com/ryanhiebert/django-safemigrate"
+history = "https://github.com/ryanhiebert/django-safemigrate/blob/main/HISTORY.rst"
+issues = "https://github.com/ryanhiebert/django-safemigrate/issues"
+
+[project.scripts]
+safemigrate-check = "django_safemigrate.check:main"
+
+[dependency-groups]
+dev = [
+  "pytest",
+  "pytest-cov",
+  "pytest-django",
+  "pytest-mock",
+  "dj-database-url",
+  "coverage[toml]",
+]
+
+[tool.isort]
+combine_as_imports = true
+profile = "black"
+
+[tool.coverage.run]
+branch = true
+source = ["django_safemigrate"]
+
+[tool.coverage.paths]
+source = [
+  "src/django_safemigrate",
+  ".tox/*/lib/python*/site-packages/django_safemigrate",
+]
+
+[tool.coverage.report]
+show_missing = true

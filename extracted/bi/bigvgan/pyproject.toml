@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bigvgan"
+version = "2.4.1"
+authors = [
+  {name = "NVIDIA"},
+]
+dependencies = [
+    "torch",
+    "numpy",
+    "librosa>=0.8.1",
+    "scipy",
+    "tensorboard",
+    "soundfile",
+    "matplotlib",
+    "pesq",
+    "auraloss",
+    "tqdm",
+    "nnAudio",
+    "ninja",
+    "huggingface_hub>=0.23.4",
+]
+requires-python = ">=3.10"

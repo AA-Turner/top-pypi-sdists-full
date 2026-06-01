@@ -1,0 +1,12 @@
+detector_id: aws.waf_geo_blocking
+
+evidence_shape:
+  resource_type: string         # always "aws_wafv2_web_acl"
+  resource_name: string         # the Terraform logical name
+  web_acl_name: string          # resolved or literal `name` attribute
+  rule_state: enum              # "geo_blocking_present" | "geo_blocking_absent"
+  pattern: enum                 # "wafv2_web_acl_geo_blocking"
+  country_code_count: int       # number of distinct country codes covered
+  country_codes: list           # sorted, deduped country code strings (ISO 3166-1 alpha-2)
+  detail: string?               # short description (geo_blocking_present only)
+  gap: string?                  # present only on geo_blocking_absent evidence

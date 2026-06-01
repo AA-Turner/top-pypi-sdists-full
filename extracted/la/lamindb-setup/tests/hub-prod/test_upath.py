@@ -1,0 +1,153 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from pathlib import Path
+
+import botocore
+import pytest
+from fsspec.implementations.local import LocalFileSystem
+from lamindb_setup.core._s3_move import s3_fs_for_moving
+from lamindb_setup.core.upath import (
+    ProgressCallback,
+    UPath,
+    create_path,
+    fs_for_moving,
+    s3fs_to_boto3_client,
+)
+
+
+def test_view_tree():
+    with pytest.raises(FileNotFoundError):
+        UPath("gs://no-such-bucket-surely-145/folder").view_tree()
+
+
+def test_trailing_slash():
+    assert UPath("s3://bucket/key/").path[-1] != "/"
+    assert (UPath("s3://bucket/") / "key/").path[-1] != "/"
+
+
+def test_storage_options_s3():
+    upath = UPath("s3://bucket/key?option2=option2", option1="option1")
+    assert upath.storage_options["option1"] == "option1"
+    assert upath.storage_options["option2"] == "option2"
+    upath = UPath(upath, option2="option2_c", option3="option3")
+    assert upath.storage_options["option1"] == "option1"
+    assert upath.storage_options["option2"] == "option2_c"
+    assert upath.storage_options["option3"] == "option3"
+
+    with pytest.raises(ValueError):
+        UPath("s3://bucket?option=option1", option="option2")
+    with pytest.raises(ValueError):
+        UPath("s3://bucket?option=option1&option=option2")
+
+
+def test_create_path():
+    upath = UPath("s3://lamindb-ci/xyz/", default_fill_cache=False)
+    assert "default_fill_cache" in upath.storage_options
+
+    assert UPath.from_auth(upath).storage_options["cache_regions"]
+
+    upath = create_path(upath)
+    # test option inheritance
+    assert not upath.storage_options["default_fill_cache"]
+    # test storage_option settings for s3 added inside create_path
+    assert upath.storage_options["cache_regions"]
+    assert not upath.storage_options["version_aware"]
+    assert upath.storage_options["use_listings_cache"]
+    # test max_pool_connections in config_kwargs
+    assert upath.storage_options["config_kwargs"]["max_pool_connections"] == 64
+    upath = create_path(UPath(upath, config_kwargs={"max_pool_connections": 32}))
+    assert upath.storage_options["config_kwargs"]["max_pool_connections"] == 32
+    upath = create_path(UPath(upath, config_kwargs={"retries": {"max_attempts": 10}}))
+    assert upath.storage_options["config_kwargs"]["max_pool_connections"] == 64
+    assert upath.storage_options["config_kwargs"]["retries"]["max_attempts"] == 10
+    # test removal of training slash
+    assert upath.as_posix()[-1] != "/"
+    assert (
+        UPath("s3://lamindb-ci/xyz").as_posix()
+        == create_path("s3://lamindb-ci/xyz/").as_posix()
+    )
+    # test endpoint_url
+    upath = create_path("s3://bucket/key?endpoint_url=http://localhost:8000/s3")
+    assert upath.as_posix() == "s3://bucket/key"
+    assert upath.storage_options["endpoint_url"] == "http://localhost:8000/s3"
+    # test http
+    upath = create_path("http://some_url.com/")
+    assert upath.storage_options["use_listings_cache"]
+    assert "timeout" in upath.storage_options["client_kwargs"]
+    # test R2
+    upath = create_path("s3://bucket/key?endpoint_url=https://r2.cloudflarestorage.com")
+    assert upath.as_posix() == "s3://bucket/key"
+    assert upath.storage_options["fixed_upload_size"]
+
+
+def test_progress_callback_size():
+    pcb = ProgressCallback("test", "downloading", adjust_size=True)
+    pcb.set_size(10)
+
+    cwd = str(Path.cwd())
+    paths = zip([cwd, cwd], [cwd, cwd], strict=False)
+    # adjust size for directories in path list
+    assert pcb.wrap(paths) == [(cwd, cwd), (cwd, cwd)]
+    assert pcb.size == 8
+    assert not pcb.adjust_size
+
+    pcb.adjust_size = True
+    pcb.branch(cwd, cwd, {})
+
+    assert pcb.size == 7
+
+
+def test_s3fs_to_boto3_client():
+    path = UPath("s3://lamindb-setup-private-bucket/no_such_file", anon=True)
+    with pytest.raises(PermissionError):
+        path.exists()
+
+    client = s3fs_to_boto3_client(path.fs)  # anon is passed
+    assert client is s3fs_to_boto3_client(path.fs)  # check caching
+    assert client.meta.config.signature_version is botocore.UNSIGNED
+    # private bucket
+    with pytest.raises(botocore.exceptions.ClientError) as error:
+        client.head_object(Bucket=path.drive, Key=path.name)
+    assert (
+        "An error occurred (403) when calling the HeadObject operation: Forbidden"
+        in str(error)
+    )
+    # public bucket
+    assert client.head_object(Bucket="lamindata", Key="tomato.png")
+
+    path = UPath("s3://lamindb-setup-private-bucket/no_such_file")
+    assert not path.exists()
+
+    client = s3fs_to_boto3_client(path.fs)  # anon is not passed
+
+    with pytest.raises(botocore.exceptions.ClientError) as error:
+        client.head_object(Bucket=path.drive, Key=path.name)
+    assert (
+        "An error occurred (404) when calling the HeadObject operation: Not Found"
+        in str(error)
+    )
+
+
+def test_s3_fs_for_moving():
+    # not managed storages
+    assert s3_fs_for_moving("s3://does-not-exist11", "s3://does-not-exist22") is None
+    # joint credentials for two different paths
+    fs = fs_for_moving("s3://lamindata", "s3://lamin-site-assets")
+    assert fs is fs_for_moving("s3://lamin-site-assets", "s3://lamindata")
+    credentials = fs.session._credentials
+    credentials._expiry_time = datetime(2000, 1, 1, tzinfo=timezone.utc)
+    assert credentials.refresh_needed()
+    # corrupt to check that refresh is applied before any access
+    credentials._access_key = "INVALID"
+    credentials._secret_key = "INVALID"
+    credentials._token = "INVALID"
+    credentials._frozen_credentials = None
+    assert len(fs.ls("s3://lamindata")) > 0
+    assert len(fs.ls("s3://lamin-site-assets")) > 0
+    # use the same filesystem for two different paths with the same root
+    fs = fs_for_moving("s3://lamindata", "s3://lamindata/subfolder")
+    assert fs is create_path("s3://lamindata/subfolder").fs
+    # check non-s3 paths
+    fs = fs_for_moving("./some-local-path", "./another-local-path")
+    assert isinstance(fs, LocalFileSystem)

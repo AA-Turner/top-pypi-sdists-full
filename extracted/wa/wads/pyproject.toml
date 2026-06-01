@@ -1,0 +1,87 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "wads"
+version = "0.1.100"
+description = "Tools for packaging and publishing to pypi for those who just do not want to deal with it"
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["documentation", "packaging", "publishing"]
+authors = [{ name = "Thor Whalen" }]
+# Core (light) dependencies: enough to read config ([tool.wads.ci] /
+# package.json wads.ci), run the templating engine, and `import wads`. Kept
+# deliberately small so CI-side use stays cheap. Heavier project-creation /
+# publishing tools live in the `create` extra (see below).
+dependencies = [
+    "jinja2",                                    # templating engine
+    "pyyaml",                                    # light YAML reads
+    "packaging",                                 # version parsing
+    "argh",                                      # CLI dispatch (tiny, pure-python)
+    "tomli>=1.0.0; python_version<'3.11'",
+    "tomli-w>=0.4.0",
+]
+
+[project.license]
+text = "Apache Software License"
+
+[project.optional-dependencies]
+# Full project-creation / publishing toolchain (heavier). Install with
+# `pip install wads[create]` when scaffolding or publishing projects.
+create = [
+    "requests",      # GitHub repo metadata, PyPI version checks
+    "build",         # PEP 517 build (publish)
+    "wheel",         # wheel building (publish)
+    "ruamel.yaml",   # round-tripping GitHub Actions YAML (CI migration tools)
+]
+docs = ["epythet"]
+test = ["pytest>=7.0", "pytest-cov"]
+all = ["wads[create,docs]"]
+
+[project.urls]
+Homepage = "https://github.com/i2mint/wads"
+
+[project.scripts]
+pack = "wads.pack:main"
+populate = "wads.populate:main"
+wads-ci-debug = "wads.agents.ci_debug_agent:main"
+wads-deps = "wads.agents.dependency_resolver:main"
+wads-test-analyze = "wads.agents.test_analyzer:main"
+wads-migrate = "wads.migration:main"
+wads-install-skills = "wads.install_skills:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["wads"]
+include = [
+    "*/docs_gen/_static/**/*",
+    "README.md",
+    "wads/data/*",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py38"
+# wads/data holds *templates* (some are not valid standalone Python until
+# rendered, e.g. `import << name >>`), so they must not be linted/formatted.
+exclude = ["tests", "examples", "scrap", "wads/data"]
+
+[tool.ruff.lint]
+select = ["D100"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/*" = ["D"]
+"**/examples/*" = ["D"]
+"**/scrap/*" = ["D"]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+testpaths = ["wads/tests"]
+doctest_optionflags = ["NORMALIZE_WHITESPACE", "ELLIPSIS"]
+
+[tool.wads.ci.install]
+# wads's own test suite exercises the full creation/publish flow (e.g. building
+# a generated package), so CI must install the heavier `create` extra in
+# addition to the light core. Consumed by the reusable workflow via
+# read-ci-config -> install-deps-uv (.[create]).
+extras = "create"

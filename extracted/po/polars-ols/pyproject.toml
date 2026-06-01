@@ -1,0 +1,113 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0", "polars>=0.20.6"]
+build-backend = "maturin"
+
+[project]
+name = "polars-ols"
+description = "Polars Least Squares Extension"
+requires-python = ">=3.8"
+classifiers = [
+  "Programming Language :: Rust",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+authors = [
+  {name = "Azmy Rajab", email = "azmy.rajab@gmail.com"}
+]
+dependencies = [
+  "polars >= 0.20.16",
+]
+keywords = ["polars-extension", "linear-regression"]
+readme = "README.md"
+license = { file = "LICENSE" }
+
+
+[tool.maturin]
+module-name = "polars_ols._polars_ols"
+
+[project.optional-dependencies]
+dev = [
+  "numpy",
+  "pytest >= 7.4.1",
+  "pre-commit",
+  "statsmodels",
+]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+fix = true
+lint.unfixable = []
+lint.select = [
+  # pyflakes
+  "F",
+  # pycodestyle
+  "E", "W",
+  # flake8-2020
+  "YTT",
+  # flake8-bugbear
+  "B",
+  # flake8-quotes
+  "Q",
+  # flake8-debugger
+  "T10",
+  # flake8-gettext
+  "INT",
+  # pylint
+  "PLC", "PLE", "PLR", "PLW",
+  # misc lints
+  "PIE",
+  # flake8-pyi
+  "PYI",
+  # tidy imports
+  "TID",
+  # implicit string concatenation
+  "ISC",
+  # type-checking imports
+  "TCH",
+  # comprehensions
+  "C4",
+  # pygrep-hooks
+  "PGH",
+  # Ruff-specific rules
+  "RUF",
+]
+lint.ignore = [
+  "PLR2004",
+  "B008",
+  # flake8 ignores
+  "F403",
+  "F401",
+  "ISC001",
+]
+lint.pylint.max-args = 9
+
+[tool.black]
+target-version = ["py38", "py39", "py310", "py311"]
+line-length = 100
+include = '\.pyi?$' # All Python files
+exclude = '''
+(
+    asv_bench/env
+  | \.egg
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.nox
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  | setup.py
+)
+'''
+
+[tool.isort]
+profile = "black"
+
+[tool.flake8]
+max-line-length = 130
+exclude = [".git", "__pycache__", "dist"]
+max-complexity = 10

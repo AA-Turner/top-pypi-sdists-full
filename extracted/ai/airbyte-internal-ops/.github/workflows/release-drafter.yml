@@ -1,0 +1,77 @@
+name: Release Drafter
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: release-drafter
+  cancel-in-progress: false
+
+jobs:
+  draft_release:
+    name: Draft Release (${{ matrix.package.name }})
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - name: airbyte-internal-ops
+            tag-prefix: v
+            config-name: release-drafter-airbyte-internal-ops.yml
+            dist-dir: dist/airbyte-internal-ops
+          - name: airbyte-cloud-cli
+            tag-prefix: airbyte-cloud-cli/v
+            config-name: release-drafter-airbyte-cloud-cli.yml
+            dist-dir: dist/airbyte-cloud-cli
+    steps:
+      # Dry-run to get version number without creating/updating the release
+      - name: Get release version (dry-run)
+        # This repo is a canary for release drafter, intentionally not version-pinned.
+        uses: aaronsteers/semantic-pr-release-drafter@main
+        id: release-drafter
+        with:
+          config-name: ${{ matrix.package.config-name }}
+          dry-run: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Checkout Repo
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Build package
+        env:
+          TAG_NAME: ${{ steps.release-drafter.outputs.tag-name }}
+          PACKAGE: ${{ matrix.package.name }}
+          TAG_PREFIX: ${{ matrix.package.tag-prefix }}
+          DIST_DIR: ${{ matrix.package.dist-dir }}
+        run: |
+          echo "Building ${PACKAGE} with version from tag: ${TAG_NAME}"
+          version="${TAG_NAME#${TAG_PREFIX}}"
+          echo "Resolved package version: ${version}"
+          UV_DYNAMIC_VERSIONING_BYPASS="${version}" uv build --package "${PACKAGE}" --out-dir "${DIST_DIR}"
+
+      # Full run: create/update draft release with categories and attach built artifacts
+      - name: Create or update draft release
+        # This repo is a canary for release drafter, intentionally not version-pinned.
+        uses: aaronsteers/semantic-pr-release-drafter@main
+        with:
+          config-name: ${{ matrix.package.config-name }}
+          version: ${{ steps.release-drafter.outputs.resolved-version }}
+          attach-files: |
+            ${{ matrix.package.dist-dir }}/*.whl
+            ${{ matrix.package.dist-dir }}/*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

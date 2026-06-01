@@ -1,0 +1,476 @@
+#![cfg(windows)]
+
+use std::fs;
+use std::ops::Range;
+use std::path::PathBuf;
+use std::process::Command;
+
+use serde_json::Value;
+use tempfile::{tempdir, TempDir};
+use tensor_grep_rs::backend_ast::AstBackend;
+
+fn write_source_file(extension: &str, content: &str) -> (TempDir, PathBuf) {
+    let dir = tempdir().unwrap();
+    let file_path = dir.path().join(format!("fixture.{extension}"));
+    fs::write(&file_path, content).unwrap();
+    (dir, file_path)
+}
+
+fn assert_single_match(
+    pattern: &str,
+    lang: &str,
+    extension: &str,
+    source: &str,
+    expected_text: &str,
+    expected_range: Range<usize>,
+) {
+    let (_dir, file_path) = write_source_file(extension, source);
+    let backend = AstBackend::new();
+
+    let matches = backend
+        .search(pattern, lang, file_path.to_str().unwrap())
+        .unwrap();
+
+    assert_eq!(matches.len(), 1);
+    assert_eq!(matches[0].file, file_path);
+    assert_eq!(matches[0].line, 1);
+    assert_eq!(matches[0].matched_text, expected_text);
+    assert_eq!(matches[0].candidate.file, file_path);
+    assert_eq!(matches[0].candidate.byte_range, expected_range);
+    assert!(!matches[0].candidate.metavar_env.is_empty());
+}
+
+#[test]
+fn test_ast_backend_matches_python_reference_snippet() {
+    let source = "def add(a, b):\n    return a + b\n";
+    assert_single_match(
+        "def $F($$$ARGS): $$$BODY",
+        "python",
+        "py",
+        source,
+        "def add(a, b):\n    return a + b",
+        0..31,
+    );
+}
+
+#[test]
+fn test_ast_backend_matches_javascript_reference_snippet() {
+    let source = "const fn = (x) => x * 2;\n";
+    assert_single_match(
+        "const $F = ($X) => $BODY",
+        "javascript",
+        "js",
+        source,
+        "const fn = (x) => x * 2;",
+        0..24,
+    );
+}
+
+#[test]
+fn test_ast_backend_matches_typescript_reference_snippet() {
+    let source = "function greet(name: string): string { return name; }\n";
+    assert_single_match(
+        "function $F($$$): $T { $$$BODY }",
+        "typescript",
+        "ts",
+        source,
+        "function greet(name: string): string { return name; }",
+        0..53,
+    );
+}
+
+#[test]
+fn test_ast_backend_matches_rust_reference_snippet() {
+    let source = "fn main() { println!(\"hi\"); }\n";
+    assert_single_match(
+        "fn $F() { $$$BODY }",
+        "rust",
+        "rs",
+        source,
+        "fn main() { println!(\"hi\"); }",
+        0..29,
+    );
+}
+
+#[test]
+fn test_ast_backend_reports_line_numbers_for_multiple_python_matches() {
+    let source = "def first(a): return a\n\n\ndef second(b): return b\n";
+    let (_dir, file_path) = write_source_file("py", source);
+    let backend = AstBackend::new();
+
+    let matches = backend
+        .search(
+            "def $F($$$ARGS): return $EXPR",
+            "python",
+            file_path.to_str().unwrap(),
+        )
+        .unwrap();
+
+    assert_eq!(matches.len(), 2);
+    assert_eq!(matches[0].line, 1);
+    assert_eq!(matches[1].line, 4);
+}
+#[test]
+fn test_tg_run_json_metadata_uses_ast_backend_routing() {
+    let (_dir, file_path) = write_source_file("py", "def add(a, b):\n    return a + b\n");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_tg"))
+        .arg("run")
+        .arg("--lang")
+        .arg("python")
+        .arg("--json")
+        .arg("def $F($$$ARGS): $$$BODY")
+        .arg(&file_path)
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "status={:?}\nstdout={}\nstderr={}",
+        output.status.code(),
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let payload: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(payload["version"], 1);
+    assert_eq!(payload["routing_backend"], "AstBackend");
+    assert_eq!(payload["routing_reason"], "ast-native");
+    assert_eq!(payload["sidecar_used"], false);
+    assert_eq!(payload["total_matches"], 1);
+
+    let matches = payload["matches"].as_array().unwrap();
+    assert_eq!(matches.len(), 1);
+    assert_eq!(matches[0]["file"], file_path.to_string_lossy().as_ref());
+    assert_eq!(matches[0]["line"], 1);
+    assert_eq!(matches[0]["text"], "def add(a, b):\n    return a + b");
+}
+
+#[test]
+fn test_tg_run_accepts_ast_grep_pattern_option_and_files_with_matches() {
+    let (_dir, file_path) = write_source_file("py", "def add(a, b):\n    return a + b\n");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_tg"))
+        .arg("run")
+        .arg("--lang")
+        .arg("python")
+        .arg("--pattern")
+        .arg("def $F($$$ARGS): $$$BODY")
+        .arg("--files-with-matches")
+        .arg(&file_path)
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "status={:?}\nstdout={}\nstderr={}",
+        output.status.code(),
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout).trim(),
+        file_path.to_string_lossy()
+    );
+}
+
+#[test]
+fn test_tg_run_matches_javascript_call_pattern_from_default_path() {
+    let dir = tempdir().unwrap();
+    fs::write(
+        dir.path().join("app.js"),
+        "function calculateTotal(items) { return items.length; }\nconst total = calculateTotal(items);\n",
+    )
+    .unwrap();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_tg"))
+        .current_dir(dir.path())
+        .arg("run")
+        .arg("--lang")
+        .arg("js")
+        .arg("calculateTotal($$$)")
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "status={:?}\nstdout={}\nstderr={}",
+        output.status.code(),
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("calculateTotal(items)"),
+        "stdout={}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+}
+
+#[test]
+fn test_tg_run_matches_javascript_class_method_pattern_without_class_wrapper() {
+    let dir = tempdir().unwrap();
+    let file_path = dir.path().join("utils.js");
+    fs::write(
+        &file_path,
+        "class Calculator {\n  static multiply(a, b) {\n    return a * b;\n  }\n}\n",
+    )
+    .unwrap();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_tg"))
+        .arg("run")
+        .arg("--lang")
+        .arg("javascript")
+        .arg("--json")
+        .arg("static multiply($$$ARGS) { $$$BODY }")
+        .arg(&file_path)
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "status={:?}\nstdout={}\nstderr={}",
+        output.status.code(),
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let payload: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(payload["total_matches"], 1);
+    assert_eq!(payload["matches"][0]["line"], 2);
+    assert!(payload["matches"][0]["text"]
+        .as_str()
+        .unwrap()
+        .contains("static multiply"));
+}
+
+#[test]
+fn test_tg_run_rejects_malformed_javascript_method_pattern_after_contextual_fallback() {
+    let (_dir, file_path) = write_source_file(
+        "js",
+        "class Calculator {\n  static multiply(a, b) {\n    return a * b;\n  }\n}\n",
+    );
+
+    let output = Command::new(env!("CARGO_BIN_EXE_tg"))
+        .arg("run")
+        .arg("--lang")
+        .arg("javascript")
+        .arg("static multiply($$$ARGS) {")
+        .arg(&file_path)
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    assert!(
+        output.stdout.is_empty(),
+        "stdout={}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr).to_lowercase();
+    assert!(
+        stderr.contains("invalid pattern") || stderr.contains("parse"),
+        "stderr={stderr}"
+    );
+    assert!(!stderr.contains("panicked"), "stderr={stderr}");
+}
+
+#[test]
+fn test_tg_run_no_match_exits_one_and_warns_for_cmd_single_quote_pattern() {
+    let (_dir, file_path) = write_source_file("js", "const total = calculateTotal(items);\n");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_tg"))
+        .arg("run")
+        .arg("--lang")
+        .arg("js")
+        .arg("'calculateTotal($$$)'")
+        .arg(&file_path)
+        .output()
+        .unwrap();
+
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "stdout={}\nstderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("cmd.exe treats single quotes literally"),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn test_tg_run_json_metadata_preserves_ast_match_details() {
+    let (_dir, file_path) = write_source_file("py", "def add(a, b):\n    return a + b\n");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_tg"))
+        .arg("run")
+        .arg("--lang")
+        .arg("python")
+        .arg("--json")
+        .arg("def $F($$$ARGS): $$$BODY")
+        .arg(&file_path)
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "status={:?}\nstdout={}\nstderr={}",
+        output.status.code(),
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let payload: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let matched = &payload["matches"][0];
+
+    assert_eq!(matched["range"]["byteOffset"]["start"], 0);
+    assert_eq!(matched["range"]["byteOffset"]["end"], 31);
+    assert_eq!(matched["range"]["start"]["line"], 0);
+    assert_eq!(matched["range"]["start"]["column"], 0);
+    assert_eq!(matched["range"]["end"]["line"], 1);
+    assert_eq!(matched["range"]["end"]["column"], 16);
+
+    assert_eq!(matched["metaVariables"]["single"]["F"]["text"], "add");
+    assert_eq!(
+        matched["metaVariables"]["single"]["F"]["range"]["byteOffset"]["start"],
+        4
+    );
+    assert_eq!(
+        matched["metaVariables"]["single"]["F"]["range"]["byteOffset"]["end"],
+        7
+    );
+
+    let args = matched["metaVariables"]["multi"]["ARGS"]
+        .as_array()
+        .expect("ARGS should be a multi metavariable array");
+    assert_eq!(args.len(), 3);
+    assert_eq!(args[0]["text"], "a");
+    assert_eq!(args[0]["range"]["byteOffset"]["start"], 8);
+    assert_eq!(args[0]["range"]["byteOffset"]["end"], 9);
+    assert_eq!(args[1]["text"], ",");
+    assert_eq!(args[1]["range"]["byteOffset"]["start"], 9);
+    assert_eq!(args[1]["range"]["byteOffset"]["end"], 10);
+    assert_eq!(args[2]["text"], "b");
+    assert_eq!(args[2]["range"]["byteOffset"]["start"], 11);
+    assert_eq!(args[2]["range"]["byteOffset"]["end"], 12);
+
+    let body = matched["metaVariables"]["multi"]["BODY"]
+        .as_array()
+        .expect("BODY should be a multi metavariable array");
+    assert_eq!(body.len(), 1);
+    assert_eq!(body[0]["text"], "return a + b");
+    assert_eq!(body[0]["range"]["byteOffset"]["start"], 19);
+    assert_eq!(body[0]["range"]["byteOffset"]["end"], 31);
+}
+
+#[test]
+fn test_tg_run_verbose_emits_ast_routing_metadata_and_match_output() {
+    let (_dir, file_path) = write_source_file("py", "def add(a, b):\n    return a + b\n");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_tg"))
+        .arg("run")
+        .arg("--lang")
+        .arg("python")
+        .arg("--verbose")
+        .arg("def $F($$$ARGS): $$$BODY")
+        .arg(&file_path)
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "status={:?}\nstdout={}\nstderr={}",
+        output.status.code(),
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("routing_backend=AstBackend"),
+        "stderr={stderr}"
+    );
+    assert!(
+        stderr.contains("routing_reason=ast-native"),
+        "stderr={stderr}"
+    );
+    assert!(stderr.contains("sidecar_used=false"), "stderr={stderr}");
+    assert!(
+        stdout.starts_with(&format!("{}:1:def add(a, b):", file_path.display())),
+        "stdout={stdout}"
+    );
+    assert!(stdout.contains("return a + b"), "stdout={stdout}");
+}
+
+#[test]
+fn test_tg_run_succeeds_without_python_sidecar() {
+    let (_dir, file_path) = write_source_file("py", "def add(a, b):\n    return a + b\n");
+    let bogus_python_home = tempdir().unwrap();
+    let bogus_sidecar = bogus_python_home.path().join("missing-python.exe");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_tg"))
+        .arg("run")
+        .arg("--lang")
+        .arg("python")
+        .arg("def $F($$$ARGS): $$$BODY")
+        .arg(&file_path)
+        .env("PYTHONHOME", bogus_python_home.path())
+        .env("TG_SIDECAR_PYTHON", &bogus_sidecar)
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "status={:?}\nstdout={}\nstderr={}",
+        output.status.code(),
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn test_tg_run_reports_invalid_pattern_without_panic() {
+    let (_dir, file_path) = write_source_file("py", "def add(a, b):\n    return a + b\n");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_tg"))
+        .arg("run")
+        .arg("--lang")
+        .arg("python")
+        .arg("def $F(")
+        .arg(&file_path)
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    assert!(
+        output.stdout.is_empty(),
+        "stdout={}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+
+    let stderr = String::from_utf8_lossy(&output.stderr).to_lowercase();
+    assert!(
+        stderr.contains("invalid pattern") || stderr.contains("parse"),
+        "stderr={stderr}"
+    );
+    assert!(!stderr.contains("panicked"), "stderr={stderr}");
+}
+
+#[test]
+fn test_ast_backend_matches_rust_functions_with_types() {
+    let source =
+        "fn add(x: i32) {}\nfn add2(y: i32) -> i32 { y }\npub fn add3<T>(z: T) -> T { z }\n";
+    let (_dir, file_path) = write_source_file("rs", source);
+    let backend = AstBackend::new();
+
+    let matches = backend
+        .search("fn $F($$$ARGS)", "rust", file_path.to_str().unwrap())
+        .unwrap();
+
+    let matched_lines: Vec<usize> = matches.iter().map(|m| m.line).collect();
+    assert_eq!(matched_lines, vec![1, 2, 3]);
+}

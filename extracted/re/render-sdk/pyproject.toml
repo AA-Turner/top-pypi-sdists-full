@@ -1,0 +1,85 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "render_sdk"
+version = "0.6.1"
+description = "Python SDK for Render Workflows"
+authors = [{ name = "Render", email = "support@render.com" }]
+readme = "README.md"
+requires-python = ">=3.10,<4.0"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "aiohttp>=3.12.14,<4",
+    "openapi-python-client>=0.26.1,<0.27",
+    "httpx>=0.28.1,<0.29",
+]
+
+[project.scripts]
+render-workflows = "render_sdk.workflows.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0,<8",
+    "pytest-cov>=4.0,<5",
+    "pytest-asyncio>=0.21.0,<0.22",
+    "pytest-mock>=3.10.0,<4",
+    "black>=25.1.0,<26",
+    "isort>=5.0,<6",
+    "mypy>=1.18.2,<2",
+    "tox>=4.0,<5",
+    "ruff>=0.13,<0.14",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["render_sdk"]
+
+[tool.black]
+line-length = 88
+target-version = ['py310']
+extend-exclude = '''
+(render_sdk/public_api/|render_sdk/workflows/callback_api/)
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+extend_skip = ["render_sdk/public_api", "render_sdk/workflows/callback_api/"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = false
+warn_unused_configs = true
+disallow_untyped_defs = false
+explicit_package_bases = true
+namespace_packages = true
+exclude = ["tests/", "example/", "render_sdk/public_api/", "render_sdk/workflows/callback_api/"]
+check_untyped_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["**/tests"]
+python_files = ["test_*.py"]
+markers = ["e2e: end-to-end tests requiring RENDER_API_KEY and RENDER_E2E_OWNER_ID"]
+addopts = "-m 'not e2e'"
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+exclude = ["render_sdk/public_api/", "render_sdk/workflows/callback_api/"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "S"]
+per-file-ignores = { "*test_*.py" = ["S101", "S106"] }

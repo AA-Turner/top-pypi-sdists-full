@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinx-autodoc-typehints
-Version: 3.10.3
+Version: 3.10.4
 Summary: Type hints (PEP 484) support for the Sphinx autodoc extension
 Project-URL: Changelog, https://github.com/tox-dev/sphinx-autodoc-typehints/releases
 Project-URL: Homepage, https://github.com/tox-dev/sphinx-autodoc-typehints

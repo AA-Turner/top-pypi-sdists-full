@@ -1,0 +1,9 @@
+# Production stack configuration for Airbyte Sentry
+#
+# This stack manages multiple Sentry projects for Airbyte.
+#
+# Authentication:
+#   The Sentry auth token is provided via SENTRY_AUTH_TOKEN environment variable
+#   (configured as GitHub secrets: SENTRY_AUTH_TOKEN_READONLY, SENTRY_AUTH_TOKEN_READWRITE)
+#
+# See: https://docs.sentry.io/product/integrations/integration-platform/internal-integration/#auth-tokens

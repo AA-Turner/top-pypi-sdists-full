@@ -1,0 +1,81 @@
+
+[build-system]
+requires = ["setuptools"] 
+build-backend = "setuptools.build_meta" 
+
+[tool.setuptools]
+packages = [
+    "rerankers",
+    "rerankers.models",
+    "rerankers.integrations",
+]
+
+[project]
+name = "rerankers" 
+
+
+version = "0.10.0"
+
+description = "A unified API for various document re-ranking models."
+
+readme = "README.md"
+
+requires-python = ">=3.8"
+
+license = {file = "LICENSE"}
+
+keywords = ["reranking", "retrieval", "rag", "nlp"]
+
+authors = [
+  {name = "Ben Clavié", email = "bc@answer.ai" }
+]
+maintainers = [
+  {name = "Ben Clavié", email = "bc@answer.ai" }
+]
+
+classifiers = [
+  # Specify the Python versions you support here. In particular, ensure
+  # that you indicate you support Python 3. These classifiers are *not*
+  # checked by "pip install". See instead "requires-python" key in this file.
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3 :: Only",
+]
+
+dependencies = []
+
+[project.optional-dependencies]
+all = [
+    "transformers>=4.45.0",
+    "torch",
+    "litellm",
+    "requests",
+    "sentencepiece",
+    "protobuf",
+    "flashrank",
+    "flash-attn",
+    "pillow",
+    "accelerate>=0.26.0",
+    "peft>=0.13.0",
+    "nmslib-metabrainz; python_version >= '3.10'",
+    "rank-llm; python_version >= '3.10'"
+]
+transformers = ["transformers>=4.45.0", "torch", "sentencepiece", "protobuf"]
+api = ["requests"]
+gpt = ["litellm"]
+flashrank = ["flashrank"]
+llmlayerwise = ["transformers>=4.45.0", "torch", "sentencepiece", "protobuf", "flash-attn"]
+monovlm = ["transformers>=4.45.0", "torch", "sentencepiece", "protobuf", "flash-attn", "pillow", "accelerate>=0.26.0", "peft>=0.13.0"]
+rankllm = [
+  "nmslib-metabrainz; python_version >= '3.10'",
+  "rank-llm; python_version >= '3.10'"
+]
+pylate = ["pylate"]
+dev = ["ruff", "isort", "pytest", "ipyprogress", "ipython", "ranx", "ir_datasets", "srsly"]
+
+[project.urls]
+"Homepage" = "https://github.com/answerdotai/rerankers"

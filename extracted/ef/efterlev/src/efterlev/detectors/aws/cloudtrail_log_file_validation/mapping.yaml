@@ -1,0 +1,31 @@
+detector_id: aws.cloudtrail_log_file_validation
+
+# KSI-MLA-OSM ("Operating SIEM Capability") moderate statement asks
+# providers to "operate a SIEM (or similar system) for centralized,
+# tamper-resistant logging." This detector evidences the tamper-
+# resistance slice via au-9 (CloudTrail's native integrity-digest
+# mechanism). Cross-mapping is valid via FRMR's au-9 entry in MLA-OSM's
+# controls array, but it's a slice — centralization, SIEM operation,
+# and alerting are uncovered.
+ksis:
+  - id: KSI-MLA-OSM
+    coverage: partial
+    notes: >
+      Cross-mapping via AU-9. Detector evidences the tamper-resistance
+      slice (CloudTrail's native integrity-digest mechanism) of the
+      broader KSI outcome. Does not evidence centralization, SIEM
+      operation, alerting, or runtime integrity-token verification.
+      Pair with `aws.centralized_log_aggregation` for the centralization
+      slice.
+
+controls:
+  - id: AU-9
+    evidence_type: infrastructure
+    coverage: partial
+    notes: >
+      Infrastructure-layer evidence only. The detector confirms that a
+      CloudTrail trail declares enable_log_file_validation=true, which is
+      AWS's native integrity-digest mechanism. It does not evidence
+      downstream SIEM handling of the integrity tokens, periodic
+      validation exercises, S3 object-lock posture on the log bucket,
+      or runtime state.

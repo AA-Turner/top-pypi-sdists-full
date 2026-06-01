@@ -1,0 +1,26 @@
+Metadata-Version: 2.1
+Name: aiohttp-mock
+Version: 0.0.1
+Summary: aiohttp mocker for testing
+Project-URL: homepage, https://github.com/jujumilk3/aiohttp-mock
+Project-URL: bug-tracker, https://github.com/jujumilk3/aiohttp-mock/issues
+Author-email: gyudoza <jujumilk3@gmail.com>
+License-File: LICENSE
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Python: >=3.6.0
+Provides-Extra: dev
+Provides-Extra: test
+Description-Content-Type: text/markdown
+
+# aiohttp-mock

@@ -1,7 +1,0 @@
-connection:
-  local_file:
-    root: data
-  metadata:
-    source:
-      path: projects/bigquery/connections/local_files.yaml
-  name: local_files

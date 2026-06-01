@@ -1,0 +1,72 @@
+name: Test Installers
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'plugin/install.sh'
+      - 'plugin/install.ps1'
+      - 'scripts/install/setup_toolkit.py'
+      - '.github/workflows/test-installers.yml'
+      - 'tests/installer/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'plugin/install.sh'
+      - 'plugin/install.ps1'
+      - 'scripts/install/setup_toolkit.py'
+      - '.github/workflows/test-installers.yml'
+      - 'tests/installer/**'
+
+jobs:
+  test-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Warm up Docker images
+        run: |
+          for image in ubuntu:latest alpine:latest fedora:latest opensuse/leap:latest archlinux:latest; do
+            echo "Pulling $image..."
+            for i in {1..5}; do
+              docker pull $image && break || sleep 10
+            done
+          done
+      - name: Run Linux Installer Tests (Docker)
+        run: python3 tests/installer/test_linux_installers.py
+
+  test-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run macOS Installer Test
+        run: |
+          # Test with dry-run to avoid polluting the runner
+          bash plugin/install.sh --dry-run --no-fail-on-empty
+        shell: bash
+      - name: Run macOS Uninstall Dry-run Test
+        run: |
+          bash plugin/install.sh --uninstall --dry-run --no-fail-on-empty
+        shell: bash
+
+  test-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Windows Installer Test
+        run: |
+          # PowerShell 7
+          pwsh -File ./plugin/install.ps1 --dry-run --no-fail-on-empty
+          # PowerShell 5.1
+          powershell -ExecutionPolicy Bypass -File ./plugin/install.ps1 --dry-run --no-fail-on-empty
+        shell: pwsh
+      - name: Run Windows Uninstall Dry-run Test
+        run: |
+          # PowerShell 7
+          pwsh -File ./plugin/install.ps1 --uninstall --dry-run --no-fail-on-empty
+          # PowerShell 5.1
+          powershell -ExecutionPolicy Bypass -File ./plugin/install.ps1 --uninstall --dry-run --no-fail-on-empty
+        shell: pwsh

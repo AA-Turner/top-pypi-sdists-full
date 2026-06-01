@@ -1,0 +1,57 @@
+Metadata-Version: 2.4
+Name: open-aea-ledger-cosmos
+Version: 2.2.7
+Summary: Python package wrapping the public and private key cryptography and ledger api of Cosmos.
+Author: Valory AG
+License: Apache-2.0
+Classifier: Environment :: Console
+Classifier: Environment :: Web Environment
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Natural Language :: English
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft
+Classifier: Operating System :: Unix
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Communications
+Classifier: Topic :: Internet
+Classifier: Topic :: Software Development
+Requires-Python: >=3.10,<3.15
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: open-aea<3.0.0,>=2.0.0
+Requires-Dist: ecdsa<0.20,>=0.19.2
+Requires-Dist: bech32<2,>=1.2.0
+Requires-Dist: pycryptodome<4.0.0,>=3.10.1
+Requires-Dist: cosmpy<0.12,>=0.11.0
+Requires-Dist: requests<3,>=2.32.5
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# Cosmos crypto plug-in
+
+Cosmos crypto plug-in for the AEA framework.
+
+## Install
+
+``` bash
+python setup.py install
+```
+
+## Run tests
+
+``` bash
+python setup.py test
+```

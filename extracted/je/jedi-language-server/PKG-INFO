@@ -1,46 +1,47 @@
 Metadata-Version: 2.4
 Name: jedi-language-server
-Version: 0.46.0
+Version: 0.47.0
 Summary: A language server for Jedi!
+Project-URL: homepage, https://github.com/pappasam/jedi-language-server
+Project-URL: source, https://github.com/pappasam/jedi-language-server
+Project-URL: changelog, https://github.com/pappasam/jedi-language-server/blob/main/CHANGELOG.md
+Project-URL: issues, https://github.com/pappasam/jedi-language-server/issues
+Author-email: Sam Roeca <samuel.roeca@gmail.com>
 License: MIT
 License-File: LICENSE
-Keywords: python,completion,refactoring,lsp,language-server-protocol
-Author: Sam Roeca
-Author-email: samuel.roeca@gmail.com
-Requires-Python: >=3.9
+Keywords: completion,language-server-protocol,lsp,python,refactoring
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Code Generators
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Editors :: Integrated Development Environments (IDE)
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
-Requires-Dist: cattrs (>=23.1.2)
-Requires-Dist: docstring-to-markdown (<1)
-Requires-Dist: jedi (>=0.19.2,<0.20)
-Requires-Dist: lsprotocol (>=2023.0.1)
-Requires-Dist: pygls (>=2.0.0,<3)
-Requires-Dist: typing-extensions (>=4.5.0,<5) ; python_version < "3.10"
-Project-URL: Homepage, https://github.com/pappasam/jedi-language-server
-Project-URL: changelog, https://github.com/pappasam/jedi-language-server/blob/main/CHANGELOG.md
-Project-URL: issues, https://github.com/pappasam/jedi-language-server/issues
-Project-URL: source, https://github.com/pappasam/jedi-language-server
+Requires-Python: >=3.10
+Requires-Dist: cattrs>=23.1.2
+Requires-Dist: docstring-to-markdown<1
+Requires-Dist: jedi<0.21,>=0.19.2
+Requires-Dist: lsprotocol>=2023.0.1
+Requires-Dist: pygls<3,>=2.0.0
+Requires-Dist: typing-extensions<5,>=4.5.0; python_version < '3.10'
 Description-Content-Type: text/markdown
 
 # Jedi Language Server
 
 [![image-version](https://img.shields.io/pypi/v/jedi-language-server.svg)](https://python.org/pypi/jedi-language-server)
 [![image-license](https://img.shields.io/pypi/l/jedi-language-server.svg)](https://python.org/pypi/jedi-language-server)
-[![image-python-versions](https://img.shields.io/badge/python->=3.9-blue)](https://python.org/pypi/jedi-language-server)
+[![image-python-versions](https://img.shields.io/badge/python->=3.10-blue)](https://python.org/pypi/jedi-language-server)
 [![image-pypi-downloads](https://static.pepy.tech/badge/jedi-language-server)](https://pepy.tech/projects/jedi-language-server)
 [![github-action-testing](https://github.com/pappasam/jedi-language-server/actions/workflows/testing.yaml/badge.svg)](https://github.com/pappasam/jedi-language-server/actions/workflows/testing.yaml)
-[![poetry](https://img.shields.io/endpoint?url=https://python-poetry.org/badge/v0.json)](https://python-poetry.org/)
+[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
+
+**MAINTENANCE MODE: we suggest that new users consider the successor to Jedi: A Mypy-Compatible Python Language Server Built in Rust** - [Zuban](https://github.com/zubanls/zuban)
 
 A [Python](https://www.python.org/) [Language Server](https://microsoft.github.io/language-server-protocol/), with additional support for [computational notebooks](https://docs.jupyter.org/en/latest/#what-is-a-notebook), powered by the latest version of [Jedi](https://jedi.readthedocs.io/en/latest/).
 
@@ -77,7 +78,7 @@ Users may choose one of the following options:
 - [eglot](https://github.com/joaotavora/eglot).
 - [lsp-bridge](https://github.com/manateelazycat/lsp-bridge).
 - [lspce](https://github.com/zbelial/lspce).
-  
+
 Note: this list is non-exhaustive. If you know of a great choice not included in this list, please submit a PR!
 
 ### Visual Studio Code (vscode)
@@ -386,7 +387,7 @@ Non-absolute paths are relative to your project root. For example, let's say you
 ```
 ├── funky
 │   └── haha.py
-├── poetry.lock
+├── uv.lock
 ├── pyproject.toml
 ├── test.py
 ```
@@ -534,7 +535,7 @@ To build and run this project from source:
 
 Install the following tools manually:
 
-- [Poetry](https://github.com/sdispater/poetry#installation)
+- [uv](https://github.com/astral-sh/uv#installation)
 - [GNU Make](https://www.gnu.org/software/make/)
 
 #### Recommended
@@ -587,4 +588,3 @@ Unlike python-language-server, `jedi-language-server`:
 ## Written by
 
 [Samuel Roeca](https://samroeca.com/)
-

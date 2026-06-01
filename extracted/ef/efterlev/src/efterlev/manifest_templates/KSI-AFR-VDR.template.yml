@@ -1,0 +1,32 @@
+# KSI-AFR-VDR — Vulnerability Detection and Response
+#
+# DRAFT — this is a starter-pack template. Copy it to
+# `.efterlev/manifests/<ksi-id>.yml` (drop the `.template` suffix) and
+# fill in the DRAFT placeholders before letting it land in your
+# attestation pipeline. The `_template_help` block carries the
+# questions you should answer; remove that block once filled in.
+
+ksi: KSI-AFR-VDR
+name: "Vulnerability Detection and Response"
+
+_template_help:
+  description: >
+    KSI-AFR-VDR documents the vulnerability detection and response methodology used within the cloud service offering, in alignment with FedRAMP VDR. The attestation should name your detection tooling, response SLAs by severity, and where the procedure lives.
+  questions:
+      - "What automated vulnerability-detection tooling do you use (Inspector, dependency scanners, secret scanners)?"
+      - "What's your response SLA by severity (Critical, High, Medium, Low)?"
+      - "Where are findings tracked through to remediation?"
+      - "Who owns the VDR process?"
+      - "When was it last reviewed for effectiveness?"
+
+evidence:
+  - type: attestation
+    statement: >
+      DRAFT — Example: VDR procedure at compliance/vdr-procedure.md. Detection: AWS Inspector (EC2 + ECR), GitHub Dependabot + Secret Scanning, semgrep + bandit on every PR. SLAs: Critical 7 days, High 30 days, Medium 90 days, Low next sprint. Findings tracked in Jira project SEC-VULN; SecOps reviews weekly.
+    attested_by: "DRAFT — your-vp-security@example.com"
+    attested_at: "DRAFT — YYYY-MM-DD"
+    reviewed_at: "DRAFT — YYYY-MM-DD"
+    next_review: "DRAFT — YYYY-MM-DD (recommend 6-month review cadence)"
+    supporting_docs:
+      - "DRAFT — ./policies/your-runbook.pdf"
+      - "DRAFT — https://wiki.your-company.example/path-to-relevant-docs"

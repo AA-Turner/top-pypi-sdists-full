@@ -69,16 +69,23 @@ class StreamingMessageBase(Static):
         self._stream: MarkdownStream | None = None
         self._content_initialized = False
 
-    def _get_markdown(self) -> Markdown:
-        if self._markdown is None:
-            raise RuntimeError(
-                "Markdown widget not initialized. compose() must be called first."
-            )
+    def _get_markdown(self) -> Markdown | None:
+        # 2026-05-31: previously raised RuntimeError if compose() hadn't
+        # run yet — caller would crash the TUI. Operator session
+        # 2026-05-27/05-29: assistant message mount fired before the
+        # widget composed, killing the session. Return None instead;
+        # callers buffer the content via self._content and compose()
+        # will render it from the buffer on the next pass.
         return self._markdown
 
-    def _ensure_stream(self) -> MarkdownStream:
+    def _ensure_stream(self) -> MarkdownStream | None:
+        if self._markdown is None:
+            # compose() hasn't run yet — caller should buffer and retry
+            # on the next mount cycle. Returning None is honest about
+            # the lifecycle race; raising crashed the TUI.
+            return None
         if self._stream is None:
-            self._stream = Markdown.get_stream(self._get_markdown())
+            self._stream = Markdown.get_stream(self._markdown)
         return self._stream
 
     async def append_content(self, content: str) -> None:
@@ -88,6 +95,10 @@ class StreamingMessageBase(Static):
         self._content += content
         if self._should_write_content():
             stream = self._ensure_stream()
+            if stream is None:
+                # Markdown widget not ready — content is already in
+                # self._content, compose() will pick it up.
+                return
             await stream.write(content)
 
     async def write_initial_content(self) -> None:
@@ -95,6 +106,11 @@ class StreamingMessageBase(Static):
             return
         if self._content and self._should_write_content():
             stream = self._ensure_stream()
+            if stream is None:
+                # Markdown widget not ready — content already buffered
+                # in self._content; compose() seeds Markdown(self._content)
+                # so the initial render lands correctly without us.
+                return
             await stream.write(self._content)
 
     async def stop_stream(self) -> None:

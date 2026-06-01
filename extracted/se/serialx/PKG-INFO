@@ -1,0 +1,188 @@
+Metadata-Version: 2.4
+Name: serialx
+Version: 1.8.0
+Summary: Serial library with native sync and async support for Windows, Linux, macOS, and other platforms
+Author-email: puddly <puddly3@gmail.com>
+License-Expression: Apache-2.0
+Project-URL: repository, https://github.com/puddly/serialx
+Project-URL: documentation, https://puddly.github.io/serialx/
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: typing-extensions
+Requires-Dist: async-timeout; python_version < "3.12"
+Requires-Dist: pywin32; platform_system == "Windows"
+Provides-Extra: esphome
+Requires-Dist: aioesphomeapi>=44.17.0; python_version >= "3.11" and extra == "esphome"
+Provides-Extra: dev
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: prek; extra == "dev"
+Requires-Dist: pytest-asyncio; extra == "dev"
+Requires-Dist: pytest-timeout; extra == "dev"
+Requires-Dist: pytest-xdist; extra == "dev"
+Requires-Dist: psutil; extra == "dev"
+Requires-Dist: async-timeout; extra == "dev"
+Requires-Dist: types-psutil; extra == "dev"
+Requires-Dist: types-pywin32; extra == "dev"
+Requires-Dist: types-setuptools; extra == "dev"
+Requires-Dist: aioesphomeapi>=44.17.0; python_version >= "3.11" and extra == "dev"
+Provides-Extra: docs
+Requires-Dist: sphinx<8.2.3,>=7; python_version < "3.11" and extra == "docs"
+Requires-Dist: sphinx>=8.2.3; python_version >= "3.11" and extra == "docs"
+Requires-Dist: furo>=2025.7.19; extra == "docs"
+Requires-Dist: myst-parser<5,>=4.0.1; python_version < "3.11" and extra == "docs"
+Requires-Dist: myst-parser>=5; python_version >= "3.11" and extra == "docs"
+Requires-Dist: sphinx-design>=0.6; extra == "docs"
+Requires-Dist: sphinx-autobuild>=2024.10.3; python_version < "3.11" and extra == "docs"
+Requires-Dist: sphinx-autobuild>=2025.08.25; python_version >= "3.11" and extra == "docs"
+
+# Introduction
+Serialx is a no-compromise serial communication library for Python targeting common
+platforms such as Linux (POSIX), macOS, and Windows. It provides both synchronous and
+native asynchronous APIs for all platforms.
+
+**For more information, visit serialx's documentation: https://puddly.github.io/serialx/**
+
+# Installation
+```console
+pip install serialx
+```
+
+For drop-in import compatibility (`serial`, `serial_asyncio`, `serial_asyncio_fast`) in
+environments where existing code cannot be migrated:
+```console
+pip install serialx-compat
+```
+
+# Usage
+Serialx features a familiar synchronous API:
+
+```Python
+import serialx
+
+with serialx.serial_for_url("/dev/serial/by-id/port", baudrate=115200) as serial:
+    data = serial.readexactly(5)
+    serial.write(b"test")
+
+    serial.set_modem_pins(rts=True, dtr=True)
+    pins = serial.get_modem_pins()
+    assert pins.rts is serialx.PinState.HIGH
+    assert pins.dtr is serialx.PinState.HIGH
+```
+
+An async equivalent of the synchronous API:
+
+```Python
+import asyncio
+import serialx
+
+async def main():
+    async with serialx.async_serial_for_url(
+        "/dev/serial/by-id/port", baudrate=115200,
+    ) as serial:
+        data = await serial.readexactly(5)
+        await serial.write(b"test")
+
+        await serial.set_modem_pins(rts=True, dtr=True)
+        pins = await serial.get_modem_pins()
+        assert pins.rts is serialx.PinState.HIGH
+```
+
+A `(StreamReader, StreamWriter)` pair is also available for code already wired up to
+the asyncio streams API:
+
+```Python
+import asyncio
+import serialx
+
+async def main():
+    reader, writer = await serialx.open_serial_connection(
+        "/dev/serial/by-id/port", baudrate=115200,
+    )
+
+    try:
+        data = await reader.readexactly(5)
+        writer.write(b"test")
+        await writer.drain()
+    finally:
+        writer.close()
+        await writer.wait_closed()
+```
+
+And a low-level asynchronous serial transport for protocol-style consumers:
+
+```Python
+import asyncio
+import serialx
+
+async def main():
+    loop = asyncio.get_running_loop()
+    protocol = YourProtocol()
+
+    transport, protocol = await serialx.create_serial_connection(
+        loop,
+        lambda: protocol,
+        url="/dev/serial/by-id/port",
+        baudrate=115200,
+    )
+
+    await transport.set_modem_pins(rts=True, dtr=True)
+```
+
+## ESPHome serial proxy
+Serialx can communicate with serial devices exposed by [ESPHome](https://esphome.io/).
+
+It can either create the API instance directly, for simplicity:
+
+```python
+from serialx import open_serial_connection
+
+reader, writer = await open_serial_connection(
+    url="esphome://192.168.1.42:6053/?port_name=Zigbee&key=...",
+    baudrate=115200,
+)
+```
+
+Or reuse an existing API instance, for efficiency:
+```python
+from aioesphomeapi import APIClient
+from serialx import open_serial_connection
+from serialx.platforms.serial_esphome import ESPHomeSerialTransport
+
+# An external API instance
+api = APIClient(address="192.168.1.42", port=6053, key="...", password=None)
+await api.connect(login=True)
+
+reader, writer = await open_serial_connection(
+    url=None,
+    transport_cls=ESPHomeSerialTransport,
+    api=api,
+    port_name="Zigbee",
+    baudrate=115200,
+)
+```
+
+# Development
+All development dependencies are listed in `pyproject.toml`. To install them, use:
+```bash
+uv pip install '.[dev]'
+```
+
+On macOS and Windows, a Rust toolchain is required to build the native serial port
+enumeration extension. Install Rust via [rustup](https://rustup.rs/).
+
+Set up pre-commit hooks with `pre-commit install`. Your code will then be type checked
+and auto-formatted when you run `git commit`. You can do this on-demand with
+`pre-commit run`.
+
+Serialx relies on automated testing. CI runs tests using both `socat` virtual PTYs
+(Linux/macOS) and socket-based serial pairs. To also test with physical adapter pairs,
+pass CLI flags to `pytest`:
+
+```bash
+pytest --adapter-pair=/dev/serial/by-id/left1:/dev/serial/by-id/right1 \
+       --adapter-pair=/dev/serial/by-id/left2:/dev/serial/by-id/right2
+```
+
+By default, tests run in parallel. You can disable this by passing `-n 0` to `pytest`.

@@ -48,8 +48,8 @@ def test_send_imessage_success(monkeypatch):
     import subprocess
     monkeypatch.setattr(subprocess, "run", sub)
     
-    # Since FDA is missing (_imessage_max_rowid returns -1), SAGE should now return False to trigger fallback
-    assert _send_imessage("test@example.com", "Hello iMessage") is False
+    # Since FDA is missing (_imessage_max_rowid returns -1), SAGE should trust AppleScript success and return True
+    assert _send_imessage("test@example.com", "Hello iMessage") is True
     
     assert len(sub.calls) > 0
     args = sub.calls[0]
@@ -101,8 +101,8 @@ def test_send_macos_sms(monkeypatch):
     import subprocess
     monkeypatch.setattr(subprocess, "run", sub)
 
-    # Since FDA is missing, it should fail
-    assert _send_macos_sms("+14085073140", "Hello SMS") is False
+    # Since FDA is missing, SAGE should trust AppleScript success and return True
+    assert _send_macos_sms("+14085073140", "Hello SMS") is True
     
     assert len(sub.calls) > 0
     args = sub.calls[0]

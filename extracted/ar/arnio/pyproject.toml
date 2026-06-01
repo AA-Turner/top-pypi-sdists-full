@@ -1,0 +1,105 @@
+[build-system]
+requires = [
+    "scikit-build-core>=0.8",
+    "pybind11>=2.12",
+    "setuptools>=68",
+    "wheel",
+]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "arnio"
+version = "1.19.0"
+description = "C++ accelerated data preparation for pandas and the Python data stack"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+authors = [
+    { name = "Anish Raj", email = "anishrajyadav97@gmail.com" }
+]
+keywords = ["pandas", "csv", "data-cleaning", "preprocessing", "data-quality", "schema-validation", "c++", "performance"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: C++",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+    "Typing :: Typed",
+]
+dependencies = [
+    "pandas>=1.5",
+    "numpy>=1.23",
+]
+
+[project.urls]
+Homepage = "https://github.com/im-anishraj/arnio"
+Documentation = "https://github.com/im-anishraj/arnio#readme"
+Repository = "https://github.com/im-anishraj/arnio"
+Issues = "https://github.com/im-anishraj/arnio/issues"
+Changelog = "https://github.com/im-anishraj/arnio/blob/main/CHANGELOG.md"
+Discord = "https://discord.gg/xsEw7r78M"
+
+[project.optional-dependencies]
+arrow = ["pyarrow>=6.0"]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "black>=24.0",
+    "ruff>=0.4.0",
+    "pre-commit>=3.0",
+    "hypothesis>=6.0",
+    "PyYAML>=6.0",
+    "tomli; python_version < '3.11'",
+]
+sklearn = [
+    "scikit-learn>=1.0",
+]
+parquet = [
+    "pyarrow>=8.0",
+]
+
+[tool.setuptools.package-data]
+arnio = ["py.typed"]
+
+[tool.scikit-build]
+wheel.packages = ["arnio"]
+cmake.build-type = "Release"
+wheel.expand-macos-universal-tags = false
+
+[tool.black]
+line-length = 88
+target-version = ["py39", "py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["arnio"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+[tool.cibuildwheel]
+build = "cp39-* cp310-* cp311-* cp312-* cp313-* cp314-*"
+skip = "*-win32 *-manylinux_i686 *-musllinux*"
+test-requires = ["pytest", "pandas>=1.5", "numpy>=1.23", "hypothesis>=6.0", "PyYAML>=6.0"]
+test-command = "python -c \"import os, pathlib, tempfile; os.chdir(tempfile.mkdtemp()); import arnio as ar; print('arnio wheel:', ar.__file__); assert hasattr(ar, 'read_csv'); csv = pathlib.Path('smoke.csv'); csv.write_text('name,age\\nAlice,30\\n'); frame = ar.read_csv(str(csv)); assert frame.shape == (1, 2)\""
+build-verbosity = 1

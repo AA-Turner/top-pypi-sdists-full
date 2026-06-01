@@ -1,0 +1,54 @@
+name: Python SDK dev
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["develop"]
+
+concurrency:
+  group: pypi-dev-deploy
+  cancel-in-progress: false
+
+jobs:
+  pypi-publish:
+    name: Upload blaxel package to PyPI (dev)
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      # For PyPI's trusted publishing.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+          fetch-depth: 0
+      - name: "Install uv"
+        uses: astral-sh/setup-uv@v4
+      - name: Set version and build config
+        env:
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+        run: |
+          VERSION=$(git describe --tags --abbrev=0)
+          VERSION="${VERSION#v}"
+          # Split version into parts and increment minor version
+          IFS='.' read -r major minor patch <<< "$VERSION"
+          patch=$((patch + 1))
+          VERSION="${major}.${minor}.${patch}.pre-${{ github.run_number }}"
+          COMMIT=$(git rev-parse HEAD)
+          echo "Current version: $VERSION"
+          echo "Current commit: $COMMIT"
+          sed -i -E "s/^version = .*/version = \"${VERSION}\"/" pyproject.toml
+          # Inject build-time values into __init__.py
+          sed -i -E "s|^__version__ = .*|__version__ = \"${VERSION}\"|" src/blaxel/__init__.py
+          sed -i -E "s|^__commit__ = .*|__commit__ = \"${COMMIT}\"|" src/blaxel/__init__.py
+          sed -i -E "s|^__sentry_dsn__ = .*|__sentry_dsn__ = \"${SENTRY_DSN}\"|" src/blaxel/__init__.py
+      - name: Test package installation
+        run: |
+          uv venv
+          source .venv/bin/activate
+          uv pip install -e .
+          python -c "import blaxel.core; print('✅ blaxel package imports successfully')"
+      - name: Build and publish blaxel package
+        run: |
+          uv build
+          uv publish -v --trusted-publishing automatic dist/*

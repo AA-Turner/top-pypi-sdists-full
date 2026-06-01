@@ -1,0 +1,7 @@
+Metadata-Version: 1.1
+Name: confluent_avro
+Version: 1.8.0
+Summary: An Avro SerDe implementation that integrates with the confluent
+Home-page: https://github.com/DhiaTN/confluent-avro-py
+Author: Dhia Abbassi
+Author-email: dhia.absi@gmail.com

@@ -1,0 +1,254 @@
+# Copyright Coralogix Ltd.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+from litellm.integrations.opentelemetry import OpenTelemetry, OpenTelemetryConfig
+
+from opentelemetry.semconv._incubating.attributes import (
+    gen_ai_attributes as GenAIAttributes,
+)
+
+import json
+from typing import Any
+from opentelemetry.trace import Span
+
+from llm_tracekit.core import (
+    Choice,
+    Message,
+    ToolCall,
+    generate_base_attributes,
+    generate_choice_attributes,
+    generate_message_attributes,
+    generate_request_attributes,
+    generate_response_attributes,
+    is_content_enabled,
+)
+from llm_tracekit.core import _extended_gen_ai_attributes as ExtendedGenAIAttributes
+
+
+class LitellmCallback(OpenTelemetry):
+    def __init__(
+        self,
+        config: OpenTelemetryConfig | None,
+        tracer_provider: Any | None = None,
+    ):
+        super().__init__(config=config, tracer_provider=tracer_provider)
+
+    def parse_messages(self, raw_messages: list[dict[str, Any]]) -> list[Message]:
+        messages: list[Message] = []
+        for prompt in raw_messages:
+            content = prompt.get("content")
+            if content is not None and not isinstance(content, str):
+                content = str(content)
+
+            tool_calls_data = prompt.get("tool_calls")
+            tool_calls_list = None
+
+            if tool_calls_data:
+                tool_calls_list = [
+                    ToolCall(
+                        id=tool_call.get("id"),
+                        type=tool_call.get("type"),
+                        function_name=tool_call.get("function", {}).get("name"),
+                        function_arguments=tool_call.get("function", {}).get(
+                            "arguments"
+                        ),
+                    )
+                    for tool_call in tool_calls_data
+                ]
+
+            message = Message(
+                role=prompt.get("role"),
+                content=content,
+                tool_call_id=prompt.get("tool_call_id"),
+                tool_calls=tool_calls_list,
+            )
+            messages.append(message)
+        return messages
+
+    def parse_choices(self, raw_choices: list[dict[str, Any]]) -> list[Choice]:
+        choices: list[Choice] = []
+        for choice_dict in raw_choices:
+            choice_message = choice_dict.get("message", {}) or {}
+            tool_calls_list = None
+
+            tool_calls = choice_message.get("tool_calls")
+
+            if tool_calls:
+                tool_calls_list = [
+                    ToolCall(
+                        id=tool_call.get("id"),
+                        type=tool_call.get("type"),
+                        function_name=tool_call.get("function", {}).get("name"),
+                        function_arguments=tool_call.get("function", {}).get(
+                            "arguments"
+                        ),
+                    )
+                    for tool_call in tool_calls
+                ]
+
+            content = choice_message.get("content")
+            if content is not None and not isinstance(content, str):
+                content = str(content)
+
+            choice = Choice(
+                finish_reason=choice_dict.get("finish_reason"),
+                role=choice_message.get("role"),
+                content=content,
+                tool_calls=tool_calls_list,
+            )
+            choices.append(choice)
+        return choices
+
+    def set_attributes(  # noqa: PLR0915
+        self, span: Span, kwargs, response_obj: Any | None
+    ):
+        try:
+            optional_params = kwargs.get("optional_params", {})
+            litellm_params = kwargs.get("litellm_params", {}) or {}
+
+            messages: list[Message] = []
+            choices: list[Choice] = []
+
+            response_attributes: dict[str, Any] = {}
+
+            if "messages" in kwargs:
+                messages = self.parse_messages(kwargs.get("messages"))
+
+            if response_obj is not None:
+                usage = response_obj.get("usage")
+                response_attributes = generate_response_attributes(
+                    model=response_obj.get("model"),
+                    id=response_obj.get("id"),
+                    usage_input_tokens=usage.get("prompt_tokens")
+                    if usage is not None
+                    else None,
+                    usage_output_tokens=usage.get("completion_tokens")
+                    if usage is not None
+                    else None,
+                )
+                if "choices" in response_obj:
+                    raw_choices = response_obj.get("choices")
+                    choices = self.parse_choices(raw_choices)
+
+            capture_content = is_content_enabled()
+
+            attributes = {
+                **generate_base_attributes(
+                    system=litellm_params.get("custom_llm_provider", "Unknown"),
+                    operation=GenAIAttributes.GenAiOperationNameValues.CHAT,
+                ),
+                **generate_request_attributes(
+                    model=kwargs.get("model"),
+                    temperature=optional_params.get("temperature"),
+                    top_p=optional_params.get("top_p"),
+                    max_tokens=optional_params.get("max_tokens"),
+                ),
+                **generate_message_attributes(
+                    messages=messages, capture_content=capture_content
+                ),
+                **generate_choice_attributes(
+                    choices=choices, capture_content=capture_content
+                ),
+                **response_attributes,
+            }
+
+            tool_attributes = _generate_available_tools_attributes(
+                tools=kwargs.get("tools"),
+                optional_params=optional_params,
+            )
+            if tool_attributes:
+                attributes.update(tool_attributes)
+
+            user = optional_params.get("user")
+            if user is not None:
+                attributes[ExtendedGenAIAttributes.GEN_AI_REQUEST_USER] = str(user)
+
+            for key, value in attributes.items():
+                if value is not None:
+                    self.safe_set_attribute(
+                        span=span,
+                        key=key,
+                        value=value,
+                    )
+
+        except Exception:
+            pass
+
+
+def _generate_available_tools_attributes(
+    tools: Any | None,
+    optional_params: dict[str, Any],
+) -> dict[str, Any]:
+    candidates = tools
+    if not candidates:
+        candidates = optional_params.get("tools")
+    if not isinstance(candidates, list):
+        return {}
+
+    attributes: dict[str, Any] = {}
+    for tool_index, tool in enumerate(candidates):
+        if not isinstance(tool, dict):
+            continue
+
+        tool_type = tool.get("type") or "function"
+        attributes[
+            ExtendedGenAIAttributes.GEN_AI_REQUEST_TOOLS_TYPE.format(
+                tool_index=tool_index
+            )
+        ] = tool_type
+
+        function = tool.get("function")
+        if isinstance(function, dict):
+            name = function.get("name")
+            description = function.get("description")
+            parameters = function.get("parameters")
+        else:
+            name = tool.get("name")
+            description = tool.get("description")
+            parameters = (
+                tool.get("parameters")
+                or tool.get("input_schema")
+                or tool.get("inputSchema")
+            )
+            definition = tool.get("definition")
+            if parameters is None and isinstance(definition, dict):
+                parameters = definition.get("parameters")
+
+        if name is not None:
+            attributes[
+                ExtendedGenAIAttributes.GEN_AI_REQUEST_TOOLS_FUNCTION_NAME.format(
+                    tool_index=tool_index
+                )
+            ] = name
+
+        if description is not None:
+            attributes[
+                ExtendedGenAIAttributes.GEN_AI_REQUEST_TOOLS_FUNCTION_DESCRIPTION.format(
+                    tool_index=tool_index
+                )
+            ] = description
+
+        if parameters is not None:
+            try:
+                serialized_parameters = json.dumps(parameters)
+            except (TypeError, ValueError):
+                serialized_parameters = str(parameters)
+            attributes[
+                ExtendedGenAIAttributes.GEN_AI_REQUEST_TOOLS_FUNCTION_PARAMETERS.format(
+                    tool_index=tool_index
+                )
+            ] = serialized_parameters
+
+    return attributes

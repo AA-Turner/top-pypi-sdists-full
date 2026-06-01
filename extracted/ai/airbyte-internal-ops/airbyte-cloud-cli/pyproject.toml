@@ -1,0 +1,65 @@
+[project]
+name = "airbyte-cloud-cli"
+dynamic = ["version"]
+description = "Standalone Airbyte Cloud CLI"
+readme = "README.md"
+authors = [
+    { name = "Aaron Steers", email = "aj@airbyte.io" }
+]
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "airbyte>=0.45.0,<1.0.0",
+    # TODO: Raise the lower bound to the PyAirbyte release that includes CloudClient.
+    "cyclopts>=4.0.0,<5.0",
+    "pyyaml>=6.0.0,<7.0",
+]
+keywords = ["airbyte", "cloud", "cli"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+[project.scripts]
+airbyte-cloud = "airbyte_cloud_cli.app:main"
+
+[dependency-groups]
+dev = [
+    "deptry>=0.12.0",
+    "pytest>=7.0",
+    "ruff>=0.1.0",
+]
+
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+[tool.uv-dynamic-versioning]
+vcs = "git"
+style = "pep440"
+pattern-prefix = "airbyte-cloud-cli/"
+fallback-version = "0.0.0"
+
+[tool.hatch.build.targets.wheel]
+packages = ["airbyte_cloud_cli"]
+
+[tool.deptry]
+exclude = [
+    ".*\\.venv/.*",
+    ".*venv/.*",
+    ".*__pycache__.*",
+    ".*\\.pytest_cache.*",
+    ".*\\.git.*",
+    ".*dist.*",
+    ".*build.*",
+]
+
+pep621_dev_dependency_groups = ["dev"]
+known_first_party = ["airbyte_cloud_cli"]
+ignore = ["DEP004"]

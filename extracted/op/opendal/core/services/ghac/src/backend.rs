@@ -138,7 +138,7 @@ impl Builder for GhacBuilder {
         // ghac requires to use hex digest of Sha256 as version.
         if matches!(service_version, GhacVersion::V2) {
             let hash = sha2::Sha256::digest(&version);
-            version = format!("{hash:x}");
+            version = format_digest_hex(hash);
         }
 
         let cache_url = self
@@ -192,6 +192,17 @@ impl Builder for GhacBuilder {
     }
 }
 
+fn format_digest_hex(digest: impl AsRef<[u8]>) -> String {
+    use std::fmt::Write;
+
+    let digest = digest.as_ref();
+    let mut output = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        write!(&mut output, "{byte:02x}").expect("writing to String must succeed");
+    }
+    output
+}
+
 /// Backend for github action cache services.
 #[derive(Debug, Clone)]
 pub struct GhacBackend {
@@ -203,6 +214,7 @@ impl Access for GhacBackend {
     type Writer = GhacWriter;
     type Lister = ();
     type Deleter = ();
+    type Copier = ();
 
     fn info(&self) -> Arc<AccessorInfo> {
         self.core.info.clone()
@@ -219,15 +231,7 @@ impl Access for GhacBackend {
         let status = resp.status();
         match status {
             StatusCode::OK | StatusCode::PARTIAL_CONTENT | StatusCode::RANGE_NOT_SATISFIABLE => {
-                let mut meta = parse_into_metadata(path, resp.headers())?;
-                // Correct content length via returning content range.
-                meta.set_content_length(
-                    meta.content_range()
-                        .expect("content range must be valid")
-                        .size()
-                        .expect("content range must contains size"),
-                );
-
+                let meta = parse_into_metadata(path, resp.headers())?;
                 Ok(RpStat::new(meta))
             }
             _ => Err(parse_error(resp)),
@@ -239,9 +243,10 @@ impl Access for GhacBackend {
 
         let status = resp.status();
         match status {
-            StatusCode::OK | StatusCode::PARTIAL_CONTENT => {
-                Ok((RpRead::default(), resp.into_body()))
-            }
+            StatusCode::OK | StatusCode::PARTIAL_CONTENT => Ok((
+                RpRead::new(parse_into_metadata(path, resp.headers())?),
+                resp.into_body(),
+            )),
             _ => {
                 let (part, mut body) = resp.into_parts();
                 let buf = body.to_buffer().await?;

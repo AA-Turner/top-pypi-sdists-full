@@ -1,0 +1,1 @@
+class ProtectionException(Exception):0

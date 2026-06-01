@@ -1,0 +1,32 @@
+Metadata-Version: 2.1
+Name: mi_proyecto_joaquin_vft
+Version: 0.1.12
+Summary: Software in Fortran with f2py interface
+Author: Joaquin Lopez
+License: GPL-3.0
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Fortran
+Requires-Dist: numpy
+Description-Content-Type: text/markdown
+
+# mi_proyecto_joaquin_f2py
+
+Este es un software desarrollado en **Fortran** con una interfaz para **Python** utilizando `f2py` y `Meson`.
+
+## Instalación
+
+Puedes instalarlo directamente desde PyPI:
+
+```bash
+pip install mi_proyecto_joaquin_f2py
+
+
+import modulo
+
+# Calcular el área de un círculo con radio 5.0
+resultado = modulo.constantes_y_calculos.area_circulo(5.0)
+print(f"El área es: {resultado}")
+
+
+

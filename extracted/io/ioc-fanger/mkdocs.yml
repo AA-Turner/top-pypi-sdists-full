@@ -1,0 +1,43 @@
+site_name: Indicator Fanger/Defanger Docs
+site_url: ""
+repo_url: https://github.com/ioc-fang/ioc-fanger
+repo_name: ioc-fanger
+theme:
+  name: material
+  custom_dir: docs/overrides
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/lightbulb-outline
+        name: Switch to dark mode
+      primary: deep orange
+      accent: deep orange
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/lightbulb
+        name: Switch to light mode
+      primary: deep orange
+      accent: deep orange
+  font: false
+  icon:
+    logo: material/magnify
+  features:
+    - navigation.instant
+    - navigation.top
+    - header.autohide
+    - toc.integrate
+markdown_extensions:
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - attr_list
+  - admonition
+  - pymdownx.details
+  - meta
+  - toc:
+      permalink: true
+nav:
+    - Home: index.md
+    - Quick Start: quick-start.md
+    - Local Development: local-dev.md

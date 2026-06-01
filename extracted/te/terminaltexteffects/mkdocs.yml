@@ -1,0 +1,137 @@
+site_name: TerminalTextEffects Docs
+site_description: TerminalTextEffects Documentation
+site_author: ChrisBuilds
+repo_url: https://github.com/ChrisBuilds/terminaltexteffects
+docs_dir: docs
+
+
+theme:
+  name: material
+  palette:
+    scheme: slate
+  features:
+    - content.code.copy
+    - content.code.annotate
+
+plugins:
+  - mkdocstrings
+
+markdown_extensions:
+  - admonition
+  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.details
+  - pymdownx.caret
+  - pymdownx.tilde
+  - attr_list
+  - def_list
+
+nav:
+  - Intro to TTE: index.md
+  - Change[B]log: 
+    - changeblog/changeblog.md
+    - changeblog/changeblog_0.15.0.md
+    - changeblog/changeblog_0.14.0.md
+    - changeblog/changeblog_0.13.0.md
+    - changeblog/changeblog_0.12.0.md
+    - changeblog/changeblog_0.11.0.md
+    - changeblog/changeblog_0.10.0.md
+
+  - How to install & use TTE:
+    - Install: installation.md
+    - Application Usage: appguide.md
+    - Library Usage: libguide.md
+  # - Effect Building Guide:
+  #   - effectguide/effectguide.md
+  #   - effectguide/effectguide_lesson0.md
+  - Effects Showroom: showroom.md
+  - Library Cookbook: cookbook.md
+  - Reference:
+    - Engine:
+      - engine/baseeffect.md
+      - engine/basecharacter.md
+      - engine/baseconfig.md
+      - engine/eventhandler.md
+      - Animation:
+        - engine/animation/animation.md
+        - engine/animation/charactervisual.md
+        - engine/animation/frame.md
+        - engine/animation/scene.md
+      - Motion:
+        - engine/motion/motion.md
+        - engine/motion/waypoint.md
+        - engine/motion/segment.md
+        - engine/motion/path.md
+      - Terminal:
+        - engine/terminal/terminal.md
+        - engine/terminal/terminalconfig.md
+        - engine/terminal/canvas.md
+      - Utils:
+        - engine/utils/ansitools.md
+        - engine/utils/argutils.md
+        - engine/utils/color.md
+        - engine/utils/colorpair.md
+        - engine/utils/colorterm.md
+        - engine/utils/easing.md
+        - engine/utils/exceptions.md
+        - engine/utils/geometry.md
+        - engine/utils/gradient.md
+        - engine/utils/hexterm.md
+        - SpanningTree:
+          - engine/utils/spanningtree/base_generator.md
+          - Algorithms:
+            - engine/utils/spanningtree/algos/aldous_broder.md
+            - engine/utils/spanningtree/algos/recursive_backtracker.md
+            - engine/utils/spanningtree/algos/prims_simple.md
+            - engine/utils/spanningtree/algos/prims_weighted.md
+            - engine/utils/spanningtree/algos/breadthfirst.md
+    - Effects:
+      - effects/beams.md
+      - effects/binarypath.md
+      - effects/blackhole.md
+      - effects/bouncyballs.md
+      - effects/bubbles.md
+      - effects/burn.md
+      - effects/colorshift.md
+      - effects/crumble.md
+      - effects/decrypt.md
+      - effects/errorcorrect.md
+      - effects/expand.md
+      - effects/fireworks.md
+      - effects/highlight.md
+      - effects/laseretch.md
+      - effects/matrix.md
+      - effects/middleout.md
+      - effects/orbittingvolley.md
+      - effects/overflow.md
+      - effects/pour.md
+      - effects/print.md
+      - effects/rain.md
+      - effects/randomsequence.md
+      - effects/rings.md
+      - effects/scattered.md
+      - effects/slice.md
+      - effects/slide.md
+      - effects/smoke.md
+      - effects/spotlights.md
+      - effects/spray.md
+      - effects/swarm.md
+      - effects/sweep.md
+      - effects/synthgrid.md
+      - effects/thunderstorm.md
+      - effects/unstable.md
+      - effects/vhstape.md
+      - effects/waves.md
+      - effects/wipe.md

@@ -1,0 +1,259 @@
+[package]
+name = "gam"
+version = "0.3.68"
+edition = "2024"
+rust-version = "1.93"
+autobins = false
+default-run = "gam"
+description = "Generalized penalized likelihood engine"
+license = "AGPL-3.0-or-later"
+# Limit the published `.crate` to source + bench harnesses + license + readme.
+# Without this, `bench/biobank_scale/` (>1 GB of benchmark data) is bundled
+# into the package and crates.io rejects the upload at the 10 MiB limit.
+# Patterns are gitignore-style; leading `/` anchors to crate root.
+include = [
+    "/src/**/*.rs",
+    "/src/**/*.pest",
+    "/bench/cargo_benches/**/*.rs",
+    "/build.rs",
+    "/Cargo.toml",
+    "/rust-toolchain.toml",
+    "/rustfmt.toml",
+    "/README.md",
+    "/LICENSE",
+]
+
+[package.metadata.cargo-machete]
+ignored = ["grep", "walkdir"]
+
+[lib]
+path = "src/lib.rs"
+
+[workspace]
+members = ["crates/gam-pyffi"]
+resolver = "3"
+
+[lints.rust]
+warnings = "deny"
+
+# Clippy is not part of this repo's enforcement. Silence the whole tool so
+# rust-analyzer / agent loops / `cargo clippy` don't surface it as build noise.
+[lints.clippy]
+all = { level = "allow", priority = -1 }
+pedantic = { level = "allow", priority = -1 }
+nursery = { level = "allow", priority = -1 }
+cargo = { level = "allow", priority = -1 }
+restriction = { level = "allow", priority = -1 }
+correctness = { level = "allow", priority = -1 }
+suspicious = { level = "allow", priority = -1 }
+complexity = { level = "allow", priority = -1 }
+perf = { level = "allow", priority = -1 }
+style = { level = "allow", priority = -1 }
+
+[dependencies]
+clap = { version = "4.6.1", features = ["derive"] }
+comfy-table = "7.2.2"
+rayon = "1.12.0"
+rand = "0.10.1"
+ndarray = { version = "0.17.2", features = ["serde", "rayon"] }
+serde = { version = "1.0.228", features = ["derive"] }
+thiserror = "2.0.18"
+opt = "0.5.2"
+log = "0.4.29"
+libloading = "0.8.9"
+csv = "1.4.0"
+faer = "0.24.0"
+memmap2 = "0.9.10"
+dyn-stack = "0.13.2"
+serde_json = "1.0.149"
+ratatui = "0.30.0"
+crossterm = "0.29.0"
+rand_distr = "0.6.0"
+statrs = "0.18.0"
+libm = "0.2.16"
+pest = "2.8.6"
+pest_derive = "2.8.6"
+arrow = { version = "54", default-features = false, features = ["ffi"] }
+parquet = { version = "54", default-features = false, features = ["arrow", "snap", "zstd", "lz4"] }
+wide = "0.7"
+smallvec = "1"
+sha2 = "0.10.8"
+sysinfo = { version = "0.32", default-features = false, features = ["system"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+cudarc = { version = "0.19.6", default-features = false, features = ["std", "driver", "runtime", "nvrtc", "cublas", "cublaslt", "cusparse", "cusolver", "cusolvermg", "curand", "nvtx", "cupti", "fallback-dynamic-loading", "cuda-12080"] }
+
+[dependencies.general-mcmc]
+package = "general-mcmc"
+version = "0.9"
+default-features = false
+
+[dev-dependencies]
+num-dual = "0.13.6"
+autodiff = "0.7.0"
+ad_trait = "0.3.0"
+criterion = "0.8"
+tempfile = "3.27.0"
+approx = "0.5.1"
+
+[[bin]]
+name = "gam"
+path = "src/main.rs"
+
+[[bench]]
+name = "closed_form_pair_block"
+path = "bench/cargo_benches/closed_form_pair_block.rs"
+harness = false
+
+[[bench]]
+name = "closed_form_criterion"
+path = "bench/cargo_benches/closed_form_criterion.rs"
+harness = false
+
+[[bench]]
+name = "spatial_basis_construction"
+path = "bench/cargo_benches/spatial_basis_construction.rs"
+harness = false
+
+[[bench]]
+name = "bvn_biobank_shape"
+path = "bench/cargo_benches/bvn_biobank_shape.rs"
+harness = false
+
+[[bench]]
+name = "margslope_flex_biobank_hv"
+path = "bench/cargo_benches/margslope_flex_biobank_hv.rs"
+harness = false
+
+[[bench]]
+name = "non_affine_cell_hv_shape"
+path = "bench/cargo_benches/non_affine_cell_hv_shape.rs"
+harness = false
+
+[[bench]]
+name = "cell_moment_lru_biobank_shape"
+path = "bench/cargo_benches/cell_moment_lru_biobank_shape.rs"
+harness = false
+
+[[bench]]
+name = "tail_cell_memo_biobank_shape"
+path = "bench/cargo_benches/tail_cell_memo_biobank_shape.rs"
+harness = false
+
+[[bench]]
+name = "trust_region_line_search"
+path = "bench/cargo_benches/trust_region_line_search.rs"
+harness = false
+
+[[bench]]
+name = "line_search_subsample_screen"
+path = "bench/cargo_benches/line_search_subsample_screen.rs"
+harness = false
+
+[[bench]]
+name = "joint_line_search_speculative"
+path = "bench/cargo_benches/joint_line_search_speculative.rs"
+harness = false
+
+[[bench]]
+name = "cell_moment_dedup_biobank_shape"
+path = "bench/cargo_benches/cell_moment_dedup_biobank_shape.rs"
+harness = false
+
+[[bench]]
+name = "row_cell_moments_biobank_shape"
+path = "bench/cargo_benches/row_cell_moments_biobank_shape.rs"
+harness = false
+
+[[bench]]
+name = "bms_hv_row_skip"
+path = "bench/cargo_benches/bms_hv_row_skip.rs"
+harness = false
+
+[[bench]]
+name = "pirls_gpu_bench"
+path = "bench/cargo_benches/pirls_gpu_bench.rs"
+harness = false
+
+[[bench]]
+name = "reml_gpu_bench"
+path = "bench/cargo_benches/reml_gpu_bench.rs"
+harness = false
+
+[[bench]]
+name = "arrow_schur_gpu_bench"
+path = "bench/cargo_benches/arrow_schur_gpu_bench.rs"
+harness = false
+
+[[bench]]
+name = "cubic_hex_tensor_gpu_parity"
+path = "bench/cargo_benches/cubic_hex_tensor_gpu_parity.rs"
+harness = false
+
+[[bench]]
+name = "sae_arrow_schur_bench"
+path = "bench/cargo_benches/sae_arrow_schur_bench.rs"
+harness = false
+
+[[example]]
+name = "arrow_schur_hill_climb"
+path = "examples/perf/arrow_schur_hill_climb.rs"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+
+# Test profile — strip full DWARF and only keep line tables. With ~300
+# integration test targets under `tests/`, the default `debug = true` profile
+# emits ~150–500 MB of DWARF per linked test binary; on a vanilla ubuntu-latest
+# runner the link stage exhausts the ~30 GB the workflow frees after wiping
+# preinstalled toolchains, surfacing as `linking with cc failed: exit status:
+# 1` / `No space left on device`. `line-tables-only` keeps backtraces
+# resolvable to file:line and panic locations intact while cutting each test
+# binary by roughly 5–10×, which is what drives the disk back below the
+# ceiling and makes the link reliable rather than relying on whatever the
+# preinstalled-toolchain wipe yields on a given runner image.
+[profile.test]
+debug = "line-tables-only"
+
+# Iteration profile — drops `lto=thin` and uses 16 codegen units to cut
+# rebuild time from ~5 min to ~90 s while keeping `opt-level = 3`. Use via
+# `cargo build --profile release-dev --bin gam`. Runtime perf is typically
+# ~85–95% of full release (LTO is the main loss); good enough for local
+# timing comparisons that aren't differentiating sub-10% perf wins.
+[profile.release-dev]
+inherits = "release"
+lto = false
+codegen-units = 16
+debug = false
+
+# PyPI wheel profile — tuned for MAXIMUM runtime performance on biobank
+# workloads, accepting longer CI build times in exchange.
+#
+#   * `lto = "fat"` — whole-program LTO across all crates including
+#     dependencies. Squeezes out cross-crate inlining that thin-LTO
+#     misses; biobank-shape numerics gain ~5–10 % over thin-LTO from
+#     better inlining of `faer` / `ndarray` inner loops into the
+#     custom-family hot paths.
+#
+#   * `codegen-units = 1` — single codegen unit per crate. Forces the
+#     full crate to be optimized as one IR module so monomorphization
+#     constants and per-call autovec opportunities aren't fragmented
+#     across parallel codegen workers. Empirically ~2–3 % runtime
+#     improvement at biobank shape over `codegen-units = 16`, on top
+#     of the LTO win.
+#
+# Combined cost: cold-cache wheel builds go from ~12 min to ~22 min on
+# the slowest runner (macos-15-intel). The Swatinem/rust-cache hit on
+# warm rebuilds keeps the typical-case at ~4 min. For PyPI consumers
+# who pip-install once and run biobank fits for hours, the runtime win
+# is the production lever; the build-time hit is amortized to ~zero.
+# When a faster turnaround is needed during development, dispatch the
+# workflow with `linux_only=true` to skip the slow macOS + Windows
+# matrices entirely.
+[profile.release-pypi]
+inherits = "release"
+lto = "fat"
+codegen-units = 1
+debug = false
+strip = "debuginfo"

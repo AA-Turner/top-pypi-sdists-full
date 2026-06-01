@@ -1,0 +1,33 @@
+detector_id: aws.guardduty_enabled
+
+# KSI-MLA-OSM moderate statement: "Operate a SIEM (or similar system)
+# for centralized, tamper-resistant logging." GuardDuty is the
+# AWS-native threat-detection service — closer to "EDR/IDS feeding a
+# SIEM" than to the SIEM itself. The KSI's outcome is broader than
+# threat-detection alone (it explicitly mentions centralized logging
+# of events, activities, and changes). Cross-mapping is valid via SI-4
+# but partial.
+ksis:
+  - id: KSI-MLA-OSM
+    coverage: partial
+    notes: >
+      Cross-mapping via SI-4 family. GuardDuty is the threat-detection
+      slice — necessary input to a SIEM, not the SIEM itself. Does not
+      evidence centralized log handling, alerting on non-threat events,
+      or the broader log retention + correlation that the KSI outcome
+      asks for. Pair with `aws.centralized_log_aggregation` for the
+      centralization slice.
+
+controls:
+  - id: SI-4
+    evidence_type: infrastructure
+    coverage: partial
+    notes: >
+      GuardDuty is the AWS-native continuous-threat-detection service.
+      Enabled = evidence of threat detection at the account level.
+  - id: RA-5(11)
+    evidence_type: infrastructure
+    coverage: partial
+    notes: >
+      Public disclosure program — GuardDuty's findings include
+      Amazon-curated threat intelligence on known-bad IPs and domains.

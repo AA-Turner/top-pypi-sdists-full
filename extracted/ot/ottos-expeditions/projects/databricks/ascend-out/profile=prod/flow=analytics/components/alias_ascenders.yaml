@@ -1,8 +1,0 @@
-component:
-  alias:
-    location: ${parameters.gcp.project_id}.${parameters.bigquery.dataset}.elt_ascenders
-  flow_name: analytics
-  metadata:
-    source:
-      path: flows/analytics/components/alias_ascenders.yaml
-  name: alias_ascenders

@@ -1,0 +1,459 @@
+#!/usr/bin/env -S uv run --active --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "pydantic-settings",
+#   "jambo",
+#   "rich-click",
+#   "abx-plugins",
+# ]
+# ///
+"""
+Extract structured text from PDFs using opendataloader-pdf.
+
+Finds all PDF files produced by other plugins (pdf, responses, staticfile)
+and extracts text, tables, and metadata from each one. Processes every PDF
+found, combining results into content.md, content.txt, and metadata.json.
+
+For scanned/image-based PDFs, set OPENDATALOADER_FORCE_OCR=true to use the
+hybrid OCR backend (requires opendataloader-pdf-hybrid server running).
+
+Usage: on_Snapshot__60_opendataloader.py --url=<url> > events.jsonl
+
+Environment variables:
+    OPENDATALOADER_BINARY: Path to opendataloader-pdf binary
+    OPENDATALOADER_TIMEOUT: Timeout in seconds (default: 120)
+    OPENDATALOADER_FORCE_OCR: Enable hybrid OCR for scanned PDFs (default: false)
+    OPENDATALOADER_HYBRID_URL: URL of hybrid server (default: built-in)
+    OPENDATALOADER_ARGS: Default opendataloader-pdf arguments (JSON array)
+    OPENDATALOADER_ARGS_EXTRA: Extra arguments to append (JSON array)
+    TIMEOUT: Fallback timeout
+
+Note: opendataloader-pdf handles PDF files only. Standalone images (JPG, PNG)
+      are not supported as input by this tool.
+"""
+
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import asyncio
+from pathlib import Path
+
+from abxbus.retry import retry
+
+from abx_plugins.plugins.base.utils import (
+    load_config,
+    emit_archive_result_record,
+    write_text_atomic,
+)
+
+import rich_click as click
+
+
+# Extractor metadata
+PLUGIN_NAME = "opendataloader"
+BIN_NAME = "opendataloader-pdf"
+BIN_PROVIDERS = "env,pip"
+PLUGIN_DIR = Path(__file__).resolve().parent.name
+CONFIG = load_config()
+SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()
+OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+os.chdir(OUTPUT_DIR)
+OUTPUT_FILE = "content.md"
+TEXT_FILE = "content.txt"
+METADATA_FILE = "metadata.json"
+
+
+class OpendataloaderRunError(RuntimeError):
+    """Raised when the opendataloader CLI itself fails to execute successfully."""
+
+
+def _opendataloader_env(java_binary: str) -> dict[str, str] | None:
+    java_path = Path(str(java_binary or "").strip()).expanduser()
+    if not str(java_path):
+        return None
+
+    env = os.environ.copy()
+    java_bin_dir = str(java_path.resolve(strict=False).parent)
+    current_path = env["PATH"] if "PATH" in env else ""
+    path_parts = current_path.split(os.pathsep) if current_path else []
+    if java_bin_dir not in path_parts:
+        env["PATH"] = os.pathsep.join([java_bin_dir, *path_parts])
+
+    java_home = java_path.resolve(strict=False).parent.parent
+    if (java_home / "bin" / "java").is_file():
+        env["JAVA_HOME"] = str(java_home)
+    return env
+
+
+def find_pdf_sources() -> list[Path]:
+    """Find all PDF files from sibling plugin output directories.
+
+    Searches for original PDF responses/static files. Browser-rendered
+    pdf/output.pdf exists for most HTML pages and is not a useful input here.
+    """
+    search_patterns = [
+        # Responses plugin output (PDFs served directly by the URL)
+        "responses/**/*.pdf",
+        "*_responses/**/*.pdf",
+        # Staticfile plugin output
+        "staticfile/**/*.pdf",
+        "*_staticfile/**/*.pdf",
+    ]
+
+    found: list[Path] = []
+    seen: set[str] = set()
+
+    for base in (Path.cwd(), Path.cwd().parent):
+        for pattern in search_patterns:
+            for match in base.glob(pattern):
+                resolved = str(match.resolve())
+                if resolved in seen:
+                    continue
+                if match.is_file() and match.stat().st_size > 0:
+                    found.append(match)
+                    seen.add(resolved)
+
+    return found
+
+
+def _run_opendataloader(
+    binary: str,
+    source_file: Path,
+    fmt: str,
+    out_dir: Path,
+    timeout: int,
+    extra_args: list[str],
+    env: dict[str, str] | None,
+) -> Path | None:
+    """Run opendataloader-pdf on a single file with a given format, return output path or None."""
+    cmd = [binary, "-f", fmt, "-o", str(out_dir), "-q", *extra_args, str(source_file)]
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        timeout=timeout,
+        text=True,
+        env=env,
+    )
+    if result.stderr:
+        print(result.stderr, file=sys.stderr, end="")
+    if result.returncode != 0:
+        error = (
+            result.stderr.strip()
+            or result.stdout.strip()
+            or f"exit code {result.returncode}"
+        )
+        raise OpendataloaderRunError(
+            f"opendataloader-pdf failed for {source_file.name} ({fmt}): {error}",
+        )
+
+    # opendataloader-pdf writes {input_stem}.{ext} in the output dir
+    stem = source_file.stem
+    ext_map = {"markdown": ".md", "text": ".txt", "json": ".json"}
+    expected = out_dir / f"{stem}{ext_map[fmt]}"
+    if expected.is_file() and expected.stat().st_size > 0:
+        return expected
+    # Fallback: find any new file in out_dir
+    for f in sorted(out_dir.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
+        if f.is_file() and f.stat().st_size > 0:
+            return f
+    return None
+
+
+def _extract_single_pdf(
+    binary: str,
+    source_file: Path,
+    timeout: int,
+    extra_args: list[str],
+    env: dict[str, str] | None,
+) -> tuple[str, str]:
+    """Run markdown + text extraction on a single PDF, return (md_content, text_content)."""
+    errors: list[OpendataloaderRunError] = []
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        try:
+            md_out = _run_opendataloader(
+                binary,
+                source_file,
+                "markdown",
+                tmp,
+                timeout,
+                extra_args,
+                env,
+            )
+        except OpendataloaderRunError as err:
+            errors.append(err)
+            md_out = None
+        md_content = md_out.read_text(errors="ignore") if md_out else ""
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp = Path(tmpdir)
+        try:
+            txt_out = _run_opendataloader(
+                binary,
+                source_file,
+                "text",
+                tmp,
+                timeout,
+                extra_args,
+                env,
+            )
+        except OpendataloaderRunError as err:
+            errors.append(err)
+            txt_out = None
+        text_content = txt_out.read_text(errors="ignore") if txt_out else ""
+
+    if errors and not md_content and not text_content:
+        raise errors[0]
+
+    return md_content, text_content
+
+
+def extract_opendataloader(url: str, binary: str) -> tuple[str, str]:
+    """
+    Extract text from all PDFs found using opendataloader-pdf.
+
+    Processes every PDF found across sibling plugin directories.
+    Results from all files are combined into the output.
+
+    Returns: (status, output_str)
+    """
+    config = load_config()
+    timeout = config.OPENDATALOADER_TIMEOUT
+    java_binary = config.OPENDATALOADER_JAVA_BINARY
+    force_ocr = config.OPENDATALOADER_FORCE_OCR
+    hybrid_url = config.OPENDATALOADER_HYBRID_URL
+    opendataloader_args = config.OPENDATALOADER_ARGS
+    opendataloader_args_extra = config.OPENDATALOADER_ARGS_EXTRA
+    extra_args = [*opendataloader_args, *opendataloader_args_extra]
+
+    # When FORCE_OCR is enabled, use hybrid backend for scanned/image-based PDFs
+    if force_ocr:
+        # Only add if user hasn't already specified --hybrid in ARGS
+        has_hybrid = any(
+            a == "--hybrid" or a.startswith("--hybrid=") for a in extra_args
+        )
+        if not has_hybrid:
+            extra_args.extend(["--hybrid", "docling-fast"])
+        if hybrid_url:
+            has_url = any(a.startswith("--hybrid-url") for a in extra_args)
+            if not has_url:
+                extra_args.extend(["--hybrid-url", hybrid_url])
+
+    # Find all PDF sources from sibling plugins
+    print("finding PDFs to extract...")
+    sources = find_pdf_sources()
+    if not sources:
+        return "noresults", "No PDF sources found"
+
+    print(f"extracting content from {len(sources)} PDFs...")
+
+    output_dir = Path(OUTPUT_DIR)
+    all_md_parts: list[str] = []
+    all_text_parts: list[str] = []
+    metadata_records: list[dict] = []
+
+    execution_error: str | None = None
+    runtime_env = _opendataloader_env(java_binary)
+
+    # Build base args (without hybrid flags) for fallback when hybrid fails
+    base_args = [a for a in extra_args if not a.startswith("--hybrid")]
+    # Also remove the value arg following --hybrid (e.g. "docling-fast")
+    if force_ocr:
+        _filtered: list[str] = []
+        skip_next = False
+        for a in extra_args:
+            if skip_next:
+                skip_next = False
+                continue
+            if a.startswith("--hybrid"):
+                # Skip --hybrid and --hybrid-url along with their values
+                if "=" not in a:
+                    skip_next = True
+                continue
+            _filtered.append(a)
+        base_args = _filtered
+
+    for source_file in sources:
+        print(f"processing {source_file.name}...")
+        try:
+            try:
+                md_content, text_content = _extract_single_pdf(
+                    binary,
+                    source_file,
+                    timeout,
+                    extra_args,
+                    runtime_env,
+                )
+            except OpendataloaderRunError:
+                if not force_ocr or base_args == extra_args:
+                    raise
+                print(
+                    f"[opendataloader] Hybrid CLI failed for {source_file.name}, "
+                    "retrying without hybrid flags",
+                    file=sys.stderr,
+                )
+                md_content, text_content = _extract_single_pdf(
+                    binary,
+                    source_file,
+                    timeout,
+                    base_args,
+                    runtime_env,
+                )
+
+            # If hybrid extraction produced nothing, retry without hybrid flags
+            if (
+                force_ocr
+                and not md_content
+                and not text_content
+                and base_args != extra_args
+            ):
+                print(
+                    f"[opendataloader] Hybrid extraction produced no content for {source_file.name}, "
+                    "retrying without hybrid flags",
+                    file=sys.stderr,
+                )
+                md_content, text_content = _extract_single_pdf(
+                    binary,
+                    source_file,
+                    timeout,
+                    base_args,
+                    runtime_env,
+                )
+
+            if not md_content and not text_content:
+                print(
+                    f"[opendataloader] No content extracted from {source_file.name}",
+                    file=sys.stderr,
+                )
+                continue
+
+            if md_content:
+                all_md_parts.append(
+                    f"<!-- source: {source_file.name} -->\n{md_content}",
+                )
+            if text_content:
+                all_text_parts.append(text_content)
+
+            metadata_records.append(
+                {
+                    "source_file": str(source_file.name),
+                    "source_path": str(source_file),
+                    "chars_extracted": len(md_content or text_content),
+                },
+            )
+
+        except subprocess.TimeoutExpired:
+            print(
+                f"[opendataloader] Timed out on {source_file.name} after {timeout}s",
+                file=sys.stderr,
+            )
+            continue
+        except (FileNotFoundError, PermissionError, OSError) as e:
+            print(
+                f"[opendataloader] Binary execution failed: {type(e).__name__}: {e}",
+                file=sys.stderr,
+            )
+            execution_error = f"Binary '{binary}' could not be executed"
+            break
+        except OpendataloaderRunError as e:
+            print(
+                f"[opendataloader] CLI execution failed: {e}",
+                file=sys.stderr,
+            )
+            execution_error = str(e)
+            break
+        except Exception as e:
+            print(
+                f"[opendataloader] Error on {source_file.name}: {type(e).__name__}: {e}",
+                file=sys.stderr,
+            )
+            continue
+
+    if execution_error:
+        return "failed", execution_error
+
+    if not all_md_parts and not all_text_parts:
+        return "noresults", "No content extracted from sources"
+
+    # Write combined output files
+    if all_md_parts:
+        combined_md = "\n\n---\n\n".join(all_md_parts)
+        write_text_atomic(output_dir / OUTPUT_FILE, combined_md)
+
+    if all_text_parts:
+        combined_text = "\n\n---\n\n".join(all_text_parts)
+        write_text_atomic(output_dir / TEXT_FILE, combined_text)
+
+    write_text_atomic(
+        output_dir / METADATA_FILE,
+        json.dumps(
+            {
+                "sources_processed": len(metadata_records),
+                "total_sources_found": len(sources),
+                "files": metadata_records,
+            },
+            indent=2,
+        ),
+    )
+
+    # Return the primary output file that was actually written
+    if all_md_parts:
+        return "succeeded", f"{PLUGIN_DIR}/{OUTPUT_FILE}"
+    return "succeeded", f"{PLUGIN_DIR}/{TEXT_FILE}"
+
+
+@retry(
+    max_attempts=1,
+    semaphore_limit=1,
+    semaphore_name="archivebox_opendataloader_pdf",
+    semaphore_scope="multiprocess",
+    semaphore_timeout=1,
+    semaphore_lax=False,
+)
+async def extract_opendataloader_serialized(url: str, binary: str) -> tuple[str, str]:
+    print("[opendataloader] acquired abxbus multiprocess semaphore", file=sys.stderr)
+    return extract_opendataloader(url, binary)
+
+
+@click.command(
+    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+)
+@click.option("--url", required=True, help="URL being archived")
+def main(url: str):
+    """Extract structured text from PDFs using opendataloader-pdf."""
+
+    try:
+        config = load_config()
+
+        if not config.OPENDATALOADER_ENABLED:
+            print(
+                "Skipping opendataloader (OPENDATALOADER_ENABLED=False)",
+                file=sys.stderr,
+            )
+            emit_archive_result_record("skipped", "OPENDATALOADER_ENABLED=False")
+            sys.exit(0)
+
+        # Get binary from environment
+        binary = config.OPENDATALOADER_BINARY
+
+        # Run extraction
+        status, output = asyncio.run(extract_opendataloader_serialized(url, binary))
+        if status == "failed":
+            print(f"ERROR: {output}", file=sys.stderr)
+        emit_archive_result_record(status, output)
+        sys.exit(0 if status != "failed" else 1)
+
+    except Exception as e:
+        error = f"{type(e).__name__}: {e}"
+        print(f"ERROR: {error}", file=sys.stderr)
+        emit_archive_result_record("failed", error)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

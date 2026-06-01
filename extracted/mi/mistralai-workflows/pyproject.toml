@@ -1,0 +1,208 @@
+[project]
+name = "mistralai-workflows"
+dynamic = ["version"]
+description = "Mistral Workflows - Build reliable AI workflows with Python"
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "Mistral AI", email = "support@mistral.ai"}
+]
+keywords = ["ai", "workflows", "mistral", "llm", "orchestration", "temporal"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "mistralai>=2.4.2,<3.0.0",
+    # Core workflow orchestration - MOST CRITICAL
+    # Pin tightly - only allow tested minor versions, must test before upgrading
+    "temporalio>=1.24.0,<1.25.0",  # Tested: 1.24.0
+    "pydantic>=2.12.0,<3.0.0",
+    "pydantic-settings>=2.9.0,<3.0.0",
+    
+    # HTTP and serialization
+    "httpx>=0.27.0,<1.0.0",
+    "orjson>=3.10.15,<4.0.0",
+    
+    # Observability and logging
+    "structlog>=24,<26",
+    
+    # Utilities
+    "tenacity>=9.1.2,<10.0.0",
+    "asynciolimiter>=1.2.0,<2.0.0",
+    "jsonpatch>=1.33,<2.0.0",
+    
+    # OpenTelemetry core (observability)
+    "opentelemetry-api>=1.30.0,<2.0.0",
+    "opentelemetry-sdk>=1.30.0,<2.0.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.30.0,<2.0.0",
+    "opentelemetry-instrumentation-httpx>=0.60b1,<0.61b0",
+    "opentelemetry-instrumentation-asyncio>=0.60b1,<0.61b0",
+]
+
+[project.scripts]
+wf-diagnose = "mistralai.workflows.scripts.diagnose:main"
+
+[project.urls]
+Homepage = "https://mistral.ai"
+Documentation = "https://docs.mistral.ai/workflows/getting-started/introduction"
+
+[project.optional-dependencies]
+mistralai = [
+    "mistralai-workflows-plugins-mistralai>=3.0.0a1,<4.0.0",
+    "mcp>=1.12.4,<2.0.0",
+    "aiocache>=0.12.3,<1.0.0",
+]
+webhook = [
+    "mistralai-workflows-plugins-webhook>=3.0.0a1,<4.0.0",
+]
+
+# Payload encryption - use client-python's extra
+encryption = ["mistralai[workflow-payload-encryption]"]
+
+# Cloud storage providers for payload offloading
+azure = ["mistralai[workflow-payload-offloading-azure]"]
+gcs = ["mistralai[workflow-payload-offloading-gcs]"]
+s3 = ["mistralai[workflow-payload-offloading-s3]"]
+storage = ["mistralai[workflow-payload-offloading]"]
+
+# All optional features
+all = [
+    "mistralai-workflows[mistralai]",
+    "mistralai-workflows[webhook]",
+    "mistralai-workflows[encryption]",
+    "mistralai-workflows[storage]",
+]
+
+# Plugin-focused bundle for CI and local plugin development
+all-plugins = [
+    "mistralai-workflows[mistralai]",
+    "mistralai-workflows[webhook]",
+    "mistralai-workflows[encryption]",
+    "mistralai-workflows[storage]",
+]
+
+[tool.uv]
+exclude-newer = "7 days"
+exclude-newer-package = { mistralai = false }
+[tool.uv.sources]
+mistralai-workflows-plugins-mistralai = { path = "plugins/mistralai", editable = true }
+mistralai-workflows-plugins-webhook = { path = "plugins/webhook", editable = true }
+ovide = { path = "ovide", editable = true }
+
+[dependency-groups]
+dev = [
+    "invoke>=2.2.0",
+    "ruff>=0.9.5",
+    "mypy>=1.11.0",
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.25.3",
+    "pytest-split>=0.10.0",
+    "psutil>=6.1.0", # For memory usage monitoring in performance tests
+    "ipykernel>=6.30.0",
+    "pytest-docker>=3.2.5",
+    "vcrpy>=6.0.0",
+    "pytest-recording>=0.13.0",
+    "pytest-xdist>=3.8.0",
+    "pytest-timeout>=2.4.0",
+    "ty>=0.0.1a24",
+    "rich>=14.2.0",
+    "watchdog>=6.0.0",
+    "griffe>=1.0.0",
+    "ovide",
+]
+
+
+asyncio = [
+    "sqlalchemy>=2.0.44",
+]
+
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["mistralai"]
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+[tool.hatch.build.targets.sdist]
+exclude = ["docs/", "plugins/", "changelog.d/"]
+
+[tool.uv-dynamic-versioning]
+vcs = "git"
+pattern-prefix = "workflows/"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "Q", "I", "T201"]
+ignore = ["E203"]
+fixable = ["ALL"]
+unfixable = []
+exclude = ["alembic", "docs/**", "scripts", "mistralai/workflows/worker_client/**"]
+
+[tool.ruff]
+line-length = 120
+exclude = ["alembic", "scripts", "mistralai/workflows/worker_client"]
+
+[tool.mypy]
+disallow_untyped_defs = true
+show_error_codes = true
+no_implicit_optional = true
+warn_return_any = true
+warn_unused_ignores = true
+exclude = ["tests", "tasks.py", "scripts", "mistralai/workflows/worker_client"]
+plugins = ["pydantic.mypy"]
+namespace_packages = true
+explicit_package_bases = true
+mypy_path = "."
+
+[[tool.mypy.overrides]]
+module = [
+    "uuid_extensions.*",
+    "asyncpg",
+    "google.cloud.*",
+    "azure.storage.*",
+    "azure.core.*",
+    "aioboto3.*",
+    "botocore.*",
+    "gcloud.*",
+    "aiohttp",
+    "aiocache",
+    "opentelemetry.instrumentation.aiohttp_client",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["mistralai.workflows.plugins.*"]
+ignore_missing_imports = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+warn_untyped_fields = true
+
+[tool.pytest.ini_options]
+filterwarnings = ["ignore::ResourceWarning"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+timeout = 300
+
+# VCR configuration
+markers = [
+    "vcr: Mark test to use VCR cassettes for HTTP recording/replay",
+    "integration: Mark test as integration test requiring external services",
+    "min_api_version: Skip test if the target API version is below the required minimum",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "mistralai.workflows",
+]

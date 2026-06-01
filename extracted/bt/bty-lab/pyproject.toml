@@ -1,0 +1,140 @@
+[project]
+name = "bty-lab"
+version = "0.34.0"
+description = "Flash images onto target disks, offline or networked with and without PXE"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Simon A. F. Lund", email = "os@safl.dk" }]
+license = "GPL-3.0-only"
+keywords = ["bare-metal", "imaging", "ipxe", "pxe", "flashing", "appliance"]
+classifiers = [
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: POSIX :: Linux",
+]
+dependencies = []
+
+[project.optional-dependencies]
+# ``bty`` (the wizard) is built on Rich (no Textual). Rich is widely deployed
+# (it powers pip's progress bars, ipython, the Python repl, ...)
+# and is fast enough on a kernel framebuffer console: per-screen
+# render is one synchronous print, not an event-loop diff cycle.
+# We migrated away from Textual in v0.22.0 after operator reports
+# of multi-minute first-paint times on slow consoles (Supermicro
+# / EPYC bring-up boxes). See the docstring of ``bty.tui._app``
+# for the design rationale.
+tui = ["rich>=13"]
+web = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "jinja2>=3.1",
+    # Required by FastAPI's ``Form()`` parsing for the bty-web UI.
+    "python-multipart>=0.0.9",
+    # PAM password verification for /ui/login. Pure-Python ctypes
+    # wrapper around libpam (used by JupyterHub); libpam-modules ships
+    # the setuid unix_chkpwd helper that does the privileged shadow
+    # read so the bty service user stays unprivileged.
+    "pamela>=1.1",
+    # Required by Starlette's SessionMiddleware to sign the session
+    # cookie. Pulled in as a transitive of fastapi sometimes; pin
+    # explicitly so the cookie path can't disappear on a slim install.
+    "itsdangerous>=2.1",
+]
+all = [
+    "rich>=13",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "pamela>=1.1",
+    "itsdangerous>=2.1",
+]
+
+[project.scripts]
+bty = "bty.tui:main"
+bty-web = "bty.web:main"
+
+[project.urls]
+Homepage = "https://safl.dk/bty/"
+Documentation = "https://safl.dk/bty/"
+Repository = "https://github.com/safl/bty"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bty"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+    "mypy>=1.10",
+    # FastAPI's TestClient under the hood uses httpx; it isn't pulled
+    # in by `fastapi` itself.
+    "httpx>=0.27",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "docs/tooling/src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "RUF", "SIM", "PERF", "RET", "PIE", "C4"]
+# RET504 / RET505: too noisy for "explicit-is-better-than-implicit"
+# control flow we already prefer (e.g. ``if cond: return X``
+# followed by ``return Y`` rather than collapsing into a ternary).
+ignore = ["RET504", "RET505"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+explicit_package_bases = true
+mypy_path = "src"
+
+[[tool.mypy.overrides]]
+# pamela is a pure-Python ctypes wrapper around libpam (no py.typed
+# marker shipped). We only call ``authenticate``; the lack of stubs
+# is fine.
+module = ["pamela", "pamela.*"]
+ignore_missing_imports = true
+
+[tool.pyright]
+include = ["src", "tests", "docs/tooling/src"]
+extraPaths = ["src", "docs/tooling/src"]
+
+# Tests intentionally poke at private state (``_filter``,
+# ``_images_by_key``, ``_selected_image``, etc.) to exercise
+# internal invariants, AND lean on the leading-underscore lambda
+# arg convention (``lambda *_a, **_kw: ...``) to mark stub
+# parameters the test doesn't care about. Silence the two
+# pyright diagnostic classes that flag these patterns so the
+# tests/ diagnostic stream isn't drowned in 100+ intentional
+# matches; src/ keeps the strict default.
+[[tool.pyright.executionEnvironments]]
+root = "tests"
+reportPrivateUsage = "none"
+reportUnusedVariable = "none"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: tests that exercise real subprocesses / kernel features (loop devices, etc.); require root and run separately in CI",
+]
+# Default run excludes integration tests so dev loops stay fast.
+# Run them explicitly with: pytest -m integration  (must be root for losetup).
+addopts = ["-m", "not integration"]
+# Silence Starlette's TestClient deprecation about per-request
+# ``cookies=`` kwargs - the auth fixtures still use it (rewriting all
+# 55 call sites isn't worth the diff-noise). When httpx eventually
+# hard-removes the kwarg, the test suite will break loudly and we'll
+# do the rewrite then.
+filterwarnings = [
+    "ignore:Setting per-request cookies.*:DeprecationWarning",
+]

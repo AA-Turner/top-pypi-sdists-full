@@ -1,0 +1,239 @@
+"""
+routes/fleet_history.py — Multi-node fleet endpoints.
+
+Extracted from dashboard.py as Phase 5.10 of the incremental modularisation.
+Owns the 5 routes registered on ``bp_fleet``:
+
+  bp_fleet:
+    GET  /fleet                         — fleet overview HTML page
+    POST /api/nodes/register            — register or update a remote node
+    POST /api/nodes/<node_id>/metrics   — receive metrics push from a node
+    GET  /api/nodes                     — list all registered nodes
+    GET  /api/nodes/<node_id>           — detail + 24h history for one node
+
+Module-level helpers (``_fleet_db``, ``_fleet_db_lock``, ``_fleet_check_key``,
+``_fleet_update_statuses``, ``_ext_emit``, ``FLEET_HTML``) stay in
+``dashboard.py`` and are reached via late ``import dashboard as _d``.
+"""
+
+import datetime
+import json
+import time
+
+from flask import Blueprint, jsonify, request
+
+bp_fleet = Blueprint('fleet', __name__)
+
+
+# ── Fleet (multi-node) API Routes ───────────────────────────────────────
+
+
+@bp_fleet.route("/fleet")
+def fleet_page():
+    """Fleet overview page for multi-node monitoring."""
+    import dashboard as _d
+    return _d.FLEET_HTML
+
+
+@bp_fleet.route("/api/nodes/register", methods=["POST"])
+def api_nodes_register():
+    """Register or update a remote node."""
+    import dashboard as _d
+    if not _d._fleet_check_key(request):
+        return jsonify({"error": "Invalid or missing X-Fleet-Key"}), 401
+
+    data = request.get_json(silent=True) or {}
+    node_id = data.get("node_id", "").strip()
+    if not node_id:
+        return jsonify({"error": "node_id is required"}), 400
+
+    name = data.get("name", node_id)
+    hostname = data.get("hostname", "")
+    tags = json.dumps(data.get("tags", []))
+    version = data.get("version", "")
+    now = time.time()
+
+    with _d._fleet_db_lock:
+        db = _d._fleet_db()
+        db.execute(
+            """
+            INSERT INTO nodes (node_id, name, hostname, tags, version, registered_at, last_seen_at, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'online')
+            ON CONFLICT(node_id) DO UPDATE SET
+                name=excluded.name, hostname=excluded.hostname, tags=excluded.tags,
+                version=excluded.version, last_seen_at=excluded.last_seen_at, status='online'
+        """,
+            (node_id, name, hostname, tags, version, now, now),
+        )
+        db.commit()
+        db.close()
+
+    try:
+        _d._ext_emit("fleet.node_register", {"node_id": node_id})
+    except Exception:
+        pass
+    return jsonify({"ok": True, "node_id": node_id})
+
+
+@bp_fleet.route("/api/nodes/<node_id>/metrics", methods=["POST"])
+def api_nodes_push_metrics(node_id):
+    """Receive metrics push from a remote node."""
+    import dashboard as _d
+    if not _d._fleet_check_key(request):
+        return jsonify({"error": "Invalid or missing X-Fleet-Key"}), 401
+
+    data = request.get_json(silent=True) or {}
+    now = time.time()
+
+    with _d._fleet_db_lock:
+        db = _d._fleet_db()
+        # Update last_seen
+        db.execute(
+            "UPDATE nodes SET last_seen_at = ?, status = 'online' WHERE node_id = ?",
+            (now, node_id),
+        )
+        # Store metrics snapshot
+        db.execute(
+            "INSERT INTO node_metrics (node_id, timestamp, metrics_json) VALUES (?, ?, ?)",
+            (node_id, now, json.dumps(data)),
+        )
+        db.commit()
+        db.close()
+
+    return jsonify({"ok": True, "received_at": now})
+
+
+@bp_fleet.route("/api/nodes")
+def api_nodes_list():
+    """List all registered nodes with latest metrics."""
+    import dashboard as _d
+    _d._fleet_update_statuses()
+
+    with _d._fleet_db_lock:
+        db = _d._fleet_db()
+        nodes = db.execute("SELECT * FROM nodes ORDER BY name").fetchall()
+        result = []
+        total_cost = 0
+        total_sessions = 0
+        online_count = 0
+        offline_count = 0
+
+        for node in nodes:
+            n = dict(node)
+            n["tags"] = json.loads(n.get("tags") or "[]")
+
+            # Get latest metrics
+            row = db.execute(
+                "SELECT metrics_json FROM node_metrics WHERE node_id = ? ORDER BY timestamp DESC LIMIT 1",
+                (n["node_id"],),
+            ).fetchone()
+            n["latest_metrics"] = json.loads(row["metrics_json"]) if row else {}
+
+            # Aggregate stats
+            m = n["latest_metrics"]
+            if m.get("cost", {}).get("today_usd"):
+                total_cost += m["cost"]["today_usd"]
+            if m.get("sessions", {}).get("total_today"):
+                total_sessions += m["sessions"]["total_today"]
+
+            if n["status"] == "online":
+                online_count += 1
+            else:
+                offline_count += 1
+
+            # Remove internal fields
+            n.pop("api_key_hash", None)
+            result.append(n)
+
+        db.close()
+
+    # Enrich the local node's entry with accurate DuckDB-derived totals so
+    # the fleet view can show real cost/token data without relying on the
+    # heartbeat payload (which doesn't include these fields today).
+    try:
+        from clawmetry.local_store import get_store
+        today = datetime.date.today().isoformat()
+        store = get_store()
+        if store is not None:
+            agg_rows = store.query_aggregates(since=today)
+            cost_today = round(sum(r.get("cost_usd", 0) or 0 for r in agg_rows), 4)
+            tokens_today = int(sum(r.get("token_count", 0) or 0 for r in agg_rows))
+            local_node_id = getattr(store, "node_id", None)
+            for n in result:
+                if local_node_id and n["node_id"] == local_node_id:
+                    n["duckdb_summary"] = {
+                        "cost_today_usd": cost_today,
+                        "token_count_today": tokens_today,
+                        "source": "local_duckdb",
+                    }
+                    n["is_local"] = True
+                    # Use DuckDB-sourced cost as the authoritative value for
+                    # fleet_summary rather than the (often empty) heartbeat figure.
+                    total_cost = max(total_cost, cost_today)
+                    break
+    except Exception:
+        pass
+
+    return jsonify(
+        {
+            "nodes": result,
+            "fleet_summary": {
+                "total_nodes": len(result),
+                "online": online_count,
+                "offline": offline_count,
+                "total_cost_today": round(total_cost, 2),
+                "total_sessions_today": total_sessions,
+                # data_scope signals to callers that analytics tabs show
+                # local-node data only; multi_node_partial means remote nodes
+                # rely on heartbeat payloads which may lack DuckDB summaries.
+                "data_scope": "single_node" if len(result) <= 1 else "multi_node_partial",
+            },
+        }
+    )
+
+
+@bp_fleet.route("/api/nodes/<node_id>")
+def api_node_detail(node_id):
+    """Get detailed info for a single node with metric history."""
+    import dashboard as _d
+    with _d._fleet_db_lock:
+        db = _d._fleet_db()
+        node = db.execute(
+            "SELECT * FROM nodes WHERE node_id = ?", (node_id,)
+        ).fetchone()
+        if not node:
+            db.close()
+            return jsonify({"error": "Node not found"}), 404
+
+        n = dict(node)
+        n["tags"] = json.loads(n.get("tags") or "[]")
+        n.pop("api_key_hash", None)
+
+        # Latest metrics
+        latest_row = db.execute(
+            "SELECT metrics_json FROM node_metrics WHERE node_id = ? ORDER BY timestamp DESC LIMIT 1",
+            (node_id,),
+        ).fetchone()
+        latest = json.loads(latest_row["metrics_json"]) if latest_row else {}
+
+        # 24h history
+        cutoff = time.time() - 86400
+        history_rows = db.execute(
+            "SELECT timestamp, metrics_json FROM node_metrics WHERE node_id = ? AND timestamp > ? ORDER BY timestamp",
+            (node_id, cutoff),
+        ).fetchall()
+        history = [
+            {"timestamp": r["timestamp"], "metrics": json.loads(r["metrics_json"])}
+            for r in history_rows
+        ]
+
+        db.close()
+
+    return jsonify(
+        {
+            "node": n,
+            "latest_metrics": latest,
+            "history": history,
+        }
+    )
+

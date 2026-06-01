@@ -1,0 +1,1357 @@
+import gc
+import shutil
+import subprocess
+import uuid
+from pathlib import Path
+
+import pandas as pd
+import pytest
+from attr import evolve
+from git import PushInfo
+from git import Repo as GitRepo
+
+import xorq.api as xo
+import xorq.catalog.catalog as catalog_mod
+from xorq.caching import ParquetSnapshotCache
+from xorq.catalog.annex import (
+    LOCAL_ANNEX,
+    Annex,
+    AnnexError,
+    DirectoryRemoteConfig,
+    S3RemoteConfig,
+    _do_inside,
+)
+from xorq.catalog.backend import GitAnnexBackend, GitBackend
+from xorq.catalog.catalog import (
+    Catalog,
+    CatalogAddition,
+    CatalogAlias,
+    CatalogEntry,
+    _format_push_failures,
+)
+from xorq.catalog.constants import MAIN_BRANCH, CatalogInfix
+from xorq.catalog.exceptions import (
+    CatalogConfigurationError,
+    CatalogPushError,
+)
+from xorq.catalog.expr_utils import (
+    _live_extract_dirs,
+    build_expr_context_zip,
+)
+from xorq.catalog.tests.conftest import (
+    TEST_WHEEL_NAME,
+    compare_repo_and_catalog,
+)
+from xorq.catalog.tui import get_cache_key_path
+from xorq.catalog.zip_utils import (
+    BuildZip,
+    with_pure_suffix,
+    write_zip,
+)
+from xorq.common.utils.caching_utils import CacheKey
+from xorq.ibis_yaml.enums import REQUIRED_ARCHIVE_NAMES, ExprKind
+
+
+def test_catalog_add(catalog, data_dict):
+    catalog_entries = tuple(catalog.add(path) for path in data_dict.values())
+    assert all(catalog_entry.exists() for catalog_entry in catalog_entries)
+    for catalog_entry in catalog_entries:
+        catalog_entry.assert_consistency()
+    catalog.assert_consistency()
+    assert set(catalog.list()) == {
+        with_pure_suffix(path).name for path in data_dict.values()
+    }
+
+    # test not exists condition
+    path = next(iter(data_dict.values()))
+    with pytest.raises(ValueError, match="already exists"):
+        catalog.add(path)
+
+
+def test_catalog_addition_from_expr(catalog):
+    expr = xo.memtable({"from-expr": ["from-expr"]})
+    catalog_addition = CatalogAddition.from_expr(expr, catalog)
+    assert catalog_addition.build_zip.path.exists()
+    assert catalog_addition._maybe_tmpfile is not None
+    catalog_entry = catalog_addition.add()
+    assert catalog_entry.exists()
+    catalog.assert_consistency()
+    assert catalog_entry.name in catalog.list()
+
+
+def test_catalog_add_expr_threads_project_path(catalog, tmp_path, monkeypatch):
+    # Verify the project_path kwarg on Catalog.add is plumbed all the way
+    # through to _ensure_wheel_artifacts, so callers outside the project cwd
+    # (e.g. Jupyter kernels) can opt out of the upward-walk.
+    explicit_project = tmp_path / "explicit-project"
+    explicit_project.mkdir()
+    captured = {}
+    original = catalog_mod._ensure_wheel_artifacts
+
+    def spy(build_dir, project_path=None):
+        captured["project_path"] = project_path
+        return original(build_dir, project_path=project_path)
+
+    monkeypatch.setattr(catalog_mod, "_ensure_wheel_artifacts", spy)
+
+    expr = xo.memtable({"threaded": ["threaded"]})
+    catalog_entry = catalog.add(expr, project_path=explicit_project)
+
+    assert captured["project_path"] == explicit_project
+    assert catalog_entry.exists()
+    catalog.assert_consistency()
+
+
+def test_catalog_addition_with_aliases(catalog):
+    expr = xo.memtable({"with-aliases": ["with-aliases"]})
+    catalog_addition = CatalogAddition.from_expr(expr, catalog)
+    aliases = ("alias-x", "alias-y")
+    catalog_addition = evolve(catalog_addition, aliases=aliases)
+    catalog_entry = catalog_addition.add()
+
+    commit_message = catalog.repo.head.commit.message.strip()
+    assert all(alias in commit_message for alias in aliases)
+
+    assert catalog_entry.exists()
+    assert {ca.alias for ca in catalog_entry.aliases} == set(aliases)
+    catalog.assert_consistency()
+
+
+def test_catalog_addition_from_expr_tmpfile_lifecycle(catalog):
+    expr = xo.memtable({"lifecycle": ["lifecycle"]})
+    catalog_addition = CatalogAddition.from_expr(expr, catalog)
+    zip_path = catalog_addition.build_zip.path
+    assert zip_path.exists()
+    del catalog_addition
+    assert not zip_path.exists()
+
+
+def test_catalog_rm(catalog, data_dict):
+    catalog_entries = tuple(catalog.add(path) for path in data_dict.values())
+    for catalog_entry in catalog_entries:
+        catalog.remove(catalog_entry.name)
+    assert not any(catalog_entry.exists() for catalog_entry in catalog_entries)
+    for catalog_entry in catalog_entries:
+        catalog_entry.assert_consistency()
+    catalog.assert_consistency()
+    assert not catalog.list()
+
+    # test exists condition
+    name = next(iter(data_dict.keys()))
+    with pytest.raises(AssertionError):
+        catalog.remove(name)
+
+
+def test_catalog_rm_removes_aliases(catalog_populated):
+    name = catalog_populated.list()[0]
+    alias_a = "alias-one"
+    alias_b = "alias-two"
+    catalog_populated.add_alias(name, alias_a)
+    catalog_populated.add_alias(name, alias_b)
+
+    catalog_entry = catalog_populated.get_catalog_entry(name)
+    assert len(catalog_entry.aliases) == 2
+
+    catalog_populated.remove(name)
+
+    commit_message = catalog_populated.repo.head.commit.message.strip()
+    assert alias_a in commit_message
+    assert alias_b in commit_message
+
+    assert not catalog_entry.exists()
+    assert not any(
+        ca.alias_path.exists()
+        for ca in (catalog_populated.catalog_aliases or [])
+        if ca.alias in (alias_a, alias_b)
+    )
+    catalog_populated.assert_consistency()
+
+
+def test_catalog_clone_from_push(repo_cloned_bare, tmpdir):
+    cloned = Catalog.clone_from(
+        repo_cloned_bare.working_dir, Path(tmpdir).joinpath("cloned")
+    )
+    before = cloned.list()
+    compare_repo_and_catalog(repo_cloned_bare, cloned)
+
+    with build_expr_context_zip(xo.memtable({"to-push": ["to-push"]})) as zip_path:
+        cloned.add(zip_path)
+        cloned.push()
+
+    after = cloned.list()
+    compare_repo_and_catalog(repo_cloned_bare, cloned)
+
+    assert before != after
+
+
+def test_push_surfaces_remote_rejection(repo_cloned_bare, tmpdir):
+    """catalog.push() must surface a remote rejection rather than returning silently.
+
+    Scenario: two clones from the same bare remote, both add a different
+    entry. User A pushes first (clean fast-forward). User B's local main
+    has now diverged from origin/main, so the next push is rejected by
+    the remote with "fetch first". xorq#1898 — today catalog.push()
+    returns normally despite GitPython reporting REJECTED|ERROR on the
+    main ref.
+    """
+    user_a = Catalog.clone_from(
+        repo_cloned_bare.working_dir, Path(tmpdir).joinpath("a")
+    )
+    user_b = Catalog.clone_from(
+        repo_cloned_bare.working_dir, Path(tmpdir).joinpath("b")
+    )
+
+    with build_expr_context_zip(xo.memtable({"a-only": ["a"]})) as zp:
+        user_a.add(zp, sync=False)
+    user_a.push()
+
+    with build_expr_context_zip(xo.memtable({"b-only": ["b"]})) as zp:
+        user_b.add(zp, sync=False)
+
+    with pytest.raises(CatalogPushError, match="(?i)reject"):
+        user_b.push()
+
+
+def test_push_annex_branch_rejection(repo_cloned_bare, tmpdir, monkeypatch):
+    """push() surfaces git-annex branch rejections, not just main rejections.
+
+    Main pushes cleanly but the git-annex branch is rejected. push() must
+    raise CatalogPushError with a message that names the git-annex ref,
+    proving the annex failure path through _format_push_failures is wired up.
+    """
+    cloned = Catalog.clone_from(
+        repo_cloned_bare.working_dir, Path(tmpdir).joinpath("c")
+    )
+    with build_expr_context_zip(xo.memtable({"annex-rej": ["v"]})) as zp:
+        cloned.add(zp, sync=False)
+    assert "git-annex" in cloned.repo.heads
+
+    class FakeInfo:
+        def __init__(self, flags, local_ref, summary):
+            self.flags = flags
+            self.local_ref = local_ref
+            self.summary = summary
+
+    call_count = 0
+    original_push = type(cloned.repo.remotes.origin).push
+
+    def patched_push(self, *args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return original_push(self, *args, **kwargs)
+        return [
+            FakeInfo(
+                PushInfo.REJECTED, "refs/heads/git-annex", "[rejected] (fetch first)"
+            )
+        ]
+
+    monkeypatch.setattr(type(cloned.repo.remotes.origin), "push", patched_push)
+
+    with pytest.raises(CatalogPushError, match="git-annex") as exc_info:
+        cloned.push()
+    assert "rejected" in str(exc_info.value).lower()
+
+
+class TestFormatPushFailures:
+    """Unit tests for _format_push_failures — the string the user sees on error."""
+
+    def _make_info(self, flags, local_ref="refs/heads/main", summary="rejected"):
+        class FakePushInfo:
+            pass
+
+        info = FakePushInfo()
+        info.flags = flags
+        info.local_ref = local_ref
+        info.summary = summary
+        return info
+
+    def test_filters_only_failures(self):
+        ok = self._make_info(PushInfo.FAST_FORWARD)
+        bad = self._make_info(PushInfo.REJECTED, summary="fetch first")
+        result = _format_push_failures([ok, bad], "origin")
+        assert len(result) == 1
+        assert "fetch first" in result[0]
+        assert "origin/" in result[0]
+
+    def test_all_failure_flag_variants(self):
+        for flag in (
+            PushInfo.REJECTED,
+            PushInfo.REMOTE_REJECTED,
+            PushInfo.REMOTE_FAILURE,
+            PushInfo.ERROR,
+        ):
+            result = _format_push_failures(
+                [self._make_info(flag, summary="oops")], "origin"
+            )
+            assert len(result) == 1
+
+    def test_local_ref_none_fallback(self):
+        info = self._make_info(PushInfo.REJECTED, local_ref=None)
+        result = _format_push_failures([info], "origin")
+        assert "origin/?" in result[0]
+
+    def test_summary_none_fallback(self):
+        info = self._make_info(PushInfo.REJECTED, summary=None)
+        result = _format_push_failures([info], "origin")
+        assert "origin/" in result[0]
+        assert result[0].endswith(": ")
+
+    def test_summary_stripped(self):
+        info = self._make_info(PushInfo.REJECTED, summary="  spaces  ")
+        result = _format_push_failures([info], "origin")
+        assert result[0].endswith(": spaces")
+
+    def test_empty_list(self):
+        assert _format_push_failures([], "origin") == ()
+
+
+@pytest.mark.parametrize("op", ["push", "pull", "fetch", "sync"])
+def test_multi_remote_raises_configuration_error(tmpdir, op):
+    """ADR-0011: catalog refuses to operate on configurations with 2+ git remotes.
+
+    push/pull/fetch/sync each must raise rather than attempt best-effort
+    multi-remote semantics. The error message names both remotes so the
+    user can see what the catalog discovered.
+    """
+    bare_1 = Path(tmpdir).joinpath("bare_1")
+    bare_2 = Path(tmpdir).joinpath("bare_2")
+    GitRepo.init(bare_1, bare=True, initial_branch=MAIN_BRANCH)
+    GitRepo.init(bare_2, bare=True, initial_branch=MAIN_BRANCH)
+
+    catalog = Catalog.from_repo_path(Path(tmpdir).joinpath("local"), init=True)
+    catalog.repo.create_remote("r1", str(bare_1))
+    catalog.repo.create_remote("r2", str(bare_2))
+
+    with pytest.raises(
+        CatalogConfigurationError, match="(?i)single git remote"
+    ) as exc_info:
+        getattr(catalog, op)()
+    msg = str(exc_info.value)
+    assert "r1" in msg
+    assert "r2" in msg
+
+
+def test_set_remote_refuses_when_remote_exists(tmpdir):
+    """ADR-0011: Catalog.set_remote refuses to silently replace an existing remote.
+
+    A second call without ``force=True`` raises CatalogConfigurationError so
+    the user has to explicitly opt in to overwriting the previously
+    configured remote (it would otherwise vanish without trace).
+    """
+    bare_1 = Path(tmpdir).joinpath("bare_1")
+    bare_2 = Path(tmpdir).joinpath("bare_2")
+    GitRepo.init(bare_1, bare=True, initial_branch=MAIN_BRANCH)
+    GitRepo.init(bare_2, bare=True, initial_branch=MAIN_BRANCH)
+
+    catalog = Catalog.from_repo_path(Path(tmpdir).joinpath("local"), init=True)
+    catalog.set_remote("origin", str(bare_1))
+
+    with pytest.raises(CatalogConfigurationError, match="(?i)remote.*already") as exc:
+        catalog.set_remote("origin", str(bare_2))
+    assert "force" in str(exc.value).lower()
+    # the existing remote is preserved
+    assert len(catalog._git_remotes) == 1
+    assert catalog._git_remotes[0].url == str(bare_1)
+
+
+def test_set_remote_force_replaces_existing(tmpdir):
+    """ADR-0011: Catalog.set_remote(..., force=True) replaces any existing git remote.
+
+    Successive calls with ``force=True`` must leave the catalog with exactly
+    one git remote, so users can reconfigure without ever creating the
+    multi-remote configuration that triggers CatalogConfigurationError.
+    """
+    bare_1 = Path(tmpdir).joinpath("bare_1")
+    bare_2 = Path(tmpdir).joinpath("bare_2")
+    GitRepo.init(bare_1, bare=True, initial_branch=MAIN_BRANCH)
+    GitRepo.init(bare_2, bare=True, initial_branch=MAIN_BRANCH)
+
+    catalog = Catalog.from_repo_path(Path(tmpdir).joinpath("local"), init=True)
+    catalog.set_remote("origin", str(bare_1))
+    assert len(catalog._git_remotes) == 1
+
+    catalog.set_remote("origin", str(bare_2), force=True)
+    assert len(catalog._git_remotes) == 1
+    assert catalog._git_remotes[0].url == str(bare_2)
+
+
+def test_set_remote_force_recovers_from_multi_remote_state(tmpdir):
+    """set_remote(force=True) is the recovery path from an ADR-0011 violation.
+
+    A user (or another tool) can put the catalog into a 2+ remote state via
+    raw ``git remote add``, after which ``push``/``pull``/``fetch``/``sync``
+    refuse to operate. ``set_remote(force=True)`` must collapse the state to
+    exactly one remote so the catalog is operable again.
+    """
+    bare_1 = Path(tmpdir).joinpath("bare_1")
+    bare_2 = Path(tmpdir).joinpath("bare_2")
+    bare_3 = Path(tmpdir).joinpath("bare_3")
+    for bare in (bare_1, bare_2, bare_3):
+        GitRepo.init(bare, bare=True, initial_branch=MAIN_BRANCH)
+
+    catalog = Catalog.from_repo_path(Path(tmpdir).joinpath("local"), init=True)
+    catalog.repo.create_remote("r1", str(bare_1))
+    catalog.repo.create_remote("r2", str(bare_2))
+    assert len(catalog._git_remotes) == 2
+
+    catalog.set_remote("origin", str(bare_3), force=True)
+
+    assert len(catalog._git_remotes) == 1
+    assert catalog._git_remotes[0].name == "origin"
+    assert catalog._git_remotes[0].url == str(bare_3)
+
+
+def test_set_remote_preserves_annex_special_remote(tmpdir):
+    """set_remote replaces only git remotes; annex special remotes survive.
+
+    `_git_remotes` filters by fetch refspec, so a remote configured with no
+    fetch line (the shape of a git-annex special remote — credentials live
+    in remote.log on the git-annex branch, not in .git/config) is not a
+    git remote for ADR-0011 purposes. set_remote must not delete it.
+    """
+    bare = Path(tmpdir).joinpath("bare")
+    GitRepo.init(bare, bare=True, initial_branch=MAIN_BRANCH)
+
+    catalog = Catalog.from_repo_path(Path(tmpdir).joinpath("local"), init=True)
+
+    config_section = 'remote "s3-bucket"'
+    with catalog.repo.config_writer() as writer:
+        writer.add_section(config_section)
+        writer.set(config_section, "annex-uuid", "fake-uuid")
+
+    assert "s3-bucket" in {r.name for r in catalog.repo.remotes}
+    assert "s3-bucket" not in {r.name for r in catalog._git_remotes}
+
+    catalog.set_remote("origin", str(bare))
+
+    remote_names = {r.name for r in catalog.repo.remotes}
+    assert "s3-bucket" in remote_names
+    assert "origin" in remote_names
+    assert {r.name for r in catalog._git_remotes} == {"origin"}
+
+
+# ---------------------------------------------------------------------------
+# clone_from auto-detection
+# ---------------------------------------------------------------------------
+
+
+def test_clone_from_auto_detects_annex(repo_cloned_bare, tmpdir):
+    """clone_from with annex=None auto-detects git-annex branch."""
+    cloned = Catalog.clone_from(
+        repo_cloned_bare.working_dir, Path(tmpdir).joinpath("auto-detect")
+    )
+    assert isinstance(cloned.backend, GitAnnexBackend)
+    assert cloned.list()
+
+
+def test_clone_from_no_annex_branch(tmpdir):
+    """clone_from with annex=None on a plain-git repo returns GitBackend."""
+
+    origin_path = Path(tmpdir).joinpath("origin")
+    catalog = Catalog.from_repo_path(origin_path, init=True)
+    with build_expr_context_zip(xo.memtable({"plain": ["plain"]})) as zip_path:
+        catalog.add(zip_path)
+
+    cloned = Catalog.clone_from(str(origin_path), Path(tmpdir).joinpath("clone-plain"))
+    assert isinstance(cloned.backend, GitBackend)
+    assert cloned.list()
+
+
+def test_push_no_remote_skips_consistency_check(tmpdir, monkeypatch):
+    """``Catalog.push()`` is a true no-op for zero-remote catalogs.
+
+    The docstring says push is a no-op when no git remote is configured.
+    A no-op cannot run ``assert_consistency`` — that check could surface
+    unrelated repo errors even though the user did not ask the catalog
+    to talk to anything. Asserts the zero-remote path returns ``()``
+    without calling consistency.
+    """
+    catalog = Catalog.from_repo_path(Path(tmpdir).joinpath("local-only"), init=True)
+    assert catalog._git_remotes == ()
+
+    def boom(self, *args, **kwargs):
+        raise AssertionError("assert_consistency should not run for zero-remote push")
+
+    monkeypatch.setattr(Catalog, "assert_consistency", boom)
+    assert catalog.push() == ()
+
+
+def test_push_skips_missing_annex_branch(tmpdir):
+    """Catalog.push() succeeds when the local repo has no git-annex branch."""
+
+    bare_path = Path(tmpdir).joinpath("bare")
+    GitRepo.init(bare_path, bare=True, initial_branch=MAIN_BRANCH)
+
+    origin_path = Path(tmpdir).joinpath("origin")
+    catalog = Catalog.from_repo_path(origin_path, init=True)
+    remote = catalog.repo.create_remote("origin", str(bare_path))
+    remote.push(MAIN_BRANCH, set_upstream=True)
+
+    with build_expr_context_zip(xo.memtable({"plain": ["plain"]})) as zip_path:
+        catalog.add(zip_path, sync=False)
+
+    assert "git-annex" not in catalog.repo.heads
+    result = catalog.push()
+    assert len(result) == 1
+
+
+def test_push_returns_two_element_tuple_with_annex(repo_cloned_bare, tmpdir):
+    """push() returns (main_result, annex_result) when a local git-annex branch exists."""
+    cloned = Catalog.clone_from(
+        repo_cloned_bare.working_dir, Path(tmpdir).joinpath("cloned")
+    )
+    with build_expr_context_zip(xo.memtable({"shape-check": ["v"]})) as zp:
+        cloned.add(zp, sync=False)
+
+    assert "git-annex" in cloned.repo.heads
+    result = cloned.push()
+    assert len(result) == 2
+
+
+def test_clone_from_false_forces_plain_git(repo_cloned_bare, tmpdir):
+    """annex=False forces GitBackend even when git-annex branch exists."""
+
+    cloned = Catalog.clone_from(
+        repo_cloned_bare.working_dir,
+        Path(tmpdir).joinpath("force-plain"),
+        annex=False,
+    )
+    assert isinstance(cloned.backend, GitBackend)
+
+
+# ---------------------------------------------------------------------------
+# from_repo_path auto-detection
+# ---------------------------------------------------------------------------
+
+
+def test_from_repo_path_auto_detects_annex(tmpdir):
+    """from_repo_path with annex=None auto-detects .git/annex."""
+    repo_path = Path(tmpdir).joinpath("annex-repo")
+    Catalog.from_repo_path(repo_path, init=True, annex=LOCAL_ANNEX)
+
+    reopened = Catalog.from_repo_path(repo_path)
+    assert isinstance(reopened.backend, GitAnnexBackend)
+
+
+def test_remote_log_available_after_init(tmpdir):
+    """remote.log is readable immediately after initremote (journal flushed)."""
+    remote_dir = Path(tmpdir).joinpath("remote-store")
+    remote_dir.mkdir()
+    remote_config = DirectoryRemoteConfig(name="mydir", directory=str(remote_dir))
+    repo_path = Path(tmpdir).joinpath("repo")
+    Catalog.from_repo_path(repo_path, init=True, annex=remote_config)
+
+    annex = Annex(repo_path=repo_path)
+    remote_log = annex.remote_log
+    assert remote_log
+    config = next(iter(remote_log.values()))
+    assert config["name"] == "mydir"
+    assert config["type"] == "directory"
+
+
+def test_enableremote_falls_back_to_initremote_on_empty_remote_log(tmpdir):
+    """enableremote on a fresh annex repo (no remote.log) creates the remote."""
+    repo_path = Path(tmpdir).joinpath("repo")
+    Catalog.from_repo_path(repo_path, init=True, annex=LOCAL_ANNEX)
+    remote_dir = Path(tmpdir).joinpath("remote-store")
+    remote_dir.mkdir()
+    rc = DirectoryRemoteConfig(name="newdir", directory=str(remote_dir))
+
+    Annex.from_repo_path(repo_path).enableremote(rc)
+
+    remote_log = Annex.from_repo_path(repo_path).remote_log
+    assert remote_log
+    assert next(iter(remote_log.values()))["name"] == "newdir"
+
+
+def test_enableremote_raises_when_name_missing_from_nonempty_remote_log(tmpdir):
+    """enableremote refuses to silently create a second remote next to an existing one."""
+    remote_dir = Path(tmpdir).joinpath("remote-store")
+    remote_dir.mkdir()
+    existing = DirectoryRemoteConfig(name="existing", directory=str(remote_dir))
+    repo_path = Path(tmpdir).joinpath("repo")
+    Catalog.from_repo_path(repo_path, init=True, annex=existing)
+
+    other_dir = Path(tmpdir).joinpath("other-store")
+    other_dir.mkdir()
+    other = DirectoryRemoteConfig(name="other", directory=str(other_dir))
+
+    with pytest.raises(AnnexError, match="not registered"):
+        Annex.from_repo_path(repo_path).enableremote(other)
+
+
+def test_from_repo_path_no_annex(tmpdir):
+    """from_repo_path with annex=None on a plain-git repo returns GitBackend."""
+    repo_path = Path(tmpdir).joinpath("plain-repo")
+    Catalog.from_repo_path(repo_path, init=True)
+
+    reopened = Catalog.from_repo_path(repo_path)
+    assert isinstance(reopened.backend, GitBackend)
+
+
+def test_from_repo_path_false_forces_plain_git(tmpdir):
+    """annex=False forces GitBackend even when .git/annex exists."""
+    repo_path = Path(tmpdir).joinpath("annex-repo")
+    Catalog.from_repo_path(repo_path, init=True, annex=LOCAL_ANNEX)
+
+    reopened = Catalog.from_repo_path(repo_path, annex=False)
+    assert isinstance(reopened.backend, GitBackend)
+
+
+_VALID_ARCHIVE_NAMES = (*REQUIRED_ARCHIVE_NAMES, TEST_WHEEL_NAME)
+
+
+@pytest.mark.parametrize("elide", REQUIRED_ARCHIVE_NAMES)
+def test_test_zip(elide, catalog, tmpdir):
+    zip_path = write_zip(
+        Path(tmpdir).joinpath("build.zip"),
+        {name: b"" for name in _VALID_ARCHIVE_NAMES if name != elide},
+    )
+    with pytest.raises(AssertionError, match=elide):
+        BuildZip(zip_path)
+
+
+def test_test_zip_missing_wheel(catalog, tmpdir):
+    zip_path = write_zip(
+        Path(tmpdir).joinpath("build.zip"),
+        dict.fromkeys(REQUIRED_ARCHIVE_NAMES, b""),
+    )
+    with pytest.raises(AssertionError, match=r"\.whl"):
+        BuildZip(zip_path)
+
+
+def test_test_zip_multi_wheel(catalog, tmpdir):
+    names = {**dict.fromkeys(REQUIRED_ARCHIVE_NAMES, b""), TEST_WHEEL_NAME: b""}
+    names["extra-0.0.0-py3-none-any.whl"] = b""
+    zip_path = write_zip(Path(tmpdir).joinpath("build.zip"), names)
+    bz = BuildZip(zip_path)
+    assert bz.path == zip_path
+
+
+def test_assert_consistency(catalog, tmpdir):
+    zip_path = write_zip(
+        Path(tmpdir).joinpath("build.zip"),
+        dict.fromkeys(_VALID_ARCHIVE_NAMES, b""),
+    )
+    catalog_addition = CatalogAddition(BuildZip(zip_path), catalog)
+    catalog_addition.ensure_dirs()
+    catalog_path = catalog_addition.catalog_entry.catalog_path
+    with catalog.commit_context("bad commit"):
+        shutil.copy(
+            zip_path,
+            catalog_path,
+        )
+        catalog.repo.index.add((catalog_path,))
+    with pytest.raises(AssertionError):
+        catalog.assert_consistency()
+    with pytest.raises(AssertionError):
+        CatalogEntry(catalog_addition.name, catalog, False)
+
+
+def test_add_alias(catalog_populated):
+    name = catalog_populated.list()[0]
+    alias = "my-alias"
+    catalog_alias = catalog_populated.add_alias(name, alias)
+
+    assert isinstance(catalog_alias, CatalogAlias)
+    assert catalog_alias.alias_path.is_symlink()
+    assert catalog_alias.alias_path.exists()
+    assert catalog_alias.alias_path.parent.name == CatalogInfix.ALIAS
+    assert catalog_alias.target == Path("..") / CatalogInfix.ENTRY / (name + ".zip")
+    catalog_populated.assert_consistency()
+
+
+def test_add_alias_unknown_name_raises(catalog_populated):
+    with pytest.raises(AssertionError):
+        catalog_populated.add_alias("nonexistent", "my-alias")
+
+
+def test_add_alias_overwrite(catalog_populated):
+    names = catalog_populated.list()
+    name_a, name_b = names[0], names[1]
+    alias = "shared-alias"
+
+    catalog_populated.add_alias(name_a, alias)
+    catalog_alias = catalog_populated.add_alias(name_b, alias)
+
+    assert catalog_alias.catalog_entry.name == name_b
+    assert catalog_alias.alias_path.is_symlink()
+    assert (
+        catalog_alias.alias_path.resolve()
+        == (
+            catalog_populated.repo_path / CatalogInfix.ENTRY / (name_b + ".zip")
+        ).resolve()
+    )
+    catalog_populated.assert_consistency()
+
+
+def test_add_alias_multiple(catalog_populated):
+    names = catalog_populated.list()
+    aliases = [f"alias-{i}" for i in range(len(names))]
+
+    for name, alias in zip(names, aliases):
+        catalog_populated.add_alias(name, alias)
+
+    catalog_aliases = catalog_populated.catalog_aliases
+    assert len(catalog_aliases) == len(names)
+    assert {ca.alias for ca in catalog_aliases} == set(aliases)
+    catalog_populated.assert_consistency()
+
+
+def test_add_alias_symlink_is_relative(catalog_populated):
+    name = catalog_populated.list()[0]
+    catalog_alias = catalog_populated.add_alias(name, "rel-alias")
+
+    raw_target = Path(catalog_alias.alias_path.parent).joinpath(
+        catalog_alias.alias_path.readlink()
+    )
+    assert not catalog_alias.alias_path.readlink().is_absolute()
+    assert raw_target.resolve() == catalog_alias.alias_path.resolve()
+
+
+def test_list_revisions_single(catalog_populated):
+    name = catalog_populated.list()[0]
+    catalog_alias = catalog_populated.add_alias(name, "rev-alias")
+
+    revisions = catalog_alias.list_revisions()
+
+    assert len(revisions) == 1
+    entry, commit = revisions[0]
+    assert isinstance(entry, CatalogEntry)
+    assert entry.name == name
+    assert commit.message.strip() == f"add alias: rev-alias -> {name}"
+
+
+def test_list_revisions_overwrite(catalog_populated):
+    names = catalog_populated.list()
+    name_a, name_b = names[0], names[1]
+    alias = "rev-alias"
+
+    catalog_populated.add_alias(name_a, alias)
+    catalog_alias = catalog_populated.add_alias(name_b, alias)
+
+    revisions = catalog_alias.list_revisions()
+
+    assert len(revisions) == 2
+    # most recent first
+    assert revisions[0][0].name == name_b
+    assert revisions[1][0].name == name_a
+
+
+def test_list_revisions_entries_require_exists_false(catalog_populated):
+    names = catalog_populated.list()
+    name_a, name_b = names[0], names[1]
+    alias = "rev-alias"
+
+    catalog_populated.add_alias(name_a, alias)
+    catalog_alias = catalog_populated.add_alias(name_b, alias)
+    catalog_populated.remove(name_a)
+
+    revisions = catalog_alias.list_revisions()
+
+    assert len(revisions) == 2
+    entry_b, entry_a = revisions[0][0], revisions[1][0]
+    assert entry_b.exists()
+    assert not entry_a.exists()
+
+
+def test_list_revisions_commit_objects(catalog_populated):
+    name = catalog_populated.list()[0]
+    catalog_alias = catalog_populated.add_alias(name, "rev-alias")
+
+    revisions = catalog_alias.list_revisions()
+    _, commit = revisions[0]
+
+    assert hasattr(commit, "hexsha")
+    assert hasattr(commit, "authored_datetime")
+    assert hasattr(commit, "author")
+
+
+def test_catalog_alias_from_name(catalog_populated):
+    name = catalog_populated.list()[0]
+    alias = "from-name-alias"
+    catalog_populated.add_alias(name, alias)
+
+    catalog_alias = CatalogAlias.from_name(alias, catalog_populated)
+
+    assert isinstance(catalog_alias, CatalogAlias)
+    assert catalog_alias.alias == alias
+    assert catalog_alias.catalog_entry.name == name
+    assert catalog_alias.alias_path.is_symlink()
+    assert catalog_alias.catalog_entry.exists()
+
+
+def test_catalog_alias_from_name_nonexistent_raises(catalog_populated):
+    with pytest.raises(ValueError, match="no such alias"):
+        CatalogAlias.from_name("does-not-exist", catalog_populated)
+
+
+def test_catalog_alias_from_name_entry_consistency(catalog_populated):
+    name = catalog_populated.list()[0]
+    alias = "consistency-alias"
+    catalog_populated.add_alias(name, alias)
+
+    catalog_alias = CatalogAlias.from_name(alias, catalog_populated)
+
+    catalog_alias.catalog_entry.assert_consistency()
+    assert catalog_alias.catalog_entry.metadata_path.exists()
+    assert catalog_alias.catalog_entry.catalog_path.exists()
+
+
+def test_catalog_alias_from_name_matches_catalog_aliases(catalog_populated):
+    name = catalog_populated.list()[0]
+    alias = "match-alias"
+    catalog_populated.add_alias(name, alias)
+
+    from_name = CatalogAlias.from_name(alias, catalog_populated)
+    from_catalog = next(
+        ca for ca in catalog_populated.catalog_aliases if ca.alias == alias
+    )
+
+    assert from_name.alias == from_catalog.alias
+    assert from_name.catalog_entry.name == from_catalog.catalog_entry.name
+
+
+def test_catalog_entry_relocatable(repo_cloned_bare, tmpdir):
+    cloned = Catalog.clone_from(
+        repo_cloned_bare.working_dir, Path(tmpdir).joinpath("cloned"), annex=LOCAL_ANNEX
+    )
+    catalog_entries = cloned.catalog_entries
+    exprs = tuple(catalog_entry.expr for catalog_entry in catalog_entries)
+    assert exprs
+
+
+def test_extract_kind_source(catalog):
+    expr = xo.memtable({"a": [1, 2, 3]})
+    entry = catalog.add(expr)
+    assert entry.kind == ExprKind.Source
+
+
+def test_extract_kind_bound(catalog):
+    expr = xo.memtable({"a": [1, 2, 3]}).filter(xo._.a > 1)
+    entry = catalog.add(expr)
+    assert entry.kind == ExprKind.Expr
+
+
+def test_extract_kind_partial(catalog):
+    t = xo.table(schema={"a": "int64"})
+    expr = t.filter(t.a > 0)
+    entry = catalog.add(expr)
+    assert entry.kind == ExprKind.UnboundExpr
+
+
+def test_schema_out_bound(catalog):
+    expr = xo.memtable({"col_a": [1, 2], "col_b": ["x", "y"]})
+    entry = catalog.add(expr)
+    assert entry.metadata.schema_out == xo.Schema({"col_a": "int64", "col_b": "string"})
+
+
+def test_schema_in_none_for_bound(catalog):
+    expr = xo.memtable({"a": [1, 2, 3]})
+    entry = catalog.add(expr)
+    assert entry.metadata.schema_in is None
+
+
+def test_schema_out_unbound(catalog):
+    t = xo.table(schema={"amount": "float64", "currency": "string"})
+    expr = t.mutate(amount_usd=t.amount * 1.2)
+    entry = catalog.add(expr)
+    assert entry.metadata.schema_out == xo.Schema(
+        {
+            "amount": "float64",
+            "currency": "string",
+            "amount_usd": "float64",
+        }
+    )
+
+
+def test_schema_in_unbound(catalog):
+    t = xo.table(schema={"amount": "float64", "currency": "string"})
+    expr = t.filter(t.amount > 0)
+    entry = catalog.add(expr)
+    assert entry.metadata.schema_in == xo.Schema(
+        {"amount": "float64", "currency": "string"}
+    )
+
+
+def test_get_entry_by_alias(catalog):
+    expr = xo.memtable({"x": [1]})
+    entry = catalog.add(expr, aliases=("my-alias",))
+    resolved = catalog.get_catalog_entry("my-alias", maybe_alias=True)
+    assert resolved.name == entry.name
+
+
+def test_get_entry_unknown_raises(catalog):
+    with pytest.raises(ValueError, match="no-such"):
+        catalog.get_catalog_entry("no-such")
+
+
+def test_directory_remote(tmpdir):
+    """Add entries, copy to a directory remote, drop local, get back."""
+    remote_dir = Path(tmpdir).joinpath("remote-store")
+    remote_dir.mkdir()
+    remote_config = DirectoryRemoteConfig(name="mydir", directory=str(remote_dir))
+    repo_path = Path(tmpdir).joinpath("repo")
+    Catalog.init_repo_path(repo_path, annex=remote_config)
+    annex = Annex(repo_path=repo_path)
+    backend = GitAnnexBackend(repo=GitRepo(repo_path), annex=annex)
+    catalog = Catalog(backend=backend)
+
+    # add two entries
+    with build_expr_context_zip(xo.memtable({"x": [1]})) as zp:
+        entry = catalog.add(zp, sync=False)
+    catalog.assert_consistency()
+    assert entry.catalog_path.is_symlink()
+
+    # copy content to directory remote
+    annex.copy(to="mydir")
+    # content is in the remote directory
+    assert any(remote_dir.rglob("*"))
+
+    # drop local content — symlink stays, but target is gone
+    annex.drop()
+    assert entry.catalog_path.is_symlink()
+    assert not entry.catalog_path.exists()
+
+    # get content back from directory remote
+    annex.get()
+    assert entry.catalog_path.exists()
+
+
+def test_annex_is_content_local_after_drop(tmpdir):
+    """is_content_local is False when annex content has been dropped."""
+    remote_dir = Path(tmpdir).joinpath("remote-store")
+    remote_dir.mkdir()
+    remote_config = DirectoryRemoteConfig(name="mydir", directory=str(remote_dir))
+    repo_path = Path(tmpdir).joinpath("repo")
+    Catalog.init_repo_path(repo_path, annex=remote_config)
+    annex = Annex(repo_path=repo_path)
+    backend = GitAnnexBackend(repo=GitRepo(repo_path), annex=annex)
+    catalog = Catalog(backend=backend)
+
+    with build_expr_context_zip(xo.memtable({"x": [1]})) as zp:
+        entry = catalog.add(zp, sync=False)
+
+    assert entry.is_content_local
+    assert entry.is_available
+
+    annex.copy(to="mydir")
+    annex.drop()
+
+    assert entry.exists(), "entry should still be registered"
+    assert not entry.is_content_local
+    assert not entry.is_available
+
+
+def test_annex_auto_fetch_after_drop(tmpdir):
+    """Sidecar metadata works after drop; expr and get auto-fetch from remote."""
+    remote_dir = Path(tmpdir).joinpath("remote-store")
+    remote_dir.mkdir()
+    remote_config = DirectoryRemoteConfig(name="mydir", directory=str(remote_dir))
+    repo_path = Path(tmpdir).joinpath("repo")
+    Catalog.init_repo_path(repo_path, annex=remote_config)
+    annex = Annex(repo_path=repo_path)
+    backend = GitAnnexBackend(repo=GitRepo(repo_path), annex=annex)
+    catalog = Catalog(backend=backend)
+
+    with build_expr_context_zip(xo.memtable({"x": [1]})) as zp:
+        entry = catalog.add(zp, sync=False)
+
+    annex.copy(to="mydir")
+    annex.drop()
+
+    # metadata reads from sidecar — works without content
+    assert entry.metadata is not None
+    assert entry.kind is not None
+
+    # expr auto-fetches from the remote
+    assert entry.expr is not None
+
+    # drop again and verify get also auto-fetches
+    annex.drop()
+    out_dir = str(tmpdir.join("out"))
+    Path(out_dir).mkdir()
+    result = entry.get(dir_path=out_dir)
+    assert result.exists()
+
+
+def test_annex_fetch_restores_content(tmpdir):
+    """entry.fetch() retrieves annex content for a single entry."""
+    remote_dir = Path(tmpdir).joinpath("remote-store")
+    remote_dir.mkdir()
+    remote_config = DirectoryRemoteConfig(name="mydir", directory=str(remote_dir))
+    repo_path = Path(tmpdir).joinpath("repo")
+    Catalog.init_repo_path(repo_path, annex=remote_config)
+    annex = Annex(repo_path=repo_path)
+    backend = GitAnnexBackend(repo=GitRepo(repo_path), annex=annex)
+    catalog = Catalog(backend=backend)
+
+    with build_expr_context_zip(xo.memtable({"x": [1]})) as zp:
+        entry = catalog.add(zp, sync=False)
+
+    annex.copy(to="mydir")
+    annex.drop()
+    assert not entry.is_content_local
+
+    entry.fetch()
+    assert entry.is_content_local
+    assert entry.is_available
+    # content is actually readable after fetch
+    assert entry.metadata is not None
+
+
+def test_fetch_entries_bulk(tmpdir):
+    """catalog.fetch_entries() batch-fetches multiple entries in one operation."""
+    remote_dir = Path(tmpdir).joinpath("remote-store")
+    remote_dir.mkdir()
+    remote_config = DirectoryRemoteConfig(name="mydir", directory=str(remote_dir))
+    repo_path = Path(tmpdir).joinpath("repo")
+    Catalog.init_repo_path(repo_path, annex=remote_config)
+    annex = Annex(repo_path=repo_path)
+    backend = GitAnnexBackend(repo=GitRepo(repo_path), annex=annex)
+    catalog = Catalog(backend=backend)
+
+    with build_expr_context_zip(xo.memtable({"a": [1]})) as zp:
+        entry_a = catalog.add(zp, sync=False)
+    with build_expr_context_zip(xo.memtable({"b": [2]})) as zp:
+        entry_b = catalog.add(zp, sync=False)
+
+    annex.copy(to="mydir")
+    annex.drop()
+    assert not entry_a.is_content_local
+    assert not entry_b.is_content_local
+
+    catalog.fetch_entries(entry_a, entry_b)
+    assert entry_a.is_content_local
+    assert entry_b.is_content_local
+
+    # also test string-based lookup
+    annex.drop()
+    catalog.fetch_entries(entry_a.name, entry_b.name)
+    assert entry_a.is_content_local
+    assert entry_b.is_content_local
+
+
+def test_plain_git_is_content_local(catalog):
+    """Plain-git entries always have content local."""
+    expr = xo.memtable({"x": [1]})
+    entry = catalog.add(expr)
+    assert entry.is_content_local
+    assert entry.is_available
+
+
+def test_sidecar_contains_promoted_fields(catalog):
+    """Sidecar metadata file contains expr_metadata and backends."""
+    expr = xo.memtable({"x": [1], "y": ["a"]})
+    entry = catalog.add(expr)
+    sidecar = entry.sidecar_metadata
+    assert "md5sum" in sidecar
+    assert "expr_metadata" in sidecar
+    em = sidecar["expr_metadata"]
+    assert "kind" in em
+    assert "schema_out" in em
+    assert set(em["schema_out"]) == {"x", "y"}
+    assert "backends" in sidecar
+    assert isinstance(sidecar["backends"], list)
+
+
+def test_metadata_from_sidecar_after_drop(tmpdir):
+    """All metadata properties work from sidecar after annex content is dropped."""
+    remote_dir = Path(tmpdir).joinpath("remote-store")
+    remote_dir.mkdir()
+    remote_config = DirectoryRemoteConfig(name="mydir", directory=str(remote_dir))
+    repo_path = Path(tmpdir).joinpath("repo")
+    Catalog.init_repo_path(repo_path, annex=remote_config)
+    annex = Annex(repo_path=repo_path)
+    backend = GitAnnexBackend(repo=GitRepo(repo_path), annex=annex)
+    catalog = Catalog(backend=backend)
+
+    with build_expr_context_zip(xo.memtable({"x": [1]})) as zp:
+        entry = catalog.add(zp, sync=False)
+
+    annex.copy(to="mydir")
+    annex.drop()
+    assert not entry.is_content_local
+
+    # all sidecar-backed properties work without content
+    assert entry.kind == ExprKind.Source
+    assert entry.columns == ("x",)
+    assert entry.root_tag is not None or entry.root_tag == ""
+    assert isinstance(entry.backends, tuple)
+    assert entry.metadata.to_dict() is not None
+
+    # expr auto-fetches content from the remote
+    assert entry.expr is not None
+
+
+@pytest.mark.s3
+def test_s3_remote_minio(tmpdir):
+    """Add entries, copy to S3 (minio), drop local, get back."""
+    remote_config = S3RemoteConfig.from_env(
+        name="mys3",
+        bucket=f"test-annex-{uuid.uuid4().hex[:12]}",
+        host="minio",
+        port="9000",
+        aws_access_key_id="accesskey",
+        aws_secret_access_key="secretkey",
+        protocol="http",
+        requeststyle="path",
+        signature="v2",
+    )
+    # check minio is reachable
+    result = subprocess.run(
+        [
+            "curl",
+            "-sf",
+            f"http://{remote_config.host}:{remote_config.port}/minio/health/live",
+        ],
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        pytest.skip("minio not reachable")
+    repo_path = Path(tmpdir).joinpath("repo")
+    repo_path.mkdir(parents=True)
+    repo = GitRepo.init(repo_path, initial_branch=MAIN_BRANCH)
+    repo.index.commit("initial commit")
+    # allow private IPs for minio
+    subprocess.run(
+        ["git", "config", "annex.security.allowed-ip-addresses", "all"],
+        cwd=repo_path,
+        check=True,
+    )
+    Annex.init_repo_path(repo_path, remote_config=remote_config)
+
+    annex = Annex(repo_path=repo_path, env=remote_config.env)
+    backend = GitAnnexBackend(repo=repo, annex=annex)
+    catalog = Catalog(backend=backend)
+
+    # add an entry
+    with build_expr_context_zip(xo.memtable({"s3col": [42]})) as zp:
+        entry = catalog.add(zp, sync=False)
+    catalog.assert_consistency()
+    assert entry.catalog_path.is_symlink()
+
+    # copy to S3
+    annex.copy(to="mys3")
+
+    # drop local content
+    annex.drop()
+    assert entry.catalog_path.is_symlink()
+    assert not entry.catalog_path.exists()
+
+    # get content back from S3
+    annex.get()
+    assert entry.catalog_path.exists()
+
+
+@pytest.mark.s3
+def test_s3_fileprefix_namespaced_in_remote_log(tmpdir):
+    """initremote bakes ``{base}{name}/{remote_uuid}/`` into remote.log,
+    enableremote of the same config is a no-op, and a re-config with a
+    mismatched base raises AnnexError (ADR-0011)."""
+    base_prefix = "annex-only/"
+    remote_config = S3RemoteConfig.from_env(
+        name="mys3",
+        bucket=f"test-annex-{uuid.uuid4().hex[:12]}",
+        host="minio",
+        port="9000",
+        aws_access_key_id="accesskey",
+        aws_secret_access_key="secretkey",
+        protocol="http",
+        requeststyle="path",
+        signature="v2",
+        fileprefix=base_prefix,
+    )
+    result = subprocess.run(
+        [
+            "curl",
+            "-sf",
+            f"http://{remote_config.host}:{remote_config.port}/minio/health/live",
+        ],
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        pytest.skip("minio not reachable")
+    repo_path = Path(tmpdir).joinpath("repo")
+    repo_path.mkdir(parents=True)
+    repo = GitRepo.init(repo_path, initial_branch=MAIN_BRANCH)
+    repo.index.commit("initial commit")
+    subprocess.run(
+        ["git", "config", "annex.security.allowed-ip-addresses", "all"],
+        cwd=repo_path,
+        check=True,
+    )
+    Annex.init_repo_path(repo_path, remote_config=remote_config)
+
+    annex = Annex(repo_path=repo_path, env=remote_config.env)
+    [(remote_uuid, cfg)] = annex.remote_log.items()
+    expected = f"{base_prefix}{remote_config.name}/{remote_uuid}/"
+    assert cfg["fileprefix"] == expected
+
+    # re-enabling with the same config is a no-op (verify passes)
+    annex.enableremote(remote_config)
+    assert annex.remote_log[remote_uuid]["fileprefix"] == expected
+
+    # changing the base prefix must fail rather than silently rewriting
+    mismatched = evolve(remote_config, fileprefix="other-base/")
+    with pytest.raises(AnnexError, match="different base prefix"):
+        annex.enableremote(mismatched)
+
+
+def test_from_repo_path_enables_special_remote_on_clone(tmpdir):
+    """from_repo_path enables the special remote on a fresh clone.
+
+    Simulates the scenario where a catalog is cloned via git submodule add
+    from a host like GitHub (annex-ignore on origin). Without enableremote,
+    git-annex cannot locate the special remote and content fetch fails.
+    """
+    # create origin catalog with a directory remote
+    remote_dir = Path(tmpdir).joinpath("remote-store")
+    remote_dir.mkdir()
+    remote_config = DirectoryRemoteConfig(name="mydir", directory=str(remote_dir))
+    origin_path = Path(tmpdir).joinpath("origin")
+    Catalog.init_repo_path(origin_path, annex=remote_config)
+    annex = Annex(repo_path=origin_path)
+    backend = GitAnnexBackend(repo=GitRepo(origin_path), annex=annex)
+    origin_catalog = Catalog(backend=backend)
+
+    with build_expr_context_zip(xo.memtable({"x": [1]})) as zp:
+        entry = origin_catalog.add(zp, sync=False)
+    entry_name = entry.name
+
+    # copy content to directory remote
+    annex.copy(to="mydir")
+
+    # create a bare clone (intermediary, like GitHub)
+    bare_path = Path(tmpdir).joinpath("bare")
+    GitRepo.clone_from(origin_path, bare_path, bare=True)
+    _do_inside(bare_path, "init")
+    _do_inside(bare_path, "sync", "--content")
+
+    # clone from bare (simulates git submodule add)
+    clone_path = Path(tmpdir).joinpath("cloned")
+    GitRepo.clone_from(bare_path, clone_path)
+    _do_inside(clone_path, "init")
+
+    # simulate GitHub: origin has annex-ignore set
+    subprocess.run(
+        ["git", "config", "remote.origin.annex-ignore", "true"],
+        cwd=clone_path,
+        check=True,
+    )
+
+    # open with from_repo_path — this should enableremote automatically
+    cloned_catalog = Catalog.from_repo_path(clone_path, init=False, annex=remote_config)
+    assert isinstance(cloned_catalog.backend, GitAnnexBackend)
+
+    # verify content is fetchable from the directory remote
+    cloned_entry = cloned_catalog.get_catalog_entry(entry_name)
+    assert not cloned_entry.is_content_local
+    cloned_entry.fetch()
+    assert cloned_entry.is_content_local
+
+
+def test_cache_keys_stores_key_and_relative_path(catalog, tmp_path):
+    """CacheKey in the sidecar carries both the hash key and the relative_path
+    so paths can be reconstructed without loading the expression."""
+    relative = "my_cache"
+    cache = ParquetSnapshotCache.from_kwargs(relative_path=relative)
+    expr = xo.memtable({"x": [1, 2, 3]}).cache(cache=cache)
+    entry = catalog.add(expr)
+
+    ck = entry.projected_cache_key
+    assert isinstance(ck, CacheKey)
+    assert ck.relative_path == relative
+    assert ck.key  # non-empty hash string
+
+
+def test_cache_keys_paths_relocatable(catalog, tmp_path, monkeypatch):
+    cache_dir_A = tmp_path / "cache_A"
+    cache_dir_B = tmp_path / "cache_B"
+    relative = "my_cache"
+
+    monkeypatch.setattr("xorq.caching.storage.get_xorq_cache_dir", lambda: cache_dir_A)
+    cache = ParquetSnapshotCache.from_kwargs(relative_path=relative)
+    expr = xo.memtable({"x": [1, 2, 3]}).cache(cache=cache)
+    entry = catalog.add(expr)
+
+    ck = entry.projected_cache_key
+    expected_name = ck.key + ".parquet"
+
+    path_at_A = get_cache_key_path(entry.projected_cache_key)
+    assert path_at_A == str(cache_dir_A / relative / expected_name)
+
+    monkeypatch.setattr("xorq.caching.storage.get_xorq_cache_dir", lambda: cache_dir_B)
+    path_at_B = get_cache_key_path(entry.projected_cache_key)
+    assert path_at_B == str(cache_dir_B / relative / expected_name)
+
+
+def test_base_path_is_silently_dropped_through_catalog_round_trip(catalog, tmp_path):
+    cache = ParquetSnapshotCache.from_kwargs(
+        relative_path="my_cache", base_path=tmp_path / "explicit_base"
+    )
+    expr = xo.memtable({"x": [1, 2, 3]}).cache(cache=cache)
+    entry = catalog.add(expr)
+
+    ck = entry.projected_cache_key
+    assert ck.relative_path == "my_cache"
+    assert ck.key
+
+
+def test_annex_fetch_content_no_remote_raises(tmpdir):
+    """fetch_content raises instead of hanging when no remote is configured."""
+    repo_path = Path(tmpdir) / "no-remote"
+    repo = Catalog.init_repo_path(repo_path, annex=LOCAL_ANNEX)
+    backend = GitAnnexBackend(repo=repo, annex=Annex(repo_path=repo_path))
+    catalog = Catalog(backend=backend)
+
+    expr = xo.memtable({"x": [1, 2, 3]})
+    entry = catalog.add(expr, sync=False)
+
+    # Drop the annex content so is_content_local returns False
+    backend.annex.drop(backend.get_relpath(entry.catalog_path))
+
+    assert not backend.is_content_local(entry.catalog_path)
+    assert not backend._has_any_remote()
+
+    with pytest.raises(AnnexError, match="no remote configured"):
+        backend.fetch_content(entry.catalog_path)
+
+
+def test_catalog_entry_roundtrip_execute(catalog):
+    """Loading an expression from a catalog zip and executing it returns the original data."""
+    df = pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]})
+    expr = xo.memtable(df)
+    entry = catalog.add(expr)
+    result = entry.expr.execute()
+    pd.testing.assert_frame_equal(result, df)
+
+
+def test_database_table_roundtrip_execute(catalog):
+    """A registered database_table survives zip roundtrip and can be executed."""
+    df = pd.DataFrame({"x": [10, 20], "y": ["a", "b"]})
+    con = xo.connect()
+    t = con.register(df, table_name="test_dt")
+    entry = catalog.add(t)
+    result = entry.expr.execute()
+    pd.testing.assert_frame_equal(result, df)
+
+
+def test_extract_dir_cleaned_up_on_expr_gc(catalog):
+    """Temp extract directory is removed when the loaded expression is garbage-collected."""
+    entry = catalog.add(xo.memtable(pd.DataFrame({"a": [1]})))
+
+    before = frozenset(_live_extract_dirs)
+    expr = entry.expr
+    created = frozenset(_live_extract_dirs) - before
+    assert len(created) == 1, f"expected exactly one new extract dir, got {created}"
+    (td,) = created
+    assert Path(td).is_dir()
+
+    del expr
+    for _ in range(3):
+        gc.collect()
+
+    assert td not in _live_extract_dirs
+    assert not Path(td).exists()

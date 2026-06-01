@@ -1,0 +1,27 @@
+[project]
+name = "agent-message-bus"
+version = "0.1.0"
+description = "Webhook relay service for GitHub/Slack notifications to Devin AI sessions"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "fastapi[standard]>=0.115.0",
+    "uvicorn>=0.30.0",
+    "google-cloud-firestore>=2.16.0",
+    "pydantic>=2.0.0",
+    "requests>=2.31.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["agent_message_bus"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "RUF"]

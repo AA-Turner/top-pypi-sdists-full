@@ -1,0 +1,67 @@
+Metadata-Version: 1.2
+Name: flake8-datetimez
+Version: 20.10.0
+Summary: A plugin for flake8 to ban the usage of unsafe naive datetime class.
+Home-page: https://github.com/pjknkda/flake8-datetimez
+Author: Jungkook Park
+Author-email: jk@elicer.com
+License: MIT
+Description: # flake8-datetimez
+        
+        A plugin for flake8 to ban the usage of unsafe naive datetime class.
+        
+        
+        ## List of warnings
+        
+        - **DTZ001** : The use of `datetime.datetime()` without `tzinfo` argument is not allowed.
+        
+        - **DTZ002** : The use of `datetime.datetime.today()` is not allowed. Use `datetime.datetime.now(tz=)` instead.
+        
+        - **DTZ003** : The use of `datetime.datetime.utcnow()` is not allowed. Use `datetime.datetime.now(tz=)` instead.
+        
+        - **DTZ004** : The use of `datetime.datetime.utcfromtimestamp()` is not allowed. Use `datetime.datetime.fromtimestamp(, tz=)` instead.
+        
+        - **DTZ005** : The use of `datetime.datetime.now()` without `tz` argument is not allowed.
+        
+        - **DTZ006** : The use of `datetime.datetime.fromtimestamp()` without `tz` argument is not allowed.
+        
+        - **DTZ007** : The use of `datetime.datetime.strptime()` without %z must be followed by `.replace(tzinfo=)` or `.astimezone()`.
+        
+        - **DTZ011** : The use of `datetime.date.today()` is not allowed. Use `datetime.datetime.now(tz=).date()` instead.
+        
+        - **DTZ012** : The use of `datetime.date.fromtimestamp()` is not allowed. Use `datetime.datetime.fromtimestamp(, tz=).date()` instead.
+        
+        
+        ## Install
+        
+        Install with pip
+        
+        ```
+        $ pip install flake8-datetimez
+        ```
+        
+        ## Requirements
+        - Python 3.6 or above
+        - flake8 3.0.0 or above
+        
+        ## License
+        
+        MIT
+        
+Keywords: flake8 datetime pyflakes pylint linter qa
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Framework :: Flake8
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: Quality Assurance
+Requires-Python: >=3.6

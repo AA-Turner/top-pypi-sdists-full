@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=78.1.1,<83.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name         = "infrared-protocols"
+version      = "5.6.1"
+license      = "MIT"
+description  = "Library to decode and encode infrared signals."
+readme       = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.13.0"
+
+[project.urls]
+"Homepage" = "https://github.com/home-assistant-libs/infrared-protocols"
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+include = ["infrared_protocols*"]
+
+[tool.ruff.lint]
+select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # pydocstyle
+    "D",
+    # flake8-annotations
+    "ANN",
+    # isort
+    "I",]
+ignore = [
+    # Prefer no blank line before class docstrings.
+    "D203",
+    # Prefer multi-line docstring summaries on the first line.
+    "D213",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 25
+
+[tool.pyright]
+typeCheckingMode = "standard"
+
+[project.optional-dependencies]
+dev = ["pytest", "prek"]
+
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+build_command = "pip install build==1.4.0 && python -m build"
+tag_format = "{version}"

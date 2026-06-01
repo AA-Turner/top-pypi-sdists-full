@@ -1,0 +1,122 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatch-vcs", "hatchling"]
+
+[project]
+authors = [{name = "PyPREP developers"}]
+classifiers = [
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved",
+  "Operating System :: MacOS",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python",
+  "Topic :: Scientific/Engineering",
+]
+dependencies = [
+  "mne>=1.3.0",
+  "numpy>=1.20.2",
+  "psutil>=5.4.3",
+  "scipy>=1.6.3",
+]
+description = "PyPREP: A Python implementation of the preprocessing pipeline (PREP) for EEG data."
+dynamic = ["version"]
+keywords = [
+  "artifact",
+  "data",
+  "EEG",
+  "electroencephalography",
+  "mne",
+  "neuroimaging",
+  "neuroscience",
+  "preprocessing",
+  "python",
+]
+license = {file = "LICENSE"}
+maintainers = [
+  {email = "stefan.appelhoff@mailbox.org", name = "Stefan Appelhoff"},
+]
+name = "pyprep"
+readme = {content-type = "text/x-rst", file = "README.rst"}
+requires-python = ">=3.10"
+
+[project.optional-dependencies]
+dev = ["ipykernel", "ipython", "pyprep[test,docs]"]
+docs = [
+  "intersphinx_registry",
+  "matplotlib",
+  "numpydoc",
+  "pydata-sphinx-theme",
+  "sphinx",
+  "sphinx-copybutton",
+  "sphinx_gallery",
+]
+test = [
+  "build",
+  "matplotlib",
+  "pre-commit",
+  "pytest",
+  "pytest-cov",
+  "pytest-sugar",
+  "ruff",
+  "twine",
+]
+
+[project.urls]
+"Bug Tracker" = "https://github.com/sappelhoff/pyprep/issues/"
+"Documentation" = "https://pyprep.readthedocs.io/en/latest"
+"Homepage" = "https://pyprep.readthedocs.io/en/latest"
+"Source Code" = "https://github.com/sappelhoff/pyprep"
+
+[tool.coverage.report]
+# Regexes for lines to exclude from consideration
+exclude_lines = ["if 0:", "if __name__ == .__main__.:", "pragma: no cover"]
+
+[tool.coverage.run]
+omit = ["*tests*"]
+
+[tool.hatch.build]
+exclude = [
+  "/.*",
+  "/.github/**",
+  "/docs",
+  "/examples",
+  "matprep_artifacts",
+  "matprep_artifacts/**",
+  "tests/**",
+]
+
+[tool.hatch.metadata]
+allow-direct-references = true  # allow specifying URLs in our dependencies
+
+[tool.hatch.version]
+raw-options = {version_scheme = "release-branch-semver"}
+source = "vcs"
+
+[tool.pytest.ini_options]
+addopts = """. --cov=pyprep/ --cov-report=xml --cov-config=pyproject.toml --verbose -s"""
+filterwarnings = [
+]
+
+[tool.ruff]
+extend-exclude = [
+  "matprep_artifacts/**",
+]
+
+[tool.ruff.lint]
+ignore = ["A002"]
+select = ["A", "D", "E", "F", "I", "UP", "W"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.tomlsort]
+all = true
+ignore_case = true
+spaces_before_inline_comment = 2
+trailing_comma_inline_array = true

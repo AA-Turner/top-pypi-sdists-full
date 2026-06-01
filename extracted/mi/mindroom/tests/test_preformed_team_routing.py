@@ -1,0 +1,473 @@
+"""Tests for predefined team mentions and routing behavior.
+
+These tests ensure that mentioning a predefined team:
+- Does NOT trigger router routing
+- Does cause the TeamBot to respond using its configured team members
+"""
+
+from __future__ import annotations
+
+import asyncio
+from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING, Any
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import nio
+import pytest
+
+from mindroom.bot import AgentBot, TeamBot
+from mindroom.config.agent import AgentConfig, TeamConfig
+from mindroom.config.main import Config
+from mindroom.config.models import RouterConfig
+from mindroom.constants import STREAM_STATUS_KEY
+from mindroom.matrix.cache.thread_history_result import thread_history_result
+from mindroom.matrix.client import DeliveredMatrixEvent
+from mindroom.matrix.users import AgentMatrixUser
+from mindroom.tool_system.worker_routing import get_tool_execution_identity
+from tests.conftest import (
+    bind_runtime_paths,
+    drain_coalescing,
+    install_runtime_cache_support,
+    make_matrix_client_mock,
+    make_visible_message,
+    patch_response_runner_module,
+    request_envelope,
+    runtime_paths_for,
+    test_runtime_paths,
+)
+from tests.identity_helpers import entity_ids
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
+    from pathlib import Path
+
+    from mindroom.final_delivery import FinalDeliveryOutcome
+
+
+def _bind_runtime_paths(config: Config, tmp_path: Path) -> Config:
+    return bind_runtime_paths(config, test_runtime_paths(tmp_path))
+
+
+async def _empty_event_iterator() -> AsyncGenerator[object, None]:
+    if False:
+        yield None
+
+
+@asynccontextmanager
+async def _noop_typing_indicator(*_args: object, **_kwargs: object) -> AsyncGenerator[None]:
+    yield
+
+
+def _make_matrix_client_mock() -> AsyncMock:
+    client = make_matrix_client_mock()
+    client.room_get_event_relations = MagicMock(return_value=_empty_event_iterator())
+    return client
+
+
+@pytest.fixture
+def config_with_team() -> Config:
+    """Minimal config with two agents and one predefined team in a room."""
+    return Config(
+        agents={
+            "a1": AgentConfig(display_name="Agent One", role="", rooms=["room_x"]),
+            "a2": AgentConfig(display_name="Agent Two", role="", rooms=["room_x"]),
+        },
+        teams={
+            "t1": TeamConfig(
+                display_name="Team One",
+                role="Test preformed team",
+                agents=["a1", "a2"],
+                rooms=["room_x"],
+                mode="coordinate",
+            ),
+        },
+        router=RouterConfig(model="default"),
+    )
+
+
+def _mock_room(room_id: str, member_ids: list[str]) -> MagicMock:
+    room = MagicMock()
+    room.room_id = room_id
+    room.name = room_id
+    room.users = member_ids
+    return room
+
+
+def _mock_event_with_team_mention(team_user_id: str, body: str = "@team please help") -> MagicMock:
+    ev = MagicMock()
+    ev.sender = "@user:localhost"
+    ev.body = body
+    ev.event_id = "$evt1"
+    ev.source = {
+        "content": {
+            "body": body,
+            "m.mentions": {"user_ids": [team_user_id]},
+        },
+    }
+    return ev
+
+
+def _handled_response_event_id(outcome: FinalDeliveryOutcome) -> str | None:
+    return outcome.event_id if outcome.mark_handled and outcome.is_visible_response and not outcome.suppressed else None
+
+
+@pytest.mark.asyncio
+async def test_router_does_not_route_when_preformed_team_is_mentioned(config_with_team: Config, tmp_path: Path) -> None:
+    """Router must not route if the message mentions a predefined team."""
+    config_with_team = _bind_runtime_paths(config_with_team, tmp_path)
+    runtime_paths = runtime_paths_for(config_with_team)
+    ids = entity_ids(config_with_team, runtime_paths)
+    # Router bot setup
+    # Use config-derived IDs to match domain in this environment
+    router_user = AgentMatrixUser(
+        agent_name="router",
+        user_id=ids["router"].full_id,
+        display_name="Router",
+        password="p",  # noqa: S106
+    )
+    router = AgentBot(router_user, tmp_path, config_with_team, runtime_paths)
+    router.client = _make_matrix_client_mock()
+    install_runtime_cache_support(router)
+
+    # Room has router + team + two agents and the human user
+    team_user_id = ids["t1"].full_id
+    a1_id = ids["a1"].full_id
+    a2_id = ids["a2"].full_id
+    room = _mock_room("!room:localhost", [router_user.user_id, team_user_id, a1_id, a2_id, "@user:localhost"])
+
+    # Event mentions the team
+    event = _mock_event_with_team_mention(team_user_id)
+
+    # Also patch suggest_responder_for_message to detect accidental routing
+    with patch("mindroom.turn_controller.suggest_responder_for_message", new=AsyncMock(return_value="a1")):
+        await router._on_message(room, event)
+
+    # Router must not send any message (i.e., must not route)
+    router.client.room_send.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_preformed_team_bot_responds_when_mentioned(config_with_team: Config, tmp_path: Path) -> None:
+    """TeamBot should respond with team response when the team is mentioned."""
+    config_with_team = _bind_runtime_paths(config_with_team, tmp_path)
+    runtime_paths = runtime_paths_for(config_with_team)
+    ids = entity_ids(config_with_team, runtime_paths)
+    team_user = AgentMatrixUser(
+        agent_name="t1",
+        user_id=ids["t1"].full_id,
+        display_name="Team One",
+        password="p",  # noqa: S106
+    )
+    bot = TeamBot(
+        agent_user=team_user,
+        storage_path=tmp_path,
+        config=config_with_team,
+        runtime_paths=runtime_paths,
+        rooms=["!room:localhost"],
+        team_mode="coordinate",
+        enable_streaming=False,
+    )
+    bot.client = _make_matrix_client_mock()
+    install_runtime_cache_support(bot)
+
+    async def fake_team_response(*_args: Any, **_kwargs: Any) -> str:  # noqa: ANN401
+        return "🤝 Team Response (a1, a2):\n\n**a1**: ok\n\n**a2**: ok"
+
+    # Minimal orchestrator stub is fine because we patch team_response
+    bot.orchestrator = MagicMock()
+
+    team_user_id = ids["t1"].full_id
+    room = _mock_room("!room:localhost", [team_user_id, "@user:localhost"])
+    event = _mock_event_with_team_mention(team_user_id)
+
+    bot.client.room_send.side_effect = [
+        nio.RoomSendResponse.from_dict({"event_id": "$placeholder"}, room.room_id),
+        nio.RoomSendResponse.from_dict({"event_id": "$edit"}, room.room_id),
+    ]
+    with patch_response_runner_module(
+        team_response=fake_team_response,
+        should_use_streaming=AsyncMock(return_value=False),
+        typing_indicator=_noop_typing_indicator,
+    ):
+        await bot._on_message(room, event)
+        await drain_coalescing(bot)
+
+    # Team bot should send a visible pending placeholder and the final team message.
+    sent_contents = [call.kwargs["content"] for call in bot.client.room_send.call_args_list]
+    assert len(sent_contents) == 2
+    assert sent_contents[0][STREAM_STATUS_KEY] == "pending"
+    assert sent_contents[0]["body"].startswith("🤝 Team Response: Thinking...")
+    assert sent_contents[1]["m.relates_to"]["rel_type"] == "m.replace"
+    assert sent_contents[1]["m.new_content"]["body"] == "🤝 Team Response (a1, a2):\n\n**a1**: ok\n\n**a2**: ok"
+    bot.client.room_send.side_effect = None
+
+
+@pytest.mark.asyncio
+async def test_preformed_team_bot_schedules_memory_save_for_all_file_members(
+    config_with_team: Config,
+    tmp_path: Path,
+) -> None:
+    """TeamBot should always schedule conversation memory storage for team replies."""
+    config_with_team = _bind_runtime_paths(config_with_team, tmp_path)
+    runtime_paths = runtime_paths_for(config_with_team)
+    ids = entity_ids(config_with_team, runtime_paths)
+    config_with_team.memory.backend = "mem0"
+    config_with_team.agents["a1"].memory_backend = "file"
+    config_with_team.agents["a2"].memory_backend = "file"
+
+    team_user = AgentMatrixUser(
+        agent_name="t1",
+        user_id=ids["t1"].full_id,
+        display_name="Team One",
+        password="p",  # noqa: S106
+    )
+    bot = TeamBot(
+        agent_user=team_user,
+        storage_path=tmp_path,
+        config=config_with_team,
+        runtime_paths=runtime_paths,
+        rooms=["!room:localhost"],
+        team_mode="coordinate",
+        enable_streaming=False,
+    )
+    bot.client = _make_matrix_client_mock()
+    install_runtime_cache_support(bot)
+    bot.orchestrator = MagicMock()
+
+    store_calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+    seen_requesters: list[str | None] = []
+    scheduled_tasks: list[asyncio.Task[Any]] = []
+    thread_history = [make_visible_message(sender="@bob:localhost", body="Earlier note", event_id="$bob1")]
+
+    async def fake_store_conversation_memory(*args: Any, **kwargs: Any) -> None:  # noqa: ANN401
+        identity = get_tool_execution_identity()
+        seen_requesters.append(identity.requester_id if identity is not None else None)
+        store_calls.append((args, kwargs))
+
+    def schedule_background_task(
+        coro: object,
+        name: str | None = None,
+        error_handler: object | None = None,  # noqa: ARG001
+        owner: object | None = None,  # noqa: ARG001
+    ) -> asyncio.Task[Any]:
+        assert asyncio.iscoroutine(coro)
+        task = asyncio.create_task(coro, name=name)
+        scheduled_tasks.append(task)
+        return task
+
+    with (
+        patch_response_runner_module(
+            should_use_streaming=AsyncMock(return_value=False),
+            typing_indicator=_noop_typing_indicator,
+            team_response=AsyncMock(return_value="team response"),
+        ),
+        patch("mindroom.bot.store_conversation_memory", new=fake_store_conversation_memory),
+        patch("mindroom.bot.create_background_task", side_effect=schedule_background_task),
+    ):
+        bot.client.room_send.side_effect = [
+            nio.RoomSendResponse.from_dict({"event_id": "$placeholder"}, "!room:localhost"),
+            nio.RoomSendResponse.from_dict({"event_id": "$edit"}, "!room:localhost"),
+        ]
+        await bot._generate_response(
+            prompt="@team remember this",
+            thread_history=thread_history,
+            user_id="@user:localhost",
+            response_envelope=request_envelope(
+                room_id="!room:localhost",
+                reply_to_event_id="$evt1",
+                prompt="@team remember this",
+                user_id="@user:localhost",
+                agent_name=bot.agent_name,
+            ),
+        )
+
+    if scheduled_tasks:
+        await asyncio.gather(*scheduled_tasks)
+
+    assert len(store_calls) == 1
+    assert store_calls[0][0][0] == "@team remember this"
+    assert store_calls[0][0][1] == ["a1", "a2"]
+    assert store_calls[0][0][6] == thread_history
+    assert seen_requesters == ["@user:localhost"]
+
+
+@pytest.mark.asyncio
+async def test_preformed_team_rejection_edits_existing_message(config_with_team: Config, tmp_path: Path) -> None:
+    """Configured-team rejection during regeneration should edit the existing response."""
+    config_with_team = _bind_runtime_paths(config_with_team, tmp_path)
+    runtime_paths = runtime_paths_for(config_with_team)
+    ids = entity_ids(config_with_team, runtime_paths)
+    team_user = AgentMatrixUser(
+        agent_name="t1",
+        user_id=ids["t1"].full_id,
+        display_name="Team One",
+        password="p",  # noqa: S106
+    )
+    bot = TeamBot(
+        agent_user=team_user,
+        storage_path=tmp_path,
+        config=config_with_team,
+        runtime_paths=runtime_paths,
+        rooms=["!room:localhost"],
+        team_mode="coordinate",
+        enable_streaming=False,
+    )
+    bot.client = _make_matrix_client_mock()
+    install_runtime_cache_support(bot)
+    bot.orchestrator = MagicMock()
+    bot.orchestrator.agent_bots = {"a1": MagicMock()}
+    bot._send_response = AsyncMock(return_value="$new_response")
+
+    with patch(
+        "mindroom.delivery_gateway.edit_message_result",
+        new=AsyncMock(
+            return_value=DeliveredMatrixEvent(
+                event_id="$existing_response",
+                content_sent={"body": "Team 't1' includes agent 'a2' that could not be materialized for this request."},
+            ),
+        ),
+    ) as mock_edit:
+        resolution = await bot._generate_response(
+            prompt="@t1 please retry",
+            thread_history=[],
+            existing_event_id="$existing_response",
+            user_id="@user:localhost",
+            response_envelope=request_envelope(
+                room_id="!room:localhost",
+                reply_to_event_id="$evt1",
+                prompt="@t1 please retry",
+                user_id="@user:localhost",
+                agent_name=bot.agent_name,
+            ),
+        )
+
+    assert resolution == "$existing_response"
+    assert mock_edit.await_args.args[2] == "$existing_response"
+    assert (
+        mock_edit.await_args.args[4] == "Team 't1' includes agent 'a2' that could not be materialized for this request."
+    )
+    bot._send_response.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_preformed_team_plain_reply_does_not_continue_existing_thread_root(
+    config_with_team: Config,
+    tmp_path: Path,
+) -> None:
+    """TeamBot should answer the prompt event instead of following a stale plain-reply target."""
+    config_with_team = _bind_runtime_paths(config_with_team, tmp_path)
+    runtime_paths = runtime_paths_for(config_with_team)
+    ids = entity_ids(config_with_team, runtime_paths)
+    team_user = AgentMatrixUser(
+        agent_name="t1",
+        user_id=ids["t1"].full_id,
+        display_name="Team One",
+        password="p",  # noqa: S106
+    )
+    bot = TeamBot(
+        agent_user=team_user,
+        storage_path=tmp_path,
+        config=config_with_team,
+        runtime_paths=runtime_paths,
+        rooms=["!room:localhost"],
+        team_mode="coordinate",
+        enable_streaming=False,
+    )
+    bot.client = _make_matrix_client_mock()
+    install_runtime_cache_support(bot)
+    bot.orchestrator = MagicMock()
+
+    team_user_id = ids["t1"].full_id
+    room = _mock_room("!room:localhost", [team_user_id, "@user:localhost"])
+    event = nio.RoomMessageText.from_dict(
+        {
+            "event_id": "$evt_plain_reply",
+            "sender": "@user:localhost",
+            "origin_server_ts": 1234567890,
+            "room_id": room.room_id,
+            "type": "m.room.message",
+            "content": {
+                "msgtype": "m.text",
+                "body": "@t1 please continue",
+                "m.mentions": {"user_ids": [team_user_id]},
+                "m.relates_to": {"m.in_reply_to": {"event_id": "$thread_msg"}},
+            },
+        },
+    )
+
+    async def fake_team_response(*_args: Any, **_kwargs: Any) -> str:  # noqa: ANN401
+        return "🤝 Team Response (a1, a2):\n\n**a1**: ok\n\n**a2**: ok"
+
+    with (
+        patch_response_runner_module(
+            team_response=fake_team_response,
+            should_use_streaming=AsyncMock(return_value=False),
+            typing_indicator=_noop_typing_indicator,
+        ),
+        patch.object(
+            bot._conversation_resolver,
+            "fetch_thread_history",
+            new=AsyncMock(return_value=thread_history_result([], is_full_history=True)),
+        ),
+    ):
+        await bot._on_message(room, event)
+        await drain_coalescing(bot)
+
+    assert bot.client.room_send.call_count >= 1
+    first_content = bot.client.room_send.call_args_list[0].kwargs["content"]
+    assert first_content["m.relates_to"]["m.in_reply_to"]["event_id"] == "$evt_plain_reply"
+    assert first_content["m.relates_to"]["rel_type"] == "m.thread"
+    assert first_content["m.relates_to"]["event_id"] == "$evt_plain_reply"
+
+
+@pytest.mark.asyncio
+async def test_team_does_not_respond_to_different_domain_mention(config_with_team: Config, tmp_path: Path) -> None:
+    """TeamBot should NOT respond to mentions of the same username on a different domain.
+
+    This is a security test - @mindroom_t1:evil.org should not trigger @mindroom_t1:localhost.
+    """
+    config_with_team = _bind_runtime_paths(config_with_team, tmp_path)
+    runtime_paths = runtime_paths_for(config_with_team)
+    ids = entity_ids(config_with_team, runtime_paths)
+    team_user = AgentMatrixUser(
+        agent_name="t1",
+        user_id=ids["t1"].full_id,
+        display_name="Team One",
+        password="p",  # noqa: S106
+    )
+    bot = TeamBot(
+        agent_user=team_user,
+        storage_path=tmp_path,
+        config=config_with_team,
+        runtime_paths=runtime_paths,
+        rooms=["!room:localhost"],
+        team_mode="coordinate",
+        enable_streaming=False,
+    )
+    bot.client = _make_matrix_client_mock()
+    install_runtime_cache_support(bot)
+    bot.orchestrator = MagicMock()
+
+    async def fake_team_response(*_args: Any, **_kwargs: Any) -> str:  # noqa: ANN401
+        return "🤝 Team Response (a1, a2): ok"
+
+    # Craft a mention using a DIFFERENT domain than the bot's MatrixID
+    # This simulates someone trying to impersonate the team
+    other_domain = "evil.org"
+    if team_user.matrix_id.domain == other_domain:
+        other_domain = "attacker.com"
+    mentioned_id = f"@mindroom_t1:{other_domain}"
+
+    room = _mock_room("!room:localhost", [team_user.user_id, "@user:localhost"])
+    event = _mock_event_with_team_mention(mentioned_id, body=f"{mentioned_id} ping")
+
+    with patch_response_runner_module(
+        team_response=fake_team_response,
+        should_use_streaming=AsyncMock(return_value=False),
+        typing_indicator=_noop_typing_indicator,
+    ):
+        await bot._on_message(room, event)
+
+    # Team bot should NOT have responded - different domain!
+    assert bot.client.room_send.call_count == 0
+    config_with_team = _bind_runtime_paths(config_with_team, tmp_path)

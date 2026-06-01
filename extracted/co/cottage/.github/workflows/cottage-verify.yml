@@ -1,0 +1,13 @@
+name: Cottage Verify
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  verify-secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+      - name: Verify secrets
+        run: docker run --rm -v "${{ github.workspace }}:/app" ghcr.io/sayanarijit/cottage:main verify

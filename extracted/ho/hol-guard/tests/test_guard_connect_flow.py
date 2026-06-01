@@ -1,0 +1,112 @@
+"""Focused tests for the OAuth-only Guard connect flow."""
+
+from __future__ import annotations
+
+import json
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+from codex_plugin_scanner.guard.cli.connect_flow import build_connect_status_payload
+from codex_plugin_scanner.guard.daemon import GuardDaemonServer
+from codex_plugin_scanner.guard.store import GuardStore
+
+
+def _initialize_daemon(daemon: GuardDaemonServer) -> dict[str, object]:
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{daemon.port}/v1/initialize",
+        data=json.dumps(
+            {
+                "client_name": "hol-guard-cli",
+                "surface": "cli",
+                "supported_protocol_versions": ["1.1"],
+            }
+        ).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=5) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    assert isinstance(payload, dict)
+    return payload
+
+
+def _post_legacy_connect_endpoint(
+    *,
+    daemon: GuardDaemonServer,
+    path: str,
+    token: object,
+) -> tuple[int, dict[str, object]]:
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{daemon.port}{path}",
+        data=json.dumps(
+            {
+                "allowed_origin": "https://hol.org",
+                "pairing_secret": "pairing-secret",
+                "request_id": "connect-123",
+                "sync_url": "https://hol.org/api/guard/receipts/sync",
+                "token": "legacy-sync-secret",
+            }
+        ).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "X-Guard-Token": str(token),
+        },
+        method="POST",
+    )
+    try:
+        urllib.request.urlopen(request, timeout=5)
+    except urllib.error.HTTPError as error:
+        payload = json.loads(error.read().decode("utf-8"))
+        assert isinstance(payload, dict)
+        return error.code, payload
+    raise AssertionError(f"{path} must reject legacy pairing")
+
+
+def test_daemon_rejects_legacy_connect_pairing_endpoints(tmp_path: Path) -> None:
+    store = GuardStore(tmp_path / "guard-home")
+    daemon = GuardDaemonServer(store, host="127.0.0.1", port=0)
+    daemon.start()
+
+    try:
+        initialize_payload = _initialize_daemon(daemon)
+        request_status, request_payload = _post_legacy_connect_endpoint(
+            daemon=daemon,
+            path="/v1/connect/requests",
+            token=initialize_payload["auth_token"],
+        )
+        complete_status, complete_payload = _post_legacy_connect_endpoint(
+            daemon=daemon,
+            path="/v1/connect/complete",
+            token=initialize_payload["auth_token"],
+        )
+        result_status, result_payload = _post_legacy_connect_endpoint(
+            daemon=daemon,
+            path="/v1/connect/result",
+            token=initialize_payload["auth_token"],
+        )
+    finally:
+        daemon.stop()
+
+    assert request_status == 410
+    assert request_payload["error"] == "legacy_pairing_disabled"
+    assert complete_status == 410
+    assert complete_payload["error"] == "legacy_pairing_disabled"
+    assert result_status == 410
+    assert result_payload["error"] == "legacy_pairing_disabled"
+    assert "legacy-sync-secret" not in json.dumps([request_payload, complete_payload, result_payload])
+
+
+def test_connect_repair_copy_points_to_device_code(tmp_path: Path) -> None:
+    payload = build_connect_status_payload(
+        store=GuardStore(tmp_path / "guard-home"),
+        sync_url="https://hol.org/api/guard/receipts/sync",
+        connect_url="https://hol.org/guard/connect",
+        action="repair",
+    )
+
+    rendered = json.dumps(payload)
+    assert payload["repair_action"] == "rerun_connect"
+    assert payload["repair_message"] == "Run hol-guard connect to start OAuth Device Code approval."
+    assert "pairing" not in rendered.lower()
+    assert "guardPairSecret" not in rendered

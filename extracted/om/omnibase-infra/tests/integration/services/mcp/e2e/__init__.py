@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""MCP E2E integration tests.
+
+This package contains end-to-end integration tests for the MCP server,
+testing the complete flow from SDK client to ONEX node discovery.
+
+Related Ticket: OMN-1408
+"""

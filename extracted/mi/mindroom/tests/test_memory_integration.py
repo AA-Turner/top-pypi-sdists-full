@@ -1,0 +1,218 @@
+"""Integration tests for memory-enhanced AI responses."""
+
+from __future__ import annotations
+
+from collections.abc import Generator  # noqa: TC003
+from typing import TYPE_CHECKING
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from agno.models.ollama import Ollama
+
+from mindroom.ai import ai_response
+from mindroom.config.agent import AgentConfig
+from mindroom.config.main import Config
+from mindroom.config.models import ModelConfig
+from mindroom.constants import RuntimePaths, resolve_runtime_paths
+from mindroom.memory import MemoryPromptParts
+from tests.identity_helpers import persist_entity_accounts
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+
+class TestMemoryIntegration:
+    """Test memory integration with AI responses."""
+
+    @staticmethod
+    def _config() -> Config:
+        return Config(
+            agents={"general": AgentConfig(display_name="General")},
+            models={"default": ModelConfig(provider="openai", id="test-model")},
+        )
+
+    @pytest.fixture
+    def mock_agent_run(self) -> AsyncMock:
+        """Mock the agent run function."""
+        mock = AsyncMock()
+        mock.return_value = MagicMock(content="Test response")
+        return mock
+
+    @pytest.fixture
+    def mock_memory_functions(self) -> Generator[AsyncMock, None, None]:
+        """Mock memory prompt splitting."""
+        with patch("mindroom.ai.build_memory_prompt_parts", new_callable=AsyncMock) as mock_build:
+            # Set up async side effects
+            async def build_side_effect(
+                prompt: str,
+                *_args: object,
+                **_kwargs: dict[str, object],
+            ) -> MemoryPromptParts:
+                return MemoryPromptParts(turn_context=f"[Enhanced memory] {prompt}")
+
+            mock_build.side_effect = build_side_effect
+            yield mock_build
+
+    @pytest.fixture
+    def config(self) -> Config:
+        """Build the minimal config needed for memory integration tests."""
+        return self._config()
+
+    @staticmethod
+    def _runtime_paths(tmp_path: Path) -> RuntimePaths:
+        return resolve_runtime_paths(config_path=tmp_path / "config.yaml", storage_path=tmp_path)
+
+    @pytest.mark.asyncio
+    async def test_ai_response_with_memory(
+        self,
+        mock_agent_run: AsyncMock,
+        mock_memory_functions: AsyncMock,
+        tmp_path: Path,
+        config: Config,
+    ) -> None:
+        """Test that AI response uses memory enhancement."""
+        mock_build = mock_memory_functions
+        runtime_paths = self._runtime_paths(tmp_path)
+        persist_entity_accounts(config, runtime_paths)
+
+        with (
+            patch("mindroom.ai_runtime.cached_agent_run", mock_agent_run),
+            patch("mindroom.model_loading.get_model_instance", return_value=Ollama(id="test-model")),
+            patch("mindroom.ai.create_agent", return_value=MagicMock()),
+        ):
+            response = await ai_response(
+                agent_name="general",
+                prompt="What is 2+2?",
+                session_id="test_session",
+                runtime_paths=runtime_paths,
+                config=config,
+                room_id="!test:room",
+            )
+
+            # Verify response
+            assert response == "Test response"
+
+            # Verify memory enhancement was applied
+            mock_build.assert_called_once_with(
+                "What is 2+2?",
+                "general",
+                tmp_path,
+                config,
+                runtime_paths,
+                execution_identity=None,
+                timing_scope="test_session",
+            )
+
+            # Verify enhanced prompt was used
+            mock_agent_run.assert_called_once()
+            call_args = mock_agent_run.call_args[0]
+            assert len(call_args[1]) == 1
+            assert call_args[1][0].role == "user"
+            assert call_args[1][0].content == "What is 2+2?\n\n[Enhanced memory] What is 2+2?"
+
+            # Note: Memory storage now happens at the bot level, not in ai_response
+
+    @pytest.mark.asyncio
+    async def test_ai_response_without_room_id(
+        self,
+        mock_agent_run: AsyncMock,
+        mock_memory_functions: AsyncMock,
+        tmp_path: Path,
+        config: Config,
+    ) -> None:
+        """Test AI response without room context."""
+        mock_build = mock_memory_functions
+        runtime_paths = self._runtime_paths(tmp_path)
+
+        with (
+            patch("mindroom.ai_runtime.cached_agent_run", mock_agent_run),
+            patch("mindroom.model_loading.get_model_instance", return_value=Ollama(id="test-model")),
+            patch("mindroom.ai.create_agent", return_value=MagicMock()),
+        ):
+            await ai_response(
+                agent_name="general",
+                prompt="Hello",
+                session_id="test_session",
+                runtime_paths=runtime_paths,
+                config=config,
+                room_id=None,
+            )
+
+            # Verify memory enhancement remains agent-scoped
+            mock_build.assert_called_once_with(
+                "Hello",
+                "general",
+                tmp_path,
+                config,
+                runtime_paths,
+                execution_identity=None,
+                timing_scope="test_session",
+            )
+
+            # Note: Memory storage now happens at the bot level, not in ai_response
+
+    @pytest.mark.asyncio
+    async def test_ai_response_error_handling(self, tmp_path: Path, config: Config) -> None:
+        """Test error handling in AI response."""
+        # Mock memory to prevent real memory instance creation during error handling
+        mock_memory = AsyncMock()
+        mock_memory.search.return_value = {"results": []}
+
+        with (
+            patch("mindroom.ai.create_agent", side_effect=Exception("Model error")),
+            patch("mindroom.memory.functions.create_memory_instance", return_value=mock_memory),
+        ):
+            response = await ai_response(
+                agent_name="general",
+                prompt="Test",
+                session_id="session",
+                runtime_paths=self._runtime_paths(tmp_path),
+                config=config,
+            )
+
+            # Should return user-friendly error message with the actual error
+            assert "Error: Model error" in response
+
+    @pytest.mark.asyncio
+    async def test_memory_persistence_across_calls(self, tmp_path: Path, config: Config) -> None:
+        """Test that memory persists across multiple AI calls."""
+        # This is more of a documentation test showing expected behavior
+        mock_memory = AsyncMock()
+
+        # First call - no memories
+        mock_memory.search.return_value = {"results": []}
+
+        with (
+            patch("mindroom.memory.functions.create_memory_instance", return_value=mock_memory),
+            patch("mindroom.ai_runtime.cached_agent_run", AsyncMock(return_value=MagicMock(content="First response"))),
+            patch("mindroom.model_loading.get_model_instance", return_value=Ollama(id="test-model")),
+            patch("mindroom.ai.create_agent", return_value=MagicMock()),
+        ):
+            # First interaction
+            await ai_response(
+                agent_name="general",
+                prompt="Remember this: A=1",
+                session_id="session1",
+                runtime_paths=self._runtime_paths(tmp_path),
+                config=config,
+            )
+
+            # Note: Memory storage now happens at the bot level, not in ai_response
+            # This test just demonstrates the memory integration with prompt enhancement
+
+            # Reset for second call
+            mock_memory.reset_mock()
+
+            # Second call - should find previous memory (only user prompt stored)
+            mock_memory.search.return_value = {"results": [{"memory": "Remember this: A=1", "id": "1"}]}
+
+            await ai_response(
+                agent_name="general",
+                prompt="What is A?",
+                session_id="session2",
+                runtime_paths=self._runtime_paths(tmp_path),
+                config=config,
+            )
+
+            # Memory search should have been called
+            mock_memory.search.assert_called_with("What is A?", filters={"user_id": "agent_general"}, top_k=3)

@@ -1,0 +1,40 @@
+[build-system]
+# requires = ["setuptools >= 40.6.0", "wheel"]
+requires = ["hatchling>=1.27.0", "wheel"]
+
+# build-backend = "setuptools.build_meta"
+build-backend = "hatchling.build"
+
+[project]
+name="evalidate"
+dynamic = [ "version" ]
+keywords = ["python", "security", "json", "sandbox", "filter", "evaluation", "expression", "secure", "jq", "jg", "validate", "safe", "grep", "eval", "evaluate", "jg"]
+
+dependencies = []
+authors = [
+  { name="Yaroslav Polyakov", email="yaroslaff@gmail.com" },
+]
+description = "Validation and secure evaluation of untrusted python expressions"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.optional-dependencies]
+generate = ["faker"]
+
+
+[project.urls]
+Homepage = "https://github.com/yaroslaff/evalidate"
+Issues = "https://github.com/yaroslaff/evalidate/issues"
+
+
+[project.scripts]
+genfakeproducts = "evalidate.cli.genfakeproducts:main"
+jg = "evalidate.cli.jg:main"
+
+[tool.hatch.version]
+path = 'evalidate/__init__.py'

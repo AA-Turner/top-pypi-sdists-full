@@ -1,0 +1,51 @@
+doc: |
+  bty USB live env build (live-build iso-hybrid)
+  ===============================================
+
+  Builds a hybrid ISO from the same live-build chroot that produces
+  the netboot artifacts for ``netboot-x86``. The output is a stock
+  bootable ISO image (BIOS + UEFI) that operators write to a USB
+  stick with whatever tool they prefer (``dd``, Balena Etcher,
+  Rufus) or drop onto a Ventoy stick alongside other rescue ISOs.
+
+  The chroot carries the bty runtime and ``bty-on-tty1.service``
+  (the merged dispatcher: GETs ``<server>/pxe/<mac>/plan`` and
+  runs auto-flash / interactive wizard / no-op). The pre-built
+  artifact ships a writable ``BTY_IMAGES`` exFAT partition that
+  ``var-lib-bty-images.mount`` attaches at
+  ``/var/lib/bty/images``. When booted from USB with no
+  ``bty.server`` / ``bty.mac`` on the kernel cmdline, ``bty``
+  runs flagless and finds the operator's catalog there; when
+  chained from a bty server's iPXE script with ``bty.server=`` +
+  ``bty.mac=``, the same unit drives the network-flash path
+  through the plan endpoint. Same image, same code; the bty-server
+  decides the mode.
+
+  Steps:
+
+  1. ``bty_wheel_stage`` - builds the bty-lab wheel from the parent
+     repo and stages it under
+     ``live-build/config/includes.chroot/opt/bty/``. live-build's
+     chroot hook installs it (with the ``[tui]`` extra) into
+     ``/opt/bty/venv``.
+  2. ``usb_iso_build`` - copies ``live-build/`` into a working dir,
+     reconfigures it for ``--binary-images iso-hybrid`` with both
+     ``syslinux`` (BIOS) and ``grub-efi`` (UEFI) bootloaders,
+     runs ``lb clean --all && lb build``, and publishes
+     ``bty-usb-x86_64.iso.gz`` plus a sha256 manifest under
+     ``publish.dir`` (the raw .iso is dropped after compression -
+     it exceeds GitHub's 2 GiB per-release-asset upload limit).
+     gzip is chosen over xz/zstd because Etcher's bundled xz
+     decompressor fails on our output regardless of how it's
+     shaped; gzip works in every flasher.
+
+  Requires: live-build on the build host (``apt install live-build``)
+  plus passwordless sudo (live-build's chroot operations are
+  privileged). CI runners have NOPASSWD; local devs run with sudo.
+
+steps:
+- name: bty_wheel_stage
+  uses: bty_wheel_stage
+
+- name: usb_iso_build
+  uses: usb_iso_build

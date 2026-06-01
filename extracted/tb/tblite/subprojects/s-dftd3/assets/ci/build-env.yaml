@@ -1,9 +1,0 @@
-name: devel
-channels:
-  - conda-forge
-dependencies:
-  - meson >=1.2.3,!=1.8.0
-  - fpm
-  - cmake
-  - ninja
-  - gcovr

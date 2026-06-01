@@ -61,7 +61,7 @@ async def test_protocol_read_limit_overrun(
     monkeypatch.setattr("aiosmtplib.protocol.MAX_LINE_LENGTH", 128)
 
     with pytest.raises(SMTPResponseException) as exc_info:
-        await protocol.execute_command(b"TEST\n", timeout=1.0)  # type: ignore
+        await protocol.execute_command(b"TEST", timeout=1.0)  # type: ignore
 
     assert exc_info.value.code == 500
     assert "Response too long" in exc_info.value.message
@@ -254,7 +254,7 @@ async def test_protocol_response_waiter_unset(
     monkeypatch.setattr(protocol, "_response_waiter", None)
 
     with pytest.raises(SMTPServerDisconnected):
-        await protocol.execute_command(b"TEST\n", timeout=1.0)  # type: ignore
+        await protocol.execute_command(b"TEST", timeout=1.0)  # type: ignore
 
     server.close()
     await cleanup_server(server)
@@ -287,7 +287,7 @@ async def test_protocol_data_received_called_twice(
 
     _, protocol = await asyncio.wait_for(connect_future, timeout=1.0)
 
-    response = await protocol.execute_command(b"TEST\n", timeout=1.0)  # type: ignore
+    response = await protocol.execute_command(b"TEST", timeout=1.0)  # type: ignore
 
     assert response.code == 220
     assert response.message == "Hi"
@@ -348,8 +348,8 @@ async def test_protocol_exception_cleanup_warning(
     )
     _, protocol = await asyncio.wait_for(connect_future, timeout=1.0)
 
-    await protocol.execute_command(b"HELO\n", timeout=1.0)
-    await protocol.execute_command(b"QUIT\n", timeout=1.0)
+    await protocol.execute_command(b"HELO", timeout=1.0)
+    await protocol.execute_command(b"QUIT", timeout=1.0)
 
     del protocol
     # Force garbage collection
@@ -374,7 +374,7 @@ async def test_protocol_missing_command_lock_disconnected() -> None:
     protocol = SMTPProtocol(event_loop)
 
     with pytest.raises(SMTPServerDisconnected):
-        await protocol.execute_command(b"TEST\n")
+        await protocol.execute_command(b"TEST")
 
     with pytest.raises(SMTPServerDisconnected):
         await protocol.execute_data_command(b"TEST\n")
@@ -480,3 +480,105 @@ async def test_flow_control_mixin_drain_helper_connection_lost() -> None:
 
     with pytest.raises(ConnectionResetError):
         await flow_control._drain_helper()
+
+
+class _FakeTransport(asyncio.Transport):
+    """Minimal transport stub for driving SMTPProtocol callbacks directly."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._extra: dict[str, object] = {"sslcontext": object()}
+
+    def get_extra_info(self, name: str, default: object = None) -> object:
+        return self._extra.get(name, default)
+
+    def is_closing(self) -> bool:
+        return False
+
+
+async def test_protocol_connection_lost_after_quit_resolves_waiter() -> None:
+    """
+    Regression test for https://github.com/cole/aiosmtplib/issues/345.
+
+    When the peer drops the transport with an exception after ``QUIT\\r\\n``
+    has been written but before the 221 reply is parsed (e.g. AWS SES closes
+    TLS without ``close_notify``, surfaced as ``connection_lost(SSLEOFError)``),
+    the response waiter must be resolved so that ``SMTP.quit()`` returns
+    promptly instead of blocking until the read timeout.
+    """
+    protocol = SMTPProtocol()
+    protocol.connection_made(_FakeTransport())
+
+    protocol._quit_sent = True
+    waiter = protocol._response_waiter
+    assert waiter is not None and not waiter.done()
+
+    protocol.connection_lost(ssl.SSLEOFError("EOF occurred in violation of protocol"))
+
+    assert waiter.done()
+    assert waiter.exception() is None
+    response = waiter.result()
+    assert response.code == 221
+
+
+async def test_protocol_connection_lost_without_quit_raises() -> None:
+    """
+    Without an outstanding QUIT, ``connection_lost`` must continue to
+    surface ``SMTPServerDisconnected`` on the response waiter.
+    """
+    protocol = SMTPProtocol()
+    protocol.connection_made(_FakeTransport())
+
+    waiter = protocol._response_waiter
+    assert waiter is not None and not waiter.done()
+
+    protocol.connection_lost(ConnectionResetError("boom"))
+
+    assert waiter.done()
+    exc = waiter.exception()
+    assert isinstance(exc, SMTPServerDisconnected)
+
+
+class _WriteRecordingTransport(_FakeTransport):
+    def __init__(self) -> None:
+        super().__init__()
+        self.writes: list[bytes] = []
+
+    def write(self, data: bytes) -> None:
+        self.writes.append(data)
+
+
+@pytest.mark.parametrize(
+    "arg",
+    (
+        b"FROM:<a@b.com\r\nRCPT TO:<hijacker@example.com>",
+        b"FROM:<a@b.com\rRCPT TO:<hijacker@example.com>",
+        b"FROM:<a@b.com\nRCPT TO:<hijacker@example.com>",
+        b"FROM:<a@b.com\x00>",
+        b"FROM:<a@b.com\tEVIL>",
+        b"FROM:<a@b.com\x7f>",
+    ),
+    ids=("crlf", "cr", "lf", "nul", "tab", "del"),
+)
+async def test_protocol_execute_command_rejects_injected_args(arg: bytes) -> None:
+    protocol = SMTPProtocol()
+    transport = _WriteRecordingTransport()
+    protocol.connection_made(transport)
+
+    with pytest.raises(ValueError, match="prohibited"):
+        await protocol.execute_command(b"MAIL", arg, timeout=1.0)
+
+    assert transport.writes == []
+
+
+async def test_protocol_execute_command_rejects_injected_option() -> None:
+    protocol = SMTPProtocol()
+    transport = _WriteRecordingTransport()
+    protocol.connection_made(transport)
+
+    with pytest.raises(ValueError, match="prohibited"):
+        await protocol.execute_command(
+            b"MAIL", b"FROM:<a@b.com>", b"BODY=8BITMIME\r\nDATA", timeout=1.0
+        )
+
+    assert transport.writes == []

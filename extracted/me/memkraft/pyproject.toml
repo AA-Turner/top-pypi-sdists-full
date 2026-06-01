@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "memkraft"
+version = "2.11.0"
+description = "The compound knowledge system for AI agents"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    {name = "Seojun Kim", email = "simonkim.nft@gmail.com"},
+]
+keywords = ["ai", "agents", "memory", "knowledge-graph", "compound", "cli", "pipx", "mcp"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Environment :: Console",
+    "Topic :: Utilities",
+]
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.0"]
+watch = ["watchdog>=3.0"]
+bench = ["anthropic>=0.18.0"]
+schedule = ["apscheduler>=3.10"]
+embedding = ["sentence-transformers>=2.2,<6", "numpy>=1.21"]
+all = ["mcp>=1.0", "watchdog>=3.0", "anthropic>=0.18.0", "apscheduler>=3.10", "sentence-transformers>=2.2,<6", "numpy>=1.21"]
+
+[project.scripts]
+memkraft = "memkraft.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/seojoonkim/memkraft"
+Repository = "https://github.com/seojoonkim/memkraft"
+Documentation = "https://github.com/seojoonkim/memkraft/tree/main/docs"
+"Bug Tracker" = "https://github.com/seojoonkim/memkraft/issues"
+Changelog = "https://github.com/seojoonkim/memkraft/blob/main/CHANGELOG.md"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+memkraft = [
+    "templates/*.md",
+    "prompts/templates/*.md",
+    "stopwords.json",
+    "templates_pkg/*.json",
+]

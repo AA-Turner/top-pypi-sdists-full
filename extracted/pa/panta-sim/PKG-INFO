@@ -1,0 +1,334 @@
+Metadata-Version: 2.4
+Name: panta-sim
+Version: 0.6.7
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Rust
+Classifier: Topic :: Scientific/Engineering :: Physics
+Requires-Dist: numpy>=1.20
+Requires-Dist: cirq-core>=1.3 ; extra == 'cirq'
+Requires-Dist: pytest>=7 ; extra == 'dev'
+Requires-Dist: matplotlib>=3.5 ; extra == 'dev'
+Requires-Dist: qiskit>=1.0 ; extra == 'dev'
+Requires-Dist: qiskit-aer>=0.13 ; extra == 'dev'
+Requires-Dist: pennylane>=0.35 ; extra == 'dev'
+Requires-Dist: cirq-core>=1.3 ; extra == 'dev'
+Requires-Dist: pennylane>=0.35 ; extra == 'pennylane'
+Requires-Dist: qiskit>=1.0 ; extra == 'qiskit'
+Requires-Dist: matplotlib>=3.5 ; extra == 'viz'
+Provides-Extra: cirq
+Provides-Extra: dev
+Provides-Extra: pennylane
+Provides-Extra: qiskit
+Provides-Extra: viz
+License-File: LICENSE
+Summary: Full Rust core quantum circuit simulator with Python bindings
+Keywords: quantum,simulator,quantum-computing,rust,pyo3
+Author: quantumfia
+License: MIT
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Issues, https://github.com/quantumfia/quantum-sim/issues
+Project-URL: Repository, https://github.com/quantumfia/quantum-sim
+
+# panta-sim
+
+[![PyPI](https://img.shields.io/pypi/v/panta-sim.svg)](https://pypi.org/project/panta-sim/)
+[![Python](https://img.shields.io/pypi/pyversions/panta-sim.svg)](https://pypi.org/project/panta-sim/)
+[![CI](https://github.com/quantumfia/quantum-sim/actions/workflows/ci.yml/badge.svg)](https://github.com/quantumfia/quantum-sim/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/pypi/l/panta-sim.svg)](https://github.com/quantumfia/quantum-sim/blob/main/LICENSE)
+
+풀 Rust 코어 + Python 바인딩으로 작성한 양자 회로 시뮬레이터.
+Full state vector + density matrix + cross-platform GPU (wgpu) 지원.
+
+- **Rust 코어**: `num-complex` 기반 상태 벡터, qubit-wise multiplication
+- **멀티스레드**: rayon 으로 게이트 적용 병렬화 (v0.2.0~), Python GIL 해제
+- **f32/f64 정밀도 선택** (v0.2.1~): `qc.run(precision="f32")` 로 메모리 50% 절감
+- **OpenQASM 2.0/3.0** import / export (v0.3.0~), 트랜스파일러 (Z-Y-Z 분해)
+- **시각화**: 회로 다이어그램, 측정 히스토그램, Bloch sphere (v0.3~)
+- **외부 프레임워크 어댑터**: Qiskit / PennyLane / Cirq (v0.3.5~), Aer NoiseModel
+- **노이즈 모델** (v0.4~): 4 채널 stochastic trajectory (BitFlip / PhaseFlip /
+  Depolarizing / AmplitudeDamping)
+- **Mid-circuit measurement / classical control / reset** (v0.4.5~), block-form
+  control flow (`if_test` / `while_loop` / `for_loop` / `switch`, v0.4.7~)
+- **Density matrix backend** (v0.5.0~): `qc.run(method="density_matrix")` 로
+  noise 결정적 Kraus 적용, Aer 와 ‖ρ‖ < 1e-10 일치
+- **GPU 가속 (wgpu Tier-1, v0.5.0~)**: `qc.run(method="wgpu")` —
+  cross-platform NVIDIA / AMD / Intel / Apple Silicon, Vulkan / DX12 / Metal
+  자동 선택. statevector + density matrix 모두 지원, 27 큐비트까지 동작 (v0.5.2).
+- **Python API**: PyO3 + maturin, NumPy 연동
+- **검증**: 526 pytest + 282 cargo test, Aer cross-check ‖ρ‖ < 1e-10,
+  wgpu vs CPU 1e-5 (f32 한계)
+
+## 설치
+
+```bash
+pip install panta-sim
+```
+
+Linux (x86_64, aarch64) / macOS (Apple Silicon) / Windows (x64) 에서 Python 3.9~3.13 미리 빌드된 wheel 을 제공한다. Rust toolchain 은 필요 없다.
+
+> 소스에서 직접 빌드하려면:
+>
+> ```bash
+> # 사전 요구 사항: Rust toolchain (rustup), Python >= 3.9, maturin
+> pip install maturin
+> git clone https://github.com/quantumfia/quantum-sim
+> cd quantum-sim
+> maturin develop --release   # 또는 pip install .
+> ```
+
+## 빠른 시작
+
+```python
+from panta_sim import QuantumCircuit
+
+# Bell state |Φ+⟩ = (|00⟩ + |11⟩)/√2
+qc = QuantumCircuit(2)
+qc.h(0)
+qc.cx(0, 1)
+qc.measure_all()
+
+result = qc.run(shots=1024, seed=42)
+print(result.counts())          # {'00': ~512, '11': ~512}
+print(result.statevector())     # [0.707+0j, 0+0j, 0+0j, 0.707+0j]
+print(result.probabilities())   # [0.5, 0, 0, 0.5]
+```
+
+`QuantumCircuit` 의 게이트 메서드는 모두 self 를 반환하므로 메서드 체이닝도 가능하다:
+
+```python
+counts = (
+    QuantumCircuit(3)
+    .h(0)
+    .cx(0, 1)
+    .cx(0, 2)
+    .measure_all()
+    .run(shots=1024, seed=0)
+    .counts()
+)
+```
+
+> `pip install panta-sim` (배포 이름) → `import panta_sim` (Python 모듈 이름).
+
+## 지원 게이트
+
+| 분류 | 게이트 | 메서드 |
+| --- | --- | --- |
+| 단일 큐비트 | Hadamard / Identity | `h(q)`, `id(q)` |
+| 단일 큐비트 | Pauli-X / Y / Z | `x(q)`, `y(q)`, `z(q)` |
+| 단일 큐비트 | Phase / T (+ adjoint) | `s(q)`, `sdg(q)`, `t(q)`, `tdg(q)` |
+| 단일 큐비트 | √X / √X† (v0.4.7) | `sx(q)`, `sxdg(q)` |
+| 단일 큐비트 | OpenQASM `p` / `u2` / `u` (v0.4.7) | `p(λ, q)`, `u2(φ, λ, q)`, `u(θ, φ, λ, q)` |
+| 회전 | Rx / Ry / Rz | `rx(θ, q)`, `ry(θ, q)`, `rz(θ, q)` |
+| 1큐비트 unitary | 임의 2×2 행렬 | `unitary(matrix, q)` |
+| 2큐비트 | CNOT / CZ / SWAP | `cx(c, t)`, `cz(a, b)`, `swap(a, b)` |
+| 2큐비트 controlled (v0.4.7) | CY / CH | `cy(c, t)`, `ch(c, t)` |
+| 2큐비트 controlled rotation (v0.4.7) | CRx / CRy / CRz / CP | `crx(θ, c, t)`, `cry(θ, c, t)`, `crz(θ, c, t)`, `cp(λ, c, t)` |
+| 2큐비트 controlled-U (v0.4.7) | CU3 / CU | `cu3(θ, φ, λ, c, t)`, `cu(θ, φ, λ, γ, c, t)` |
+| 3큐비트 | Toffoli (CCX) / Fredkin (CSWAP) | `ccx(c1, c2, t)`, `cswap(c, t1, t2)` |
+| Reset / Dynamic (v0.4.5~) | reset / classical control | `reset(q)`, `<gate>().c_if(c, value)` |
+| Block control flow (v0.4.7) | if_test / while_loop / for_loop / switch | `with qc.if_test((c, v))`, `with qc.while_loop(...)` 등 |
+| 측정 | 부분 / 전체 측정 | `measure(q, c)`, `measure_all()` |
+
+비트 순서 규약은 Qiskit 과 동일한 little-endian 이다 (`q_{n-1} … q_1 q_0`).
+`counts()` 의 키는 MSB-first 비트 문자열, statevector 의 인덱스는 동일한 비트열을 정수로 해석한 값이다.
+
+## 빌드 / 테스트
+
+```bash
+cargo build --release          # Rust 전체 빌드
+cargo test                     # Rust 유닛 테스트 (core + simulator)
+maturin develop --release      # Python 바인딩 빌드 (개발 모드)
+pytest tests/                  # Python 통합 테스트 + Qiskit 교차검증
+pytest tests/ -v               # 상세 출력
+```
+
+Qiskit 교차검증 테스트는 `qiskit` 패키지가 설치되어 있을 때만 실행되며,
+설치되어 있지 않으면 자동으로 skip 된다.
+
+## 예제
+
+`examples/` 디렉터리 참고:
+
+- `bell_state.py` — Bell 상태 생성 및 측정
+- `grover.py` — 2큐비트 Grover 탐색
+- `qft.py` — Quantum Fourier Transform
+- `mps/ghz_100_showcase.py` — GHZ-100 (statevector OOM 영역) MPS sampling (v0.6.3)
+- `mps/qaoa_maxcut_ring.py` — QAOA p=1 MaxCut on Ring N=30 (wraparound edge auto-handled) (v0.6.3)
+- `mps/hea_n30.py` — Hardware-Efficient Ansatz, depth=5, N=30 + truncation error 비교 (v0.6.3)
+
+```bash
+python examples/bell_state.py
+python examples/grover.py
+python examples/qft.py
+python examples/mps/ghz_100_showcase.py
+python examples/mps/qaoa_maxcut_ring.py
+python examples/mps/hea_n30.py
+```
+
+## 프로젝트 구조
+
+```
+quantum-sim/
+├── crates/
+│   ├── core/              상태 벡터, 게이트 행렬, 복소수 연산
+│   ├── simulator/         시뮬레이션 엔진, 측정, 회로 실행기
+│   └── python-binding/    PyO3 바인딩
+├── python/panta_sim/      사용자용 Python 라이브러리
+├── tests/                 pytest 통합 테스트
+├── examples/              사용 예제
+└── docs/                  설계 문서 (plan.md, architecture.md, references.md)
+```
+
+## Backend 선택
+
+`qc.run(method=...)` 으로 4 가지 backend 선택 가능 (v0.5.2):
+
+```python
+qc.run(method="statevector")           # 기본 — CPU rayon, f64 default
+qc.run(method="density_matrix")        # CPU density matrix (Aer 와 동일 의미)
+qc.run(method="wgpu")                  # GPU statevector (Vulkan / DX12 / Metal)
+qc.run(method="wgpu_density_matrix")   # GPU density matrix
+```
+
+| Backend | 메모리 | 최대 N (v0.5.20) | 특징 |
+| --- | --- | --- | --- |
+| `statevector` (CPU) | 2ⁿ × 16B (f64) | RAM 한계 (~30) | 기본, rayon 병렬 |
+| `density_matrix` (CPU) | 4ⁿ × 16B | ~14 | noise 결정적 ρ, Aer ‖ρ‖ < 1e-10 일치 |
+| `wgpu` (GPU statevector) | 2ⁿ × 8B (f32 강제) | **32** (NVIDIA/AMD desktop) / **31** (Apple/Intel) | cross-platform, K=2/4/8/16/32 buffer split |
+| `wgpu_density_matrix` | 4ⁿ × 8B | ~13 | GPU 노이즈 시뮬 |
+| `cuda` (cuStateVec, gpu-cuda feature) | 2ⁿ × 8B (f32) / 16B (f64) | 32+ (NVIDIA only) | cuQuantum native, source 빌드 필요 |
+
+#### N 한계 (wgpu Tier-1 의 K-buffer split, v0.5.20 시점)
+
+| N | sv 크기 | K | binding | 지원 GPU |
+|---|---|---|---|---|
+| ≤27 | ≤1 GiB | 1 | 2 | 모든 GPU |
+| 28 | 2 GiB | 2 | 3 | 모든 GPU |
+| 29 | 4 GiB | 4 | 5 | 모든 GPU |
+| 30 | 8 GiB | 8 | 9 | 거의 모든 GPU |
+| 31 | 16 GiB | 16 | 17 | NVIDIA / AMD / Apple Metal / Intel Arc |
+| 32 | 32 GiB | 32 | 33 | NVIDIA / AMD desktop only (Apple Metal 31 binding 한계) |
+
+#### Cross-platform 외부 검증 (사용자 PC 보고)
+
+| Vendor | GPU | VRAM | 검증 N | Driver | 일자 |
+| --- | --- | --- | --- | --- | --- |
+| NVIDIA | DGX Spark (GB10) | 119 GiB unified | 27~29 | 580.126.09 + Vulkan 1.4 | 2026-05-04 |
+| **AMD** | **Radeon RX 6600** (RDNA 2) | **8 GB** | **27~29** (8GB VRAM 한계) | **Adrenalin 25.9.1 + Vulkan 1.4.315** | **2026-05-04** |
+| sandbox | lavapipe (Mesa SIMD) | host RAM | 22 (시간상) | Mesa 26 | 모든 release |
+
+panta-sim 의 wgpu Tier-1 cross-platform claim 검증 — **NVIDIA + AMD 두 vendor
+모두 Qiskit Aer 와 max diff 1.21e-08 (f32 round-off)** 일치 확인.
+Apple Silicon / Intel Arc 검증은 사용자 환경 가용성 따라 추가 예정.
+
+### Density matrix (v0.5.0~)
+
+```python
+from panta_sim import QuantumCircuit, NoiseModel
+
+qc = QuantumCircuit(2)
+qc.h(0); qc.cx(0, 1)             # Bell |Φ+⟩
+
+# Pure state ρ = |Φ+⟩⟨Φ+| (off-diagonal 0.5 살아 있음)
+result = qc.run(shots=0, method="density_matrix")
+rho = result.density_matrix()      # numpy (4, 4) complex128
+print(rho)
+# [[0.5+0.j 0+0.j 0+0.j 0.5+0.j]
+#  [0+0.j  0+0.j 0+0.j 0+0.j ]
+#  [0+0.j  0+0.j 0+0.j 0+0.j ]
+#  [0.5+0.j 0+0.j 0+0.j 0.5+0.j]]
+
+# Noise 가 있으면 결정적 Kraus 적용 — Aer method='density_matrix' 와 동치
+qc2 = QuantumCircuit(1); qc2.id(0)
+nm = NoiseModel().add_bit_flip(0.3)
+rho = qc2.run(shots=0, noise_model=nm, method="density_matrix").density_matrix()
+print(rho.diagonal().real)       # [0.7, 0.3] — shot noise 0
+```
+
+### GPU 가속 (v0.5.0~)
+
+`method="wgpu"` 는 cross-platform — NVIDIA / AMD / Intel / Apple Silicon 모두 동작.
+별도 SDK / driver 추가 설치 불필요 (OS native GPU driver 만 있으면).
+
+```python
+from panta_sim import QuantumCircuit
+import time
+
+qc = QuantumCircuit(25)
+qc.h(0)
+for q in range(24):
+    qc.cx(q, q + 1)
+qc.measure_all()
+
+t0 = time.perf_counter(); qc.run(shots=100, seed=42)
+print(f"CPU: {time.perf_counter() - t0:.2f}s")
+
+t0 = time.perf_counter(); qc.run(shots=100, seed=42, method="wgpu")
+print(f"GPU: {time.perf_counter() - t0:.2f}s")
+```
+
+GPU 환경에 따른 성능 (대략, 25 큐비트 GHZ 기준):
+
+| GPU 종류 | wgpu vs CPU speedup |
+| --- | --- |
+| **Discrete GPU** (RTX 4090 / H100 등 별도 VRAM) | **5~30×** (메모리 BW 차이) |
+| **Apple M-series** (unified memory) | 2~5× |
+| **Integrated GPU** (DGX Spark / 노트북 iGPU, 메모리 공유) | 0.7~1.5× (CPU 와 비슷) |
+
+GPU 가 CPU 보다 **반드시** 빠른 것은 아니며, 환경 (특히 메모리 대역폭) 에 따라 차이.
+NVIDIA H100 같은 데이터센터 GPU 에서 가장 큰 이득.
+
+GPU 한계 초과 시 친화적 `ValueError` (v0.5.1~):
+
+```python
+try:
+    qc = QuantumCircuit(28)       # 2 GB sv → wgpu storage buffer 한계
+    qc.h(0)
+    qc.run(shots=100, method="wgpu")
+except ValueError as e:
+    print(e)                        # "Buffer binding range 2GB 초과 ... method='statevector' (CPU) 사용"
+    qc.run(shots=100)              # CPU 로 자동 fallback
+```
+
+## 성능
+
+- **CPU rayon**: 멀티스레드 병렬화 (v0.2.0~), amplitude < 8192 (≈ 13 큐비트) 인
+  작은 회로는 직렬 폴백으로 회귀 0건 유지.
+- **f32 / f64 정밀도 선택** (v0.2.1+): `qc.run(precision="f32")` 로 메모리
+  ~50% 절감 → 같은 RAM 에서 큐비트 1개 더.
+- **GPU wgpu** (v0.5.0~): 27 큐비트까지 (buffer 한계, v0.5.x patch 또는 v0.6 에서 확장 예정).
+
+자세한 벤치는 [`benches/results/`](benches/results/),
+[`examples/validation/RESULTS.md`](examples/validation/RESULTS.md),
+[`docs/benchmarks/`](docs/benchmarks/) 참고.
+
+## 로드맵 / 미구현
+
+- v0.2 — CPU 성능 ✅ (rayon, f32) / SIMD ❌ (postmortem)
+- v0.3 — OpenQASM 2.0/3.0, 트랜스파일러, 시각화 ✅
+- v0.3.5 — Qiskit / PennyLane / Cirq 어댑터 ✅
+- v0.4 — 노이즈 모델 ✅, mid-circuit measure / classical control ✅, block control flow ✅
+- v0.5 — Density matrix backend ✅, GPU (wgpu Tier-1) ✅, cuStateVec FFI placeholder ⚠
+- v0.5.x — wgpu N=28+ buffer 분할 / cuStateVec PyPI 배포 / GPU dynamic 회로
+- v0.6 — Tensor Network / MPS (1000+ 큐비트, shallow circuit)
+- v0.7 — VQE / QAOA + 자동 미분 (parameter-shift)
+- v0.8 — 실 QPU 연동 (IBM Runtime / Braket / Azure)
+
+상세 로드맵은 [`docs/plan.md`](docs/plan.md) 참고.
+
+## 참고 자료
+
+- 설계 문서: [`docs/architecture.md`](docs/architecture.md)
+- 개발 계획(WBS): [`docs/plan.md`](docs/plan.md)
+- 참고 논문: [`docs/references.md`](docs/references.md)
+

@@ -1,0 +1,134 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = [
+  "hatch-vcs",
+  "hatchling>=1.27",
+]
+
+[project]
+name = "pypistats"
+description = "Python interface to PyPI Stats API https://pypistats.org/api"
+readme = "README.md"
+keywords = [
+  "BigQuery",
+  "downloads",
+  "PyPI",
+  "statistics",
+  "stats",
+]
+license = "MIT"
+license-files = [ "LICENSE.txt" ]
+authors = [ { name = "Hugo van Kemenade" } ]
+requires-python = ">=3.10"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Intended Audience :: End Users/Desktop",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Typing :: Typed",
+]
+dynamic = [ "version" ]
+dependencies = [
+  "platformdirs",
+  "prettytable>=3.12",
+  "pytablewriter[html]>=0.63",
+  "python-slugify",
+  "termcolor>=3.2",
+  "tomli; python_version<'3.11'",
+  "urllib3>=2",
+]
+optional-dependencies.numpy = [
+  "numpy",
+]
+optional-dependencies.pandas = [
+  "pandas",
+]
+optional-dependencies.tests = [
+  "freezegun",
+  "pyfakefs",
+  "pytest",
+  "pytest-cov",
+]
+urls.Changelog = "https://github.com/hugovk/pypistats/releases"
+urls.Homepage = "https://github.com/hugovk/pypistats"
+urls.Source = "https://github.com/hugovk/pypistats"
+scripts.pypistats = "pypistats.cli:main"
+
+[tool.hatch]
+version.source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/pypistats/_version.py"
+
+[tool.hatch.version.raw-options]
+local_scheme = "no-local-version"
+
+[tool.ruff]
+fix = true
+
+lint.select = [
+  "C4",     # flake8-comprehensions
+  "E",      # pycodestyle errors
+  "EM",     # flake8-errmsg
+  "F",      # pyflakes
+  "I",      # isort
+  "ICN",    # flake8-import-conventions
+  "ISC",    # flake8-implicit-str-concat
+  "LOG",    # flake8-logging
+  "PGH",    # pygrep-hooks
+  "PIE",    # flake8-pie
+  "PT",     # flake8-pytest-style
+  "PYI",    # flake8-pyi
+  "RUF022", # unsorted-dunder-all
+  "RUF100", # unused noqa (yesqa)
+  "TC",     # flake8-type-checking
+  "UP",     # pyupgrade
+  "W",      # pycodestyle warnings
+  "YTT",    # flake8-2020
+]
+lint.ignore = [
+  "E203",   # Whitespace before ':'
+  "E221",   # Multiple spaces before operator
+  "E226",   # Missing whitespace around arithmetic operator
+  "E241",   # Multiple spaces after ','
+  "PIE790", # flake8-pie: unnecessary-placeholder
+]
+lint.flake8-import-conventions.aliases.datetime = "dt"
+lint.flake8-import-conventions.banned-from = [ "datetime" ]
+lint.flake8-pytest-style.parametrize-names-type = "csv"
+lint.isort.known-first-party = [ "pypistats" ]
+lint.isort.required-imports = [ "from __future__ import annotations" ]
+lint.future-annotations = true
+
+[tool.pyproject-fmt]
+max_supported_python = "3.15"
+
+[tool.pytest.ini_options]
+addopts = "--color=yes"
+testpaths = [ "tests" ]
+
+[tool.coverage.run]
+omit = [
+  "**/__main__.py",
+]
+
+[tool.coverage.report]
+# Regexes for lines to exclude from consideration
+exclude_also = [
+  # Don't complain if non-runnable code isn't run:
+  "if __name__ == .__main__.:",
+]
+
+[tool.mypy]
+pretty = true
+#strict = true
+show_error_codes = true

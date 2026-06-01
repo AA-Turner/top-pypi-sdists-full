@@ -1,0 +1,49 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - main
+      - "[0-9].[0-9]"
+      - typing
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'reason'
+
+jobs:
+  tests:
+    name: "Python ${{ matrix.python-version }}"
+    runs-on: "ubuntu-latest"
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ "3.9", "3.10", "3.11", "3.12", "3.13", "3.13.6t"]
+
+    steps:
+      - uses: "actions/checkout@v3"
+      - uses: "actions/setup-python@v5"
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install UV
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+      - name: Install Dependencies
+        run: uv sync --locked --all-extras --dev
+      - name: Run Lint
+        run: make lint
+      - name: Mypy Success
+        run: make lint-pass
+      - name: Mypy Failed
+        run: |
+          error_count=$(make lint-failed 2>&1 | grep -c 'error:')
+          [ "$error_count" -eq 8 ]
+      - name: Run Tests
+        env:
+          CI: "TRUE"
+        run: make test

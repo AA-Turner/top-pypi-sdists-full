@@ -1,4 +1,0 @@
-# Rust toolchain configuration
-# This file specifies the Rust version to use for this project
-[toolchain]
-channel = "1.91.1"

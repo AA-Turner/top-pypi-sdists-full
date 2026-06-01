@@ -1,0 +1,615 @@
+"""Local launcher shims for Guard-managed harness execution."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from .launcher import merge_guard_launcher_env
+
+if TYPE_CHECKING:
+    from .adapters.base import HarnessContext
+
+_PACKAGE_SHIM_COMMANDS = {
+    "bun": "bun",
+    "bundle": "bundle",
+    "cargo": "cargo",
+    "composer": "composer",
+    "go": "go",
+    "gradle": "gradle",
+    "mvn": "mvn",
+    "npm": "npm",
+    "pip": "pip",
+    "pipenv": "pipenv",
+    "pipx": "pipx",
+    "pnpm": "pnpm",
+    "poetry": "poetry",
+    "uv": "uv",
+    "uvx": "uvx",
+    "yarn": "yarn",
+}
+_PACKAGE_SHIM_MANIFEST = "manifest.json"
+_TRUSTED_CLI_LAUNCHER = (
+    "import os, runpy, sys; "
+    "trusted_root = sys.argv.pop(1); "
+    "module_name = sys.argv.pop(1); "
+    "cwd = os.getcwd(); "
+    "blocked_entries = ('', '.', os.curdir, cwd, trusted_root); "
+    "sys.path = [trusted_root, *[entry for entry in sys.path if entry not in blocked_entries]]; "
+    "runpy.run_module(module_name, run_name='__main__')"
+)
+
+
+def install_guard_shim(
+    harness: str,
+    context: HarnessContext,
+    *,
+    launcher_name: str | None = None,
+    display_name: str | None = None,
+) -> dict[str, object]:
+    """Create a local launcher shim that routes harness launches through Guard."""
+
+    shim_dir = context.guard_home / "bin"
+    shim_dir.mkdir(parents=True, exist_ok=True)
+    shim_name = launcher_name or harness
+    harness_label = display_name or harness
+    posix_path = shim_dir / f"guard-{shim_name}"
+    windows_path = shim_dir / f"guard-{shim_name}.cmd"
+    workspace_args = []
+    if context.workspace_dir is not None:
+        workspace_args = ["--workspace", str(context.workspace_dir)]
+    posix_path.write_text(_build_python_shim(harness, context, workspace_args), encoding="utf-8")
+    posix_path.chmod(posix_path.stat().st_mode | 0o755)
+    windows_path.write_text(_build_windows_script(posix_path), encoding="utf-8")
+    return {
+        "shim_path": str(posix_path),
+        "shim_dir": str(shim_dir),
+        "shim_command": posix_path.name,
+        "windows_shim_path": str(windows_path),
+        "notes": [
+            f"Launch {harness_label} through {posix_path.name} so Guard checks changes before the harness starts.",
+            f"Add {shim_dir} to PATH to use the wrapper command from any shell.",
+        ],
+    }
+
+
+def remove_guard_shim(
+    harness: str,
+    context: HarnessContext,
+    *,
+    launcher_name: str | None = None,
+    legacy_launcher_names: tuple[str, ...] = (),
+    display_name: str | None = None,
+) -> dict[str, object]:
+    """Remove a previously installed Guard launcher shim."""
+
+    shim_dir = context.guard_home / "bin"
+    shim_name = launcher_name or harness
+    harness_label = display_name or harness
+    shim_paths = [
+        shim_dir / f"guard-{name}{suffix}" for name in (shim_name, *legacy_launcher_names) for suffix in ("", ".cmd")
+    ]
+    removed_paths: list[str] = []
+    for path in shim_paths:
+        if path.exists():
+            path.unlink()
+            removed_paths.append(str(path))
+    posix_path = shim_dir / f"guard-{shim_name}"
+    return {
+        "shim_path": str(posix_path),
+        "shim_dir": str(shim_dir),
+        "removed_paths": removed_paths,
+        "shim_command": posix_path.name,
+        "notes": [f"Removed the Guard launcher shim for {harness_label}."],
+    }
+
+
+def _build_python_shim(harness: str, context: HarnessContext, workspace_args: list[str]) -> str:
+    command_args = [
+        sys.executable,
+        "-c",
+        _TRUSTED_CLI_LAUNCHER,
+        str(_trusted_import_root()),
+        "codex_plugin_scanner.cli",
+        "guard",
+        "run",
+        harness,
+        "--guard-home",
+        str(context.guard_home),
+        *_home_override_args(context),
+        *workspace_args,
+    ]
+    launcher_env = merge_guard_launcher_env()
+    return "\n".join(
+        (
+            f"#!{sys.executable}",
+            "from __future__ import annotations",
+            "import os",
+            "import subprocess",
+            "import sys",
+            f"base_command = {command_args!r}",
+            f"base_env = {launcher_env!r}",
+            "combined_env = {**os.environ, **base_env}",
+            "if 'PYTHONPATH' in os.environ and 'PYTHONPATH' in base_env:",
+            "    pythonpath_entries = []",
+            "    os_pythonpath = os.environ['PYTHONPATH'].split(os.pathsep)",
+            "    base_pythonpath = base_env['PYTHONPATH'].split(os.pathsep)",
+            "    for entry in [*os_pythonpath, *base_pythonpath]:",
+            "        normalized = entry.strip()",
+            "        if normalized and normalized not in pythonpath_entries:",
+            "            pythonpath_entries.append(normalized)",
+            "    combined_env['PYTHONPATH'] = os.pathsep.join(pythonpath_entries)",
+            'extra_args = [f"--arg={arg}" for arg in sys.argv[1:]]',
+            "raise SystemExit(subprocess.call([*base_command, *extra_args], env=combined_env))",
+            "",
+        )
+    )
+
+
+def _build_windows_script(posix_path: Path) -> str:
+    return "\r\n".join(("@echo off", f'"{sys.executable}" "{posix_path}" %*', ""))
+
+
+def _home_override_args(context: HarnessContext) -> list[str]:
+    if not context.home_dir:
+        return []
+    if context.home_dir.resolve() == Path.home().resolve():
+        return []
+    return ["--home", str(context.home_dir)]
+
+
+def build_shim_content_hash(content: bytes) -> str:
+    """Return hex SHA-256 of shim content bytes."""
+    return hashlib.sha256(content).hexdigest()
+
+
+def get_real_binary_info(
+    binary_path: str,
+    *,
+    redact_path_prefix: str | None = None,
+) -> dict[str, object]:
+    """Return hash, mtime, and redacted display path for the real binary at *binary_path*."""
+    p = Path(binary_path)
+    if not p.exists() or not p.is_file():
+        return {"found": False, "content_hash": None, "mtime": None, "path_display": None}
+    content = p.read_bytes()
+    content_hash = build_shim_content_hash(content)
+    mtime = p.stat().st_mtime
+    path_str = str(p)
+    if redact_path_prefix and path_str.startswith(redact_path_prefix):
+        path_display = "…" + path_str[len(redact_path_prefix) :]
+    else:
+        path_display = path_str
+    return {
+        "found": True,
+        "content_hash": content_hash,
+        "mtime": mtime,
+        "path_display": path_display,
+    }
+
+
+def get_path_order_status(
+    context: HarnessContext,
+    *,
+    manager: str,
+    path_env: str | None = None,
+) -> dict[str, object]:
+    """Return PATH order status: whether shim precedes the real manager binary."""
+    command = _PACKAGE_SHIM_COMMANDS.get(manager)
+    if not command:
+        return {"shim_precedes_real": False, "real_binary_found": False, "path_broken": True, "shim_dir": None}
+    shim_dir = context.guard_home / "package-shims" / "bin"
+    shim_path = shim_dir / command
+    path_dirs = (path_env or os.environ.get("PATH", "")).split(os.pathsep)
+    shim_dir_index: int | None = None
+    real_dir_index: int | None = None
+    real_binary_path: str | None = None
+    for idx, dir_entry in enumerate(path_dirs):
+        d = Path(dir_entry)
+        if d == shim_dir and shim_dir_index is None:
+            shim_dir_index = idx
+        else:
+            candidate = d / command
+            if candidate.exists() and candidate.is_file() and candidate != shim_path and real_dir_index is None:
+                real_dir_index = idx
+                real_binary_path = str(candidate)
+    if shim_dir_index is None:
+        return {
+            "shim_precedes_real": False,
+            "real_binary_found": real_dir_index is not None,
+            "real_binary_path": real_binary_path,
+            "real_binary_path_index": real_dir_index,
+            "shim_in_path": False,
+            "shim_path_index": None,
+            "path_broken": True,
+            "shim_dir": str(shim_dir),
+        }
+    if real_dir_index is None:
+        return {
+            "shim_precedes_real": True,
+            "real_binary_found": False,
+            "real_binary_path": None,
+            "real_binary_path_index": None,
+            "shim_in_path": True,
+            "shim_path_index": shim_dir_index,
+            "path_broken": False,
+            "shim_dir": str(shim_dir),
+        }
+    precedes = shim_dir_index < real_dir_index
+    return {
+        "shim_precedes_real": precedes,
+        "real_binary_found": True,
+        "real_binary_path": real_binary_path,
+        "real_binary_path_index": real_dir_index,
+        "shim_in_path": True,
+        "shim_path_index": shim_dir_index,
+        "path_broken": not precedes,
+        "shim_dir": str(shim_dir),
+    }
+
+
+def install_package_shims(
+    context: HarnessContext,
+    *,
+    managers: tuple[str, ...] | None = None,
+) -> dict[str, object]:
+    shim_root = context.guard_home / "package-shims"
+    shim_dir = shim_root / "bin"
+    shim_dir.mkdir(parents=True, exist_ok=True)
+    normalized_managers = _normalize_package_shim_managers(managers)
+    existing_manifest = _load_package_shim_manifest(context)
+    existing_managers = tuple(
+        manager
+        for manager in existing_manifest.get("installed_managers", [])
+        if isinstance(manager, str) and manager in _PACKAGE_SHIM_COMMANDS
+    )
+    tracked_managers = tuple(dict.fromkeys([*existing_managers, *normalized_managers]))
+    existing_hashes: dict[str, str] = existing_manifest.get("content_hashes", {})
+    installed: list[str] = []
+    content_hashes: dict[str, str] = dict(existing_hashes)
+    for manager in normalized_managers:
+        command = _PACKAGE_SHIM_COMMANDS[manager]
+        posix_path = shim_dir / command
+        windows_path = shim_dir / f"{command}.cmd"
+        content = _build_package_manager_python_shim(context, command)
+        posix_path.write_text(content, encoding="utf-8")
+        posix_path.chmod(posix_path.stat().st_mode | 0o755)
+        windows_path.write_text(_build_windows_script(posix_path), encoding="utf-8")
+        content_hashes[manager] = build_shim_content_hash(posix_path.read_bytes())
+        installed.append(manager)
+    manifest_payload = {
+        "content_hashes": content_hashes,
+        "installed_managers": list(tracked_managers),
+        "shim_dir": str(shim_dir),
+    }
+    _package_shim_manifest_path(context).write_text(json.dumps(manifest_payload, sort_keys=True), encoding="utf-8")
+    program_name = _command_program_name()
+    shell_hints = _path_export_hints(shim_dir)
+    path_repair_required = [
+        manager
+        for manager in tracked_managers
+        if not bool(get_path_order_status(context, manager=manager).get("shim_precedes_real"))
+    ]
+    return {
+        "installed_managers": list(tracked_managers),
+        "installed_count": len(tracked_managers),
+        "installed_now": installed,
+        "installed_now_count": len(installed),
+        "shim_dir": str(shim_dir),
+        "manifest_path": str(_package_shim_manifest_path(context)),
+        "path_export_hint": _path_export_hint(shim_dir),
+        "path_repair_required": path_repair_required,
+        "restart_shell_required": bool(path_repair_required),
+        "shell_hints": shell_hints,
+        "status_command": f"{program_name} package-shims status --json",
+        "uninstall_command": f"{program_name} package-shims uninstall --json",
+    }
+
+
+def package_shim_status(context: HarnessContext) -> dict[str, object]:
+    manifest = _load_package_shim_manifest(context)
+    installed_managers = [
+        manager
+        for manager in manifest.get("installed_managers", [])
+        if isinstance(manager, str) and manager in _PACKAGE_SHIM_COMMANDS
+    ]
+    shim_dir = context.guard_home / "package-shims" / "bin"
+    stored_hashes: dict[str, str] = manifest.get("content_hashes", {})
+    active_managers: list[str] = []
+    protected_managers: list[str] = []
+    missing_managers: list[str] = []
+    bypasses: list[dict[str, str]] = []
+    manager_details: list[dict[str, object]] = []
+    for manager in installed_managers:
+        command = _PACKAGE_SHIM_COMMANDS[manager]
+        shim_path = shim_dir / command
+        exists = shim_path.exists()
+        path_status = get_path_order_status(context, manager=manager)
+        if exists:
+            active_managers.append(manager)
+            current_hash = build_shim_content_hash(shim_path.read_bytes())
+            stored_hash = stored_hashes.get(manager)
+            if stored_hash is None:
+                integrity = "unknown"
+            elif current_hash == stored_hash:
+                integrity = "ok"
+            else:
+                integrity = "tampered"
+        else:
+            missing_managers.append(manager)
+            integrity = "missing"
+        manager_details.append(
+            {
+                "integrity": integrity,
+                "manager": manager,
+                "path_active": bool(path_status.get("shim_precedes_real")),
+                "path_index": path_status.get("shim_path_index"),
+                "path_status": path_status,
+                "real_binary_found": bool(path_status.get("real_binary_found")),
+                "real_binary_path": path_status.get("real_binary_path"),
+                "real_binary_path_index": path_status.get("real_binary_path_index"),
+                "shim_path": str(shim_path),
+            }
+        )
+        if exists and bool(path_status.get("shim_precedes_real")):
+            protected_managers.append(manager)
+        elif exists:
+            bypasses.append(
+                {
+                    "manager": manager,
+                    "reason": "path_inactive",
+                }
+            )
+    return {
+        "active_managers": active_managers,
+        "installed_managers": installed_managers,
+        "protected_managers": protected_managers,
+        "path_active": bool(installed_managers) and len(protected_managers) == len(installed_managers),
+        "bypasses": bypasses,
+        "manager_details": manager_details,
+        "manifest_path": str(_package_shim_manifest_path(context)),
+        "missing_managers": missing_managers,
+        "shell_hints": _path_export_hints(shim_dir),
+        "shim_dir": str(shim_dir),
+    }
+
+
+def package_shim_cloud_coverage(
+    context: HarnessContext,
+    *,
+    generated_at: str | None = None,
+) -> dict[str, object]:
+    status = package_shim_status(context)
+    return {
+        "generatedAt": generated_at or datetime.now(timezone.utc).isoformat(),
+        "configuredManagers": list(status["installed_managers"]),
+        "protectedManagers": list(status["protected_managers"]),
+        "missingManagers": list(status["missing_managers"]),
+        "pathActive": bool(status["path_active"]),
+        "bypasses": list(status["bypasses"]),
+    }
+
+
+def uninstall_package_shims(
+    context: HarnessContext,
+    *,
+    managers: tuple[str, ...] | None = None,
+) -> dict[str, object]:
+    manifest = _load_package_shim_manifest(context)
+    manifest_managers = tuple(
+        manager
+        for manager in manifest.get("installed_managers", [])
+        if isinstance(manager, str) and manager in _PACKAGE_SHIM_COMMANDS
+    )
+    requested_managers = _normalize_package_shim_managers(managers) if managers else manifest_managers
+    shim_dir = context.guard_home / "package-shims" / "bin"
+    removed_paths: list[str] = []
+    for manager in requested_managers:
+        command = _PACKAGE_SHIM_COMMANDS[manager]
+        for suffix in ("", ".cmd"):
+            candidate = shim_dir / f"{command}{suffix}"
+            if candidate.exists():
+                candidate.unlink()
+                removed_paths.append(str(candidate))
+    remaining = [manager for manager in manifest_managers if manager not in requested_managers]
+    manifest_path = _package_shim_manifest_path(context)
+    if remaining:
+        manifest_hashes = manifest.get("content_hashes")
+        content_hashes = {
+            manager: hash_value
+            for manager, hash_value in (manifest_hashes.items() if isinstance(manifest_hashes, dict) else ())
+            if manager in remaining and isinstance(hash_value, str)
+        }
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "content_hashes": content_hashes,
+                    "installed_managers": remaining,
+                    "shim_dir": str(shim_dir),
+                },
+                sort_keys=True,
+            ),
+            encoding="utf-8",
+        )
+    elif manifest_path.exists():
+        manifest_path.unlink()
+    return {
+        "removed_managers": list(requested_managers),
+        "removed_paths": removed_paths,
+        "remaining_managers": remaining,
+        "manifest_path": str(manifest_path),
+        "shim_dir": str(shim_dir),
+    }
+
+
+def package_shim_supported_managers() -> tuple[str, ...]:
+    return tuple(sorted(_PACKAGE_SHIM_COMMANDS.keys()))
+
+
+def repair_package_shims(
+    context: HarnessContext,
+    *,
+    managers: tuple[str, ...] | None = None,
+) -> dict[str, object]:
+    """Detect missing or tampered shims and reinstall them. Returns repair summary."""
+    status = package_shim_status(context)
+    selected_managers = set(_normalize_package_shim_managers(managers)) if managers else None
+    managers_to_repair: list[str] = []
+    path_repair_required: list[str] = []
+    for detail in status.get("manager_details", []):
+        if not isinstance(detail, dict):
+            continue
+        manager = detail.get("manager")
+        if not isinstance(manager, str):
+            continue
+        if selected_managers is not None and manager not in selected_managers:
+            continue
+        if detail.get("integrity") in ("missing", "tampered"):
+            managers_to_repair.append(manager)
+        elif not bool(detail.get("path_active")):
+            path_repair_required.append(manager)
+    if not managers_to_repair:
+        return {
+            "repaired": [],
+            "repaired_count": 0,
+            "already_ok": status.get("installed_managers", []),
+            "path_repair_required": path_repair_required,
+            "shell_hints": status.get("shell_hints", {}),
+            "nothing_to_repair": True,
+        }
+    result = install_package_shims(context, managers=tuple(managers_to_repair))
+    return {
+        "repaired": managers_to_repair,
+        "repaired_count": len(managers_to_repair),
+        "path_repair_required": path_repair_required,
+        "shell_hints": status.get("shell_hints", {}),
+        "install_result": result,
+    }
+
+
+def _build_package_manager_python_shim(context: HarnessContext, command: str) -> str:
+    workspace_args: list[str] = []
+    if context.workspace_dir is not None:
+        workspace_args = ["--workspace", str(context.workspace_dir)]
+    shim_dir = context.guard_home / "package-shims" / "bin"
+    command_args = [
+        sys.executable,
+        "-c",
+        _TRUSTED_CLI_LAUNCHER,
+        str(_trusted_import_root()),
+        "codex_plugin_scanner.cli",
+        "guard",
+        "protect",
+        "--json",
+        "--dry-run",
+        "--guard-home",
+        str(context.guard_home),
+        *_home_override_args(context),
+        *workspace_args,
+        command,
+    ]
+    return "\n".join(
+        (
+            f"#!{sys.executable}",
+            "from __future__ import annotations",
+            "import os",
+            "import shutil",
+            "import subprocess",
+            "import sys",
+            f"base_command = {command_args!r}",
+            f"command_name = {command!r}",
+            f"shim_dir = {str(shim_dir.resolve())!r}",
+            "guard_env = dict(os.environ)",
+            "guard_env.pop('PYTHONPATH', None)",
+            "guard_process = subprocess.run(",
+            "    [*base_command, *sys.argv[1:]], capture_output=True, text=True, env=guard_env",
+            ")",
+            "if guard_process.stdout:",
+            "    sys.stdout.write(guard_process.stdout)",
+            "if guard_process.stderr:",
+            "    sys.stderr.write(guard_process.stderr)",
+            "if guard_process.returncode != 0:",
+            "    raise SystemExit(guard_process.returncode)",
+            "path_entries = [entry for entry in os.environ.get('PATH', '').split(os.pathsep) if entry]",
+            "shim_dir_abs = os.path.abspath(shim_dir)",
+            "filtered_entries = [entry for entry in path_entries if os.path.abspath(entry) != shim_dir_abs]",
+            "filtered_path = os.pathsep.join(filtered_entries)",
+            "resolved_command = shutil.which(command_name, path=filtered_path)",
+            "if resolved_command is None:",
+            "    sys.stderr.write(f'Unable to locate real {command_name} binary on PATH\\n')",
+            "    raise SystemExit(127)",
+            "manager_env = dict(os.environ)",
+            "manager_env['PATH'] = filtered_path",
+            "raise SystemExit(subprocess.call([resolved_command, *sys.argv[1:]], env=manager_env))",
+            "",
+        )
+    )
+
+
+def _normalize_package_shim_managers(managers: tuple[str, ...] | None) -> tuple[str, ...]:
+    if managers is None or len(managers) == 0:
+        return tuple(sorted(_PACKAGE_SHIM_COMMANDS.keys()))
+    normalized = []
+    for manager in managers:
+        key = manager.strip().lower()
+        if key in _PACKAGE_SHIM_COMMANDS and key not in normalized:
+            normalized.append(key)
+    return tuple(normalized)
+
+
+def _trusted_import_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _package_shim_manifest_path(context: HarnessContext) -> Path:
+    return context.guard_home / "package-shims" / _PACKAGE_SHIM_MANIFEST
+
+
+def _load_package_shim_manifest(context: HarnessContext) -> dict[str, object]:
+    manifest_path = _package_shim_manifest_path(context)
+    if not manifest_path.exists():
+        return {}
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _command_program_name() -> str:
+    if not sys.argv:
+        return "hol-guard"
+    candidate = Path(sys.argv[0]).name.strip()
+    return candidate or "hol-guard"
+
+
+def _path_export_hint(shim_dir: Path) -> str:
+    if os.name == "nt":
+        return f"set PATH={shim_dir};%PATH%"
+    return f'export PATH="{shim_dir}:$PATH"'
+
+
+def _path_export_hints(shim_dir: Path) -> dict[str, str]:
+    posix_hint = f'export PATH="{shim_dir}:$PATH"'
+    return {
+        "bash": posix_hint,
+        "zsh": posix_hint,
+        "fish": f"fish_add_path --prepend {shim_dir}",
+        "powershell": f'$env:Path = "{shim_dir};$env:Path"',
+    }
+
+
+__all__ = [
+    "install_guard_shim",
+    "install_package_shims",
+    "package_shim_cloud_coverage",
+    "package_shim_status",
+    "package_shim_supported_managers",
+    "remove_guard_shim",
+    "uninstall_package_shims",
+]

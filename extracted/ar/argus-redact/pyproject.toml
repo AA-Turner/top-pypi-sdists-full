@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "argus-redact"
-version = "0.6.5"
+version = "0.6.6"
 description = "Encrypt PII, not meaning. Locally."
 readme = "README.md"
 license = "Apache-2.0"
@@ -14,7 +14,7 @@ authors = [
 ]
 keywords = ["pii", "redact", "privacy", "llm", "anonymization"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",

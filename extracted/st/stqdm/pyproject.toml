@@ -1,51 +1,84 @@
-[tool.poetry]
+[project]
 name = "stqdm"
-version = "0.0.5"
+version = "0.2.0"
 description = "Easy progress bar for streamlit based on the awesome streamlit.progress and tqdm"
-authors = ["Wirg <Wirg@users.noreply.github.com>"]
-maintainers = ["Wirg <Wirg@users.noreply.github.com>"]
-license = "Apache License 2.0"
+authors = [{ name = "Wirg", email = "Wirg@users.noreply.github.com" }]
+maintainers = [{ name = "Wirg", email = "Wirg@users.noreply.github.com" }]
+license = { text = "Apache License 2.0" }
 keywords = ["streamlit", "progressbar", "progressmeter", "progress", "bar", "meter", "rate", "eta", "tqdm"]
 readme = "README.md"
-homepage = "https://github.com/Wirg/stqdm"
-repository = "https://github.com/Wirg/stqdm"
-include = [
-    "LICENSE",
-]
+requires-python = ">=3.11"
 classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
+dependencies = [
+    "streamlit>=1.41.0",
+    "tqdm>=4.66.0",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.7.2,<4.0.0"
-tqdm = ">=4.50"
-streamlit = ">=0.66"
+[project.urls]
+Homepage = "https://github.com/Wirg/stqdm"
+Repository = "https://github.com/Wirg/stqdm"
+Issues = "https://github.com/Wirg/stqdm/issues"
+Changelog = "https://github.com/Wirg/stqdm/releases"
 
-[tool.poetry.group.dev.dependencies]
-pre-commit = "^2.21.0"
-pytest = "^7.2.0"
-pytest-cov = "^4.0.0"
-black = "^22.12.0"
-click = ">=8.1" # Force for black compatibility
-isort = "^5.11.4"
-pylint = "^2.15.9"
-nox = "^2022.11.21"
-nox-poetry = "^1.0.2"
+[dependency-groups]
+dev = [
+    "check-wheel-contents>=0.6.3",
+    "commitizen>=4.16.2",
+    "freezegun>=1.5.4",
+    "hatch>=1.16.5",
+    "mypy>=2.1.0",
+    "nox>=2026.4.10",
+    "packaging>=26.0",
+    "pre-commit>=4.6.0",
+    "pylint>=4.0.5",
+    "pytest>=9.0.3",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.15.12",
+    "twine>=6.2.0",
+    "types-tqdm>=4.67.3.20260508",
+]
 
-[tool.black]
+[tool.hatch.build.targets.wheel]
+packages = ["stqdm"]
+
+[tool.ruff]
 line-length = 127
-target-version = ['py37', 'py38', 'py39', 'py310']
+target-version = "py311"
 
-[tool.isort]
-py_version=39
-profile = "black"
-multi_line_output = 3
-skip_gitignore = true
+[tool.ruff.lint]
+select = ["I"]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version_provider = "pep621"
+version_scheme = "pep440"
+tag_format = "v$version"
+major_version_zero = true
 
 [tool.pytest.ini_options]
 addopts = "-ra"
 testpaths = ["tests"]
+markers = [
+    "browser_smoke: Browser smoke tests for the Streamlit demo app",
+    "demo_app:Test a streamlit app directly with AppTest",
+]
+
+[tool.coverage.run]
+omit = [".nox/*"]
+
+[tool.pylint.main]
+ignore-paths = [".nox/"]
 
 [tool.pylint.messages_control]
 disable = [
@@ -54,13 +87,16 @@ disable = [
     "wrong-import-position",
     "missing-module-docstring",
     "missing-class-docstring",
-    "too-few-public-methods"
+    "no-member",
+    "too-few-public-methods",
+    "too-many-instance-attributes"
 ]
 
 [tool.pylint.basic]
 max-line-length=140
 docstring-min-length=15
 max-args = 6
+no-docstring-rgx = "^_|^test_|^Test[A-Z]" # no docstrings for tests
 
 [tool.pylint.miscellaneous]
 notes = ["FIXME"]
@@ -71,5 +107,5 @@ ignore-imports = "yes"
 min-similarity-lines = 8
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"

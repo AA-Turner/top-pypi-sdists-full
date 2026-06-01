@@ -1,0 +1,123 @@
+Metadata-Version: 2.4
+Name: pg0-embedded
+Version: 0.14.2
+Summary: Python API for pg0 - embedded PostgreSQL
+Project-URL: Homepage, https://github.com/vectorize-io/pg0
+Project-URL: Repository, https://github.com/vectorize-io/pg0
+License-Expression: MIT
+Keywords: database,embedded,pgvector,postgresql
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.8
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0.0; extra == 'dev'
+Description-Content-Type: text/markdown
+
+# pg0 - PostgreSQL for Python
+
+[![PyPI](https://badge.fury.io/py/pg0-embedded.svg)](https://pypi.org/project/pg0-embedded/)
+
+Zero-config PostgreSQL with pgvector. No installation, no Docker, no configuration.
+
+## Install
+
+```bash
+pip install pg0-embedded
+```
+
+## Usage
+
+```python
+from pg0 import Pg0
+
+# Basic usage
+with Pg0() as pg:
+    print(pg.uri)  # postgresql://postgres:postgres@127.0.0.1:5432/postgres
+    pg.execute("CREATE EXTENSION IF NOT EXISTS vector")
+    pg.execute("SELECT version()")
+
+# Custom configuration
+pg = Pg0(
+    name="myapp",
+    port=5433,
+    username="myuser",
+    password="mypass",
+    database="mydb",
+    config={"shared_buffers": "512MB"}
+)
+pg.start()
+pg.stop()
+```
+
+## API
+
+### Pg0 Class
+
+| Method | Description |
+|--------|-------------|
+| `start()` | Start PostgreSQL, returns `InstanceInfo` |
+| `stop()` | Stop PostgreSQL |
+| `drop()` | Stop and delete all data |
+| `info()` | Get instance info |
+| `execute(sql)` | Run SQL query |
+| `uri` | Connection URI (property) |
+| `running` | Check if running (property) |
+
+### Module Functions
+
+```python
+import pg0
+
+pg0.start(name="default", port=5432, ...)  # Start instance
+pg0.stop(name="default")                    # Stop instance
+pg0.drop(name="default")                    # Delete instance
+pg0.info(name="default")                    # Get instance info
+pg0.list_instances()                        # List all instances
+```
+
+### Getting Connection URI
+
+```python
+from pg0 import Pg0
+
+pg = Pg0()
+pg.start()
+
+# Using the uri property
+print(pg.uri)  # postgresql://postgres:postgres@127.0.0.1:5432/postgres
+
+# Or using info()
+info = pg.info()
+print(info.uri)  # postgresql://postgres:postgres@127.0.0.1:5432/postgres
+print(info.port)  # 5432
+print(info.username)  # postgres
+print(info.database)  # postgres
+```
+
+## Supported Platforms
+
+Pre-built wheels are available for:
+
+| Platform | Architecture | Wheel Tag |
+|----------|--------------|-----------|
+| macOS | Apple Silicon (M1/M2/M3) | `macosx_14_0_arm64` |
+| Linux | x86_64 (glibc) | `manylinux_2_35_x86_64` |
+| Linux | ARM64 (glibc) | `manylinux_2_35_aarch64` |
+| Windows | x64 | `win_amd64` |
+
+For other platforms, install from source (requires Rust toolchain):
+```bash
+pip install pg0-embedded --no-binary pg0-embedded
+```
+
+## Links
+
+- [GitHub](https://github.com/vectorize-io/pg0)
+- [CLI Documentation](https://github.com/vectorize-io/pg0#readme)

@@ -488,6 +488,13 @@ def _get_has_many_class(
             aggregated_feature_wrapper = joined_class.__chalk_ts__
 
         if aggregated_feature_wrapper is None:
+            if ref.version is not None and getattr(joined_class, ref.name, None) is not None:
+                raise ChalkParseError(
+                    f"aggregation references `_.{ref.name} @ {ref.version}` but "
+                    + f"'{_get_printable_name(joined_class)}.{ref.name}' is not declared at version {ref.version}. "
+                    + f"To fix, add `{ref.name}: ... = feature(version={ref.version}, default_version=1)` "
+                    + f"to '{_get_printable_name(joined_class)}', or remove the `@ {ref.version}` pin from the aggregation expression."
+                )
             raise ChalkParseError(
                 f"joined class '{_get_printable_name(joined_class)}' missing feature '{ref.name}'"
                 + (f" at version {ref.version}" if ref.version is not None else "")

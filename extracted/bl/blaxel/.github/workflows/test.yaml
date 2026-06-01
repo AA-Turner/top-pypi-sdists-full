@@ -1,0 +1,130 @@
+name: Test blaxel package
+
+on:
+  pull_request:
+    branches:
+      - "main"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    env:
+      BL_API_KEY: fake_api_key
+      BL_WORKSPACE: fake_workspace
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Install uv"
+        uses: astral-sh/setup-uv@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Test package installation (base)
+        run: |
+          uv venv
+          source .venv/bin/activate
+          uv pip install -e .
+          python -c "import blaxel.core; print('✅ blaxel.core imports successfully')"
+
+      - name: Test package installation (with extras)
+        if: matrix.python-version != '3.14'
+        run: |
+          source .venv/bin/activate
+          uv pip install -e ".[telemetry,crewai]"
+          python -c "
+          import blaxel.core
+          import blaxel.telemetry
+          import blaxel.crewai
+          print('✅ blaxel with extras imports successfully')
+          "
+
+      - name: Test package installation (with telemetry)
+        if: matrix.python-version == '3.14'
+        run: |
+          source .venv/bin/activate
+          uv pip install -e ".[telemetry]"
+          python -c "
+          import blaxel.core
+          import blaxel.telemetry
+          print('✅ blaxel with telemetry imports successfully on Python 3.14')
+          "
+
+      - name: Test package build
+        run: |
+          uv build
+          echo "✅ Package builds successfully"
+          ls -la dist/
+
+      - name: Run tests
+        run: |
+          source .venv/bin/activate
+          make test
+
+  integration-test:
+    name: Integration Tests (Core)
+    runs-on: ubuntu-latest
+    env:
+      BL_REGION: ${{ vars.BL_REGION || 'us-pdx-1' }}
+      BL_API_KEY: ${{ secrets.BL_API_KEY }}
+      BL_WORKSPACE: ${{ secrets.BL_WORKSPACE }}
+    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Install uv"
+        uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          source .venv/bin/activate
+          uv sync --group test --extra telemetry
+
+      - name: Run integration tests
+        run: |
+          source .venv/bin/activate
+          make test-integration
+
+  integration-test-framework:
+    name: Integration Tests (${{ matrix.framework }})
+    runs-on: ubuntu-latest
+    env:
+      BL_REGION: ${{ vars.BL_REGION || 'us-pdx-1' }}
+      BL_API_KEY: ${{ secrets.BL_API_KEY }}
+      BL_WORKSPACE: ${{ secrets.BL_WORKSPACE }}
+    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        framework: [llamaindex, langgraph, openai, crewai, pydantic, googleadk, livekit]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Install uv"
+        uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          source .venv/bin/activate
+          uv sync --group test --extra ${{ matrix.framework }}
+
+      - name: Run ${{ matrix.framework }} integration tests
+        run: |
+          source .venv/bin/activate
+          make test-integration-${{ matrix.framework }}

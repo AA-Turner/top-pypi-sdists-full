@@ -1458,7 +1458,7 @@ def plan_react_native_web() -> list[FileSpec]:
 
     return [
         FileSpec(
-            path="package.json",
+            path="frontend/package.json",
             role=(
                 f"Expo SDK {v['expo']} + react-native-web package.json. "
                 f"REQUIRED EXACT VERSIONS: expo@^{v['expo']}, expo-router@^{v['expo_router']}, "
@@ -1484,7 +1484,7 @@ def plan_react_native_web() -> list[FileSpec]:
             language="json",
         ),
         FileSpec(
-            path=".npmrc",
+            path="frontend/.npmrc",
             role=(
                 "npm config file for Expo SDK 52 + RN 0.76. "
                 "Set legacy-peer-deps=true so peer dependency conflicts resolve cleanly. "
@@ -1493,7 +1493,7 @@ def plan_react_native_web() -> list[FileSpec]:
             language="text",
         ),
         FileSpec(
-            path="app.json",
+            path="frontend/app.json",
             role=(
                 "Expo app.json configuration. name and slug reflecting the project. "
                 "version: 1.0.0. orientation: portrait. scheme for deep linking. "
@@ -1507,7 +1507,7 @@ def plan_react_native_web() -> list[FileSpec]:
             language="json",
         ),
         FileSpec(
-            path="babel.config.js",
+            path="frontend/babel.config.js",
             role=(
                 "Babel config for Expo project. "
                 "presets: ['babel-preset-expo']. "
@@ -1517,7 +1517,7 @@ def plan_react_native_web() -> list[FileSpec]:
             language="javascript",
         ),
         FileSpec(
-            path="metro.config.js",
+            path="frontend/metro.config.js",
             role=(
                 "Metro bundler config for Expo. "
                 "Use getDefaultConfig from 'expo/metro-config'. "
@@ -1526,7 +1526,7 @@ def plan_react_native_web() -> list[FileSpec]:
             language="javascript",
         ),
         FileSpec(
-            path="tsconfig.json",
+            path="frontend/tsconfig.json",
             role=(
                 "TypeScript config for Expo project. extends: 'expo/tsconfig.base'. "
                 "compilerOptions: strict=true, noUnusedLocals=true, noUnusedParameters=true, "
@@ -1536,7 +1536,7 @@ def plan_react_native_web() -> list[FileSpec]:
             language="json",
         ),
         FileSpec(
-            path="expo-env.d.ts",
+            path="frontend/expo-env.d.ts",
             role=(
                 "Expo TypeScript type reference file. "
                 "Contains: /// <reference types=\"expo/types\" /> "
@@ -1545,7 +1545,7 @@ def plan_react_native_web() -> list[FileSpec]:
             language="typescript",
         ),
         FileSpec(
-            path=".gitignore",
+            path="frontend/.gitignore",
             role=(
                 "Expo/Node .gitignore. Include: node_modules/, .expo/, dist/, web-build/, "
                 "npm-debug.*, *.jks, *.p8, *.p12, *.key, *.mobileprovision, *.orig.*, "
@@ -1567,7 +1567,7 @@ def plan_react_native_web() -> list[FileSpec]:
 
         # ── Expo Router app/ tree (file-based routing for iOS/Android/Web) ──
         FileSpec(
-            path="app/_layout.tsx",
+            path="frontend/app/_layout.tsx",
             role=(
                 "Root layout using expo-router Stack. Must wrap with "
                 "GestureHandlerRootView + SafeAreaProvider + AuthProvider. "
@@ -1584,7 +1584,7 @@ def plan_react_native_web() -> list[FileSpec]:
             must_not_contain=["from 'react-router-dom'", "styled-components"],
         ),
         FileSpec(
-            path="app/index.tsx",
+            path="frontend/app/index.tsx",
             role=(
                 "Landing route. Uses react-native primitives (View, Text, "
                 "Pressable) — NOT HTML elements (div, span, button). "
@@ -1600,7 +1600,7 @@ def plan_react_native_web() -> list[FileSpec]:
             must_not_contain=["<div", "<span", "<button", "className=", "react-router"],
         ),
         FileSpec(
-            path="app/(auth)/login.tsx",
+            path="frontend/app/(auth)/login.tsx",
             role=(
                 "Polished login screen — React Native TextInput, Pressable, Text. "
                 "Uses useAuth().signIn(email, password). keyboardType=email-address. "
@@ -1624,26 +1624,26 @@ def plan_react_native_web() -> list[FileSpec]:
             must_not_contain=["<input", "<form", "<button", "className=", "<div"],
         ),
         FileSpec(
-            path="app/(auth)/register.tsx",
+            path="frontend/app/(auth)/register.tsx",
             role="Register screen mirroring login with TextInput + Pressable",
             language="typescript",
             must_contain=["from 'react-native'", "TextInput", "useAuth", "useState"],
             must_not_contain=["<input", "<form", "<div", "className="],
         ),
         FileSpec(
-            path="app/(auth)/_layout.tsx",
+            path="frontend/app/(auth)/_layout.tsx",
             role="Auth route group layout via expo-router Stack",
             language="typescript",
             must_contain=["from 'expo-router'", "Stack"],
         ),
         FileSpec(
-            path="app/(tabs)/_layout.tsx",
+            path="frontend/app/(tabs)/_layout.tsx",
             role="Tabs layout using expo-router Tabs + ionicons",
             language="typescript",
             must_contain=["from 'expo-router'", "Tabs"],
         ),
         FileSpec(
-            path="app/(tabs)/dashboard.tsx",
+            path="frontend/app/(tabs)/dashboard.tsx",
             role=(
                 "Dashboard tab — React Native FlatList of campaigns from API. "
                 "Responsive: useWindowDimensions for tablet/web breakpoints. "
@@ -1659,7 +1659,7 @@ def plan_react_native_web() -> list[FileSpec]:
             must_not_contain=["<div", "<table", "className="],
         ),
         FileSpec(
-            path="app/(tabs)/settings.tsx",
+            path="frontend/app/(tabs)/settings.tsx",
             role="Settings tab — Switch components, profile edit, logout button",
             language="typescript",
             must_contain=["from 'react-native'", "Switch", "useAuth"],
@@ -1668,7 +1668,7 @@ def plan_react_native_web() -> list[FileSpec]:
 
         # ── Shared modules ─────────────────────────────────────────
         FileSpec(
-            path="context/AuthContext.tsx",
+            path="frontend/context/AuthContext.tsx",
             role=(
                 "Auth provider exposing signIn(email,password), signUp, signOut, "
                 "user. Tokens stored via expo-secure-store on native, "
@@ -1687,7 +1687,7 @@ def plan_react_native_web() -> list[FileSpec]:
             must_not_contain=["document.", "<div"],
         ),
         FileSpec(
-            path="services/api.ts",
+            path="frontend/services/api.ts",
             role=(
                 "axios instance with baseURL from process.env.EXPO_PUBLIC_API_URL "
                 "and Authorization header injected from stored token. "
@@ -1703,7 +1703,7 @@ def plan_react_native_web() -> list[FileSpec]:
             must_not_contain=["window.", "document.", "localStorage.getItem('token')  // unsafe"],
         ),
         FileSpec(
-            path="components/Button.tsx",
+            path="frontend/components/Button.tsx",
             role=(
                 "Polished cross-platform Button — Pressable with hover/pressed "
                 "visual feedback via pressed style fn. Variants: primary, "
@@ -1722,7 +1722,7 @@ def plan_react_native_web() -> list[FileSpec]:
             must_not_contain=["<button", "className=", "<div"],
         ),
         FileSpec(
-            path="components/TextField.tsx",
+            path="frontend/components/TextField.tsx",
             role=(
                 "Polished labelled TextInput. View + Text label + TextInput + "
                 "error Text in red below. Visual: rounded border, focused "
@@ -1740,7 +1740,7 @@ def plan_react_native_web() -> list[FileSpec]:
             must_not_contain=["<input", "<label", "className="],
         ),
         FileSpec(
-            path="hooks/useResponsive.ts",
+            path="frontend/hooks/useResponsive.ts",
             role=(
                 "useResponsive() returning { isPhone, isTablet, isDesktop } via "
                 "useWindowDimensions breakpoints (768, 1024)."
@@ -1751,7 +1751,7 @@ def plan_react_native_web() -> list[FileSpec]:
 
         # ── Tests (Jest + @testing-library/react-native) ────────────
         FileSpec(
-            path="__tests__/auth.test.tsx",
+            path="frontend/__tests__/auth.test.tsx",
             role=(
                 "Tests for login form: renders TextInput, validates email "
                 "format, calls signIn on submit. Uses @testing-library/react-native."
@@ -1766,7 +1766,7 @@ def plan_react_native_web() -> list[FileSpec]:
             must_not_contain=["@testing-library/react'", "jsdom"],
         ),
         FileSpec(
-            path="jest.config.js",
+            path="frontend/jest.config.js",
             role=(
                 "Jest config for Expo project using jest-expo preset. "
                 "transformIgnorePatterns allowing react-native, @react-native, expo, @expo, "
@@ -1776,7 +1776,7 @@ def plan_react_native_web() -> list[FileSpec]:
             language="javascript",
         ),
         FileSpec(
-            path=".env.example",
+            path="frontend/.env.example",
             role=(
                 "Example environment variables for Expo project. "
                 "Only EXPO_PUBLIC_* variables are exposed at runtime in Expo. "

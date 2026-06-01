@@ -1,0 +1,75 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Agent actions observability consumer and writer.
+
+Infrastructure for consuming agent action events from
+Kafka and persisting them to PostgreSQL for observability and analytics.
+
+Moved from omniclaude as part of OMN-1743 layer-correction cleanup.
+
+Components:
+    - AgentActionsConsumer: Async Kafka consumer with per-partition offset tracking
+    - ConfigAgentActionsConsumer: Configuration for the consumer
+    - WriterAgentActionsPostgres: PostgreSQL writer for observability events
+    - ServiceTTLCleanup: Async TTL cleanup service for expired rows (OMN-1759)
+    - ConfigTTLCleanup: Configuration for the TTL cleanup service
+
+Topics consumed:
+    - agent-actions
+    - agent-routing-decisions
+    - agent-transformation-events
+    - router-performance-metrics
+    - agent-detection-failures
+    - agent-execution-logs
+    - onex.evt.omniclaude.agent-status.v1
+
+Example:
+    >>> from omnibase_infra.services.observability.agent_actions import (
+    ...     AgentActionsConsumer,
+    ...     ConfigAgentActionsConsumer,
+    ...     WriterAgentActionsPostgres,
+    ... )
+    >>>
+    >>> config = ConfigAgentActionsConsumer(
+    ...     kafka_bootstrap_servers="localhost:19092",
+    ...     postgres_dsn="postgresql://postgres:secret@localhost:5432/omnibase_infra",
+    ... )
+    >>> consumer = AgentActionsConsumer(config)
+    >>>
+    >>> # Run consumer
+    >>> await consumer.start()
+    >>> await consumer.run()
+
+    # Or run as module:
+    # python -m omnibase_infra.services.observability.agent_actions.consumer
+"""
+
+from omnibase_infra.services.observability.agent_actions.config import (
+    ConfigAgentActionsConsumer,
+)
+from omnibase_infra.services.observability.agent_actions.config_ttl_cleanup import (
+    ConfigTTLCleanup,
+)
+from omnibase_infra.services.observability.agent_actions.consumer import (
+    AgentActionsConsumer,
+    ConsumerMetrics,
+    EnumHealthStatus,
+    mask_dsn_password,
+)
+from omnibase_infra.services.observability.agent_actions.service_ttl_cleanup import (
+    ServiceTTLCleanup,
+)
+from omnibase_infra.services.observability.agent_actions.writer_postgres import (
+    WriterAgentActionsPostgres,
+)
+
+__all__ = [
+    "AgentActionsConsumer",
+    "ConfigAgentActionsConsumer",
+    "ConfigTTLCleanup",
+    "ConsumerMetrics",
+    "EnumHealthStatus",
+    "ServiceTTLCleanup",
+    "WriterAgentActionsPostgres",
+    "mask_dsn_password",
+]

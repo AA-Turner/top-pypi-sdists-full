@@ -1,0 +1,45 @@
+[package]
+name = "taskchampion-py"
+version = "3.0.1"
+edition = "2021"
+# This should match the MSRV of the `taskchampion` crate.
+rust-version = "1.91.1"
+readme = "README.md"
+
+[features]
+default = ["sync"]
+
+# Support for all sync solutions
+sync = ["server-sync", "server-gcp", "server-local"]
+# Support for sync to a server
+server-sync = ["taskchampion/server-sync"]
+# Support for sync to GCP
+server-gcp = ["taskchampion/server-gcp"]
+# Support for local directory sync
+server-local = ["taskchampion/server-local"]
+
+[package.metadata.maturin]
+name = "taskchampion"
+
+[lib]
+name = "taskchampion"
+crate-type = ["cdylib"]
+doc = false
+
+[dependencies]
+pyo3 = { version = "0.28", features = ["chrono", "abi3-py39"] }
+chrono = "0.4"
+taskchampion = { version = "=3.0.1", default-features = false, features = ["storage-sqlite", "bundled", "server-local", "server-sync", "server-gcp", "tls-webpki-roots"] }
+tokio = { version = "1.44.2", features = ["rt"] }
+tempfile = "3"
+
+# Transitive security bumps. These crates are not used directly by this
+# binding; they are listed here so Cargo's resolver picks the patched
+# versions across taskchampion's dependency tree. See .cargo/audit.toml for
+# the policy on advisories that can't be fixed this way.
+bytes = "1.11.1"           # RUSTSEC-2026-0007: BytesMut::reserve overflow
+ring = "0.17.12"           # RUSTSEC-2025-0009: AES panic on overflow checks
+time = "0.3.47"            # RUSTSEC-2026-0009: DoS via stack exhaustion
+rand = "0.8.6"             # RUSTSEC-2026-0097: unsoundness with custom logger
+futures-util = "0.3.31"    # 0.3.30 yanked
+quinn-proto = "0.11.14"    # RUSTSEC-2026-0037: DoS panic in QUIC params

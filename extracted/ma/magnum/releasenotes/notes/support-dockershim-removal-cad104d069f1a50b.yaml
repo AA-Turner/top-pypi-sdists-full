@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    Support K8s 1.24 which removed support of dockershim. Needs containerd as
-    container runtime.

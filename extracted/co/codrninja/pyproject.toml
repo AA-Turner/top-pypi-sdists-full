@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codrninja"
+version = "1.5.114"
+description = "Multi-access agentic coding tool — TUI, CLI, and REST API with JSON output"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [{name = "20ZollCoder"}]
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.25.0",
+    "prompt_toolkit>=3.0.0",
+    "beautifulsoup4>=4.12.0",
+    "cryptography>=41.0.0",
+    "rich>=10.0.0",
+    "textual>=0.50.0",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.20.0",
+    "sse-starlette>=1.6.0",
+    "pydantic>=2.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/20ZollCoder/codrninja"
+Repository = "https://github.com/20ZollCoder/codrninja"
+
+[project.scripts]
+codrninja = "codrninja.cli:main"
+codrninja-stop = "codrninja.cli:stop_server_entry"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+codrninja = [
+    "_tui_bundle/package.json",
+    "_tui_bundle/tsconfig.json",
+    "_tui_bundle/src/**/*",
+    "_tui_bundle/dist/**/*",
+    "lsp_servers.json",
+    "permissions.json",
+    "mcp_servers/*.json",
+]

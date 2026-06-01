@@ -1,1 +1,0 @@
-"""GhostStream security domain package."""

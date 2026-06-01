@@ -1,0 +1,36 @@
+# Configuration for `cargo audit` / `rustsec/audit-check` CI job.
+# Each ignore entry should carry a short rationale. Reassess at every
+# taskchampion upstream bump — most of these advisories are inherited from
+# transitive deps that taskchampion 3.0.1 pulls in and cannot be patched
+# without a breaking minor/major version bump upstream.
+
+[advisories]
+ignore = [
+    # idna 0.5.0 → 1.0.x: Punycode same-origin confusion.
+    # Fix requires the entire url/idna chain to migrate to idna 1.x.
+    # Reachability: this binding only forwards user-supplied URLs to reqwest
+    # for sync_to_remote; it does not perform IDN-aware host comparison.
+    "RUSTSEC-2024-0421",
+
+    # rustls-webpki 0.102 → 0.103: name-constraint and CRL bugs (4 advisories).
+    # Fix requires rustls 0.23 to release a compatible 0.103-using version
+    # which taskchampion then needs to adopt. The exposed attack surface for
+    # this binding is limited to the TLS chain validation during sync_to_remote
+    # / sync_to_gcp — wildcard-name-constrained certs and CRL-issuing
+    # distribution points are not in use by the typical TaskChampion sync
+    # servers.
+    "RUSTSEC-2026-0099", # wildcard name constraints
+    "RUSTSEC-2026-0098", # URI name constraints
+    "RUSTSEC-2026-0104", # CRL parsing panic (DoS)
+    "RUSTSEC-2026-0049", # CRL distribution point matching
+
+    # adler 1.0.2 unmaintained: pulled transitively (likely via miniz_oxide).
+    # No straightforward replacement without upstream taskchampion adopting
+    # adler2-using crates. Adler is a checksum implementation; unmaintained
+    # status here is informational, not a code defect.
+    "RUSTSEC-2025-0056",
+
+    # rustls-pemfile 2.2.0 unmaintained: superseded by rustls-pki-types::PemObject.
+    # Pulled transitively by reqwest/rustls; needs upstream rustls upgrade.
+    "RUSTSEC-2025-0134",
+]

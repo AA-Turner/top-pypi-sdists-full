@@ -1,0 +1,80 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ca9"
+version = "0.4.0"
+description = "Open source Python package security and evidence-backed SCA triage"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MPL-2.0"
+keywords = [
+    "security",
+    "sca",
+    "cve",
+    "vulnerability",
+    "supply-chain-security",
+    "reachability",
+    "reachability-analysis",
+    "python-security",
+    "osv",
+    "openvex",
+    "sarif",
+    "snyk",
+    "dependabot",
+    "trivy",
+    "pip-audit",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = ["packaging>=21.0", "tomli>=1.1.0; python_version < '3.11'"]
+
+[project.urls]
+Documentation = "https://duriantaco.github.io/ca9/"
+Source = "https://github.com/duriantaco/ca9"
+Issues = "https://github.com/duriantaco/ca9/issues"
+Changelog = "https://github.com/duriantaco/ca9/blob/main/CHANGELOG.md"
+Security = "https://github.com/duriantaco/ca9/security/policy"
+
+[project.optional-dependencies]
+cli = ["click>=8.0"]
+mcp = ["mcp>=1.0.0"]
+dev = ["pytest>=7.0", "click>=8.0", "ruff>=0.4", "tox>=4", "pre-commit>=3.0", "skylos>=3.5.2"]
+
+[project.scripts]
+ca9 = "ca9.cli:main"
+ca9-mcp = "ca9_mcp.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ca9", "ca9_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "src"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = [
+    "E501",
+    "SIM108",
+    "SIM102",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["ca9", "ca9_mcp"]

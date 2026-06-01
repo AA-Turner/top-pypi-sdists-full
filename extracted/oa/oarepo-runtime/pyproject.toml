@@ -1,0 +1,70 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "oarepo-runtime"
+version = "5.0.0"
+description = "A set of runtime extensions of Invenio repository"
+readme = "README.md"
+license = "MIT"
+dependencies = [
+    "setuptools<82.0.0",
+    "oarepo>=14.2.1b11.dev1,<15",
+    "langcodes>=3.5.0",
+    "oarepo-invenio-typing-stubs>=0.1.0",   # dependency on Descriptor for typed system fields
+    "signposting>=0.9.9",    # signposting support
+
+    # invenio dependencies for tracking major version
+    "invenio-app>=3.0.0,<4.0.0",
+    "invenio-rdm-records>=29.0.0,<30.0.0",
+    "invenio-search>=3.0.0,<4.0.0",
+]
+requires-python = ">=3.14,<3.15"
+
+[project.urls]
+Homepage = "https://github.com/oarepo/oarepo-runtime"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.1.2",
+]
+tests = [
+    "oarepo[tests]>=14.2.1b11.dev1,<15",
+    "pytest>=7.1.2",
+    "pytest-oarepo>=5.0.0,<6.0.0",
+]
+oarepo14=[
+    "oarepo[rdm]>=14,<15",
+]
+
+[project.entry-points."invenio_base.api_apps"]
+oarepo_runtime = "oarepo_runtime.ext:OARepoRuntime"
+
+[project.entry-points."invenio_base.apps"]
+oarepo_runtime = "oarepo_runtime.ext:OARepoRuntime"
+
+[project.entry-points."flask.commands"]
+oarepo = "oarepo_runtime.cli:oarepo"
+
+[project.entry-points."oarepo.cli.search.init"]
+runtime_update_mappings = "oarepo_runtime.services.records.mapping:update_all_records_mappings"
+
+[project.entry-points."invenio_base.blueprints"]
+oarepo_runtime_info = "oarepo_runtime.info.views:create_wellknown_blueprint"
+
+[tool.hatch.version]
+path = "oarepo_runtime/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/oarepo_runtime",
+]
+
+[tool.pytest.ini_options]
+    testpaths = [
+        "tests"
+    ]
+
+[tool.hatch.metadata]
+allow-direct-references = true

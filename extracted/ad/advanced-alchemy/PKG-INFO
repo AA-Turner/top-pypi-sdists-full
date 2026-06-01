@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: advanced_alchemy
-Version: 1.10.0
+Version: 1.11.0
 Summary: Ready-to-go SQLAlchemy concoctions.
 Project-URL: Changelog, https://advanced-alchemy.litestar.dev/latest/changelog
 Project-URL: Discord, https://discord.gg/litestar
@@ -37,12 +37,14 @@ Requires-Dist: alembic>=1.12.0
 Requires-Dist: eval-type-backport; python_full_version < '3.10'
 Requires-Dist: exceptiongroup; python_full_version < '3.11'
 Requires-Dist: greenlet
-Requires-Dist: sqlalchemy>=2.0.20
+Requires-Dist: sqlalchemy>=2.0.41
 Requires-Dist: typing-extensions>=4.0.0
 Provides-Extra: argon2
 Requires-Dist: argon2-cffi; extra == 'argon2'
 Provides-Extra: cli
 Requires-Dist: rich-click; extra == 'cli'
+Provides-Extra: cryptography
+Requires-Dist: cryptography; extra == 'cryptography'
 Provides-Extra: dogpile
 Requires-Dist: dogpile-cache; extra == 'dogpile'
 Provides-Extra: fsspec
@@ -55,6 +57,8 @@ Provides-Extra: passlib
 Requires-Dist: passlib[argon2]; extra == 'passlib'
 Provides-Extra: pwdlib
 Requires-Dist: pwdlib[argon2]; extra == 'pwdlib'
+Provides-Extra: pyotp
+Requires-Dist: pyotp; extra == 'pyotp'
 Provides-Extra: uuid
 Requires-Dist: uuid-utils>=0.6.1; extra == 'uuid'
 Description-Content-Type: text/markdown
@@ -99,7 +103,7 @@ offering:
     - Unified interface for various storage backends ([`fsspec`](https://filesystem-spec.readthedocs.io/en/latest/) and [`obstore`](https://developmentseed.org/obstore/latest/))
     - Optional lifecycle event hooks integrated with SQLAlchemy's event system to automatically save and delete files as records are inserted, updated, or deleted.
 - Optimized JSON types including a custom JSON type for Oracle
-- Integrated support for UUID6 and UUID7 using [`uuid-utils`](https://github.com/aminalaee/uuid-utils) (install with the `uuid` extra)
+- Integrated support for UUID6 and UUID7 ([`uuid-utils`](https://github.com/aminalaee/uuid-utils) when installed, otherwise native in Python 3.14+, with UUID4 fallback on older versions).
 - Integrated support for Nano ID using [`fastnanoid`](https://github.com/oliverlambson/fastnanoid) (install with the `nanoid` extra)
 - Custom encrypted text type with multiple backend support including [`pgcrypto`](https://www.postgresql.org/docs/current/pgcrypto.html) for PostgreSQL and the Fernet implementation from [`cryptography`](https://cryptography.io/en/latest/) for other databases
 - Custom password hashing type with multiple backend support including [`Argon2`](https://github.com/P-H-C/phc-winner-argon2), [`Passlib`](https://passlib.readthedocs.io/en/stable/), and [`Pwdlib`](https://pwdlib.readthedocs.io/en/stable/) with automatic salt generation

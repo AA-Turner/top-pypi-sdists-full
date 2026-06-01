@@ -1,0 +1,131 @@
+from collections.abc import Sequence
+
+import numpy as np
+
+from ophyd_async.core import Array1D, Device, DeviceVector, StandardReadable, SubsetEnum
+from ophyd_async.epics import motor
+from ophyd_async.epics.core import epics_signal_r, epics_signal_rw, epics_signal_x
+
+# Map the CS axis letters to their index (1 indexed)
+CS_INDEX = {letter: index + 1 for index, letter in enumerate("ABCUVWXYZ")}
+
+
+class PmacExecuteState(SubsetEnum):
+    DONE = "Done"
+    EXECUTING = "Executing"
+
+
+class PmacTrajectoryIO(StandardReadable):
+    """Device that moves a PMAC Motor record.
+
+    This mirrors the interface provided by pmac/Db/pmacControllerTrajectory.template
+    """
+
+    def __init__(self, prefix: str, name: str = "") -> None:
+        self.time_array = epics_signal_rw(
+            Array1D[np.float64], prefix + "ProfileTimeArray"
+        )
+        self.user_array = epics_signal_rw(Array1D[np.int32], prefix + "UserArray")
+        # 1 indexed CS axes so we can index into them from the compound motor input link
+        self.positions = DeviceVector(
+            {
+                i: epics_signal_rw(Array1D[np.float64], f"{prefix}{letter}:Positions")
+                for letter, i in CS_INDEX.items()
+            }
+        )
+        self.use_axis = DeviceVector(
+            {
+                i: epics_signal_rw(bool, f"{prefix}{letter}:UseAxis")
+                for letter, i in CS_INDEX.items()
+            }
+        )
+        self.velocities = DeviceVector(
+            {
+                i: epics_signal_rw(Array1D[np.float64], f"{prefix}{letter}:Velocities")
+                for letter, i in CS_INDEX.items()
+            }
+        )
+        self.total_points = epics_signal_r(int, f"{prefix}TotalPoints_RBV")
+        self.points_to_build = epics_signal_rw(int, prefix + "ProfilePointsToBuild")
+        self.build_profile = epics_signal_x(prefix + "ProfileBuild")
+        self.append_profile = epics_signal_x(prefix + "ProfileAppend")
+        # This should be a SignalX, but because it is a Busy record, must
+        # be a SignalRW to be waited on in PmacTrajectoryTriggerLogic.
+        # TODO: Change record type to bo from busy (https://github.com/DiamondLightSource/pmac/issues/154)
+        self.execute_profile = epics_signal_rw(bool, prefix + "ProfileExecute")
+        self.execute_state = epics_signal_r(
+            PmacExecuteState, prefix + "ProfileExecuteState_RBV"
+        )
+        self.abort_profile = epics_signal_x(prefix + "ProfileAbort")
+        self.profile_cs_name = epics_signal_rw(str, prefix + "ProfileCsName")
+        self.calculate_velocities = epics_signal_rw(bool, prefix + "ProfileCalcVel")
+
+        super().__init__(name=name)
+
+
+class PmacAxisAssignmentIO(Device):
+    """A Device that (direct) moves a PMAC Coordinate System Motor.
+
+    Note that this does not go through a motor record.
+    This mirrors the interface provided by pmac/Db/motor_in_cs.template
+    """
+
+    def __init__(self, prefix: str, name: str = "") -> None:
+        self.cs_axis_letter = epics_signal_r(str, f"{prefix}CsAxis_RBV")
+        self.cs_port = epics_signal_r(str, f"{prefix}CsPort_RBV")
+        self.cs_number = epics_signal_r(int, f"{prefix}CsRaw_RBV")
+        super().__init__(name=name)
+
+
+class PmacCoordIO(Device):
+    """A Device that represents a Pmac Coordinate System.
+
+    This mirrors the interfaces provided by pmac/Db/pmacCsController.template,
+    and pmac/Db/pmacDirectMotor.template
+    """
+
+    def __init__(self, prefix: str, name: str = "") -> None:
+        self.defer_moves = epics_signal_rw(bool, f"{prefix}DeferMoves")
+        self.cs_port = epics_signal_r(str, f"{prefix}Port")
+        self.cs_axis_setpoint = DeviceVector(
+            {
+                i: epics_signal_rw(float, f"{prefix}M{i}:DirectDemand")
+                for i in CS_INDEX.values()
+            }
+        )
+        super().__init__(name=name)
+
+
+class PmacIO(Device):
+    """Device that represents a pmac controller.
+
+    This mirrors the interface provided by pmac/Db/pmacController.template
+    """
+
+    def __init__(
+        self,
+        prefix: str,
+        raw_motors: Sequence[motor.Motor],
+        coord_nums: Sequence[int],
+        name: str = "",
+    ) -> None:
+        motor_prefixes = [motor.motor_egu.source.split(".")[0] for motor in raw_motors]
+
+        self.assignment = DeviceVector(
+            {
+                i: PmacAxisAssignmentIO(motor_prefix + ":")
+                for i, motor_prefix in enumerate(motor_prefixes)
+            }
+        )
+
+        # Public Look up for motor to axis assignment DeviceVector index
+
+        self.motor_assignment_index = {motor: i for i, motor in enumerate(raw_motors)}
+
+        self.coord = DeviceVector(
+            {coord: PmacCoordIO(prefix=f"{prefix}CS{coord}:") for coord in coord_nums}
+        )
+        # Trajectory PVs have the same prefix as the pmac device
+        self.trajectory = PmacTrajectoryIO(prefix)
+
+        super().__init__(name=name)

@@ -1,0 +1,23 @@
+[project]
+name = "deno"
+version = "2.8.1"
+description = "Python redistribution of Deno binaries"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "the Deno authors", email = "support@deno.com" }]
+
+[project.urls]
+homepage = "https://deno.com"
+documentation = "https://docs.deno.com"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+artifacts = ["scripts/hatch_build.py"]
+
+[tool.hatch.build.hooks.custom]
+path = "scripts/hatch_build.py"

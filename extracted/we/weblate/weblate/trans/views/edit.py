@@ -8,7 +8,6 @@ import time
 from math import ceil
 from typing import TYPE_CHECKING, Any
 
-import sentry_sdk
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.contrib.messages import get_messages
@@ -75,7 +74,9 @@ from weblate.utils.state import (
     STATE_TRANSLATED,
 )
 from weblate.utils.stats import CategoryLanguage, ProjectLanguage
+from weblate.utils.tracing import start_span
 from weblate.utils.views import parse_path, parse_path_units, show_form_errors
+from weblate.workspaces.models import Workspace
 
 if TYPE_CHECKING:
     from weblate.auth.models import AuthenticatedHttpRequest
@@ -115,7 +116,7 @@ def format_newly_failing_checks_message(check_names: set[str]) -> str:
 
 def get_other_units(unit):
     """Return other units to show while translating."""
-    with sentry_sdk.start_span(op="unit.others", name=f"{unit.pk}"):
+    with start_span(op="unit.others", name=f"{unit.pk}"):
         result: dict[str, Any] = {
             "total": 0,
             "skipped": False,
@@ -282,7 +283,7 @@ def search(
         name = ""
         search_items = ()
 
-    with sentry_sdk.start_span(op="unit.search", name=search_url):
+    with start_span(op="unit.search", name=search_url):
         search_result = {
             "form": form,
             "offset": cleaned_data.get("offset", 1),
@@ -621,6 +622,37 @@ def handle_suggestions(
     return HttpResponseRedirect(redirect_url)
 
 
+def handle_component_shift_notice(
+    request: AuthenticatedHttpRequest, unit_set, search_result, unit
+) -> None:
+    """Show a warning when sequential navigation moves to another component."""
+    last_viewed_unit_id = search_result.get("last_viewed_unit_id")
+    if last_viewed_unit_id:
+        try:
+            previous_unit = unit_set.get(pk=last_viewed_unit_id)
+        except Unit.DoesNotExist:
+            previous_unit = None
+        if (
+            previous_unit is not None
+            and unit.translation.component != previous_unit.translation.component
+        ):
+            messages.warning(
+                request,
+                gettext("You have shifted from %(previous)s to %(current)s.")
+                % {
+                    "previous": previous_unit.translation.full_slug,
+                    "current": unit.translation.full_slug,
+                },
+            )
+
+    search_result["last_viewed_unit_id"] = unit.id
+    session_key = search_result["key"]
+    if session_key in request.session:
+        session_result = request.session[session_key]
+        session_result["last_viewed_unit_id"] = unit.id
+        request.session[session_key] = session_result
+
+
 @transaction.atomic
 def translate(request: AuthenticatedHttpRequest, path):
     """Translate, suggest and search view."""
@@ -675,19 +707,7 @@ def translate(request: AuthenticatedHttpRequest, path):
             messages.error(request, gettext("Invalid search string!"))
             return redirect(obj)
 
-    last_viewed_unit_id = search_result.get("last_viewed_unit_id")
-    if last_viewed_unit_id:
-        previous_unit = unit_set.get(pk=last_viewed_unit_id)
-        if unit.translation.component != previous_unit.translation.component:
-            messages.warning(
-                request,
-                gettext("You have shifted from %(previous)s to %(current)s.")
-                % {
-                    "previous": previous_unit.translation.full_slug,
-                    "current": unit.translation.full_slug,
-                },
-            )
-    search_result["last_viewed_unit_id"] = unit.id
+    handle_component_shift_notice(request, unit_set, search_result, unit)
 
     # Some URLs we will most likely use
     base_unit_url = f"{obj.get_translate_url()}?{search_result['url']}&offset="
@@ -805,13 +825,16 @@ def translate(request: AuthenticatedHttpRequest, path):
 @require_POST
 @login_required
 def auto_translation(request: AuthenticatedHttpRequest, path):
-    obj = parse_path(request, path, (Translation, Component, Category, ProjectLanguage))
+    obj = parse_path(
+        request, path, (Translation, Component, Category, ProjectLanguage, Workspace)
+    )
     update_locked = False
     translation_id: int | None = None
     component_id: int | None = None
     category_id: int | None = None
     project_id: int | None = None
     language_id: int | None = None
+    workspace_id: str | None = None
 
     match obj:
         case Translation():
@@ -838,11 +861,20 @@ def auto_translation(request: AuthenticatedHttpRequest, path):
             update_locked = project.locked
             project_id = project.id
             language_id = obj.language.id
+        case Workspace():
+            autoform = AutoForm(obj, request.user, request.POST)
+            update_locked = not (
+                Translation.objects.filter_access(request.user)
+                .filter(component__project__workspace=obj, component__locked=False)
+                .exclude_source()
+                .exists()
+            )
+            workspace_id = str(obj.pk)
         case _:  # pragma: no cover
             msg = "Unsupported object for auto translation"
             raise PermissionDenied(msg)
 
-    if not request.user.has_perm("translation.auto", project):
+    if not request.user.has_perm("translation.auto", obj):
         raise PermissionDenied
 
     if update_locked or not autoform.is_valid():
@@ -857,6 +889,7 @@ def auto_translation(request: AuthenticatedHttpRequest, path):
             category_id=category_id,
             project_id=project_id,
             language_id=language_id,
+            workspace_id=workspace_id,
             user_id=request.user.id,
             mode=autoform.cleaned_data["mode"],
             q=autoform.cleaned_data["q"],
@@ -875,6 +908,7 @@ def auto_translation(request: AuthenticatedHttpRequest, path):
             category_id=category_id,
             project_id=project_id,
             language_id=language_id,
+            workspace_id=workspace_id,
             user_id=request.user.id,
             mode=autoform.cleaned_data["mode"],
             q=autoform.cleaned_data["q"],

@@ -1,0 +1,37 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+   "setuptools>=67.8.0",
+]
+
+[project]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3 :: Only",
+]
+description = "QEMU Machine Protocol client"
+name = "qmp"
+readme = "README.md"
+requires-python = ">=3.6"
+version = "1.1.0"
+
+[project.urls]
+Homepage = "https://gitlab.com/abogdanenko/qmp"
+
+[[project.authors]]
+email = "qemu-devel@nongnu.org"
+name = "QEMU Project"
+
+[[project.maintainers]]
+email = "alexey@bogdanenko.com"
+name = "Alexey Bogdanenko"

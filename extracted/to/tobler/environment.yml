@@ -1,0 +1,22 @@
+name: tobler
+channels:
+  - conda-forge
+dependencies:
+  - astropy
+  - dask
+  - dask-geopandas
+  - geopandas
+  - h3-py
+  - joblib
+  - jupyterlab
+  - libpysal
+  - mapclassify
+  - numpy
+  - pandas
+  - pip
+  - rasterio
+  - rasterstats
+  - scikit-learn
+  - scipy
+  - statsmodels
+  - tqdm

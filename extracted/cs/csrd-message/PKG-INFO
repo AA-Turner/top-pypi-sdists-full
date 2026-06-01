@@ -1,0 +1,78 @@
+Metadata-Version: 2.4
+Name: csrd-message
+Version: 0.5.28
+Summary: Messaging abstractions for publisher/consumer workflows with optional RabbitMQ and Kafka extras
+Project-URL: Repository, https://github.com/csrd-api/fastapi-common
+Project-URL: Documentation, https://github.com/csrd-api/fastapi-common/tree/main/packages/message
+Project-URL: Changelog, https://github.com/csrd-api/fastapi-common/blob/main/CHANGELOG.md
+License: MIT
+Requires-Python: >=3.12
+Provides-Extra: all
+Requires-Dist: aio-pika<10,>=9; extra == 'all'
+Requires-Dist: aiokafka<1,>=0.11; extra == 'all'
+Provides-Extra: kafka
+Requires-Dist: aiokafka<1,>=0.11; extra == 'kafka'
+Provides-Extra: rabbit
+Requires-Dist: aio-pika<10,>=9; extra == 'rabbit'
+Description-Content-Type: text/markdown
+
+# csrd.message
+
+Transport-agnostic message abstractions for publish/consume workflows.
+
+## Why this package exists
+
+- Provide a stable API for messaging behavior independent of broker choice
+- Enable optional broker installs with extras (`rabbit`, `kafka`)
+- Keep service code portable across RabbitMQ and Kafka backends
+
+## Installation
+
+```bash
+# Core abstractions only
+uv add csrd-message
+
+# RabbitMQ support
+uv add 'csrd-message[rabbit]'
+
+# Kafka support
+uv add 'csrd-message[kafka]'
+
+# Both brokers
+uv add 'csrd-message[all]'
+```
+
+## Important extras note
+
+Python extras are part of the same PyPI project, not a separate project.
+
+- `csrd-message` and `csrd-message[rabbit]` resolve to the same package name (`csrd-message`)
+- The extra only adds optional dependencies declared by this package
+- Extras do not create new package names on PyPI
+
+## Initial API surface
+
+- `Message` - immutable message envelope
+- `MessagePublisher` - protocol for publishing messages
+- `MessageConsumer` - protocol for consuming messages
+- `Acknowledgement` - ack/retry/reject semantics
+
+## Quick example
+
+```python
+from csrd.message import Acknowledgement, Message, MessagePublisher
+
+
+class InMemoryPublisher:
+    async def publish(self, message: Message) -> None:
+        print(message.topic, message.payload)
+
+
+async def send(publisher: MessagePublisher) -> None:
+    await publisher.publish(Message(topic="orders.created", payload={"order_id": "o-1"}))
+```
+
+## Status
+
+This is a v0 skeleton package to reserve naming and establish contracts.
+Concrete RabbitMQ/Kafka adapters are planned follow-up work, while the shared envelope/protocol API is considered stable for early adopters.

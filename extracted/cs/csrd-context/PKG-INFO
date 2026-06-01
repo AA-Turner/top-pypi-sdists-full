@@ -1,0 +1,39 @@
+Metadata-Version: 2.4
+Name: csrd-context
+Version: 0.5.28
+Summary: Request context, header utilities, and logging middleware for FastAPI
+Project-URL: Repository, https://github.com/csrd-api/fastapi-common
+Project-URL: Documentation, https://github.com/csrd-api/fastapi-common/tree/main/packages/context
+Project-URL: Changelog, https://github.com/csrd-api/fastapi-common/blob/main/CHANGELOG.md
+License: MIT
+Requires-Python: >=3.12
+Requires-Dist: csrd-models
+Requires-Dist: fastapi<1,>=0.115
+Requires-Dist: starlette>=0.36
+Description-Content-Type: text/markdown
+
+# csrd-context
+
+Request context, header utilities, and logging middleware for FastAPI.
+
+**Package**: `csrd.context` · **Import**: `from csrd.context import ...`
+
+## What's included
+
+- Framework-agnostic context variable system (headers, path params, query params, API version)
+- `RequestContextMiddleware` — captures request headers into context (raw ASGI, streaming-safe)
+- `HTTPLoggingMiddleware` — structured HTTP request/response logging (raw ASGI, streaming-safe)
+- Platform context variables (`user_info_context`, `hit_id_context`, `app_id_context`)
+- `get_headers()`, `get_hit_id()`, `get_app_id()` — accessors for the current request context
+
+## Installation
+
+This package is part of the `fastapi-common` monorepo. Install via git:
+
+```bash
+uv pip install "csrd-context @ git+ssh://git@github.com/csrd-api/fastapi-common.git#subdirectory=packages/context"
+```
+
+## Dependencies
+
+- `csrd-models` (Tier 1 — no other `csrd.*` sibling dependencies)

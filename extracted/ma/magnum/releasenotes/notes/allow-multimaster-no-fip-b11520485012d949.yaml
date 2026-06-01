@@ -1,5 +1,0 @@
----
-features:
-  - |
-    This is allowing no floating IP to be usable with a multimaster
-    configuration in terms of load balancers.

@@ -1,0 +1,32 @@
+# KSI-AFR-SCG — Secure Configuration Guide
+#
+# DRAFT — this is a starter-pack template. Copy it to
+# `.efterlev/manifests/<ksi-id>.yml` (drop the `.template` suffix) and
+# fill in the DRAFT placeholders before letting it land in your
+# attestation pipeline. The `_template_help` block carries the
+# questions you should answer; remove that block once filled in.
+
+ksi: KSI-AFR-SCG
+name: "Secure Configuration Guide"
+
+_template_help:
+  description: >
+    KSI-AFR-SCG develops Secure Configuration Guides for customer-facing configuration of the cloud service. The attestation should name where the guides live, what they cover, and how they're kept current.
+  questions:
+      - "Where are your customer-facing secure-configuration guides published?"
+      - "What configuration areas do they cover (network, IAM, logging, encryption)?"
+      - "Who owns the guides and reviews them for accuracy?"
+      - "How are customers notified when guides update?"
+      - "When was the last full review?"
+
+evidence:
+  - type: attestation
+    statement: >
+      DRAFT — Example: Secure Configuration Guides published at docs.example.com/security/. Cover IAM-best-practices, network-isolation, audit-logging, encryption-at-rest configuration. The Solutions Engineering team owns the guides; reviewed semi-annually by the security architect. Customer change notifications go via the product changelog.
+    attested_by: "DRAFT — your-vp-security@example.com"
+    attested_at: "DRAFT — YYYY-MM-DD"
+    reviewed_at: "DRAFT — YYYY-MM-DD"
+    next_review: "DRAFT — YYYY-MM-DD (recommend 6-month review cadence)"
+    supporting_docs:
+      - "DRAFT — ./policies/your-runbook.pdf"
+      - "DRAFT — https://wiki.your-company.example/path-to-relevant-docs"

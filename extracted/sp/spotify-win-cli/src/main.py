@@ -1,2 +1,0 @@
-def hw():
-    print("test")

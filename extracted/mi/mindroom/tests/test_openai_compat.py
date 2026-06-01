@@ -1,0 +1,5064 @@
+"""Tests for the OpenAI-compatible chat completions API."""
+
+from __future__ import annotations
+
+import asyncio
+import hashlib
+import json
+import re
+from concurrent.futures import CancelledError as FutureCancelledError
+from contextlib import contextmanager
+from contextvars import Context
+from pathlib import Path
+from types import SimpleNamespace
+from typing import TYPE_CHECKING, cast
+from unittest.mock import AsyncMock, MagicMock, patch
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Callable, Iterator
+
+import pytest
+from agno.agent import Agent as AgnoAgent
+from agno.models.message import Message
+from agno.models.ollama import Ollama
+from agno.run.agent import RunContentEvent, RunOutput
+from agno.run.team import RunContentEvent as TeamContentEvent
+from agno.run.team import TeamRunOutput
+from agno.team import Team as AgnoTeam
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.testclient import TestClient
+from starlette.background import BackgroundTask
+from starlette.requests import ClientDisconnect
+
+from mindroom import constants
+from mindroom.agents import create_agent
+from mindroom.ai_run_metadata import build_prepared_history_metadata_content
+from mindroom.api import config_lifecycle, openai_compat
+from mindroom.api.main import initialize_api_app
+from mindroom.api.openai_compat import (
+    _ChatMessage,
+    _convert_messages,
+    _derive_session_id,
+    _extract_content_text,
+    _is_error_response,
+)
+from mindroom.config.agent import AgentConfig, AgentPrivateConfig, TeamConfig
+from mindroom.config.main import Config
+from mindroom.config.models import ModelConfig, RouterConfig
+from mindroom.constants import RuntimePaths, resolve_runtime_paths
+from mindroom.execution_preparation import _PreparedExecutionContext
+from mindroom.history.runtime import ScopeSessionContext, open_bound_scope_session_context
+from mindroom.history.types import CompactionDecision, HistoryScope, ResolvedReplayPlan
+from mindroom.knowledge.availability import KnowledgeAvailability
+from mindroom.knowledge.manager import IndexingSettings
+from mindroom.knowledge.utils import KnowledgeAvailabilityDetail, _KnowledgeResolution
+from mindroom.llm_request_logging import current_llm_request_log_context
+from mindroom.matrix.client import ResolvedVisibleMessage
+from mindroom.memory import MemoryPromptParts
+from mindroom.prompts import QUEUED_MESSAGE_NOTICE_TEXT
+from mindroom.team_exact_members import ResolvedExactTeamMembers
+from mindroom.teams import TeamMode
+from mindroom.tool_approval import _shutdown_approval_store
+from mindroom.tool_system.tool_calls import record_tool_success
+from mindroom.tool_system.worker_routing import (
+    ToolExecutionIdentity,
+    build_tool_execution_identity,
+    get_tool_execution_identity,
+)
+from tests.identity_helpers import persist_entity_accounts
+
+_TEST_MODEL = "openai:gpt-5.4"
+
+
+def _make_test_agent(name: str) -> AgnoAgent:
+    agent_id = name.removesuffix("Agent").replace(" ", "_").lower() or name.lower()
+    return AgnoAgent(name=name, id=agent_id, model=_TEST_MODEL)
+
+
+def _make_test_team(
+    *,
+    name: str = "Test Team",
+    team_id: str = "test-team",
+) -> AgnoTeam:
+    return AgnoTeam(name=name, id=team_id, model=_TEST_MODEL, members=[], tools=[])
+
+
+def _runtime_paths(process_env: dict[str, str] | None = None) -> RuntimePaths:
+    return resolve_runtime_paths(config_path=Path(__file__), process_env=process_env or {})
+
+
+def _runtime_paths_for_config(config: Config, process_env: dict[str, str] | None = None) -> RuntimePaths:
+    runtime_paths = _runtime_paths(process_env)
+    persist_entity_accounts(config, runtime_paths)
+    return runtime_paths
+
+
+def _fake_indexing_settings(base_id: str) -> IndexingSettings:
+    return IndexingSettings(
+        base_id=base_id,
+        storage_root="memory",
+        knowledge_path=f"memory/{base_id}",
+        mode="semantic",
+        embedder_provider="openai",
+        embedder_model="text-embedding-3-small",
+        embedder_host="",
+        embedder_dimensions="",
+        chunk_size="5000",
+        chunk_overlap="0",
+        repo_identity="",
+        git_branch="",
+        git_lfs="",
+        git_skip_hidden="",
+        git_include_patterns="",
+        git_exclude_patterns="",
+        include_extensions="",
+        exclude_extensions="()",
+    )
+
+
+def _knowledge_lookup(
+    knowledge: object | None,
+    *,
+    base_id: str = "docs",
+    availability: KnowledgeAvailability = KnowledgeAvailability.READY,
+) -> SimpleNamespace:
+    index = (
+        SimpleNamespace(
+            knowledge=knowledge,
+            state=SimpleNamespace(
+                source_signature=hashlib.sha256().hexdigest(),
+                last_published_at="2999-01-01T00:00:00+00:00",
+                last_refresh_at=None,
+            ),
+        )
+        if knowledge is not None
+        else None
+    )
+    key = SimpleNamespace(
+        base_id=base_id,
+        storage_root="memory",
+        knowledge_path=f"memory/{base_id}",
+        indexing_settings=_fake_indexing_settings(base_id),
+    )
+    return SimpleNamespace(
+        key=key,
+        index=index,
+        state=index.state if index is not None else None,
+        availability=availability,
+        schedule_refresh_on_access=False,
+    )
+
+
+def _prepared_team_execution_context(
+    *,
+    final_prompt: str,
+    run_metadata: dict[str, object] | None = None,
+    replay_plan: ResolvedReplayPlan | None = None,
+    replays_persisted_history: bool = False,
+    messages: list[Message] | None = None,
+    prepared_context_tokens: int | None = None,
+) -> SimpleNamespace:
+    prepared_context = _PreparedExecutionContext(
+        messages=tuple(messages or [Message(role="user", content=final_prompt)]),
+        replay_plan=replay_plan,
+        unseen_event_ids=[],
+        replays_persisted_history=replays_persisted_history,
+        compaction_outcomes=[],
+        compaction_decision=CompactionDecision(mode="none", reason="unclassified"),
+        compaction_reply_outcome="none",
+        prepared_context_tokens=prepared_context_tokens,
+        estimated_context_tokens=prepared_context_tokens,
+    )
+    return SimpleNamespace(
+        messages=prepared_context.messages,
+        final_prompt=prepared_context.final_prompt,
+        run_metadata=run_metadata or build_prepared_history_metadata_content(prepared_context.prepared_history),
+        replay_plan=replay_plan,
+        unseen_event_ids=[],
+        replays_persisted_history=replays_persisted_history,
+        compaction_outcomes=[],
+        compaction_decision=CompactionDecision(mode="none", reason="unclassified"),
+        compaction_reply_outcome="none",
+        prepared_context_tokens=prepared_context_tokens,
+        estimated_context_tokens=prepared_context_tokens,
+        prepared_history=prepared_context.prepared_history,
+    )
+
+
+@pytest.fixture(autouse=True)
+def reset_approval_store() -> Iterator[None]:
+    """Keep the module-level approval store isolated per test."""
+    asyncio.run(_shutdown_approval_store())
+    yield
+    asyncio.run(_shutdown_approval_store())
+
+
+def _read_jsonl(path: Path) -> list[dict[str, object]]:
+    if not path.exists():
+        return []
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+
+
+def _tool_calls_path(runtime_paths: RuntimePaths) -> Path:
+    return constants.tracking_dir(runtime_paths) / "tool_calls.jsonl"
+
+
+@pytest.fixture
+def test_config() -> Config:
+    """Create a minimal test config with a few agents."""
+    return Config(
+        agents={
+            "general": AgentConfig(
+                display_name="GeneralAgent",
+                role="General-purpose assistant",
+                rooms=[],
+            ),
+            "code": AgentConfig(
+                display_name="CodeAgent",
+                role="Generate code and manage files",
+                tools=["file", "shell"],
+                rooms=[],
+            ),
+            "research": AgentConfig(
+                display_name="ResearchAgent",
+                role="",
+                rooms=[],
+            ),
+        },
+        models={"default": ModelConfig(provider="ollama", id="test-model")},
+        router=RouterConfig(model="default"),
+    )
+
+
+@pytest.fixture
+def app_client(test_config: Config) -> Iterator[TestClient]:
+    """Create a FastAPI test client with mocked config."""
+    from fastapi import FastAPI  # noqa: PLC0415
+
+    from mindroom.api.openai_compat import router  # noqa: PLC0415
+
+    app = FastAPI()
+    app.include_router(router)
+    runtime_paths = _runtime_paths({"OPENAI_COMPAT_ALLOW_UNAUTHENTICATED": "true"})
+    persist_entity_accounts(test_config, runtime_paths)
+    initialize_api_app(app, runtime_paths)
+
+    with (
+        patch("mindroom.api.openai_compat._load_config", return_value=(test_config, runtime_paths)),
+        TestClient(app) as client,
+    ):
+        yield client
+
+
+@pytest.fixture
+def authed_client(test_config: Config) -> Iterator[TestClient]:
+    """Create a test client with API key auth enabled."""
+    from fastapi import FastAPI  # noqa: PLC0415
+
+    from mindroom.api.openai_compat import router  # noqa: PLC0415
+
+    app = FastAPI()
+    app.include_router(router)
+    runtime_paths = _runtime_paths({"OPENAI_COMPAT_API_KEYS": "test-key-1,test-key-2"})
+    persist_entity_accounts(test_config, runtime_paths)
+    initialize_api_app(app, runtime_paths)
+
+    with (
+        patch("mindroom.api.openai_compat._load_config", return_value=(test_config, runtime_paths)),
+        TestClient(app) as client,
+    ):
+        yield client
+
+
+def test_load_config_uses_dynamic_runtime_config_path(
+    tmp_path: Path,
+) -> None:
+    """OpenAI-compatible config loading should follow the active runtime config path."""
+    config_path = tmp_path / "alt-config.yaml"
+    config_path.write_text(
+        "models:\n  default:\n    provider: openai\n    id: gpt-5.4\n"
+        "agents:\n  only_alt:\n    display_name: OnlyAlt\n    role: alt\n    rooms: []\n"
+        "router:\n  model: default\n",
+        encoding="utf-8",
+    )
+    runtime_paths = constants.resolve_runtime_paths(config_path=config_path)
+    from fastapi import FastAPI  # noqa: PLC0415
+
+    app = FastAPI()
+    initialize_api_app(app, runtime_paths)
+    assert openai_compat.config_lifecycle.load_config_into_app(runtime_paths, app) is True
+    request = Request({"type": "http", "app": app})
+
+    config, resolved_runtime_paths = openai_compat._load_config(request)
+
+    assert resolved_runtime_paths.config_path == config_path.resolve()
+    assert "only_alt" in config.agents
+
+
+def test_load_config_requires_runtime_paths() -> None:
+    """OpenAI-compatible config loading should fail fast without app runtime paths."""
+    request = Request(
+        {
+            "type": "http",
+            "app": type("_App", (), {"state": type("_State", (), {})()})(),
+        },
+    )
+
+    with pytest.raises(TypeError, match="MindRoom app state is not initialized"):
+        openai_compat._load_config(request)
+
+
+def test_list_models_uses_committed_snapshot_until_reload(tmp_path: Path) -> None:
+    """OpenAI-compatible routes should ignore newer on-disk edits until reload publishes a new snapshot."""
+    from fastapi import FastAPI  # noqa: PLC0415
+
+    from mindroom.api.openai_compat import router  # noqa: PLC0415
+
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "models:\n"
+        "  default:\n"
+        "    provider: openai\n"
+        "    id: gpt-5.4\n"
+        "router:\n"
+        "  model: default\n"
+        "agents:\n"
+        "  general:\n"
+        "    display_name: General\n"
+        "    role: helper\n"
+        "    rooms: []\n",
+        encoding="utf-8",
+    )
+    app = FastAPI()
+    app.include_router(router)
+    runtime_paths = resolve_runtime_paths(
+        config_path=config_path,
+        process_env={"OPENAI_COMPAT_ALLOW_UNAUTHENTICATED": "true"},
+    )
+    initialize_api_app(app, runtime_paths)
+    assert openai_compat.config_lifecycle.load_config_into_app(runtime_paths, app) is True
+    config_path.write_text(
+        "models:\n"
+        "  default:\n"
+        "    provider: openai\n"
+        "    id: gpt-5.4\n"
+        "router:\n"
+        "  model: default\n"
+        "agents:\n"
+        "  changed:\n"
+        "    display_name: Changed\n"
+        "    role: helper\n"
+        "    rooms: []\n",
+        encoding="utf-8",
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/v1/models")
+
+    assert response.status_code == 200
+    model_ids = {model["id"] for model in response.json()["data"]}
+    assert "general" in model_ids
+    assert "changed" not in model_ids
+
+
+def test_list_models_keeps_auth_runtime_bound_across_runtime_swap(test_config: Config) -> None:
+    """Model listing should load config from the same runtime that authenticated the request."""
+    from fastapi import FastAPI  # noqa: PLC0415
+
+    from mindroom.api.openai_compat import router  # noqa: PLC0415
+
+    app = FastAPI()
+    app.include_router(router)
+    runtime_a = _runtime_paths({"OPENAI_COMPAT_API_KEYS": "old-key"})
+    runtime_b = _runtime_paths({"OPENAI_COMPAT_API_KEYS": "new-key"})
+    initialize_api_app(app, runtime_a)
+    captured_runtime_paths: list[RuntimePaths | None] = []
+
+    def _authenticate_and_swap(
+        authorization: str | None,
+        runtime_paths: RuntimePaths,
+    ) -> JSONResponse | None:
+        assert authorization == "Bearer old-key"
+        assert runtime_paths == runtime_a
+        initialize_api_app(app, runtime_b)
+        return None
+
+    def _capture_load_config(
+        _request: Request,
+        *,
+        runtime_paths: RuntimePaths | None = None,
+    ) -> tuple[Config, RuntimePaths]:
+        captured_runtime_paths.append(runtime_paths)
+        return test_config, runtime_paths or runtime_b
+
+    with (
+        patch("mindroom.api.openai_compat._authenticate_request", side_effect=_authenticate_and_swap),
+        patch("mindroom.api.openai_compat._load_config", side_effect=_capture_load_config),
+        TestClient(app) as client,
+    ):
+        response = client.get("/v1/models", headers={"authorization": "Bearer old-key"})
+
+    assert response.status_code == 200
+    assert captured_runtime_paths == [runtime_a]
+
+
+def test_openai_compatible_agent_hides_approval_gated_tools(test_config: Config, tmp_path: Path) -> None:
+    """OpenAI-compatible agent construction should hide tools that require approval."""
+    runtime_paths = constants.resolve_runtime_paths(config_path=tmp_path / "config.yaml", process_env={})
+    config = Config.validate_with_runtime(
+        {
+            **test_config.authored_model_dump(),
+            "tool_approval": {
+                "rules": [{"match": "run_shell_command", "action": "require_approval"}],
+            },
+        },
+        runtime_paths,
+    )
+    persist_entity_accounts(config, runtime_paths)
+    execution_identity = build_tool_execution_identity(
+        channel="openai_compat",
+        agent_name="code",
+        runtime_paths=runtime_paths,
+        requester_id=None,
+        room_id=None,
+        thread_id=None,
+        resolved_thread_id=None,
+        session_id="openai-session",
+    )
+
+    with patch("mindroom.model_loading.get_model_instance", return_value=Ollama(id="test-model")):
+        agent = create_agent(
+            "code",
+            config=config,
+            runtime_paths=runtime_paths,
+            execution_identity=execution_identity,
+            include_openai_compat_guidance=True,
+        )
+
+    exposed_tool_names = {
+        *(function_name for toolkit in agent.tools for function_name in getattr(toolkit, "functions", {})),
+        *(function_name for toolkit in agent.tools for function_name in getattr(toolkit, "async_functions", {})),
+    }
+    assert "run_shell_command" not in exposed_tool_names
+    assert "check_shell_command" in exposed_tool_names
+    assert "kill_shell_command" in exposed_tool_names
+
+
+def test_openai_compatible_agent_hides_script_gated_tools(test_config: Config, tmp_path: Path) -> None:
+    """Script-based approval rules should also hide matching /v1 tools."""
+    runtime_paths = constants.resolve_runtime_paths(config_path=tmp_path / "config.yaml", process_env={})
+    approval_script = tmp_path / "approval_scripts" / "shell_review.py"
+    approval_script.parent.mkdir(parents=True)
+    approval_script.write_text(
+        "def check(tool_name, arguments, agent_name):\n    return tool_name == 'run_shell_command'\n",
+        encoding="utf-8",
+    )
+    config = Config.validate_with_runtime(
+        {
+            **test_config.authored_model_dump(),
+            "tool_approval": {
+                "rules": [{"match": "run_shell_command", "script": "approval_scripts/shell_review.py"}],
+            },
+        },
+        runtime_paths,
+    )
+    persist_entity_accounts(config, runtime_paths)
+    execution_identity = build_tool_execution_identity(
+        channel="openai_compat",
+        agent_name="code",
+        runtime_paths=runtime_paths,
+        requester_id=None,
+        room_id=None,
+        thread_id=None,
+        resolved_thread_id=None,
+        session_id="openai-session",
+    )
+
+    with patch("mindroom.model_loading.get_model_instance", return_value=Ollama(id="test-model")):
+        agent = create_agent(
+            "code",
+            config=config,
+            runtime_paths=runtime_paths,
+            execution_identity=execution_identity,
+            include_openai_compat_guidance=True,
+        )
+
+    exposed_tool_names = {
+        *(function_name for toolkit in agent.tools for function_name in getattr(toolkit, "functions", {})),
+        *(function_name for toolkit in agent.tools for function_name in getattr(toolkit, "async_functions", {})),
+    }
+    assert "run_shell_command" not in exposed_tool_names
+
+
+def test_chat_completions_keeps_auth_runtime_bound_across_runtime_swap(tmp_path: Path) -> None:
+    """Chat completions should parse against the same runtime that authenticated the request."""
+    from fastapi import FastAPI  # noqa: PLC0415
+
+    from mindroom.api.openai_compat import router  # noqa: PLC0415
+
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "models:\n"
+        "  default:\n"
+        "    provider: openai\n"
+        "    id: gpt-5.4\n"
+        "router:\n"
+        "  model: default\n"
+        "agents:\n"
+        "  general:\n"
+        "    display_name: General\n"
+        "    role: helper\n"
+        "    rooms: []\n",
+        encoding="utf-8",
+    )
+    app = FastAPI()
+    app.include_router(router)
+    runtime_a = resolve_runtime_paths(
+        config_path=config_path,
+        process_env={"OPENAI_COMPAT_API_KEYS": "old-key"},
+    )
+    runtime_b = resolve_runtime_paths(
+        config_path=tmp_path / "other-config.yaml",
+        process_env={"OPENAI_COMPAT_API_KEYS": "new-key"},
+    )
+    runtime_b.config_path.write_text(config_path.read_text(encoding="utf-8"), encoding="utf-8")
+    initialize_api_app(app, runtime_a)
+    assert openai_compat.config_lifecycle.load_config_into_app(runtime_a, app) is True
+    captured_runtime_paths: list[RuntimePaths | None] = []
+
+    def _authenticate_and_swap(
+        authorization: str | None,
+        runtime_paths: RuntimePaths,
+    ) -> JSONResponse | None:
+        assert authorization == "Bearer old-key"
+        assert runtime_paths == runtime_a
+        initialize_api_app(app, runtime_b)
+        return None
+
+    real_load_config = openai_compat._load_config
+
+    def _capture_load_config(
+        request: Request,
+        *,
+        runtime_paths: RuntimePaths | None = None,
+    ) -> tuple[Config, RuntimePaths]:
+        captured_runtime_paths.append(runtime_paths)
+        return real_load_config(request, runtime_paths=runtime_paths)
+
+    with (
+        patch("mindroom.api.openai_compat._authenticate_request", side_effect=_authenticate_and_swap),
+        patch("mindroom.api.openai_compat._load_config", side_effect=_capture_load_config),
+        patch(
+            "mindroom.api.openai_compat._non_stream_completion",
+            new=AsyncMock(return_value=openai_compat._OpenAIJSONResponse({"ok": True})),
+        ),
+        TestClient(app) as client,
+    ):
+        response = client.post(
+            "/v1/chat/completions",
+            headers={"authorization": "Bearer old-key"},
+            json={"model": "general", "messages": [{"role": "user", "content": "hi"}]},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+    assert captured_runtime_paths == [runtime_a]
+
+
+def test_list_models_tolerate_missing_plugin_path(tmp_path: Path) -> None:
+    """OpenAI-compatible reads should keep working when plugin loading degrades."""
+    from fastapi import FastAPI  # noqa: PLC0415
+
+    from mindroom.api.openai_compat import router  # noqa: PLC0415
+
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "models:\n"
+        "  default:\n"
+        "    provider: openai\n"
+        "    id: gpt-5.4\n"
+        "router:\n"
+        "  model: default\n"
+        "agents: {}\n"
+        "plugins:\n"
+        "  - ./plugins/missing\n",
+        encoding="utf-8",
+    )
+    app = FastAPI()
+    app.include_router(router)
+    runtime_paths = resolve_runtime_paths(
+        config_path=config_path,
+        process_env={"OPENAI_COMPAT_ALLOW_UNAUTHENTICATED": "true"},
+    )
+    initialize_api_app(app, runtime_paths)
+    assert openai_compat.config_lifecycle.load_config_into_app(runtime_paths, app) is True
+
+    with TestClient(app) as client:
+        response = client.get("/v1/models")
+
+    assert response.status_code == 200
+    assert response.json()["data"] == []
+
+
+def test_list_models_returns_malformed_yaml_errors(tmp_path: Path) -> None:
+    """OpenAI-compatible routes should surface malformed YAML as 422."""
+    from fastapi import FastAPI  # noqa: PLC0415
+
+    from mindroom.api.openai_compat import router  # noqa: PLC0415
+
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text("agents:\n  bad: [\n", encoding="utf-8")
+    app = FastAPI()
+    app.include_router(router)
+    runtime_paths = resolve_runtime_paths(
+        config_path=config_path,
+        process_env={"OPENAI_COMPAT_ALLOW_UNAUTHENTICATED": "true"},
+    )
+    initialize_api_app(app, runtime_paths)
+    assert openai_compat.config_lifecycle.load_config_into_app(runtime_paths, app) is False
+
+    with TestClient(app) as client:
+        response = client.get("/v1/models")
+
+    assert response.status_code == 422
+    assert "Could not parse configuration YAML" in response.json()["detail"][0]["msg"]
+
+
+def test_chat_completions_tolerate_missing_plugin_path_during_model_validation(tmp_path: Path) -> None:
+    """Chat completions should reach normal request validation when plugin loading degrades."""
+    from fastapi import FastAPI  # noqa: PLC0415
+
+    from mindroom.api.openai_compat import router  # noqa: PLC0415
+
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        "models:\n"
+        "  default:\n"
+        "    provider: openai\n"
+        "    id: gpt-5.4\n"
+        "router:\n"
+        "  model: default\n"
+        "agents:\n"
+        "  general:\n"
+        "    display_name: General\n"
+        "    role: helper\n"
+        "    rooms: []\n"
+        "plugins:\n"
+        "  - ./plugins/missing\n",
+        encoding="utf-8",
+    )
+    app = FastAPI()
+    app.include_router(router)
+    runtime_paths = resolve_runtime_paths(
+        config_path=config_path,
+        process_env={"OPENAI_COMPAT_ALLOW_UNAUTHENTICATED": "true"},
+    )
+    initialize_api_app(app, runtime_paths)
+    assert openai_compat.config_lifecycle.load_config_into_app(runtime_paths, app) is True
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/chat/completions",
+            json={"model": "missing-model", "messages": [{"role": "user", "content": "hi"}]},
+        )
+
+    assert response.status_code == 404
+    assert "Model 'missing-model' not found" in response.json()["error"]["message"]
+
+
+def test_chat_completions_returns_malformed_yaml_errors(tmp_path: Path) -> None:
+    """Chat completions should surface malformed YAML as 422."""
+    from fastapi import FastAPI  # noqa: PLC0415
+
+    from mindroom.api.openai_compat import router  # noqa: PLC0415
+
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text("agents:\n  bad: [\n", encoding="utf-8")
+    app = FastAPI()
+    app.include_router(router)
+    runtime_paths = resolve_runtime_paths(
+        config_path=config_path,
+        process_env={"OPENAI_COMPAT_ALLOW_UNAUTHENTICATED": "true"},
+    )
+    initialize_api_app(app, runtime_paths)
+    assert openai_compat.config_lifecycle.load_config_into_app(runtime_paths, app) is False
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/chat/completions",
+            json={"model": "general", "messages": [{"role": "user", "content": "hi"}]},
+        )
+
+    assert response.status_code == 422
+    assert "Could not parse configuration YAML" in response.json()["detail"][0]["msg"]
+
+
+def test_openai_incompatible_agents_is_order_independent_for_cycles() -> None:
+    """Cyclic delegation should not change which /v1 agents are rejected."""
+    config = Config(
+        agents={
+            "a": AgentConfig(
+                display_name="A",
+                role="Private agent",
+                rooms=[],
+                private={"per": "user"},
+                delegate_to=["b"],
+            ),
+            "b": AgentConfig(
+                display_name="B",
+                role="Delegating agent",
+                rooms=[],
+                delegate_to=["a"],
+            ),
+        },
+        models={"default": ModelConfig(provider="ollama", id="test-model")},
+        router=RouterConfig(model="default"),
+    )
+
+    assert openai_compat._openai_incompatible_agents(["a", "b"], config) == ["a", "b"]
+    assert openai_compat._openai_incompatible_agents(["b", "a"], config) == ["b", "a"]
+
+
+# ---------------------------------------------------------------------------
+# GET /v1/models
+# ---------------------------------------------------------------------------
+
+
+class TestListModels:
+    """Tests for GET /v1/models."""
+
+    def test_lists_agents(self, app_client: TestClient) -> None:
+        """Lists all configured agents as models, plus auto."""
+        response = app_client.get("/v1/models")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["object"] == "list"
+        model_ids = [m["id"] for m in data["data"]]
+        assert "auto" in model_ids
+        assert "general" in model_ids
+        assert "code" in model_ids
+        assert "research" in model_ids
+
+    def test_includes_name_and_description(self, app_client: TestClient) -> None:
+        """Models include display name and role description."""
+        response = app_client.get("/v1/models")
+        data = response.json()
+
+        general = next(m for m in data["data"] if m["id"] == "general")
+        assert general["name"] == "GeneralAgent"
+        assert general["description"] == "General-purpose assistant"
+
+    def test_hides_models_with_non_shared_worker_scopes(self, test_config: Config) -> None:
+        """Agents and teams that require non-shared worker scopes should not be advertised on /v1."""
+        from fastapi import FastAPI  # noqa: PLC0415
+
+        from mindroom.api.openai_compat import router  # noqa: PLC0415
+
+        test_config.agents["code"].worker_scope = "user"
+        test_config.teams = {
+            "dev-team": TeamConfig(
+                display_name="Dev Team",
+                role="Engineering helpers",
+                agents=["general", "code"],
+                mode="coordinate",
+            ),
+        }
+
+        app = FastAPI()
+        app.include_router(router)
+        runtime_paths = _runtime_paths({"OPENAI_COMPAT_ALLOW_UNAUTHENTICATED": "true"})
+        initialize_api_app(app, runtime_paths)
+
+        with (
+            patch("mindroom.api.openai_compat._load_config", return_value=(test_config, runtime_paths)),
+            TestClient(app) as client,
+        ):
+            response = client.get("/v1/models")
+
+        assert response.status_code == 200
+        model_ids = {model["id"] for model in response.json()["data"]}
+        assert "general" in model_ids
+        assert "code" not in model_ids
+        assert "team/dev-team" not in model_ids
+
+    def test_hides_agents_that_delegate_to_private_agents(self, test_config: Config) -> None:
+        """Shared agents should not be advertised on /v1 when delegation reaches private agents."""
+        from fastapi import FastAPI  # noqa: PLC0415
+
+        from mindroom.api.openai_compat import router  # noqa: PLC0415
+
+        test_config.agents["research"].private = AgentPrivateConfig(per="user", root="research_data")
+        test_config.agents["general"].delegate_to = ["research"]
+
+        app = FastAPI()
+        app.include_router(router)
+        runtime_paths = _runtime_paths({"OPENAI_COMPAT_ALLOW_UNAUTHENTICATED": "true"})
+        initialize_api_app(app, runtime_paths)
+
+        with (
+            patch("mindroom.api.openai_compat._load_config", return_value=(test_config, runtime_paths)),
+            TestClient(app) as client,
+        ):
+            response = client.get("/v1/models")
+
+        assert response.status_code == 200
+        model_ids = {model["id"] for model in response.json()["data"]}
+        assert "general" not in model_ids
+        assert "research" not in model_ids
+
+    def test_hides_auto_model_when_no_openai_compatible_agents(self, test_config: Config) -> None:
+        """Auto should not be advertised when no compatible agents can satisfy auto-routing."""
+        from fastapi import FastAPI  # noqa: PLC0415
+
+        from mindroom.api.openai_compat import router  # noqa: PLC0415
+
+        test_config.agents["general"].worker_scope = "user"
+        test_config.agents["code"].worker_scope = "user_agent"
+        test_config.agents["research"].worker_scope = "user"
+
+        app = FastAPI()
+        app.include_router(router)
+        runtime_paths = _runtime_paths({"OPENAI_COMPAT_ALLOW_UNAUTHENTICATED": "true"})
+        initialize_api_app(app, runtime_paths)
+
+        with (
+            patch("mindroom.api.openai_compat._load_config", return_value=(test_config, runtime_paths)),
+            TestClient(app) as client,
+        ):
+            response = client.get("/v1/models")
+
+        assert response.status_code == 200
+        model_ids = {model["id"] for model in response.json()["data"]}
+        assert "auto" not in model_ids
+
+    def test_empty_role_is_none(self, app_client: TestClient) -> None:
+        """Agents with empty role have description=None."""
+        response = app_client.get("/v1/models")
+        data = response.json()
+
+        research = next(m for m in data["data"] if m["id"] == "research")
+        assert research["description"] is None
+
+    def test_excludes_router(self, app_client: TestClient) -> None:
+        """Router agent is not listed."""
+        response = app_client.get("/v1/models")
+        data = response.json()
+        model_ids = [m["id"] for m in data["data"]]
+        assert "router" not in model_ids
+
+    def test_auto_model_listed_first(self, app_client: TestClient) -> None:
+        """Auto model is listed first with description."""
+        response = app_client.get("/v1/models")
+        data = response.json()
+        first = data["data"][0]
+        assert first["id"] == "auto"
+        assert first["name"] == "Auto"
+        assert "routes" in first["description"].lower() or "auto" in first["description"].lower()
+
+    def test_empty_agents_list_is_empty(self) -> None:
+        """With no agents configured, /v1/models should not advertise auto-routing."""
+        from fastapi import FastAPI  # noqa: PLC0415
+
+        from mindroom.api.openai_compat import router  # noqa: PLC0415
+
+        app = FastAPI()
+        app.include_router(router)
+        runtime_paths = _runtime_paths({"OPENAI_COMPAT_ALLOW_UNAUTHENTICATED": "true"})
+        initialize_api_app(app, runtime_paths)
+
+        empty_config = Config(
+            agents={},
+            models={"default": ModelConfig(provider="ollama", id="test")},
+            router=RouterConfig(model="default"),
+        )
+        with (
+            patch("mindroom.api.openai_compat._load_config", return_value=(empty_config, runtime_paths)),
+            TestClient(app) as client,
+        ):
+            response = client.get("/v1/models")
+            assert response.status_code == 200
+            data = response.json()["data"]
+            assert data == []
+
+
+class TestChatCompletions:
+    """Tests for POST /v1/chat/completions (non-streaming)."""
+
+    def test_basic_completion(self, app_client: TestClient) -> None:
+        """Basic non-streaming completion returns correct shape."""
+        with patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai:
+            mock_ai.return_value = "Hello! How can I help?"
+
+            response = app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Hello"}],
+                },
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["object"] == "chat.completion"
+        assert data["model"] == "general"
+        assert data["id"].startswith("chatcmpl-")
+        assert len(data["choices"]) == 1
+        assert data["choices"][0]["message"]["role"] == "assistant"
+        assert data["choices"][0]["message"]["content"] == "Hello! How can I help?"
+        assert data["choices"][0]["finish_reason"] == "stop"
+        assert data["usage"]["prompt_tokens"] == 0
+
+    def test_completion_lock_releases_when_request_is_cancelled(self, app_client: TestClient) -> None:
+        """Cancellation after lock acquisition must not leave the OpenAI session locked."""
+        completion_lock = asyncio.Lock()
+
+        async def cancelled_response(**_kwargs: object) -> str:
+            raise asyncio.CancelledError
+
+        with (
+            patch("mindroom.api.openai_compat._openai_completion_lock", return_value=completion_lock),
+            patch("mindroom.api.openai_compat.ai_response", side_effect=cancelled_response),
+            pytest.raises((asyncio.CancelledError, FutureCancelledError)),
+        ):
+            app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Hi"}],
+                },
+            )
+
+        assert not completion_lock.locked()
+
+    def test_does_not_pass_include_default_tools_flag(self, app_client: TestClient) -> None:
+        """Default tool behavior is now resolved from agent config, not a runtime flag."""
+        with patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai:
+            mock_ai.return_value = "Response"
+
+            app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Hi"}],
+                },
+            )
+
+            assert "include_default_tools" not in mock_ai.call_args.kwargs
+            assert mock_ai.call_args.kwargs["include_interactive_questions"] is False
+            assert mock_ai.call_args.kwargs["active_event_ids"] == set()
+
+    def test_passes_knowledge_none(self, app_client: TestClient) -> None:
+        """Passes knowledge=None when agent has no knowledge_bases."""
+        with patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai:
+            mock_ai.return_value = "Response"
+
+            app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Hi"}],
+                },
+            )
+
+            assert mock_ai.call_args.kwargs["knowledge"] is None
+
+    def test_request_body_user_is_not_passed_as_ai_requester(self, app_client: TestClient) -> None:
+        """OpenAI user must not be written as Matrix requester metadata."""
+        with patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai:
+            mock_ai.return_value = "Response"
+
+            app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Hi"}],
+                    "user": "user-123",
+                },
+            )
+
+            assert mock_ai.call_args.kwargs["user_id"] is None
+
+    def test_request_body_user_is_not_used_for_openai_execution_identity(self, app_client: TestClient) -> None:
+        """The OpenAI user field should not become credential-routing identity."""
+        seen_requester_ids: list[str | None] = []
+
+        async def _capture(*args: object, **kwargs: object) -> str:  # noqa: ARG001
+            identity = get_tool_execution_identity()
+            seen_requester_ids.append(identity.requester_id if identity is not None else None)
+            return "Response"
+
+        with patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai:
+            mock_ai.side_effect = _capture
+
+            response = app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Hi"}],
+                    "user": "spoofed-user",
+                },
+            )
+
+        assert response.status_code == 200
+        assert seen_requester_ids == [None]
+
+    def test_non_stream_completion_keeps_execution_identity_for_ai_response(self, app_client: TestClient) -> None:
+        """Non-stream agent responses must keep execution identity active through ai_response."""
+        observed_agent_names: list[str | None] = []
+        observed_session_ids: list[str | None] = []
+
+        async def _capture(*args: object, **kwargs: object) -> str:  # noqa: ARG001
+            identity = get_tool_execution_identity()
+            observed_agent_names.append(identity.agent_name if identity is not None else None)
+            observed_session_ids.append(identity.session_id if identity is not None else None)
+            return "Response"
+
+        with patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai:
+            mock_ai.side_effect = _capture
+
+            response = app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Hi"}],
+                },
+            )
+
+        assert response.status_code == 200
+        assert observed_agent_names == ["general"]
+        assert len(observed_session_ids) == 1
+        assert observed_session_ids[0] is not None
+
+    def test_agent_completion_does_not_require_persisted_matrix_accounts(self, tmp_path: Path) -> None:
+        """OpenAI-compatible agent completions should not prepare or require Matrix accounts."""
+        config = Config(
+            agents={
+                "general": AgentConfig(
+                    display_name="GeneralAgent",
+                    role="General-purpose assistant",
+                    rooms=[],
+                ),
+            },
+            models={"default": ModelConfig(provider="ollama", id="test-model")},
+            router=RouterConfig(model="default"),
+        )
+        runtime_paths = resolve_runtime_paths(
+            config_path=tmp_path / "config.yaml",
+            storage_path=tmp_path / "data",
+            process_env={"OPENAI_COMPAT_ALLOW_UNAUTHENTICATED": "true"},
+        )
+        app = FastAPI()
+        app.include_router(openai_compat.router)
+        initialize_api_app(app, runtime_paths)
+
+        with (
+            patch("mindroom.api.openai_compat._load_config", return_value=(config, runtime_paths)),
+            patch("mindroom.model_loading.get_model_instance", return_value=Ollama(id="test-model")),
+            patch("mindroom.ai.build_memory_prompt_parts", new=AsyncMock(return_value=MemoryPromptParts())),
+            patch(
+                "mindroom.ai._run_cached_agent_attempt",
+                new=AsyncMock(return_value=RunOutput(content="Agent reply")),
+            ),
+            TestClient(app) as client,
+        ):
+            response = client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Hi"}],
+                },
+            )
+
+        assert response.status_code == 200
+        assert response.json()["choices"][0]["message"]["content"] == "Agent reply"
+        assert not constants.matrix_state_file(runtime_paths=runtime_paths).exists()
+
+    def test_openai_execution_identity_ignores_request_user(self) -> None:
+        """OpenAI-compatible execution identity should not trust the request-body user."""
+        identity = build_tool_execution_identity(
+            channel="openai_compat",
+            agent_name="general",
+            session_id="session-123",
+            runtime_paths=resolve_runtime_paths(process_env={}),
+            requester_id=None,
+            room_id=None,
+            thread_id=None,
+            resolved_thread_id=None,
+        )
+        assert identity.requester_id is None
+
+    def test_requester_header_is_not_used_for_execution_identity(self, authed_client: TestClient) -> None:
+        """Caller-supplied requester headers must not become `/v1` execution identity."""
+        seen_requester_ids: list[str | None] = []
+
+        async def _capture(*args: object, **kwargs: object) -> str:  # noqa: ARG001
+            identity = get_tool_execution_identity()
+            seen_requester_ids.append(identity.requester_id if identity is not None else None)
+            return "Response"
+
+        with patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai:
+            mock_ai.side_effect = _capture
+
+            response = authed_client.post(
+                "/v1/chat/completions",
+                headers={
+                    "Authorization": "Bearer test-key-1",
+                    "X-Mindroom-Requester-Id": "@alice:example.com",
+                },
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Hi"}],
+                },
+            )
+
+        assert response.status_code == 200
+        assert seen_requester_ids == [None]
+
+    def test_rejects_non_shared_worker_scope_agent(self, test_config: Config) -> None:
+        """Explicit agent requests should fail on /v1 when worker_scope is not shared."""
+        from fastapi import FastAPI  # noqa: PLC0415
+
+        from mindroom.api.openai_compat import router  # noqa: PLC0415
+
+        test_config.agents["general"].worker_scope = "user"
+        app = FastAPI()
+        app.include_router(router)
+        runtime_paths = _runtime_paths({"OPENAI_COMPAT_ALLOW_UNAUTHENTICATED": "true"})
+        initialize_api_app(app, runtime_paths)
+
+        with (
+            patch("mindroom.api.openai_compat._load_config", return_value=(test_config, runtime_paths)),
+            TestClient(app) as client,
+        ):
+            response = client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Hi"}],
+                },
+            )
+
+        assert response.status_code == 400
+        error = response.json()["error"]
+        assert error["code"] == "unsupported_worker_scope"
+        assert "unscoped or configured with worker_scope=shared" in error["message"]
+        assert "general" in error["message"]
+
+    def test_rejects_non_shared_worker_scope_team(self, test_config: Config) -> None:
+        """Team requests should fail on /v1 when any member requires a non-shared worker scope."""
+        from fastapi import FastAPI  # noqa: PLC0415
+
+        from mindroom.api.openai_compat import router  # noqa: PLC0415
+
+        test_config.agents["code"].worker_scope = "user_agent"
+        test_config.teams = {
+            "dev-team": TeamConfig(
+                display_name="Dev Team",
+                role="Engineering helpers",
+                agents=["general", "code"],
+                mode="coordinate",
+            ),
+        }
+        app = FastAPI()
+        app.include_router(router)
+        runtime_paths = _runtime_paths({"OPENAI_COMPAT_ALLOW_UNAUTHENTICATED": "true"})
+        initialize_api_app(app, runtime_paths)
+
+        with (
+            patch("mindroom.api.openai_compat._load_config", return_value=(test_config, runtime_paths)),
+            TestClient(app) as client,
+        ):
+            response = client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/dev-team",
+                    "messages": [{"role": "user", "content": "Hi"}],
+                },
+            )
+
+        assert response.status_code == 400
+        error = response.json()["error"]
+        assert error["code"] == "unsupported_worker_scope"
+        assert "unscoped or configured with worker_scope=shared" in error["message"]
+        assert "code" in error["message"]
+
+    def test_rejects_agent_that_delegates_to_private_agent(self, test_config: Config) -> None:
+        """Shared agents should fail on /v1 when delegation reaches a private agent."""
+        from fastapi import FastAPI  # noqa: PLC0415
+
+        from mindroom.api.openai_compat import router  # noqa: PLC0415
+
+        test_config.agents["research"].private = AgentPrivateConfig(per="user", root="research_data")
+        test_config.agents["general"].delegate_to = ["research"]
+
+        app = FastAPI()
+        app.include_router(router)
+        runtime_paths = _runtime_paths({"OPENAI_COMPAT_ALLOW_UNAUTHENTICATED": "true"})
+        initialize_api_app(app, runtime_paths)
+
+        with (
+            patch("mindroom.api.openai_compat._load_config", return_value=(test_config, runtime_paths)),
+            TestClient(app) as client,
+        ):
+            response = client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Hi"}],
+                },
+            )
+
+        assert response.status_code == 400
+        error = response.json()["error"]
+        assert error["code"] == "unsupported_worker_scope"
+        assert "Requester-private agents configured with private.per are not yet supported on /v1." in error["message"]
+        assert "Delegation reaches unsupported agents: research" in error["message"]
+
+    def test_auto_route_errors_when_no_openai_compatible_agents(self, test_config: Config) -> None:
+        """Auto-routing should fail when all agents require unsupported worker scopes."""
+        from fastapi import FastAPI  # noqa: PLC0415
+
+        from mindroom.api.openai_compat import router  # noqa: PLC0415
+
+        test_config.agents["general"].worker_scope = "user"
+        test_config.agents["code"].worker_scope = "user_agent"
+        test_config.agents["research"].worker_scope = "user"
+        app = FastAPI()
+        app.include_router(router)
+        runtime_paths = _runtime_paths({"OPENAI_COMPAT_ALLOW_UNAUTHENTICATED": "true"})
+        initialize_api_app(app, runtime_paths)
+
+        with (
+            patch("mindroom.api.openai_compat._load_config", return_value=(test_config, runtime_paths)),
+            TestClient(app) as client,
+        ):
+            response = client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "auto",
+                    "messages": [{"role": "user", "content": "Route me"}],
+                },
+            )
+
+        assert response.status_code == 500
+        assert response.json()["error"]["message"] == "No OpenAI-compatible agents configured for auto-routing"
+
+    def test_explicit_session_id_header_is_stable_across_turns(self, app_client: TestClient) -> None:
+        """Repeated requests with the same X-Session-Id should reuse one derived session ID."""
+        observed_session_ids: list[str] = []
+
+        async def _capture(*args: object, **kwargs: object) -> str:  # noqa: ARG001
+            observed_session_ids.append(kwargs["session_id"])
+            return "Response"
+
+        with patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai:
+            mock_ai.side_effect = _capture
+
+            app_client.post(
+                "/v1/chat/completions",
+                headers={"X-Session-Id": "shared-session"},
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Turn one"}],
+                },
+            )
+            app_client.post(
+                "/v1/chat/completions",
+                headers={"X-Session-Id": "shared-session"},
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Turn two"}],
+                },
+            )
+
+        assert len(observed_session_ids) == 2
+        assert observed_session_ids[0] == observed_session_ids[1]
+        assert observed_session_ids[0].endswith(":shared-session")
+
+    def test_explicit_session_id_header_is_namespaced_by_api_key(self, authed_client: TestClient) -> None:
+        """Same X-Session-Id with different API keys should map to different derived IDs."""
+        observed_session_ids: list[str] = []
+
+        async def _capture(*args: object, **kwargs: object) -> str:  # noqa: ARG001
+            observed_session_ids.append(kwargs["session_id"])
+            return "Response"
+
+        with patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai:
+            mock_ai.side_effect = _capture
+
+            authed_client.post(
+                "/v1/chat/completions",
+                headers={
+                    "Authorization": "Bearer test-key-1",
+                    "X-Session-Id": "shared-session",
+                },
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Turn one"}],
+                },
+            )
+            authed_client.post(
+                "/v1/chat/completions",
+                headers={
+                    "Authorization": "Bearer test-key-2",
+                    "X-Session-Id": "shared-session",
+                },
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Turn two"}],
+                },
+            )
+
+        assert len(observed_session_ids) == 2
+        assert observed_session_ids[0] != observed_session_ids[1]
+        assert observed_session_ids[0].endswith(":shared-session")
+        assert observed_session_ids[1].endswith(":shared-session")
+
+    def test_unknown_model_404(self, app_client: TestClient) -> None:
+        """Unknown model returns 404 with OpenAI error format."""
+        response = app_client.post(
+            "/v1/chat/completions",
+            json={
+                "model": "nonexistent",
+                "messages": [{"role": "user", "content": "Hello"}],
+            },
+        )
+
+        assert response.status_code == 404
+        data = response.json()
+        assert data["error"]["code"] == "model_not_found"
+        assert data["error"]["param"] == "model"
+        assert "nonexistent" in data["error"]["message"]
+
+    def test_router_model_404(self, app_client: TestClient) -> None:
+        """Router agent cannot be used as a model."""
+        response = app_client.post(
+            "/v1/chat/completions",
+            json={
+                "model": "router",
+                "messages": [{"role": "user", "content": "Hello"}],
+            },
+        )
+
+        assert response.status_code == 404
+
+    def test_unknown_team_404(self, app_client: TestClient) -> None:
+        """Unknown team models return 404 (no teams in test_config)."""
+        response = app_client.post(
+            "/v1/chat/completions",
+            json={
+                "model": "team/nonexistent",
+                "messages": [{"role": "user", "content": "Hello"}],
+            },
+        )
+
+        assert response.status_code == 404
+        assert "nonexistent" in response.json()["error"]["message"]
+        assert response.json()["error"]["code"] == "model_not_found"
+
+    def test_empty_messages_400(self, app_client: TestClient) -> None:
+        """Empty messages array returns 400."""
+        response = app_client.post(
+            "/v1/chat/completions",
+            json={
+                "model": "general",
+                "messages": [],
+            },
+        )
+
+        assert response.status_code == 400
+
+    def test_extra_fields_ignored(self, app_client: TestClient) -> None:
+        """Extra/unknown fields don't cause 422."""
+        with patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai:
+            mock_ai.return_value = "Response"
+
+            response = app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Hello"}],
+                    "temperature": 0.7,
+                    "max_tokens": 100,
+                    "logit_bias": {"42": 10},
+                    "seed": 42,
+                    "unknown_field": "should be ignored",
+                },
+            )
+
+        assert response.status_code == 200
+
+    def test_error_response_detection(self, app_client: TestClient) -> None:
+        """Error strings from ai_response() become HTTP 500 with sanitized message."""
+        with patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai:
+            mock_ai.return_value = "❌ Authentication failed (openai): Invalid API key"
+
+            response = app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Hello"}],
+                },
+            )
+
+        assert response.status_code == 500
+        error = response.json()["error"]
+        assert error["type"] == "server_error"
+        # Error message is sanitized — raw backend details are not exposed
+        assert error["message"] == "Agent execution failed"
+
+    def test_agent_prefix_error_detection(self, app_client: TestClient) -> None:
+        """Error strings with [agent] prefix are detected."""
+        with patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai:
+            mock_ai.return_value = "[general] ⚠️ Error: something went wrong"
+
+            response = app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Hello"}],
+                },
+            )
+
+        assert response.status_code == 500
+
+
+class TestStreamingCompletion:
+    """Tests for POST /v1/chat/completions with stream=true."""
+
+    def test_streaming_sse_format(self, app_client: TestClient) -> None:
+        """Streaming returns valid SSE format."""
+
+        async def mock_stream(**_kw: object) -> AsyncIterator[RunContentEvent]:
+            yield RunContentEvent(content="Hello ")
+            yield RunContentEvent(content="world!")
+
+        with patch("mindroom.api.openai_compat.stream_agent_response", side_effect=mock_stream):
+            response = app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Hello"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 200
+        assert "text/event-stream" in response.headers["content-type"]
+
+        # Parse SSE lines
+        lines = response.text.strip().split("\n\n")
+        assert len(lines) >= 4  # role + 2 content + finish + [DONE]
+
+        # First chunk: role announcement
+        first = json.loads(lines[0].removeprefix("data: "))
+        assert first["choices"][0]["delta"] == {"role": "assistant"}
+        assert first["object"] == "chat.completion.chunk"
+
+        # Content chunks
+        second = json.loads(lines[1].removeprefix("data: "))
+        assert second["choices"][0]["delta"]["content"] == "Hello "
+
+        third = json.loads(lines[2].removeprefix("data: "))
+        assert third["choices"][0]["delta"]["content"] == "world!"
+
+        # Finish chunk
+        fourth = json.loads(lines[3].removeprefix("data: "))
+        assert fourth["choices"][0]["finish_reason"] == "stop"
+        assert fourth["choices"][0]["delta"] == {}
+
+        # [DONE] terminator
+        assert lines[4] == "data: [DONE]"
+
+    def test_streaming_passes_include_interactive_questions_false(self, app_client: TestClient) -> None:
+        """Streaming disables interactive question prompting for OpenAI compatibility."""
+
+        async def mock_stream(**_kw: object) -> AsyncIterator[RunContentEvent]:
+            yield RunContentEvent(content="ok")
+
+        with patch("mindroom.api.openai_compat.stream_agent_response", side_effect=mock_stream) as mock_stream_fn:
+            response = app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Hello"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 200
+        assert "include_default_tools" not in mock_stream_fn.call_args.kwargs
+        assert mock_stream_fn.call_args.kwargs["include_interactive_questions"] is False
+        assert mock_stream_fn.call_args.kwargs["active_event_ids"] == set()
+
+    def test_streaming_consistent_id(self, app_client: TestClient) -> None:
+        """All streaming chunks have the same completion ID."""
+
+        async def mock_stream(**_kw: object) -> AsyncIterator[RunContentEvent]:
+            yield RunContentEvent(content="test")
+
+        with patch("mindroom.api.openai_compat.stream_agent_response", side_effect=mock_stream):
+            response = app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Hi"}],
+                    "stream": True,
+                },
+            )
+
+        lines = response.text.strip().split("\n\n")
+        ids = []
+        for line in lines:
+            text = line.removeprefix("data: ")
+            if text == "[DONE]":
+                continue
+            chunk = json.loads(text)
+            ids.append(chunk["id"])
+
+        assert len(set(ids)) == 1  # All same ID
+        assert ids[0].startswith("chatcmpl-")
+
+    def test_streaming_keeps_execution_identity_for_full_stream(self, app_client: TestClient) -> None:
+        """Worker-routing identity must stay active after the first streamed event."""
+        observed_session_ids: list[str | None] = []
+
+        async def mock_stream(**_kw: object) -> AsyncIterator[RunContentEvent]:
+            identity = get_tool_execution_identity()
+            observed_session_ids.append(identity.session_id if identity is not None else None)
+            yield RunContentEvent(content="Hello ")
+
+            identity = get_tool_execution_identity()
+            observed_session_ids.append(identity.session_id if identity is not None else None)
+            yield RunContentEvent(content="world!")
+
+        with patch("mindroom.api.openai_compat.stream_agent_response", side_effect=mock_stream):
+            response = app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Hello"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 200
+        assert len(observed_session_ids) == 2
+        assert all(session_id is not None for session_id in observed_session_ids)
+
+    @pytest.mark.asyncio
+    async def test_streaming_close_from_other_task_keeps_execution_identity(self, test_config: Config) -> None:
+        """Closing the SSE body from another task should still clean up inside the execution identity."""
+        runtime_paths = _runtime_paths()
+        execution_identity = build_tool_execution_identity(
+            channel="openai_compat",
+            agent_name="general",
+            session_id="session-123",
+            runtime_paths=runtime_paths,
+            requester_id=None,
+            room_id=None,
+            thread_id=None,
+            resolved_thread_id=None,
+        )
+        observed_final_identities: list[ToolExecutionIdentity | None] = []
+
+        async def mock_stream(**_kw: object) -> AsyncIterator[RunContentEvent]:
+            try:
+                assert get_tool_execution_identity() == execution_identity
+                yield RunContentEvent(content="Hello")
+                await asyncio.Future()
+            finally:
+                observed_final_identities.append(get_tool_execution_identity())
+
+        with patch("mindroom.api.openai_compat.stream_agent_response", side_effect=mock_stream):
+            response = await openai_compat._stream_completion(
+                "general",
+                "Hello",
+                "session-123",
+                test_config,
+                runtime_paths,
+                None,
+                None,
+                None,
+                execution_identity=execution_identity,
+            )
+
+        assert isinstance(response, StreamingResponse)
+        body_iterator = response.body_iterator
+        await asyncio.create_task(anext(body_iterator), context=Context())
+        await asyncio.create_task(body_iterator.aclose(), context=Context())
+        assert observed_final_identities == [execution_identity]
+
+    def test_streaming_cached_response(self, app_client: TestClient) -> None:
+        """Cached full response (string) is streamed correctly."""
+
+        async def mock_stream(**_kw: object) -> AsyncIterator[str]:
+            yield "This is a cached response"
+
+        with patch("mindroom.api.openai_compat.stream_agent_response", side_effect=mock_stream):
+            response = app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Hi"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 200
+        lines = response.text.strip().split("\n\n")
+        content_chunk = json.loads(lines[1].removeprefix("data: "))
+        assert content_chunk["choices"][0]["delta"]["content"] == "This is a cached response"
+
+    def test_streaming_first_event_error_returns_500(self, app_client: TestClient) -> None:
+        """If first stream event is an error string, return HTTP 500 instead of SSE."""
+
+        async def mock_stream(**_kw: object) -> AsyncIterator[str]:
+            yield "❌ Authentication failed (openai): Invalid API key"
+
+        with patch("mindroom.api.openai_compat.stream_agent_response", side_effect=mock_stream):
+            response = app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Hi"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 500
+        error = response.json()["error"]
+        assert error["type"] == "server_error"
+        assert error["message"] == "Agent execution failed"
+
+    def test_streaming_tool_events(self, app_client: TestClient) -> None:
+        """Streaming emits start/done tool blocks with a stable per-stream tool id."""
+        from agno.models.response import ToolExecution  # noqa: PLC0415
+        from agno.run.agent import RunContentEvent, ToolCallCompletedEvent, ToolCallStartedEvent  # noqa: PLC0415
+
+        tool_started = ToolExecution(
+            tool_name="search",
+            tool_args={"query": "X"},
+            tool_call_id="tc-stream-1",
+        )
+        tool_completed = ToolExecution(
+            tool_name="search",
+            tool_args={"query": "X"},
+            tool_call_id="tc-stream-1",
+            result="3 results",
+        )
+
+        async def mock_stream(**_kw: object) -> AsyncIterator[object]:
+            yield RunContentEvent(content="Let me search. ")
+            yield ToolCallStartedEvent(tool=tool_started)
+            yield ToolCallCompletedEvent(tool=tool_completed)
+            yield RunContentEvent(content="Found it!")
+
+        with patch("mindroom.api.openai_compat.stream_agent_response", side_effect=mock_stream):
+            response = app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Search for X"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 200
+        # Collect all content from chunks
+        lines = response.text.strip().split("\n\n")
+        contents = []
+        for line in lines:
+            text = line.removeprefix("data: ")
+            if text == "[DONE]":
+                continue
+            chunk = json.loads(text)
+            delta = chunk["choices"][0]["delta"]
+            if "content" in delta:
+                contents.append(delta["content"])
+
+        full_content = "".join(contents)
+        assert "Let me search. " in full_content
+        assert '<tool id="1" state="start">search(query=X)</tool>' in full_content
+        assert '<tool id="1" state="done">search(query=X)\n3 results</tool>' in full_content
+        assert "Result:" not in full_content
+
+    def test_streaming_tool_events_escape_payload_and_truncate_result(self, app_client: TestClient) -> None:
+        """Tool SSE payloads escape XML and keep large results bounded."""
+        from agno.models.response import ToolExecution  # noqa: PLC0415
+        from agno.run.agent import ToolCallCompletedEvent, ToolCallStartedEvent  # noqa: PLC0415
+
+        tool_started = ToolExecution(
+            tool_name="search",
+            tool_args={"query": "</tool><b>pwn</b>"},
+            tool_call_id="tc-stream-escape-1",
+        )
+        tool_completed = ToolExecution(
+            tool_name="search",
+            tool_args={"query": "</tool><b>pwn</b>"},
+            tool_call_id="tc-stream-escape-1",
+            result="</tool><i>boom</i>" + ("x" * 600),
+        )
+
+        async def mock_stream(**_kw: object) -> AsyncIterator[object]:
+            yield ToolCallStartedEvent(tool=tool_started)
+            yield ToolCallCompletedEvent(tool=tool_completed)
+
+        with patch("mindroom.api.openai_compat.stream_agent_response", side_effect=mock_stream):
+            response = app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Search"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 200
+        lines = response.text.strip().split("\n\n")
+        contents: list[str] = []
+        for line in lines:
+            text = line.removeprefix("data: ")
+            if text == "[DONE]":
+                continue
+            chunk = json.loads(text)
+            delta = chunk["choices"][0]["delta"]
+            if "content" in delta:
+                contents.append(delta["content"])
+
+        full_content = "".join(contents)
+        assert full_content.count('<tool id="1" state="start">') == 1
+        assert full_content.count('<tool id="1" state="done">') == 1
+        assert "query=&lt;/tool&gt;&lt;b&gt;pwn&lt;/b&gt;" in full_content
+        assert "&lt;/tool&gt;&lt;i&gt;boom&lt;/i&gt;" in full_content
+        assert "</tool><b>pwn</b>" not in full_content
+        assert "</tool><i>boom</i>" not in full_content
+        assert "…" in full_content
+        assert ("x" * 550) not in full_content
+
+    def test_streaming_tool_ids_increment_for_multiple_calls(self, app_client: TestClient) -> None:
+        """Tool ids start at 1 and increment for each new started tool call in a stream."""
+        from agno.models.response import ToolExecution  # noqa: PLC0415
+        from agno.run.agent import RunContentEvent, ToolCallCompletedEvent, ToolCallStartedEvent  # noqa: PLC0415
+
+        first_started = ToolExecution(
+            tool_name="search",
+            tool_args={"query": "one"},
+            tool_call_id="tc-stream-1",
+        )
+        first_completed = ToolExecution(
+            tool_name="search",
+            tool_args={"query": "one"},
+            tool_call_id="tc-stream-1",
+            result="one-result",
+        )
+        second_started = ToolExecution(
+            tool_name="search",
+            tool_args={"query": "two"},
+            tool_call_id="tc-stream-2",
+        )
+        second_completed = ToolExecution(
+            tool_name="search",
+            tool_args={"query": "two"},
+            tool_call_id="tc-stream-2",
+            result="two-result",
+        )
+
+        async def mock_stream(**_kw: object) -> AsyncIterator[object]:
+            yield RunContentEvent(content="Start ")
+            yield ToolCallStartedEvent(tool=first_started)
+            yield ToolCallCompletedEvent(tool=first_completed)
+            yield ToolCallStartedEvent(tool=second_started)
+            yield ToolCallCompletedEvent(tool=second_completed)
+            yield RunContentEvent(content="End")
+
+        with patch("mindroom.api.openai_compat.stream_agent_response", side_effect=mock_stream):
+            response = app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Run two searches"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 200
+        lines = response.text.strip().split("\n\n")
+        contents: list[str] = []
+        for line in lines:
+            text = line.removeprefix("data: ")
+            if text == "[DONE]":
+                continue
+            chunk = json.loads(text)
+            delta = chunk["choices"][0]["delta"]
+            if "content" in delta:
+                contents.append(delta["content"])
+
+        full_content = "".join(contents)
+        assert '<tool id="1" state="start">search(query=one)</tool>' in full_content
+        assert '<tool id="1" state="done">search(query=one)\none-result</tool>' in full_content
+        assert '<tool id="2" state="start">search(query=two)</tool>' in full_content
+        assert '<tool id="2" state="done">search(query=two)\ntwo-result</tool>' in full_content
+
+
+# ---------------------------------------------------------------------------
+# Authentication
+# ---------------------------------------------------------------------------
+
+
+class TestAuthentication:
+    """Tests for bearer token authentication."""
+
+    def test_valid_key_accepted(self, authed_client: TestClient) -> None:
+        """Valid API key allows access."""
+        response = authed_client.get(
+            "/v1/models",
+            headers={"Authorization": "Bearer test-key-1"},
+        )
+        assert response.status_code == 200
+
+    def test_second_key_accepted(self, authed_client: TestClient) -> None:
+        """Second key from comma-separated list works."""
+        response = authed_client.get(
+            "/v1/models",
+            headers={"Authorization": "Bearer test-key-2"},
+        )
+        assert response.status_code == 200
+
+    def test_missing_key_401(self, authed_client: TestClient) -> None:
+        """Missing key returns 401."""
+        response = authed_client.get("/v1/models")
+        assert response.status_code == 401
+        assert response.json()["error"]["code"] == "invalid_api_key"
+
+    def test_wrong_key_401(self, authed_client: TestClient) -> None:
+        """Wrong key returns 401."""
+        response = authed_client.get(
+            "/v1/models",
+            headers={"Authorization": "Bearer wrong-key"},
+        )
+        assert response.status_code == 401
+
+    def test_auth_required_when_keys_unset(self, test_config: Config) -> None:
+        """Auth is required by default when OPENAI_COMPAT_API_KEYS is unset."""
+        from fastapi import FastAPI  # noqa: PLC0415
+
+        from mindroom.api.openai_compat import router  # noqa: PLC0415
+
+        app = FastAPI()
+        app.include_router(router)
+        runtime_paths = _runtime_paths(
+            {
+                "OPENAI_COMPAT_API_KEYS": "",
+                "OPENAI_COMPAT_ALLOW_UNAUTHENTICATED": "false",
+            },
+        )
+        initialize_api_app(app, runtime_paths)
+        with (
+            patch("mindroom.api.openai_compat._load_config", return_value=(test_config, runtime_paths)),
+            TestClient(app) as client,
+        ):
+            response = client.get("/v1/models")
+        assert response.status_code == 401
+        assert response.json()["error"]["code"] == "invalid_api_key"
+
+    def test_missing_key_401_does_not_load_config_first(self) -> None:
+        """Missing auth should fail before config loading."""
+        from fastapi import FastAPI  # noqa: PLC0415
+
+        from mindroom.api.openai_compat import router  # noqa: PLC0415
+
+        app = FastAPI()
+        app.include_router(router)
+        runtime_paths = _runtime_paths({"OPENAI_COMPAT_API_KEYS": "test-key-1"})
+        initialize_api_app(app, runtime_paths)
+
+        with (
+            patch("mindroom.api.openai_compat._load_config", side_effect=RuntimeError("should not load config")),
+            TestClient(app) as client,
+        ):
+            response = client.get("/v1/models")
+
+        assert response.status_code == 401
+        assert response.json()["error"]["code"] == "invalid_api_key"
+
+    def test_no_auth_when_explicitly_allowed(self, app_client: TestClient) -> None:
+        """Unauthenticated mode works when explicitly opted in."""
+        response = app_client.get("/v1/models")
+        assert response.status_code == 200
+
+    def test_auth_on_completions(self, authed_client: TestClient) -> None:
+        """Auth is checked on completions endpoint too."""
+        response = authed_client.post(
+            "/v1/chat/completions",
+            json={
+                "model": "general",
+                "messages": [{"role": "user", "content": "Hi"}],
+            },
+        )
+        assert response.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Message conversion
+# ---------------------------------------------------------------------------
+
+
+class TestMessageConversion:
+    """Tests for _convert_messages()."""
+
+    def test_simple_user_message(self) -> None:
+        """Single user message becomes prompt with no history."""
+        messages = [_ChatMessage(role="user", content="Hello")]
+        prompt, history = _convert_messages(messages)
+        assert prompt == "Hello"
+        assert history is None
+
+    def test_multi_turn_conversation(self) -> None:
+        """Multi-turn conversation splits into history + prompt."""
+        messages = [
+            _ChatMessage(role="user", content="Hi"),
+            _ChatMessage(role="assistant", content="Hello!"),
+            _ChatMessage(role="user", content="How are you?"),
+        ]
+        prompt, history = _convert_messages(messages)
+        assert prompt == "How are you?"
+        assert history == [
+            ResolvedVisibleMessage.synthetic(sender="user", body="Hi", event_id="$openai-1", timestamp=1),
+            ResolvedVisibleMessage.synthetic(sender="assistant", body="Hello!", event_id="$openai-2", timestamp=2),
+        ]
+
+    def test_system_message_prepended(self) -> None:
+        """System message is prepended to prompt."""
+        messages = [
+            _ChatMessage(role="system", content="You are helpful."),
+            _ChatMessage(role="user", content="Hello"),
+        ]
+        prompt, history = _convert_messages(messages)
+        assert "You are helpful." in prompt
+        assert "Hello" in prompt
+        assert history is None
+
+    def test_developer_role_treated_as_system(self) -> None:
+        """Developer role is treated same as system."""
+        messages = [
+            _ChatMessage(role="developer", content="Be concise."),
+            _ChatMessage(role="user", content="Hello"),
+        ]
+        prompt, _ = _convert_messages(messages)
+        assert "Be concise." in prompt
+        assert "Hello" in prompt
+
+    def test_tool_messages_skipped(self) -> None:
+        """Tool role messages are skipped."""
+        messages = [
+            _ChatMessage(role="user", content="Run search"),
+            _ChatMessage(role="assistant", content="I'll search for that."),
+            _ChatMessage(role="tool", content="Search results: ..."),
+            _ChatMessage(role="user", content="Thanks"),
+        ]
+        prompt, history = _convert_messages(messages)
+        assert prompt == "Thanks"
+        # tool message should not appear in history
+        assert history is not None
+        assert all(h.sender != "tool" for h in history)
+
+    def test_multimodal_content(self) -> None:
+        """Multimodal content extracts text parts."""
+        messages = [
+            _ChatMessage(
+                role="user",
+                content=[
+                    {"type": "text", "text": "What is this?"},
+                    {"type": "image_url", "image_url": {"url": "data:image/png;base64,abc"}},
+                    {"type": "text", "text": "Describe it."},
+                ],
+            ),
+        ]
+        prompt, _ = _convert_messages(messages)
+        assert "What is this?" in prompt
+        assert "Describe it." in prompt
+
+    def test_none_content_skipped(self) -> None:
+        """Messages with None content are skipped."""
+        messages = [
+            _ChatMessage(role="assistant", content=None),
+            _ChatMessage(role="user", content="Hello"),
+        ]
+        prompt, history = _convert_messages(messages)
+        assert prompt == "Hello"
+        assert history is None
+
+    def test_only_system_messages(self) -> None:
+        """Only system messages become the prompt."""
+        messages = [
+            _ChatMessage(role="system", content="Be helpful."),
+        ]
+        prompt, history = _convert_messages(messages)
+        assert prompt == "Be helpful."
+        assert history is None
+
+    def test_conversation_ending_with_assistant(self) -> None:
+        """Prompt uses last user message even when conversation ends with assistant."""
+        messages = [
+            _ChatMessage(role="user", content="Hi"),
+            _ChatMessage(role="assistant", content="Hello! How can I help?"),
+        ]
+        prompt, history = _convert_messages(messages)
+        # Last user message is "Hi", not the trailing assistant message
+        assert prompt == "Hi"
+        assert history is None
+
+    def test_empty_messages(self) -> None:
+        """Empty messages returns empty prompt."""
+        prompt, history = _convert_messages([])
+        assert prompt == ""
+        assert history is None
+
+
+# ---------------------------------------------------------------------------
+# Session ID derivation
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_openai_completion_lock_releases_after_response_background() -> None:
+    """Response background work must start only after the completion lock finalizer runs."""
+    events: list[str] = []
+    completion_lock = asyncio.Lock()
+    await completion_lock.acquire()
+
+    async def existing_background() -> None:
+        assert not completion_lock.locked()
+        events.append("background")
+
+    response = openai_compat._OpenAIJSONResponse(
+        content={"ok": True},
+        background=BackgroundTask(existing_background),
+    )
+
+    wrapped = openai_compat._attach_openai_completion_lock_release(response, completion_lock)
+
+    async def receive() -> dict[str, str]:
+        return {"type": "http.request"}
+
+    async def send(_message: dict[str, object]) -> None:
+        return None
+
+    await wrapped(
+        {"type": "http"},
+        receive,
+        send,
+    )
+
+    assert events == ["background"]
+    assert not completion_lock.locked()
+
+
+@pytest.mark.asyncio
+async def test_openai_stream_response_runs_background_when_client_closes_after_done() -> None:
+    """A client closing after [DONE] should not skip the response finalizer."""
+    events: list[str] = []
+    done_sent = False
+
+    async def body() -> AsyncIterator[str]:
+        nonlocal done_sent
+        yield "data: [DONE]\n\n"
+        done_sent = True
+
+    async def background() -> None:
+        events.append("background")
+
+    response = openai_compat._OpenAIStreamingResponse(
+        body(),
+        media_type="text/event-stream",
+        background=BackgroundTask(background),
+    )
+    response.completion_predicate = lambda: done_sent
+
+    async def receive() -> dict[str, str]:
+        return {"type": "http.request"}
+
+    async def send(message: dict[str, object]) -> None:
+        if message["type"] == "http.response.body" and message.get("body") == b"":
+            error_message = "client closed"
+            raise OSError(error_message)
+
+    with pytest.raises(ClientDisconnect):
+        await response(
+            {"type": "http", "asgi": {"spec_version": "2.4"}},
+            receive,
+            send,
+        )
+
+    assert events == ["background"]
+
+
+@pytest.mark.asyncio
+async def test_openai_stream_response_skips_background_when_client_closes_before_done() -> None:
+    """Incomplete streams must release the lock without running response background work."""
+    events: list[str] = []
+    done_sent = False
+    completion_lock = asyncio.Lock()
+    await completion_lock.acquire()
+
+    async def body() -> AsyncIterator[str]:
+        nonlocal done_sent
+        yield "data: partial\n\n"
+        yield "data: [DONE]\n\n"
+        done_sent = True
+
+    async def background() -> None:
+        events.append("background")
+
+    streaming_response = openai_compat._OpenAIStreamingResponse(
+        body(),
+        media_type="text/event-stream",
+        background=BackgroundTask(background),
+    )
+    streaming_response.completion_predicate = lambda: done_sent
+    response = openai_compat._attach_openai_completion_lock_release(streaming_response, completion_lock)
+
+    async def receive() -> dict[str, str]:
+        return {"type": "http.request"}
+
+    async def send(message: dict[str, object]) -> None:
+        if message["type"] == "http.response.body" and message.get("body") == b"data: partial\n\n":
+            error_message = "client closed"
+            raise OSError(error_message)
+
+    with pytest.raises(ClientDisconnect):
+        await response(
+            {"type": "http", "asgi": {"spec_version": "2.4"}},
+            receive,
+            send,
+        )
+
+    assert events == []
+    assert not completion_lock.locked()
+
+
+@pytest.mark.asyncio
+async def test_openai_stream_response_skips_background_on_asgi20_disconnect_before_done() -> None:
+    """ASGI 2.0 disconnect can return normally but still must skip background work."""
+    events: list[str] = []
+    partial_sent = asyncio.Event()
+    continue_stream = asyncio.Event()
+    done_sent = False
+    completion_lock = asyncio.Lock()
+    await completion_lock.acquire()
+
+    async def body() -> AsyncIterator[str]:
+        nonlocal done_sent
+        yield "data: partial\n\n"
+        await continue_stream.wait()
+        yield "data: [DONE]\n\n"
+        done_sent = True
+
+    async def background() -> None:
+        events.append("background")
+
+    streaming_response = openai_compat._OpenAIStreamingResponse(
+        body(),
+        media_type="text/event-stream",
+        background=BackgroundTask(background),
+    )
+    streaming_response.completion_predicate = lambda: done_sent
+    response = openai_compat._attach_openai_completion_lock_release(streaming_response, completion_lock)
+
+    async def receive() -> dict[str, str]:
+        await partial_sent.wait()
+        return {"type": "http.disconnect"}
+
+    async def send(message: dict[str, object]) -> None:
+        if message["type"] == "http.response.body" and message.get("body") == b"data: partial\n\n":
+            partial_sent.set()
+
+    await response(
+        {"type": "http", "asgi": {"spec_version": "2.0"}},
+        receive,
+        send,
+    )
+
+    assert done_sent is False
+    assert events == []
+    assert not completion_lock.locked()
+
+
+@pytest.mark.asyncio
+async def test_openai_json_response_skips_background_when_send_fails() -> None:
+    """JSON send failures should release the lock without finalizing an undelivered response."""
+    events: list[str] = []
+    completion_lock = asyncio.Lock()
+    await completion_lock.acquire()
+
+    async def background() -> None:
+        events.append("background")
+
+    response = openai_compat._attach_openai_completion_lock_release(
+        openai_compat._OpenAIJSONResponse(
+            content={"ok": True},
+            background=BackgroundTask(background),
+        ),
+        completion_lock,
+    )
+
+    async def receive() -> dict[str, str]:
+        return {"type": "http.request"}
+
+    async def send(message: dict[str, object]) -> None:
+        if message["type"] == "http.response.body":
+            error_message = "client closed"
+            raise OSError(error_message)
+
+    with pytest.raises(OSError, match="client closed"):
+        await response(
+            {"type": "http"},
+            receive,
+            send,
+        )
+
+    assert events == []
+    assert not completion_lock.locked()
+
+
+@pytest.mark.asyncio
+async def test_openai_error_response_releases_lock_when_send_fails() -> None:
+    """Locked error responses should use the same finalizer-safe JSON path."""
+    completion_lock = asyncio.Lock()
+    await completion_lock.acquire()
+    response = openai_compat._attach_openai_completion_lock_release(
+        openai_compat._error_response(500, "failed", error_type="server_error"),
+        completion_lock,
+    )
+
+    async def receive() -> dict[str, str]:
+        return {"type": "http.request"}
+
+    async def send(message: dict[str, object]) -> None:
+        if message["type"] == "http.response.body":
+            error_message = "client closed"
+            raise OSError(error_message)
+
+    with pytest.raises(OSError, match="client closed"):
+        await response(
+            {"type": "http"},
+            receive,
+            send,
+        )
+
+    assert not completion_lock.locked()
+
+
+class TestSessionIdDerivation:
+    """Tests for _derive_session_id()."""
+
+    @staticmethod
+    def _mock_request(headers: dict[str, str] | None = None) -> Request:
+        """Create a mock Request with given headers."""
+        mock = MagicMock(spec=Request)
+        header_dict = headers or {}
+        mock.headers = {k.lower(): v for k, v in header_dict.items()}
+        return mock
+
+    def test_explicit_session_id_header(self) -> None:
+        """X-Session-Id header takes highest priority (namespaced with key)."""
+        request = self._mock_request({"X-Session-Id": "my-session"})
+        sid = _derive_session_id("general", request)
+        # Session ID is namespaced with API key hash prefix
+        assert sid.endswith(":my-session")
+        assert sid.startswith("noauth:")  # No auth header
+
+    def test_explicit_session_id_namespaced_by_key(self) -> None:
+        """Different API keys produce different session namespaces."""
+        req1 = self._mock_request({"X-Session-Id": "sess", "Authorization": "Bearer key-1"})
+        req2 = self._mock_request({"X-Session-Id": "sess", "Authorization": "Bearer key-2"})
+        sid1 = _derive_session_id("general", req1)
+        sid2 = _derive_session_id("general", req2)
+        # Same session ID but different keys → different derived IDs
+        assert sid1 != sid2
+        assert sid1.endswith(":sess")
+        assert sid2.endswith(":sess")
+
+    def test_librechat_conversation_id(self) -> None:
+        """X-LibreChat-Conversation-Id header is used when no X-Session-Id."""
+        request = self._mock_request({"X-LibreChat-Conversation-Id": "conv-123"})
+        sid = _derive_session_id("general", request)
+        assert "conv-123" in sid
+        assert "general" in sid
+
+    def test_session_id_takes_priority_over_librechat(self) -> None:
+        """X-Session-Id takes priority over X-LibreChat-Conversation-Id."""
+        request = self._mock_request(
+            {
+                "X-Session-Id": "explicit",
+                "X-LibreChat-Conversation-Id": "libre",
+            },
+        )
+        sid = _derive_session_id("general", request)
+        assert "explicit" in sid
+        assert "libre" not in sid
+
+    def test_fallback_generates_ephemeral_session_id(self) -> None:
+        """Fallback generates an ephemeral namespaced session ID."""
+        request = self._mock_request()
+        sid1 = _derive_session_id("general", request)
+        assert sid1.startswith("noauth:ephemeral:")
+        assert len(sid1) > len("noauth:ephemeral:")
+
+    def test_fallback_is_not_deterministic(self) -> None:
+        """Fallback IDs differ across requests to avoid cross-chat collisions."""
+        request = self._mock_request()
+        sid1 = _derive_session_id("general", request)
+        sid2 = _derive_session_id("general", request)
+        assert sid1 != sid2
+
+    def test_fallback_ignores_user_message_content(self, app_client: TestClient) -> None:
+        """Without explicit conversation IDs, each request gets a distinct session ID."""
+        session_ids: list[str] = []
+
+        original_derive = _derive_session_id
+
+        def capture_session_id(*args: object, **kwargs: object) -> str:
+            sid = original_derive(*args, **kwargs)
+            session_ids.append(sid)
+            return sid
+
+        with (
+            patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai,
+            patch("mindroom.api.openai_compat._derive_session_id", side_effect=capture_session_id),
+        ):
+            mock_ai.return_value = "Response"
+
+            # First request
+            app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Hello"}],
+                },
+            )
+            # Second request with the same first message and extra history
+            app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "general",
+                    "messages": [
+                        {"role": "user", "content": "Hello"},
+                        {"role": "assistant", "content": "Hi!"},
+                        {"role": "user", "content": "Different follow-up"},
+                    ],
+                },
+            )
+
+        # Fallback sessions are intentionally distinct to avoid collisions.
+        assert len(session_ids) == 2
+        assert session_ids[0] != session_ids[1]
+
+
+# ---------------------------------------------------------------------------
+# Error detection
+# ---------------------------------------------------------------------------
+
+
+class TestErrorDetection:
+    """Tests for _is_error_response()."""
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "❌ Authentication failed (openai): Invalid API key",
+            "⏱️ Rate limited. Please wait a moment and try again.",
+            "⏰ Request timed out. Please try again.",
+            "⚠️ Error: something went wrong",
+        ],
+    )
+    def test_detects_error_prefixes(self, text: str) -> None:
+        """Detects all error emoji prefixes."""
+        assert _is_error_response(text) is True
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "[general] ❌ Authentication failed",
+            "[code] ⚠️ Error: model not available",
+            "[research] ⏱️ Rate limited",
+        ],
+    )
+    def test_detects_agent_prefix_errors(self, text: str) -> None:
+        """Detects errors with [agent_name] prefix."""
+        assert _is_error_response(text) is True
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: foo'}}",
+            "Error code: 500 - Internal Server Error",
+            "openai.NotFoundError: Error code: 404 - {'error': {'message': 'model not found'}}",
+            '{"error": {"message": "model not found", "type": "not_found_error"}}',
+        ],
+    )
+    def test_detects_raw_provider_errors(self, text: str) -> None:
+        """Detects raw provider error strings surfaced by agno."""
+        assert _is_error_response(text) is True
+
+    def test_normal_response_not_error(self) -> None:
+        """Normal response text is not detected as error."""
+        assert _is_error_response("Hello! How can I help you?") is False
+
+    def test_empty_string_not_error(self) -> None:
+        """Empty string is not detected as error."""
+        assert _is_error_response("") is False
+
+
+# ---------------------------------------------------------------------------
+# Content extraction
+# ---------------------------------------------------------------------------
+
+
+class TestContentExtraction:
+    """Tests for _extract_content_text()."""
+
+    def test_string_content(self) -> None:
+        """String content is returned as-is."""
+        assert _extract_content_text("Hello") == "Hello"
+
+    def test_none_content(self) -> None:
+        """None content returns empty string."""
+        assert _extract_content_text(None) == ""
+
+    def test_multimodal_content(self) -> None:
+        """Multimodal content concatenates text parts."""
+        content: list[dict] = [
+            {"type": "text", "text": "First"},
+            {"type": "image_url", "image_url": {"url": "..."}},
+            {"type": "text", "text": "Second"},
+        ]
+        assert _extract_content_text(content) == "First Second"
+
+    def test_empty_list(self) -> None:
+        """Empty list returns empty string."""
+        assert _extract_content_text([]) == ""
+
+    def test_malformed_content_part(self) -> None:
+        """Malformed content parts are skipped."""
+        content: list[dict] = [
+            {"type": "text"},  # missing "text" key
+            {"type": "text", "text": "Valid"},
+            "not a dict",
+        ]
+        assert _extract_content_text(content) == "Valid"
+
+    def test_non_string_text_coerced(self) -> None:
+        """Non-string text values are coerced to str."""
+        content: list[dict] = [
+            {"type": "text", "text": 123},
+            {"type": "text", "text": "Hello"},
+        ]
+        assert _extract_content_text(content) == "123 Hello"
+
+
+# ---------------------------------------------------------------------------
+# Auto-routing (Phase 2)
+# ---------------------------------------------------------------------------
+
+
+class TestAutoRouting:
+    """Tests for auto-routing via model='auto'."""
+
+    def test_auto_routes_to_suggested_agent(self, app_client: TestClient) -> None:
+        """Auto model routes to the agent suggested by suggest_responder()."""
+        with (
+            patch("mindroom.api.openai_compat.suggest_responder", new_callable=AsyncMock) as mock_route,
+            patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai,
+        ):
+            mock_route.return_value = "code"
+            mock_ai.return_value = "Here is your code"
+
+            response = app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "auto",
+                    "messages": [{"role": "user", "content": "Write Python code"}],
+                },
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        # Response model field shows the resolved agent, not "auto"
+        assert data["model"] == "code"
+        assert data["choices"][0]["message"]["content"] == "Here is your code"
+
+    def test_auto_fallback_when_routing_fails(self, app_client: TestClient) -> None:
+        """When suggest_responder returns None, falls back to first agent."""
+        with (
+            patch("mindroom.api.openai_compat.suggest_responder", new_callable=AsyncMock) as mock_route,
+            patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai,
+        ):
+            mock_route.return_value = None
+            mock_ai.return_value = "Fallback response"
+
+            response = app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "auto",
+                    "messages": [{"role": "user", "content": "Hello"}],
+                },
+            )
+
+        assert response.status_code == 200
+        # Falls back to first agent in config (dict insertion order)
+        assert response.json()["model"] == "general"
+
+    def test_auto_passes_thread_history(self, app_client: TestClient) -> None:
+        """Auto-routing passes thread_history to suggest_responder for context."""
+        with (
+            patch("mindroom.api.openai_compat.suggest_responder", new_callable=AsyncMock) as mock_route,
+            patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai,
+        ):
+            mock_route.return_value = "general"
+            mock_ai.return_value = "Response"
+
+            app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "auto",
+                    "messages": [
+                        {"role": "user", "content": "Hi"},
+                        {"role": "assistant", "content": "Hello!"},
+                        {"role": "user", "content": "Write code"},
+                    ],
+                },
+            )
+
+            # suggest_responder receives runtime_paths before the optional thread history.
+            call_args = mock_route.call_args
+            assert call_args[0][0] == "Write code"  # prompt
+            thread_history = call_args[0][4]
+            assert thread_history == [
+                ResolvedVisibleMessage.synthetic(sender="user", body="Hi", event_id="$openai-1", timestamp=1),
+                ResolvedVisibleMessage.synthetic(sender="assistant", body="Hello!", event_id="$openai-2", timestamp=2),
+            ]
+
+    def test_auto_streaming(self, app_client: TestClient) -> None:
+        """Auto model works with streaming, chunks carry resolved agent name."""
+
+        async def mock_stream(**_kw: object) -> AsyncIterator[RunContentEvent]:
+            yield RunContentEvent(content="Streamed!")
+
+        with (
+            patch("mindroom.api.openai_compat.suggest_responder", new_callable=AsyncMock) as mock_route,
+            patch("mindroom.api.openai_compat.stream_agent_response", side_effect=mock_stream),
+        ):
+            mock_route.return_value = "research"
+
+            response = app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "auto",
+                    "messages": [{"role": "user", "content": "Research this"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 200
+        assert "text/event-stream" in response.headers["content-type"]
+
+        # Verify SSE chunks carry the resolved agent name, not "auto"
+        lines = response.text.strip().split("\n\n")
+        first_chunk = json.loads(lines[0].removeprefix("data: "))
+        assert first_chunk["model"] == "research"
+
+    def test_auto_no_agents_returns_500(self) -> None:
+        """Auto with no configured agents returns 500."""
+        from fastapi import FastAPI  # noqa: PLC0415
+
+        from mindroom.api.openai_compat import router  # noqa: PLC0415
+
+        app = FastAPI()
+        app.include_router(router)
+
+        empty_config = Config(
+            agents={},
+            models={"default": ModelConfig(provider="ollama", id="test")},
+            router=RouterConfig(model="default"),
+        )
+        runtime_paths = _runtime_paths({"OPENAI_COMPAT_ALLOW_UNAUTHENTICATED": "true"})
+        initialize_api_app(app, runtime_paths)
+        with (
+            patch("mindroom.api.openai_compat._load_config", return_value=(empty_config, runtime_paths)),
+            patch("mindroom.api.openai_compat.suggest_responder", new_callable=AsyncMock) as mock_route,
+            TestClient(app) as client,
+        ):
+            mock_route.return_value = None
+            response = client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "auto",
+                    "messages": [{"role": "user", "content": "Hello"}],
+                },
+            )
+
+        assert response.status_code == 500
+        assert "no openai-compatible agents" in response.json()["error"]["message"].lower()
+
+    def test_auto_session_id_uses_resolved_agent(self, app_client: TestClient) -> None:
+        """Session ID derivation uses the resolved agent name, not 'auto'."""
+        with (
+            patch("mindroom.api.openai_compat.suggest_responder", new_callable=AsyncMock) as mock_route,
+            patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai,
+        ):
+            mock_route.return_value = "code"
+            mock_ai.return_value = "Response"
+
+            app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "auto",
+                    "messages": [{"role": "user", "content": "Write code"}],
+                },
+                headers={"X-LibreChat-Conversation-Id": "conv-abc"},
+            )
+
+            # ai_response should receive agent_name="code", not "auto"
+            assert mock_ai.call_args.kwargs["agent_name"] == "code"
+            # Session ID should use the resolved model name with LibreChat IDs.
+            session_id = mock_ai.call_args.kwargs["session_id"]
+            assert session_id.endswith(":conv-abc:code")
+            assert "auto" not in session_id
+
+    def test_auto_routing_none_falls_back(self, app_client: TestClient) -> None:
+        """If routing returns no match, auto should still fall back gracefully."""
+        with (
+            patch("mindroom.api.openai_compat.suggest_responder", new_callable=AsyncMock) as mock_route,
+            patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai,
+        ):
+            mock_route.return_value = None
+            mock_ai.return_value = "Fallback response"
+
+            response = app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "auto",
+                    "messages": [{"role": "user", "content": "Hello"}],
+                },
+            )
+
+        assert response.status_code == 200
+        assert response.json()["model"] == "general"
+
+
+# ---------------------------------------------------------------------------
+# Team completion (Phase 3)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def team_config() -> Config:
+    """Create a test config with agents and a team."""
+    return Config(
+        agents={
+            "general": AgentConfig(
+                display_name="GeneralAgent",
+                role="General-purpose assistant",
+                rooms=[],
+            ),
+            "code": AgentConfig(
+                display_name="CodeAgent",
+                role="Generate code",
+                rooms=[],
+            ),
+        },
+        models={"default": ModelConfig(provider="ollama", id="test-model")},
+        router=RouterConfig(model="default"),
+        teams={
+            "super_team": TeamConfig(
+                display_name="Super Team",
+                role="Collaborative engineering team",
+                agents=["general", "code"],
+                mode="coordinate",
+            ),
+        },
+    )
+
+
+@pytest.fixture
+def team_app_client(team_config: Config) -> Iterator[TestClient]:
+    """Create a FastAPI test client with team-enabled config."""
+    from fastapi import FastAPI  # noqa: PLC0415
+
+    from mindroom.api.openai_compat import router  # noqa: PLC0415
+
+    app = FastAPI()
+    app.include_router(router)
+    runtime_paths = _runtime_paths({"OPENAI_COMPAT_ALLOW_UNAUTHENTICATED": "true"})
+    persist_entity_accounts(team_config, runtime_paths)
+    initialize_api_app(app, runtime_paths)
+    with (
+        patch("mindroom.api.openai_compat._load_config", return_value=(team_config, runtime_paths)),
+        TestClient(app) as client,
+    ):
+        yield client
+
+
+class TestTeamCompletion:
+    """Tests for team model support (Phase 3)."""
+
+    @pytest.mark.asyncio
+    async def test_prepare_openai_team_prompt_uses_non_matrix_team_preparation_defaults(
+        self,
+        team_config: Config,
+        tmp_path: Path,
+    ) -> None:
+        """OpenAI team prompt preparation should preserve non-Matrix request defaults."""
+        runtime_paths = resolve_runtime_paths(config_path=tmp_path / "config.yaml")
+        execution_identity = build_tool_execution_identity(
+            channel="openai_compat",
+            agent_name="team/super_team",
+            session_id="session-openai-team",
+            runtime_paths=runtime_paths,
+            requester_id=None,
+            room_id=None,
+            thread_id=None,
+            resolved_thread_id=None,
+        )
+        mock_team = _make_test_team()
+        mock_agents = [_make_test_agent("GeneralAgent")]
+        prepared_messages = (
+            Message(role="assistant", content="Previous team reply"),
+            Message(role="user", content="Build it"),
+        )
+        run_metadata = {"correlation_id": "metadata-correlation"}
+
+        with patch(
+            "mindroom.api.openai_compat.prepare_materialized_team_execution",
+            new_callable=AsyncMock,
+        ) as mock_prepare:
+            mock_prepare.return_value = SimpleNamespace(
+                messages=prepared_messages,
+                run_metadata=run_metadata,
+            )
+
+            prepared = await openai_compat._prepare_openai_team_prompt(
+                scope_context=None,
+                team_name="super_team",
+                agents=mock_agents,
+                team=mock_team,
+                prompt="Build it",
+                config=team_config,
+                runtime_paths=runtime_paths,
+                thread_history=[],
+                execution_identity=execution_identity,
+            )
+
+        assert prepared.prompt == "assistant: Previous team reply\n\nBuild it"
+        assert prepared.run_metadata is run_metadata
+        assert mock_prepare.await_count == 1
+        preparation_kwargs = mock_prepare.await_args.kwargs
+        assert preparation_kwargs["agents"] == mock_agents
+        assert preparation_kwargs["team"] is mock_team
+        assert preparation_kwargs["message"] == "Build it"
+        assert preparation_kwargs["thread_history"] == []
+        assert preparation_kwargs["reply_to_event_id"] is None
+        assert preparation_kwargs["active_event_ids"] == frozenset()
+        assert preparation_kwargs["response_sender_id"] is None
+        assert preparation_kwargs["current_sender_id"] is None
+        assert preparation_kwargs["room_id"] is None
+        assert preparation_kwargs["thread_id"] is None
+        assert preparation_kwargs["requester_id"] is None
+        assert re.fullmatch(r"[0-9a-f]{32}", preparation_kwargs["correlation_id"])
+        assert preparation_kwargs["compaction_outcomes_collector"] is None
+        assert preparation_kwargs["configured_team_name"] == "super_team"
+        assert preparation_kwargs["matrix_run_metadata"] is None
+        assert preparation_kwargs["active_model_name"] == "default"
+
+    def test_team_listed_in_models(self, team_app_client: TestClient) -> None:
+        """Teams appear in /v1/models with team/ prefix."""
+        response = team_app_client.get("/v1/models")
+        assert response.status_code == 200
+        models = response.json()["data"]
+        team_models = [m for m in models if m["id"].startswith("team/")]
+        assert len(team_models) == 1
+        assert team_models[0]["id"] == "team/super_team"
+        assert team_models[0]["name"] == "Super Team"
+        assert team_models[0]["description"] == "Collaborative engineering team"
+
+    def test_unknown_team_404(self, team_app_client: TestClient) -> None:
+        """Unknown team name returns 404."""
+        response = team_app_client.post(
+            "/v1/chat/completions",
+            json={"model": "team/nonexistent", "messages": [{"role": "user", "content": "Hi"}]},
+        )
+        assert response.status_code == 404
+        assert "nonexistent" in response.json()["error"]["message"]
+
+    def test_team_non_streaming(self, team_app_client: TestClient) -> None:
+        """Non-streaming team completion returns proper OpenAI response."""
+        mock_team = _make_test_team()
+        mock_team.arun = AsyncMock(return_value=TeamRunOutput(content="Team consensus result"))
+        mock_agents = [_make_test_agent("GeneralAgent"), _make_test_agent("CodeAgent")]
+
+        with (
+            patch(
+                "mindroom.api.openai_compat._build_team",
+                return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+            ),
+            patch(
+                "mindroom.api.openai_compat.prepare_materialized_team_execution",
+                new_callable=AsyncMock,
+            ) as mock_prepare,
+        ):
+            mock_prepare.return_value = _prepared_team_execution_context(
+                final_prompt="Build a feature",
+                prepared_context_tokens=321,
+            )
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Build a feature"}],
+                },
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["model"] == "team/super_team"
+        assert data["object"] == "chat.completion"
+        assert data["choices"][0]["finish_reason"] == "stop"
+        assert "Team consensus result" in data["choices"][0]["message"]["content"]
+        assert mock_prepare.await_count == 1
+        assert mock_prepare.await_args.kwargs["agents"] == mock_agents
+        assert mock_prepare.await_args.kwargs["team"] is mock_team
+        assert mock_prepare.await_args.kwargs["message"] == "Build a feature"
+        run_input = mock_team.arun.call_args.args[0]
+        assert run_input == "Build a feature"
+        metadata = mock_team.arun.call_args.kwargs["metadata"]
+        assert metadata[constants.AI_RUN_METADATA_KEY]["prepared_context"]["tokens"] == 321
+
+    def test_team_non_streaming_unready_kb_emits_system_hint(self, team_app_client: TestClient) -> None:
+        """Non-streaming team completions should prepend the degraded knowledge notice."""
+        from mindroom.team_exact_members import ResolvedExactTeamMembers  # noqa: PLC0415
+
+        scheduled_base_ids: list[str] = []
+
+        class _FakeRefreshScheduler:
+            def schedule_refresh(self, base_id: str, **_kwargs: object) -> None:
+                scheduled_base_ids.append(base_id)
+
+            def is_refreshing(self, base_id: str, **_kwargs: object) -> bool:
+                _ = base_id
+                return False
+
+        mock_team = _make_test_team()
+        mock_team.arun = AsyncMock(return_value=TeamRunOutput(content="Team consensus result"))
+        mock_agents = [_make_test_agent("GeneralAgent"), _make_test_agent("CodeAgent")]
+
+        def fake_materialize(
+            requested_agent_names: list[str],
+            **kwargs: object,
+        ) -> ResolvedExactTeamMembers:
+            unavailable_bases = cast(
+                "dict[str, KnowledgeAvailabilityDetail] | None",
+                kwargs["unavailable_bases"],
+            )
+            refresh_scheduler = kwargs["refresh_scheduler"]
+            assert unavailable_bases is not None
+            assert isinstance(refresh_scheduler, _FakeRefreshScheduler)
+            assert refresh_scheduler is config_lifecycle.app_state(team_app_client.app).knowledge_refresh_scheduler
+            unavailable_bases["docs"] = KnowledgeAvailabilityDetail(
+                availability=KnowledgeAvailability.INITIALIZING,
+                search_available=False,
+            )
+            refresh_scheduler.schedule_refresh("docs")
+            return ResolvedExactTeamMembers(
+                requested_agent_names=requested_agent_names,
+                agents=mock_agents,
+                display_names=["GeneralAgent", "CodeAgent"],
+                materialized_agent_names=set(requested_agent_names),
+                failed_agent_names=[],
+            )
+
+        config_lifecycle.app_state(team_app_client.app).knowledge_refresh_scheduler = _FakeRefreshScheduler()
+        with (
+            patch("mindroom.api.openai_compat.materialize_exact_team_members", side_effect=fake_materialize),
+            patch("mindroom.api.openai_compat.build_materialized_team_instance", return_value=mock_team),
+            patch(
+                "mindroom.api.openai_compat.prepare_materialized_team_execution",
+                new_callable=AsyncMock,
+            ) as mock_prepare,
+        ):
+            mock_prepare.return_value = _prepared_team_execution_context(final_prompt="Build a feature")
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Build a feature"}],
+                },
+            )
+
+        assert response.status_code == 200
+        assert (
+            "Knowledge base `docs` is initializing and unavailable for semantic search this turn."
+            in mock_prepare.await_args.kwargs["message"]
+        )
+        assert scheduled_base_ids == ["docs"]
+
+    @pytest.mark.asyncio
+    async def test_team_non_streaming_passes_non_matrix_metadata_to_arun(
+        self,
+        team_config: Config,
+        tmp_path: Path,
+    ) -> None:
+        """Non-Matrix team runs should pass minted run metadata through to team.arun()."""
+        from agno.run.team import TeamRunOutput  # noqa: PLC0415
+
+        from mindroom.teams import TeamMode  # noqa: PLC0415
+
+        runtime_paths = resolve_runtime_paths(config_path=tmp_path / "config.yaml")
+        execution_identity = build_tool_execution_identity(
+            channel="openai_compat",
+            agent_name="team/super_team",
+            session_id="session-123",
+            runtime_paths=runtime_paths,
+            requester_id=None,
+            room_id=None,
+            thread_id=None,
+            resolved_thread_id=None,
+        )
+        mock_team = _make_test_team()
+        mock_agents = [_make_test_agent("GeneralAgent")]
+        prepared_correlation_ids: list[str] = []
+        request_log_contexts: list[dict[str, object]] = []
+
+        async def mock_prepare_team_execution(**kwargs: object) -> SimpleNamespace:
+            correlation_id = kwargs["correlation_id"]
+            assert isinstance(correlation_id, str)
+            assert kwargs["requester_id"] is None
+            prepared_correlation_ids.append(correlation_id)
+            return _prepared_team_execution_context(
+                final_prompt="Build it",
+                run_metadata={"correlation_id": correlation_id},
+            )
+
+        async def mock_arun(*_args: object, **kwargs: object) -> TeamRunOutput:
+            request_log_contexts.append(current_llm_request_log_context())
+            metadata = kwargs["metadata"]
+            assert isinstance(metadata, dict)
+            correlation_id = metadata["correlation_id"]
+            assert isinstance(correlation_id, str)
+            record_tool_success(
+                tool_name="demo_tool",
+                arguments={"query": "test"},
+                result={"status": "ok"},
+                duration_ms=1.0,
+                agent_name="team/super_team",
+                room_id=None,
+                thread_id=None,
+                reply_to_event_id=None,
+                requester_id=None,
+                session_id="session-123",
+                correlation_id=correlation_id,
+                execution_identity=execution_identity,
+                runtime_paths=runtime_paths,
+            )
+            return TeamRunOutput(content="Team consensus result")
+
+        mock_team.arun = AsyncMock(side_effect=mock_arun)
+
+        with (
+            patch(
+                "mindroom.api.openai_compat._build_team",
+                return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+            ),
+            patch(
+                "mindroom.api.openai_compat.prepare_materialized_team_execution",
+                new=AsyncMock(side_effect=mock_prepare_team_execution),
+            ),
+        ):
+            response = await openai_compat._non_stream_team_completion(
+                "super_team",
+                "team/super_team",
+                "Build it",
+                "session-123",
+                team_config,
+                runtime_paths,
+                None,
+                "@api-user:localhost",
+                execution_identity=execution_identity,
+            )
+
+        assert response.status_code == 200
+        metadata = mock_team.arun.await_args.kwargs["metadata"]
+        assert isinstance(metadata, dict)
+        correlation_id = metadata["correlation_id"]
+        assert isinstance(correlation_id, str)
+        assert re.fullmatch(r"[0-9a-f]{32}", correlation_id)
+        assert prepared_correlation_ids == [correlation_id]
+        assert request_log_contexts[0]["agent_id"] == "team/super_team"
+        assert request_log_contexts[0]["session_id"] == "session-123"
+        assert "requester_id" not in request_log_contexts[0]
+        assert request_log_contexts[0]["correlation_id"] == correlation_id
+        assert request_log_contexts[0]["full_prompt"] == "Build it"
+        records = _read_jsonl(_tool_calls_path(runtime_paths))
+        assert records[0]["correlation_id"] == correlation_id
+        assert records[0]["reply_to_event_id"] is None
+
+    def test_team_non_streaming_formats_plain_run_output_fallback(self, team_app_client: TestClient) -> None:
+        """Non-streaming team completions should format plain RunOutput fallbacks like the main runtime."""
+        mock_team = _make_test_team()
+        mock_team.arun = AsyncMock(return_value=RunOutput(content="Recovered team response"))
+        mock_agents = [_make_test_agent("GeneralAgent")]
+
+        with (
+            patch(
+                "mindroom.api.openai_compat._build_team",
+                return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+            ),
+            patch(
+                "mindroom.api.openai_compat.prepare_materialized_team_execution",
+                new_callable=AsyncMock,
+            ) as mock_prepare,
+        ):
+            mock_prepare.return_value = _prepared_team_execution_context(
+                final_prompt="Build it",
+                prepared_context_tokens=456,
+            )
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Build it"}],
+                },
+            )
+
+        assert response.status_code == 200
+        content = response.json()["choices"][0]["message"]["content"]
+        assert content == "**Agent**: Recovered team response"
+        assert "RunOutput(" not in content
+
+    def test_team_non_streaming_rejects_plain_run_output_error(self, team_app_client: TestClient) -> None:
+        """Errored RunOutput fallbacks should surface as API failures, not successful content."""
+        mock_team = _make_test_team()
+        mock_team.arun = AsyncMock(return_value=RunOutput(status="error", content="validation failed in team"))
+        mock_agents = [_make_test_agent("GeneralAgent")]
+
+        with (
+            patch(
+                "mindroom.api.openai_compat._build_team",
+                return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+            ),
+            patch(
+                "mindroom.api.openai_compat.prepare_materialized_team_execution",
+                new_callable=AsyncMock,
+            ) as mock_prepare,
+        ):
+            mock_prepare.return_value = _prepared_team_execution_context(
+                final_prompt="Build it",
+                prepared_context_tokens=456,
+            )
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Build it"}],
+                },
+            )
+
+        assert response.status_code == 500
+        assert response.json()["error"]["type"] == "server_error"
+        assert response.json()["error"]["message"] == "Team execution failed"
+
+    def test_team_non_streaming_rejects_plain_run_output_cancelled(self, team_app_client: TestClient) -> None:
+        """Cancelled RunOutput fallbacks should surface as API failures, not successful content."""
+        mock_team = _make_test_team()
+        mock_team.arun = AsyncMock(return_value=RunOutput(status="cancelled", content="Run run-123 was cancelled"))
+        mock_agents = [_make_test_agent("GeneralAgent")]
+
+        with (
+            patch(
+                "mindroom.api.openai_compat._build_team",
+                return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+            ),
+            patch(
+                "mindroom.api.openai_compat.prepare_materialized_team_execution",
+                new_callable=AsyncMock,
+            ) as mock_prepare,
+        ):
+            mock_prepare.return_value = _prepared_team_execution_context(
+                final_prompt="Build it",
+                prepared_context_tokens=456,
+            )
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Build it"}],
+                },
+            )
+
+        assert response.status_code == 500
+        assert response.json()["error"]["type"] == "server_error"
+        assert response.json()["error"]["message"] == "Team execution failed"
+
+    def test_team_streaming(self, team_app_client: TestClient) -> None:
+        """Streaming team completion streams TeamContentEvent (leader text) directly."""
+        mock_team = _make_test_team()
+        mock_agents = [_make_test_agent("GeneralAgent")]
+
+        async def mock_stream_events(*_a: object, **_kw: object) -> AsyncIterator[object]:
+            yield TeamContentEvent(content="Hello ")
+            yield TeamContentEvent(content="world!")
+
+        mock_team.arun = MagicMock(side_effect=mock_stream_events)
+
+        with (
+            patch(
+                "mindroom.api.openai_compat._build_team",
+                return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+            ),
+            patch(
+                "mindroom.api.openai_compat.prepare_materialized_team_execution",
+                new_callable=AsyncMock,
+            ) as mock_prepare,
+        ):
+            mock_prepare.return_value = _prepared_team_execution_context(
+                final_prompt="Build it",
+                prepared_context_tokens=456,
+            )
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Build it"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 200
+        assert "text/event-stream" in response.headers["content-type"]
+
+        lines = response.text.strip().split("\n\n")
+
+        # First chunk is role announcement
+        first = json.loads(lines[0].removeprefix("data: "))
+        assert first["choices"][0]["delta"] == {"role": "assistant"}
+        assert first["model"] == "team/super_team"
+
+        # Leader content is streamed directly (not buffered)
+        content_parts = []
+        for line in lines:
+            if line.startswith("data: ") and line != "data: [DONE]":
+                chunk = json.loads(line.removeprefix("data: "))
+                delta = chunk["choices"][0]["delta"]
+                if "content" in delta:
+                    content_parts.append(delta["content"])
+        full_content = "".join(content_parts)
+        assert full_content == "Hello world!"
+        # Each TeamContentEvent is a separate chunk (streamed directly)
+        assert "Hello " in content_parts
+        assert "world!" in content_parts
+        assert mock_prepare.await_count == 1
+        assert mock_prepare.await_args.kwargs["agents"] == mock_agents
+        assert mock_prepare.await_args.kwargs["team"] is mock_team
+        run_input = mock_team.arun.call_args.args[0]
+        assert run_input == "Build it"
+        metadata = mock_team.arun.call_args.kwargs["metadata"]
+        assert metadata[constants.AI_RUN_METADATA_KEY]["prepared_context"]["tokens"] == 456
+
+    @pytest.mark.asyncio
+    async def test_team_streaming_passes_non_matrix_metadata_to_arun(
+        self,
+        team_config: Config,
+        tmp_path: Path,
+    ) -> None:
+        """Non-Matrix team streams should pass minted run metadata through to team.arun()."""
+        from agno.run.team import RunContentEvent as TeamContentEvent  # noqa: PLC0415
+
+        from mindroom.teams import TeamMode  # noqa: PLC0415
+
+        runtime_paths = resolve_runtime_paths(config_path=tmp_path / "config.yaml")
+        execution_identity = build_tool_execution_identity(
+            channel="openai_compat",
+            agent_name="team/super_team",
+            session_id="session-123",
+            runtime_paths=runtime_paths,
+            requester_id=None,
+            room_id=None,
+            thread_id=None,
+            resolved_thread_id=None,
+        )
+        mock_team = _make_test_team()
+        mock_agents = [_make_test_agent("GeneralAgent")]
+        prepared_correlation_ids: list[str] = []
+        request_log_contexts: list[dict[str, object]] = []
+
+        async def mock_prepare_team_execution(**kwargs: object) -> SimpleNamespace:
+            correlation_id = kwargs["correlation_id"]
+            assert isinstance(correlation_id, str)
+            assert kwargs["requester_id"] is None
+            prepared_correlation_ids.append(correlation_id)
+            return _prepared_team_execution_context(
+                final_prompt="Build it",
+                run_metadata={"correlation_id": correlation_id},
+            )
+
+        async def mock_stream_events(*_args: object, **kwargs: object) -> AsyncIterator[object]:
+            request_log_contexts.append(current_llm_request_log_context())
+            metadata = kwargs["metadata"]
+            assert isinstance(metadata, dict)
+            correlation_id = metadata["correlation_id"]
+            assert isinstance(correlation_id, str)
+            record_tool_success(
+                tool_name="demo_tool",
+                arguments={"query": "test"},
+                result={"status": "ok"},
+                duration_ms=1.0,
+                agent_name="team/super_team",
+                room_id=None,
+                thread_id=None,
+                reply_to_event_id=None,
+                requester_id=None,
+                session_id="session-123",
+                correlation_id=correlation_id,
+                execution_identity=execution_identity,
+                runtime_paths=runtime_paths,
+            )
+            yield TeamContentEvent(content="Hello ")
+            yield TeamContentEvent(content="world!")
+
+        mock_team.arun = MagicMock(side_effect=mock_stream_events)
+
+        with (
+            patch(
+                "mindroom.api.openai_compat._build_team",
+                return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+            ),
+            patch(
+                "mindroom.api.openai_compat.prepare_materialized_team_execution",
+                new=AsyncMock(side_effect=mock_prepare_team_execution),
+            ),
+        ):
+            response = await openai_compat._stream_team_completion(
+                "super_team",
+                "team/super_team",
+                "Build it",
+                "session-123",
+                team_config,
+                runtime_paths,
+                None,
+                "@api-user:localhost",
+                execution_identity=execution_identity,
+            )
+
+        assert isinstance(response, StreamingResponse)
+        body_chunks = [
+            chunk.decode("utf-8") if isinstance(chunk, bytes) else chunk async for chunk in response.body_iterator
+        ]
+        body = "".join(body_chunks)
+        metadata = mock_team.arun.call_args.kwargs["metadata"]
+        assert isinstance(metadata, dict)
+        correlation_id = metadata["correlation_id"]
+        assert isinstance(correlation_id, str)
+        assert re.fullmatch(r"[0-9a-f]{32}", correlation_id)
+        assert prepared_correlation_ids == [correlation_id]
+        assert request_log_contexts[0]["agent_id"] == "team/super_team"
+        assert request_log_contexts[0]["session_id"] == "session-123"
+        assert "requester_id" not in request_log_contexts[0]
+        assert request_log_contexts[0]["correlation_id"] == correlation_id
+        assert request_log_contexts[0]["full_prompt"] == "Build it"
+        assert "Hello " in body
+        assert "world!" in body
+        records = _read_jsonl(_tool_calls_path(runtime_paths))
+        assert records[0]["correlation_id"] == correlation_id
+        assert records[0]["reply_to_event_id"] is None
+
+    def test_team_streaming_config_mismatch_kb_emits_system_hint(self, team_app_client: TestClient) -> None:
+        """Streaming team completions should prepend the stale-knowledge notice."""
+        from mindroom.team_exact_members import ResolvedExactTeamMembers  # noqa: PLC0415
+
+        scheduled_base_ids: list[str] = []
+
+        class _FakeRefreshScheduler:
+            def schedule_refresh(self, base_id: str, **_kwargs: object) -> None:
+                scheduled_base_ids.append(base_id)
+
+            def is_refreshing(self, base_id: str, **_kwargs: object) -> bool:
+                _ = base_id
+                return False
+
+        mock_team = _make_test_team()
+        mock_agents = [_make_test_agent("GeneralAgent"), _make_test_agent("CodeAgent")]
+
+        async def mock_stream_events(*_a: object, **_kw: object) -> AsyncIterator[object]:
+            yield TeamContentEvent(content="Hello world!")
+
+        mock_team.arun = MagicMock(side_effect=mock_stream_events)
+
+        def fake_materialize(
+            requested_agent_names: list[str],
+            **kwargs: object,
+        ) -> ResolvedExactTeamMembers:
+            unavailable_bases = cast(
+                "dict[str, KnowledgeAvailabilityDetail] | None",
+                kwargs["unavailable_bases"],
+            )
+            refresh_scheduler = kwargs["refresh_scheduler"]
+            assert unavailable_bases is not None
+            assert isinstance(refresh_scheduler, _FakeRefreshScheduler)
+            assert refresh_scheduler is config_lifecycle.app_state(team_app_client.app).knowledge_refresh_scheduler
+            unavailable_bases["docs"] = KnowledgeAvailabilityDetail(
+                availability=KnowledgeAvailability.CONFIG_MISMATCH,
+                search_available=True,
+            )
+            refresh_scheduler.schedule_refresh("docs")
+            return ResolvedExactTeamMembers(
+                requested_agent_names=requested_agent_names,
+                agents=mock_agents,
+                display_names=["GeneralAgent", "CodeAgent"],
+                materialized_agent_names=set(requested_agent_names),
+                failed_agent_names=[],
+            )
+
+        config_lifecycle.app_state(team_app_client.app).knowledge_refresh_scheduler = _FakeRefreshScheduler()
+        with (
+            patch("mindroom.api.openai_compat.materialize_exact_team_members", side_effect=fake_materialize),
+            patch("mindroom.api.openai_compat.build_materialized_team_instance", return_value=mock_team),
+            patch(
+                "mindroom.api.openai_compat.prepare_materialized_team_execution",
+                new_callable=AsyncMock,
+            ) as mock_prepare,
+        ):
+            mock_prepare.return_value = _prepared_team_execution_context(final_prompt="Build it")
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Build it"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 200
+        assert (
+            "Knowledge base `docs` is refreshing against newer config and may be stale this turn."
+            in mock_prepare.await_args.kwargs["message"]
+        )
+        assert scheduled_base_ids == ["docs"]
+
+    def test_team_streaming_falls_back_to_final_team_run_output(self, team_app_client: TestClient) -> None:
+        """Providers that yield a final TeamRunOutput in stream mode should still emit content."""
+        mock_team = _make_test_team()
+        mock_agents = [_make_test_agent("GeneralAgent")]
+
+        async def mock_stream_events(*_a: object, **_kw: object) -> AsyncIterator[object]:
+            yield TeamRunOutput(content="Team consensus result")
+
+        mock_team.arun = MagicMock(side_effect=mock_stream_events)
+
+        with (
+            patch(
+                "mindroom.api.openai_compat._build_team",
+                return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+            ),
+            patch(
+                "mindroom.api.openai_compat.prepare_materialized_team_execution",
+                new_callable=AsyncMock,
+            ) as mock_prepare,
+        ):
+            mock_prepare.return_value = _prepared_team_execution_context(final_prompt="Build it")
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Build it"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 200
+        content_parts: list[str] = []
+        for line in response.text.strip().split("\n\n"):
+            if line.startswith("data: ") and line != "data: [DONE]":
+                chunk = json.loads(line.removeprefix("data: "))
+                delta = chunk["choices"][0]["delta"]
+                if "content" in delta:
+                    content_parts.append(delta["content"])
+        assert "".join(content_parts) == "**Team Consensus**:\n\nTeam consensus result"
+
+    def test_team_streaming_falls_back_to_final_run_output(self, team_app_client: TestClient) -> None:
+        """Providers that yield a final plain RunOutput in stream mode should still emit content."""
+        mock_team = _make_test_team()
+        mock_agents = [_make_test_agent("GeneralAgent")]
+
+        async def mock_stream_events(*_a: object, **_kw: object) -> AsyncIterator[object]:
+            yield RunOutput(content="Recovered team response")
+
+        mock_team.arun = MagicMock(side_effect=mock_stream_events)
+
+        with (
+            patch(
+                "mindroom.api.openai_compat._build_team",
+                return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+            ),
+            patch(
+                "mindroom.api.openai_compat.prepare_materialized_team_execution",
+                new_callable=AsyncMock,
+            ) as mock_prepare,
+        ):
+            mock_prepare.return_value = _prepared_team_execution_context(final_prompt="Build it")
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Build it"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 200
+        content_parts: list[str] = []
+        for line in response.text.strip().split("\n\n"):
+            if line.startswith("data: ") and line != "data: [DONE]":
+                chunk = json.loads(line.removeprefix("data: "))
+                delta = chunk["choices"][0]["delta"]
+                if "content" in delta:
+                    content_parts.append(delta["content"])
+        assert "".join(content_parts) == "**Agent**: Recovered team response"
+
+    def test_team_streaming_first_team_run_output_error_returns_500(self, team_app_client: TestClient) -> None:
+        """Streaming should treat an error-status TeamRunOutput as a failed team execution."""
+        mock_team = _make_test_team()
+        mock_agents = [_make_test_agent("GeneralAgent")]
+
+        async def mock_stream_events(*_a: object, **_kw: object) -> AsyncIterator[object]:
+            yield TeamRunOutput(status="error", content="Team execution failed upstream")
+
+        mock_team.arun = MagicMock(side_effect=mock_stream_events)
+
+        with patch(
+            "mindroom.api.openai_compat._build_team",
+            return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+        ):
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Build it"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 500
+        assert response.json()["error"]["type"] == "server_error"
+        assert response.json()["error"]["message"] == "Team execution failed"
+
+    def test_team_streaming_first_run_output_error_returns_500(self, team_app_client: TestClient) -> None:
+        """Streaming should treat an error-status RunOutput as a failed team execution."""
+        mock_team = _make_test_team()
+        mock_agents = [_make_test_agent("GeneralAgent")]
+
+        async def mock_stream_events(*_a: object, **_kw: object) -> AsyncIterator[object]:
+            yield RunOutput(status="error", content="Team execution failed upstream")
+
+        mock_team.arun = MagicMock(side_effect=mock_stream_events)
+
+        with patch(
+            "mindroom.api.openai_compat._build_team",
+            return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+        ):
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Build it"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 500
+        assert response.json()["error"]["type"] == "server_error"
+        assert response.json()["error"]["message"] == "Team execution failed"
+
+    def test_team_streaming_first_run_output_cancelled_returns_500(self, team_app_client: TestClient) -> None:
+        """Streaming should treat a cancelled RunOutput as a failed team execution."""
+        mock_team = _make_test_team()
+        mock_agents = [_make_test_agent("GeneralAgent")]
+
+        async def mock_stream_events(*_a: object, **_kw: object) -> AsyncIterator[object]:
+            yield RunOutput(status="cancelled", content="Run run-123 was cancelled")
+
+        mock_team.arun = MagicMock(side_effect=mock_stream_events)
+
+        with patch(
+            "mindroom.api.openai_compat._build_team",
+            return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+        ):
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Build it"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 500
+        assert response.json()["error"]["type"] == "server_error"
+        assert response.json()["error"]["message"] == "Team execution failed"
+
+    def test_team_streaming_first_cancelled_event_returns_500(self, team_app_client: TestClient) -> None:
+        """Streaming should treat a cancelled team event as a failed team execution."""
+        from agno.run.team import RunCancelledEvent as TeamRunCancelledEvent  # noqa: PLC0415
+
+        mock_team = _make_test_team()
+        mock_agents = [_make_test_agent("GeneralAgent")]
+
+        async def mock_stream_events(*_a: object, **_kw: object) -> AsyncIterator[object]:
+            yield TeamRunCancelledEvent(run_id="run-123", reason="Run run-123 was cancelled")
+
+        mock_team.arun = MagicMock(side_effect=mock_stream_events)
+
+        with patch(
+            "mindroom.api.openai_compat._build_team",
+            return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+        ):
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Build it"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 500
+        assert response.json()["error"]["type"] == "server_error"
+        assert response.json()["error"]["message"] == "Team execution failed"
+
+    def test_team_streaming_midstream_cancelled_event_emits_failure_chunk(self, team_app_client: TestClient) -> None:
+        """A cancelled team event after streaming starts should emit the failure chunk."""
+        from agno.run.team import RunCancelledEvent as TeamRunCancelledEvent  # noqa: PLC0415
+
+        mock_team = _make_test_team()
+        mock_agents = [_make_test_agent("GeneralAgent")]
+
+        async def mock_stream_events(*_a: object, **_kw: object) -> AsyncIterator[object]:
+            yield TeamContentEvent(content="Team started. ")
+            yield TeamRunCancelledEvent(run_id="run-123", reason="Run run-123 was cancelled")
+
+        mock_team.arun = MagicMock(side_effect=mock_stream_events)
+
+        with patch(
+            "mindroom.api.openai_compat._build_team",
+            return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+        ):
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Build it"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 200
+        lines = response.text.strip().split("\n\n")
+        contents: list[str] = []
+        for line in lines:
+            if line.startswith("data: ") and line != "data: [DONE]":
+                chunk = json.loads(line.removeprefix("data: "))
+                delta = chunk["choices"][0]["delta"]
+                if "content" in delta:
+                    contents.append(delta["content"])
+
+        full = "".join(contents)
+        assert "Team started. " in full
+        assert "Team execution failed." in full
+        assert full.index("Team started. ") < full.index("Team execution failed.")
+        assert lines[-1] == "data: [DONE]"
+
+    def test_team_streaming_keeps_scope_storage_open_until_stream_finishes(self, team_app_client: TestClient) -> None:
+        """The bound team scope must stay open until SSE streaming is fully consumed."""
+
+        class _FakeStorage:
+            def __init__(self) -> None:
+                self.closed = False
+
+            def close(self) -> None:
+                self.closed = True
+
+        fake_storage = _FakeStorage()
+        mock_team = _make_test_team()
+        mock_team.db = fake_storage
+        mock_agents: list[AgnoAgent] = []
+
+        @contextmanager
+        def _open_scope_context() -> Iterator[ScopeSessionContext]:
+            yield ScopeSessionContext(
+                scope=HistoryScope(kind="team", scope_id="super_team"),
+                storage=fake_storage,
+                session=None,
+            )
+            fake_storage.close()
+
+        async def mock_stream_events(*_a: object, **_kw: object) -> AsyncIterator[object]:
+            assert fake_storage.closed is False
+            yield TeamContentEvent(content="Hello ")
+            assert fake_storage.closed is False
+            yield TeamContentEvent(content="world!")
+
+        mock_team.arun = MagicMock(side_effect=mock_stream_events)
+
+        with (
+            patch(
+                "mindroom.api.openai_compat.open_bound_scope_session_context",
+                return_value=_open_scope_context(),
+            ),
+            patch(
+                "mindroom.api.openai_compat._build_team",
+                return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+            ),
+            patch(
+                "mindroom.api.openai_compat.prepare_materialized_team_execution",
+                new_callable=AsyncMock,
+            ) as mock_prepare,
+        ):
+            mock_prepare.return_value = _prepared_team_execution_context(final_prompt="Build it")
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Build it"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 200
+        assert fake_storage.closed is True
+
+    def test_team_streaming_keeps_execution_identity_for_full_stream(self, team_app_client: TestClient) -> None:
+        """Team streaming must keep worker-routing identity active after preflight."""
+        mock_team = _make_test_team()
+        mock_agents = [_make_test_agent("GeneralAgent")]
+        observed_session_ids: list[str | None] = []
+
+        async def mock_stream_events(*_a: object, **_kw: object) -> AsyncIterator[object]:
+            identity = get_tool_execution_identity()
+            observed_session_ids.append(identity.session_id if identity is not None else None)
+            yield TeamContentEvent(content="Hello ")
+
+            identity = get_tool_execution_identity()
+            observed_session_ids.append(identity.session_id if identity is not None else None)
+            yield TeamContentEvent(content="world!")
+
+        mock_team.arun = mock_stream_events
+
+        with patch(
+            "mindroom.api.openai_compat._build_team",
+            return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+        ):
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Build it"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 200
+        assert len(observed_session_ids) == 2
+        assert all(session_id is not None for session_id in observed_session_ids)
+
+    @pytest.mark.asyncio
+    async def test_team_streaming_close_from_other_task_keeps_execution_identity(
+        self,
+        team_config: Config,
+    ) -> None:
+        """Closing the team SSE body from another task should still clean up inside the execution identity."""
+        runtime_paths = _runtime_paths()
+        execution_identity = build_tool_execution_identity(
+            channel="openai_compat",
+            agent_name="team/super_team",
+            session_id="session-123",
+            runtime_paths=runtime_paths,
+            requester_id=None,
+            room_id=None,
+            thread_id=None,
+            resolved_thread_id=None,
+        )
+        mock_team = _make_test_team()
+        observed_final_identities: list[ToolExecutionIdentity | None] = []
+
+        async def mock_stream_events(*_a: object, **_kw: object) -> AsyncIterator[object]:
+            try:
+                assert get_tool_execution_identity() == execution_identity
+                yield TeamContentEvent(content="Hello")
+                await asyncio.Future()
+            finally:
+                observed_final_identities.append(get_tool_execution_identity())
+
+        mock_team.arun = mock_stream_events
+
+        with (
+            patch(
+                "mindroom.api.openai_compat._build_team",
+                return_value=([_make_test_agent("GeneralAgent")], mock_team, TeamMode.COORDINATE),
+            ),
+            patch(
+                "mindroom.api.openai_compat._prepare_openai_team_prompt",
+                new=AsyncMock(return_value=openai_compat._PreparedOpenAITeamPrompt("Build it", None)),
+            ),
+        ):
+            response = await openai_compat._stream_team_completion(
+                "super_team",
+                "team/super_team",
+                "Build it",
+                "session-123",
+                team_config,
+                runtime_paths,
+                None,
+                None,
+                execution_identity=execution_identity,
+            )
+
+        assert isinstance(response, StreamingResponse)
+        body_iterator = response.body_iterator
+        await asyncio.create_task(anext(body_iterator), context=Context())
+        await asyncio.create_task(body_iterator.aclose(), context=Context())
+        assert observed_final_identities == [execution_identity]
+
+    def test_team_streaming_builds_team_inside_execution_identity(self, team_app_client: TestClient) -> None:
+        """Streamed team requests must establish execution identity before member agents are built."""
+        mock_team = _make_test_team()
+        observed_agent_names: list[str | None] = []
+        observed_session_ids: list[str | None] = []
+
+        async def mock_stream_events(*_a: object, **_kw: object) -> AsyncIterator[object]:
+            yield TeamContentEvent(content="Hello world!")
+
+        def fake_build_team(*_args: object, **_kwargs: object) -> tuple[list[AgnoAgent], AgnoTeam, TeamMode]:
+            identity = get_tool_execution_identity()
+            observed_agent_names.append(identity.agent_name if identity is not None else None)
+            observed_session_ids.append(identity.session_id if identity is not None else None)
+            return [_make_test_agent("GeneralAgent")], mock_team, TeamMode.COORDINATE
+
+        mock_team.arun = mock_stream_events
+
+        with patch("mindroom.api.openai_compat._build_team", side_effect=fake_build_team):
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Build it"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 200
+        assert observed_agent_names == ["team/super_team"]
+        assert len(observed_session_ids) == 1
+        assert observed_session_ids[0] is not None
+
+    def test_team_streaming_tool_events_emit_start_and_done_with_ids(
+        self,
+        team_app_client: TestClient,
+    ) -> None:
+        """Both agent-level and team-level tool events are emitted with stable IDs."""
+        from agno.models.response import ToolExecution  # noqa: PLC0415
+        from agno.run.agent import ToolCallCompletedEvent, ToolCallStartedEvent  # noqa: PLC0415
+        from agno.run.team import RunContentEvent as TeamContentEvent  # noqa: PLC0415
+        from agno.run.team import ToolCallCompletedEvent as TeamToolCallCompletedEvent  # noqa: PLC0415
+        from agno.run.team import ToolCallStartedEvent as TeamToolCallStartedEvent  # noqa: PLC0415
+
+        # Agent-level tool
+        agent_tool_started = ToolExecution(
+            tool_name="search",
+            tool_args={"query": "X"},
+            tool_call_id="tc-agent-1",
+        )
+        agent_tool_completed = ToolExecution(
+            tool_name="search",
+            tool_args={"query": "X"},
+            tool_call_id="tc-agent-1",
+            result="3 results",
+        )
+        # Team-level tool
+        team_tool_started = ToolExecution(
+            tool_name="transfer_task",
+            tool_args={"agent": "code"},
+            tool_call_id="tc-team-1",
+        )
+        team_tool_completed = ToolExecution(
+            tool_name="transfer_task",
+            tool_args={"agent": "code"},
+            tool_call_id="tc-team-1",
+            result="delegated",
+        )
+
+        mock_team = _make_test_team()
+        mock_agents = [_make_test_agent("GeneralAgent")]
+
+        async def mock_stream_events(*_a: object, **_kw: object) -> AsyncIterator[object]:
+            yield TeamToolCallStartedEvent(tool=team_tool_started)
+            yield ToolCallStartedEvent(tool=agent_tool_started)
+            yield ToolCallCompletedEvent(tool=agent_tool_completed)
+            yield TeamToolCallCompletedEvent(tool=team_tool_completed)
+            yield TeamContentEvent(content="Final answer")
+
+        mock_team.arun = mock_stream_events
+
+        with patch(
+            "mindroom.api.openai_compat._build_team",
+            return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+        ):
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Search for X"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 200
+        lines = response.text.strip().split("\n\n")
+        contents: list[str] = []
+        for line in lines:
+            text = line.removeprefix("data: ")
+            if text == "[DONE]":
+                continue
+            chunk = json.loads(text)
+            delta = chunk["choices"][0]["delta"]
+            if "content" in delta:
+                contents.append(delta["content"])
+
+        full_content = "".join(contents)
+        # Agent-level tool
+        assert '<tool id="2" state="start">search(query=X)</tool>' in full_content
+        assert '<tool id="2" state="done">search(query=X)\n3 results</tool>' in full_content
+        # Team-level tool
+        assert '<tool id="1" state="start">transfer_task(agent=code)</tool>' in full_content
+        assert '<tool id="1" state="done">transfer_task(agent=code)\ndelegated</tool>' in full_content
+
+    def test_team_streaming_first_event_error_returns_500(self, team_app_client: TestClient) -> None:
+        """Team stream returns HTTP 500 when first event is an explicit run error."""
+        from agno.run.team import RunErrorEvent as TeamRunErrorEvent  # noqa: PLC0415
+
+        mock_team = _make_test_team()
+        mock_agents = [_make_test_agent("GeneralAgent")]
+
+        async def mock_stream_events(*_a: object, **_kw: object) -> AsyncIterator[object]:
+            yield TeamRunErrorEvent(content="Error code: 404 - {'error': {'message': 'model not found'}}")
+
+        mock_team.arun = mock_stream_events
+
+        with patch(
+            "mindroom.api.openai_compat._build_team",
+            return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+        ):
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Build it"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 500
+        assert response.json()["error"]["type"] == "server_error"
+        assert response.json()["error"]["message"] == "Team execution failed"
+
+    def test_team_streaming_midstream_error_emits_failure_chunk(self, team_app_client: TestClient) -> None:
+        """When stream error occurs after start, already-streamed content and failure chunk are emitted."""
+        from agno.run.team import RunContentEvent as TeamContentEvent  # noqa: PLC0415
+        from agno.run.team import RunErrorEvent as TeamRunErrorEvent  # noqa: PLC0415
+
+        mock_team = _make_test_team()
+        mock_agents = [_make_test_agent("GeneralAgent")]
+
+        async def mock_stream_events(*_a: object, **_kw: object) -> AsyncIterator[object]:
+            yield TeamContentEvent(content="Team started. ")
+            yield TeamRunErrorEvent(content="Error code: 500 - Internal Server Error")
+
+        mock_team.arun = mock_stream_events
+
+        with patch(
+            "mindroom.api.openai_compat._build_team",
+            return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+        ):
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Build it"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 200
+        lines = response.text.strip().split("\n\n")
+        contents: list[str] = []
+        for line in lines:
+            if line.startswith("data: ") and line != "data: [DONE]":
+                chunk = json.loads(line.removeprefix("data: "))
+                delta = chunk["choices"][0]["delta"]
+                if "content" in delta:
+                    contents.append(delta["content"])
+
+        # Leader content was streamed directly before the error
+        full = "".join(contents)
+        assert "Team started. " in full
+        assert "Team execution failed." in full
+        # Leader content comes before the failure message
+        assert full.index("Team started. ") < full.index("Team execution failed.")
+        assert lines[-1] == "data: [DONE]"
+
+    @pytest.mark.parametrize(
+        "build_error",
+        [
+            ValueError("Team 'super_team' cannot be materialized"),
+            RuntimeError("team build failed"),
+        ],
+    )
+    def test_team_build_failure_returns_500(self, team_app_client: TestClient, build_error: Exception) -> None:
+        """Team build failures should not expose internal exception details."""
+        with patch("mindroom.api.openai_compat._build_team", side_effect=build_error):
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Hello"}],
+                },
+            )
+
+        assert response.status_code == 500
+        assert response.json()["error"]["message"] == "Team execution failed"
+
+    def test_team_streaming_build_failure_returns_500(self, team_app_client: TestClient) -> None:
+        """Streaming team build failures should surface a server error response before SSE starts."""
+        with patch("mindroom.api.openai_compat._build_team", side_effect=RuntimeError("team build failed")):
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Hello"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 500
+        assert response.json()["error"]["message"] == "Team execution failed"
+
+    def test_team_member_materialization_failure_returns_generic_500(self, team_app_client: TestClient) -> None:
+        """Configured team build failures should not expose internal exception details."""
+        with (
+            patch("mindroom.model_loading.get_model_instance", return_value=MagicMock()),
+            patch("mindroom.teams.resolve_agent_knowledge_access", return_value=_KnowledgeResolution(knowledge=None)),
+            patch(
+                "mindroom.teams.create_agent",
+                side_effect=[_make_test_agent("GeneralAgent"), RuntimeError("boom")],
+            ),
+        ):
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Hello"}],
+                },
+            )
+
+        assert response.status_code == 500
+        assert response.json()["error"]["type"] == "server_error"
+        assert response.json()["error"]["message"] == "Team execution failed"
+
+    def test_team_execution_failure_500(self, team_app_client: TestClient) -> None:
+        """Team execution exception returns 500."""
+        mock_team = _make_test_team()
+        mock_team.arun = AsyncMock(side_effect=RuntimeError("Model error"))
+        mock_agents = [_make_test_agent("GeneralAgent")]
+
+        with patch(
+            "mindroom.api.openai_compat._build_team",
+            return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+        ):
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Hello"}],
+                },
+            )
+
+        assert response.status_code == 500
+        assert response.json()["error"]["type"] == "server_error"
+
+    def test_team_streaming_execution_failure_500(self, team_app_client: TestClient) -> None:
+        """Team streaming exceptions before first chunk return 500."""
+        mock_team = _make_test_team()
+        mock_team.arun = MagicMock(side_effect=RuntimeError("boom"))
+        mock_agents = [_make_test_agent("GeneralAgent")]
+
+        with patch(
+            "mindroom.api.openai_compat._build_team",
+            return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+        ):
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Hello"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 500
+        assert response.json()["error"]["type"] == "server_error"
+
+    def test_team_streaming_skips_member_content(self, team_app_client: TestClient) -> None:
+        """Member agent RunContentEvent is skipped; only leader TeamContentEvent is streamed."""
+        from agno.run.agent import RunContentEvent  # noqa: PLC0415
+
+        mock_team = _make_test_team()
+        mock_agents = [_make_test_agent("GeneralAgent")]
+
+        async def mock_stream_events(*_a: object, **_kw: object) -> AsyncIterator[object]:
+            yield RunContentEvent(content="member noise ")
+            yield TeamContentEvent(content="leader ")
+            yield RunContentEvent(content="more noise ")
+            yield TeamContentEvent(content="answer")
+
+        mock_team.arun = mock_stream_events
+
+        with patch(
+            "mindroom.api.openai_compat._build_team",
+            return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+        ):
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Build it"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 200
+        lines = response.text.strip().split("\n\n")
+        contents: list[str] = []
+        for line in lines:
+            if line.startswith("data: ") and line != "data: [DONE]":
+                chunk = json.loads(line.removeprefix("data: "))
+                delta = chunk["choices"][0]["delta"]
+                if "content" in delta:
+                    contents.append(delta["content"])
+
+        full = "".join(contents)
+        # Only leader content is present
+        assert full == "leader answer"
+        # Member content is skipped
+        assert "member noise" not in full
+        assert "more noise" not in full
+        assert lines[-1] == "data: [DONE]"
+
+    def test_team_streaming_pending_tools_finalized_on_error(self, team_app_client: TestClient) -> None:
+        """Pending tool calls get (interrupted) done tags when stream errors."""
+        from agno.models.response import ToolExecution  # noqa: PLC0415
+        from agno.run.agent import ToolCallStartedEvent  # noqa: PLC0415
+        from agno.run.team import RunErrorEvent as TeamRunErrorEvent  # noqa: PLC0415
+
+        tool_started = ToolExecution(
+            tool_name="run_shell",
+            tool_args={"cmd": "ls"},
+            tool_call_id="tc-pending-1",
+        )
+
+        mock_team = _make_test_team()
+        mock_agents = [_make_test_agent("GeneralAgent")]
+
+        async def mock_stream_events(*_a: object, **_kw: object) -> AsyncIterator[object]:
+            yield ToolCallStartedEvent(tool=tool_started)
+            yield TeamRunErrorEvent(content="Error: timeout")
+
+        mock_team.arun = mock_stream_events
+
+        with patch(
+            "mindroom.api.openai_compat._build_team",
+            return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+        ):
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Run it"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 200
+        lines = response.text.strip().split("\n\n")
+        contents: list[str] = []
+        for line in lines:
+            if line.startswith("data: ") and line != "data: [DONE]":
+                chunk = json.loads(line.removeprefix("data: "))
+                delta = chunk["choices"][0]["delta"]
+                if "content" in delta:
+                    contents.append(delta["content"])
+
+        full = "".join(contents)
+        # Start tag was emitted
+        assert '<tool id="1" state="start">' in full
+        # Pending tool got finalized with (interrupted)
+        assert '<tool id="1" state="done">(interrupted)</tool>' in full
+        assert "Team execution failed." in full
+
+    def test_team_streaming_skips_interleaved_parallel_member_content(self, team_app_client: TestClient) -> None:
+        """Interleaved RunContentEvent from parallel members is skipped; leader content is streamed."""
+        from agno.run.agent import RunContentEvent  # noqa: PLC0415
+
+        mock_team = _make_test_team()
+        mock_agents = [_make_test_agent("AgentA"), _make_test_agent("AgentB")]
+
+        async def mock_stream_events(*_a: object, **_kw: object) -> AsyncIterator[object]:
+            # Simulate interleaved chunks from two parallel members
+            yield RunContentEvent(content="From A chunk1 ")
+            yield RunContentEvent(content="From B chunk1 ")
+            yield RunContentEvent(content="From A chunk2 ")
+            yield RunContentEvent(content="From B chunk2 ")
+            # Leader synthesizes the answer
+            yield TeamContentEvent(content="Combined answer from leader")
+
+        mock_team.arun = mock_stream_events
+
+        with patch(
+            "mindroom.api.openai_compat._build_team",
+            return_value=(mock_agents, mock_team, TeamMode.COLLABORATE),
+        ):
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [{"role": "user", "content": "Analyze this"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 200
+        lines = response.text.strip().split("\n\n")
+        contents: list[str] = []
+        for line in lines:
+            if line.startswith("data: ") and line != "data: [DONE]":
+                chunk = json.loads(line.removeprefix("data: "))
+                delta = chunk["choices"][0]["delta"]
+                if "content" in delta:
+                    contents.append(delta["content"])
+
+        full = "".join(contents)
+        # Only leader content is streamed
+        assert full == "Combined answer from leader"
+        # Member content is skipped entirely
+        assert "From A chunk1" not in full
+        assert "From B chunk1" not in full
+        assert "From A chunk2" not in full
+        assert "From B chunk2" not in full
+
+    def test_team_non_streaming_includes_thread_history(self, team_app_client: TestClient) -> None:
+        """Team prompt includes prior messages converted from request history."""
+        mock_team = _make_test_team()
+        mock_team.arun = AsyncMock(return_value=TeamRunOutput(content="ok"))
+        mock_team.add_history_to_context = True
+        mock_team.num_history_runs = 3
+        mock_team.num_history_messages = None
+        mock_agents = [_make_test_agent("GeneralAgent"), _make_test_agent("CodeAgent")]
+
+        with patch(
+            "mindroom.api.openai_compat._build_team",
+            return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+        ):
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [
+                        {"role": "user", "content": "Start"},
+                        {"role": "assistant", "content": "Ack"},
+                        {"role": "user", "content": "Follow-up"},
+                    ],
+                },
+            )
+
+        assert response.status_code == 200
+        prompt = mock_team.arun.call_args.args[0]
+        assert prompt == "user: Start\n\nassistant: Ack\n\nFollow-up"
+
+    def test_team_non_streaming_preserves_full_request_history_for_ad_hoc_team_runs(
+        self,
+        team_app_client: TestClient,
+    ) -> None:
+        """Ad hoc team runs must not apply Matrix-specific truncation to request history."""
+        long_body = "L" * 250
+        request_messages: list[dict[str, str]] = [
+            {"role": "user", "content": "msg 0"},
+            {"role": "assistant", "content": long_body},
+        ]
+        request_messages.extend(
+            {
+                "role": "user" if idx % 2 == 0 else "assistant",
+                "content": "Final prompt" if idx == 34 else f"msg {idx}",
+            }
+            for idx in range(2, 35)
+        )
+
+        mock_team = _make_test_team()
+        mock_team.arun = AsyncMock(return_value=TeamRunOutput(content="ok"))
+        mock_team.add_history_to_context = True
+        mock_team.num_history_runs = 3
+        mock_team.num_history_messages = None
+        mock_agents = [_make_test_agent("GeneralAgent"), _make_test_agent("CodeAgent")]
+
+        with patch(
+            "mindroom.api.openai_compat._build_team",
+            return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+        ):
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={"model": "team/super_team", "messages": request_messages},
+            )
+
+        assert response.status_code == 200
+        run_input = mock_team.arun.call_args.args[0]
+        assert "user: msg 0" in run_input
+        assert f"assistant: {long_body}" in run_input
+        assert run_input.endswith("Final prompt")
+
+    def test_team_non_streaming_prefers_persisted_history_over_thread_history(
+        self,
+        team_app_client: TestClient,
+    ) -> None:
+        """Persisted team history should suppress request-history stuffing and rely on Agno replay."""
+        mock_team = _make_test_team()
+        mock_team.arun = AsyncMock(return_value=TeamRunOutput(content="ok"))
+        mock_agents = [_make_test_agent("GeneralAgent"), _make_test_agent("CodeAgent")]
+
+        with (
+            patch(
+                "mindroom.api.openai_compat._build_team",
+                return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+            ),
+            patch(
+                "mindroom.api.openai_compat.prepare_materialized_team_execution",
+                new_callable=AsyncMock,
+            ) as mock_prepare,
+        ):
+            mock_prepare.return_value = _prepared_team_execution_context(
+                final_prompt="Follow-up",
+                replay_plan=ResolvedReplayPlan(
+                    mode="limited",
+                    estimated_tokens=100,
+                    add_history_to_context=True,
+                    num_history_runs=1,
+                    num_history_messages=None,
+                    history_limit_mode="runs",
+                    history_limit=1,
+                ),
+                replays_persisted_history=True,
+            )
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [
+                        {"role": "user", "content": "Start"},
+                        {"role": "assistant", "content": "Ack"},
+                        {"role": "user", "content": "Follow-up"},
+                    ],
+                },
+            )
+
+        assert response.status_code == 200
+        assert mock_prepare.await_args.kwargs["message"] == "Follow-up"
+        assert mock_prepare.await_args.kwargs["team"] is mock_team
+        assert [message.body for message in mock_prepare.await_args.kwargs["thread_history"]] == ["Start", "Ack"]
+        prompt = mock_team.arun.call_args.args[0]
+        assert prompt == "Follow-up"
+        assert "Previous conversation in this thread:" not in prompt
+        assert "user: Start" not in prompt
+        assert "assistant: Ack" not in prompt
+
+    def test_team_streaming_prefers_persisted_history_over_thread_history(self, team_app_client: TestClient) -> None:
+        """Persisted team history should suppress request-history stuffing in the streaming path too."""
+        mock_team = _make_test_team()
+        mock_agents = [_make_test_agent("GeneralAgent")]
+
+        async def mock_stream_events(*_a: object, **_kw: object) -> AsyncIterator[object]:
+            yield TeamContentEvent(content="Hello world!")
+
+        mock_team.arun = MagicMock(side_effect=mock_stream_events)
+
+        with (
+            patch(
+                "mindroom.api.openai_compat._build_team",
+                return_value=(mock_agents, mock_team, TeamMode.COORDINATE),
+            ),
+            patch(
+                "mindroom.api.openai_compat.prepare_materialized_team_execution",
+                new_callable=AsyncMock,
+            ) as mock_prepare,
+        ):
+            mock_prepare.return_value = _prepared_team_execution_context(
+                final_prompt="Follow-up",
+                replays_persisted_history=True,
+            )
+            response = team_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "team/super_team",
+                    "messages": [
+                        {"role": "user", "content": "Start"},
+                        {"role": "assistant", "content": "Ack"},
+                        {"role": "user", "content": "Follow-up"},
+                    ],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 200
+        assert mock_prepare.await_args.kwargs["message"] == "Follow-up"
+        assert mock_prepare.await_args.kwargs["team"] is mock_team
+        assert [message.body for message in mock_prepare.await_args.kwargs["thread_history"]] == ["Start", "Ack"]
+        prompt = mock_team.arun.call_args.args[0]
+        assert prompt == "Follow-up"
+        assert "Previous conversation in this thread:" not in prompt
+
+    @pytest.mark.asyncio
+    async def test_prepare_openai_team_prompt_scrubs_queued_notices_and_uses_team_renderer(self) -> None:
+        """OpenAI team prep should match the main team path for cleanup and assistant-role rendering."""
+        config = Config(
+            agents={"general": AgentConfig(display_name="GeneralAgent", role="General", rooms=[])},
+            models={"default": ModelConfig(provider="openai", id="test-model")},
+            router=RouterConfig(model="default"),
+        )
+        runtime_paths = _runtime_paths()
+        agent = _make_test_agent("GeneralAgent")
+        team = _make_test_team(name="General Team", team_id="general-team")
+
+        with open_bound_scope_session_context(
+            agents=[agent],
+            session_id="session-openai-team-prep",
+            runtime_paths=runtime_paths,
+            config=config,
+            execution_identity=None,
+            create_session_if_missing=True,
+        ) as scope_context:
+            assert scope_context is not None
+            assert scope_context.session is not None
+            scope_context.session.runs = [
+                TeamRunOutput(
+                    run_id="run-queued-notice",
+                    team_id=scope_context.session.team_id,
+                    team_name="General Team",
+                    session_id="session-openai-team-prep",
+                    content="done",
+                    messages=[
+                        Message(
+                            role="user",
+                            content=QUEUED_MESSAGE_NOTICE_TEXT,
+                            provider_data={"mindroom_queued_message_notice": True},
+                        ),
+                    ],
+                    member_responses=[
+                        RunOutput(
+                            run_id="member-run-queued-notice",
+                            session_id="session-openai-team-prep",
+                            messages=[
+                                Message(
+                                    role="user",
+                                    content=QUEUED_MESSAGE_NOTICE_TEXT,
+                                    provider_data={"mindroom_queued_message_notice": True},
+                                ),
+                            ],
+                        ),
+                    ],
+                ),
+            ]
+            scope_context.storage.upsert_session(scope_context.session)
+
+        with open_bound_scope_session_context(
+            agents=[agent],
+            session_id="session-openai-team-prep",
+            runtime_paths=runtime_paths,
+            config=config,
+            execution_identity=None,
+        ) as scope_context:
+            assert scope_context is not None
+            assert scope_context.session is not None
+
+            async def fake_prepare_bound_team_run_context(**kwargs: object) -> SimpleNamespace:
+                prepared_scope_context = kwargs["scope_context"]
+                assert prepared_scope_context is not None
+                assert prepared_scope_context.session is not None
+
+                def collect_messages(run: RunOutput | TeamRunOutput) -> list[Message]:
+                    messages = list(run.messages or [])
+                    if isinstance(run, TeamRunOutput):
+                        for member_response in run.member_responses or []:
+                            if isinstance(member_response, (RunOutput, TeamRunOutput)):
+                                messages.extend(collect_messages(member_response))
+                    return messages
+
+                persisted_messages = [
+                    message
+                    for run in prepared_scope_context.session.runs or []
+                    if isinstance(run, (RunOutput, TeamRunOutput))
+                    for message in collect_messages(run)
+                ]
+                assert not any(message.provider_data for message in persisted_messages)
+                return _prepared_team_execution_context(
+                    final_prompt="Previous team reply\n\nAnalyze this.",
+                    messages=[
+                        Message(role="assistant", content="Previous team reply"),
+                        Message(role="user", content="Analyze this."),
+                    ],
+                )
+
+            with (
+                patch(
+                    "mindroom.execution_preparation._prepare_bound_team_execution_context",
+                    new=AsyncMock(side_effect=fake_prepare_bound_team_run_context),
+                ),
+                patch(
+                    "mindroom.teams.team_tool_definition_payloads_for_logging",
+                    return_value=[{"name": "demo_tool", "description": "Demo"}],
+                    create=True,
+                ),
+                patch(
+                    "mindroom.teams.model_params_payload",
+                    return_value={"temperature": 0.7},
+                    create=True,
+                ),
+            ):
+                prepared_prompt = await openai_compat._prepare_openai_team_prompt(
+                    scope_context=scope_context,
+                    team_name="general",
+                    agents=[agent],
+                    team=team,
+                    prompt="Analyze this.",
+                    config=config,
+                    runtime_paths=runtime_paths,
+                    thread_history=[],
+                )
+
+        assert prepared_prompt.prompt == "assistant: Previous team reply\n\nAnalyze this."
+        assert prepared_prompt.run_metadata is not None
+        assert prepared_prompt.run_metadata["tools_schema"] == [{"name": "demo_tool", "description": "Demo"}]
+        assert prepared_prompt.run_metadata["model_params"] == {"temperature": 0.7}
+        assert prepared_prompt.run_metadata[constants.AI_RUN_METADATA_KEY]["compaction"]["decision"] == "none"
+        with open_bound_scope_session_context(
+            agents=[agent],
+            session_id="session-openai-team-prep",
+            runtime_paths=runtime_paths,
+            config=config,
+            execution_identity=None,
+        ) as scope_context:
+            assert scope_context is not None
+            assert scope_context.session is not None
+            persisted_messages = [
+                message for run in scope_context.session.runs or [] for message in (run.messages or [])
+            ]
+        assert not any(message.provider_data for message in persisted_messages)
+
+    def test_collaborate_mode_delegates_to_all(self) -> None:
+        """Collaborate mode sets delegate_to_all_members=True on Team."""
+        collaborate_config = Config(
+            agents={
+                "general": AgentConfig(display_name="GeneralAgent", role="General", rooms=[]),
+            },
+            models={"default": ModelConfig(provider="ollama", id="test-model")},
+            router=RouterConfig(model="default"),
+            teams={
+                "collab_team": TeamConfig(
+                    display_name="Collab Team",
+                    role="Collaborative team",
+                    agents=["general"],
+                    mode="collaborate",
+                ),
+            },
+        )
+        with (
+            patch("mindroom.teams.create_agent") as mock_create,
+            patch("mindroom.model_loading.get_model_instance"),
+            patch("agno.team.Team.__init__", return_value=None) as mock_team_init,
+        ):
+            mock_create.return_value = MagicMock(name="GeneralAgent")
+
+            from mindroom.api.openai_compat import _build_team  # noqa: PLC0415
+
+            _build_team(
+                "collab_team",
+                collaborate_config,
+                _runtime_paths_for_config(collaborate_config),
+                execution_identity=None,
+            )
+
+            mock_team_init.assert_called_once()
+            assert mock_team_init.call_args.kwargs["delegate_to_all_members"] is True
+
+    def test_coordinate_mode_no_delegate_all(self) -> None:
+        """Coordinate mode sets delegate_to_all_members=False on Team."""
+        with (
+            patch("mindroom.teams.create_agent") as mock_create,
+            patch("mindroom.model_loading.get_model_instance"),
+            patch("agno.team.Team.__init__", return_value=None) as mock_team_init,
+        ):
+            mock_create.return_value = MagicMock(name="GeneralAgent")
+
+            from mindroom.api.openai_compat import _build_team  # noqa: PLC0415
+
+            # team_config fixture uses coordinate mode
+            config = Config(
+                agents={"general": AgentConfig(display_name="GeneralAgent", role="General", rooms=[])},
+                models={"default": ModelConfig(provider="ollama", id="test-model")},
+                router=RouterConfig(model="default"),
+                teams={
+                    "coord_team": TeamConfig(
+                        display_name="Coord Team",
+                        role="Coordinated team",
+                        agents=["general"],
+                        mode="coordinate",
+                    ),
+                },
+            )
+            _build_team("coord_team", config, _runtime_paths_for_config(config), execution_identity=None)
+
+            mock_team_init.assert_called_once()
+            assert mock_team_init.call_args.kwargs["delegate_to_all_members"] is False
+
+    def test_build_team_uses_stable_team_scope_db(self) -> None:
+        """Configured teams should persist runs into the stable team scope store."""
+        config = Config(
+            agents={"general": AgentConfig(display_name="GeneralAgent", role="General", rooms=[])},
+            models={"default": ModelConfig(provider="ollama", id="test-model")},
+            router=RouterConfig(model="default"),
+            teams={
+                "coord_team": TeamConfig(
+                    display_name="Coord Team",
+                    role="Coordinated team",
+                    agents=["general"],
+                    mode="coordinate",
+                ),
+            },
+        )
+        runtime_paths = _runtime_paths_for_config(config)
+        member = MagicMock(name="GeneralAgent")
+        member.id = "general"
+
+        with (
+            patch("mindroom.teams.create_agent", return_value=member),
+            patch("mindroom.model_loading.get_model_instance"),
+            patch("agno.team.Team.__init__", return_value=None) as mock_team_init,
+        ):
+            from mindroom.api.openai_compat import _build_team  # noqa: PLC0415
+
+            with open_bound_scope_session_context(
+                agents=[],
+                session_id="session-1",
+                runtime_paths=runtime_paths,
+                config=config,
+                execution_identity=None,
+                team_name="coord_team",
+            ) as scope_context:
+                _build_team(
+                    "coord_team",
+                    config,
+                    runtime_paths,
+                    execution_identity=None,
+                    scope_context=scope_context,
+                )
+
+        assert mock_team_init.call_args.kwargs["id"] == "coord_team"
+        assert mock_team_init.call_args.kwargs["db"] is not None
+
+    def test_build_team_preserves_all_history_mode(self) -> None:
+        """Configured teams without explicit limits should keep native all-history mode."""
+        config = Config(
+            agents={"general": AgentConfig(display_name="GeneralAgent", role="General", rooms=[])},
+            models={"default": ModelConfig(provider="openai", id="test-model")},
+            router=RouterConfig(model="default"),
+            teams={
+                "coord_team": TeamConfig(
+                    display_name="Coord Team",
+                    role="Coordinated team",
+                    agents=["general"],
+                    mode="coordinate",
+                ),
+            },
+        )
+        member = MagicMock(name="GeneralAgent")
+        member.id = "general"
+
+        with (
+            patch("mindroom.teams.create_agent", return_value=member),
+            patch("mindroom.model_loading.get_model_instance", return_value="openai:test-model"),
+        ):
+            from mindroom.api.openai_compat import _build_team  # noqa: PLC0415
+
+            _agents, team, _mode = _build_team(
+                "coord_team",
+                config,
+                _runtime_paths_for_config(config),
+                execution_identity=None,
+            )
+
+        assert team.num_history_runs is None
+        assert team.num_history_messages is None
+
+    def test_build_team_openai_compat_does_not_require_persisted_matrix_accounts(
+        self,
+        team_config: Config,
+        tmp_path: Path,
+    ) -> None:
+        """OpenAI-compatible team construction should not require Matrix account preparation."""
+        runtime_paths = resolve_runtime_paths(
+            config_path=tmp_path / "config.yaml",
+            storage_path=tmp_path / "data",
+        )
+        execution_identity = build_tool_execution_identity(
+            channel="openai_compat",
+            agent_name="team/super_team",
+            session_id="openai-team-session",
+            runtime_paths=runtime_paths,
+            requester_id=None,
+            room_id=None,
+            thread_id=None,
+            resolved_thread_id=None,
+        )
+
+        agents: list[AgnoAgent] | None = None
+        team: AgnoTeam | None = None
+        with patch("mindroom.model_loading.get_model_instance", return_value=Ollama(id="test-model")):
+            agents, team, mode = openai_compat._build_team(
+                "super_team",
+                team_config,
+                runtime_paths,
+                execution_identity=execution_identity,
+                session_id="openai-team-session",
+            )
+
+        try:
+            assert mode is TeamMode.COORDINATE
+            assert [agent.id for agent in agents] == ["general", "code"]
+            assert not constants.matrix_state_file(runtime_paths=runtime_paths).exists()
+        finally:
+            if agents is not None and team is not None:
+                openai_compat.close_team_runtime_state_dbs(
+                    agents=agents,
+                    team_db=team.db,
+                    shared_scope_storage=None,
+                )
+
+    def test_build_team_closes_materialized_agents_when_team_build_fails(self) -> None:
+        """Configured-team build failures should close partially built member resources."""
+        config = Config(
+            agents={"general": AgentConfig(display_name="GeneralAgent", role="General", rooms=[])},
+            models={"default": ModelConfig(provider="openai", id="test-model")},
+            router=RouterConfig(model="default"),
+            teams={
+                "coord_team": TeamConfig(
+                    display_name="Coord Team",
+                    role="Coordinated team",
+                    agents=["general"],
+                    mode="coordinate",
+                ),
+            },
+        )
+        built_agent = _make_test_agent("GeneralAgent")
+
+        with (
+            patch(
+                "mindroom.api.openai_compat.materialize_exact_team_members",
+                return_value=ResolvedExactTeamMembers(
+                    requested_agent_names=["general"],
+                    agents=[built_agent],
+                    display_names=["GeneralAgent"],
+                    materialized_agent_names={"general"},
+                    failed_agent_names=[],
+                ),
+            ),
+            patch(
+                "mindroom.api.openai_compat.build_materialized_team_instance",
+                side_effect=RuntimeError("team build failed"),
+            ),
+            patch("mindroom.api.openai_compat.close_team_runtime_state_dbs") as mock_close,
+            pytest.raises(RuntimeError, match="team build failed"),
+        ):
+            openai_compat._build_team("coord_team", config, _runtime_paths(), execution_identity=None)
+
+        mock_close.assert_called_once_with(
+            agents=[built_agent],
+            team_db=None,
+            shared_scope_storage=None,
+        )
+
+    def test_build_team_passes_knowledge_to_member_agents(self) -> None:
+        """Team member creation resolves and passes configured knowledge."""
+        from mindroom.config.knowledge import KnowledgeBaseConfig  # noqa: PLC0415
+
+        config = Config(
+            agents={
+                "research": AgentConfig(
+                    display_name="Research",
+                    role="Research role",
+                    rooms=[],
+                    knowledge_bases=["docs"],
+                ),
+            },
+            models={"default": ModelConfig(provider="ollama", id="test-model")},
+            router=RouterConfig(model="default"),
+            teams={
+                "team_with_kb": TeamConfig(
+                    display_name="KB Team",
+                    role="Team with KB",
+                    agents=["research"],
+                    mode="coordinate",
+                ),
+            },
+            knowledge_bases={"docs": KnowledgeBaseConfig(path="./docs")},
+        )
+        mock_knowledge = MagicMock()
+        with (
+            patch("mindroom.teams.create_agent") as mock_create,
+            patch("mindroom.model_loading.get_model_instance"),
+            patch(
+                "mindroom.teams.resolve_agent_knowledge_access",
+                return_value=_KnowledgeResolution(knowledge=mock_knowledge),
+            ),
+            patch("agno.team.Team.__init__", return_value=None),
+        ):
+            mock_create.return_value = MagicMock(name="Research")
+
+            from mindroom.api.openai_compat import _build_team  # noqa: PLC0415
+
+            _build_team("team_with_kb", config, _runtime_paths_for_config(config), execution_identity=None)
+
+            assert mock_create.call_args.kwargs["knowledge"] is mock_knowledge
+            assert "include_default_tools" not in mock_create.call_args.kwargs
+            assert mock_create.call_args.kwargs["include_interactive_questions"] is False
+
+
+# ---------------------------------------------------------------------------
+# Knowledge base integration (Phase 4)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def knowledge_config() -> Config:
+    """Config with an agent that has knowledge_bases assigned."""
+    from mindroom.config.knowledge import KnowledgeBaseConfig  # noqa: PLC0415
+
+    return Config(
+        agents={
+            "general": AgentConfig(
+                display_name="GeneralAgent",
+                role="General-purpose assistant",
+                rooms=[],
+            ),
+            "research": AgentConfig(
+                display_name="ResearchAgent",
+                role="Research assistant with knowledge base",
+                rooms=[],
+                knowledge_bases=["docs"],
+            ),
+        },
+        models={"default": ModelConfig(provider="ollama", id="test-model")},
+        router=RouterConfig(model="default"),
+        knowledge_bases={
+            "docs": KnowledgeBaseConfig(path="./test_docs"),
+        },
+    )
+
+
+@pytest.fixture
+def knowledge_app_client(knowledge_config: Config) -> Iterator[TestClient]:
+    """Create a FastAPI test client with knowledge-enabled config."""
+    from fastapi import FastAPI  # noqa: PLC0415
+
+    from mindroom.api.openai_compat import router  # noqa: PLC0415
+
+    app = FastAPI()
+    app.include_router(router)
+    runtime_paths = _runtime_paths({"OPENAI_COMPAT_ALLOW_UNAUTHENTICATED": "true"})
+    initialize_api_app(app, runtime_paths)
+    with (
+        patch("mindroom.api.openai_compat._load_config", return_value=(knowledge_config, runtime_paths)),
+        TestClient(app) as client,
+    ):
+        yield client
+
+
+class TestKnowledgeIntegration:
+    """Tests for knowledge base integration (Phase 4)."""
+
+    def test_knowledge_passed_when_configured(self, knowledge_app_client: TestClient) -> None:
+        """Knowledge is passed to ai_response when agent has knowledge_bases."""
+        mock_knowledge = MagicMock()
+
+        with (
+            patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai,
+            patch(
+                "mindroom.knowledge.utils._lookup_knowledge_for_base",
+                return_value=_knowledge_lookup(mock_knowledge),
+            ),
+        ):
+            mock_ai.return_value = "Response with knowledge"
+
+            response = knowledge_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "research",
+                    "messages": [{"role": "user", "content": "What do the docs say?"}],
+                },
+            )
+
+        assert response.status_code == 200
+        assert mock_ai.call_args.kwargs["knowledge"] is mock_knowledge
+
+    def test_knowledge_lookup_uses_explicit_runtime_key(self, knowledge_config: Config) -> None:
+        """Shared knowledge lookup should resolve by config/runtime, not the static fallback map."""
+        from fastapi import FastAPI  # noqa: PLC0415
+
+        from mindroom.api.openai_compat import router  # noqa: PLC0415
+
+        app = FastAPI()
+        app.include_router(router)
+        runtime_paths = _runtime_paths({"OPENAI_COMPAT_ALLOW_UNAUTHENTICATED": "true"})
+        initialize_api_app(app, runtime_paths)
+
+        mock_knowledge = MagicMock()
+        observed_calls: list[tuple[str, Config | None, RuntimePaths | None]] = []
+
+        def fake_lookup_knowledge_for_base(
+            base_id: str,
+            *,
+            config: Config | None = None,
+            runtime_paths: RuntimePaths | None = None,
+            execution_identity: object | None = None,  # noqa: ARG001
+            on_availability: Callable[[object], None] | None = None,  # noqa: ARG001
+        ) -> SimpleNamespace | None:
+            observed_calls.append((base_id, config, runtime_paths))
+            if config is None or runtime_paths is None or base_id != "docs":
+                return None
+            return _knowledge_lookup(mock_knowledge, base_id=base_id)
+
+        with (
+            patch("mindroom.api.openai_compat._load_config", return_value=(knowledge_config, runtime_paths)),
+            patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai,
+            patch("mindroom.knowledge.utils._lookup_knowledge_for_base", side_effect=fake_lookup_knowledge_for_base),
+            TestClient(app) as client,
+        ):
+            mock_ai.return_value = "Response with keyed knowledge"
+            response = client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "research",
+                    "messages": [{"role": "user", "content": "What do the docs say?"}],
+                },
+            )
+
+        assert response.status_code == 200
+        assert mock_ai.call_args.kwargs["knowledge"] is mock_knowledge
+        assert observed_calls == [("docs", knowledge_config, runtime_paths)]
+
+    def test_knowledge_none_when_not_configured(self, knowledge_app_client: TestClient) -> None:
+        """Knowledge is None when agent has no knowledge_bases."""
+        with patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai:
+            mock_ai.return_value = "Response"
+
+            knowledge_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Hi"}],
+                },
+            )
+
+        assert mock_ai.call_args.kwargs["knowledge"] is None
+
+    def test_chat_completions_does_not_await_request_path_reindex(
+        self,
+        knowledge_app_client: TestClient,
+    ) -> None:
+        """Chat completions should not await shared-manager initialization on the request path."""
+        with (
+            patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai,
+            patch("mindroom.knowledge.manager.KnowledgeManager.reindex_all", new_callable=AsyncMock) as reindex_all,
+        ):
+            mock_ai.return_value = "Response"
+
+            knowledge_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "general",
+                    "messages": [{"role": "user", "content": "Hi"}],
+                },
+            )
+
+        assert reindex_all.await_count == 0
+
+    def test_unready_kb_emits_system_hint(self, knowledge_app_client: TestClient) -> None:
+        """Missing published knowledge should inject a system-style degraded hint."""
+        scheduled_base_ids: list[str] = []
+
+        class _FakeRefreshScheduler:
+            def schedule_refresh(self, base_id: str, **_kwargs: object) -> None:
+                scheduled_base_ids.append(base_id)
+
+            def is_refreshing(self, base_id: str, **_kwargs: object) -> bool:
+                _ = base_id
+                return False
+
+        def fake_lookup_knowledge_for_base(
+            base_id: str,
+            *,
+            config: Config | None = None,  # noqa: ARG001
+            runtime_paths: RuntimePaths | None = None,  # noqa: ARG001
+            execution_identity: object | None = None,  # noqa: ARG001
+            on_availability: Callable[[KnowledgeAvailability], None] | None = None,
+        ) -> SimpleNamespace:
+            if on_availability is not None:
+                on_availability(KnowledgeAvailability.INITIALIZING)
+            return _knowledge_lookup(None, base_id=base_id, availability=KnowledgeAvailability.INITIALIZING)
+
+        config_lifecycle.app_state(knowledge_app_client.app).knowledge_refresh_scheduler = _FakeRefreshScheduler()
+        with (
+            patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai,
+            patch("mindroom.knowledge.utils._lookup_knowledge_for_base", side_effect=fake_lookup_knowledge_for_base),
+        ):
+            mock_ai.return_value = "Response without knowledge"
+
+            response = knowledge_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "research",
+                    "messages": [{"role": "user", "content": "Hello"}],
+                },
+            )
+
+        assert response.status_code == 200
+        assert mock_ai.call_args.kwargs["knowledge"] is None
+        assert (
+            "Knowledge base `docs` is initializing and unavailable for semantic search this turn."
+            in mock_ai.call_args.kwargs["prompt"]
+        )
+        assert scheduled_base_ids == ["docs"]
+
+    def test_streaming_with_knowledge(self, knowledge_app_client: TestClient) -> None:
+        """Knowledge is passed through in streaming mode too."""
+        mock_knowledge = MagicMock()
+
+        async def mock_stream(**_kw: object) -> AsyncIterator[RunContentEvent]:
+            yield RunContentEvent(content="Streamed!")
+
+        with (
+            patch("mindroom.api.openai_compat.stream_agent_response", side_effect=mock_stream) as mock_stream_fn,
+            patch(
+                "mindroom.knowledge.utils._lookup_knowledge_for_base",
+                return_value=_knowledge_lookup(mock_knowledge),
+            ),
+        ):
+            response = knowledge_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "research",
+                    "messages": [{"role": "user", "content": "Stream with knowledge"}],
+                    "stream": True,
+                },
+            )
+
+        assert response.status_code == 200
+        assert mock_stream_fn.call_args.kwargs["knowledge"] is mock_knowledge
+
+    def test_multi_knowledge_bases_merged(self, knowledge_config: Config) -> None:
+        """Agent with multiple knowledge_bases gets a merged Knowledge object."""
+        from fastapi import FastAPI  # noqa: PLC0415
+
+        from mindroom.api.openai_compat import router  # noqa: PLC0415
+        from mindroom.config.knowledge import KnowledgeBaseConfig  # noqa: PLC0415
+
+        # Add a second knowledge base and assign both to the research agent
+        knowledge_config.knowledge_bases["wiki"] = KnowledgeBaseConfig(path="./test_wiki")
+        knowledge_config.agents["research"].knowledge_bases = ["docs", "wiki"]
+
+        app = FastAPI()
+        app.include_router(router)
+        runtime_paths = _runtime_paths({"OPENAI_COMPAT_ALLOW_UNAUTHENTICATED": "true"})
+        initialize_api_app(app, runtime_paths)
+
+        mock_knowledge_docs = MagicMock()
+        mock_knowledge_docs.vector_db = MagicMock()
+        mock_knowledge_docs.max_results = 5
+
+        mock_knowledge_wiki = MagicMock()
+        mock_knowledge_wiki.vector_db = MagicMock()
+        mock_knowledge_wiki.max_results = 10
+
+        def fake_lookup_knowledge_for_base(
+            base_id: str,
+            *,
+            config: Config | None = None,  # noqa: ARG001
+            runtime_paths: RuntimePaths | None = None,  # noqa: ARG001
+            execution_identity: object | None = None,  # noqa: ARG001
+            on_availability: Callable[[object], None] | None = None,  # noqa: ARG001
+        ) -> SimpleNamespace | None:
+            knowledge = {"docs": mock_knowledge_docs, "wiki": mock_knowledge_wiki}.get(base_id)
+            return _knowledge_lookup(knowledge, base_id=base_id) if knowledge is not None else None
+
+        with (
+            patch("mindroom.api.openai_compat._load_config", return_value=(knowledge_config, runtime_paths)),
+            patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai,
+            patch("mindroom.knowledge.utils._lookup_knowledge_for_base", side_effect=fake_lookup_knowledge_for_base),
+            TestClient(app) as client,
+        ):
+            mock_ai.return_value = "Merged knowledge response"
+            response = client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "research",
+                    "messages": [{"role": "user", "content": "Multi-KB query"}],
+                },
+            )
+
+        assert response.status_code == 200
+        knowledge_arg = mock_ai.call_args.kwargs["knowledge"]
+        assert knowledge_arg is not None
+        # Should be a merged Knowledge with MultiKnowledgeVectorDb
+        from mindroom.knowledge.utils import _MultiKnowledgeVectorDb  # noqa: PLC0415
+
+        assert isinstance(knowledge_arg.vector_db, _MultiKnowledgeVectorDb)
+        assert knowledge_arg.max_results == 10  # max(5, 10)
+
+    def test_knowledge_resolution_failure_graceful_fallback(self, knowledge_app_client: TestClient) -> None:
+        """When knowledge resolution fails, request proceeds with knowledge=None."""
+        with (
+            patch("mindroom.api.openai_compat.ai_response", new_callable=AsyncMock) as mock_ai,
+            patch(
+                "mindroom.api.openai_compat.resolve_agent_knowledge_access",
+                side_effect=RuntimeError("DB connection failed"),
+            ),
+        ):
+            mock_ai.return_value = "Response without knowledge"
+
+            response = knowledge_app_client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "research",
+                    "messages": [{"role": "user", "content": "Query with broken KB"}],
+                },
+            )
+
+        assert response.status_code == 200
+        assert mock_ai.call_args.kwargs["knowledge"] is None
+        data = response.json()
+        assert data["choices"][0]["message"]["content"] == "Response without knowledge"

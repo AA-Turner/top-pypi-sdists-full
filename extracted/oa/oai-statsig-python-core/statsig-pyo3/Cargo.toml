@@ -1,0 +1,29 @@
+[package]
+name = "statsig-pyo3"
+description = "Statsig Python bindings for the Statsig Core SDK."
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+authors.workspace = true
+readme = "README.md"
+homepage.workspace = true
+repository.workspace = true
+
+[lib]
+name = "statsig_python_core"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+parking_lot = "0.12.1"
+pyo3 = { version = "0.28", features = ["abi3-py310"] }
+pyo3-stub-gen = "0.20"
+serde_json = { version = "1.0.125", features = ["float_roundtrip"] }
+statsig-rust = { package = "oai-statsig-rust", path = "../statsig-rust", features = [
+    "with_grpc",
+    "ffi-support",
+    "ordered_user_data_maps",
+] }
+async-trait = "0.1.81"
+serde = { version = "1.0.204", features = ["derive"] }
+lazy_static = "1.5.0"
+rkyv = "0.8"

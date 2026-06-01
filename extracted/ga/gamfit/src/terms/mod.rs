@@ -1,0 +1,59 @@
+pub mod analytic_penalties;
+pub mod atom_codes;
+pub mod atom_selection;
+pub mod basis;
+pub mod closed_form_operator;
+pub mod coefficient_group_resolver;
+pub mod construction;
+pub mod equivariant_penalty;
+pub mod gated_decoder;
+pub mod hull;
+pub mod input_loc_derivatives;
+pub mod interchange_decoder;
+pub mod latent_coord;
+pub mod layout;
+pub mod matern_gradient;
+pub mod penalties;
+pub mod penalty_op;
+pub mod posterior_snr_weights;
+pub mod sae_manifold;
+pub mod sheaf;
+pub mod skip_transcoder;
+pub mod smooth;
+pub mod smooth_overrides;
+pub mod term_builder;
+pub mod torch_dispatch;
+
+pub use analytic_penalties::{
+    ARDPenalty, AnalyticPenalty, AnalyticPenaltyKind, AnalyticPenaltyOp, AnalyticPenaltyRegistry,
+    BlockOrthogonalityPenalty, BlockSparsityPenalty, DifferenceOpKind, FrozenAnalyticPenaltyOp,
+    IBPAssignmentPenalty, IsometryDuchonRadialSource, IsometryPenalty, IsometryReference,
+    IvaeRidgeMeanGauge, JumpReLUPenalty, MechanismSparsityPenalty, MonotonicityPenalty,
+    NestedPrefixPenalty, NuclearNormPenalty, OrthogonalityPenalty,
+    ParametricRowPrecisionPriorPenalty, PenaltyConcavity, PenaltyTier, PsiSlice,
+    RowPrecisionPriorPenalty, ScadMcpPenalty, ScalarWeightSchedule,
+    SoftmaxAssignmentSparsityPenalty, SparsityKind, SparsityPenalty, TopKActivationPenalty,
+    TotalVariationPenalty, WeightField, nested_prefix_bic, select_nested_prefix_schedule,
+};
+pub use atom_selection::{
+    AssignmentSparsityCoupling, AtomLibrary, AtomRecord, AtomSelectionStrategy, EntropicSoftmax,
+    L1Relaxed, ShapeRef, TopK,
+};
+pub use gated_decoder::GatedSAEDecoder;
+pub use interchange_decoder::{
+    InterchangeDecodeBackward, InterchangeDecodeForward, InterchangeSwapBackward,
+    InterchangeSwapForward, interchange_decode_backward, interchange_decode_forward,
+    interchange_swap_backward, interchange_swap_forward,
+};
+pub use latent_coord::{
+    AuxPriorFamily, AuxPriorStrength, InputLocationDerivative, LatentCoordValues, LatentIdMode,
+    LatentManifold,
+};
+pub use matern_gradient::{MaternBasisGradientTarget, StreamingMaternBasisGradientEvaluator};
+pub use sae_manifold::{
+    AssignmentMode, GumbelTemperatureSchedule, PeriodicHarmonicEvaluator, SaeAssignment,
+    SaeAtomBasisKind, SaeBasisEvaluator, SaeManifoldAtom, SaeManifoldLoss,
+    SaeManifoldOuterObjective, SaeManifoldRho, SaeManifoldTerm, ScheduleKind, SphereChartEvaluator,
+    TorusHarmonicEvaluator,
+};
+pub use sheaf::{EdgeRestriction, SheafConsistencyPenalty};

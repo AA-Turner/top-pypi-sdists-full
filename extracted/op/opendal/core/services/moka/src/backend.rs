@@ -227,6 +227,7 @@ impl Access for MokaBackend {
     type Writer = MokaWriter;
     type Lister = oio::HierarchyLister<MokaLister>;
     type Deleter = oio::OneShotDeleter<MokaDeleter>;
+    type Copier = ();
 
     fn info(&self) -> Arc<AccessorInfo> {
         self.info.clone()
@@ -277,6 +278,7 @@ impl Access for MokaBackend {
 
         match self.core.get(&p).await? {
             Some(value) => {
+                let total_size = value.content.len() as u64;
                 let buffer = if args.range().is_full() {
                     value.content
                 } else {
@@ -288,7 +290,8 @@ impl Access for MokaBackend {
                     };
                     value.content.slice(start..end.min(value.content.len()))
                 };
-                Ok((RpRead::new(), buffer))
+                let metadata = Metadata::new(EntryMode::FILE).with_content_length(total_size);
+                Ok((RpRead::new(metadata), buffer))
             }
             None => Err(Error::new(ErrorKind::NotFound, "key not found in moka")),
         }

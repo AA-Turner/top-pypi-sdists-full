@@ -1,0 +1,32 @@
+# KSI-RPL-RRO — Reviewing Recovery Objectives
+#
+# DRAFT — this is a starter-pack template. Copy it to
+# `.efterlev/manifests/<ksi-id>.yml` (drop the `.template` suffix) and
+# fill in the DRAFT placeholders before letting it land in your
+# attestation pipeline. The `_template_help` block carries the
+# questions you should answer; remove that block once filled in.
+
+ksi: KSI-RPL-RRO
+name: "Reviewing Recovery Objectives"
+
+_template_help:
+  description: >
+    KSI-RPL-RRO reviews desired Recovery Time Objectives (RTO) and Recovery Point Objectives (RPO). Detector evidence covers backup configuration (KSI-RPL-ABO) and restore testing (KSI-RPL-TRC); this KSI is the procedural commitment that the objectives themselves are reviewed and current.
+  questions:
+      - "Where are your RTO/RPO targets documented?"
+      - "What systems / data classes do they cover?"
+      - "What's the review cadence (annual, on significant change)?"
+      - "How are objectives validated against business need (interviews with product owners, customer SLAs)?"
+      - "Who owns the objectives + reviews?"
+
+evidence:
+  - type: attestation
+    statement: >
+      DRAFT — Example: RTO/RPO targets at compliance/recovery-objectives.md. Cover all in-boundary services: customer-facing API (RTO 1h, RPO 5min), batch processing (RTO 4h, RPO 24h), reporting (RTO 24h, RPO 24h). Reviewed annually by the SRE Director + Product Eng leadership; validated against product SLAs. Last review: 2026-01-15.
+    attested_by: "DRAFT — your-vp-security@example.com"
+    attested_at: "DRAFT — YYYY-MM-DD"
+    reviewed_at: "DRAFT — YYYY-MM-DD"
+    next_review: "DRAFT — YYYY-MM-DD (recommend 6-month review cadence)"
+    supporting_docs:
+      - "DRAFT — ./policies/your-runbook.pdf"
+      - "DRAFT — https://wiki.your-company.example/path-to-relevant-docs"

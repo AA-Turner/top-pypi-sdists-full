@@ -1,0 +1,205 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import contextvars
+import logging
+import sys
+import threading
+import time
+from typing import Literal, Optional, overload
+
+import torchx.specs as specs
+from torchx.schedulers.api import Stream
+from torchx.specs import AppDef, AppHandle
+from torchx.specs.api import parse_app_handle
+
+from nemo_run.core.execution.base import Executor
+from nemo_run.core.frontend.console.api import CONSOLE
+from nemo_run.exceptions import PersistentSacctFailure, UnknownStatusError
+from nemo_run.run.logs import get_logs
+from nemo_run.run.torchx_backend.runner import Runner, get_runner
+
+logger: logging.Logger = logging.getLogger(__name__)
+
+
+@overload
+def launch(
+    executable: AppDef,
+    executor_name: str,
+    executor: Executor,
+    dryrun: Literal[True],
+    wait: bool = False,
+    log: bool = False,
+    parent_run_id: Optional[str] = None,
+    runner: Runner | None = None,
+    log_dryrun: bool = ...,
+    dryrun_info: specs.AppDryRunInfo | None = None,
+) -> tuple[None, None]: ...
+
+
+@overload
+def launch(
+    executable: AppDef,
+    executor_name: str,
+    executor: Executor,
+    dryrun: Literal[False],
+    wait: bool = False,
+    log: bool = False,
+    parent_run_id: Optional[str] = None,
+    runner: Runner | None = None,
+    log_dryrun: bool = ...,
+    dryrun_info: specs.AppDryRunInfo | None = None,
+) -> tuple[str, specs.AppStatus]: ...
+
+
+@overload
+def launch(
+    executable: AppDef,
+    executor_name: str,
+    executor: Executor,
+    dryrun: bool = False,
+    wait: bool = False,
+    log: bool = False,
+    parent_run_id: Optional[str] = None,
+    runner: Runner | None = None,
+    log_dryrun: bool = False,
+    dryrun_info: specs.AppDryRunInfo | None = None,
+) -> tuple[str | None, specs.AppStatus | None]: ...
+
+
+def launch(
+    executable: AppDef,
+    executor_name: str,
+    executor: Executor,
+    dryrun: bool = False,
+    wait: bool = False,
+    log: bool = False,
+    parent_run_id: Optional[str] = None,
+    runner: Runner | None = None,
+    log_dryrun: bool = False,
+    dryrun_info: specs.AppDryRunInfo | None = None,
+) -> tuple[str | None, specs.AppStatus | specs.AppDryRunInfo | None]:
+    runner = runner or get_runner()
+
+    if dryrun:
+        dryrun_info = runner.dryrun(
+            executable,
+            executor_name,
+            cfg=executor,
+            parent_run_id=parent_run_id,
+        )
+        if log_dryrun:
+            CONSOLE.log("\n=== APPLICATION ===\n")
+            CONSOLE.log(dryrun_info)
+
+        return None, dryrun_info
+    else:
+        app_handle = runner.run(
+            executable,
+            executor_name,
+            cfg=executor,  # type: ignore
+            parent_run_id=parent_run_id,
+            dryrun_info=dryrun_info,
+        )
+        logger.info(f"Launched app: {app_handle}")
+        app_status = specs.AppStatus(state=specs.AppState.SUBMITTED)
+        if wait:
+            app_status = wait_and_exit(runner=runner, app_handle=app_handle, log=log)
+
+        return app_handle, app_status
+
+
+def wait_and_exit(
+    *,
+    app_handle: AppHandle,
+    log: bool,
+    runner: Runner | None = None,
+    timeout: int = 10,
+    log_join_timeout: int = 10,
+) -> specs.AppStatus:
+    if runner is None:
+        runner = get_runner()
+
+    _, _, app_id = parse_app_handle(app_handle=app_handle)
+    logger.info(f"Waiting for job {app_id} to finish [log={log}]...")
+
+    log_thread = None
+    if log:
+        log_thread = ContextThread(
+            target=get_logs,
+            kwargs={
+                "file": sys.stdout,
+                "runner": runner,
+                "identifier": app_handle,
+                "regex": None,
+                "should_tail": True,
+                "streams": Stream.COMBINED,
+            },
+        )
+        log_thread.daemon = True
+        log_thread.start()
+
+    tries = 0
+    status = None
+    thread_retries = 0
+    thread_retry_delay = 20
+    while tries < timeout:
+        try:
+            status = runner.wait(app_handle, wait_interval=2)
+        except PersistentSacctFailure as e:
+            logger.error(
+                f"sacct has been unreachable for too long for job {app_id}, cancelling: {e}"
+            )
+            runner.cancel(app_handle)
+            raise UnknownStatusError(str(e)) from e
+        except RuntimeError as e:
+            if "can't start new thread" in str(e) and thread_retries < 5:
+                thread_retries += 1
+                logger.warning(
+                    f"Thread limit reached while waiting for job {app_id}, "
+                    f"retrying ({thread_retries}/5) in {thread_retry_delay}s..."
+                )
+                time.sleep(thread_retry_delay)
+                thread_retry_delay = min(thread_retry_delay * 2, 300)
+                continue
+            raise
+        if status:
+            break
+        tries += 1
+        time.sleep(1)
+
+    if not status:
+        raise UnknownStatusError(f"unknown status, wait returned {status}")
+
+    logger.info(f"Job {app_id} finished: {status.state}")
+
+    if log_thread and log_thread.is_alive():
+        logger.warning(
+            f"Waiting for {app_id}'s log thread to complete for {log_join_timeout} seconds..."
+        )
+        log_thread.join(timeout=log_join_timeout)
+        if log_thread.is_alive():
+            logger.warning("Log thread did not complete within timeout, some logs may be missing")
+
+    return status
+
+
+class ContextThread(threading.Thread):
+    def __init__(self, *args, **kwargs):
+        self.ctx = contextvars.copy_context()
+        super().__init__(*args, **kwargs)
+
+    def run(self):
+        self.ctx.run(super().run)

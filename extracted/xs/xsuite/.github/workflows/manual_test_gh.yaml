@@ -1,0 +1,43 @@
+# This is a test workflow that is manually triggered
+name: Manual test (GitHub, CPU)
+
+# Controls when the action will run. Workflow runs when manually triggered using the UI
+# or API.
+on:
+  workflow_dispatch:
+    # Inputs the workflow accepts.
+    # Specify branches using the refspec-like syntax: <user>:<branch>
+    inputs:
+      locations:
+        description: 'Branch locations (JSON array string)'
+        default: '{
+          "xobjects_location":"xsuite:main",
+          "xdeps_location":"xsuite:main",
+          "xpart_location":"xsuite:main",
+          "xtrack_location":"xsuite:main",
+          "xfields_location":"xsuite:main",
+          "xmask_location":"xsuite:main",
+          "xcoll_location":"xsuite:main",
+          "xwakes_location":"xsuite:main"
+        }'
+        required: true
+        type: string
+      precompile_kernels:
+        description: 'precompile kernels?'
+        type: boolean
+        default: false
+        required: true
+      xobjects_test_contexts:
+        description: xobjects test contexts
+        default: "ContextCpu;ContextCpu:auto"
+        required: true
+
+# This workflow calls the test_gh.yaml workflow passing the specified
+# branches as inputs
+jobs:
+  run-tests-manual-gh:
+    uses: ./.github/workflows/test_gh.yaml
+    with:
+      locations: ${{ inputs.locations }}
+      precompile_kernels: ${{ inputs.precompile_kernels }}
+      xobjects_test_contexts: ${{ inputs.xobjects_test_contexts }}

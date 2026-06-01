@@ -1,0 +1,154 @@
+Metadata-Version: 2.4
+Name: wlc
+Version: 2.0.0
+Summary: A command-line utility for Weblate, translation tool with tight version control integration
+Author-email: Michal Čihař <michal@weblate.org>
+License-Expression: GPL-3.0-or-later
+Project-URL: Documentation, https://docs.weblate.org/
+Project-URL: Download, https://github.com/WeblateOrg/wlc
+Project-URL: Funding, https://weblate.org/donate/
+Project-URL: Homepage, https://weblate.org/
+Project-URL: Issue Tracker, https://github.com/WeblateOrg/wlc/issues
+Project-URL: Source Code, https://github.com/WeblateOrg/wlc
+Project-URL: Twitter, https://twitter.com/WeblateOrg
+Keywords: i18n,l10n,gettext,git,mercurial,translate
+Platform: any
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Internationalization
+Classifier: Topic :: Software Development :: Localization
+Classifier: Topic :: Utilities
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: argcomplete
+Requires-Dist: python-dateutil
+Requires-Dist: pyxdg
+Requires-Dist: requests>=2.32.0
+Requires-Dist: urllib3>=2.0
+Dynamic: license-file
+
+<a href="https://weblate.org/"><img alt="Weblate" src="https://s.weblate.org/cdn/Logo-Darktext-borders.png" height="80px" /></a>
+
+**Weblate is libre software web-based continuous localization system,
+used by over 2500 libre projects and companies in more than 165 countries.**
+
+# wlc
+
+wlc is a [Weblate](https://weblate.org/) command-line client using [Weblate's REST API](https://docs.weblate.org/en/latest/api.html).
+
+[![Website](https://img.shields.io/badge/website-weblate.org-blue.svg)](https://weblate.org/)
+[![Translation status](https://hosted.weblate.org/widgets/weblate/-/svg-badge.svg)](https://hosted.weblate.org/engage/weblate/?utm_source=widget)
+[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/552/badge)](https://bestpractices.coreinfrastructure.org/projects/552)
+[![PyPI package](https://img.shields.io/pypi/v/wlc.svg)](https://pypi.org/project/wlc/)
+[![Documentation](https://readthedocs.org/projects/weblate/badge/)](https://docs.weblate.org/en/latest/wlc.html)
+
+## PIP Installation
+
+Install using pip:
+
+```console
+pip3 install wlc
+```
+
+Sources are available at <https://github.com/WeblateOrg/wlc>.
+
+## Usage
+
+Please see [Weblate documentation](https://docs.weblate.org/en/latest/wlc.html) for more complete documentation.
+
+Command-line usage:
+
+```console
+wlc list-projects
+wlc list-components
+wlc list-translations
+wlc list-languages
+wlc show
+wlc ls
+wlc commit
+wlc push
+wlc pull
+wlc repo
+wlc stats
+wlc lock
+wlc unlock
+wlc lock-status
+wlc download
+wlc upload
+```
+
+Configuration is loaded from `--config` when provided. Otherwise `wlc` reads the
+user configuration from XDG paths such as `~/.config/weblate` and then the
+nearest project configuration file (`.weblate`, `.weblate.ini`, or
+`weblate.ini`) from the current directory or its parents. The key/values
+(`retries`, `timeout`, `allowed_methods`, `backoff_factor`,
+`status_forcelist`) are closely coupled with the
+[urllib3 parameters](https://urllib3.readthedocs.io/en/latest/reference/urllib3.util.html)
+and allows the user to configure request parameters.
+
+```ini
+[weblate]
+url = https://hosted.weblate.org/api/
+retries = 3
+allowed_methods = PUT,POST,GET
+backoff_factor = 0.2
+status_forcelist = 429,500,502,503,504
+timeout = 30
+
+[keys]
+https://hosted.weblate.org/api/ = APIKEY
+```
+
+## Environment variables
+
+The API URL and key can also be configured using environment variables. This is
+especially useful for CI workflows where the repository provides the project
+configuration and `WLC_KEY` is injected as a secret:
+
+- `WLC_URL` — API URL
+- `WLC_KEY` — API key
+
+The configuration precedence (highest to lowest) is:
+
+1. Command-line arguments (`--url`, `--key`)
+1. Environment variables (`WLC_URL`, `WLC_KEY`)
+1. Configuration loaded from `--config`, or from XDG/user config plus the
+   nearest project config when `--config` is not used
+
+## Docker image
+
+The image is published on [Docker Hub](https://hub.docker.com/r/weblate/wlc).
+
+Building locally:
+
+```console
+docker build -t weblate/wlc .
+```
+
+Detailed documentation is available in [Weblate documentation](https://docs.weblate.org/en/latest/wlc.html#docker-wlc).
+
+## Docker hub tags
+
+You can use following tags on Docker hub:
+
+| Tag name | Description                                                                       | Use case                                        |
+| -------- | --------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `latest` | wlc stable release, matches latest tagged release                                 | Rolling updates in a production environment     |
+| `edge`   | wlc development                                                                   | Staging environment                             |
+| version  | wlc stable release, see [weblate/wlc](https://hub.docker.com/r/weblate/wlc/tags/) | Well defined deploy in a production environment |
+
+Every image is tested by our CI before it gets published, so even the `bleeding` version should be quite safe to use.
+
+## Contributing
+
+Contributions are welcome! See [documentation](https://docs.weblate.org/en/latest/contributing/modules.html) for more information.

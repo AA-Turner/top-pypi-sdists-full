@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: onnxsim
-Version: 0.6.3
+Version: 0.6.4
 Summary: Simplify your ONNX model
 Author-email: ONNX Simplifier Authors <daquexian566@gmail.com>
 License: MIT AND (Apache-2.0 OR BSD-2-Clause)

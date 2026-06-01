@@ -1,0 +1,30 @@
+heat_template_version: 2016-04-08
+
+description: >
+  Install Neutron Bigswitch Agent
+
+parameters:
+  ServiceNetMap:
+    default: {}
+    description: Mapping of service_name -> network name. Typically set
+                 via parameter_defaults in the resource registry.  This
+                 mapping overrides those in ServiceNetMapDefaults.
+    type: json
+  DefaultPasswords:
+    default: {}
+    type: json
+  EndpointMap:
+    default: {}
+    description: Mapping of service endpoint -> protocol. Typically set
+                 via parameter_defaults in the resource registry.
+    type: json
+
+outputs:
+  role_data:
+    description: neutron bigswitch agent
+    value:
+      service_name: 
+      step_config: |
+        if hiera('step') >= 4 {
+          include ::neutron::agents::bigswitch
+        }

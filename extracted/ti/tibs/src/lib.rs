@@ -3,6 +3,7 @@
 #![allow(clippy::collapsible_if)]
 
 pub mod core;
+pub mod dtype;
 pub mod enums;
 pub mod helpers;
 pub mod iterator;
@@ -19,7 +20,9 @@ fn tibs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<enums::Endianness>()?;
     m.add_class::<enums::BitOrder>()?;
     m.add_class::<enums::Codec>()?;
+    m.add_class::<enums::DtypeKind>()?;
     m.add_class::<view::View>()?;
     m.add_class::<view::MutableView>()?;
+    m.add_class::<dtype::Dtype>()?;
     Ok(())
 }

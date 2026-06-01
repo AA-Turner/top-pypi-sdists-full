@@ -70,6 +70,8 @@ class GetScriptByPathWithDraftResponse200Draft:
         modules (Union[Unset, None, GetScriptByPathWithDraftResponse200DraftModules]): Additional script modules keyed
             by relative file path
         labels (Union[Unset, List[str]]):
+        skip_draft_deletion (Union[Unset, bool]): When true (set by the CLI / git sync), deploying this script does not
+            delete an existing user draft at the same path.
     """
 
     path: str
@@ -111,6 +113,7 @@ class GetScriptByPathWithDraftResponse200Draft:
     assets: Union[Unset, List["GetScriptByPathWithDraftResponse200DraftAssetsItem"]] = UNSET
     modules: Union[Unset, None, "GetScriptByPathWithDraftResponse200DraftModules"] = UNSET
     labels: Union[Unset, List[str]] = UNSET
+    skip_draft_deletion: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -178,6 +181,8 @@ class GetScriptByPathWithDraftResponse200Draft:
         labels: Union[Unset, List[str]] = UNSET
         if not isinstance(self.labels, Unset):
             labels = self.labels
+
+        skip_draft_deletion = self.skip_draft_deletion
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -259,6 +264,8 @@ class GetScriptByPathWithDraftResponse200Draft:
             field_dict["modules"] = modules
         if labels is not UNSET:
             field_dict["labels"] = labels
+        if skip_draft_deletion is not UNSET:
+            field_dict["skip_draft_deletion"] = skip_draft_deletion
 
         return field_dict
 
@@ -375,6 +382,8 @@ class GetScriptByPathWithDraftResponse200Draft:
 
         labels = cast(List[str], d.pop("labels", UNSET))
 
+        skip_draft_deletion = d.pop("skip_draft_deletion", UNSET)
+
         get_script_by_path_with_draft_response_200_draft = cls(
             path=path,
             summary=summary,
@@ -415,6 +424,7 @@ class GetScriptByPathWithDraftResponse200Draft:
             assets=assets,
             modules=modules,
             labels=labels,
+            skip_draft_deletion=skip_draft_deletion,
         )
 
         get_script_by_path_with_draft_response_200_draft.additional_properties = d

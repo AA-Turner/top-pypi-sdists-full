@@ -1,0 +1,833 @@
+from __future__ import annotations
+
+import dataclasses
+import functools
+import inspect
+import json
+import logging
+import os
+import time
+from typing import TYPE_CHECKING
+from typing import Callable
+from typing import Literal
+from typing import Protocol
+from typing import Sequence
+from typing import TypeVar
+from typing import cast
+
+import torch
+from torch._environment import is_fbcode
+
+from .. import exc
+from .._compat import is_hip
+from .._compat import supports_tf32_precision_on_amd
+from .._compiler.backend_registry import list_backends
+from ..autotuner.effort_profile import AutotuneEffort
+from ..autotuner.effort_profile import InitialPopulation
+from ..autotuner.effort_profile import get_effort_profile
+from .ref_mode import RefMode
+
+if TYPE_CHECKING:
+    from ..autotuner.base_search import BaseAutotuner
+    from ..autotuner.pattern_search import InitialPopulationStrategy
+    from .config import Config
+    from .kernel import BoundKernel
+
+    _T = TypeVar("_T")
+    ConfigLike = Config | dict[str, object]
+
+    class AutotunerFunction(Protocol):
+        def __call__(
+            self, bound_kernel: BoundKernel, args: Sequence[object], **kwargs: object
+        ) -> BaseAutotuner: ...
+
+
+DotPrecision = Literal["tf32", "tf32x3", "ieee"]
+PrecompileMode = Literal["spawn", "fork"] | None
+_TRUE_LITERALS = frozenset({"1", "true", "yes", "on"})
+_FALSE_LITERALS = frozenset({"0", "false", "no", "off"})
+
+
+def _resolve_warning_name(name: str) -> type[exc.BaseWarning]:
+    attr = name.strip()
+    if not attr:
+        raise ValueError("HELION_IGNORE_WARNINGS entries must be non-empty names")
+    try:
+        warning_cls = getattr(exc, attr)
+    except AttributeError as err:
+        raise ValueError(
+            f"HELION_IGNORE_WARNINGS entry {name!r} is not a warning defined in helion.exc"
+        ) from err
+    if not isinstance(warning_cls, type) or not issubclass(
+        warning_cls, exc.BaseWarning
+    ):
+        raise ValueError(
+            f"HELION_IGNORE_WARNINGS entry {name!r} does not refer to a helion.exc.BaseWarning subclass"
+        )
+    return warning_cls
+
+
+def _get_ignore_warnings() -> list[type[exc.BaseWarning]]:
+    value = os.environ.get("HELION_IGNORE_WARNINGS")
+    if not value:
+        return []
+    result: list[type[exc.BaseWarning]] = []
+    for entry in value.split(","):
+        entry = entry.strip()
+        if not entry:
+            continue
+        result.append(_resolve_warning_name(entry))
+    return result
+
+
+def _env_get_optional_int(var_name: str) -> int | None:
+    value = os.environ.get(var_name)
+    if value is None or (value := value.strip()) == "":
+        return None
+    try:
+        parsed = int(value)
+    except ValueError as err:
+        raise ValueError(f"{var_name} must be an integer, got {value!r}") from err
+    return parsed
+
+
+def _env_get_int(var_name: str, default: int) -> int:
+    result = _env_get_optional_int(var_name)
+    return default if result is None else result
+
+
+def _env_get_optional_float(var_name: str) -> float | None:
+    value = os.environ.get(var_name)
+    if value is None or (value := value.strip()) == "":
+        return None
+    try:
+        return float(value)
+    except ValueError as err:
+        raise ValueError(f"{var_name} must be a float, got {value!r}") from err
+
+
+def _env_get_bool(var_name: str, default: bool) -> bool:
+    value = os.environ.get(var_name)
+    if value is None or (value := value.strip()) == "":
+        return default
+    lowered = value.lower()
+    if lowered in _TRUE_LITERALS:
+        return True
+    if lowered in _FALSE_LITERALS:
+        return False
+    raise ValueError(
+        f"{var_name} must be one of {_TRUE_LITERALS | _FALSE_LITERALS}, got {value!r}"
+    )
+
+
+def _env_get_literal(
+    var_name: str,
+    default: _T,
+    *,
+    mapping: dict[str, object],
+) -> _T:
+    value = os.environ.get(var_name)
+    if value is None:
+        return default
+    value = value.strip()
+    if value in mapping:
+        return cast("_T", mapping[value])
+    if value == "":
+        return default
+    raise ValueError(
+        f"{var_name} must be one of {', '.join(sorted(mapping))}, got {value!r}"
+    )
+
+
+def _env_get_str_list(var_name: str) -> list[str]:
+    value = os.environ.get(var_name)
+    if value is None or value == "":
+        return []
+    return [item.strip() for item in value.split(",")]
+
+
+def _env_get_str(var_name: str, default: str) -> str:
+    value = os.environ.get(var_name)
+    if value is None or (value := value.strip()) == "":
+        return default
+    return value
+
+
+def _get_index_dtype() -> torch.dtype | None:
+    value = os.environ.get("HELION_INDEX_DTYPE")
+    if value is None or (token := value.strip()) == "":
+        return None
+    if token.lower() == "auto":
+        return None
+    try:
+        dtype = getattr(torch, token)
+    except AttributeError as err:
+        raise ValueError(
+            f"HELION_INDEX_DTYPE must map to a torch dtype attribute, got {value!r}"
+        ) from err
+    if not isinstance(dtype, torch.dtype):
+        raise ValueError(f"HELION_INDEX_DTYPE {value!r} is not a torch.dtype")
+    return dtype
+
+
+def _get_autotune_log_level() -> int:
+    value = os.environ.get("HELION_AUTOTUNE_LOG_LEVEL")
+    if value is None or value.strip() == "":
+        return logging.INFO
+    text = value.strip()
+    if text.lstrip("+-").isdigit():
+        return int(text)
+    upper = text.upper()
+    # pyrefly: ignore [deprecated]
+    level = logging.getLevelName(upper)
+    if isinstance(level, int):
+        return level
+    raise ValueError(
+        f"HELION_AUTOTUNE_LOG_LEVEL must be an integer or logging level name, got {value!r}"
+    )
+
+
+def _get_autotune_log_path() -> str | None:
+    value = os.environ.get("HELION_AUTOTUNE_LOG")
+    if value is None or (value := value.strip()) == "":
+        return None
+    return value
+
+
+def _get_autotune_config_overrides() -> dict[str, object]:
+    value = os.environ.get("HELION_AUTOTUNE_CONFIG_OVERRIDES")
+    if not value or (value := value.strip()) == "":
+        return {}
+    if not value.startswith("{") and os.path.exists(value):
+        value = open(value).read()
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as err:
+        raise ValueError(
+            "HELION_AUTOTUNE_CONFIG_OVERRIDES must be valid JSON mapping of config keys to values"
+        ) from err
+    if not isinstance(parsed, dict):
+        raise ValueError(
+            "HELION_AUTOTUNE_CONFIG_OVERRIDES must decode to a JSON dictionary"
+        )
+    return parsed
+
+
+def _get_initial_population_strategy(
+    default: str,
+    setting_override: InitialPopulation | None = None,
+) -> InitialPopulationStrategy:
+    """
+    Get the initial population strategy, respecting setting and env var overrides.
+
+    Args:
+        default: The default strategy string from the effort profile ("from_random" or "from_best_available").
+        setting_override: Optional override from kernel decorator settings.
+
+    Returns:
+        The InitialPopulationStrategy enum value, considering overrides.
+
+    Raises:
+        ValueError: If the environment variable is set to an invalid value.
+    """
+    from ..autotuner import initial_population_strategies
+
+    # Priority: setting_override > env var > effort profile default
+    if setting_override is not None:
+        strategy = initial_population_strategies.get(setting_override)
+        if strategy is None:
+            raise ValueError(
+                f"Invalid autotune_initial_population_strategy value: {setting_override!r}. "
+                f"Valid values are: {', '.join(initial_population_strategies.keys())}"
+            )
+        return strategy
+
+    env_value = os.environ.get("HELION_AUTOTUNER_INITIAL_POPULATION", "").lower()
+    if env_value == "":
+        # No override, use the default from effort profile
+        strategy = initial_population_strategies.get(default)
+        assert strategy is not None
+        return strategy
+    strategy = initial_population_strategies.get(env_value)
+    if strategy is None:
+        raise ValueError(
+            f"Invalid HELION_AUTOTUNER_INITIAL_POPULATION value: {env_value!r}. "
+            f"Valid values are: {', '.join(initial_population_strategies.keys())}"
+        )
+    return strategy
+
+
+def default_autotuner_fn(
+    bound_kernel: BoundKernel, args: Sequence[object], **kwargs: object
+) -> BaseAutotuner:
+    from ..autotuner import LFBOTreeSearch
+    from ..autotuner import cache_classes
+    from ..autotuner import search_algorithms
+
+    autotuner_name = _env_get_str("HELION_AUTOTUNER", "")
+
+    if not autotuner_name:
+        autotuner_cls = LFBOTreeSearch
+    else:
+        autotuner_cls = search_algorithms.get(autotuner_name)
+        if autotuner_cls is None:
+            raise ValueError(
+                f"Unknown HELION_AUTOTUNER value: {autotuner_name}, valid options are: "
+                f"{', '.join(search_algorithms.keys())}"
+            )
+
+    profile = get_effort_profile(bound_kernel.settings.autotune_effort)
+    parameters = inspect.signature(autotuner_cls.__init__).parameters
+    for k, v in autotuner_cls.get_kwargs_from_profile(
+        profile, bound_kernel.settings
+    ).items():
+        if k not in kwargs and k in parameters:
+            kwargs[k] = v
+
+    # pyrefly: ignore [bad-argument-type]
+    autotuner = autotuner_cls(bound_kernel, args, **kwargs)
+
+    cache_name = bound_kernel.settings.autotune_cache
+    cache_cls = cache_classes.get(cache_name)
+    if cache_cls is None:
+        raise ValueError(
+            f"Unknown HELION_AUTOTUNE_CACHE value: {cache_name}, valid options are: "
+            f"{', '.join(cache_classes.keys())}"
+        )
+
+    return cache_cls(autotuner)
+
+
+def _get_autotune_random_seed() -> int:
+    if (seed := _env_get_optional_int("HELION_AUTOTUNE_RANDOM_SEED")) is not None:
+        return seed
+    return int(time.time() * 1000) % 2**32
+
+
+def _get_ref_mode() -> RefMode:
+    interpret = _env_get_bool("HELION_INTERPRET", False)
+    triton_interpret = os.environ.get("TRITON_INTERPRET") == "1"
+    if interpret and triton_interpret:
+        raise exc.IncompatibleInterpretModes
+    return RefMode.EAGER if interpret else RefMode.OFF
+
+
+def _get_dot_precision() -> DotPrecision:
+    """
+    Get the dot precision setting from TRITON_F32_DEFAULT environment variable.
+    Defaults to 'tf32', 'ieee' if rocm and not CDNA.
+    """
+    if is_hip():
+        default_precision = "tf32" if supports_tf32_precision_on_amd() else "ieee"
+    else:
+        default_precision = "tf32"
+
+    return _env_get_literal(
+        "TRITON_F32_DEFAULT",
+        cast("DotPrecision", default_precision),
+        mapping={k: k for k in ("tf32", "tf32x3", "ieee")},
+    )
+
+
+def _get_backend() -> str:
+    return _env_get_literal(
+        "HELION_BACKEND",
+        "triton",
+        mapping={name: name for name in list_backends()},
+    )
+
+
+def is_pallas_interpret() -> bool:
+    """Return True if pallas_interpret is enabled.
+
+    Checks the active CompileEnvironment first (if one exists),
+    then falls back to the HELION_PALLAS_INTERPRET env var.
+    """
+    from helion._compiler.compile_environment import CompileEnvironment
+
+    if CompileEnvironment.has_current():
+        return CompileEnvironment.current().settings.pallas_interpret
+    return _env_get_bool("HELION_PALLAS_INTERPRET", False)
+
+
+@dataclasses.dataclass
+class _Settings:
+    # see __slots__ below for the doc strings that show up in help(Settings)
+    backend: str = dataclasses.field(default_factory=_get_backend)
+    ignore_warnings: list[type[exc.BaseWarning]] = dataclasses.field(
+        default_factory=_get_ignore_warnings
+    )
+    index_dtype: torch.dtype | None = dataclasses.field(
+        default_factory=_get_index_dtype
+    )
+    dot_precision: DotPrecision = dataclasses.field(default_factory=_get_dot_precision)
+    fast_math: bool = dataclasses.field(
+        default_factory=functools.partial(_env_get_bool, "HELION_FAST_MATH", False)
+    )
+    static_shapes: bool = dataclasses.field(
+        default_factory=functools.partial(_env_get_bool, "HELION_STATIC_SHAPES", True)
+    )
+    persistent_reserved_sms: int = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_int,
+            "HELION_PERSISTENT_RESERVED_SMS",
+            0,
+        )
+    )
+    autotune_force_persistent: bool = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_bool,
+            "HELION_AUTOTUNE_FORCE_PERSISTENT",
+            False,
+        )
+    )
+    autotune_log_level: int = dataclasses.field(default_factory=_get_autotune_log_level)
+    autotune_log: str | None = dataclasses.field(default_factory=_get_autotune_log_path)
+    autotune_compile_timeout: int = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_int, "HELION_AUTOTUNE_COMPILE_TIMEOUT", 60
+        )
+    )
+    autotune_benchmark_subprocess: bool = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_bool, "HELION_AUTOTUNE_BENCHMARK_SUBPROCESS", True
+        )
+    )
+    autotune_benchmark_timeout: int = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_int,
+            "HELION_AUTOTUNE_BENCHMARK_TIMEOUT",
+            # Higher default when the first benchmark call has to absorb a
+            # heavier subprocess cold-start (slower spawn/imports, CUPTI init).
+            90 if is_fbcode() else 30,
+        )
+    )
+    autotune_precompile: PrecompileMode = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_literal,
+            "HELION_AUTOTUNE_PRECOMPILE",
+            cast("PrecompileMode", "fork"),
+            mapping={
+                "spawn": "spawn",
+                "fork": "fork",
+                "": None,
+                "0": None,
+            },
+        )
+    )
+    autotune_precompile_jobs: int | None = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_optional_int,
+            "HELION_AUTOTUNE_PRECOMPILE_JOBS",
+        )
+    )
+    autotune_random_seed: int = dataclasses.field(
+        default_factory=_get_autotune_random_seed
+    )
+    autotune_accuracy_check: bool = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_bool, "HELION_AUTOTUNE_ACCURACY_CHECK", True
+        )
+    )
+    autotune_rebenchmark_threshold: float | None = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_optional_float,
+            "HELION_REBENCHMARK_THRESHOLD",
+        )
+    )
+    autotune_suspicious_rebenchmark_ratio: float | None = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_optional_float,
+            "HELION_AUTOTUNE_SUSPICIOUS_REBENCHMARK_RATIO",
+        )
+    )
+    autotune_search_acf: list[str] = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_str_list, "HELION_AUTOTUNE_SEARCH_ACF"
+        )
+    )
+    autotune_progress_bar: bool = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_bool, "HELION_AUTOTUNE_PROGRESS_BAR", True
+        )
+    )
+    autotune_max_generations: int | None = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_optional_int,
+            "HELION_AUTOTUNE_MAX_GENERATIONS",
+        )
+    )
+    autotune_budget_seconds: int | None = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_optional_int,
+            "HELION_AUTOTUNE_BUDGET_SECONDS",
+        )
+    )
+    autotune_ignore_errors: bool = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_bool, "HELION_AUTOTUNE_IGNORE_ERRORS", False
+        )
+    )
+    autotune_adaptive_timeout: bool = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_bool, "HELION_AUTOTUNE_ADAPTIVE_TIMEOUT", True
+        )
+    )
+    print_output_code: bool = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_bool, "HELION_PRINT_OUTPUT_CODE", False
+        )
+    )
+    print_repro: bool = dataclasses.field(
+        default_factory=functools.partial(_env_get_bool, "HELION_PRINT_REPRO", False)
+    )
+    output_origin_lines: bool = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_bool, "HELION_OUTPUT_ORIGIN_LINES", True
+        )
+    )
+    force_autotune: bool = dataclasses.field(
+        default_factory=functools.partial(_env_get_bool, "HELION_FORCE_AUTOTUNE", False)
+    )
+    autotune_config_overrides: dict[str, object] = dataclasses.field(
+        default_factory=_get_autotune_config_overrides
+    )
+    autotune_seed_configs: ConfigLike | Sequence[ConfigLike] | None = None
+    disable_autotuner_heuristics: bool = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_bool, "HELION_DISABLE_AUTOTUNER_HEURISTICS", False
+        )
+    )
+    autotune_effort: AutotuneEffort = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_literal,
+            "HELION_AUTOTUNE_EFFORT",
+            cast("AutotuneEffort", "full"),
+            mapping={key: key for key in ("none", "quick", "full")},
+        )
+    )
+    allow_warp_specialize: bool = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_bool, "HELION_ALLOW_WARP_SPECIALIZE", True
+        )
+    )
+    debug_dtype_asserts: bool = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_bool, "HELION_DEBUG_DTYPE_ASSERTS", False
+        )
+    )
+    ref_mode: RefMode = dataclasses.field(default_factory=_get_ref_mode)
+    autotune_cache: str = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_str, "HELION_AUTOTUNE_CACHE", "LocalAutotuneCache"
+        )
+    )
+    autotuner_fn: AutotunerFunction = default_autotuner_fn
+    autotune_baseline_fn: Callable[..., object] | None = None
+    autotune_baseline_atol: float | None = None
+    autotune_baseline_rtol: float | None = None
+    autotune_baseline_accuracy_check_fn: Callable[[object, object], None] | None = None
+    autotune_benchmark_fn: Callable[..., list[float]] | None = None
+    autotune_best_available_max_configs: int = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_int, "HELION_BEST_AVAILABLE_MAX_CONFIGS", 20
+        )
+    )
+    autotune_best_available_max_cache_scan: int = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_int, "HELION_BEST_AVAILABLE_MAX_CACHE_SCAN", 500
+        )
+    )
+    autotune_initial_population_strategy: InitialPopulation | None = None
+    torch_compile_fusion: bool = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_bool, "HELION_TORCH_COMPILE_FUSION", False
+        )
+    )
+    autotune_with_torch_compile_fusion: bool = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_bool, "HELION_AUTOTUNE_WITH_TORCH_COMPILE_FUSION", False
+        )
+    )
+    autotune_config_filter: Callable[[Config], Config | None] | None = None
+    pallas_interpret: bool = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_bool, "HELION_PALLAS_INTERPRET", False
+        )
+    )
+    triton_do_not_specialize: bool = dataclasses.field(
+        default_factory=functools.partial(
+            _env_get_bool, "HELION_TRITON_DO_NOT_SPECIALIZE", False
+        )
+    )
+
+
+class Settings(_Settings):
+    """
+    Settings can be passed to hl.kernel as kwargs and control the behavior of the
+    compilation process. Unlike a Config, settings are not auto-tuned and set by the user.
+    """
+
+    __slots__ = {
+        "backend": (
+            "Code generation backend. One of 'triton' (default), 'pallas' (JAX/Pallas), "
+            "'cute' (CUTLASS CuTe DSL), or 'metal' (Apple Metal MSL). "
+            "Set HELION_BACKEND=<backend> to override."
+        ),
+        "ignore_warnings": (
+            "Subtypes of exc.BaseWarning to ignore when compiling. "
+            "Set HELION_IGNORE_WARNINGS=WarningA,WarningB (names from helion.exc) to configure via env."
+        ),
+        "index_dtype": (
+            "The dtype to use for index variables. Default auto-selects torch.int32 or torch.int64 based on input sizes. "
+            "Override with HELION_INDEX_DTYPE=<dtype> (or set to 'auto')."
+        ),
+        "dot_precision": "Precision for dot products, see `triton.language.dot`. Can be 'tf32', 'tf32x3', or 'ieee'.",
+        "fast_math": (
+            "If True, enable fast math approximations (Helion-level and Inductor-level). "
+            "May reduce numerical precision. Set HELION_FAST_MATH=1 to enable."
+        ),
+        "static_shapes": (
+            "If True, use static shapes for all tensors. This is a performance optimization. "
+            "Set HELION_STATIC_SHAPES=0 to disable."
+        ),
+        "persistent_reserved_sms": (
+            "Number of streaming multiprocessors to reserve when launching persistent kernels. "
+            "Set HELION_PERSISTENT_RESERVED_SMS=N (default 0) or pass persistent_reserved_sms=N to helion.kernel."
+        ),
+        "autotune_force_persistent": (
+            "If True, restrict pid_type choices to persistent kernels only during config selection. "
+            "Set HELION_AUTOTUNE_FORCE_PERSISTENT=1 to force persistent kernel autotuning globally."
+        ),
+        "autotune_log_level": (
+            "Log level for autotuning using Python logging levels. Default is logging.INFO. "
+            "Use HELION_AUTOTUNE_LOG_LEVEL to override or set 0 to disable output."
+        ),
+        "autotune_log": (
+            "Base filename for autotune logs. Set HELION_AUTOTUNE_LOG=/tmp/run to write "
+            "/tmp/run.csv and /tmp/run.log with per-config metrics and debug logs."
+        ),
+        "autotune_compile_timeout": "Timeout for Triton compilation in seconds used for autotuning. Default is 60 seconds.",
+        "autotune_benchmark_subprocess": "Run the autotune benchmark phase in a long-lived spawn subprocess so a hung/slow kernel can be killed without losing autotune progress. Enabled by default. Set HELION_AUTOTUNE_BENCHMARK_SUBPROCESS=0 to disable.",
+        "autotune_benchmark_timeout": "Per-config wall-clock timeout in seconds for the subprocess benchmark phase. Only applies when autotune_benchmark_subprocess is enabled. Default 30 seconds, raised automatically on environments with a heavier subprocess cold-start.",
+        "autotune_precompile": "Autotuner precompile mode: 'fork', 'spawn', or falsy/None to disable. Defaults to 'fork' on non-Windows platforms.",
+        "autotune_precompile_jobs": "Maximum concurrent Triton precompile processes, default to cpu count.",
+        "autotune_random_seed": "Seed used for autotuner random number generation. Defaults to HELION_AUTOTUNE_RANDOM_SEED or a time-based seed.",
+        "autotune_accuracy_check": "If True, validate candidate configs against the baseline kernel output before accepting them during autotuning.",
+        "autotune_rebenchmark_threshold": "If a config is within threshold*best_perf, re-benchmark it to avoid outliers. Defaults to effort profile value. Set HELION_REBENCHMARK_THRESHOLD to override.",
+        "autotune_suspicious_rebenchmark_ratio": "When subprocess benchmarking is enabled, recheck rebenchmark timings below ratio*previous_timing before accepting them. Defaults to 0.9. Set HELION_AUTOTUNE_SUSPICIOUS_REBENCHMARK_RATIO=0 to disable.",
+        "autotune_search_acf": "List of PTXAS Advanced Controls Files (ACFs) to search during autotuning. ACFs are highly specialized configurations for specific hardware and use cases; when autotuning with ACFs, default -O3 is always considered. Empty list disables.",
+        "autotune_progress_bar": "If True, show progress bar during autotuning. Default is True. Set HELION_AUTOTUNE_PROGRESS_BAR=0 to disable.",
+        "autotune_max_generations": "Override the maximum number of generations for Pattern Search and Differential Evolution Search autotuning algorithms with HELION_AUTOTUNE_MAX_GENERATIONS=N or @helion.kernel(autotune_max_generations=N).",
+        "autotune_budget_seconds": (
+            "Wall-clock budget in seconds for the entire autotune. When the "
+            "budget is exceeded the search returns the best config found so "
+            "far. Set with HELION_AUTOTUNE_BUDGET_SECONDS=N or "
+            "@helion.kernel(autotune_budget_seconds=N). Default None "
+            "(no budget)."
+        ),
+        "autotune_ignore_errors": (
+            "If True, skip logging and raising autotune errors. "
+            "Set HELION_AUTOTUNE_IGNORE_ERRORS=1 to enable globally."
+        ),
+        "autotune_adaptive_timeout": (
+            "If True, set the compile timeout threshold to be smaller for Triton compilation,"
+            "based on a quantile of initial compile times (with a lower bound). Lower bound and quantile "
+            "are set by the effort profile. Set HELION_AUTOTUNE_ADAPTIVE_TIMEOUT=0 to disable."
+        ),
+        "pallas_interpret": (
+            "If True, run Pallas kernels in interpret mode on CPU (no TPU needed). "
+            "Defaults to HELION_PALLAS_INTERPRET env var."
+        ),
+        "triton_do_not_specialize": (
+            "If True, pass do_not_specialize for every dynamic size/stride/symbol "
+            "arg so a single Triton binary handles any value, avoiding Triton-level "
+            "recompiles when shapes cross 0/1 or alignment boundaries. Disables "
+            "Triton's value/alignment specializations and can significantly slow "
+            "memory-bound kernels (vectorized loads rely on inner stride being "
+            "specialized to constexpr 1). Only takes effect when static_shapes=False. "
+            "Set HELION_TRITON_DO_NOT_SPECIALIZE=1 to enable globally."
+        ),
+        "print_output_code": "If True, print the output code of the kernel to stderr.",
+        "print_repro": "If True, print Helion kernel code, config, and caller code to stderr as a standalone repro script.",
+        "output_origin_lines": (
+            "If True, annotate generated Triton code with source-origin comments. "
+            "Set HELION_OUTPUT_ORIGIN_LINES=0 to disable."
+        ),
+        "force_autotune": (
+            "If True, force autotuning even if a config is provided. "
+            "The result is still written to the cache so subsequent runs "
+            "can reuse it. Set HELION_SKIP_CACHE=1 instead to skip both "
+            "reading and writing the cache."
+        ),
+        "autotune_config_overrides": (
+            "Dictionary of config key/value pairs forced during autotuning. "
+            "Accepts HELION_AUTOTUNE_CONFIG_OVERRIDES='{\"num_warps\":4}'."
+        ),
+        "autotune_seed_configs": (
+            "A Config or sequence of Configs to seed the autotuner initial population "
+            "without constraining the search space."
+        ),
+        "disable_autotuner_heuristics": (
+            "If True, disable compiler/autotuner heuristics such as compiler seed "
+            "configs. User-provided autotune_seed_configs are unaffected. "
+            "Set HELION_DISABLE_AUTOTUNER_HEURISTICS=1 to disable globally."
+        ),
+        "allow_warp_specialize": "If True, allow warp specialization for tl.range calls on CUDA devices.",
+        "debug_dtype_asserts": "If True, emit tl.static_assert checks for dtype after each device node.",
+        "ref_mode": "Reference mode for kernel execution. Can be RefMode.OFF or RefMode.EAGER.",
+        "autotuner_fn": (
+            "Function to create an autotuner. "
+            "Override by passing a callable to @helion.kernel(..., autotuner_fn=...)."
+        ),
+        "autotune_effort": "Autotuning effort preset. One of 'none', 'quick', 'full'.",
+        "autotune_baseline_fn": (
+            "Custom baseline function for computing baseline output during autotuning. "
+            "If provided, this function will be called instead of running the default config. "
+            "Should have the same signature as the kernel function. "
+            "Pass as @helion.kernel(..., autotune_baseline_fn=my_baseline_fn)."
+        ),
+        "autotune_baseline_atol": (
+            "Absolute tolerance for baseline output comparison during autotuning accuracy checks. "
+            "Defaults to 1e-2, or 0.0 for fp8 dtypes (automatic bitwise comparison). "
+            "Pass as @helion.kernel(..., autotune_baseline_atol=1e-3)."
+        ),
+        "autotune_baseline_rtol": (
+            "Relative tolerance for baseline output comparison during autotuning accuracy checks. "
+            "Defaults to 1e-2, or 0.0 for fp8 dtypes (automatic bitwise comparison). "
+            "Pass as @helion.kernel(..., autotune_baseline_rtol=1e-3)."
+        ),
+        "autotune_baseline_accuracy_check_fn": (
+            "Custom accuracy check function for comparing autotuning candidate outputs against the baseline. "
+            "Signature: (actual: object, expected: object) -> None. Should raise AssertionError on mismatch. "
+            "When set, replaces the default torch.testing.assert_close-based check (atol/rtol settings are ignored). "
+            "Useful for scenarios where a small fraction of elements may have large relative differences, "
+            "e.g. checking that mismatch percentage < X AND max relative diff < Y. "
+            "A built-in utility ``helion._testing.assert_close_with_mismatch_tolerance`` is provided "
+            "for this common pattern; use ``functools.partial(assert_close_with_mismatch_tolerance, ...)`` "
+            "to customize thresholds. "
+            "Pass as @helion.kernel(..., autotune_baseline_accuracy_check_fn=my_check_fn)."
+        ),
+        "autotune_cache": (
+            "The name of the autotuner cache class to use. "
+            "Set HELION_AUTOTUNE_CACHE=StrictLocalAutotuneCache to enable strict caching. "
+            "Set HELION_AUTOTUNE_CACHE=RemoteAutotuneCache (or StrictRemoteAutotuneCache) "
+            "and HELION_REMOTE_CACHE_BACKEND=mypackage.module.MyBackend to enable "
+            "remote caching via a user-provided RemoteCacheBackend subclass. "
+            "Defaults to 'LocalAutotuneCache'."
+        ),
+        "autotune_benchmark_fn": (
+            "Custom benchmark function for rebenchmarking during autotuning. "
+            "Should have the following signature: "
+            "(fns: list[Callable[[], object]], *, repeat: int, desc: str | None = None) -> list[float]. "
+            "If None (default), uses the built-in benchmark function."
+        ),
+        "autotune_best_available_max_configs": (
+            "Maximum number of cached configs to use for FROM_BEST_AVAILABLE initial population "
+            "and for helion.from_cache() warm-start in FiniteSearch. "
+            "Set HELION_BEST_AVAILABLE_MAX_CONFIGS=N to override. Default is 20."
+        ),
+        "autotune_best_available_max_cache_scan": (
+            "Maximum number of cache files to scan when searching for matching configs in FROM_BEST_AVAILABLE strategy. "
+            "Set HELION_BEST_AVAILABLE_MAX_CACHE_SCAN=N to override. Default is 500."
+        ),
+        "autotune_initial_population_strategy": (
+            "Override the initial population strategy for autotuning. "
+            "Valid values: 'from_random', 'from_best_available'. "
+            "When set, takes precedence over the HELION_AUTOTUNER_INITIAL_POPULATION env var "
+            "and the effort profile default."
+        ),
+        "torch_compile_fusion": (
+            "If True, allow torch.compile to fuse this Helion kernel with surrounding Inductor ops "
+            "(prologue/epilogue) when used inside torch.compile. Default False. "
+            "Set HELION_TORCH_COMPILE_FUSION=1 to enable globally."
+        ),
+        "autotune_config_filter": (
+            "Optional callable ``(config: Config) -> Config | None`` that the autotuner calls on every "
+            "candidate config before compiling or benchmarking it.  If the callable returns None, "
+            "the config is skipped entirely (no compilation, no benchmarking).  If it returns a Config "
+            "(which may be a modified copy of the original), that config is used for benchmarking. "
+            "Also filters the explicit ``configs=[...]`` list when one is provided. "
+            "Pass as @helion.kernel(..., autotune_config_filter=my_filter_fn)."
+        ),
+        "autotune_with_torch_compile_fusion": (
+            "If True, autotuning benchmarks the fused kernel (with epilogue/prologue) "
+            "to pick configs optimal for the actual fused workload. Default False. "
+            "Has no effect unless torch_compile_fusion is also True. "
+            "Set HELION_AUTOTUNE_WITH_TORCH_COMPILE_FUSION=1 to enable globally."
+        ),
+    }
+
+    def __init__(self, **settings: object) -> None:
+        """
+        Initialize the Settings object with the provided dictionary of settings.
+        """
+        # pyrefly: ignore [bad-argument-type]
+        super().__init__(**settings)
+
+        if self.backend == "tileir" and os.environ.get("ENABLE_TILE", "0") != "1":
+            raise exc.MissingEnableTile
+
+        self._check_ref_eager_mode_before_print_output_code()
+
+    def to_dict(self) -> dict[str, object]:
+        """
+        Convert the Settings object to a dictionary.
+
+        Returns:
+            dict[str, object]: A dictionary representation of the Settings object.
+        """
+
+        def shallow_copy(x: object) -> object:
+            if isinstance(x, (list, dict)):
+                return x.copy()
+            return x
+
+        # Only include fields that are meant to be public (repr=True)
+        public_fields = {f.name for f in dataclasses.fields(self) if f.repr}
+        return {
+            k: shallow_copy(v)
+            for k, v in dataclasses.asdict(self).items()
+            if k in public_fields
+        }
+
+    def check_autotuning_disabled(self) -> None:
+        msg = None
+        if os.environ.get("HELION_DISALLOW_AUTOTUNING", "0") == "1":
+            msg = "by HELION_DISALLOW_AUTOTUNING=1"
+        if is_fbcode():
+            from aiplatform.runtime_environment.runtime_environment_pybind import (  # type: ignore[import-untyped]
+                RuntimeEnvironment,
+            )
+
+            if RuntimeEnvironment().get_mast_job_name() is not None:
+                msg = "because autotuning is not allowed in MAST environment"
+        if msg:
+            raise exc.AutotuningDisallowedInEnvironment(msg)
+
+    def get_rebenchmark_threshold(self) -> float:
+        """
+        Get the effective rebenchmark threshold.
+        Uses the explicit setting if provided, otherwise falls back to the effort profile default.
+
+        Returns:
+            float: The rebenchmark threshold value.
+        """
+        if self.autotune_rebenchmark_threshold is not None:
+            return self.autotune_rebenchmark_threshold
+
+        return get_effort_profile(self.autotune_effort).rebenchmark_threshold
+
+    def get_suspicious_rebenchmark_ratio(self) -> float | None:
+        if self.autotune_suspicious_rebenchmark_ratio is not None:
+            return self.autotune_suspicious_rebenchmark_ratio
+        if self.autotune_benchmark_subprocess:
+            return 0.9
+        return None
+
+    def _check_ref_eager_mode_before_print_output_code(self) -> None:
+        """
+        Check if ref eager mode is enabled before printing output code. If ref eager mode is enabled, raise an error.
+        """
+        if self.ref_mode == RefMode.EAGER and self.print_output_code:
+            raise exc.RefEagerModeCodePrintError

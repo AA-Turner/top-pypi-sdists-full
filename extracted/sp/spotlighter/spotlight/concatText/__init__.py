@@ -1,1 +1,0 @@
-from spotlight.concatText.concatText import runConcatText

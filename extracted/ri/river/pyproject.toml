@@ -1,6 +1,6 @@
 [project]
 name = "river"
-version = "0.24.2"
+version = "0.25.0"
 description = "Online machine learning in Python"
 authors = [{ name = "Max Halford", email = "maxhalford25@gmail.com" }]
 requires-python = ">=3.11"
@@ -8,8 +8,13 @@ readme = "README.md"
 license = "BSD-3-Clause"
 dependencies = [
     "scipy>=1.16,<2",
-    "pandas>=2.2,<3",
     "numpy>=2.3.4,<3",
+    "altair>=5.0.0",
+]
+
+[project.optional-dependencies]
+pandas = [
+    "pandas>=2.2,<3",
 ]
 
 [project.urls]
@@ -17,30 +22,38 @@ Homepage = "https://riverml.xyz/"
 Repository = "https://github.com/online-ml/river/"
 
 [build-system]
-requires = [
-    "Cython",
-    "numpy",
-    "setuptools",
-    "setuptools-rust",
+requires = ["maturin>=1.13,<2"]
+build-backend = "maturin"
+
+[tool.maturin]
+module-name = "river._river_rust"
+python-source = "."
+features = ["pyo3/extension-module"]
+include = [
+    { path = "river/datasets/*.csv", format = ["sdist", "wheel"] },
+    { path = "river/datasets/*.gz",  format = ["sdist", "wheel"] },
+    { path = "river/datasets/*.zip", format = ["sdist", "wheel"] },
+    { path = "river/drift/datasets/*.csv", format = ["sdist", "wheel"] },
+    { path = "river/stream/*.zip", format = ["sdist", "wheel"] },
 ]
-build-backend = "setuptools.build_meta"
 
 [dependency-groups]
 dev = [
-    "graphviz>=0.20.1,<0.21",
-    "gymnasium>=0.29.0,<0.30",
-    "matplotlib>=3.8.4,<4",
-    "mypy>=1.11.1,<2",
-    "pre-commit>=3.5.0,<4",
-    "pytest>=7.4.2,<8",
-    "ruff~=0.15.8",
-    "scikit-learn>=1.5.1,<2",
-    "sqlalchemy>=2.0.22,<3",
-    "sympy>=1.12.1,<2",
-    "pytest-xdist[psutil]>=3.3.1,<4",
-    "jupyter>=1.0.0,<2",
+    "graphviz>=0.20.1",
+    "gymnasium>=0.29.0",
+    "altair>=5.0.0",
+    "mypy>=1.11.1",
+    "pandas>=2.2,<3",
+    "pre-commit>=3.5.0",
+    "pytest>=9.0.3",
+    "ruff>=0.15.8",
+    "scikit-learn>=1.5.1",
+    "sqlalchemy>=2.0.22",
+    "sympy>=1.12.1",
+    "pytest-xdist[psutil]>=3.3.1",
+    "jupyter>=1.0.0",
     "mike @ git+https://github.com/squidfunk/mike.git",
-    "polars>=1.1.0,<2",
+    "polars>=1.1.0",
 ]
 compat = [
     "scikit-learn>=1.5.1,<2",
@@ -51,14 +64,13 @@ docs = [
     "flask",
     "jupyter-client",
     "mike @ git+https://github.com/squidfunk/mike.git",
-    "pygments<2.20",
+    "pygments",
     "TA-Lib",
-    "zensical",
+    "zensical>=0.0.40",
     "nbconvert",
     "numpydoc",
     "plotly>=6.3.0",
     "python-slugify",
-    "spacy",
     "tabulate",
     "watermark",
     "notebook<7",
@@ -71,9 +83,6 @@ benchmark = [
 
 
 
-[tool.setuptools.packages.find]
-include = ["river*"]
-
 [tool.uv]
 default-groups = [
     "dev",
@@ -84,7 +93,6 @@ default-groups = [
 
 [tool.cibuildwheel]
 build-frontend = "build[uv]"
-# TODO: re-enable 32-bit builds once pandas is removed as a dependency
 skip = ["*_i686", "*-win32", "*-musllinux_i686"]
 test-command = "python -c \"import river\""
 
@@ -94,19 +102,18 @@ MACOSX_DEPLOYMENT_TARGET = "10.13"
 
 [tool.cibuildwheel.linux.environment]
 PATH = "$HOME/.cargo/bin:$PATH"
-CARGO_NET_GIT_FETCH_WITH_CLI = "true"
 
 [[tool.cibuildwheel.overrides]]
 select = "*-*linux_*"
-before-build = """curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain=nightly --profile=minimal -y && rustup show"""
+before-build = "curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain=none --profile=minimal -y && rustup show"
 
 [[tool.cibuildwheel.overrides]]
 select = ["*-macosx_*"]
-before-build = "rustup default nightly && rustup target add aarch64-apple-darwin && rustup target add x86_64-apple-darwin && rustup show"
+before-build = "rustup show"
 
 [[tool.cibuildwheel.overrides]]
 select = ["*-win_*", "*-win32"]
-before-build = "rustup default nightly && rustup toolchain install nightly-i686-pc-windows-msvc && rustup target add i686-pc-windows-msvc && rustup show"
+before-build = "rustup show"
 
 [tool.pytest.ini_options]
 addopts = [
@@ -153,6 +160,14 @@ select = [
     "UP",
     # isort
     "I",
+    # pep8-naming: class names (N801), function/method names (N802), and the
+    # cls/self convention on classmethods (N804). N803 (argument names) and
+    # N806 (local variable names) are deliberately left out — `X: pd.DataFrame`
+    # and `A_numpy = ...` are conventional in ML/scientific code and would
+    # produce hundreds of false positives.
+    "N801",
+    "N802",
+    "N804",
 ]
 ignore = ["E501"]
 fixable = ["ALL"]
@@ -184,6 +199,8 @@ module = [
     "gymnasium.*",
     "sympy.*",
     "polars.*",
+    "river._river_rust",
+    "river._river_rust.*",
 ]
 ignore_missing_imports = true
 

@@ -1,1 +1,0 @@
-"""AIID connector placeholder module."""

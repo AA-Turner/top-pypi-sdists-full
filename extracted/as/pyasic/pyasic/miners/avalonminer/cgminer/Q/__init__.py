@@ -1,1 +1,0 @@
-from .Q import CGMinerAvalonQHome

@@ -27,13 +27,15 @@ from weblate.utils.docs import get_doc_url
 from weblate.utils.hash import hash_to_checksum
 from weblate.utils.lock import WeblateLockTimeoutError
 from weblate.utils.state import (
+    STATE_APPROVED,
     STATE_EMPTY,
     STATE_FUZZY,
     STATE_NEEDS_CHECKING,
     STATE_NEEDS_REWRITING,
     STATE_TRANSLATED,
 )
-from weblate.utils.stats import ProjectLanguage
+from weblate.utils.stats import CategoryLanguage, ProjectLanguage
+from weblate.utils.views import get_sort_name
 
 if TYPE_CHECKING:
     from weblate.checks.base import BaseCheck
@@ -164,6 +166,26 @@ class EditTest(ViewTestCase):
         self.edit_unit(self.source, self.target, review=str(STATE_NEEDS_CHECKING))
         unit = self.get_unit(source=self.source)
         self.assertEqual(unit.state, STATE_NEEDS_CHECKING)
+
+    def test_approved_state_visible_without_edit_permission(self) -> None:
+        self.project.translation_review = True
+        self.project.save()
+        unit = self.change_unit(self.target, source=self.source, state=STATE_APPROVED)
+
+        self.assertFalse(self.user.has_perm("unit.edit", unit))
+
+        response = self.client.get(unit.get_absolute_url())
+
+        form = response.context["form"]
+        self.assertTrue(form.fields["fuzzy"].widget.is_hidden)
+        self.assertFalse(form.fields["review"].widget.is_hidden)
+        self.assertTrue(form.fields["review"].disabled)
+        self.assertEqual(
+            [choice[0] for choice in form.fields["review"].choices],
+            [STATE_APPROVED],
+        )
+        self.assertContains(response, "Approved")
+        self.assertNotContains(response, "fuzzy_checkbox")
 
     def add_unit(self, key, force_source: bool = False):
         if force_source or self.component.has_template():
@@ -579,7 +601,8 @@ class EditResourceSourceTest(ViewTestCase):
         translated_before = translation.stats.translated
         component_all_chars_before = component.stats.all_chars
 
-        self.edit_unit("Hello, world!\n", "Hello, universe!\n", "en")
+        with self.captureOnCommitCallbacks(execute=True):
+            self.edit_unit("Hello, world!\n", "Hello, universe!\n", "en")
 
         translation = Translation.objects.get(pk=translation.pk)
         component = Component.objects.get(pk=self.component.pk)
@@ -709,10 +732,11 @@ class EditPoMonoTest(EditTest):
         response = self.client.post(reverse("delete-unit", kwargs={"unit_id": unit.pk}))
         self.assertEqual(response.status_code, 403)
         # Actual removal
-        response = self.client.post(
-            reverse("delete-unit", kwargs={"unit_id": unit.source_unit.pk}),
-            data={"next": f"{self.translate_url}?offset=3"},
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse("delete-unit", kwargs={"unit_id": unit.source_unit.pk}),
+                data={"next": f"{self.translate_url}?offset=3"},
+            )
         self.assertEqual(response.status_code, 302)
         self.assert_redirects_offset(response, self.translate_url, 3)
         component = Component.objects.get(pk=self.component.pk)
@@ -1354,6 +1378,99 @@ class EditComplexTest(ViewTestCase):
             f'href="{translate_url}?checksum={unit.checksum}&amp;revert={change.id}"',
         )
 
+    def test_project_language_warns_when_switching_component(self) -> None:
+        Component.objects.filter(pk=self.component.pk).update(priority=120)
+        high_component = self.create_po(name="High", priority=80, project=self.project)
+        high_translation = high_component.translation_set.get(
+            language=self.translation.language
+        )
+        translate_url = ProjectLanguage(
+            self.project, self.translation.language
+        ).get_translate_url()
+        high_component_offset = high_translation.unit_set.count()
+
+        response = self.client.get(translate_url, {"offset": high_component_offset})
+        self.assertNotContains(response, "You have shifted from")
+        self.assertContains(response, 'value="component,-priority"')
+
+        response = self.client.get(translate_url, {"offset": high_component_offset + 1})
+        self.assertContains(response, "You have shifted from")
+
+    def test_language_scope_sort_defaults_to_component_priority(self) -> None:
+        request = SimpleNamespace(GET={})
+        category = self.create_category(self.project)
+
+        self.assertEqual(
+            get_sort_name(
+                request, ProjectLanguage(self.project, self.translation.language)
+            )["query"],
+            "component,-priority",
+        )
+        self.assertEqual(
+            get_sort_name(
+                request, CategoryLanguage(category, self.translation.language)
+            )["query"],
+            "component,-priority",
+        )
+
+    def test_project_language_submitted_search_keeps_component_order(self) -> None:
+        Component.objects.filter(pk=self.component.pk).update(priority=120)
+        high_component = self.create_po(
+            name="High", locked=True, priority=80, project=self.project
+        )
+        high_translation = high_component.translation_set.get(
+            language=self.translation.language
+        )
+        translate_url = ProjectLanguage(
+            self.project, self.translation.language
+        ).get_translate_url()
+
+        self.client.get(translate_url, {"sort_by": "component,-priority", "offset": 1})
+
+        session = self.client.session
+        session_keys = session.keys()
+        search_key = next(key for key in session_keys if key.startswith("search_"))
+        expected_ids = [
+            *self.translation.unit_set.order_by("position").values_list(
+                "pk", flat=True
+            ),
+            *high_translation.unit_set.order_by("position").values_list(
+                "pk", flat=True
+            ),
+        ]
+        self.assertEqual(session[search_key]["ids"], expected_ids)
+
+    def test_project_language_ignores_stale_component_shift_unit(self) -> None:
+        Component.objects.filter(pk=self.component.pk).update(priority=120)
+        high_component = self.create_po(name="High", priority=80, project=self.project)
+        high_translation = high_component.translation_set.get(
+            language=self.translation.language
+        )
+        translate_url = ProjectLanguage(
+            self.project, self.translation.language
+        ).get_translate_url()
+        high_component_offset = high_translation.unit_set.count()
+
+        response = self.client.get(translate_url, {"offset": high_component_offset})
+        self.assertEqual(response.status_code, 200)
+
+        last_unit_id = Unit.objects.order_by("-pk").values_list("pk", flat=True)[0]
+        stale_unit_id = last_unit_id + 1
+        session = self.client.session
+        session_keys = session.keys()
+        search_key = next(key for key in session_keys if key.startswith("search_"))
+        session_result = session[search_key]
+        session_result["last_viewed_unit_id"] = stale_unit_id
+        session[search_key] = session_result
+        session.save()
+
+        response = self.client.get(translate_url, {"offset": high_component_offset + 1})
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "You have shifted from")
+        self.assertNotEqual(
+            self.client.session[search_key]["last_viewed_unit_id"], stale_unit_id
+        )
+
     def test_revert_plural(self) -> None:
         source = "Orangutan has %d banana.\n"
         target = [
@@ -1442,9 +1559,10 @@ class EditComplexTest(ViewTestCase):
 
         # Ignore check
         check_id = unit.active_checks[0].id
-        response = self.client.post(
-            reverse("js-ignore-check", kwargs={"check_id": check_id})
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse("js-ignore-check", kwargs={"check_id": check_id})
+            )
         self.assertContains(response, "ok")
 
         # Should have one less failing check
@@ -1463,7 +1581,8 @@ class EditComplexTest(ViewTestCase):
         self.assertEqual(response.status_code, 403)
         self.user.is_superuser = True
         self.user.save()
-        response = self.client.post(ignore_url)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(ignore_url)
         self.assertEqual(response.headers["Content-Type"], "application/json")
 
         # Should have one less check

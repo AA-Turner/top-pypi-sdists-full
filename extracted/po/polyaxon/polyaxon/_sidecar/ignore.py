@@ -1,1 +1,0 @@
-IGNORE_FOLDERS = [".git"]

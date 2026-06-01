@@ -1,0 +1,32 @@
+# KSI-PIY-RVD — Reviewing Vulnerability Disclosures
+#
+# DRAFT — this is a starter-pack template. Copy it to
+# `.efterlev/manifests/<ksi-id>.yml` (drop the `.template` suffix) and
+# fill in the DRAFT placeholders before letting it land in your
+# attestation pipeline. The `_template_help` block carries the
+# questions you should answer; remove that block once filled in.
+
+ksi: KSI-PIY-RVD
+name: "Reviewing Vulnerability Disclosures"
+
+_template_help:
+  description: >
+    KSI-PIY-RVD reviews the effectiveness of the vulnerability disclosure program. The attestation should name where the disclosure policy lives, the response SLAs, and how the program's effectiveness is reviewed.
+  questions:
+      - "Where is your vulnerability disclosure policy published (security.txt, dedicated page)?"
+      - "What channel do reports come through (HackerOne, bug bounty, direct email)?"
+      - "What are the response SLAs (acknowledge, triage, fix)?"
+      - "How is program effectiveness reviewed (report volume trend, time-to-fix, researcher satisfaction)?"
+      - "Who owns the program?"
+
+evidence:
+  - type: attestation
+    statement: >
+      DRAFT — Example: Disclosure policy at example.com/security.txt + example.com/security. Reports come via security@example.com or HackerOne (private program). SLAs: acknowledge 24h, triage 5 days, Critical fix 7 days. Annual review by the CISO covering report volume, time-to-fix trends, researcher satisfaction. Program owned by the Application Security Lead.
+    attested_by: "DRAFT — your-vp-security@example.com"
+    attested_at: "DRAFT — YYYY-MM-DD"
+    reviewed_at: "DRAFT — YYYY-MM-DD"
+    next_review: "DRAFT — YYYY-MM-DD (recommend 6-month review cadence)"
+    supporting_docs:
+      - "DRAFT — ./policies/your-runbook.pdf"
+      - "DRAFT — https://wiki.your-company.example/path-to-relevant-docs"

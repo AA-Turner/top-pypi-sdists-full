@@ -1,0 +1,549 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "omnibase_infra"
+version = "0.36.1"
+description = "ONEX Infrastructure - Service integration and database infrastructure tools"
+authors = [{ name = "OmniNode.ai", email = "contact@omninode.ai" }]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    # ============================================================================
+    # ONEX Internal Dependencies (omnibase-core, omnibase-spi)
+    # ============================================================================
+    # Semantic versioning is appropriate for these packages because:
+    # - We control the release process and CI/CD validates compatibility
+    # - Breaking changes are communicated through semver major versions
+    # - Internal packages are co-developed with this codebase
+    #
+    # RELEASE STATUS: These packages are published to PyPI and version-pinned.
+    # - omnibase-core: https://pypi.org/project/omnibase-core/
+    # - omnibase-spi: https://pypi.org/project/omnibase-spi/
+    #
+    # PRE-RELEASE NOTE: If you need features from unreleased versions during
+    # development, use git dependencies via [tool.uv.sources]:
+    #   [tool.uv.sources]
+    #   omnibase-core = { git = "https://github.com/org/omnibase_core.git", rev = "SHA" }
+    # Remember to switch back to PyPI versions before merging to main.
+    #
+    "omnibase-core>=0.41.0,<0.42.0",
+    "omnibase-spi>=0.21.0,<0.22.0",
+    # ============================================================================
+    # External Dependency Security Guidance
+    # ============================================================================
+    # CURRENT STATE: All dependencies below are PyPI-sourced (no git dependencies).
+    #
+    # PyPI Dependencies (current - all deps below):
+    # - Version pinning is acceptable for trusted packages when:
+    #   1. Package is from established maintainers (PyPA, major OSS projects)
+    #   2. uv.lock captures exact resolved versions for reproducibility
+    # - To update: 1) Review changelog for security fixes, 2) Update version, 3) Run tests
+    # - See docs/decisions/adr-cryptography-upgrade-46.md for upgrade rationale examples
+    #
+    # Git Dependencies (FUTURE guidance - not currently used):
+    # - If git-sourced external deps are added in the future, prefer commit SHAs over tags:
+    #   - SHAs are immutable; tags can be force-pushed
+    #   - SHAs provide audit trail and tamper-evidence
+    # Core dependencies
+    "pydantic>=2.11.7,<3.0.0",
+    "fastapi>=0.120.1,<0.137.0",
+    "uvicorn>=0.32.0,<0.50.0",
+    "pyyaml>=6.0.2,<7.0.0",
+    "aiohttp>=3.9.0,<4.0.0",
+    # Database dependencies (for PostgreSQL connection manager)
+    "asyncpg>=0.29.0,<0.32.0",
+    "psycopg2-binary>=2.9.10,<3.0.0",
+    # Service integration dependencies (for the actual tools we're migrating)
+    "redis>=6.0.0,<8.0.0", # For Redis/Valkey integration (redis-py 6.x required by omnibase_core)
+    "aiokafka>=0.11.0,<0.15.0", # For Kafka tools (async Python client)
+    "confluent-kafka>=2.12.0,<3.0.0", # For Kafka integration (C-based high-performance client)
+    "infisicalsdk>=1.0.15,<2.0.0", # For Infisical secret management (OMN-2286)
+    # Vector and graph database dependencies (for Qdrant and Memgraph handlers)
+    "qdrant-client>=1.16.0,<2.0.0", # Vector database client for semantic search
+    "grpcio>=1.62.0,<2.0.0", # Explicit lower bound: fixes EnumTypeWrapper|None runtime error [OMN-3548]
+    "neo4j>=5.15.0,<7.0.0", # Bolt/Cypher client for Memgraph graph database
+    # CLI Dependencies
+    "click>=8.1.0,<9.0.0",
+    "rich>=13.7.0,<16.0.0",
+    "textual>=0.89.0,<9.0.0", # Terminal UI framework for onex-status TUI (OMN-2657)
+    # System utilities
+    # cryptography: Transitive dependency (via omnibase_core -> paramiko/pyopenssl).
+    # Explicitly declared here to enforce minimum version for security compliance.
+    # Constraint: >=46.0.3,<47.0.0 (compatible release within the 46.x series).
+    # Security: CVE-2024-26130 (42.0.4), CVE-2024-12797 (44.0.1) - both addressed by 46.x.
+    # See docs/decisions/adr-cryptography-upgrade-46.md for full rationale.
+    "cryptography>=46.0.3,<49.0.0",
+    "sigstore>=4.0.0,<5.0.0",
+    "jinja2>=3.1.6,<4.0.0",
+    "aiofiles>=23.2.1,<26.0.0",
+    "dependency-injector>=4.48.1,<5.0.0", # Enhanced dependency injection
+    # Tracing and observability dependencies
+    "sqlparse>=0.4.4,<0.6.0", # For secure SQL query sanitization in tracing
+    "structlog>=23.2.0,<26.0.0", # Structured logging
+    "prometheus-client>=0.19.0,<0.26.0", # Metrics collection
+    "opentelemetry-api>=1.27.0,<2.0.0", # OpenTelemetry API
+    "opentelemetry-sdk>=1.27.0,<2.0.0", # OpenTelemetry SDK
+    "opentelemetry-exporter-otlp-proto-http>=1.27.0,<2.0.0", # OTLP HTTP exporter (Phoenix uses HTTP, not gRPC)
+    "opentelemetry-instrumentation>=0.48b0,<0.64", # Base instrumentation
+    "opentelemetry-instrumentation-fastapi>=0.48b0,<0.64", # FastAPI tracing
+    "opentelemetry-instrumentation-asyncpg>=0.48b0,<0.64", # AsyncPG tracing
+    "opentelemetry-instrumentation-aiohttp-client>=0.48b0,<0.64", # AIOHTTP tracing
+    "opentelemetry-instrumentation-kafka-python>=0.48b0,<0.64", # Kafka tracing
+    "opentelemetry-instrumentation-redis>=0.48b0,<0.64", # Redis tracing
+    # MCP (Model Context Protocol) integration
+    "mcp>=1.25.0,<2.0.0", # Anthropic MCP SDK for streamable HTTP transport
+    # Additional infrastructure dependencies
+    "httpx>=0.28.1,<0.29.0", # Modern HTTP client (>=0.27.1 required by MCP SDK)
+    "tenacity>=9.0.0,<10.0.0", # Retry and resilience patterns
+    "circuitbreaker>=2.0.0,<3.0.0", # Circuit breaker pattern
+    "slowapi>=0.1.9,<0.2.0", # Rate limiting
+    "pydantic-settings>=2.2.1,<3.0.0", # Settings management
+    "jsonschema>=4.20.0,<5.0.0", # JSON schema validation
+    "watchdog>=4.0.0", # Filesystem event monitoring (HandlerContractFileWatcher, OMN-3940)
+    "a2a-sdk>=0.3.4,<1.1.0", # Real A2A client/server protocol support for remote-agent invocation
+    # Security: CVE-2026-32597 (HIGH) - PyJWT <2.12.0 accepts unknown `crit` header extensions.
+    # Transitive dependency (via mcp/httpx/authlib). Explicitly declared to enforce minimum version.
+    "pyjwt>=2.12.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/omnibase_infra"]
+
+[project.scripts]
+omni-infra = "omnibase_infra.cli.commands:cli"
+onex-runtime = "omnibase_infra.runtime.kernel:main"
+onex-infra-test = "omnibase_infra.cli.infra_test.cli:cli"
+onex-git-hook-relay = "omnibase_infra.cli.git_hook_relay:main"
+onex-linear-relay = "omnibase_infra.cli.linear_relay:main"
+onex-status = "omnibase_infra.tui.__main__:run_status_tui"
+verify-container-manifest = "omnibase_infra.scripts.verify_container_manifest:main"
+
+[project.entry-points."onex.cli"]
+kafka = "omnibase_infra.cli.cli_kafka:kafka"
+
+[project.entry-points."onex.backends"]
+event_bus_kafka = "omnibase_infra.event_bus.event_bus_kafka:EventBusKafka"
+state_postgres = "omnibase_infra.backends.backend_probe:probe_postgres"
+
+[project.entry-points."onex.domain_plugins"]
+registration = "omnibase_infra.nodes.node_registration_orchestrator.plugin:ServiceRegistration"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.0,<10.0.0",
+    "pytest-asyncio>=0.25.0,<1.4.0",
+    "pytest-mock>=3.11.0,<4.0.0",
+    "pytest-cov>=6.0.0,<8.0.0",
+    "pytest-xdist>=3.5.0,<4.0.0",  # Parallel test execution
+    "pytest-timeout>=2.3.0,<3.0.0",  # Test timeout support
+    "mypy>=1.13.0,<3.0.0",
+    "ruff>=0.14.7,<0.16.0",  # Ruff handles both formatting and linting (replaces black + isort)
+    "types-pyyaml>=6.0.12.20250822,<7.0.0",
+    "pre-commit>=4.3.0,<5.0.0",
+
+    # Test infrastructure dependencies
+    "locust>=2.31.8,<3.0.0",  # Load testing framework for postgres adapter tests
+    "testcontainers>=4.9.0,<5.0.0",  # Integration testing with real database containers
+    "kafka-python>=2.0.2,<3.0.0",  # Kafka client for integration testing
+    "pytest-httpserver>=1.1.0,<2.0.0",  # Local mock HTTP server for integration tests
+
+    # Additional type stubs for better mypy coverage
+    "types-aiofiles>=23.2.0.20240403,<26.0.0",
+    "types-requests>=2.32.0.20250914,<3.0.0",
+    "hypothesis>=6.148.7,<7.0.0",
+    "pytest-split>=0.10.0,<0.12.0",
+    # Centralized governance hooks (OMN-5135)
+    "onex-change-control>=0.1.0",
+]
+
+[tool.uv]
+override-dependencies = [
+    "omnibase-core>=0.41.0,<0.42.0",
+    # to resolve from the release/v0.21.0 branch (swap to tag once v0.21.0 lands).
+    "omnibase-spi @ git+https://github.com/OmniNode-ai/omnibase_spi.git@v0.21.0",
+]
+
+[tool.uv.sources]
+# OMN-11142: pin to omnibase_core main HEAD for the omnibase_core.gate module
+# (receipt_canonical, OmniGate config) used by the OmniGate signer/executor.
+# Also carries EnumDataProvenance (OMN-11210). Swap to a tagged release once cut.
+omnibase-core = { git = "https://github.com/OmniNode-ai/omnibase_core.git", rev = "7631ef3321e1a6561f4b2c70019ee57d24160620" }
+# v0.36.0: spi v0.21.0 tag does not exist yet (release in flight); pin to the
+# release branch and swap to `tag = "v0.21.0"` in a follow-up once tagged.
+omnibase-spi = { git = "https://github.com/OmniNode-ai/omnibase_spi.git", tag = "v0.21.0" }
+onex-change-control = { git = "https://github.com/OmniNode-ai/onex_change_control.git", branch = "main" }
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+exclude = [
+    "**/archived/**",
+    "**/archive/**",
+    "**/__pycache__/**",
+    "**/site-packages/**",
+    "**/enums/generated/**",
+]
+
+[tool.ruff.format]
+# Use black-compatible formatting (ruff format is a drop-in replacement for black)
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint]
+# Matches omnibase_core settings for consistency across ONEX ecosystem
+select = ["E", "F", "W", "C90", "I", "N", "UP", "YTT", "S", "BLE", "FBT", "B", "A", "COM", "C4", "DTZ", "T10", "EM", "EXE", "ISC", "ICN", "G", "INP", "PIE", "T20", "PT", "Q", "RSE", "RET", "SLF", "SIM", "TID", "TCH", "ARG", "PTH", "ERA", "PD", "PGH", "PL", "TRY", "NPY", "RUF"]
+# Custom pre-commit hook codes — registered so ruff doesn't warn about unknown noqa directives
+external = ["model-dump-bare", "ONEX-PATTERN-PARAMS", "arch-topic-naming"]
+ignore = [
+    # UP007 (Union[X, Y] -> X | Y) is NOT ignored — PEP 604 syntax enforced
+    "S101",      # Allow assert statements in tests
+    "E501",      # Line too long (technical debt - will fix incrementally)
+    "E402",      # Module level import not at top (technical debt)
+    "TC001",     # Type checking imports (technical debt)
+    "TC002",     # Third-party imports in TYPE_CHECKING (Pydantic needs runtime access)
+    "TC003",     # Type checking imports (technical debt)
+    "PLR0911",   # Too many returns (technical debt)
+    "PLR0912",   # Too many branches (technical debt)
+    "PLR0913",   # Too many arguments (technical debt)
+    "PLR0915",   # Too many statements (technical debt)
+    "PLR2004",   # Magic values (technical debt)
+    "FBT001",    # Boolean positional args (technical debt)
+    "FBT002",    # Boolean default args (technical debt)
+    "EM101",     # Exception string literal (technical debt)
+    "EM102",     # Exception f-string literal (technical debt)
+    "TRY003",    # Long exception messages (technical debt)
+    "TRY004",    # Exception type preference (technical debt)
+    "TRY300",    # Consider else block (technical debt)
+    "DTZ005",    # datetime.now() without tz (technical debt)
+    "B008",      # Function call in defaults (technical debt)
+    "ARG003",    # Unused class method argument (technical debt)
+    "ERA001",    # Commented out code (technical debt)
+    "SIM102",    # Nested if statements (technical debt)
+    "B007",      # Unused loop variable (technical debt)
+    "PT018",     # Assertion breakdown (technical debt)
+    "EXE001",    # Shebang without executable (technical debt)
+    "B904",      # raise from (will fix incrementally)
+    "RET505",    # Unnecessary elif (will fix incrementally)
+    "COM812",    # Trailing commas (will fix incrementally)
+    "C901",      # Function complexity (architectural - not fixable easily)
+    "E721",      # Type comparisons (technical debt)
+    "N806",      # Variable naming (technical debt)
+    "TRY203",    # Redundant exception handler (technical debt)
+    "RUF003",    # Comment formatting (technical debt)
+    "SIM117",    # Nested with statements (technical debt)
+    "SIM105",    # contextlib.suppress (technical debt)
+    "PTH123",    # Path.open() (technical debt)
+    "PT017",     # pytest.raises in except (technical debt)
+    "F841",      # Unused variable (technical debt)
+    "ARG002",    # Unused method argument (technical debt)
+    # T201 (print statements) is NOT ignored globally — enforced via per-file-ignores
+    "FBT003",    # Boolean positional value in call (technical debt)
+    "N802",      # Invalid function name (technical debt)
+    "S603",      # Subprocess without shell (technical debt)
+    "S607",      # Start process with partial path (technical debt)
+    "PT011",     # Pytest raises too broad (technical debt)
+    "SLF001",    # Private member access (technical debt)
+    "DTZ001",    # Call datetime without tzinfo (technical debt)
+    "ARG001",    # Unused function argument (technical debt)
+    "G004",      # Logging f-string (technical debt)
+    "INP001",    # Implicit namespace package (technical debt)
+    "TRY301",    # Raise within try (technical debt)
+    "RUF022",    # Unsorted dunder all (technical debt)
+    "SIM103",    # Needless bool (technical debt)
+    # SECURITY IGNORES - Reviewed and justified for infrastructure code:
+    "S301",      # Pickle usage - Allowed for internal serialization of validator state only
+                 # NOT used for untrusted data. All external data uses JSON/YAML.
+    "S311",      # Random usage - Allowed for test data generation and non-cryptographic IDs only
+                 # Cryptographic operations use secrets module (not ignored).
+    "S324",      # Hashlib - Allowed for non-cryptographic checksums (MD5/SHA1) for caching only
+                 # Cryptographic hashing uses SHA256+ (cryptography library).
+    "S105",      # Hardcoded strings - Allowed for test fixtures and example configurations only
+                 # Production secrets managed via Vault adapter (encrypted at rest).
+    "B019",      # Cached instance method (technical debt)
+    "PLW2901",   # Redefined loop name (technical debt)
+    "B011",      # Assert false (technical debt)
+    "PT015",     # Pytest assert always false (technical debt)
+    "RUF005",    # Collection literal concatenation (technical debt)
+    "S110",      # Try except pass (technical debt)
+    "S112",      # Try except continue (technical debt)
+    "SIM108",    # If else block instead of if exp (technical debt)
+    "F401",      # Unused import (technical debt)
+    "PLR1714",   # Repeated equality comparison (technical debt)
+    "RUF012",    # Mutable class default (technical debt)
+    "TRY401",    # Verbose log message (technical debt)
+    "B017",      # Assert raises exception (technical debt)
+    "A001",      # Builtin variable shadowing (technical debt)
+    "PT012",     # Pytest raises with multiple statements (technical debt)
+    "RET503",    # Implicit return (technical debt)
+    "RET504",    # Unnecessary assign (technical debt)
+    "SIM101",    # Duplicate isinstance call (technical debt)
+    "SIM110",    # Reimplemented builtin (technical debt)
+    "ARG005",    # Unused lambda argument (technical debt)
+    "E711",      # None comparison (technical debt)
+    "E722",      # Bare except (technical debt)
+    "PLR1722",   # Sys exit alias (technical debt)
+    "ISC001",    # Implicit string concatenation (conflicts with formatter)
+    "PLC0415",   # Import not at top-level (intentional lazy imports in tests)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Integration tests with controlled table names - S608 false positives
+"tests/integration/runtime/db/test_postgres_repository_runtime_integration.py" = ["S608"]
+# S106: Hardcoded password in function arg - test fixtures only
+# Production secrets managed via Infisical/Vault (OMN-2287, OMN-2736)
+# T201: Print statements OK in tests
+"tests/**/*.py" = ["S106", "T201"]
+# N999: Hyphenated script names are intentional (executable CLI scripts, not importable modules)
+# T201: Scripts are CLI tools with intentional print() output
+"scripts/*-*.py" = ["N999", "T201"]
+"scripts/*.py" = ["T201"]
+# CLI tools, __main__ blocks, and intentional stdout output
+"src/omnibase_infra/runtime/emit_daemon/event_registry.py" = ["T201"]
+"src/omnibase_infra/runtime/service_kernel.py" = ["T201"]
+"src/omnibase_infra/runtime/util_schema_fingerprint.py" = ["T201"]
+"src/omnibase_infra/validation/demo_loop_gate.py" = ["T201"]
+"src/omnibase_infra/validation/linter_contract.py" = ["T201"]
+"src/omnibase_infra/validation/validator_any_type.py" = ["T201"]
+"src/omnibase_infra/tools/contract_topic_extractor.py" = ["T201"]
+"src/omnibase_infra/scripts/verify_container_manifest.py" = ["T201"]
+"src/omnibase_infra/services/observability/llm_cost_aggregation/consumer.py" = ["T201"]
+# Intentional stdout sinks / fallback output
+"src/omnibase_infra/event_bus/service_topic_manager.py" = ["T201"]
+"src/omnibase_infra/observability/sinks/sink_logging_structured.py" = ["T201"]
+
+[tool.ruff.lint.isort]
+# Ensure consistent import sorting between local and CI
+# All omnibase packages are first-party to avoid blank lines between them
+known-first-party = ["omnibase_infra", "omnibase_core", "omnibase_spi", "tests"]
+# Force combine as imports for consistency
+force-single-line = false
+# Split imports from same package
+split-on-trailing-comma = true
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "."]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+# pytest-asyncio 0.25+ requires explicit fixture loop scope configuration.
+# Set to "function" (default) to make configuration explicit and avoid deprecation warnings.
+# Test modules using session/module-scoped async fixtures must override via pytestmark:
+#   pytestmark = [pytest.mark.asyncio(loop_scope="session")]
+# See: tests/conftest.py for detailed documentation on loop_scope configuration.
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "unit: Unit tests that test individual components in isolation",
+    "integration: Integration tests that test multiple components together",
+    "slow: Tests that take a long time to run (>1s)",
+    "chaos: Chaos engineering tests for fault injection and resilience validation",
+    "replay: Event replay and recovery tests",
+    "smoke: Quick smoke tests for basic functionality",
+    "performance: Performance and benchmark tests",
+    "benchmark: Benchmark tests for performance measurement",
+    "infrastructure: Infrastructure-specific tests",
+    "validation: Validation framework tests",
+    "database: marks tests that require database connection",
+    "postgres: Tests requiring real PostgreSQL instance (POSTGRES_DSN)",
+    "kafka: Tests requiring real Kafka instance (KAFKA_BOOTSTRAP_SERVERS)",
+    "e2e: End-to-end tests requiring full infrastructure (Kafka + PostgreSQL)",
+    "runtime: Tests requiring the ONEX runtime container to be running",
+    "serial: Tests that must run serially (not in parallel with pytest-xdist) due to resource intensity",
+    "heavy: Heavy integration tests requiring real infrastructure (Kafka, PostgreSQL, HTTP servers). Skipped by default, run with RUN_HEAVY_TESTS=1",
+    "real_mcp: Tests using real MCP SDK server and client (requires available port)",
+    "mcp_protocol: Mock-based MCP JSON-RPC protocol tests (not real SDK integration)",
+    "llm: Tests requiring real LLM inference endpoints (local GPU/Apple Silicon servers)",
+    "consul: Tests requiring a live Consul instance (legacy marker retained for existing tests — Consul removed in OMN-3995)",
+    "ci: CI/CD parity and configuration tests that run without infrastructure (OMN-4307)",
+    "linear: Tests requiring a real Linear API key (LINEAR_API_KEY env var)",
+]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "-ra",
+    "--tb=short",
+]
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+python_version = "3.12"
+strict = true
+mypy_path = "src"
+namespace_packages = true
+explicit_package_bases = true
+# Global ignore for third-party libraries and cross-package imports.
+# TODO: Remove once all dependencies have py.typed markers.
+ignore_missing_imports = true
+# Disabled globally because mypy per-module overrides don't support these flags.
+# TODO: Enable once non-compliant modules are fixed.
+warn_redundant_casts = false
+no_implicit_reexport = false
+
+[[tool.mypy.overrides]]
+# Modules not yet strict-compliant (99 errors across 64 files).
+# Fix incrementally and remove modules from this list as they become compliant.
+module = [
+    "omnibase_infra.adapters._internal.*",
+    "omnibase_infra.diagnostics.*",
+    "omnibase_infra.event_bus.*",
+    "omnibase_infra.gateway.services.*",
+    "omnibase_infra.handlers.*",
+    "omnibase_infra.mixins.*",
+    "omnibase_infra.models.dispatch.*",
+    "omnibase_infra.models.handlers.*",
+    "omnibase_infra.nodes.*",
+    "omnibase_infra.observability.*",
+    "omnibase_infra.plugins.examples.*",
+    "omnibase_infra.protocols.*",
+    "omnibase_infra.runtime.*",
+    "omnibase_infra.services.*",
+    "omnibase_infra.sinks.*",
+]
+disallow_any_generics = false
+disallow_subclassing_any = false
+disallow_untyped_calls = false
+disallow_untyped_defs = true
+disallow_incomplete_defs = false
+check_untyped_defs = false
+no_implicit_optional = false
+warn_unused_ignores = false
+warn_return_any = false
+strict_equality = false
+extra_checks = false
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = false
+warn_required_dynamic_aliases = true
+warn_untyped_fields = true
+
+[tool.coverage.run]
+source = ["src/omnibase_infra"]
+omit = [
+    "*/tests/*",
+    "*/archived/*",
+    "*/archive/*",
+    "*/__pycache__/*",
+    "*/site-packages/*"
+]
+branch = true
+parallel = true
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+fail_under = 60
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if TYPE_CHECKING:",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if typing.TYPE_CHECKING:",
+    "@abstractmethod",
+    "@abc.abstractmethod"
+]
+
+[project.entry-points."onex.nodes"]
+node_architecture_validator = "omnibase_infra.nodes.node_architecture_validator"
+node_artifact_change_detector_effect = "omnibase_infra.nodes.node_artifact_change_detector_effect"
+node_artifact_reconciliation_orchestrator = "omnibase_infra.nodes.node_artifact_reconciliation_orchestrator"
+node_auth_gate_compute = "omnibase_infra.nodes.node_auth_gate_compute"
+node_baseline_capture = "omnibase_infra.nodes.node_baseline_capture"
+node_baseline_comparison_compute = "omnibase_infra.nodes.node_baseline_comparison_compute"
+node_baselines_batch_compute = "omnibase_infra.nodes.node_baselines_batch_compute"
+node_build_loop_projection_compute = "omnibase_infra.nodes.node_build_loop_projection_compute"
+node_build_loop_write_effect = "omnibase_infra.nodes.node_build_loop_write_effect"
+node_chain_orchestrator = "omnibase_infra.nodes.node_chain_orchestrator"
+node_chain_replay_compute = "omnibase_infra.nodes.node_chain_replay_compute"
+node_chain_retrieval_effect = "omnibase_infra.nodes.node_chain_retrieval_effect"
+node_chain_store_effect = "omnibase_infra.nodes.node_chain_store_effect"
+node_chain_verify_reducer = "omnibase_infra.nodes.node_chain_verify_reducer"
+node_checkpoint_effect = "omnibase_infra.nodes.node_checkpoint_effect"
+node_checkpoint_validate_compute = "omnibase_infra.nodes.node_checkpoint_validate_compute"
+node_consumer_health_triage_effect = "omnibase_infra.nodes.node_consumer_health_triage_effect"
+node_context_audit_dlq_effect = "omnibase_infra.nodes.node_context_audit_dlq_effect"
+node_contract_loader_effect = "omnibase_infra.nodes.node_contract_loader_effect"
+node_contract_persistence_effect = "omnibase_infra.nodes.node_contract_persistence_effect"
+node_contract_registry_reducer = "omnibase_infra.nodes.node_contract_registry_reducer"
+node_contract_resolver_bridge = "omnibase_infra.nodes.node_contract_resolver_bridge"
+node_db_error_linear_effect = "omnibase_infra.nodes.node_db_error_linear_effect"
+node_decision_store_effect = "omnibase_infra.nodes.node_decision_store_effect"
+node_decision_store_query_compute = "omnibase_infra.nodes.node_decision_store_query_compute"
+node_delta_bundle_effect = "omnibase_infra.nodes.node_delta_bundle_effect"
+node_delta_metrics_effect = "omnibase_infra.nodes.node_delta_metrics_effect"
+node_event_bus_wiring_effect = "omnibase_infra.nodes.node_event_bus_wiring_effect"
+node_event_forward_effect = "omnibase_infra.nodes.node_event_forward_effect"
+node_github_pr_poller_effect = "omnibase_infra.nodes.node_github_pr_poller_effect"
+node_gmail_archive_cleanup_effect = "omnibase_infra.nodes.node_gmail_archive_cleanup_effect"
+node_gmail_intent_poller_effect = "omnibase_infra.nodes.node_gmail_intent_poller_effect"
+node_impact_analyzer_compute = "omnibase_infra.nodes.node_impact_analyzer_compute"
+node_kafka_replay_compute = "omnibase_infra.nodes.node_kafka_replay_compute"
+node_ledger_projection_compute = "omnibase_infra.nodes.node_ledger_projection_compute"
+node_ledger_write_effect = "omnibase_infra.nodes.node_ledger_write_effect"
+node_llm_completion_effect = "omnibase_infra.nodes.node_llm_completion_effect"
+node_llm_embedding_effect = "omnibase_infra.nodes.node_llm_embedding_effect"
+node_llm_inference_effect = "omnibase_infra.nodes.node_llm_inference_effect"
+node_merge_gate_effect = "omnibase_infra.nodes.node_merge_gate_effect"
+node_merge_sweep_auto_merge_effect = "omnibase_infra.nodes.node_merge_sweep_auto_merge_effect"
+node_merge_sweep_classify_compute = "omnibase_infra.nodes.node_merge_sweep_classify_compute"
+node_merge_sweep_pr_list_effect = "omnibase_infra.nodes.node_merge_sweep_pr_list_effect"
+node_merge_sweep_workflow_orchestrator = "omnibase_infra.nodes.node_merge_sweep_workflow_orchestrator"
+node_merge_sweep_workflow_reducer = "omnibase_infra.nodes.node_merge_sweep_workflow_reducer"
+node_model_health_effect = "omnibase_infra.nodes.node_model_health_effect"
+node_model_router_compute = "omnibase_infra.nodes.node_model_router_compute"
+node_node_graph_reducer = "omnibase_infra.nodes.node_node_graph_reducer"
+node_onboarding_orchestrator = "omnibase_infra.nodes.node_onboarding_orchestrator"
+node_pattern_lifecycle_effect = "omnibase_infra.nodes.node_pattern_lifecycle_effect"
+node_registration_orchestrator = "omnibase_infra.nodes.node_registration_orchestrator"
+node_registration_reducer = "omnibase_infra.nodes.node_registration_reducer"
+node_registration_storage_effect = "omnibase_infra.nodes.node_registration_storage_effect"
+node_registry_api_effect = "omnibase_infra.nodes.node_registry_api_effect"
+node_registry_effect = "omnibase_infra.nodes.node_registry_effect"
+node_remote_agent_invoke_effect = "omnibase_infra.nodes.node_remote_agent_invoke_effect"
+node_reward_binder_effect = "omnibase_infra.nodes.node_reward_binder_effect"
+node_routing_orchestrator = "omnibase_infra.nodes.node_routing_orchestrator"
+node_routing_score_reducer = "omnibase_infra.nodes.node_routing_score_reducer"
+node_row_count_diagnostic_effect = "omnibase_infra.nodes.node_row_count_diagnostic_effect"
+node_rrh_emit_effect = "omnibase_infra.nodes.node_rrh_emit_effect"
+node_rrh_storage_effect = "omnibase_infra.nodes.node_rrh_storage_effect"
+node_rrh_validate_compute = "omnibase_infra.nodes.node_rrh_validate_compute"
+node_rsd_data_fetch_effect = "omnibase_infra.nodes.node_rsd_data_fetch_effect"
+node_rsd_orchestrator = "omnibase_infra.nodes.node_rsd_orchestrator"
+node_rsd_score_compute = "omnibase_infra.nodes.node_rsd_score_compute"
+node_rsd_state_reducer = "omnibase_infra.nodes.node_rsd_state_reducer"
+node_runner_health_snapshot_effect = "omnibase_infra.nodes.node_runner_health_snapshot_effect"
+node_runner_usage_effect = "omnibase_infra.nodes.node_runner_usage_effect"
+node_runtime_error_triage_effect = "omnibase_infra.nodes.node_runtime_error_triage_effect"
+node_runtime_manifest_reducer = "omnibase_infra.nodes.node_runtime_manifest_reducer"
+node_runtime_orchestrator = "omnibase_infra.nodes.node_runtime_orchestrator"
+node_runtime_source_attestor_effect = "omnibase_infra.nodes.node_runtime_source_attestor_effect"
+node_savings_estimation_compute = "omnibase_infra.nodes.node_savings_estimation_compute"
+node_scope_extract_compute = "omnibase_infra.nodes.node_scope_extract_compute"
+node_scope_file_read_effect = "omnibase_infra.nodes.node_scope_file_read_effect"
+node_scope_manifest_write_effect = "omnibase_infra.nodes.node_scope_manifest_write_effect"
+node_scope_workflow_orchestrator = "omnibase_infra.nodes.node_scope_workflow_orchestrator"
+node_scope_workflow_reducer = "omnibase_infra.nodes.node_scope_workflow_reducer"
+node_service_discovery_effect = "omnibase_infra.nodes.node_service_discovery_effect"
+node_session_lifecycle_reducer = "omnibase_infra.nodes.node_session_lifecycle_reducer"
+node_session_state_effect = "omnibase_infra.nodes.node_session_state_effect"
+node_setup_infisical_effect = "omnibase_infra.nodes.node_setup_infisical_effect"
+node_setup_local_provision_effect = "omnibase_infra.nodes.node_setup_local_provision_effect"
+node_setup_orchestrator = "omnibase_infra.nodes.node_setup_orchestrator"
+node_setup_preflight_effect = "omnibase_infra.nodes.node_setup_preflight_effect"
+node_setup_validate_effect = "omnibase_infra.nodes.node_setup_validate_effect"
+node_slack_alerter_effect = "omnibase_infra.nodes.node_slack_alerter_effect"
+node_update_plan_reducer = "omnibase_infra.nodes.node_update_plan_reducer"
+node_validation_adjudicator = "omnibase_infra.nodes.node_validation_adjudicator"
+node_validation_executor = "omnibase_infra.nodes.node_validation_executor"
+node_validation_ledger_projection_compute = "omnibase_infra.nodes.node_validation_ledger_projection_compute"
+node_validation_orchestrator = "omnibase_infra.nodes.node_validation_orchestrator"
+node_vector_store_effect = "omnibase_infra.nodes.node_vector_store_effect"
+node_waste_detection_compute = "omnibase_infra.nodes.node_waste_detection_compute"

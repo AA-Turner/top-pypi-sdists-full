@@ -1,0 +1,58 @@
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        type: string
+        description: The version of python to install, default is from .python-version file
+        default: ""
+      runs-on:
+        type: string
+        description: The runner to run this job on
+        required: true
+      tests-path:
+        type: string
+        description: The path to look for tests
+        required: true
+
+env:
+  # https://github.com/pytest-dev/pytest/issues/2042
+  PY_IGNORE_IMPORTMISMATCH: "1"
+  UV_PYTHON: ${{ inputs.python-version }}
+
+jobs:
+  run:
+    runs-on: ${{ inputs.runs-on }}
+
+    env:
+      COVERAGE_PROCESS_START: .coveragerc
+      EXAMPLE_SERVICES_PATH: ./example-services
+
+    steps:
+      - name: Checkout repository (with submodules)
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set TEMP to D:/Temp
+        if: inputs.runs-on == 'windows-latest'
+        run: |
+          mkdir "D:\\Temp"
+          echo "TEMP=D:\\Temp" >> $env:GITHUB_ENV
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Run tests win
+        if: inputs.runs-on == 'windows-latest'
+        run: uv run --locked tox -e tests -- --timeout=10 ${{ inputs.tests-path}}
+
+      - name: Non win tests
+        if: inputs.runs-on != 'windows-latest'
+        run: uv run --locked tox -e tests -- --timeout=2 ${{ inputs.tests-path}}
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          name: ${{ inputs.python-version }}/${{ inputs.runs-on }}/${{ inputs.tests-path }}
+          files: cov.xml

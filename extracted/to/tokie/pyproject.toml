@@ -1,0 +1,58 @@
+[build-system]
+requires = ["maturin>=1.8,<2"]
+build-backend = "maturin"
+
+[project]
+name = "tokie"
+version = "0.0.10"
+description = "Blazingly fast tokenizer — 50x faster, 10x smaller, 100% accurate"
+readme = "README_PYPI.md"
+requires-python = ">=3.10"
+license = { text = "MIT OR Apache-2.0" }
+keywords = [
+    "tokenizer",
+    "tokenization",
+    "bpe",
+    "wordpiece",
+    "sentencepiece",
+    "bert",
+    "gpt2",
+    "llama",
+    "nlp",
+    "embedding",
+    "rag",
+    "transformers",
+    "huggingface",
+    "fast",
+    "rust",
+]
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing",
+    "Topic :: Text Processing :: Linguistic",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
+    "Development Status :: 4 - Beta",
+    "Operating System :: OS Independent",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/chonkie-inc/tokie"
+Repository = "https://github.com/chonkie-inc/tokie"
+Documentation = "https://docs.rs/tokie"
+"Bug Tracker" = "https://github.com/chonkie-inc/tokie/issues"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+manifest-path = "crates/tokie-python/Cargo.toml"

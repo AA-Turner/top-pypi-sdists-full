@@ -1,0 +1,32 @@
+# KSI-AFR-UCM — Using Cryptographic Modules
+#
+# DRAFT — this is a starter-pack template. Copy it to
+# `.efterlev/manifests/<ksi-id>.yml` (drop the `.template` suffix) and
+# fill in the DRAFT placeholders before letting it land in your
+# attestation pipeline. The `_template_help` block carries the
+# questions you should answer; remove that block once filled in.
+
+ksi: KSI-AFR-UCM
+name: "Using Cryptographic Modules"
+
+_template_help:
+  description: >
+    KSI-AFR-UCM ensures cryptographic modules used to protect federal data are selected per FedRAMP 20x Using Cryptographic Modules guidance (FIPS 140-validated, etc.). The attestation should name where you've documented the cryptographic-module inventory.
+  questions:
+      - "Where is your cryptographic-module inventory documented?"
+      - "Which FIPS 140-validated modules are in use (KMS, TLS libraries, etc.)?"
+      - "How are non-validated modules identified and remediated?"
+      - "Who reviews the inventory for completeness and currency?"
+      - "What's the review cadence?"
+
+evidence:
+  - type: attestation
+    statement: >
+      DRAFT — Example: Cryptographic-module inventory at compliance/crypto-inventory.md. All in-boundary cryptography uses FIPS 140-3 validated modules: AWS KMS (FIPS 140-3 Level 3), OpenSSL FIPS provider for application-layer TLS. Inventory reviewed quarterly by the security architect; deviations flagged in Jira SEC-CRYPTO.
+    attested_by: "DRAFT — your-vp-security@example.com"
+    attested_at: "DRAFT — YYYY-MM-DD"
+    reviewed_at: "DRAFT — YYYY-MM-DD"
+    next_review: "DRAFT — YYYY-MM-DD (recommend 6-month review cadence)"
+    supporting_docs:
+      - "DRAFT — ./policies/your-runbook.pdf"
+      - "DRAFT — https://wiki.your-company.example/path-to-relevant-docs"

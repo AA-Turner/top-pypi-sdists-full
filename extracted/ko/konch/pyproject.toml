@@ -1,0 +1,83 @@
+[project]
+name = "konch"
+version = "6.1.0"
+description = "CLI and configuration utility for the Python shell, optimized for simplicity and productivity."
+readme = "README.rst"
+license = "MIT"
+maintainers = [{ name = "Steven Loria", email = "oss@stevenloria.com" }]
+classifiers = [
+  "Intended Audience :: Developers",
+  "Natural Language :: English",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: System :: Shells",
+]
+requires-python = ">=3.10"
+dependencies = ["platformdirs>=4.3.7"]
+
+[project.scripts]
+konch = "konch:main"
+
+[project.urls]
+Changelog = "https://konch.readthedocs.io/en/latest/changelog.html"
+Issues = "https://github.com/sloria/konch/issues"
+Source = "https://github.com/sloria/konch/"
+
+[dependency-groups]
+docs = ["sphinx", "sphinx-issues"]
+tests = ["pytest", "scripttest==2.0.post1", "ipython>=8.0.0", "bpython>=0.24"]
+dev = [
+  { include-group = "tests" },
+  "ptpython",
+  "tox",
+  "tox-uv",
+  "pre-commit>=4.0,<5.0",
+]
+
+[build-system]
+requires = ["flit_core<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.flit.sdist]
+include = [
+  "docs/",
+  "tests/",
+  "CHANGELOG.rst",
+  "CONTRIBUTING.rst",
+  "NOTICE",
+  "tox.ini",
+]
+exclude = ["docs/_build/", "tests/test-output"]
+
+[tool.ruff]
+src = ["src"]
+fix = true
+show-fixes = true
+output-format = "full"
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+ignore = ["E203", "E266", "E501", "E731"]
+select = [
+  "B",  # flake8-bugbear
+  "E",  # pycodestyle error
+  "F",  # pyflakes
+  "I",  # isort
+  "UP", # pyupgrade
+  "W",  # pycodestyle warning
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E721"]
+
+[tool.mypy]
+ignore_missing_imports = true

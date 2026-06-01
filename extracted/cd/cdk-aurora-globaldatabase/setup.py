@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdk-aurora-globaldatabase",
-    "version": "2.4.61",
+    "version": "2.4.62",
     "description": "cdk-aurora-globaldatabase is an AWS CDK construct library that provides Cross Region Create Global Aurora RDS Databases.",
     "license": "Apache-2.0",
     "url": "https://github.com/neilkuan/cdk-aurora-globaldatabase.git",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdk_aurora_globaldatabase._jsii": [
-            "cdk-aurora-globaldatabase@2.4.61.jsii.tgz"
+            "cdk-aurora-globaldatabase@2.4.62.jsii.tgz"
         ],
         "cdk_aurora_globaldatabase": [
             "py.typed"

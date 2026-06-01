@@ -1,0 +1,33 @@
+from .coordinator import PrusaLinkConfigEntry as PrusaLinkConfigEntry, PrusaLinkUpdateCoordinator as PrusaLinkUpdateCoordinator
+from .entity import PrusaLinkEntity as PrusaLinkEntity
+from _typeshed import Incomplete
+from collections.abc import Callable as Callable, Coroutine
+from dataclasses import dataclass
+from homeassistant.components.button import ButtonEntity as ButtonEntity, ButtonEntityDescription as ButtonEntityDescription
+from homeassistant.core import HomeAssistant as HomeAssistant
+from homeassistant.exceptions import HomeAssistantError as HomeAssistantError
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback as AddConfigEntryEntitiesCallback
+from pyprusalink import JobInfo, LegacyPrinterStatus, PrinterStatus, PrusaLink as PrusaLink
+from typing import Any, Generic, TypeVar
+
+T = TypeVar('T', PrinterStatus, LegacyPrinterStatus, JobInfo)
+
+@dataclass(frozen=True)
+class PrusaLinkButtonEntityDescriptionMixin(Generic[T]):
+    press_fn: Callable[[PrusaLink], Callable[[int], Coroutine[Any, Any, None]]]
+
+@dataclass(frozen=True)
+class PrusaLinkButtonEntityDescription(ButtonEntityDescription, PrusaLinkButtonEntityDescriptionMixin[T], Generic[T]):
+    available_fn: Callable[[T], bool] = ...
+
+BUTTONS: dict[str, tuple[PrusaLinkButtonEntityDescription, ...]]
+
+async def async_setup_entry(hass: HomeAssistant, entry: PrusaLinkConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback) -> None: ...
+
+class PrusaLinkButtonEntity(PrusaLinkEntity, ButtonEntity):
+    entity_description: PrusaLinkButtonEntityDescription
+    _attr_unique_id: Incomplete
+    def __init__(self, coordinator: PrusaLinkUpdateCoordinator, description: PrusaLinkButtonEntityDescription) -> None: ...
+    @property
+    def available(self) -> bool: ...
+    async def async_press(self) -> None: ...

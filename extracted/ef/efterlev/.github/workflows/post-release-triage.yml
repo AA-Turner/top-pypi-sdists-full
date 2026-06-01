@@ -1,0 +1,212 @@
+# Post-release triage — runs scripts/triage.sh against a published release
+# tag and posts the report as the GitHub Release notes body.
+#
+# Triggered by either `release-container.yml` OR `release-smoke.yml`
+# completing. The first trigger (release-container, ~4 min after tag)
+# populates the Release page quickly with T1-T6 + T7 PENDING; the second
+# trigger (release-smoke, ~10 min after tag) reruns triage and overwrites
+# the body with T7 = matrix conclusion. This two-pass design keeps the
+# Release page populated quickly while ensuring matrix-status visibility
+# lands on the same surface.
+#
+# v0.1.21 and earlier triggered only on release-container. release-smoke
+# was running in parallel but its conclusion was never surfaced; v0.1.20
+# + v0.1.21 had silent matrix-wide failures across mac/win/linux/arm
+# that nobody noticed because `gh run list` collapsed workflow_run
+# state to a single column that stayed "queued" while every cell failed.
+# v0.1.22 adds T7 to triage.sh + adds release-smoke to this trigger
+# list to close the gap.
+#
+# Side benefit: this is what auto-creates the GitHub Release page that
+# wasn't being created from v0.1.5 onward (only v0.1.0–v0.1.4 had Release
+# pages; the rest were tag-only). The triage report becomes the Release
+# body, giving every release a durable per-version landing page with
+# verifiable artifact-quality data — exactly the discipline the v0.1.12+
+# patch arc was tracking ad-hoc.
+#
+# Also runnable manually via workflow_dispatch for backfilling triage
+# against any prior tag.
+#
+# See DECISIONS 2026-05-06 — automated post-release triage as durable
+# release artifact; DECISIONS 2026-05-07 — release-smoke matrix
+# visibility via T7 + dual-trigger.
+
+name: post-release-triage
+
+on:
+  workflow_run:
+    workflows: ["release-container", "release-smoke"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to triage (e.g. v0.1.16). Leave blank for the latest tag.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write   # create/update GitHub Release
+  actions: read     # query release-smoke workflow_run conclusion for T7
+
+jobs:
+  triage:
+    name: Run scripts/triage.sh and post to GH Release
+    runs-on: ubuntu-latest
+    # Gating rules:
+    #   - workflow_dispatch always allowed (manual triage backfills)
+    #   - tag-shaped ref ('v...' upstream head_branch)
+    #   - upstream conclusion in {success, failure} ONLY
+    #
+    # The conclusion-allowlist exists because v0.1.22 added `release-smoke`
+    # to the trigger list, and within minutes a 24h-old release-smoke run
+    # for v0.1.12 was cancelled by GitHub (long-queued runs eventually time
+    # out). That cancellation fired this workflow with head_branch=v0.1.12,
+    # which then ran triage against v0.1.12 (a release that doesn't pass
+    # current T-checks). Triage failed loudly, but on the wrong tag.
+    # Allowlisting {success, failure} keeps the design intent (surface
+    # failures on the Release page, not just successes) while filtering
+    # out cancelled / skipped / timed_out events from stale runs. The
+    # v0.1.18–v0.1.21 release-smoke matrices are all currently queued and
+    # will eventually time out; this gate stops them from re-firing the
+    # triage workflow against their respective tags.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (startsWith(github.event.workflow_run.head_branch, 'v') &&
+       (github.event.workflow_run.conclusion == 'success' ||
+        github.event.workflow_run.conclusion == 'failure'))
+    steps:
+      - name: Resolve tag to triage
+        id: tag
+        env:
+          DISPATCH_TAG: ${{ inputs.tag }}
+          UPSTREAM_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+          if [ -n "${DISPATCH_TAG:-}" ]; then
+            tag="$DISPATCH_TAG"
+          elif [ -n "${UPSTREAM_BRANCH:-}" ]; then
+            tag="$UPSTREAM_BRANCH"
+          else
+            echo "::error::no tag could be resolved from inputs or upstream workflow_run" >&2
+            exit 1
+          fi
+          # Normalize: accept v0.1.16 OR 0.1.16; emit v0.1.16.
+          tag="v${tag#v}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Resolved tag: $tag"
+
+      - name: Checkout at tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.tag.outputs.tag }}
+
+      - name: Set up uv + Python 3.12
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install Efterlev (for check-docs uv-run path)
+        run: uv sync --extra dev
+
+      - name: Install pipx
+        run: |
+          python3 -m pip install --user pipx
+          python3 -m pipx ensurepath
+          # Make pipx-installed binaries discoverable in subsequent steps.
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Install sigstore-python (verify-release.sh dep)
+        run: python3 -m pip install --user sigstore
+
+      - name: Install cosign (verify-release.sh + triage.sh dep)
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          # Pin to cosign 2.6.3 — the action's default is 2.5.2, which
+          # doesn't auto-discover OCI 1.1 referrer attestations (those are
+          # what `actions/attest-build-provenance` writes). cosign added
+          # OCI 1.1 referrers support in 2.6.0; 2.6.3 is the latest 2.x.
+          # Note: cosign 3.0.x ships .sigstore.json bundles instead of
+          # the legacy `.sig` files cosign-installer@v3 expects, so
+          # pinning to 3.x makes the install step 404. The action's
+          # supported install range tops out at 2.x. (v0.1.16 first-of-
+          # kind auto-triage caught the default-2.5.2 issue as 5/7
+          # false-positive findings; this pin is the fix.)
+          cosign-release: 'v2.6.3'
+
+      - name: Run triage and capture report
+        id: triage
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          # T7 (release-smoke matrix conclusion) queries the GH Actions API.
+          # GITHUB_TOKEN is NOT auto-injected into shell env in GH Actions —
+          # has to be passed explicitly. Without this, T7 reports SKIP
+          # ("no GH token in env"); v0.1.22's first auto-triage hit this.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Don't `set -e` propagate triage.sh exit 1 — we want to
+          # capture the report even on findings and surface them via
+          # the Release body + a non-zero job conclusion.
+          set +e
+          bash scripts/triage.sh "$TAG" > triage.md
+          triage_exit=$?
+          set -e
+          echo "triage_exit=$triage_exit" >> "$GITHUB_OUTPUT"
+          # v0.1.125 (#328): prepend the matching CHANGELOG section so
+          # the GitHub Release body says what shipped, not just that
+          # the release passed deterministic triage. Best-effort — if
+          # the extractor exits non-zero (missing section, malformed
+          # tag) the release notes fall back to triage-only with a
+          # short note rather than failing the workflow.
+          if python3 scripts/extract_changelog_section.py "$TAG" > changelog-section.md 2>extract-err.log; then
+            {
+              echo "## What's new in $TAG"
+              echo
+              cat changelog-section.md
+              echo
+              echo "---"
+              echo
+              cat triage.md
+            } > release-notes.md
+            mv release-notes.md triage.md
+          else
+            echo "::warning::extract_changelog_section.py failed for $TAG: $(cat extract-err.log)"
+            {
+              echo "_Release-notes auto-extraction skipped (no CHANGELOG section for $TAG); see [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/main/CHANGELOG.md)._"
+              echo
+              echo "---"
+              echo
+              cat triage.md
+            } > release-notes.md
+            mv release-notes.md triage.md
+          fi
+          # Surface a preview in the action log for quick eyeballing.
+          echo "--- release-notes preview ---"
+          head -60 triage.md
+          echo "--- (full body posted to GH Release) ---"
+
+      - name: Create or update GitHub Release with triage report
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release exists; updating notes."
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file triage.md
+          else
+            echo "Release does not exist; creating."
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --title "$TAG" \
+              --notes-file triage.md
+          fi
+
+      - name: Fail job if triage reported findings
+        env:
+          TRIAGE_EXIT: ${{ steps.triage.outputs.triage_exit }}
+        run: |
+          if [ "$TRIAGE_EXIT" != "0" ]; then
+            echo "::error::triage.sh reported findings (exit $TRIAGE_EXIT). See the GitHub Release body for detail." >&2
+            exit 1
+          fi

@@ -1,0 +1,167 @@
+Metadata-Version: 2.4
+Name: csrd-logging
+Version: 0.5.28
+Summary: Context-enriched logging mixin with optional auto-instrumentation
+Project-URL: Repository, https://github.com/csrd-api/fastapi-common
+Project-URL: Documentation, https://github.com/csrd-api/fastapi-common/tree/main/packages/logging
+Project-URL: Changelog, https://github.com/csrd-api/fastapi-common/blob/main/CHANGELOG.md
+License: MIT
+Requires-Python: >=3.12
+Requires-Dist: csrd-context
+Description-Content-Type: text/markdown
+
+# csrd.logging
+
+Context-enriched logging for all application layers.
+
+## Dependency tier
+
+```
+Tier 1      csrd.models · csrd.lifespan · csrd.context
+Tier 2      csrd.logging · csrd.auth · csrd.delegate · csrd.repository · csrd.service
+Tier 3      csrd.versioning
+```
+
+`csrd.logging` depends only on `csrd.context` — it sits at the low end of Tier 2.
+
+## Components
+
+### `ContextLogger`
+
+A stdlib `Logger` wrapper that auto-enriches every message with request context (`hit_id`, `user_id`, path params) as `key=value` pairs.
+
+```python
+from csrd.logging import ContextLogger
+
+logger = ContextLogger(logging.getLogger(__name__))
+logger.info("Order created", meta={"order_id": 42})
+# → "Order created hit_id=abc-123 user_id=user1 order_id=42"
+```
+
+All standard logging kwargs (`exc_info`, `extra`, `stacklevel`) pass through. The `meta` kwarg adds extra key=value pairs per call.
+
+### `LoggingMixin`
+
+A mixin providing `self.log` (a `ContextLogger`) for any class. Works at every layer.
+
+```python
+from csrd.logging import LoggingMixin
+
+class OrderService(BaseService, LoggingMixin):
+    async def place_order(self, cart):
+        self.log.info("Placing order", meta={"items": len(cart)})
+```
+
+#### Auto-logging (opt-in)
+
+Pass `auto_log=True` to automatically log entry and exceptions for every public method:
+
+```python
+class OrderService(BaseService, LoggingMixin, auto_log=True):
+    async def place_order(self, cart):  # ← entry logged at INFO, exceptions at ERROR
+        ...
+```
+
+Exclude noisy methods:
+
+```python
+class MyService(BaseService, LoggingMixin, auto_log=True):
+    __log_exclude__ = {"health_check"}
+```
+
+Both sync and async methods are handled. Private methods (`_name`) are always skipped.
+
+### `RequestContextFilter`
+
+A stdlib `logging.Filter` that injects context fields into log **records** (not messages). Use this when your logging backend (Splunk, ELK, Datadog) needs structured fields in a configurable format.
+
+Fields added to each record:
+
+| Field | Source | Default |
+|-------|--------|---------|
+| `hit_id` | Request trace ID | `"-"` |
+| `user_id` | Authenticated user's `sub` claim | `"-"` |
+| `app_id` | Application identifier header | `"-"` |
+| `api_version` | Resolved API version | `"-"` |
+
+## Production logging configuration
+
+`ContextLogger` enriches log **messages** — it works out of the box with zero configuration. For production deployments you'll typically also want to configure stdlib logging with structured formatters, handlers, and filters.
+
+### Approach 1: `ContextLogger` only (simplest)
+
+No configuration needed. Messages include context automatically:
+
+```
+2025-07-15 10:23:45 INFO  Order created hit_id=abc-123 user_id=user1 order_id=42
+```
+
+Good for development and simple deployments.
+
+### Approach 2: YAML logging configuration (production)
+
+Create a `config/logging.yml` in your application:
+
+```yaml
+version: 1
+disable_existing_loggers: false
+
+formatters:
+  structured:
+    style: "{"
+    format: "{asctime} hitId={hit_id} userId={user_id} module={name} func={funcName} level={levelname} {message}"
+
+filters:
+  context:
+    "()": csrd.logging.RequestContextFilter
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: structured
+    stream: ext://sys.stdout
+    filters: [context]
+
+loggers:
+  uvicorn:
+    handlers: [console]
+    level: INFO
+    propagate: false
+  uvicorn.access:
+    handlers: [console]
+    level: INFO
+    propagate: false
+  root:
+    level: INFO
+    handlers: [console]
+```
+
+Load it at startup:
+
+```python
+import logging.config
+import yaml
+from pathlib import Path
+
+with open(Path("config/logging.yml")) as f:
+    logging.config.dictConfig(yaml.safe_load(f))
+```
+
+### Approach 3: Both together (recommended for production)
+
+Use `ContextLogger` / `LoggingMixin` in your code for dev-friendly messages, **and** attach `RequestContextFilter` to your production handlers for structured logging backends. The two are complementary — `ContextLogger` enriches the message text, `RequestContextFilter` adds record-level fields for formatters.
+
+### When to use which
+
+| Approach | Context in logs | Config required | Best for |
+|----------|----------------|-----------------|----------|
+| `ContextLogger` | In message text (`key=value`) | None | Dev, simple apps |
+| `logging.yml` + `RequestContextFilter` | In log record fields | YAML file | Splunk, ELK, structured logging |
+| Both together | Both | YAML file | Full production setup |
+
+## Installation
+
+```bash
+uv add csrd-logging
+```

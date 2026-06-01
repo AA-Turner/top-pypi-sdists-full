@@ -1,0 +1,63 @@
+[package]
+name = "blazen-3d"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Multi-backend 3D-pipeline crate for Blazen (texturizer, rigger, refiner, animator capability traits)"
+
+[dependencies]
+async-trait.workspace = true
+base64 = { workspace = true, optional = true }
+blazen-3d-core = { version = "0.6.1", path = "../blazen-3d-core", optional = true }
+blazen-audio-core = { version = "0.6.1", path = "../blazen-audio-core", optional = true }
+candle-core = { workspace = true, optional = true }
+candle-nn = { workspace = true, optional = true }
+futures-core.workspace = true
+hf-hub = { workspace = true, features = ["ureq"], optional = true }
+reqwest = { workspace = true, features = ["multipart"], optional = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true, optional = true }
+thiserror.workspace = true
+tokio = { workspace = true, features = ["rt"], optional = true }
+
+[features]
+default = []
+# `compat-proxy` enables the `Compat3dProvider` HTTP-proxy backend at
+# `src/backends/compat.rs`. The backend POSTs multipart requests to a
+# configurable upstream and decodes base64-wrapped binary responses, so
+# enabling it pulls in `reqwest` (with the `multipart` feature) and
+# `base64`.
+compat-proxy = ["dep:reqwest", "dep:base64", "dep:serde_json"]
+# `triposr` enables the native TripoSR single-image-to-3D backend at
+# `src/backends/triposr/`. Wave T.1 ships the scaffolding (placeholder
+# modules + `TripoSrBackend` struct); Wave T.2 lands the real DINOv2
+# image encoder + triplane transformer + NeRF/SDF field + marching
+# cubes mesh extraction. Pulls in `blazen-3d-core` (shared 3D
+# primitives) and `candle-core` (tensor runtime).
+#
+# Note: the `ThreeDGeneration` trait impl lives in `blazen-llm`, not
+# here, to avoid a `blazen-llm` -> `blazen-3d` -> `blazen-llm` dep
+# cycle (`blazen-llm` already depends on `blazen-3d` via the `threed`
+# feature). See `src/backends/triposr/mod.rs` for the cycle-resolution
+# notes.
+triposr = [
+    "dep:blazen-3d-core",
+    "dep:blazen-audio-core",
+    "dep:candle-core",
+    "dep:candle-nn",
+    "dep:hf-hub",
+    "dep:serde_json",
+    "dep:tokio",
+]
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+mockito = "1.7.2"
+serde_json.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

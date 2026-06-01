@@ -1,0 +1,41 @@
+name: Build Sphinx Docs
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+        sphinx-version: [">=5.1,<6", ">=6,<7", ">=7,<8", ">=8,<9"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Ollama
+        uses: ai-action/setup-ollama@fc020bb65890f31d60475232b35cea07152316ee
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6.3.1
+        with:
+          version: "latest"
+          python-version: ${{ matrix.python-version }}
+
+      - name: Invalidate summary cache
+        run: |
+          echo "\n\nBuild ID: $GITHUB_RUN_ID" >> docs/source/apples.rst
+          cp docs/source/test.rst docs/source/test.rst.bak
+
+      - name: Build Sphinx documentation
+        run: |
+          uv run --dev --extra gen --with "sphinx${{ matrix.sphinx-version }}" sphinx-build -b html docs/source docs/build/html
+
+      - name: DEBUG Output updated source file
+        run: |
+          diff docs/source/test.rst docs/source/test.rst.bak || true

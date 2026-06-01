@@ -1,0 +1,19 @@
+import asyncio
+
+from tests.utils import EvalKernel, get_kernel, get_log_text
+
+
+def test_processing_magic() -> None:
+    kernel = get_kernel(EvalKernel)
+    asyncio.run(
+        kernel.do_execute("""%%processing
+
+setup() {
+}
+
+draw() {
+}
+""")
+    )
+    text = get_log_text(kernel)
+    assert "Display Data" in text, text

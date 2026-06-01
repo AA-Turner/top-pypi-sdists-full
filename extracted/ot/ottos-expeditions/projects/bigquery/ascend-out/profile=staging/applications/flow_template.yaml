@@ -1,9 +1,0 @@
-application:
-  metadata:
-    source:
-      first_line_number: 45
-      path: .venv/lib/python3.12/site-packages/ascend/application/application/builtin/flow_template.py
-  name: flow_template
-  python:
-    entrypoint: ascend.application.application.builtin.flow_template.FlowTemplate
-    source: ''

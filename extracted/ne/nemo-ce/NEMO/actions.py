@@ -1,0 +1,298 @@
+import json
+from collections.abc import Mapping
+from typing import Sequence
+
+from django.contrib import admin, messages
+from django.db.models import Max
+from django.urls import reverse
+from django.utils.safestring import mark_safe
+
+from NEMO.mixins import BillableItemMixin
+from NEMO.models import Area, Configuration, Interlock, InterlockCard, Qualification, Tool, ToolUsageQuestions, User
+from NEMO.typing import QuerySetType
+from NEMO.utilities import (
+    BasicDisplayTable,
+    export_format_datetime,
+    format_datetime,
+    get_django_default_perm,
+    new_model_copy,
+)
+from NEMO.views.access_requests import access_csv_export
+from NEMO.views.adjustment_requests import adjustments_csv_export
+from NEMO.views.shadowing_verification import shadowing_verification_requests_csv_export
+
+
+@admin.action(description="Disable selected cards", permissions=["change"])
+def disable_selected_cards(model_admin, request, queryset: QuerySetType[InterlockCard]):
+    for interlock_card in queryset:
+        interlock_card.enabled = False
+        interlock_card.save(update_fields=["enabled"])
+
+
+@admin.action(description="Enable selected cards", permissions=["change"])
+def enable_selected_cards(model_admin, request, queryset: QuerySetType[InterlockCard]):
+    for interlock_card in queryset:
+        interlock_card.enabled = True
+        interlock_card.save(update_fields=["enabled"])
+
+
+@admin.action(description="Lock selected interlocks", permissions=["change"])
+def lock_selected_interlocks(model_admin, request, queryset):
+    for interlock in queryset:
+        try:
+            command_succeeded = interlock.lock()
+            if command_succeeded:
+                messages.success(request, f"{interlock} has been successfully locked")
+            else:
+                messages.error(request, f"{interlock} could not be locked. {interlock.most_recent_reply}")
+        except Exception as error:
+            messages.error(request, f"{interlock} could not be locked due to the following error: {str(error)}")
+
+
+@admin.action(description="Unlock selected interlocks", permissions=["change"])
+def unlock_selected_interlocks(model_admin, request, queryset):
+    for interlock in queryset:
+        try:
+            command_succeeded = interlock.unlock()
+            if command_succeeded:
+                messages.success(request, f"{interlock} has been successfully unlocked")
+            else:
+                messages.error(request, f"{interlock} could not be unlocked. {interlock.most_recent_reply}")
+        except Exception as error:
+            messages.error(request, f"{interlock} could not be unlocked due to the following error: {str(error)}")
+
+
+@admin.action(description="Synchronize selected interlocks with tool usage", permissions=["change"])
+def synchronize_with_tool_usage(model_admin, request, queryset):
+    for interlock in queryset:
+        # Ignore interlocks with no tool assigned, and ignore interlocks connected to doors
+        if not hasattr(interlock, "tool") or hasattr(interlock, "door"):
+            continue
+        if interlock.tool.in_use():
+            interlock.unlock()
+        else:
+            interlock.lock()
+
+
+@admin.action(description="Create next interlock")
+def create_next_interlock(model_admin, request, queryset):
+    if not has_perm(request, queryset, "add") or not has_perm(request, queryset, "change"):
+        model_admin.message_user(request, "You do not have permission to run this action.", level=messages.ERROR)
+    for interlock in queryset:
+        new_interlock = Interlock()
+        new_interlock.card = interlock.card
+        new_interlock.unit_id = interlock.unit_id
+        max_channel = Interlock.objects.filter(card=interlock.card).aggregate(Max("channel"))["channel__max"]
+        new_interlock.channel = max_channel + 1 if max_channel is not None else None
+        new_interlock.save()
+
+
+@admin.action(description="Generate CSV status report for selected interlocks", permissions=["view"])
+def csv_interlock_status_report(model_admin, request, queryset: QuerySetType[Interlock]):
+    from NEMO.interlocks import get_interlock_report
+
+    interlock_report = get_interlock_report(queryset)
+    filename = "interlocks_report_" + export_format_datetime() + ".csv"
+    return interlock_report.to_csv_http_response(filename)
+
+
+@admin.action(description="Duplicate selected tool configuration")
+def duplicate_tool_configuration(model_admin, request, queryset):
+    if not has_perm(request, queryset, "add") or not has_perm(request, queryset, "change"):
+        model_admin.message_user(request, "You do not have permission to run this action.", level=messages.ERROR)
+    for tool in queryset:
+        original_name = tool.name
+        new_name = "Copy of " + tool.name
+        try:
+            if Tool.objects.filter(name=new_name).exists():
+                messages.error(
+                    request,
+                    mark_safe(
+                        f'There is already a copy of {original_name} as <a href="{reverse("admin:NEMO_tool_change", args=[tool.id])}">{new_name}</a>. Change the copy\'s name and try again'
+                    ),
+                )
+                continue
+            elif tool.is_child_tool():
+                messages.warning(request, f"{original_name} is a child tool and cannot be duplicated")
+                continue
+            else:
+                old_required_resources = tool.required_resource_set.all()
+                old_nonrequired_resources = tool.nonrequired_resource_set.all()
+                old_backup_users = tool.backup_owners.all()
+                old_superusers = tool.superusers.all()
+                old_reviewers = tool.adjustment_request_reviewers.all()
+                old_shadowing_verification_request_qualification_levels = (
+                    tool.shadowing_verification_request_qualification_levels.all()
+                )
+                old_id = tool.pk
+                new_tool = new_model_copy(tool)
+                new_tool.interlock = None
+                new_tool.visible = False
+                new_tool.operational = False
+                new_tool.name = new_name
+                new_tool.image = None
+                new_tool.description = None
+                new_tool.serial = None
+                new_tool.save()
+                new_tool.required_resource_set.set(old_required_resources)
+                new_tool.nonrequired_resource_set.set(old_nonrequired_resources)
+                new_tool.backup_owners.set(old_backup_users)
+                new_tool.superusers.set(old_superusers)
+                new_tool.adjustment_request_reviewers.set(old_reviewers)
+                new_tool.shadowing_verification_request_qualification_levels.set(
+                    old_shadowing_verification_request_qualification_levels
+                )
+                for user in User.objects.filter(qualifications__id=old_id).distinct():
+                    qualification_level = Qualification.objects.get(user=user, tool__id=old_id).qualification_level
+                    user.add_qualification(new_tool, qualification_level)
+            messages.success(
+                request,
+                mark_safe(
+                    f'A duplicate of {original_name} has been made as <a href="{reverse("admin:NEMO_tool_change", args=[new_tool.id])}">{new_tool.name}</a>'
+                ),
+            )
+        except Exception as error:
+            messages.error(
+                request, f"{original_name} could not be duplicated because of the following error: {str(error)}"
+            )
+
+
+@admin.action(description="Rebuild area tree", permissions=["change"])
+def rebuild_area_tree(model_admin, request, queryset):
+    Area.objects.rebuild()
+
+
+@admin.action(description="Export selected adjustment requests in CSV", permissions=["view"])
+def adjustment_requests_export_csv(modeladmin, request, queryset):
+    return adjustments_csv_export(queryset.all())
+
+
+@admin.action(description="Mark selected adjustment requests as applied", permissions=["change"])
+def adjustment_requests_mark_as_applied(modeladmin, request, queryset):
+    return queryset.update(applied=True, applied_by=request.user)
+
+
+@admin.action(description="Export selected access requests in CSV", permissions=["view"])
+def access_requests_export_csv(modeladmin, request, queryset):
+    return access_csv_export(queryset.all())
+
+
+@admin.action(description="Export selected shadowing verification requests in CSV", permissions=["view"])
+def shadowing_verification_requests_export_csv(modeladmin, request, queryset):
+    return shadowing_verification_requests_csv_export(queryset.all())
+
+
+@admin.action(description="Duplicate selected configuration")
+def duplicate_configuration(model_admin, request, queryset: QuerySetType[Configuration]):
+    if not has_perm(request, queryset, "add") or not has_perm(request, queryset, "change"):
+        model_admin.message_user(request, "You do not have permission to run this action.", level=messages.ERROR)
+    for configuration in queryset:
+        original_name = configuration.name
+        new_name = "Copy of " + configuration.name
+        try:
+            if Configuration.objects.filter(name=new_name).exists():
+                messages.error(
+                    request,
+                    mark_safe(
+                        f'There is already a copy of {original_name} as <a href="{reverse("admin:NEMO_configuration_change", args=[configuration.id])}">{new_name}</a>. Change the copy\'s name and try again'
+                    ),
+                )
+                continue
+            else:
+                old_maintainers = configuration.maintainers.all()
+                new_configuration = new_model_copy(configuration)
+                new_configuration.name = new_name
+                new_configuration.save()
+                for maintainer in old_maintainers:
+                    new_configuration.maintainers.add(maintainer)
+                messages.success(
+                    request,
+                    mark_safe(
+                        f'A duplicate of {original_name} has been made as <a href="{reverse("admin:NEMO_configuration_change", args=[new_configuration.id])}">{new_configuration.name}</a>'
+                    ),
+                )
+        except Exception as error:
+            messages.error(
+                request, f"{original_name} could not be duplicated because of the following error: {str(error)}"
+            )
+
+
+@admin.action(description="Duplicate selected tool usage questions")
+def duplicate_tool_usage_questions(model_admin, request, queryset: QuerySetType[ToolUsageQuestions]):
+    if not has_perm(request, queryset, "add") or not has_perm(request, queryset, "change"):
+        model_admin.message_user(request, "You do not have permission to run this action.", level=messages.ERROR)
+    for tool_usage_question in queryset:
+        try:
+            old_tools = tool_usage_question.only_for_tools.all()
+            old_projects = tool_usage_question.only_for_projects.all()
+            old_users = tool_usage_question.only_for_users.all()
+            old_groups = tool_usage_question.only_for_groups.all()
+            new_tool_usage_question = new_model_copy(tool_usage_question)
+            new_tool_usage_question.display_order = tool_usage_question.display_order + 1
+
+            def walk(x):
+                if isinstance(x, Mapping):
+                    x = dict(x)
+                    if "name" in x and isinstance(x["name"], str):
+                        x["name"] += f"_{new_tool_usage_question.display_order}"
+                    for k, v in x.items():
+                        x[k] = walk(v)
+                    return x
+                elif isinstance(x, Sequence) and not isinstance(x, str):
+                    return [walk(i) for i in x]
+                return x
+
+            new_tool_usage_question.questions = json.dumps(walk(json.loads(tool_usage_question.questions)), indent=4)
+
+            new_tool_usage_question.full_clean()
+            new_tool_usage_question.save()
+            new_tool_usage_question.only_for_tools.set(old_tools)
+            new_tool_usage_question.only_for_projects.set(old_projects)
+            new_tool_usage_question.only_for_users.set(old_users)
+            new_tool_usage_question.only_for_groups.set(old_groups)
+            messages.success(
+                request,
+                mark_safe(
+                    f'A duplicate of {str(tool_usage_question)} has been made as <a href="{reverse("admin:NEMO_toolusagequestions_change", args=[new_tool_usage_question.id])}">{str(new_tool_usage_question)}</a>'
+                ),
+            )
+        except Exception as error:
+            messages.error(
+                request,
+                f"{str(tool_usage_question)} could not be duplicated because of the following error: {str(error)}",
+            )
+
+
+@admin.action(description="Waive selected charges", permissions=["change"])
+@admin.action(description="Export selected qualifications in CSV", permissions=["view"])
+def export_qualifications_csv(model_admin, request, queryset: QuerySetType[Qualification]):
+    qualifications = BasicDisplayTable()
+    qualifications.headers = [
+        ("qualified_on", "Date"),
+        ("user", "User"),
+        ("tool", "Tool"),
+        ("qualification_level", "Qualification Level"),
+    ]
+    for qualification in queryset:
+        qualifications.add_row(
+            {
+                "qualified_on": format_datetime(qualification.qualified_on, df="SHORT_DATE_FORMAT"),
+                "user": str(qualification.user),
+                "tool": qualification.tool.name,
+                "qualification_level": (
+                    qualification.qualification_level.name if qualification.qualification_level else ""
+                ),
+            }
+        )
+    return qualifications.to_csv_http_response("qualifications_" + export_format_datetime() + ".csv")
+
+
+@admin.action(description="Waive selected charges", permissions=["change"])
+def waive_selected_charges(model_admin, request, queryset: QuerySetType[BillableItemMixin]):
+    for charge in queryset:
+        charge.waive(request.user)
+        messages.success(request, f"{model_admin.model.__name__} #{charge.id} has been successfully waived")
+
+
+def has_perm(request, qs, action) -> bool:
+    return request.user.has_perm(get_django_default_perm(qs.model, action))

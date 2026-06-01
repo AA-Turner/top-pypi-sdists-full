@@ -1,0 +1,140 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Utility modules for ONEX infrastructure.
+
+This package provides common utilities used across the infrastructure:
+    - correlation: Correlation ID generation and propagation for distributed tracing
+    - util_atomic_file: Atomic file write primitives using temp-file-rename pattern
+    - util_consumer_group: Kafka consumer group ID generation with deterministic hashing
+    - util_datetime: Datetime validation and timezone normalization
+    - util_db_error_context: Database operation error handling context manager
+    - util_db_transaction: Database transaction context manager for asyncpg
+    - util_dsn_validation: PostgreSQL DSN validation and sanitization
+    - util_env_parsing: Type-safe environment variable parsing with validation
+    - util_error_sanitization: Error message sanitization for secure logging and DLQ
+    - util_pydantic_validators: Shared Pydantic field validator utilities
+    - util_retry_optimistic: Optimistic locking retry helper with exponential backoff
+    - util_semver: Semantic versioning validation utilities
+    - util_consumer_restart: Process-level restart-with-backoff for standalone Kafka consumers
+    - util_topic_validation: Kafka topic name validation (non-empty, max 255 chars, valid chars)
+"""
+
+from omnibase_infra.utils.correlation import (
+    CorrelationContext,
+    clear_correlation_id,
+    generate_correlation_id,
+    get_correlation_id,
+    set_correlation_id,
+)
+from omnibase_infra.utils.util_atomic_file import (
+    write_atomic_bytes,
+    write_atomic_bytes_async,
+)
+from omnibase_infra.utils.util_consumer_group import (
+    KAFKA_CONSUMER_GROUP_MAX_LENGTH,
+    apply_instance_discriminator,
+    compute_consumer_group_id,
+    normalize_kafka_identifier,
+)
+from omnibase_infra.utils.util_consumer_restart import run_with_restart
+from omnibase_infra.utils.util_datetime import (
+    ensure_timezone_aware,
+    is_timezone_aware,
+    validate_timezone_aware_with_context,
+    warn_if_naive_datetime,
+)
+
+# Note: util_db_error_context is NOT imported here to avoid circular imports.
+# Import directly: from omnibase_infra.utils.util_db_error_context import db_operation_error_context
+# See: omnibase_infra.errors -> util_error_sanitization -> utils.__init__ -> util_db_error_context -> errors
+from omnibase_infra.utils.util_db_transaction import (
+    set_statement_timeout,
+    transaction_context,
+)
+from omnibase_infra.utils.util_dsn_validation import (
+    parse_and_validate_dsn,
+    sanitize_dsn,
+)
+from omnibase_infra.utils.util_env_parsing import (
+    parse_env_float,
+    parse_env_int,
+)
+from omnibase_infra.utils.util_error_sanitization import (
+    SAFE_ERROR_PATTERNS,
+    SENSITIVE_PATTERNS,
+    sanitize_backend_error,
+    sanitize_error_message,
+    sanitize_error_string,
+    sanitize_secret_path,
+    sanitize_url,
+)
+from omnibase_infra.utils.util_llm_response_redaction import (
+    MAX_RAW_BLOB_BYTES,
+    redact_llm_response,
+)
+from omnibase_infra.utils.util_pydantic_validators import (
+    validate_contract_type_value,
+    validate_endpoint_urls_dict,
+    validate_policy_type_value,
+    validate_pool_sizes_constraint,
+    validate_timezone_aware_datetime,
+    validate_timezone_aware_datetime_optional,
+)
+from omnibase_infra.utils.util_retry_optimistic import (
+    OptimisticConflictError,
+    retry_on_optimistic_conflict,
+)
+from omnibase_infra.utils.util_semver import (
+    SEMVER_PATTERN,
+    validate_semver,
+    validate_version_lenient,
+)
+from omnibase_infra.utils.util_topic_validation import validate_topic_name
+
+__all__: list[str] = [
+    "CorrelationContext",
+    "KAFKA_CONSUMER_GROUP_MAX_LENGTH",
+    "MAX_RAW_BLOB_BYTES",
+    "OptimisticConflictError",
+    # Note: ProtocolCircuitBreakerFailureRecorder and db_operation_error_context are NOT exported
+    # here to avoid circular imports. Import directly from util_db_error_context.
+    "SAFE_ERROR_PATTERNS",
+    "SEMVER_PATTERN",
+    "SENSITIVE_PATTERNS",
+    "apply_instance_discriminator",
+    "clear_correlation_id",
+    "compute_consumer_group_id",
+    "ensure_timezone_aware",
+    "generate_correlation_id",
+    "get_correlation_id",
+    "is_timezone_aware",
+    "normalize_kafka_identifier",
+    "parse_and_validate_dsn",
+    "parse_env_float",
+    "parse_env_int",
+    "redact_llm_response",
+    "retry_on_optimistic_conflict",
+    "run_with_restart",
+    "sanitize_backend_error",
+    "sanitize_dsn",
+    "sanitize_error_message",
+    "sanitize_error_string",
+    "sanitize_secret_path",
+    "sanitize_url",
+    "set_correlation_id",
+    "set_statement_timeout",
+    "transaction_context",
+    "validate_contract_type_value",
+    "validate_endpoint_urls_dict",
+    "validate_policy_type_value",
+    "validate_pool_sizes_constraint",
+    "validate_semver",
+    "validate_timezone_aware_datetime",
+    "validate_timezone_aware_datetime_optional",
+    "validate_timezone_aware_with_context",
+    "validate_topic_name",
+    "validate_version_lenient",
+    "warn_if_naive_datetime",
+    "write_atomic_bytes",
+    "write_atomic_bytes_async",
+]

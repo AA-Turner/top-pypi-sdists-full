@@ -1,0 +1,11 @@
+detector_id: aws.lambda_env_kms_encryption
+
+evidence_shape:
+  resource_type: string         # always "aws_lambda_function"
+  resource_name: string         # the Terraform logical name
+  function_name: string         # resolved or literal function_name
+  kms_state: enum               # "configured" | "absent" | "unverifiable"
+  pattern: enum                 # "lambda_env_var_cmk"
+  kms_key_arn: string?          # the declared key ARN (configured | unverifiable only)
+  detail: string?               # short description (configured / unverifiable)
+  gap: string?                  # present only on absent evidence

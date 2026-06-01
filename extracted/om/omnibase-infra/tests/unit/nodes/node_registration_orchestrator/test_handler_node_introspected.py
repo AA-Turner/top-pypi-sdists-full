@@ -1,0 +1,797 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Unit tests for HandlerNodeIntrospected.
+
+Tests validate:
+- Handler delegates to RegistrationReducerService for decisions
+- Handler emits registration events for new nodes
+- Handler skips registration for nodes in blocking states
+- Handler re-initiates registration for nodes in retriable states
+- Handler returns intents for effect layer execution (OMN-2050)
+- State decision matrix per C1 requirements
+
+G2 Acceptance Criteria:
+    3. test_handler_node_introspected_emits_initiated
+    4. test_handler_node_introspected_skips_active_node
+
+Related Tickets:
+    - OMN-888 (C1): Registration Orchestrator
+    - OMN-889 (D1): Registration Reducer
+    - G2: Test orchestrator logic
+    - OMN-2050: Wire MessageDispatchEngine as single consumer path
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock
+from uuid import UUID, uuid4
+
+import pytest
+
+from omnibase_core.enums import EnumNodeKind
+from omnibase_core.models.dispatch.model_handler_output import ModelHandlerOutput
+from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+from omnibase_core.models.primitives.model_semver import ModelSemVer
+from omnibase_infra.enums import EnumRegistrationState
+from omnibase_infra.errors import ProtocolConfigurationError
+from omnibase_infra.models.projection import ModelRegistrationProjection
+from omnibase_infra.models.registration import (
+    ModelNodeCapabilities,
+    ModelNodeIntrospectionEvent,
+)
+from omnibase_infra.models.registration.events import ModelNodeRegistrationInitiated
+from omnibase_infra.nodes.node_registration_orchestrator.handlers.handler_node_introspected import (
+    HandlerNodeIntrospected,
+)
+from omnibase_infra.nodes.node_registration_orchestrator.services import (
+    RegistrationReducerService,
+)
+from omnibase_infra.nodes.node_registration_reducer.models.model_payload_postgres_upsert_registration import (
+    ModelPayloadPostgresUpsertRegistration,
+)
+from omnibase_infra.projectors.projection_reader_registration import (
+    ProjectionReaderRegistration,
+)
+
+# Fixed test time for deterministic testing
+TEST_NOW = datetime(2025, 1, 15, 12, 0, 0, tzinfo=UTC)
+
+
+def create_mock_projection_reader() -> AsyncMock:
+    """Create a mock ProjectionReaderRegistration."""
+    mock = AsyncMock(spec=ProjectionReaderRegistration)
+    mock.get_entity_state = AsyncMock(return_value=None)
+    return mock
+
+
+def create_default_reducer() -> RegistrationReducerService:
+    """Create a RegistrationReducerService with test defaults."""
+    return RegistrationReducerService()
+
+
+def create_projection(
+    entity_id: UUID,
+    state: EnumRegistrationState,
+) -> ModelRegistrationProjection:
+    """Create a test projection."""
+    return ModelRegistrationProjection(
+        entity_id=entity_id,
+        domain="registration",
+        current_state=state,
+        node_type=EnumNodeKind.EFFECT,
+        node_version=ModelSemVer.parse("1.0.0"),
+        capabilities=ModelNodeCapabilities(),  # ModelRegistrationProjection uses capabilities
+        last_applied_event_id=uuid4(),
+        last_applied_offset=0,
+        registered_at=TEST_NOW - timedelta(hours=1),
+        updated_at=TEST_NOW - timedelta(minutes=5),
+    )
+
+
+def create_introspection_event(
+    node_id: UUID | None = None,
+    timestamp: datetime | None = None,
+) -> ModelNodeIntrospectionEvent:
+    """Create a test introspection event."""
+    return ModelNodeIntrospectionEvent(
+        node_id=node_id or uuid4(),
+        node_type=EnumNodeKind.EFFECT,
+        correlation_id=uuid4(),
+        timestamp=timestamp or TEST_NOW,
+    )
+
+
+def create_envelope(
+    event: ModelNodeIntrospectionEvent,
+    now: datetime | None = None,
+    correlation_id: UUID | None = None,
+) -> ModelEventEnvelope[ModelNodeIntrospectionEvent]:
+    """Create a test envelope wrapping an introspection event."""
+    return ModelEventEnvelope(
+        envelope_id=uuid4(),
+        payload=event,
+        envelope_timestamp=now or TEST_NOW,
+        correlation_id=correlation_id or uuid4(),
+        source="test",
+    )
+
+
+class TestHandlerNodeIntrospectedEmitsInitiated:
+    """G2 Requirement 3: Handler emits NodeRegistrationInitiated for new nodes."""
+
+    @pytest.mark.asyncio
+    async def test_handler_node_introspected_emits_initiated(self) -> None:
+        """Given projection returns None (new node),
+        When handler processes NodeIntrospectionEvent,
+        Then emits ModelNodeRegistrationInitiated,
+        And event.emitted_at equals injected `now`.
+        """
+        # Arrange
+        mock_reader = create_mock_projection_reader()
+        mock_reader.get_entity_state.return_value = None  # New node
+
+        handler = HandlerNodeIntrospected(mock_reader, create_default_reducer())
+
+        node_id = uuid4()
+        correlation_id = uuid4()
+        introspection_event = create_introspection_event(node_id=node_id)
+        envelope = create_envelope(
+            introspection_event, now=TEST_NOW, correlation_id=correlation_id
+        )
+
+        # Act
+        output = await handler.handle(envelope)
+
+        # Assert
+        assert isinstance(output, ModelHandlerOutput)
+        assert output.handler_id == "handler-node-introspected"
+        assert len(output.events) == 2
+        initiated = output.events[0]
+        assert isinstance(initiated, ModelNodeRegistrationInitiated)
+        assert initiated.node_id == node_id
+        assert initiated.entity_id == node_id
+        assert initiated.correlation_id == correlation_id
+        # Causation ID should link to triggering event
+        assert initiated.causation_id == introspection_event.correlation_id
+        # Registration attempt ID should be generated
+        assert initiated.registration_attempt_id is not None
+        # Verify time injection: emitted_at must equal injected `now`
+        assert initiated.emitted_at == TEST_NOW
+
+    @pytest.mark.asyncio
+    async def test_emits_initiated_for_new_node(self) -> None:
+        """Test that new nodes (no projection) trigger registration."""
+        mock_reader = create_mock_projection_reader()
+        mock_reader.get_entity_state.return_value = None
+
+        handler = HandlerNodeIntrospected(mock_reader, create_default_reducer())
+        introspection_event = create_introspection_event()
+        envelope = create_envelope(introspection_event, now=TEST_NOW)
+
+        output = await handler.handle(envelope)
+
+        assert isinstance(output, ModelHandlerOutput)
+        assert len(output.events) == 2
+        assert isinstance(output.events[0], ModelNodeRegistrationInitiated)
+
+
+class TestHandlerNodeIntrospectedSkipsBlockingStates:
+    """G2 Requirement 4: Handler skips registration for nodes in blocking states."""
+
+    @pytest.mark.asyncio
+    async def test_handler_node_introspected_skips_active_node(self) -> None:
+        """Given projection returns state=ACTIVE,
+        When handler processes NodeIntrospectionEvent,
+        Then returns empty events tuple.
+        """
+        # Arrange
+        mock_reader = create_mock_projection_reader()
+        node_id = uuid4()
+        active_projection = create_projection(
+            entity_id=node_id,
+            state=EnumRegistrationState.ACTIVE,
+        )
+        mock_reader.get_entity_state.return_value = active_projection
+
+        handler = HandlerNodeIntrospected(mock_reader, create_default_reducer())
+        introspection_event = create_introspection_event(node_id=node_id)
+        envelope = create_envelope(introspection_event, now=TEST_NOW)
+
+        # Act
+        output = await handler.handle(envelope)
+
+        # Assert
+        assert isinstance(output, ModelHandlerOutput)
+        assert output.handler_id == "handler-node-introspected"
+        assert len(output.events) == 0
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "blocking_state",
+        [
+            EnumRegistrationState.PENDING_REGISTRATION,
+            EnumRegistrationState.ACCEPTED,
+            EnumRegistrationState.ACK_RECEIVED,
+            EnumRegistrationState.ACTIVE,
+        ],
+    )
+    async def test_skips_nodes_in_blocking_states(
+        self, blocking_state: EnumRegistrationState
+    ) -> None:
+        """Test that nodes in blocking states don't trigger new registration."""
+        mock_reader = create_mock_projection_reader()
+        node_id = uuid4()
+        blocking_projection = create_projection(
+            entity_id=node_id,
+            state=blocking_state,
+        )
+        mock_reader.get_entity_state.return_value = blocking_projection
+
+        handler = HandlerNodeIntrospected(mock_reader, create_default_reducer())
+        introspection_event = create_introspection_event(node_id=node_id)
+        envelope = create_envelope(introspection_event, now=TEST_NOW)
+
+        output = await handler.handle(envelope)
+
+        assert isinstance(output, ModelHandlerOutput)
+        assert len(output.events) == 0, f"Expected no events for state {blocking_state}"
+        assert len(output.intents) == 0, (
+            f"Expected no intents for state {blocking_state}"
+        )
+
+
+class TestHandlerNodeIntrospectedRetriableStates:
+    """Test that nodes in retriable states can re-register."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "retriable_state",
+        [
+            EnumRegistrationState.LIVENESS_EXPIRED,
+            EnumRegistrationState.REJECTED,
+            EnumRegistrationState.ACK_TIMED_OUT,
+            EnumRegistrationState.AWAITING_ACK,
+        ],
+    )
+    async def test_emits_initiated_for_retriable_states(
+        self, retriable_state: EnumRegistrationState
+    ) -> None:
+        """Test that nodes in retriable states trigger new registration."""
+        mock_reader = create_mock_projection_reader()
+        node_id = uuid4()
+        retriable_projection = create_projection(
+            entity_id=node_id,
+            state=retriable_state,
+        )
+        mock_reader.get_entity_state.return_value = retriable_projection
+
+        handler = HandlerNodeIntrospected(mock_reader, create_default_reducer())
+        introspection_event = create_introspection_event(node_id=node_id)
+        envelope = create_envelope(introspection_event, now=TEST_NOW)
+
+        output = await handler.handle(envelope)
+
+        assert isinstance(output, ModelHandlerOutput)
+        assert len(output.events) == 2
+        assert isinstance(output.events[0], ModelNodeRegistrationInitiated)
+        assert output.events[0].node_id == node_id
+
+    @pytest.mark.asyncio
+    async def test_emits_initiated_for_liveness_expired_state(self) -> None:
+        """Test that LIVENESS_EXPIRED state allows re-registration."""
+        mock_reader = create_mock_projection_reader()
+        node_id = uuid4()
+        expired_projection = create_projection(
+            entity_id=node_id,
+            state=EnumRegistrationState.LIVENESS_EXPIRED,
+        )
+        mock_reader.get_entity_state.return_value = expired_projection
+
+        handler = HandlerNodeIntrospected(mock_reader, create_default_reducer())
+        introspection_event = create_introspection_event(node_id=node_id)
+        envelope = create_envelope(introspection_event, now=TEST_NOW)
+
+        output = await handler.handle(envelope)
+
+        assert isinstance(output, ModelHandlerOutput)
+        assert len(output.events) == 2
+        assert isinstance(output.events[0], ModelNodeRegistrationInitiated)
+
+    @pytest.mark.asyncio
+    async def test_emits_initiated_for_rejected_state(self) -> None:
+        """Test that REJECTED state allows retry registration."""
+        mock_reader = create_mock_projection_reader()
+        node_id = uuid4()
+        rejected_projection = create_projection(
+            entity_id=node_id,
+            state=EnumRegistrationState.REJECTED,
+        )
+        mock_reader.get_entity_state.return_value = rejected_projection
+
+        handler = HandlerNodeIntrospected(mock_reader, create_default_reducer())
+        introspection_event = create_introspection_event(node_id=node_id)
+        envelope = create_envelope(introspection_event, now=TEST_NOW)
+
+        output = await handler.handle(envelope)
+
+        assert isinstance(output, ModelHandlerOutput)
+        assert len(output.events) == 2
+        assert isinstance(output.events[0], ModelNodeRegistrationInitiated)
+
+    @pytest.mark.asyncio
+    async def test_emits_initiated_for_ack_timed_out_state(self) -> None:
+        """Test that ACK_TIMED_OUT state allows retry registration."""
+        mock_reader = create_mock_projection_reader()
+        node_id = uuid4()
+        timed_out_projection = create_projection(
+            entity_id=node_id,
+            state=EnumRegistrationState.ACK_TIMED_OUT,
+        )
+        mock_reader.get_entity_state.return_value = timed_out_projection
+
+        handler = HandlerNodeIntrospected(mock_reader, create_default_reducer())
+        introspection_event = create_introspection_event(node_id=node_id)
+        envelope = create_envelope(introspection_event, now=TEST_NOW)
+
+        output = await handler.handle(envelope)
+
+        assert isinstance(output, ModelHandlerOutput)
+        assert len(output.events) == 2
+        assert isinstance(output.events[0], ModelNodeRegistrationInitiated)
+
+
+class TestHandlerNodeIntrospectedEventFields:
+    """Test that emitted events have correct field values."""
+
+    @pytest.mark.asyncio
+    async def test_registration_attempt_id_is_unique(self) -> None:
+        """Test that each registration attempt gets a unique ID."""
+        mock_reader = create_mock_projection_reader()
+        mock_reader.get_entity_state.return_value = None
+
+        handler = HandlerNodeIntrospected(mock_reader, create_default_reducer())
+
+        # Process same event twice
+        introspection_event = create_introspection_event()
+        envelope1 = create_envelope(introspection_event, now=TEST_NOW)
+        envelope2 = create_envelope(introspection_event, now=TEST_NOW)
+
+        output1 = await handler.handle(envelope1)
+        output2 = await handler.handle(envelope2)
+
+        # Both should succeed (2 events each: initiated + accepted)
+        assert len(output1.events) == 2
+        assert len(output2.events) == 2
+
+        # But registration attempt IDs should differ
+        assert (
+            output1.events[0].registration_attempt_id
+            != output2.events[0].registration_attempt_id
+        )
+
+    @pytest.mark.asyncio
+    async def test_causation_id_links_to_introspection_event(self) -> None:
+        """Test that causation_id links to the triggering introspection event."""
+        mock_reader = create_mock_projection_reader()
+        mock_reader.get_entity_state.return_value = None
+
+        handler = HandlerNodeIntrospected(mock_reader, create_default_reducer())
+
+        introspection_correlation_id = uuid4()
+        introspection_event = ModelNodeIntrospectionEvent(
+            node_id=uuid4(),
+            node_type=EnumNodeKind.EFFECT,
+            correlation_id=introspection_correlation_id,
+            timestamp=TEST_NOW,
+        )
+        envelope = create_envelope(introspection_event, now=TEST_NOW)
+
+        output = await handler.handle(envelope)
+
+        assert len(output.events) == 2
+        # Causation should link to the introspection event's correlation ID
+        assert output.events[0].causation_id == introspection_correlation_id
+
+    @pytest.mark.asyncio
+    async def test_entity_id_equals_node_id(self) -> None:
+        """Test that entity_id equals node_id for registration domain."""
+        mock_reader = create_mock_projection_reader()
+        mock_reader.get_entity_state.return_value = None
+
+        handler = HandlerNodeIntrospected(mock_reader, create_default_reducer())
+
+        node_id = uuid4()
+        introspection_event = create_introspection_event(node_id=node_id)
+        envelope = create_envelope(introspection_event, now=TEST_NOW)
+
+        output = await handler.handle(envelope)
+
+        assert len(output.events) == 2
+        assert output.events[0].entity_id == node_id
+        assert output.events[0].node_id == node_id
+        assert output.events[0].entity_id == output.events[0].node_id
+
+
+class TestHandlerNodeIntrospectedProjectionQueries:
+    """Test projection reader interactions."""
+
+    @pytest.mark.asyncio
+    async def test_queries_projection_with_correct_params(self) -> None:
+        """Test that projection is queried with correct parameters."""
+        mock_reader = create_mock_projection_reader()
+        mock_reader.get_entity_state.return_value = None
+
+        handler = HandlerNodeIntrospected(mock_reader, create_default_reducer())
+
+        node_id = uuid4()
+        correlation_id = uuid4()
+        introspection_event = create_introspection_event(node_id=node_id)
+        envelope = create_envelope(
+            introspection_event, now=TEST_NOW, correlation_id=correlation_id
+        )
+
+        await handler.handle(envelope)
+
+        mock_reader.get_entity_state.assert_called_once_with(
+            entity_id=node_id,
+            domain="registration",
+            correlation_id=correlation_id,
+        )
+
+
+class TestHandlerNodeIntrospectedTimezoneValidation:
+    """Test that handler validates timezone-awareness of envelope timestamp."""
+
+    @pytest.mark.asyncio
+    async def test_raises_protocol_configuration_error_for_naive_datetime(self) -> None:
+        """Test that handler raises ProtocolConfigurationError if envelope_timestamp is naive (no tzinfo)."""
+        mock_reader = create_mock_projection_reader()
+        handler = HandlerNodeIntrospected(mock_reader, create_default_reducer())
+
+        # Create a naive datetime (no timezone info)
+        naive_now = datetime(2025, 1, 15, 12, 0, 0)  # No tzinfo!
+        assert naive_now.tzinfo is None  # Confirm it's naive
+
+        introspection_event = create_introspection_event(node_id=uuid4())
+        envelope = create_envelope(introspection_event, now=naive_now)
+
+        with pytest.raises(ProtocolConfigurationError) as exc_info:
+            await handler.handle(envelope)
+
+        assert "timezone-aware" in str(exc_info.value)
+        assert "naive" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_accepts_timezone_aware_datetime(self) -> None:
+        """Test that handler accepts timezone-aware datetime."""
+        mock_reader = create_mock_projection_reader()
+        mock_reader.get_entity_state.return_value = None
+
+        handler = HandlerNodeIntrospected(mock_reader, create_default_reducer())
+
+        # Use timezone-aware datetime
+        aware_now = datetime(2025, 1, 15, 12, 0, 0, tzinfo=UTC)
+        assert aware_now.tzinfo is not None  # Confirm it's aware
+
+        introspection_event = create_introspection_event(node_id=uuid4())
+        envelope = create_envelope(introspection_event, now=aware_now)
+
+        # Should not raise - timezone-aware datetime is valid
+        output = await handler.handle(envelope)
+
+        assert isinstance(output, ModelHandlerOutput)
+        assert (
+            len(output.events) == 2
+        )  # New node triggers registration (initiated + accepted)
+
+
+class TestHandlerNodeIntrospectedIntents:
+    """Test intent-based output for effect layer execution (OMN-2050)."""
+
+    @pytest.mark.asyncio
+    async def test_returns_postgres_intent(self) -> None:
+        """Test that handler returns a postgres upsert intent."""
+        mock_reader = create_mock_projection_reader()
+        mock_reader.get_entity_state.return_value = None  # New node
+
+        handler = HandlerNodeIntrospected(mock_reader, create_default_reducer())
+
+        node_id = uuid4()
+        correlation_id = uuid4()
+        introspection_event = create_introspection_event(node_id=node_id)
+        envelope = create_envelope(
+            introspection_event, now=TEST_NOW, correlation_id=correlation_id
+        )
+
+        output = await handler.handle(envelope)
+
+        # Should have 1 intent: postgres upsert (consul removed in OMN-3540)
+        assert len(output.intents) >= 1
+
+        # Verify intent types
+        intent_payload_types = [type(i.payload).__name__ for i in output.intents]
+        assert "ModelPayloadPostgresUpsertRegistration" in intent_payload_types
+
+    @pytest.mark.asyncio
+    async def test_postgres_intent_has_correct_record(self) -> None:
+        """Test that postgres intent has correct registration record data."""
+        mock_reader = create_mock_projection_reader()
+        mock_reader.get_entity_state.return_value = None
+
+        handler = HandlerNodeIntrospected(mock_reader, create_default_reducer())
+
+        node_id = uuid4()
+        correlation_id = uuid4()
+        introspection_event = create_introspection_event(node_id=node_id)
+        envelope = create_envelope(
+            introspection_event, now=TEST_NOW, correlation_id=correlation_id
+        )
+
+        output = await handler.handle(envelope)
+
+        # Find the postgres intent
+        postgres_intents = [
+            i
+            for i in output.intents
+            if isinstance(i.payload, ModelPayloadPostgresUpsertRegistration)
+        ]
+        assert len(postgres_intents) == 1
+
+        postgres_payload = postgres_intents[0].payload
+        assert postgres_payload.correlation_id == correlation_id
+
+        # Verify record contains expected fields
+        # record is a ModelProjectionRecord; convert to dict for access
+        record = postgres_payload.record.model_dump()
+        assert record["entity_id"] == node_id
+        assert record["domain"] == "registration"
+        assert record["current_state"] == EnumRegistrationState.ACTIVE.value
+        assert record["node_type"] == "effect"
+
+        # Verify intent envelope
+        assert postgres_intents[0].intent_type
+        assert f"{node_id}" in postgres_intents[0].target
+
+    @pytest.mark.asyncio
+    async def test_postgres_intent_has_correct_service_name(self) -> None:
+        """Test that postgres intent has correct entity_id in its record."""
+        mock_reader = create_mock_projection_reader()
+        mock_reader.get_entity_state.return_value = None
+
+        handler = HandlerNodeIntrospected(mock_reader, create_default_reducer())
+
+        node_id = uuid4()
+        introspection_event = create_introspection_event(node_id=node_id)
+        envelope = create_envelope(introspection_event, now=TEST_NOW)
+
+        output = await handler.handle(envelope)
+
+        # Find the postgres intent
+        postgres_intents = [
+            i
+            for i in output.intents
+            if isinstance(i.payload, ModelPayloadPostgresUpsertRegistration)
+        ]
+        assert len(postgres_intents) == 1
+
+        postgres_payload = postgres_intents[0].payload
+        record = postgres_payload.record.model_dump()
+        assert record["entity_id"] == node_id
+
+    @pytest.mark.asyncio
+    async def test_no_intents_for_blocking_states(self) -> None:
+        """Test that no intents are returned for nodes in blocking states."""
+        mock_reader = create_mock_projection_reader()
+        node_id = uuid4()
+
+        # Node is already active
+        mock_reader.get_entity_state.return_value = create_projection(
+            entity_id=node_id,
+            state=EnumRegistrationState.ACTIVE,
+        )
+
+        handler = HandlerNodeIntrospected(mock_reader, create_default_reducer())
+
+        introspection_event = create_introspection_event(node_id=node_id)
+        envelope = create_envelope(introspection_event, now=TEST_NOW)
+
+        output = await handler.handle(envelope)
+
+        assert len(output.events) == 0
+        assert len(output.intents) == 0
+
+    @pytest.mark.asyncio
+    async def test_intents_for_retriable_states(self) -> None:
+        """Test that intents are returned for re-registration from retriable states."""
+        mock_reader = create_mock_projection_reader()
+        node_id = uuid4()
+
+        # Node has expired liveness
+        mock_reader.get_entity_state.return_value = create_projection(
+            entity_id=node_id,
+            state=EnumRegistrationState.LIVENESS_EXPIRED,
+        )
+
+        handler = HandlerNodeIntrospected(mock_reader, create_default_reducer())
+
+        introspection_event = create_introspection_event(node_id=node_id)
+        envelope = create_envelope(introspection_event, now=TEST_NOW)
+
+        output = await handler.handle(envelope)
+
+        # Should have events and intents for re-registration
+        assert len(output.events) == 2
+        assert isinstance(output.events[0], ModelNodeRegistrationInitiated)
+        assert len(output.intents) == 1
+
+    @pytest.mark.asyncio
+    async def test_liveness_deadline_in_postgres_intent(self) -> None:
+        """Test that liveness_deadline is set in postgres intent (OMN-5132)."""
+        mock_reader = create_mock_projection_reader()
+        mock_reader.get_entity_state.return_value = None
+
+        reducer = RegistrationReducerService(liveness_interval_seconds=120)
+        handler = HandlerNodeIntrospected(mock_reader, reducer)
+
+        introspection_event = create_introspection_event()
+        envelope = create_envelope(introspection_event, now=TEST_NOW)
+
+        output = await handler.handle(envelope)
+
+        postgres_intents = [
+            i
+            for i in output.intents
+            if isinstance(i.payload, ModelPayloadPostgresUpsertRegistration)
+        ]
+        assert len(postgres_intents) == 1
+
+        record = postgres_intents[0].payload.record.model_dump()
+        expected_deadline = TEST_NOW + timedelta(seconds=120)
+        assert record["data"]["liveness_deadline"] == expected_deadline
+
+    @pytest.mark.asyncio
+    async def test_state_is_active_in_postgres_intent(self) -> None:
+        """Test that new nodes write ACTIVE state directly (OMN-5132)."""
+        mock_reader = create_mock_projection_reader()
+        mock_reader.get_entity_state.return_value = None
+
+        handler = HandlerNodeIntrospected(mock_reader, create_default_reducer())
+
+        introspection_event = create_introspection_event()
+        envelope = create_envelope(introspection_event, now=TEST_NOW)
+
+        output = await handler.handle(envelope)
+
+        postgres_intents = [
+            i
+            for i in output.intents
+            if isinstance(i.payload, ModelPayloadPostgresUpsertRegistration)
+        ]
+        record = postgres_intents[0].payload.record.model_dump()
+        assert record["current_state"] == "active"
+
+    @pytest.mark.asyncio
+    async def test_capabilities_in_postgres_intent(self) -> None:
+        """Test that capabilities from event are included in postgres intent."""
+        mock_reader = create_mock_projection_reader()
+        mock_reader.get_entity_state.return_value = None
+
+        handler = HandlerNodeIntrospected(mock_reader, create_default_reducer())
+
+        capabilities = ModelNodeCapabilities(
+            postgres=True,
+            read=True,
+            write=True,
+        )
+        introspection_event = ModelNodeIntrospectionEvent(
+            node_id=uuid4(),
+            node_type=EnumNodeKind.EFFECT,
+            node_version=ModelSemVer.parse("2.0.0"),
+            declared_capabilities=capabilities,
+            correlation_id=uuid4(),
+            timestamp=TEST_NOW,
+        )
+        envelope = create_envelope(introspection_event, now=TEST_NOW)
+
+        output = await handler.handle(envelope)
+
+        postgres_intents = [
+            i
+            for i in output.intents
+            if isinstance(i.payload, ModelPayloadPostgresUpsertRegistration)
+        ]
+        record = postgres_intents[0].payload.record.model_dump()
+        assert record["data"]["capabilities"] == capabilities.model_dump(mode="json")
+        assert record["data"]["node_version"] == "2.0.0"
+
+
+class TestCapabilitiesJsonbCompatibility:
+    """Test that capabilities serialization produces asyncpg-compatible JSONB values.
+
+    The handler uses model_dump(mode="json") for capabilities. asyncpg's
+    JSONB codec expects Python dicts, not JSON strings. This test ensures
+    the serialization contract holds.
+    """
+
+    @pytest.mark.asyncio
+    async def test_capabilities_model_dump_json_returns_dict(self) -> None:
+        """model_dump(mode='json') must return a dict (not a JSON string) for JSONB."""
+        mock_reader = create_mock_projection_reader()
+        mock_reader.get_entity_state.return_value = None
+
+        handler = HandlerNodeIntrospected(mock_reader, create_default_reducer())
+
+        capabilities = ModelNodeCapabilities(
+            postgres=True,
+            read=True,
+            write=True,
+        )
+        introspection_event = ModelNodeIntrospectionEvent(
+            node_id=uuid4(),
+            node_type=EnumNodeKind.EFFECT,
+            declared_capabilities=capabilities,
+            correlation_id=uuid4(),
+            timestamp=TEST_NOW,
+        )
+        envelope = create_envelope(introspection_event, now=TEST_NOW)
+
+        output = await handler.handle(envelope)
+
+        # Find postgres intent and inspect capabilities
+        postgres_intents = [
+            i
+            for i in output.intents
+            if isinstance(i.payload, ModelPayloadPostgresUpsertRegistration)
+        ]
+        assert len(postgres_intents) == 1
+
+        record = postgres_intents[0].payload.record.model_dump()
+        caps = record["data"]["capabilities"]
+
+        # asyncpg JSONB codec expects a Python dict, not a JSON string
+        assert isinstance(caps, dict), (
+            f"Expected dict for JSONB, got {type(caps).__name__}: {caps!r}"
+        )
+
+        # Verify the dict contains expected capability fields
+        assert caps.get("postgres") is True
+        assert caps.get("read") is True
+        assert caps.get("write") is True
+
+    @pytest.mark.asyncio
+    async def test_empty_capabilities_returns_empty_dict(self) -> None:
+        """Default capabilities should serialize to empty dict for JSONB."""
+        mock_reader = create_mock_projection_reader()
+        mock_reader.get_entity_state.return_value = None
+
+        handler = HandlerNodeIntrospected(mock_reader, create_default_reducer())
+
+        introspection_event = create_introspection_event()
+        envelope = create_envelope(introspection_event, now=TEST_NOW)
+
+        output = await handler.handle(envelope)
+
+        postgres_intents = [
+            i
+            for i in output.intents
+            if isinstance(i.payload, ModelPayloadPostgresUpsertRegistration)
+        ]
+        record = postgres_intents[0].payload.record.model_dump()
+        caps = record["data"]["capabilities"]
+
+        assert isinstance(caps, dict)
+        # Default ModelNodeCapabilities with no params should produce a dict
+        # with all capability flags at their default (falsy) values
+        assert caps.get("postgres") is False
+        assert caps.get("read") is False
+        assert caps.get("write") is False
+
+
+class TestHandlerNodeIntrospectedAutoAck:
+    """Stub class: auto-ACK tests moved to test_dispatcher_node_introspected.py (OMN-3444).
+
+    The handler no longer holds event_bus — auto-ACK is now the dispatcher's
+    responsibility (architecture invariant: handlers cannot have event_bus access).
+    See DispatcherNodeIntrospected and test_dispatcher_node_introspected.py.
+    """

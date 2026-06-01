@@ -1,0 +1,285 @@
+"""Tests for agent order preservation in team formation."""
+
+from __future__ import annotations
+
+import tempfile
+from pathlib import Path
+
+import pytest
+
+from mindroom.config.agent import AgentConfig
+from mindroom.config.main import Config
+from mindroom.config.models import DefaultsConfig
+from mindroom.constants import ROUTER_AGENT_NAME
+from mindroom.teams import TeamMode, TeamOutcome, decide_team_formation
+from mindroom.thread_utils import check_agent_mentioned, get_agents_in_thread, get_all_mentioned_agents_in_thread
+from tests.conftest import bind_runtime_paths, make_visible_message, runtime_paths_for, test_runtime_paths
+from tests.identity_helpers import actual_entity_usernames, entity_ids, entity_name_for_id, persist_entity_accounts
+
+
+@pytest.fixture
+def mock_config() -> Config:
+    """Create a mock config for testing."""
+    runtime_paths = test_runtime_paths(Path(tempfile.mkdtemp()))
+    config = bind_runtime_paths(
+        Config(
+            defaults=DefaultsConfig(),
+            agents={
+                "email": AgentConfig(
+                    display_name="EmailAgent",
+                    role="Send emails",
+                    tools=["email"],
+                    instructions=[],
+                    rooms=[],
+                    model="default",
+                ),
+                "phone": AgentConfig(
+                    display_name="PhoneAgent",
+                    role="Make phone calls",
+                    tools=["twilio"],
+                    instructions=[],
+                    rooms=[],
+                    model="default",
+                ),
+                "research": AgentConfig(
+                    display_name="ResearchAgent",
+                    role="Research information",
+                    tools=["duckduckgo"],
+                    instructions=[],
+                    rooms=[],
+                    model="default",
+                ),
+                "analyst": AgentConfig(
+                    display_name="AnalystAgent",
+                    role="Analyze data",
+                    tools=["calculator"],
+                    instructions=[],
+                    rooms=[],
+                    model="default",
+                ),
+            },
+        ),
+        runtime_paths,
+    )
+    persist_entity_accounts(
+        config,
+        runtime_paths,
+        usernames=actual_entity_usernames(config),
+    )
+    return config
+
+
+def _entity_user_ids(config: Config) -> dict[str, str]:
+    runtime_paths = runtime_paths_for(config)
+    return {name: matrix_id.full_id for name, matrix_id in entity_ids(config, runtime_paths).items() if matrix_id}
+
+
+class TestAgentOrderPreservation:
+    """Test that agent order is preserved in various functions."""
+
+    def test_check_agent_mentioned_preserves_order(self, mock_config: Config) -> None:
+        """Test that check_agent_mentioned preserves the order from user_ids."""
+        runtime_paths = runtime_paths_for(mock_config)
+        ids = _entity_user_ids(mock_config)
+        event_source = {
+            "content": {
+                "m.mentions": {
+                    "user_ids": [
+                        ids["phone"],
+                        ids["email"],
+                        ids["research"],
+                    ],
+                },
+            },
+        }
+
+        agents, _, _ = check_agent_mentioned(event_source, None, mock_config, runtime_paths)
+
+        # Order should be preserved as phone, email, research
+        agent_names = [entity_name_for_id(mid, mock_config, runtime_paths) for mid in agents]
+        assert agent_names == ["phone", "email", "research"]
+
+    def test_get_agents_in_thread_preserves_order(self, mock_config: Config) -> None:
+        """Test that get_agents_in_thread preserves order of first participation."""
+        runtime_paths = runtime_paths_for(mock_config)
+        ids = _entity_user_ids(mock_config)
+        thread_history = [
+            make_visible_message(sender=ids["research"], body="Starting research"),
+            make_visible_message(sender=ids["email"], body="Sending email"),
+            make_visible_message(sender=ids["phone"], body="Making call"),
+            make_visible_message(sender=ids["email"], body="Another email"),
+            make_visible_message(sender=ids["analyst"], body="Analyzing"),
+        ]
+
+        agents = get_agents_in_thread(thread_history, mock_config, runtime_paths)
+
+        # Order should be: research, email, phone, analyst (in order of first appearance)
+        # Convert MatrixID objects to agent names for comparison
+        agent_names = [entity_name_for_id(mid, mock_config, runtime_paths) for mid in agents]
+        assert agent_names == ["research", "email", "phone", "analyst"]
+
+    def test_get_agents_in_thread_excludes_router(self, mock_config: Config) -> None:
+        """Test that router agent is excluded from thread participants."""
+        runtime_paths = runtime_paths_for(mock_config)
+        ids = _entity_user_ids(mock_config)
+        thread_history = [
+            make_visible_message(sender=ids["email"], body="Email"),
+            make_visible_message(sender=ids[ROUTER_AGENT_NAME], body="Routing"),
+            make_visible_message(sender=ids["phone"], body="Phone"),
+        ]
+
+        agents = get_agents_in_thread(thread_history, mock_config, runtime_paths)
+
+        # Router should be excluded
+        # Convert MatrixID objects to agent names for comparison
+        agent_names = [entity_name_for_id(mid, mock_config, runtime_paths) for mid in agents]
+        assert agent_names == ["email", "phone"]
+        assert ROUTER_AGENT_NAME not in agent_names
+
+    def test_get_all_mentioned_agents_preserves_order(self, mock_config: Config) -> None:
+        """Test that get_all_mentioned_agents_in_thread preserves order of first mention."""
+        runtime_paths = runtime_paths_for(mock_config)
+        ids = _entity_user_ids(mock_config)
+        thread_history = [
+            make_visible_message(
+                body="First message",
+                content={
+                    "body": "First message",
+                    "m.mentions": {"user_ids": [ids["phone"], ids["email"]]},
+                },
+            ),
+            make_visible_message(
+                body="Second message",
+                content={
+                    "body": "Second message",
+                    "m.mentions": {"user_ids": [ids["research"], ids["phone"]]},
+                },
+            ),
+            make_visible_message(
+                body="Third message",
+                content={
+                    "body": "Third message",
+                    "m.mentions": {"user_ids": [ids["analyst"], ids["email"]]},
+                },
+            ),
+        ]
+
+        agents = get_all_mentioned_agents_in_thread(thread_history, mock_config, runtime_paths)
+
+        # Order should be: phone, email, research, analyst (in order of first mention)
+        # Convert MatrixID objects to agent names for comparison
+        agent_names = [entity_name_for_id(mid, mock_config, runtime_paths) for mid in agents]
+        assert agent_names == ["phone", "email", "research", "analyst"]
+
+    def test_no_duplicates_in_mentioned_agents(self, mock_config: Config) -> None:
+        """Test that duplicates are removed while preserving order."""
+        runtime_paths = runtime_paths_for(mock_config)
+        ids = _entity_user_ids(mock_config)
+        thread_history = [
+            make_visible_message(
+                body="Message 1",
+                content={
+                    "body": "Message 1",
+                    "m.mentions": {
+                        "user_ids": [
+                            ids["email"],
+                            ids["phone"],
+                            ids["email"],
+                        ],
+                    },
+                },
+            ),
+            make_visible_message(
+                body="Message 2",
+                content={
+                    "body": "Message 2",
+                    "m.mentions": {
+                        "user_ids": [
+                            ids["phone"],
+                            ids["research"],
+                            ids["email"],
+                        ],
+                    },
+                },
+            ),
+        ]
+
+        agents = get_all_mentioned_agents_in_thread(thread_history, mock_config, runtime_paths)
+
+        # Should have no duplicates, order preserved from first mention
+        # Convert MatrixID objects to agent names for comparison
+        agent_names = [entity_name_for_id(mid, mock_config, runtime_paths) for mid in agents]
+        assert agent_names == ["email", "phone", "research"]
+        assert len(agent_names) == len(set(agent_names))  # No duplicates
+
+    def test_empty_thread_returns_empty_list(self, mock_config: Config) -> None:
+        """Test that empty thread returns empty list."""
+        runtime_paths = runtime_paths_for(mock_config)
+        assert get_agents_in_thread([], mock_config, runtime_paths) == []
+        assert get_all_mentioned_agents_in_thread([], mock_config, runtime_paths) == []
+
+    def test_order_matters_for_coordinate_mode(self, mock_config: Config) -> None:
+        """Test that order preservation is important for sequential execution."""
+        runtime_paths = runtime_paths_for(mock_config)
+        ids = _entity_user_ids(mock_config)
+        event_source1 = {
+            "content": {
+                "m.mentions": {
+                    "user_ids": [ids["email"], ids["phone"]],
+                },
+            },
+        }
+        event_source2 = {
+            "content": {
+                "m.mentions": {
+                    "user_ids": [ids["phone"], ids["email"]],
+                },
+            },
+        }
+
+        agents1, _, _ = check_agent_mentioned(event_source1, None, mock_config, runtime_paths)
+        agents2, _, _ = check_agent_mentioned(event_source2, None, mock_config, runtime_paths)
+
+        # Different orders should be preserved
+        agent_names1 = [entity_name_for_id(mid, mock_config, runtime_paths) for mid in agents1]
+        agent_names2 = [entity_name_for_id(mid, mock_config, runtime_paths) for mid in agents2]
+        assert agent_names1 == ["email", "phone"]
+        assert agent_names2 == ["phone", "email"]
+        assert agent_names1 != agent_names2  # Order matters!
+
+
+class TestIntegrationWithTeamFormation:
+    """Test integration with team formation to ensure order flows through."""
+
+    @pytest.mark.asyncio
+    async def test_coordinate_mode_respects_order(self, mock_config: Config) -> None:
+        """Test that coordinate mode will execute agents in the preserved order."""
+        runtime_paths = runtime_paths_for(mock_config)
+        # When agents are tagged in specific order - use MatrixID objects
+        tagged_agents = [
+            entity_ids(mock_config, runtime_paths)["phone"],
+            entity_ids(mock_config, runtime_paths)["email"],
+            entity_ids(mock_config, runtime_paths)["research"],
+        ]  # User tagged in this order
+
+        result = await decide_team_formation(
+            agent=entity_ids(mock_config, runtime_paths)["email"],  # The agent calling this function
+            tagged_agents=tagged_agents,
+            agents_in_thread=[],
+            all_mentioned_in_thread=[],
+            room=None,
+            runtime_paths=runtime_paths,
+            message="Call me, then email the details, then research more info",
+            config=mock_config,
+            use_ai_decision=False,  # Use hardcoded logic for predictable test
+        )
+
+        # Agents should be in the same order as tagged
+        # Convert MatrixID objects to agent names for comparison
+        assert result.outcome is TeamOutcome.TEAM
+        agent_names = [entity_name_for_id(mid, mock_config, runtime_paths) for mid in result.eligible_members]
+        assert agent_names == ["phone", "email", "research"]
+        assert result.mode == TeamMode.COORDINATE  # Multiple tagged = coordinate
+
+        # This order should flow through to team execution
+        # meaning phone agent acts first, then email, then research

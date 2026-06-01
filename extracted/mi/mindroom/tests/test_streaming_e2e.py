@@ -1,0 +1,692 @@
+"""End-to-end test for streaming edits using real Matrix API."""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+from typing import TYPE_CHECKING
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import nio
+import pytest
+from agno.models.response import ToolExecution
+from agno.run.agent import ToolCallStartedEvent
+
+from mindroom.bot import AgentBot
+from mindroom.config.agent import AgentConfig
+from mindroom.config.main import Config
+from mindroom.config.models import DefaultsConfig, ModelConfig, RouterConfig
+from mindroom.matrix.client import DeliveredMatrixEvent
+from mindroom.matrix.users import AgentMatrixUser
+from mindroom.message_target import MessageTarget
+from mindroom.orchestrator import _MultiAgentOrchestrator
+from mindroom.streaming import StreamingResponse, send_streaming_response
+from mindroom.tool_system.runtime_context import WorkerProgressEvent, get_worker_progress_pump
+from mindroom.workers.models import WorkerReadyProgress
+from tests.conftest import (
+    TEST_ACCESS_TOKEN,
+    TEST_PASSWORD,
+    bind_runtime_paths,
+    drain_coalescing,
+    install_runtime_cache_support,
+    make_matrix_client_mock,
+    orchestrator_runtime_paths,
+    runtime_paths_for,
+    thread_history_result,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
+    from pathlib import Path
+
+
+def _matrix_client_mock() -> AsyncMock:
+    return make_matrix_client_mock()
+
+
+def _require_config(value: Config, text: str) -> str:
+    assert isinstance(value, Config)
+    return text
+
+
+@pytest.mark.asyncio
+async def test_streaming_e2e_worker_warmup_edit_sequence(tmp_path: Path) -> None:
+    """Worker warmup notices should edit the placeholder stream body and disappear before content arrives."""
+    runtime_config = bind_runtime_paths(
+        Config(
+            agents={"helper": AgentConfig(display_name="HelperAgent", rooms=["!test:localhost"])},
+            models={"default": ModelConfig(provider="openai", id="gpt-5.4")},
+            router=RouterConfig(model="default"),
+        ),
+        orchestrator_runtime_paths(tmp_path),
+    )
+    client = _matrix_client_mock()
+    deliveries: list[tuple[str, str]] = []
+
+    class FastProgressStreamingResponse(StreamingResponse):
+        def __init__(self, **kwargs: object) -> None:
+            super().__init__(**kwargs)
+            self.update_interval = 0.01
+            self.min_update_interval = 0.01
+            self.progress_update_interval = 0.01
+            self.min_char_update_interval = 0.01
+            self.update_char_threshold = 10
+            self.min_update_char_threshold = 10
+
+    async def record_send(
+        _client: object,
+        _room_id: str,
+        content: dict[str, object],
+        *,
+        config: Config,
+    ) -> DeliveredMatrixEvent:
+        deliveries.append(("send", _require_config(config, str(content["body"]))))
+        return DeliveredMatrixEvent(event_id="$stream_1", content_sent=dict(content))
+
+    async def record_edit(
+        _client: object,
+        _room_id: str,
+        _event_id: str,
+        new_content: dict[str, object],
+        new_text: str,
+        *,
+        config: Config,
+    ) -> DeliveredMatrixEvent:
+        deliveries.append(("edit", _require_config(config, new_text)))
+        return DeliveredMatrixEvent(event_id="$stream_edit", content_sent=dict(new_content))
+
+    async def stream() -> AsyncGenerator[object, None]:
+        async def wait_for_delivery_count(expected_count: int) -> None:
+            for _ in range(200):
+                if len(deliveries) >= expected_count:
+                    return
+                await asyncio.sleep(0.001)
+            msg = f"Timed out waiting for {expected_count} streaming deliveries"
+            raise AssertionError(msg)
+
+        yield ToolCallStartedEvent(tool=ToolExecution(tool_name="shell", tool_args={"cmd": "echo hello"}))
+        await asyncio.sleep(0.02)
+        pump = get_worker_progress_pump()
+        assert pump is not None
+        pump.queue.put_nowait(
+            WorkerProgressEvent(
+                tool_name="shell",
+                function_name="run",
+                progress=WorkerReadyProgress(
+                    phase="cold_start",
+                    worker_key="worker-a",
+                    backend_name="kubernetes",
+                    elapsed_seconds=2.0,
+                ),
+            ),
+        )
+        await wait_for_delivery_count(2)
+        await asyncio.sleep(0.02)
+        pump.queue.put_nowait(
+            WorkerProgressEvent(
+                tool_name="shell",
+                function_name="run",
+                progress=WorkerReadyProgress(
+                    phase="waiting",
+                    worker_key="worker-a",
+                    backend_name="kubernetes",
+                    elapsed_seconds=7.0,
+                ),
+            ),
+        )
+        await wait_for_delivery_count(3)
+        pump.queue.put_nowait(
+            WorkerProgressEvent(
+                tool_name="shell",
+                function_name="run",
+                progress=WorkerReadyProgress(
+                    phase="ready",
+                    worker_key="worker-a",
+                    backend_name="kubernetes",
+                    elapsed_seconds=8.0,
+                ),
+            ),
+        )
+        await wait_for_delivery_count(4)
+        await asyncio.sleep(0.02)
+        yield "x" * 300
+
+    with (
+        patch("mindroom.streaming.send_message_result", new=AsyncMock(side_effect=record_send)),
+        patch("mindroom.streaming.edit_message_result", new=AsyncMock(side_effect=record_edit)),
+    ):
+        await send_streaming_response(
+            client=client,
+            target=MessageTarget.resolve("!test:localhost", None, "$original_123"),
+            config=runtime_config,
+            runtime_paths=runtime_paths_for(runtime_config),
+            response_stream=stream(),
+            show_tool_calls=False,
+            streaming_cls=FastProgressStreamingResponse,
+        )
+
+    assert len(deliveries) == 6
+    assert deliveries[0][0] == "send"
+    assert "Thinking..." in deliveries[0][1]
+    assert "Preparing isolated worker" not in deliveries[0][1]
+    assert deliveries[1][0] == "edit"
+    assert "Preparing isolated worker" in deliveries[1][1]
+    assert "Preparing isolated worker..." in deliveries[1][1]
+    assert "shell.run" not in deliveries[1][1]
+    assert "first cold start" not in deliveries[1][1]
+    assert deliveries[2][0] == "edit"
+    assert "7s elapsed" in deliveries[2][1]
+    assert "shell.run" not in deliveries[2][1]
+    assert deliveries[3][0] == "edit"
+    assert "Preparing isolated worker" not in deliveries[3][1]
+    assert "Thinking..." in deliveries[3][1]
+    assert deliveries[4][0] == "edit"
+    assert "Preparing isolated worker" not in deliveries[4][1]
+    assert "x" * 300 in deliveries[4][1]
+    assert deliveries[5][0] == "edit"
+    assert "Preparing isolated worker" not in deliveries[5][1]
+
+
+@pytest.mark.asyncio
+@pytest.mark.e2e  # Mark as end-to-end test
+@pytest.mark.requires_matrix  # Requires real Matrix server for streaming e2e test
+@pytest.mark.timeout(10)  # Add timeout to prevent hanging on real server connection
+@patch("mindroom.response_attempt.is_user_online")
+@patch("mindroom.bot.login_agent_user")
+@patch("mindroom.bot.AgentBot.ensure_user_account")
+async def test_streaming_edits_e2e(  # noqa: C901, PLR0915
+    mock_ensure_user: AsyncMock,
+    mock_login: AsyncMock,
+    mock_is_user_online: AsyncMock,
+    tmp_path: Path,
+) -> None:
+    """End-to-end test that agents don't respond to streaming edits from other agents."""
+    # Mock user as online for stop button to show
+    mock_is_user_online.return_value = True
+
+    # Mock ensure_user_account to set proper user IDs
+    async def ensure_user_side_effect(bot_self: object) -> None:
+        # Set a proper user_id based on agent_name if we have agent_name
+        if hasattr(bot_self, "agent_name"):
+            if bot_self.agent_name == "helper":
+                bot_self.agent_user.user_id = "@mindroom_helper:localhost"
+            elif bot_self.agent_name == "calculator":
+                bot_self.agent_user.user_id = "@mindroom_calculator:localhost"
+            elif bot_self.agent_name == "router":
+                bot_self.agent_user.user_id = "@mindroom_router:localhost"
+        elif hasattr(bot_self, "agent_user") and hasattr(bot_self.agent_user, "agent_name"):
+            # Alternative: get agent_name from agent_user
+            agent_user = bot_self.agent_user
+            if agent_user.agent_name == "helper":
+                agent_user.user_id = "@mindroom_helper:localhost"
+            elif agent_user.agent_name == "calculator":
+                agent_user.user_id = "@mindroom_calculator:localhost"
+            elif agent_user.agent_name == "router":
+                agent_user.user_id = "@mindroom_router:localhost"
+
+    # Need to handle both positional and method call
+    async def ensure_user_wrapper(*args: object, **kwargs: object) -> None:
+        if len(args) > 0:
+            await ensure_user_side_effect(args[0])
+            return
+        await ensure_user_side_effect(kwargs.get("self"))
+
+    mock_ensure_user.side_effect = ensure_user_wrapper
+
+    # Create test room
+    test_room_id = "!streaming_test:localhost"
+    test_room = nio.MatrixRoom(room_id=test_room_id, own_user_id="", encrypted=False)
+    test_room.name = "Streaming Test Room"
+
+    # Track events sent by agents
+    helper_events: list[dict[str, object]] = []
+    calc_events: list[dict[str, object]] = []
+
+    # Create mock clients for each agent
+    helper_client = _matrix_client_mock()
+    calc_client = _matrix_client_mock()
+
+    # Configure login to return appropriate clients
+    def login_side_effect(_homeserver: str, agent_user: object, **_kwargs: object) -> object:
+        if hasattr(agent_user, "agent_name"):
+            if agent_user.agent_name == "helper":
+                return helper_client
+            if agent_user.agent_name == "calculator":
+                return calc_client
+            if agent_user.agent_name == "router":
+                # Return a mock client for the router
+                router_client = _matrix_client_mock()
+                router_client.joined_rooms.return_value = nio.JoinedRoomsResponse(rooms=[test_room_id])
+                router_client.sync_forever = AsyncMock()
+                return router_client
+        return _matrix_client_mock()  # Default mock client
+
+    mock_login.side_effect = login_side_effect
+
+    # Track room_send calls
+    async def helper_room_send(
+        room_id: str,
+        message_type: str,
+        content: dict[str, object],
+        *,
+        ignore_unverified_devices: bool = False,
+    ) -> object:
+        assert ignore_unverified_devices is False
+        event_id = f"$helper_{len(helper_events)}"
+        helper_events.append(
+            {
+                "event_id": event_id,
+                "room_id": room_id,
+                "type": message_type,
+                "content": content,
+            },
+        )
+        return nio.RoomSendResponse(event_id=event_id, room_id=room_id)
+
+    async def calc_room_send(
+        room_id: str,
+        message_type: str,
+        content: dict[str, object],
+        *,
+        ignore_unverified_devices: bool = False,
+    ) -> object:
+        assert ignore_unverified_devices is False
+        event_id = f"$calc_{len(calc_events)}"
+        calc_events.append(
+            {
+                "event_id": event_id,
+                "room_id": room_id,
+                "type": message_type,
+                "content": content,
+            },
+        )
+        return nio.RoomSendResponse(event_id=event_id, room_id=room_id)
+
+    helper_client.room_send.side_effect = helper_room_send
+    calc_client.room_send.side_effect = calc_room_send
+
+    # Mock other client methods
+    for client in [helper_client, calc_client]:
+        client.joined_rooms.return_value = nio.JoinedRoomsResponse(rooms=[test_room_id])
+        client.sync_forever = AsyncMock()
+
+    # Create orchestrator with specific room configuration
+    orchestrator_runtime = orchestrator_runtime_paths(tmp_path)
+    orchestrator = _MultiAgentOrchestrator(runtime_paths=orchestrator_runtime)
+
+    # Patch the config loading to assign rooms
+    with patch("mindroom.orchestrator.load_config") as mock_config:
+        mock_cfg = Config(
+            agents={
+                "helper": AgentConfig(display_name="HelperAgent", rooms=[test_room_id]),
+                "calculator": AgentConfig(display_name="CalculatorAgent", rooms=[test_room_id]),
+            },
+            models={"default": ModelConfig(provider="openai", id="gpt-5.4")},
+            defaults=DefaultsConfig(thread_summary_first_threshold=100),
+            memory={"backend": "none"},
+            router=RouterConfig(model="default"),
+        )
+        mock_config.return_value = mock_cfg
+
+        # Patch create_bot_for_entity to create bots with proper user_ids
+        with (
+            patch("mindroom.orchestrator.create_bot_for_entity") as mock_create_bot,
+            patch("mindroom.orchestrator._MultiAgentOrchestrator._ensure_user_account", new=AsyncMock()),
+        ):
+
+            def create_bot_side_effect(
+                entity_name: str,
+                agent_user: object,
+                config: object,
+                runtime_paths: object,
+                storage_path: Path,
+                *,
+                config_path: Path | None = None,
+            ) -> object:
+                del config_path
+                # Update the agent_user with proper user_id
+                if entity_name == "helper":
+                    agent_user.user_id = "@mindroom_helper:localhost"
+                elif entity_name == "calculator":
+                    agent_user.user_id = "@mindroom_calculator:localhost"
+                elif entity_name == "router":
+                    agent_user.user_id = "@mindroom_router:localhost"
+
+                # Create the actual bot with config
+                runtime_config = bind_runtime_paths(config, runtime_paths)
+                return AgentBot(
+                    agent_user,
+                    storage_path,
+                    runtime_config,
+                    runtime_paths_for(runtime_config),
+                    rooms=[test_room_id],
+                )
+
+            mock_create_bot.side_effect = create_bot_side_effect
+            await orchestrator.initialize()
+
+    # Start the orchestrator (in background). This test uses a deliberately small
+    # MagicMock config, so keep unrelated runtime services stubbed.
+    support_services_patch = patch.object(orchestrator, "_sync_runtime_support_services", new=AsyncMock())
+    support_services_patch.start()
+    room_setup_patch = patch.object(orchestrator, "_setup_rooms_and_memberships", new=AsyncMock())
+    room_setup_patch.start()
+    wait_for_homeserver_patch = patch("mindroom.orchestrator.wait_for_matrix_homeserver", new=AsyncMock())
+    wait_for_homeserver_patch.start()
+    start_task = asyncio.create_task(orchestrator.start())
+
+    try:
+        # Give the bots time to start
+        await asyncio.sleep(0.1)
+
+        # Access the bots
+        helper_bot = orchestrator.agent_bots["helper"]
+        calc_bot = orchestrator.agent_bots["calculator"]
+        empty_thread_history = thread_history_result([], is_full_history=True)
+        empty_thread_snapshot = thread_history_result([], is_full_history=False)
+        helper_bot._conversation_cache.get_dispatch_thread_history = AsyncMock(return_value=empty_thread_history)
+        helper_bot._conversation_cache.get_dispatch_thread_snapshot = AsyncMock(return_value=empty_thread_snapshot)
+        helper_bot._conversation_cache.get_thread_history = AsyncMock(return_value=empty_thread_history)
+        calc_bot._conversation_cache.get_dispatch_thread_history = AsyncMock(return_value=empty_thread_history)
+        calc_bot._conversation_cache.get_dispatch_thread_snapshot = AsyncMock(return_value=empty_thread_snapshot)
+        calc_bot._conversation_cache.get_thread_history = AsyncMock(return_value=empty_thread_history)
+
+        # Ensure calculator bot has streaming disabled for this test
+        calc_bot.enable_streaming = False
+
+        # Simulate user mentioning helper
+        user_event = MagicMock(spec=nio.RoomMessageText)
+        user_event.body = "@mindroom_helper:localhost can you help with math?"
+        user_event.sender = "@user:localhost"
+        user_event.event_id = "$user_123"
+        user_event.server_timestamp = 1234567890
+        user_event.source = {
+            "event_id": "$user_123",
+            "sender": "@user:localhost",
+            "origin_server_ts": 1234567890,
+            "type": "m.room.message",
+            "content": {
+                "msgtype": "m.text",
+                "body": "@mindroom_helper:localhost can you help with math?",
+                "m.mentions": {"user_ids": ["@mindroom_helper:localhost"]},
+            },
+        }
+
+        async def should_use_streaming_for_test(
+            _client: object,
+            _room_id: str,
+            requester_user_id: str | None = None,
+            *,
+            enable_streaming: bool,
+        ) -> bool:
+            del requester_user_id
+            return enable_streaming
+
+        async def stream_response(
+            _agent_name: str,
+            _prompt: str,
+            _session_id: str,
+            _storage_path: object,
+            _thread_history: list[object],
+            _room_id: str,
+        ) -> AsyncGenerator[str, None]:
+            yield "I can help! Let me ask "
+            yield "@mindroom_calculator:localhost what's 2+2?"
+
+        with (
+            patch(
+                "mindroom.response_runner.should_use_streaming",
+                new=AsyncMock(side_effect=should_use_streaming_for_test),
+            ),
+            patch("mindroom.response_runner.stream_agent_response") as mock_streaming,
+            patch("mindroom.response_runner.ai_response", new=AsyncMock(return_value="The answer is 4")),
+        ):
+            mock_streaming.return_value = stream_response(
+                "helper",
+                user_event.body,
+                "session",
+                tmp_path,
+                [],
+                test_room_id,
+            )
+
+            # Mock that helper is mentioned
+            with patch("mindroom.conversation_resolver.check_agent_mentioned") as mock_check:
+                mock_check.return_value = (["helper"], True, False)
+
+                # Process with helper bot
+                await helper_bot._on_message(test_room, user_event)
+
+            # Wait for streaming to complete
+            await asyncio.sleep(0.1)
+
+            # Verify helper sent initial message and edit
+            assert len(helper_events) >= 1
+            initial_msg = helper_events[0]
+            assert initial_msg["type"] == "m.room.message"
+
+            # Find the edit event (if streaming produced one)
+            edit_event = None
+            for event in helper_events[1:]:
+                content = event.get("content", {})
+                if isinstance(content, dict) and "m.relates_to" in content:
+                    edit_event = event
+                    break
+
+            if edit_event:
+                # Simulate calculator seeing the edit
+                calc_edit_event = MagicMock(spec=nio.RoomMessageText)
+                content_dict = edit_event.get("content", {})
+                calc_edit_event.body = content_dict.get("body", "") if isinstance(content_dict, dict) else ""
+                calc_edit_event.sender = "@mindroom_helper:localhost"
+                calc_edit_event.event_id = f"$edit_{helper_events.index(edit_event)}"
+                calc_edit_event.server_timestamp = 1234567891
+                calc_edit_event.source = {
+                    "event_id": f"$edit_{helper_events.index(edit_event)}",
+                    "sender": "@mindroom_helper:localhost",
+                    "origin_server_ts": 1234567891,
+                    "type": "m.room.message",
+                    "content": edit_event.get("content", {}),
+                }
+
+                # Process edit with calculator bot
+                await calc_bot._on_message(test_room, calc_edit_event)
+
+                # Verify calculator did NOT respond to the edit
+                assert len(calc_events) == 0, "Calculator should not respond to agent edits"
+
+            # Now simulate helper's final message (not an edit)
+            final_event = MagicMock(spec=nio.RoomMessageText)
+            final_event.body = "I can help! Let me ask @mindroom_calculator:localhost what's 2+2?"
+            final_event.sender = "@mindroom_helper:localhost"
+            final_event.event_id = "$helper_final"
+            final_event.server_timestamp = 1234567892
+            final_event.source = {
+                "event_id": "$helper_final",
+                "sender": "@mindroom_helper:localhost",
+                "origin_server_ts": 1234567892,
+                "type": "m.room.message",
+                "content": {
+                    "msgtype": "m.text",
+                    "body": "I can help! Let me ask @mindroom_calculator:localhost what's 2+2?",
+                    "m.mentions": {"user_ids": ["@mindroom_calculator:localhost"]},
+                },
+            }
+
+            # Also mock that calculator is mentioned
+            with patch("mindroom.conversation_resolver.check_agent_mentioned") as mock_check:
+                mock_check.return_value = (["calculator"], True, False)
+
+                # Process final message with calculator bot
+                await calc_bot._on_message(test_room, final_event)
+
+            # Wait for processing
+            await asyncio.sleep(0.1)
+
+            # Verify calculator responded to the final message
+            assert len(calc_events) == 3, "Calculator should respond to final message (initial + reaction + final)"
+            # Check the final message (third one, after initial and reaction)
+            calc_response = calc_events[2]  # The final edited message
+            assert calc_response["type"] == "m.room.message"
+            content_dict = calc_response.get("content", {})
+            # For edited messages, check m.new_content
+            if "m.new_content" in content_dict:
+                body = content_dict["m.new_content"].get("body", "")
+            else:
+                body = content_dict.get("body", "") if isinstance(content_dict, dict) else ""
+            assert "4" in body
+
+    finally:
+        # Stop the orchestrator
+        await orchestrator.stop()
+        start_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await start_task
+        wait_for_homeserver_patch.stop()
+        room_setup_patch.stop()
+        support_services_patch.stop()
+
+
+@pytest.mark.asyncio
+@pytest.mark.e2e
+async def test_user_edits_with_mentions_e2e(tmp_path: Path) -> None:
+    """Test that agents DO NOT respond to user edits (even if they add mentions).
+
+    This is by design - the bot ignores all edits to prevent confusion.
+    Users should send a new message if they want a new response after editing.
+    """
+    # Create a single bot for this test
+    calc_user = AgentMatrixUser(
+        agent_name="calculator",
+        user_id="@mindroom_calculator:localhost",
+        display_name="CalculatorAgent",
+        password=TEST_PASSWORD,
+        access_token=TEST_ACCESS_TOKEN,
+    )
+
+    # Mock login
+    with patch("mindroom.bot.login_agent_user") as mock_login:
+        mock_client = _matrix_client_mock()
+        mock_login.return_value = mock_client
+
+        # Track events
+        events_sent: list[dict[str, object]] = []
+
+        async def mock_room_send(
+            room_id: str,
+            message_type: str,
+            content: dict[str, object],
+            *,
+            ignore_unverified_devices: bool = False,
+        ) -> object:
+            assert message_type == "m.room.message"
+            assert ignore_unverified_devices is False
+            event_id = f"$calc_{len(events_sent)}"
+            events_sent.append(
+                {
+                    "event_id": event_id,
+                    "content": content,
+                },
+            )
+            return nio.RoomSendResponse(event_id=event_id, room_id=room_id)
+
+        mock_client.room_send.side_effect = mock_room_send
+
+        # Create bot with calculator agent in config
+
+        config = bind_runtime_paths(
+            Config(
+                agents={
+                    "calculator": AgentConfig(
+                        display_name="CalculatorAgent",
+                        rooms=["!test:localhost"],
+                    ),
+                    "helper": AgentConfig(
+                        display_name="HelperAgent",
+                        rooms=["!test:localhost"],
+                    ),
+                },
+                router=RouterConfig(model="default"),
+            ),
+            orchestrator_runtime_paths(tmp_path),
+        )
+
+        bot = AgentBot(
+            calc_user,
+            tmp_path,
+            config,
+            runtime_paths_for(config),
+            rooms=["!test:localhost"],
+            enable_streaming=False,
+        )
+        install_runtime_cache_support(bot)
+        await bot.start()
+
+        test_room = nio.MatrixRoom(room_id="!test:localhost", own_user_id="", encrypted=False)
+
+        # User sends initial message without mention
+        initial_event = MagicMock(spec=nio.RoomMessageText)
+        initial_event.body = "What's the sum?"
+        initial_event.sender = "@user:localhost"
+        initial_event.event_id = "$user_initial"
+        initial_event.server_timestamp = 1234567890
+        initial_event.source = {
+            "event_id": "$user_initial",
+            "sender": "@user:localhost",
+            "origin_server_ts": 1234567890,
+            "type": "m.room.message",
+            "content": {
+                "msgtype": "m.text",
+                "body": "What's the sum?",
+            },
+        }
+
+        # Process - bot should not respond (not mentioned)
+        await bot._on_message(test_room, initial_event)
+        await drain_coalescing(bot)
+        assert len(events_sent) == 0
+
+        # User edits to add mention
+        edit_event = MagicMock(spec=nio.RoomMessageText)
+        edit_event.body = "* @mindroom_calculator:localhost what's 2+2?"
+        edit_event.sender = "@user:localhost"
+        edit_event.event_id = "$user_edit"
+        edit_event.server_timestamp = 1234567891
+        edit_event.source = {
+            "event_id": "$user_edit",
+            "sender": "@user:localhost",
+            "origin_server_ts": 1234567891,
+            "type": "m.room.message",
+            "content": {
+                "msgtype": "m.text",
+                "body": "* @mindroom_calculator:localhost what's 2+2?",
+                "m.mentions": {"user_ids": ["@mindroom_calculator:localhost"]},
+                "m.relates_to": {
+                    "rel_type": "m.replace",
+                    "event_id": "$user_initial",
+                },
+                "m.new_content": {
+                    "body": "@mindroom_calculator:localhost what's 2+2?",
+                    "m.mentions": {"user_ids": ["@mindroom_calculator:localhost"]},
+                },
+            },
+        }
+
+        # Mock AI response
+        with patch("mindroom.response_runner.ai_response") as mock_ai:
+            mock_ai.return_value = "2+2 equals 4"
+
+            # Mock that calculator is mentioned
+            with patch("mindroom.conversation_resolver.check_agent_mentioned") as mock_check:
+                mock_check.return_value = (["calculator"], True, False)
+
+                # Process edit - bot should NOT respond (edits are ignored)
+                await bot._on_message(test_room, edit_event)
+
+        # Wait for processing
+        await asyncio.sleep(0.1)
+
+        # Verify bot did NOT respond (edits are ignored by design)
+        assert len(events_sent) == 0, "Bot should NOT respond to user edits (even with mentions)"
+
+        await bot.stop()

@@ -1,0 +1,76 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "smplkit-sdk"
+dynamic = ["version"]
+description = "Official Python SDK for the smplkit platform"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "httpx>=0.25.0",
+    "pydantic>=2.0.0",
+    "attrs>=21.3.0",
+    "python-dateutil>=2.9.0",
+    "websockets>=13.0",
+    "json-logic-qubit>=0.9.1",
+]
+
+[project.urls]
+Homepage = "https://www.smplkit.com"
+Documentation = "https://docs.smplkit.com"
+Repository = "https://github.com/smplkit/python-sdk"
+
+[project.entry-points."smplkit.logging.adapters"]
+stdlib = "smplkit.logging.adapters.stdlib_logging:StdlibLoggingAdapter"
+loguru = "smplkit.logging.adapters.loguru_adapter:LoguruAdapter"
+
+[project.optional-dependencies]
+loguru = ["loguru>=0.7.0"]
+dev = [
+    # Pinned <0.29.0: 0.29.0 dropped python-dateutil for datetime.fromisoformat
+    # in generated code, which cannot parse trailing-'Z' UTC timestamps on
+    # Python 3.10 (our declared floor). Revisit if/when we drop 3.10 support.
+    "openapi-python-client>=0.21.0,<0.29.0",
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.4.0",
+    "loguru>=0.7.0",
+]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/smplkit/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/smplkit"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Test against the source tree so the package does not need to be
+# (editable-)installed in the dev venv. Mirrors python-core.
+pythonpath = ["src"]
+
+[tool.coverage.run]
+omit = ["src/smplkit/_generated/*", "src/smplkit/_version.py"]
+
+[tool.coverage.report]
+fail_under = 100
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+src = ["src"]
+extend-exclude = ["src/smplkit/_generated", "src/smplkit/_version.py"]

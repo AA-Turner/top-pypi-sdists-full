@@ -1,0 +1,181 @@
+from __future__ import annotations
+
+import shutil
+from typing import TYPE_CHECKING
+from uuid import UUID
+
+from lamin_utils import logger
+
+from ._connect_instance import _connect_instance, get_owner_name_from_identifier
+from .core._aws_options import HOSTED_BUCKETS
+from .core._settings import settings
+from .core._settings_load import load_instance_settings
+from .core._settings_storage import StorageSettings
+from .core.upath import LocalPathClasses, check_storage_is_empty
+
+if TYPE_CHECKING:
+    from .core._settings_instance import InstanceSettings
+
+
+def _delete_cache(isettings: InstanceSettings):
+    if isettings.storage is None:
+        return
+    # avoid init of root
+    root = isettings.storage._root_init
+    if not isinstance(root, LocalPathClasses):
+        cache_dir = settings.cache_dir / root.path
+        if cache_dir.exists():
+            shutil.rmtree(cache_dir)
+
+
+def _delete_exclusion_dir_if_exists(isettings: InstanceSettings) -> None:
+    if (
+        isettings.dialect == "sqlite"
+        and (storage := isettings.storage) is not None
+        and isettings.is_remote
+    ):
+        exclusion_dir = storage.root / f".lamindb/_exclusion/{isettings._id.hex}"
+        if exclusion_dir.exists():
+            exclusion_dir.rmdir()
+
+
+def _delete_sqlite_file_if_exists(isettings: InstanceSettings):
+    if isettings.dialect == "sqlite" and isettings.storage is not None:
+        sqlite_file = isettings._sqlite_file
+        try:
+            if sqlite_file.exists():
+                sqlite_file.unlink()
+        except PermissionError:
+            logger.warning(
+                f"Did not have permission to delete SQLite file: {sqlite_file}"
+            )
+
+
+def delete_by_isettings(isettings: InstanceSettings) -> None:
+    assert isettings.slug != "none/none"
+
+    settings_file = isettings._get_settings_file()
+    if settings_file.exists():
+        settings_file.unlink()
+    _delete_cache(isettings)
+    _delete_sqlite_file_if_exists(isettings)
+    # unset the global instance settings
+    isettings_on_disk = load_instance_settings()
+    if isettings_on_disk.slug == isettings.slug:
+        settings._instance_settings_path.unlink()  # current instance settings file
+        # settings.instance can differ from instance in current_settings_file()
+        # due to connect() in the same process
+        if settings.instance.slug == isettings.slug:
+            settings._instance_settings = None
+
+
+def delete(slug: str, force: bool = False, require_empty: bool = True) -> int | None:
+    """Delete a LaminDB instance.
+
+    Args:
+        slug: The instance slug `account_handle/instance_name` or URL.
+            If the instance is owned by you, it suffices to pass the instance name.
+        force: Whether to skip the confirmation prompt.
+        require_empty: Whether to check if the instance is empty before deleting.
+
+    See Also:
+        Delete an instance via the CLI, see `here <https://docs.lamin.ai/cli#delete>`__.
+    """
+    logger.debug(f"deleting instance: {slug}")
+
+    user_handle = settings.user.handle
+    logger.debug(f"current user: {user_handle}")
+
+    owner, name = get_owner_name_from_identifier(slug)
+    isettings = _connect_instance(owner, name, raise_permission_error=False)
+    if isettings.dialect != "sqlite":
+        logger.warning(
+            f"delete() does not yet affect your Postgres database at {isettings.db}"
+        )
+    if isettings.is_on_hub and settings.user.handle == "anonymous":
+        logger.warning(
+            "won't delete the hub component of this instance because you're not logged in"
+        )
+    if not force:
+        valid_responses = ["y", "yes"]
+        user_input = (
+            input(f"Are you sure you want to delete instance {isettings.slug}? (y/n) ")
+            .strip()
+            .lower()
+        )
+        if user_input not in valid_responses:
+            return -1
+
+    storage = isettings.storage
+    root = storage.root
+    logger.debug(f"default storage root: {root}")
+    if root.protocol == "s3":
+        logger.debug(f"session in storage options: {'session' in root.storage_options}")
+    # the actual deletion process begins here
+    # delete the exlusion dir first because it's hard to count its objects
+    _delete_exclusion_dir_if_exists(isettings)
+    if (
+        storage is not None
+        and storage.type_is_cloud
+        and storage.root_as_str.startswith(HOSTED_BUCKETS)
+    ):
+        if not require_empty:
+            logger.warning(
+                "hosted storage always has to be empty, ignoring `require_empty`"
+            )
+        require_empty = True
+    # first the default storage
+    logger.debug(f"checking whether {root} is empty")
+    n_files = check_storage_is_empty(
+        root,
+        raise_error=require_empty,
+        account_for_sqlite_file=isettings.dialect == "sqlite",
+    )
+    if storage is not None and storage._mark_storage_root.exists():
+        storage._mark_storage_root.unlink(
+            missing_ok=True  # this is totally weird, but needed on Py3.11
+        )
+    # now everything that's on the hub
+    if user_handle != "anonymous":
+        # dynamic import to avoid importing hub logic at root
+        from .core._hub_core import get_storage_records_for_instance
+
+        storage_records = get_storage_records_for_instance(isettings._id)
+        for storage_record in storage_records:
+            if storage_record["root"] == storage.root_as_str:
+                continue
+            ssettings = StorageSettings(storage_record["root"])  # type: ignore
+
+            ssettings_root = ssettings.root
+            logger.debug(f"checking whether {ssettings_root} is empty")
+            if ssettings_root.protocol == "s3":
+                logger.debug(
+                    f"session in storage options: {'session' in ssettings_root.storage_options}"
+                )
+            check_storage_is_empty(
+                ssettings_root,
+                raise_error=require_empty,
+            )
+            if ssettings._mark_storage_root.exists():
+                ssettings._mark_storage_root.unlink(
+                    missing_ok=True  # this is totally weird, but needed on Py3.11
+                )
+    logger.info(f"deleting instance {isettings.slug}")
+    # below we can skip check_storage_is_empty() because we already called
+    # it above
+    if user_handle != "anonymous" and isettings.is_on_hub:
+        # start with deleting things on the hub
+        # this will error if the user doesn't have permission
+        # dynamic import to avoid importing hub logic at root
+        from .core._hub_core import delete_instance
+
+        delete_instance(isettings._id, require_empty=False, delete_mark_files=False)
+    delete_by_isettings(isettings)
+    # if lamin.db file was delete, then we might count -1
+    if n_files <= 0 and isettings.storage.type == "local":
+        # dir is only empty after sqlite file was delete via delete_by_isettings
+        if (storage.root / ".lamindb").exists():
+            (storage.root / ".lamindb").rmdir()
+        if storage.root.exists():
+            storage.root.rmdir()
+    return None

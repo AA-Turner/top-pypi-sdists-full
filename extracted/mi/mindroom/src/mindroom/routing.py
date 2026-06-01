@@ -1,0 +1,162 @@
+"""Simple AI routing for MindRoom responders."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from agno.agent import Agent
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
+
+from mindroom import model_loading
+from mindroom.agent_descriptions import describe_agent
+from mindroom.entity_resolution import entity_identity_registry
+from mindroom.logging_config import get_logger
+from mindroom.matrix.client_visible_messages import ResolvedVisibleMessage, replace_visible_message
+from mindroom.matrix.identity import MatrixID
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from mindroom.config.main import Config
+    from mindroom.constants import RuntimePaths
+
+logger = get_logger(__name__)
+
+
+class _RoutingSuggestion(BaseModel):
+    """Structured output for routing decisions."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    entity_name: str = Field(description="The name of the agent or team that should respond")
+    reasoning: str = Field(description="Brief explanation of why this agent or team was chosen")
+
+
+async def suggest_responder(
+    message: str,
+    available_entity_names: list[str],
+    config: Config,
+    runtime_paths: RuntimePaths,
+    thread_context: Sequence[ResolvedVisibleMessage] | None = None,
+) -> str | None:
+    """Use AI to suggest which configured responder should answer a message.
+
+    This is the core routing logic, independent of any transport layer.
+
+    Args:
+        message: The user message to route.
+        available_entity_names: Plain agent or team names (e.g. ["code", "research", "ops"]).
+        config: Application configuration.
+        runtime_paths: Explicit runtime context for model and Matrix identity resolution.
+        thread_context: Optional recent messages for context.
+            Each message should expose visible sender/body fields.
+
+    Returns:
+        The suggested responder name, or None if routing fails.
+
+    """
+    try:
+        entity_descriptions = []
+        for entity_name in available_entity_names:
+            description = describe_agent(entity_name, config)
+            entity_descriptions.append(f"{entity_name}:\n  {description}")
+
+        agents_info = "\n\n".join(entity_descriptions)
+
+        prompt = config.render_prompt(
+            "ROUTER_AGENT_SELECTION_PROMPT_TEMPLATE",
+            agents_info=agents_info,
+            message=message,
+        )
+
+        if thread_context:
+            context = f"{config.get_prompt('ROUTER_THREAD_CONTEXT_HEADER')}\n"
+            for msg in thread_context[-3:]:  # Last 3 messages
+                sender = msg.sender
+                body = msg.body[:100]
+                context += f"{sender}: {body}\n"
+            prompt = context + "\n" + prompt
+
+        router_model_name = config.router.model
+
+        model = model_loading.get_model_instance(config, runtime_paths, router_model_name)
+        logger.info(
+            "using_router_model",
+            model_name=router_model_name,
+            model_class=model.__class__.__name__,
+            model_id=model.id,
+        )
+
+        agent = Agent(
+            name="Router",
+            role="Route messages to appropriate agents or teams",
+            model=model,
+            output_schema=_RoutingSuggestion,
+            telemetry=False,
+        )
+
+        response = await agent.arun(prompt, session_id="routing")
+        try:
+            suggestion = _RoutingSuggestion.model_validate(response.content)
+        except ValidationError:
+            logger.warning(
+                "Unexpected response type from AI routing",
+                expected="_RoutingSuggestion",
+                actual=type(response.content).__name__,
+            )
+            return None
+
+        if suggestion.entity_name not in available_entity_names:
+            logger.warning(
+                "AI suggested invalid entity",
+                suggested=suggestion.entity_name,
+                available=available_entity_names,
+            )
+            return None
+
+        logger.info("Routing decision", entity=suggestion.entity_name, reason=suggestion.reasoning)
+    except Exception as e:
+        logger.exception("Routing failed", error=str(e))
+        return None
+    else:
+        return suggestion.entity_name
+
+
+async def suggest_responder_for_message(
+    message: str,
+    available_entities: list[MatrixID],
+    config: Config,
+    runtime_paths: RuntimePaths,
+    thread_context: Sequence[ResolvedVisibleMessage] | None = None,
+) -> str | None:
+    """Use AI to suggest which configured responder should answer a message.
+
+    Matrix-aware wrapper around suggest_responder() that converts MatrixID
+    objects to plain responder names and resolves sender identities in
+    thread context.
+    """
+    registry = entity_identity_registry(config, runtime_paths)
+    entity_names = [
+        name
+        for mid in available_entities
+        if (name := registry.current_entity_name_for_user_id(mid.full_id, include_router=False)) is not None
+    ]
+
+    # Resolve Matrix sender IDs to readable names for thread context
+    resolved_context = None
+    if thread_context:
+        resolved_context = []
+        for msg in thread_context:
+            sender = msg.sender
+            if sender.startswith("@") and ":" in sender:
+                sender_name = registry.current_entity_name_for_user_id(sender)
+                sender = sender_name if sender_name is not None else MatrixID.parse(sender).domain
+            resolved_context.append(replace_visible_message(msg, sender=sender))
+
+    return await suggest_responder(message, entity_names, config, runtime_paths, resolved_context)
+
+
+__all__ = [
+    "suggest_responder",
+    "suggest_responder_for_message",
+]

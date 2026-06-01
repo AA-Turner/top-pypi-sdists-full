@@ -1,0 +1,19 @@
+[project]
+name = "ovide"
+version = "0.1.0"
+description = "Changelog fragment management tool"
+requires-python = ">=3.12"
+dependencies = [
+    "click>=8.0.0",
+    "pyyaml>=6.0.0",
+]
+
+[project.scripts]
+ovide = "ovide.cli:main"
+
+[tool.uv]
+exclude-newer = "7 days"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

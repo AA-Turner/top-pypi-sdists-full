@@ -373,6 +373,8 @@ def _execute_file_write_and_verify(
 
     # Write the file
     path = Path(file_path)
+    if path.name == "__init__.py":
+        content = ""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
 
@@ -612,6 +614,8 @@ def _simple_write_file(file_path: str, content: str) -> bool:
     """
     try:
         path = Path(file_path)
+        if path.name == "__init__.py":
+            content = ""
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
         return True

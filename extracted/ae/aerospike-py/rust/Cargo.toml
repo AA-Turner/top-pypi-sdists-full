@@ -1,6 +1,6 @@
 [package]
 name = "aerospike-py-native"
-version = "0.12.3"
+version = "0.12.4"
 edition = "2021"
 license = "Apache-2.0"
 # MSRV: 1.87 is the floor that the *dependency tree* requires. The

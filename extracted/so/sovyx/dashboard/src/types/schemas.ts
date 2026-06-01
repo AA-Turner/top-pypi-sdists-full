@@ -1,0 +1,2363 @@
+/**
+ * Sovyx Dashboard — runtime zod schemas mirroring api.ts.
+ *
+ * These schemas validate server responses at the edge in lib/api.ts.
+ * On schema drift the validator logs a warning (safeParse + warn) but
+ * still returns the payload — the backend is the source of truth and we
+ * prefer resilience over hard-fail in production. Useful to catch
+ * silent contract breaks in staging.
+ *
+ * When you add / change a type in `api.ts`, add / change its schema here.
+ */
+
+import { z } from "zod";
+
+// ── Primitives ──
+
+export const HealthStatusSchema = z.enum(["green", "yellow", "red"]);
+export const RelationTypeSchema = z.enum([
+  "related_to",
+  "part_of",
+  "causes",
+  "contradicts",
+  "example_of",
+  "temporal",
+  "emotional",
+]);
+export const ConceptCategorySchema = z.enum([
+  "fact",
+  "preference",
+  "entity",
+  "skill",
+  "belief",
+  "event",
+  "relationship",
+]);
+export const LogLevelSchema = z.enum([
+  "DEBUG",
+  "INFO",
+  "WARNING",
+  "ERROR",
+  "CRITICAL",
+]);
+export const TimelineEntryTypeSchema = z.enum([
+  "conversation",
+  "message",
+  "concepts_learned",
+  "episode_encoded",
+  "consolidation",
+]);
+export const PermissionRiskSchema = z.enum(["low", "medium", "high"]);
+export const PluginStatusSchema = z.enum(["active", "disabled", "error"]);
+
+// ── Health ──
+
+export const HealthCheckSchema = z.object({
+  name: z.string(),
+  status: HealthStatusSchema,
+  message: z.string(),
+  latency_ms: z.number().optional(),
+});
+
+export const HealthResponseSchema = z.object({
+  overall: HealthStatusSchema,
+  checks: z.array(HealthCheckSchema),
+});
+
+// ── Status ──
+
+export const CostHistoryEntrySchema = z.object({
+  time: z.number(),
+  cost: z.number(),
+  model: z.string(),
+  cumulative: z.number(),
+});
+
+export const SystemStatusSchema = z.object({
+  version: z.string(),
+  uptime_seconds: z.number(),
+  mind_name: z.string(),
+  active_conversations: z.number(),
+  memory_concepts: z.number(),
+  memory_episodes: z.number(),
+  llm_cost_today: z.number(),
+  llm_calls_today: z.number(),
+  tokens_today: z.number(),
+  messages_today: z.number(),
+  cost_history: z.array(CostHistoryEntrySchema).optional(),
+  timezone: z.string().optional(),
+  today_date: z.string().optional(),
+  has_lifetime_activity: z.boolean().optional(),
+});
+
+// ── Onboarding ──
+
+/**
+ * GET /api/onboarding/state runtime schema. ``mind_id`` is added in
+ * v0.31.6 (C1 closure) and is ``.nullable().optional()`` because
+ * pre-v0.31.6 daemons don't ship the field — preserving back-compat
+ * while we roll the closure.
+ */
+export const OnboardingStateSchema = z.object({
+  complete: z.boolean(),
+  mind_name: z.string(),
+  mind_id: z.string().nullable().optional(),
+  provider_configured: z.boolean(),
+  default_provider: z.string(),
+  default_model: z.string(),
+  ollama_available: z.boolean(),
+  ollama_models: z.array(z.string()),
+});
+
+/**
+ * POST /api/onboarding/complete runtime schema.
+ *
+ * Backend contract (v0.31.4 GAP 8 closure → v0.31.6 frontend wire-up):
+ *   - ``ok``: always present, ``true`` on success.
+ *   - ``voice_configured``: NEW in v0.31.4. Defensively ``false`` when the
+ *     mind requested ``voice_enabled: true`` but ``VoicePipeline`` is NOT
+ *     registered (registry malfunction OR auto-resume failure). ``true``
+ *     otherwise (voice not requested OR voice came up cleanly).
+ *
+ * ``voice_configured`` is ``.optional()`` so pre-v0.31.4 daemons that don't
+ * emit the field don't trip the schema validator. ``passthrough()`` forwards
+ * any future fields unchanged. Mission:
+ * ``MISSION-voice-v0_31_6-paranoid-closure-2026-05-08.md`` §Phase 3 T3.2.
+ */
+export const OnboardingCompleteResponseSchema = z
+  .object({
+    ok: z.boolean(),
+    voice_configured: z.boolean().optional(),
+  })
+  .passthrough();
+
+// ── Conversations ──
+
+export const MessageSchema = z.object({
+  id: z.string(),
+  role: z.enum(["user", "assistant"]),
+  content: z.string(),
+  timestamp: z.string(),
+});
+
+export const ConversationSchema = z.object({
+  id: z.string(),
+  participant: z.string(),
+  participant_name: z.string().optional(),
+  channel: z.string(),
+  message_count: z.number(),
+  last_message_at: z.string(),
+  status: z.enum(["active", "closed"]),
+});
+
+export const ConversationsResponseSchema = z.object({
+  conversations: z.array(ConversationSchema),
+});
+
+export const ConversationDetailResponseSchema = z.object({
+  conversation_id: z.string(),
+  messages: z.array(MessageSchema),
+});
+
+// ── Brain ──
+
+export const BrainNodeSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  category: ConceptCategorySchema,
+  importance: z.number(),
+  confidence: z.number(),
+  access_count: z.number(),
+});
+
+export const BrainLinkSchema = z.object({
+  source: z.string(),
+  target: z.string(),
+  relation_type: RelationTypeSchema,
+  weight: z.number(),
+});
+
+export const BrainGraphSchema = z.object({
+  nodes: z.array(BrainNodeSchema),
+  links: z.array(BrainLinkSchema),
+});
+
+export const BrainSearchResultSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  category: ConceptCategorySchema,
+  importance: z.number(),
+  confidence: z.number(),
+  access_count: z.number(),
+  score: z.number(),
+  match_type: z.enum(["text", "vector"]).optional(),
+});
+
+export const BrainSearchResponseSchema = z.object({
+  results: z.array(BrainSearchResultSchema),
+  query: z.string(),
+});
+
+// ── Logs ──
+
+/**
+ * Log entry schema — mirrors the structlog JSON envelope plus the
+ * Phase 1/2 observability fields (saga_id, cause_id, span_id, …) and
+ * the Phase 8.4 diagnosis hints. All envelope fields are optional so
+ * the dashboard tolerates pre-Phase-1 deployments. ``catchall`` keeps
+ * unknown keys without failing validation.
+ */
+export const LogEntrySchema = z
+  .object({
+    timestamp: z.string(),
+    level: LogLevelSchema,
+    logger: z.string(),
+    event: z.string(),
+    schema_version: z.string().optional(),
+    process_id: z.number().int().optional(),
+    pid: z.number().int().optional(),
+    host: z.string().optional(),
+    sovyx_version: z.string().optional(),
+    saga_id: z.string().nullable().optional(),
+    cause_id: z.string().nullable().optional(),
+    span_id: z.string().nullable().optional(),
+    sequence_no: z.number().int().optional(),
+    diagnosis_hint: z.string().optional(),
+    diagnosis_severity: z.string().optional(),
+    diagnosis_runbook_url: z.string().optional(),
+    snippet: z.string().nullable().optional(),
+    content: z.string().optional(),
+    message: z.string().optional(),
+  })
+  .catchall(z.unknown());
+
+export const LogsResponseSchema = z.object({
+  entries: z.array(LogEntrySchema),
+});
+
+/** GET /api/logs/search response — FTS5-backed query. */
+export const LogSearchResponseSchema = z.object({
+  query: z.string(),
+  filters: z.object({
+    level: z.string().nullable(),
+    logger: z.string().nullable(),
+    saga_id: z.string().nullable(),
+    since: z.string().nullable(),
+    until: z.string().nullable(),
+  }),
+  count: z.number().int(),
+  entries: z.array(LogEntrySchema),
+});
+
+/** GET /api/logs/sagas/{saga_id} response. */
+export const SagaResponseSchema = z.object({
+  saga_id: z.string(),
+  entries: z.array(LogEntrySchema),
+});
+
+/** Causality DAG node — used as the base shape for edges as well. */
+export const CausalityNodeSchema = z.object({
+  id: z.string().nullable(),
+  event: z.string().nullable(),
+  logger: z.string().nullable(),
+  timestamp: z.string(),
+  level: z.string(),
+});
+
+/** Causality edge — extends node with cause_id parent pointer. */
+export const CausalityEdgeSchema = CausalityNodeSchema.extend({
+  cause_id: z.string().nullable(),
+});
+
+/** GET /api/logs/sagas/{saga_id}/causality response. */
+export const CausalityGraphResponseSchema = z.object({
+  saga_id: z.string(),
+  edges: z.array(CausalityEdgeSchema),
+});
+
+/** One step of the localized narrative (P8.3). */
+export const NarrativeStepSchema = z.object({
+  timestamp: z.string(),
+  text: z.string(),
+  event: z.string().optional(),
+});
+
+/** GET /api/logs/sagas/{saga_id}/story response. */
+export const NarrativeResponseSchema = z.object({
+  saga_id: z.string(),
+  story: z.string(),
+  locale: z.enum(["pt-BR", "en-US"]),
+  steps: z.array(NarrativeStepSchema).optional(),
+});
+
+/** Anomaly event names emitted by AnomalyDetector (Phase 8.1). */
+export const AnomalyKindSchema = z.enum([
+  "anomaly.first_occurrence",
+  "anomaly.latency_spike",
+  "anomaly.error_rate_spike",
+  "anomaly.memory_growth",
+]);
+
+/** GET /api/logs/anomalies response. */
+export const AnomaliesResponseSchema = z.object({
+  count: z.number().int(),
+  entries: z.array(LogEntrySchema),
+});
+
+/** WS /api/logs/stream — batch frame. */
+export const LogStreamBatchSchema = z.object({
+  type: z.literal("batch"),
+  entries: z.array(LogEntrySchema),
+});
+
+/** WS /api/logs/stream — error frame. */
+export const LogStreamErrorSchema = z.object({
+  type: z.literal("error"),
+  message: z.string(),
+});
+
+/** Discriminated union over all log-stream frames. */
+export const LogStreamFrameSchema = z.discriminatedUnion("type", [
+  LogStreamBatchSchema,
+  LogStreamErrorSchema,
+]);
+
+// ── Activity Timeline ──
+
+export const TimelineEntrySchema = z.object({
+  type: TimelineEntryTypeSchema,
+  timestamp: z.string(),
+  data: z.record(z.string(), z.unknown()),
+});
+
+export const TimelineResponseSchema = z.object({
+  entries: z.array(TimelineEntrySchema),
+  meta: z.object({
+    hours: z.number(),
+    limit: z.number(),
+    total_before_limit: z.number(),
+    sources: z.record(z.string(), z.number()),
+  }),
+});
+
+// ── Stats ──
+
+export const DailyStatsSchema = z.object({
+  date: z.string(),
+  cost: z.number(),
+  messages: z.number(),
+  llm_calls: z.number(),
+  tokens: z.number(),
+  conversations: z.number().optional(),
+  cost_by_provider: z.record(z.string(), z.number()).optional(),
+  cost_by_model: z.record(z.string(), z.number()).optional(),
+  is_live: z.boolean().optional(),
+});
+
+export const StatsTotalsSchema = z.object({
+  cost: z.number(),
+  messages: z.number(),
+  llm_calls: z.number(),
+  tokens: z.number(),
+  days_active: z.number(),
+});
+
+export const StatsMonthSchema = z.object({
+  cost: z.number(),
+  messages: z.number(),
+  llm_calls: z.number(),
+  tokens: z.number(),
+});
+
+export const StatsHistoryResponseSchema = z.object({
+  days: z.array(DailyStatsSchema),
+  totals: StatsTotalsSchema,
+  current_month: StatsMonthSchema,
+});
+
+// ── Chat ──
+
+export const ChatResponseSchema = z.object({
+  response: z.string(),
+  conversation_id: z.string(),
+  mind_id: z.string(),
+  timestamp: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+});
+
+// ── Conversation Imports ──
+
+export const ConversationImportPlatformSchema = z.enum([
+  "chatgpt",
+  "claude",
+  "gemini",
+  "obsidian",
+  "grok",
+]);
+
+export const ConversationImportStateSchema = z.enum([
+  "pending",
+  "parsing",
+  "processing",
+  "completed",
+  "failed",
+]);
+
+export const StartConversationImportResponseSchema = z.object({
+  job_id: z.string(),
+  platform: ConversationImportPlatformSchema,
+  conversations_total: z.number(),
+});
+
+export const ConversationImportProgressSchema = z.object({
+  job_id: z.string(),
+  platform: ConversationImportPlatformSchema,
+  state: ConversationImportStateSchema,
+  conversations_total: z.number(),
+  conversations_processed: z.number(),
+  conversations_skipped: z.number(),
+  episodes_created: z.number(),
+  concepts_learned: z.number(),
+  warnings: z.array(z.string()),
+  error: z.string().nullable(),
+  elapsed_ms: z.number(),
+});
+
+// ── Plugins ──
+
+export const PluginPermissionSchema = z.object({
+  permission: z.string(),
+  risk: PermissionRiskSchema,
+  description: z.string(),
+});
+
+export const PluginHealthSchema = z.object({
+  consecutive_failures: z.number(),
+  disabled: z.boolean(),
+  last_error: z.string(),
+  active_tasks: z.number(),
+});
+
+export const PluginToolSummarySchema = z.object({
+  name: z.string(),
+  description: z.string(),
+});
+
+export const PluginToolDetailSchema = PluginToolSummarySchema.extend({
+  parameters: z.record(z.string(), z.unknown()),
+  requires_confirmation: z.boolean(),
+  timeout_seconds: z.number(),
+});
+
+export const PluginInfoSchema = z.object({
+  name: z.string(),
+  version: z.string(),
+  description: z.string(),
+  status: PluginStatusSchema,
+  tools_count: z.number(),
+  tools: z.array(PluginToolSummarySchema),
+  permissions: z.array(PluginPermissionSchema),
+  health: PluginHealthSchema,
+  category: z.string(),
+  tags: z.array(z.string()),
+  icon_url: z.string(),
+  pricing: z.string(),
+});
+
+export const PluginsResponseSchema = z.object({
+  available: z.boolean(),
+  plugins: z.array(PluginInfoSchema),
+  total: z.number(),
+  active: z.number(),
+  disabled: z.number(),
+  error: z.number(),
+  total_tools: z.number(),
+});
+
+/**
+ * PluginManifestData is loosely validated — the manifest comes from
+ * third-party plugin code and the dashboard treats unknown fields as
+ * data to display. `passthrough()` preserves extra keys.
+ */
+export const PluginManifestDataSchema = z
+  .object({
+    name: z.string(),
+    version: z.string(),
+    description: z.string(),
+    author: z.string(),
+  })
+  .loose();
+
+export const PluginDetailSchema = z.object({
+  name: z.string(),
+  version: z.string(),
+  description: z.string(),
+  status: PluginStatusSchema,
+  tools: z.array(PluginToolDetailSchema),
+  permissions: z.array(PluginPermissionSchema),
+  health: PluginHealthSchema,
+  manifest: z.union([PluginManifestDataSchema, z.object({}).loose()]),
+});
+
+export const PluginActionResponseSchema = z.object({
+  ok: z.boolean(),
+  plugin: z.string(),
+  status: z.string(),
+  error: z.string().optional(),
+});
+
+// ── Voice device test ──
+
+export const VoiceTestErrorCodeSchema = z.enum([
+  "device_not_found",
+  "device_busy",
+  "device_disappeared",
+  "permission_denied",
+  "unsupported_samplerate",
+  "unsupported_channels",
+  "unsupported_format",
+  "buffer_size_invalid",
+  "pipeline_active",
+  "rate_limited",
+  "disabled",
+  "replaced_by_newer_session",
+  "internal_error",
+  "invalid_request",
+  "tts_unavailable",
+  "models_not_downloaded",
+  "job_not_found",
+  "job_expired",
+]);
+
+export const VoiceTestFrameTypeSchema = z.enum(["level", "error", "closed", "ready"]);
+
+export const VoiceTestCloseReasonSchema = z.enum([
+  "client_disconnect",
+  "server_shutdown",
+  "device_changed",
+  "session_replaced",
+  "device_error",
+]);
+
+export const VoiceTestReadyFrameSchema = z.object({
+  v: z.number().int(),
+  t: z.literal("ready"),
+  device_id: z.number().int().nullable(),
+  device_name: z.string(),
+  sample_rate: z.number().int(),
+  channels: z.number().int(),
+});
+
+export const VoiceTestLevelFrameSchema = z.object({
+  v: z.number().int(),
+  t: z.literal("level"),
+  rms_db: z.number(),
+  peak_db: z.number(),
+  hold_db: z.number(),
+  clipping: z.boolean(),
+  vad_trigger: z.boolean(),
+});
+
+export const VoiceTestErrorFrameSchema = z.object({
+  v: z.number().int(),
+  t: z.literal("error"),
+  code: VoiceTestErrorCodeSchema,
+  detail: z.string(),
+  retryable: z.boolean(),
+});
+
+export const VoiceTestClosedFrameSchema = z.object({
+  v: z.number().int(),
+  t: z.literal("closed"),
+  reason: VoiceTestCloseReasonSchema,
+});
+
+export const VoiceTestFrameSchema = z.discriminatedUnion("t", [
+  VoiceTestReadyFrameSchema,
+  VoiceTestLevelFrameSchema,
+  VoiceTestErrorFrameSchema,
+  VoiceTestClosedFrameSchema,
+]);
+
+export const VoiceTestDeviceInfoSchema = z.object({
+  index: z.number().int(),
+  name: z.string(),
+  is_default: z.boolean(),
+  max_input_channels: z.number().int(),
+  max_output_channels: z.number().int(),
+  default_samplerate: z.number().int(),
+});
+
+export const VoiceTestDevicesResponseSchema = z.object({
+  ok: z.boolean(),
+  protocol_version: z.number().int(),
+  input_devices: z.array(VoiceTestDeviceInfoSchema),
+  output_devices: z.array(VoiceTestDeviceInfoSchema),
+});
+
+export const VoiceTestOutputJobSchema = z.object({
+  ok: z.boolean(),
+  job_id: z.string(),
+  status: z.string(),
+});
+
+export const VoiceTestOutputResultSchema = z.object({
+  ok: z.boolean(),
+  job_id: z.string(),
+  status: z.string(),
+  code: VoiceTestErrorCodeSchema.nullable().optional(),
+  detail: z.string().nullable().optional(),
+  phrase: z.string().nullable().optional(),
+  synthesis_ms: z.number().nullable().optional(),
+  playback_ms: z.number().nullable().optional(),
+  peak_db: z.number().nullable().optional(),
+});
+
+export const VoiceTestErrorResponseSchema = z.object({
+  ok: z.boolean(),
+  code: VoiceTestErrorCodeSchema,
+  detail: z.string(),
+  missing_models: z.array(z.string()).nullable().optional(),
+});
+
+// ── Voice models — disk status + background download ──
+
+export const VoiceModelDiskStatusSchema = z.object({
+  name: z.string(),
+  category: z.string(),
+  description: z.string(),
+  installed: z.boolean(),
+  path: z.string(),
+  size_mb: z.number(),
+  expected_size_mb: z.number(),
+  download_available: z.boolean(),
+});
+
+export const VoiceModelsStatusResponseSchema = z.object({
+  model_dir: z.string(),
+  all_installed: z.boolean(),
+  missing_count: z.number().int(),
+  missing_download_mb: z.number(),
+  models: z.array(VoiceModelDiskStatusSchema),
+});
+
+export const VoiceModelDownloadProgressSchema = z.object({
+  task_id: z.string(),
+  status: z.enum(["running", "done", "error"]),
+  total_models: z.number().int(),
+  completed_models: z.number().int(),
+  current_model: z.string().nullable(),
+  error: z.string().nullable(),
+  error_code: z
+    .enum([
+      "cooldown",
+      "all_mirrors_exhausted",
+      "checksum_mismatch",
+      "network",
+      "unknown",
+    ])
+    .nullable()
+    .optional(),
+  retry_after_seconds: z.number().int().nullable().optional(),
+});
+
+export const VoiceCatalogEntrySchema = z.object({
+  id: z.string(),
+  display_name: z.string(),
+  language: z.string(),
+  gender: z.enum(["female", "male"]),
+});
+
+export const VoiceCatalogResponseSchema = z.object({
+  supported_languages: z.array(z.string()),
+  by_language: z.record(z.string(), z.array(VoiceCatalogEntrySchema)),
+  recommended_per_language: z.record(z.string(), z.string()),
+  // Mission LIVE-2 Phase 4 — STT (Moonshine) supported languages, distinct
+  // from the TTS `supported_languages` above. `.default([])` keeps older
+  // daemons that don't emit the field parseable (LENIENT additive).
+  stt_supported_languages: z.array(z.string()).default([]),
+});
+
+// ── Voice capture integrity diagnostics ──
+//
+// Mission H2 §T3.1 — `CaptureIntegrityEndpointSchema` is the canonical
+// neutral name; `CaptureApoEndpointSchema` is preserved as a backwards-
+// compatible alias through v0.51.0 STRICT per anti-pattern #20 cross-
+// file migration discipline. Three optional+nullable v2.0.0 schema
+// metadata fields (anti-pattern #29 frame-typed-observability optional
+// for one minor cycle) carry the platform fields from the wrapper's
+// `voice.capture_integrity.bypass*` emissions when populated:
+//   * voice.platform       — Literal "linux" | "windows" | "darwin" | "other"
+//   * voice.bypass_family  — open string (PlatformAudioFamily.value)
+//   * voice.event_schema_version — Literal "2.0.0"
+
+export const CaptureIntegrityEndpointSchema = z.object({
+  endpoint_id: z.string(),
+  endpoint_name: z.string(),
+  enumerator: z.string(),
+  fx_binding_count: z.number().int(),
+  known_apos: z.array(z.string()),
+  raw_clsids: z.array(z.string()),
+  voice_clarity_active: z.boolean(),
+  is_active_device: z.boolean(),
+  // Mission H2 v0.49.8 platform metadata — optional+nullable while
+  // ADR-D14 dual-emission window is open; required at v0.51.0 STRICT.
+  "voice.platform": z
+    .enum(["linux", "windows", "darwin", "other"])
+    .nullable()
+    .optional(),
+  "voice.bypass_family": z.string().nullable().optional(),
+  "voice.event_schema_version": z.literal("2.0.0").nullable().optional(),
+});
+
+// Legacy export alias — preserved through v0.51.0 STRICT per
+// anti-pattern #20 cross-file migration discipline. Downstream
+// consumers that pinned on the legacy name continue to compile.
+export const CaptureApoEndpointSchema = CaptureIntegrityEndpointSchema;
+
+export const CaptureDiagnosticsResponseSchema = z.object({
+  platform_supported: z.boolean(),
+  active_device_name: z.string().nullable(),
+  active_endpoint: z
+    .object({
+      endpoint_id: z.string(),
+      endpoint_name: z.string(),
+      known_apos: z.array(z.string()),
+      voice_clarity_active: z.boolean(),
+    })
+    .nullable(),
+  voice_clarity_active: z.boolean(),
+  any_voice_clarity_active: z.boolean(),
+  endpoints: z.array(CaptureApoEndpointSchema),
+  fix_suggestion: z.string().nullable(),
+  error: z.string().optional(),
+});
+
+export const CaptureExclusiveResponseSchema = z.object({
+  ok: z.boolean(),
+  enabled: z.boolean(),
+  persisted: z.boolean(),
+  applied_immediately: z.boolean(),
+});
+
+// ── Linux ALSA mixer diagnostics + remediation ──
+
+export const LinuxMixerControlSchema = z.object({
+  name: z.string(),
+  min_raw: z.number().int(),
+  max_raw: z.number().int(),
+  current_raw: z.number().int(),
+  current_db: z.number().nullable(),
+  max_db: z.number().nullable(),
+  is_boost_control: z.boolean(),
+  saturation_risk: z.boolean(),
+  asymmetric: z.boolean(),
+});
+
+export const LinuxMixerCardSchema = z.object({
+  card_index: z.number().int(),
+  card_id: z.string(),
+  card_longname: z.string(),
+  aggregated_boost_db: z.number(),
+  saturation_warning: z.boolean(),
+  controls: z.array(LinuxMixerControlSchema),
+});
+
+export const LinuxMixerDiagnosticsResponseSchema = z.object({
+  platform_supported: z.boolean(),
+  amixer_available: z.boolean(),
+  snapshots: z.array(LinuxMixerCardSchema),
+  aggregated_boost_db_ceiling: z.number(),
+  saturation_ratio_ceiling: z.number(),
+  reset_enabled_by_default: z.boolean(),
+});
+
+export const LinuxMixerResetResponseSchema = z.object({
+  ok: z.boolean(),
+  reason: z.string().optional(),
+  reason_code: z.string().optional(),
+  detail: z.string().optional(),
+  card_index: z.number().int().optional(),
+  card_id: z.string().optional(),
+  card_longname: z.string().optional(),
+  candidate_card_indexes: z.array(z.number().int()).optional(),
+  applied_controls: z.array(z.tuple([z.string(), z.number().int()])).optional(),
+  reverted_controls: z.array(z.tuple([z.string(), z.number().int()])).optional(),
+});
+
+// v1.3 §4.6 L6 — boot preflight warning carried on
+// /api/voice/status.preflight_warnings and as the WebSocket
+// "voice_preflight_warning" payload. Shape mirrors
+// ``BootPreflightWarningsStore.snapshot()`` on the backend.
+export const PreflightWarningSchema = z.object({
+  code: z.string(),
+  severity: z.string().optional(),
+  hint: z.string().optional(),
+  details: z.record(z.string(), z.unknown()).optional(),
+});
+
+// ── Voice Capture Health (L7, ADR §4.7) ──
+
+/** T6.20 — `GET /api/voice/service-health` aggregated readiness response.
+ *
+ * ``user_remediation`` (T6.12) is the operator-facing hint string mapped
+ * from ``last_diagnosis``. ``null`` when no actionable hint applies.
+ */
+export const VoiceServiceHealthResponseSchema = z.object({
+  ready: z.boolean(),
+  reason: z.enum([
+    "ok",
+    "voice_disabled",
+    "engine_not_running",
+    "voice_pipeline_not_registered",
+    "last_diagnosis_unhealthy",
+  ]),
+  last_diagnosis: z.string().nullable(),
+  watchdog_state: z.string().nullable(),
+  user_remediation: z.string().nullable(),
+});
+
+export const VoiceHealthComboSchema = z.object({
+  host_api: z.string(),
+  sample_rate: z.number().int(),
+  channels: z.number().int(),
+  sample_format: z.string(),
+  exclusive: z.boolean(),
+  auto_convert: z.boolean(),
+  frames_per_buffer: z.number().int(),
+});
+
+export const VoiceHealthRemediationHintSchema = z.object({
+  code: z.string(),
+  severity: z.enum(["info", "warn", "error"]),
+  cli_action: z.string().nullable(),
+});
+
+export const VoiceHealthProbeHistoryEntrySchema = z.object({
+  ts: z.string(),
+  mode: z.string(),
+  diagnosis: z.string(),
+  vad_max_prob: z.number().nullable(),
+  rms_db: z.number(),
+  duration_ms: z.number().int(),
+});
+
+export const VoiceHealthProbeResultSchema = z.object({
+  diagnosis: z.string(),
+  mode: z.string(),
+  combo: VoiceHealthComboSchema,
+  vad_max_prob: z.number().nullable(),
+  vad_mean_prob: z.number().nullable(),
+  rms_db: z.number(),
+  callbacks_fired: z.number().int(),
+  duration_ms: z.number().int(),
+  error: z.string().nullable(),
+  remediation: VoiceHealthRemediationHintSchema.nullable(),
+});
+
+export const VoiceHealthComboEntrySchema = z.object({
+  endpoint_guid: z.string(),
+  device_friendly_name: z.string(),
+  device_interface_name: z.string(),
+  device_class: z.string(),
+  endpoint_fxproperties_sha: z.string(),
+  winning_combo: VoiceHealthComboSchema,
+  validated_at: z.string(),
+  validation_mode: z.string(),
+  vad_max_prob_at_validation: z.number().nullable(),
+  vad_mean_prob_at_validation: z.number().nullable(),
+  rms_db_at_validation: z.number(),
+  probe_duration_ms: z.number().int(),
+  detected_apos_at_validation: z.array(z.string()),
+  cascade_attempts_before_success: z.number().int(),
+  boots_validated: z.number().int(),
+  last_boot_validated: z.string(),
+  last_boot_diagnosis: z.string(),
+  probe_history: z.array(VoiceHealthProbeHistoryEntrySchema),
+  pinned: z.boolean(),
+  needs_revalidation: z.boolean(),
+});
+
+export const VoiceHealthOverrideEntrySchema = z.object({
+  endpoint_guid: z.string(),
+  device_friendly_name: z.string(),
+  pinned_combo: VoiceHealthComboSchema,
+  pinned_at: z.string(),
+  pinned_by: z.string(),
+  reason: z.string(),
+});
+
+export const VoiceHealthSnapshotResponseSchema = z.object({
+  combo_store: z.array(VoiceHealthComboEntrySchema),
+  overrides: z.array(VoiceHealthOverrideEntrySchema),
+  quarantine_count: z.number().int(),
+  data_dir: z.string(),
+  voice_enabled: z.boolean(),
+});
+
+// Mission C.1 §C.1-b — TYPED-CONSUMER mirror of the pydantic
+// :class:`sovyx.voice.health._quarantine_reasons.QuarantineReason`
+// SSoT. The enum members enumerated below MUST stay in lockstep with
+// the pydantic SSoT — Gate 14 (producer side) + the
+// ``schemas.test.ts`` SSoT-parity test (typed-consumer side) catch
+// drift. The LENIENT Union with ``z.string()`` accepts H3 lifecycle
+// tags (``"probe_pinned"`` / ``"probe_store"`` / …) and unknown drift
+// values while the pydantic boundary validator surfaces them as a
+// structured WARN. Phase 3 STRICT v0.53.0 H3 cycle close drops the
+// ``.or(z.string())`` tail, narrowing the typed view to the enum.
+export const QuarantineReasonSchema = z.enum([
+  "apo_degraded",
+  "vad_frontend_dead",
+  "format_mismatch",
+  "driver_silent",
+  "capture_dead",
+  "kernel_invalidated",
+  "watchdog_recheck",
+  "unclassified",
+]);
+
+export const VoiceHealthQuarantineEntrySchema = z
+  .object({
+    endpoint_guid: z.string(),
+    device_friendly_name: z.string(),
+    device_interface_name: z.string(),
+    host_api: z.string(),
+    added_at_monotonic: z.number(),
+    expires_at_monotonic: z.number(),
+    seconds_until_expiry: z.number(),
+    // Mission C.1 §C.1-b — TRANSPORT view narrows to the QuarantineReason
+    // enum while the ``.or(z.string())`` tail preserves LENIENT-window
+    // backward-compat for H3 lifecycle-tag literals (``"probe_pinned"``
+    // / ``"probe_store"`` / …) and drift values. Phase 3 STRICT v0.53.0
+    // drops the ``.or(z.string())`` tail.
+    reason: QuarantineReasonSchema.or(z.string()),
+    // Mission C1 §T2.2 — verdict-driven reason class (LENIENT alias).
+    // Optional during the v0.44.x cycle: pre-mission entries persisted
+    // with empty ``derived_reason`` parse cleanly. Phase 3 v0.53.0
+    // STRICT flip drops this field.
+    derived_reason: QuarantineReasonSchema.or(z.string()).optional(),
+    // Mission H3 §T2.8 + ADR-D2 — canonical SSoT-resolved value.
+    // Optional during the triple-field LENIENT window; v0.53.0 STRICT
+    // drops both alias fields and promotes ``resolved_reason`` →
+    // ``reason``.
+    resolved_reason: QuarantineReasonSchema.or(z.string()).optional(),
+    // Mission H3 §T2.8 — pydantic-side computed property exposing
+    // the canonical field-chain fallback. Optional because clients
+    // that don't decode computed fields still parse cleanly.
+    effective_reason: QuarantineReasonSchema.or(z.string()).optional(),
+  })
+  // Mission H3 §T2.8 — ``extra="allow"`` mirror per anti-pattern #40.
+  // Forward-additive QuarantineEntry fields (e.g. composite-store
+  // metadata in Phase 1.D) land here without breaking older clients.
+  .passthrough();
+
+export const VoiceHealthQuarantineSnapshotResponseSchema = z.object({
+  entries: z.array(VoiceHealthQuarantineEntrySchema),
+  count: z.number().int(),
+});
+
+export const VoiceHealthReprobeResponseSchema = z.object({
+  endpoint_guid: z.string(),
+  result: VoiceHealthProbeResultSchema,
+});
+
+export const VoiceHealthForgetResponseSchema = z.object({
+  endpoint_guid: z.string(),
+  invalidated: z.boolean(),
+});
+
+// ── voice-linux-cascade-root-fix T9 — alternative-device banner ──
+//
+// Backend returns HTTP 503 with ``error: "capture_device_contended"``
+// when every candidate failed because a session manager holds the
+// hardware. The dashboard renders a banner with clickable chips for
+// each alternative; clicking one dispatches a new ``/api/voice/enable``
+// with ``input_device_name`` / ``input_device`` pinned to that device.
+export const VoiceDeviceKindSchema = z.enum([
+  "hardware",
+  "session_manager_virtual",
+  "os_default",
+  "unknown",
+]);
+
+export const VoiceAlternativeDeviceSchema = z.object({
+  index: z.number().int(),
+  name: z.string(),
+  host_api: z.string(),
+  kind: VoiceDeviceKindSchema,
+  max_input_channels: z.number().int(),
+  default_samplerate: z.number().int(),
+});
+
+export const VoiceCaptureDeviceContendedErrorSchema = z.object({
+  ok: z.literal(false),
+  error: z.literal("capture_device_contended"),
+  detail: z.string(),
+  device: z.union([z.number(), z.string(), z.null()]),
+  host_api: z.union([z.string(), z.null()]),
+  suggested_actions: z.array(z.string()),
+  contending_process_hint: z.union([z.string(), z.null()]).optional(),
+  alternative_devices: z.array(VoiceAlternativeDeviceSchema),
+});
+
+// ── F2-C01 (audit §3.A) — /api/voice/enable request + umbrella response ──
+//
+// Mirrors the backend Pydantic envelope at
+// ``src/sovyx/dashboard/routes/voice.py::VoiceEnableResponse`` field-by-field.
+// The backend declares ``model_config extra="allow"`` to keep the contract
+// forward-additive for new diagnostic fields; we use ``z.passthrough()`` so
+// undeclared keys survive ``safeParse`` without warnings.
+//
+// The 503 ``capture_device_contended`` branch carries
+// ``contending_process_hint`` + ``alternative_devices`` — the previously
+// dropped pair before F2-C01 was closed. VoiceSetupModal now imports the
+// inferred type directly and renders ``DeviceContentionBanner`` on that
+// payload.
+export const VoiceEnableMissingDepSchema = z.object({
+  module: z.string(),
+  package: z.string(),
+});
+
+export const VoiceEnableMissingModelSchema = z.object({
+  name: z.string(),
+  install_command: z.string(),
+});
+
+export const VoiceEnableRequestSchema = z.object({
+  mind_id: z.string().optional(),
+  input_device: z.union([z.number(), z.null()]).optional(),
+  output_device: z.union([z.number(), z.null()]).optional(),
+  input_device_name: z.union([z.string(), z.null()]).optional(),
+  input_device_host_api: z.union([z.string(), z.null()]).optional(),
+});
+
+export const VoiceEnableResponseSchema = z
+  .object({
+    ok: z.boolean(),
+    status: z.string().nullable().optional(),
+    error: z.string().nullable().optional(),
+    tts_engine: z.string().nullable().optional(),
+    host_api: z.string().nullable().optional(),
+    detail: z.string().nullable().optional(),
+    device: z.union([z.number(), z.string(), z.null()]).optional(),
+    reason: z.string().nullable().optional(),
+    attempts: z.unknown().optional(),
+    missing_deps: z.array(VoiceEnableMissingDepSchema).nullable().optional(),
+    install_command: z.string().nullable().optional(),
+    missing_models: z.array(VoiceEnableMissingModelSchema).nullable().optional(),
+    observed_peak_rms_db: z.number().nullable().optional(),
+    suggested_actions: z.array(z.string()).nullable().optional(),
+    contending_process_hint: z.string().nullable().optional(),
+    alternative_devices: z
+      .array(VoiceAlternativeDeviceSchema)
+      .nullable()
+      .optional(),
+  })
+  .passthrough();
+
+export const VoiceHealthPinResponseSchema = z.object({
+  endpoint_guid: z.string(),
+  pinned: z.boolean(),
+});
+
+// ── Mixer KB (Sprint 4 dashboard workflow) ──────────────────────────
+
+export const MixerKbProfileSummarySchema = z.object({
+  pool: z.string(),
+  profile_id: z.string(),
+  profile_version: z.number().int(),
+  schema_version: z.number().int(),
+  driver_family: z.string(),
+  codec_id_glob: z.string(),
+  match_threshold: z.number(),
+  factory_regime: z.string(),
+  contributed_by: z.string(),
+});
+
+export const MixerKbProfileDetailSchema = MixerKbProfileSummarySchema.extend({
+  system_vendor_glob: z.string().nullable(),
+  system_product_glob: z.string().nullable(),
+  distro_family: z.string().nullable(),
+  audio_stack: z.string().nullable(),
+  kernel_major_minor_glob: z.string().nullable(),
+  factory_signature_roles: z.array(z.string()),
+  verified_on_count: z.number().int(),
+});
+
+export const MixerKbListResponseSchema = z.object({
+  profiles: z.array(MixerKbProfileSummarySchema),
+  shipped_count: z.number().int(),
+  user_count: z.number().int(),
+});
+
+export const MixerKbValidationIssueSchema = z.object({
+  loc: z.string(),
+  msg: z.string(),
+});
+
+export const MixerKbValidateResponseSchema = z.object({
+  ok: z.boolean(),
+  profile_id: z.string().nullable(),
+  profile_version: z.number().int().nullable(),
+  issues: z.array(MixerKbValidationIssueSchema),
+});
+
+// ── Platform Diagnostics — GET /api/voice/platform-diagnostics ──
+
+export const MicPermissionStatusSchema = z.enum([
+  "granted",
+  "denied",
+  "unknown",
+]);
+
+export const PlatformMicPermissionPayloadSchema = z.object({
+  status: MicPermissionStatusSchema,
+  machine_value: z.string().nullable(),
+  user_value: z.string().nullable(),
+  notes: z.array(z.string()),
+  remediation_hint: z.string(),
+});
+
+export const PipeWireStatusTokenSchema = z.enum([
+  "active",
+  "absent",
+  "degraded",
+  "unknown",
+]);
+
+export const PipeWirePayloadSchema = z.object({
+  status: PipeWireStatusTokenSchema,
+  socket_present: z.boolean(),
+  pactl_available: z.boolean(),
+  pactl_info_ok: z.boolean(),
+  server_name: z.string().nullable(),
+  modules_loaded: z.array(z.string()),
+  echo_cancel_loaded: z.boolean(),
+  notes: z.array(z.string()),
+});
+
+export const UcmStatusTokenSchema = z.enum([
+  "available",
+  "absent",
+  "no_ucm_for_card",
+  "unknown",
+]);
+
+export const UcmPayloadSchema = z.object({
+  status: UcmStatusTokenSchema,
+  card_id: z.string(),
+  alsaucm_available: z.boolean(),
+  verbs: z.array(z.string()),
+  active_verb: z.string().nullable(),
+  notes: z.array(z.string()),
+});
+
+export const WindowsServiceStateTokenSchema = z.enum([
+  "running",
+  "stopped",
+  "start_pending",
+  "stop_pending",
+  "paused",
+  "unknown",
+  "not_found",
+]);
+
+export const WindowsServicePayloadSchema = z.object({
+  name: z.string(),
+  state: WindowsServiceStateTokenSchema,
+  raw_state: z.string(),
+  notes: z.array(z.string()),
+});
+
+export const WindowsAudioServicePayloadSchema = z.object({
+  audiosrv: WindowsServicePayloadSchema,
+  audio_endpoint_builder: WindowsServicePayloadSchema,
+  all_healthy: z.boolean(),
+  degraded_services: z.array(z.string()),
+});
+
+export const EtwEventLevelTokenSchema = z.enum([
+  "critical",
+  "error",
+  "warning",
+  "information",
+  "verbose",
+  "unknown",
+]);
+
+export const EtwEventPayloadSchema = z.object({
+  channel: z.string(),
+  level: EtwEventLevelTokenSchema,
+  event_id: z.number().int(),
+  timestamp_iso: z.string(),
+  provider: z.string(),
+  description: z.string(),
+});
+
+export const EtwChannelPayloadSchema = z.object({
+  channel: z.string(),
+  events: z.array(EtwEventPayloadSchema),
+  lookback_seconds: z.number().int(),
+  notes: z.array(z.string()),
+});
+
+export const HalPluginCategoryTokenSchema = z.enum([
+  "virtual_audio",
+  "audio_enhancement",
+  "vendor",
+  "unknown",
+]);
+
+export const HalPluginPayloadSchema = z.object({
+  bundle_name: z.string(),
+  path: z.string(),
+  category: HalPluginCategoryTokenSchema,
+  friendly_label: z.string(),
+});
+
+export const HalPayloadSchema = z.object({
+  plugins: z.array(HalPluginPayloadSchema),
+  notes: z.array(z.string()),
+  virtual_audio_active: z.boolean(),
+  audio_enhancement_active: z.boolean(),
+});
+
+export const BluetoothAudioProfileTokenSchema = z.enum([
+  "a2dp",
+  "hfp",
+  "unknown",
+]);
+
+export const BluetoothDevicePayloadSchema = z.object({
+  name: z.string(),
+  address: z.string(),
+  profile: BluetoothAudioProfileTokenSchema,
+  is_input_capable: z.boolean(),
+  is_output_capable: z.boolean(),
+});
+
+export const BluetoothPayloadSchema = z.object({
+  devices: z.array(BluetoothDevicePayloadSchema),
+  notes: z.array(z.string()),
+});
+
+export const EntitlementVerdictTokenSchema = z.enum([
+  "present",
+  "absent",
+  "unsigned",
+  "unknown",
+]);
+
+export const CodeSigningPayloadSchema = z.object({
+  verdict: EntitlementVerdictTokenSchema,
+  executable_path: z.string(),
+  notes: z.array(z.string()),
+  remediation_hint: z.string(),
+});
+
+export const PlatformLinuxBranchSchema = z.object({
+  pipewire: PipeWirePayloadSchema,
+  alsa_ucm: UcmPayloadSchema,
+});
+
+export const PlatformWindowsBranchSchema = z.object({
+  audio_service: WindowsAudioServicePayloadSchema,
+  etw_audio_events: z.array(EtwChannelPayloadSchema),
+});
+
+export const PlatformMacOSBranchSchema = z.object({
+  hal_plugins: HalPayloadSchema,
+  bluetooth: BluetoothPayloadSchema,
+  code_signing: CodeSigningPayloadSchema,
+});
+
+export const PlatformTokenSchema = z.enum([
+  "linux",
+  "win32",
+  "darwin",
+  "other",
+]);
+
+export const PlatformDiagnosticsResponseSchema = z.object({
+  platform: PlatformTokenSchema,
+  mic_permission: PlatformMicPermissionPayloadSchema,
+  linux: PlatformLinuxBranchSchema.nullable(),
+  windows: PlatformWindowsBranchSchema.nullable(),
+  macos: PlatformMacOSBranchSchema.nullable(),
+});
+
+// ── Voice Windows Paranoid Mission (v0.24.0 → v0.26.0) ──────────────
+// CaptureRestartFrame — observability layer for capture-task restarts.
+// Mirrors src/sovyx/voice/pipeline/_frame_types.py::CaptureRestartFrame.
+//
+// Phase 3 / T3.12 (v0.26.0 prep, 2026-04-29): ALL payload fields
+// promoted from .optional() to required after T32 wire-up shipped
+// (commits a21d8bf + ab2720f) and demonstrated in the production
+// payload. The Python dataclass at _frame_types.py defines defaults
+// (empty strings, 0 ints) for every field — dataclasses.asdict()
+// always produces them — so the wire contract is "fields are
+// always present even when their values are zero/empty". Required
+// schema rejects payloads that drop fields, catching backend
+// regression at the safeParse boundary instead of letting None
+// propagate into the dashboard's TypeScript layer.
+
+export const CaptureRestartReasonSchema = z.enum([
+  "device_changed",
+  "apo_degraded",
+  "overflow",
+  "manual",
+  // Mission C1 §20.K — closed-enum extension. New verdict-driven
+  // reasons emitted by capture restarts MUST be listed here or the
+  // frontend zod parser REJECTS the response. ``vad_frontend_dead``
+  // and ``format_mismatch`` are the v0.44.0 additions; ``driver_silent``
+  // surfaces on the cascade-reevaluation path from the coordinator
+  // dispatch (T1.3).
+  "vad_frontend_dead",
+  "format_mismatch",
+  "driver_silent",
+  // Mission H3 §T3.3 — closed-enum extension for new QuarantineReason
+  // taxonomy values: ``capture_dead`` (substrate fully silent;
+  // ``Diagnosis.NO_SIGNAL`` / ``STREAM_OPEN_TIMEOUT`` /
+  // ``HEARTBEAT_TIMEOUT`` exhausted across every host API; cure is
+  // physical replug / reboot) and ``unclassified`` (taxonomy fallback;
+  // Gate 14 STRICT prevents this from shipping in practice).
+  "capture_dead",
+  "unclassified",
+]);
+
+export const CaptureRestartFrameSchema = z.object({
+  // PipelineFrame base fields:
+  frame_type: z.literal("CaptureRestart"),
+  timestamp_monotonic: z.number(),
+  utterance_id: z.string(),
+  // CaptureRestart payload (T3.12 — all required, defaults to
+  // empty-string / 0 in the Python dataclass; always serialised).
+  restart_reason: CaptureRestartReasonSchema.or(z.string()),
+  old_host_api: z.string(),
+  new_host_api: z.string(),
+  old_device_id: z.string(),
+  new_device_id: z.string(),
+  old_signal_processing_mode: z.string(),
+  new_signal_processing_mode: z.string(),
+  recovery_latency_ms: z.number().int().nonnegative(),
+  bypass_tier: z.number().int().min(0).max(3),
+});
+
+// ``GET /api/voice/restart-history?limit=N`` payload — bounded list of
+// CaptureRestartFrame entries from the orchestrator's frame ring buffer.
+// T33 (commit 773a2ff) wired the endpoint to the real ``frame_history``
+// payload; T3.12 promotes ``limit`` + ``total`` to required since the
+// endpoint always populates them post-T33.
+export const VoiceRestartHistoryResponseSchema = z.object({
+  frames: z.array(CaptureRestartFrameSchema),
+  limit: z.number().int().positive(),
+  total: z.number().int().nonnegative(),
+});
+
+// ``GET /api/voice/bypass-tier-status`` — current bypass-tier health
+// snapshot (Tier 1 RAW / Tier 2 host_api_rotate / Tier 3 WASAPI excl).
+// v0.26.0 wire-up (commit 2dbe913): the endpoint reads a deterministic
+// ``BypassTierSnapshot`` mirror that always populates every counter, so
+// the schema promotes counters from .optional() to required. Backend
+// regression (e.g. dropped field) is now caught at the zod boundary
+// in CI rather than silent at runtime.
+// ``current_bypass_tier`` stays nullable+optional — coordinator-side
+// engaged-tier tracking is staged for a follow-up commit (the v0.26.0
+// snapshot always emits the key but with value ``null``).
+export const VoiceBypassTierStatusResponseSchema = z.object({
+  current_bypass_tier: z.number().int().min(0).max(3).nullable().optional(),
+  tier1_raw_attempted: z.number().int().nonnegative(),
+  tier1_raw_succeeded: z.number().int().nonnegative(),
+  tier2_host_api_rotate_attempted: z.number().int().nonnegative(),
+  tier2_host_api_rotate_succeeded: z.number().int().nonnegative(),
+  tier3_wasapi_exclusive_attempted: z.number().int().nonnegative(),
+  tier3_wasapi_exclusive_succeeded: z.number().int().nonnegative(),
+});
+
+// ``GET /api/voice/quality-snapshot`` — Phase 4 / T4.26 + T4.37.
+// Single read of the rolling SNR buffer + noise-floor drift state
+// + AGC2 verdict counters. ``dnsmos_extras_installed`` distinguishes
+// "true MOS available" (T4.21+ extras) from "SNR-proxy MOS only".
+export const VoiceQualityVerdictSchema = z.enum([
+  "excellent",
+  "good",
+  "degraded",
+  "poor",
+  "no_signal",
+]);
+
+export const VoiceNoiseFloorBlockSchema = z.object({
+  short_avg_db: z.number().nullable(),
+  long_avg_db: z.number().nullable(),
+  drift_db: z.number().nullable(),
+  ready: z.boolean(),
+  short_sample_count: z.number().int().nonnegative(),
+  long_sample_count: z.number().int().nonnegative(),
+});
+
+export const VoiceAgc2BlockSchema = z.object({
+  frames_processed: z.number().int().nonnegative(),
+  frames_silenced: z.number().int().nonnegative(),
+  frames_vad_silenced: z.number().int().nonnegative(),
+  current_gain_db: z.number(),
+  speech_level_dbfs: z.number(),
+});
+
+export const VoiceQualitySnapshotResponseSchema = z.object({
+  snr_p50_db: z.number().nullable(),
+  snr_sample_count: z.number().int().nonnegative(),
+  snr_verdict: VoiceQualityVerdictSchema,
+  noise_floor: VoiceNoiseFloorBlockSchema,
+  agc2: VoiceAgc2BlockSchema.nullable(),
+  dnsmos_extras_installed: z.boolean(),
+  // LIVE-2 DNSMOS wire-up — quality mode + live DNSMOS overall MOS.
+  // ``.default(...)`` keeps payloads from older daemons (no field) parseable.
+  quality_mode: z
+    .enum(["dnsmos_unavailable", "dnsmos_inactive", "dnsmos_live"])
+    .default("dnsmos_unavailable"),
+  dnsmos_ovrl_mos: z.number().nullable().default(null),
+});
+
+/* ── Mind management runtime schemas ──
+ *
+ * Phase 8 / T8.21 dashboard endpoints:
+ *   POST /api/mind/{mind_id}/forget          (step 5)
+ *   POST /api/mind/{mind_id}/retention/prune (step 6)
+ *
+ * Pass ``{ schema: ForgetMindResponseSchema }`` to ``api.post`` so
+ * malformed responses are caught at the boundary instead of
+ * silently corrupting downstream UI state.
+ */
+
+export const ForgetMindResponseSchema = z.object({
+  mind_id: z.string(),
+  concepts_purged: z.number().int().nonnegative(),
+  relations_purged: z.number().int().nonnegative(),
+  episodes_purged: z.number().int().nonnegative(),
+  concept_embeddings_purged: z.number().int().nonnegative(),
+  episode_embeddings_purged: z.number().int().nonnegative(),
+  conversation_imports_purged: z.number().int().nonnegative(),
+  consolidation_log_purged: z.number().int().nonnegative(),
+  conversations_purged: z.number().int().nonnegative(),
+  conversation_turns_purged: z.number().int().nonnegative(),
+  daily_stats_purged: z.number().int().nonnegative(),
+  consent_ledger_purged: z.number().int().nonnegative(),
+  total_brain_rows_purged: z.number().int().nonnegative(),
+  total_conversations_rows_purged: z.number().int().nonnegative(),
+  total_system_rows_purged: z.number().int().nonnegative(),
+  total_rows_purged: z.number().int().nonnegative(),
+  dry_run: z.boolean(),
+});
+
+export const PruneRetentionResponseSchema = z.object({
+  mind_id: z.string(),
+  cutoff_utc: z.string(),
+  episodes_purged: z.number().int().nonnegative(),
+  conversations_purged: z.number().int().nonnegative(),
+  conversation_turns_purged: z.number().int().nonnegative(),
+  daily_stats_purged: z.number().int().nonnegative(),
+  consolidation_log_purged: z.number().int().nonnegative(),
+  consent_ledger_purged: z.number().int().nonnegative(),
+  /**
+   * Per-surface horizon (days) actually applied. ``0`` means the
+   * surface was skipped (retention disabled for it).
+   */
+  effective_horizons: z.record(z.string(), z.number().int().nonnegative()),
+  total_brain_rows_purged: z.number().int().nonnegative(),
+  total_conversations_rows_purged: z.number().int().nonnegative(),
+  total_system_rows_purged: z.number().int().nonnegative(),
+  total_rows_purged: z.number().int().nonnegative(),
+  dry_run: z.boolean(),
+});
+
+/* ── Mind wake-word toggle runtime schemas ──
+ *
+ * Mission ``MISSION-pre-wake-word-ui-hardening-2026-05-03.md`` §T4
+ * paired with ``api.ts``'s ``WakeWordToggleRequest/Response``.
+ *
+ * ``hot_apply_detail`` uses ``.nullable()`` to match the pydantic
+ * ``str | None`` default-None semantics — present on the response
+ * but always-null on the happy path.
+ *
+ * Pass ``{ schema: WakeWordToggleResponseSchema }`` to ``api.post``
+ * so a backend shape change surfaces as a runtime safeParse warning
+ * + the dashboard logs the mismatch instead of silently rendering
+ * stale fields.
+ */
+
+export const WakeWordToggleRequestSchema = z.object({
+  enabled: z.boolean(),
+});
+
+export const WakeWordToggleResponseSchema = z.object({
+  mind_id: z.string(),
+  enabled: z.boolean(),
+  persisted: z.boolean(),
+  applied_immediately: z.boolean(),
+  /**
+   * String when ``applied_immediately === false`` (operator-facing
+   * remediation); null on the happy path. Matches the pydantic
+   * ``Field(default=None)``.
+   */
+  hot_apply_detail: z.string().nullable(),
+});
+
+/* ── Per-mind wake-word status runtime schemas ──
+ *
+ * Mission ``MISSION-wake-word-ui-2026-05-03.md`` §T2 paired with
+ * ``api.ts``'s ``WakeWordPerMindStatus / WakeWordPerMindStatusResponse``.
+ *
+ * ``resolution_strategy`` uses ``z.enum()`` so the discriminated
+ * union mirrors the backend StrEnum (``WakeWordResolutionStrategy``)
+ * exactly. ``model_path`` and ``last_error`` use ``.nullable()`` to
+ * match the pydantic ``str | None`` default-None semantics.
+ *
+ * Pass ``{ schema: WakeWordPerMindStatusResponseSchema }`` to
+ * ``api.get`` so a backend shape change surfaces as a runtime
+ * safeParse warning + the dashboard logs the mismatch instead of
+ * silently rendering stale fields.
+ */
+
+export const WakeWordResolutionStrategySchema = z.enum([
+  "exact",
+  "phonetic",
+  "none",
+]);
+
+export const WakeWordPerMindStatusSchema = z.object({
+  mind_id: z.string(),
+  wake_word: z.string(),
+  voice_language: z.string(),
+  wake_word_enabled: z.boolean(),
+  runtime_registered: z.boolean(),
+  model_path: z.string().nullable(),
+  resolution_strategy: WakeWordResolutionStrategySchema.nullable(),
+  /**
+   * T1 of MISSION-v0.29.1-tightening-2026-05-03 §T1 (D1): registry
+   * name that matched the wake word. For EXACT, the ASCII-folded
+   * wake word; for PHONETIC, the actual matched-file name; null on
+   * NONE / disabled. Frontend renders only when strategy is
+   * "phonetic" (EXACT case is redundant with the file name).
+   */
+  matched_name: z.string().nullable(),
+  /**
+   * Levenshtein-on-phonemes distance for PHONETIC matches. ``0`` for
+   * EXACT. Null on NONE / disabled. Non-negative integer or null
+   * (the backend converts the resolver's ``-1`` sentinel at the
+   * dataclass boundary so this field never carries negatives).
+   */
+  phoneme_distance: z.number().int().nonnegative().nullable(),
+  last_error: z.string().nullable(),
+});
+
+export const WakeWordPerMindStatusResponseSchema = z.object({
+  minds: z.array(WakeWordPerMindStatusSchema),
+});
+
+/* ── Voice setup wizard runtime schemas — Phase 7 / T7.21-T7.24 ── */
+
+export const WizardDeviceInfoSchema = z.object({
+  device_id: z.string(),
+  name: z.string(),
+  friendly_name: z.string(),
+  max_input_channels: z.number().int().nonnegative(),
+  default_sample_rate: z.number().int().nonnegative(),
+  is_default: z.boolean(),
+  diagnosis_hint: z.string(),
+});
+
+export const WizardDevicesResponseSchema = z.object({
+  devices: z.array(WizardDeviceInfoSchema),
+  total_count: z.number().int().nonnegative(),
+  default_device_id: z.string().nullable(),
+});
+
+export const WizardTestResultResponseSchema = z.object({
+  session_id: z.string(),
+  success: z.boolean(),
+  duration_actual_s: z.number().nonnegative(),
+  sample_rate_hz: z.number().int().nonnegative(),
+  level_rms_dbfs: z.number().nullable(),
+  level_peak_dbfs: z.number().nullable(),
+  snr_db: z.number().nullable(),
+  clipping_detected: z.boolean(),
+  silent_capture: z.boolean(),
+  diagnosis: z.string(),
+  diagnosis_hint: z.string(),
+  recorded_at_utc: z.string(),
+  error: z.string().nullable(),
+});
+
+export const WizardDiagnosticResponseSchema = z.object({
+  ready: z.boolean(),
+  voice_clarity_active: z.boolean(),
+  active_device_name: z.string().nullable(),
+  platform: z.string(),
+  recommendations: z.array(z.string()),
+});
+
+/* ── Wake-word training runtime schemas — Phase 8 / T8.13 ── */
+
+export const TrainingJobStatusSchema = z.enum([
+  "pending",
+  "synthesizing",
+  "training",
+  "complete",
+  "failed",
+  "cancelled",
+]);
+
+export const TrainingJobSummarySchema = z.object({
+  job_id: z.string(),
+  wake_word: z.string(),
+  mind_id: z.string(),
+  language: z.string(),
+  status: TrainingJobStatusSchema,
+  progress: z.number().min(0).max(1),
+  samples_generated: z.number().int().nonnegative(),
+  target_samples: z.number().int().nonnegative(),
+  started_at: z.string(),
+  updated_at: z.string(),
+  completed_at: z.string(),
+  output_path: z.string(),
+  error_summary: z.string(),
+  cancelled_signalled: z.boolean(),
+});
+
+export const TrainingJobsResponseSchema = z.object({
+  jobs: z.array(TrainingJobSummarySchema),
+  total_count: z.number().int().nonnegative(),
+});
+
+export const TrainingJobDetailResponseSchema = z.object({
+  summary: TrainingJobSummarySchema,
+  /**
+   * Each history event is a state snapshot dict. We don't enforce
+   * exact shape here because the orchestrator may add fields in
+   * future minor versions and frontend should ignore-unknown
+   * gracefully — z.record allows arbitrary keys.
+   */
+  history: z.array(z.record(z.string(), z.union([z.string(), z.number()]))),
+  history_truncated: z.boolean(),
+});
+
+export const CancelJobResponseSchema = z.object({
+  job_id: z.string(),
+  cancel_signal_written: z.boolean(),
+  already_terminal: z.boolean(),
+});
+
+/* ── Train Wake Word UI runtime schemas — Mission v0.30.0 §T1.1+T1.2 ── */
+
+export const StartTrainingRequestSchema = z.object({
+  wake_word: z.string().min(1).max(64),
+  mind_id: z.string().max(64),
+  language: z.string().max(16).optional(),
+  target_samples: z.number().int().min(100).max(10000).optional(),
+  voices: z.array(z.string()).optional(),
+  variants: z.array(z.string()).optional(),
+  negatives_dir: z.string().min(1),
+});
+
+export const StartTrainingResponseSchema = z.object({
+  job_id: z.string(),
+  stream_url: z.string(),
+});
+
+/**
+ * Discriminated union for the WebSocket stream messages. Three
+ * branches: snapshot (incremental progress), terminal (final state),
+ * error (auth / job-not-found / path-traversal). Zod's
+ * ``z.discriminatedUnion`` enforces the ``type`` field at the schema
+ * level so frontend code gets exhaustive switch-case narrowing.
+ */
+export const TrainingJobStreamMessageSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("snapshot"),
+    state: z.record(z.string(), z.union([z.string(), z.number()])),
+  }),
+  z.object({
+    type: z.literal("terminal"),
+    state: z.record(z.string(), z.union([z.string(), z.number()])),
+  }),
+  z.object({
+    type: z.literal("error"),
+    message: z.string(),
+  }),
+]);
+
+/* ── Voice calibration wizard runtime schemas — Mission L3 v0.30.17 ── */
+
+export const WizardCalibrationStatusSchema = z.enum([
+  "pending",
+  "probing",
+  "fast_path_lookup",
+  "fast_path_apply",
+  "fast_path_validate",
+  "slow_path_diag",
+  "slow_path_calibrate",
+  "slow_path_apply",
+  "done",
+  "failed",
+  "cancelled",
+  "fallback",
+]);
+
+// v0.30.31 (P3) capture-prompt protocol — one prompt per "speak X" /
+// "stay silent for Y" instruction the bash diag emits during slow_path_diag.
+export const CalibrationCurrentPromptSchema = z.object({
+  type: z.enum(["speak", "silence"]),
+  phrase: z.string().nullable().optional(),
+  seconds: z.number().nullable().optional(),
+  emitted_at_utc: z.string().optional(),
+  emitted_at_mono_ns: z.number().nullable().optional(),
+});
+
+export const WizardJobSnapshotSchema = z.object({
+  job_id: z.string(),
+  mind_id: z.string(),
+  status: WizardCalibrationStatusSchema,
+  progress: z.number().min(0).max(1),
+  current_stage_message: z.string(),
+  created_at_utc: z.string(),
+  updated_at_utc: z.string(),
+  profile_path: z.string().nullable(),
+  triage_winner_hid: z.string().nullable(),
+  error_summary: z.string().nullable(),
+  fallback_reason: z.string().nullable(),
+  extras: z
+    .object({
+      current_prompt: CalibrationCurrentPromptSchema.optional(),
+      rolled_back: z.boolean().optional(),
+    })
+    .passthrough()
+    .nullable()
+    .optional(),
+});
+
+export const StartCalibrationRequestSchema = z.object({
+  mind_id: z.string().min(1).max(64),
+});
+
+export const StartCalibrationResponseSchema = z.object({
+  job_id: z.string(),
+  stream_url: z.string(),
+  // rc.12 (anti-pattern #35): backend resolves frontend's "default"
+  // sentinel to the real active mind_id. Optional + default empty
+  // string for backward compat with pre-rc.12 daemons that don't
+  // return the field — frontend falls back to job_id in that case.
+  resolved_mind_id: z.string().optional().default(""),
+  resolved_mind_id_source: z.string().optional().default(""),
+});
+
+export const PreviewFingerprintResponseSchema = z.object({
+  fingerprint_hash: z.string(),
+  audio_stack: z.string(),
+  system_vendor: z.string(),
+  system_product: z.string(),
+  recommendation: z.enum(["slow_path", "fast_path"]),
+});
+
+// rc.12: rollback chain (multi-generation backup).
+export const CalibrationRollbackResponseSchema = z.object({
+  restored_path: z.string(),
+  backup_generations_remaining: z.number().int().nonnegative(),
+  resolved_mind_id: z.string(),
+  resolved_mind_id_source: z.string(),
+});
+
+export const CalibrationBackupListResponseSchema = z.object({
+  mind_id: z.string(),
+  generations: z.array(z.number().int().positive()),
+});
+
+export const CalibrationFeatureFlagResponseSchema = z.object({
+  enabled: z.boolean(),
+  runtime_override_active: z.boolean(),
+  // rc.11 EIXO 2: platform_supported gates the wizard mount on
+  // non-Linux daemons. Optional + default True for backward compat —
+  // pre-rc.11 daemons that don't return the field are assumed Linux
+  // (which keeps existing single-platform deployments working).
+  platform_supported: z.boolean().optional().default(true),
+});
+
+export const CalibrationFeatureFlagUpdateRequestSchema = z.object({
+  enabled: z.boolean(),
+});
+
+// BT.B.3 (v0.32.0) — Ed25519 signing-key generation surface.
+export const SigningKeyStatusResponseSchema = z.object({
+  exists: z.boolean(),
+  fingerprint_short: z.string().nullable(),
+  public_key_path: z.string().nullable(),
+  resolved_mind_id: z.string(),
+});
+
+export const GenerateSigningKeyResponseSchema = z.object({
+  ok: z.boolean(),
+  public_key_pem: z.string(),
+  public_key_path: z.string(),
+  private_key_path: z.string(),
+  fingerprint_short: z.string(),
+  mode: z.string(),
+  resolved_mind_id: z.string(),
+});
+
+/* ── Voice status — full mirror of /api/voice/status (F2-H02) ──
+ *
+ * Pre-F2-H02 this schema only validated ``pipeline.running`` (used
+ * by ``hooks/use-voice-running-verification.ts``); every other field
+ * was untyped at runtime, so backend response-shape drift on any
+ * other field went undetected and silently degraded ``pages/voice.tsx``.
+ * The comprehensive mirror below validates the full backend response
+ * (``src/sovyx/dashboard/routes/voice.py::VoiceStatusResponse``) at
+ * runtime so drift surfaces as a structured ``api.schema_mismatch``
+ * warning instead of a corrupted UI.
+ *
+ * Every nested block is wrapped in ``.optional()`` because backend
+ * tests + downstream consumers may legitimately omit blocks they
+ * don't populate (matches the backend's ``default_factory`` pattern
+ * — see ``VoiceStatusResponse`` docstring). The receipt-check use
+ * case (running=true/false) still validates because pipeline is
+ * required and ``running`` inside it is required.
+ *
+ * ``capture`` uses ``.passthrough()`` to mirror the backend's
+ * ``model_config = {"extra": "allow"}`` — capture-snapshot fields
+ * grow with new SLIs and the schema must not reject forward-additive
+ * shapes.
+ */
+
+const VoiceStatusPipelineSchema = z.object({
+  running: z.boolean(),
+  state: z.string().optional(),
+  latency_ms: z.number().nullable().optional(),
+});
+
+const VoiceStatusCaptureSchema = z
+  .object({
+    running: z.boolean().optional(),
+    input_device: z.union([z.string(), z.number()]).nullable().optional(),
+    host_api: z.string().nullable().optional(),
+    sample_rate: z.number().nullable().optional(),
+    frames_delivered: z.number().optional(),
+    last_rms_db: z.number().nullable().optional(),
+    // Mission H2 §T2.10 (ADR-D15) — platform metadata from the last
+    // bypass-coordinator dispatch. Optional + nullable while the
+    // ADR-D14 dual-emission calibration window is open; promoted to
+    // required at v0.51.0 STRICT.
+    last_bypass_event_platform: z
+      .enum(["linux", "windows", "darwin", "other"])
+      .nullable()
+      .optional(),
+    last_bypass_event_family: z.string().nullable().optional(),
+  })
+  .passthrough();
+
+// LIVE-2 Phase 3 (P0-1) — subsystem health, distinct from registration.
+// Open z.string() (not z.enum) mirrors the backend's open str + lets a
+// forward-additive value parse on an older bundle; the UI maps known
+// values to a tone and renders unrecognised values neutrally.
+const VoiceStatusSTTSchema = z.object({
+  engine: z.string().nullable().optional(),
+  model: z.string().nullable().optional(),
+  state: z.string().nullable().optional(),
+  health: z.string().optional(),
+});
+
+const VoiceStatusTTSSchema = z.object({
+  engine: z.string().nullable().optional(),
+  model: z.string().nullable().optional(),
+  initialized: z.boolean().optional(),
+  health: z.string().optional(),
+});
+
+const VoiceStatusWakeWordSchema = z.object({
+  enabled: z.boolean().optional(),
+  phrase: z.string().nullable().optional(),
+  health: z.string().optional(),
+});
+
+const VoiceStatusVADSchema = z.object({
+  enabled: z.boolean().optional(),
+  health: z.string().optional(),
+});
+
+const VoiceStatusWyomingSchema = z.object({
+  // LIVE-2 P1-10 — registration fact; the card is hidden unless configured.
+  configured: z.boolean().optional(),
+  connected: z.boolean().optional(),
+  endpoint: z.string().nullable().optional(),
+});
+
+const VoiceStatusHardwareSchema = z.object({
+  tier: z.string().nullable().optional(),
+  ram_mb: z.number().nullable().optional(),
+});
+
+/* Mission C3 §T2.8 — server-side degraded-mode marker.
+ *
+ * Mirrors ``VoiceStatusDegraded`` in
+ * ``src/sovyx/dashboard/routes/voice.py``. Quality Gate 8 boundary
+ * round-trip test pins the contract at
+ * ``tests/dashboard/test_voice_status_degraded_boundary.py``.
+ * ``.passthrough()`` matches the backend's ``extra="allow"`` so
+ * future C4 banner-UX fields (last_error_class, ack_at_monotonic)
+ * land without a route schema migration.
+ */
+export const VoiceStatusDegradedSchema = z
+  .object({
+    degraded: z.boolean().optional().default(false),
+    reason: z.string().nullable().optional(),
+    candidates_tried: z.number().int().nonnegative().optional().default(0),
+    candidates_unreachable: z.array(z.string()).optional().default([]),
+    last_ladder_complete_monotonic: z.number().nullable().optional(),
+    // Mission C4 §T1.5 — composite degraded surface fields. All
+    // optional + default-safe so the Phase 1 server-side ship is
+    // backward-compatible for any legacy consumer that ignores them.
+    composite_axes: z.array(z.string()).optional().default([]),
+    composite_severity: z
+      .enum(["warn", "error", "critical"])
+      .nullable()
+      .optional(),
+    ack_at_monotonic: z.number().nullable().optional(),
+    ack_ttl_sec: z.number().int().nullable().optional(),
+    ack_operator_id: z.string().nullable().optional(),
+    last_resurfaced_monotonic: z.number().nullable().optional(),
+  })
+  .passthrough();
+
+/* Mission C4 §T1.6 — Composite engine-degraded surface zod twin.
+ *
+ * Mirrors the backend ``EngineDegradedResponse`` +
+ * ``DegradedAxisModel`` + ``ActionChipModel`` + ``AckStateModel`` at
+ * ``src/sovyx/dashboard/routes/engine_degraded.py``. ``.passthrough()``
+ * matches the backend's ``extra="allow"`` so future axes / fields
+ * land without a route schema migration.
+ *
+ * Pinned by Quality Gate 8 round-trip test at
+ * ``tests/dashboard/test_engine_degraded_boundary.py``.
+ */
+export const ActionChipSchema = z
+  .object({
+    label_token: z.string(),
+    /**
+     * Action types — extended Mission H4 §4.8 ADR-D8 v0.49.26:
+     *
+     * - ``navigate`` — react-router push to ``target`` path.
+     * - ``dispatch`` — POST to ``target`` API endpoint (legacy alias
+     *   for ``api_post``; kept for back-compat with pre-H4 chips).
+     * - ``external_link`` — open ``target`` URL in new tab.
+     * - ``command_hint`` — copy ``target`` (a CLI command string) to
+     *   clipboard + show success toast (Mission H4 v0.49.26).
+     * - ``api_post`` — apiFetch POST to ``target`` + show ack toast
+     *   on 2xx, error toast on failure (Mission H4 v0.49.26).
+     */
+    action: z.enum([
+      "navigate",
+      "dispatch",
+      "external_link",
+      "command_hint",
+      "api_post",
+    ]),
+    target: z.string(),
+    style: z.enum(["default", "primary", "danger"]).optional().default("default"),
+  })
+  .passthrough();
+
+export const DegradedAxisSchema = z
+  .object({
+    axis: z.string(),
+    reason: z.string(),
+    severity: z.enum(["warn", "error", "critical"]),
+    title_token: z.string(),
+    body_token: z.string(),
+    action_chips: z.array(ActionChipSchema).optional().default([]),
+    metadata: z.record(z.string(), z.unknown()).optional().default({}),
+    first_observed_monotonic: z.number(),
+    last_observed_monotonic: z.number(),
+    occurrence_count: z.number().int().nonnegative(),
+  })
+  .passthrough();
+
+export const AckStateSchema = z
+  .object({
+    acked: z.boolean().optional().default(false),
+    acked_at_ts: z.number().int().nullable().optional(),
+    ttl_sec: z.number().int().nullable().optional(),
+    ttl_remaining_sec: z.number().int().nullable().optional(),
+    operator_id: z.string().nullable().optional(),
+  })
+  .passthrough();
+
+/* Mission C C-P0-4 / Phase C.4 — shared ErrorEnvelope SSoT.
+ *
+ * Mirrors :class:`sovyx.dashboard._error_envelope.ErrorEnvelope` so
+ * every dashboard route's 4xx/5xx body has the same typed shape
+ * (anti-pattern #57/#56 closure on the error half). Frontend
+ * ``apiFetch`` consumers branch on ``err.body.error_code`` instead of
+ * the opaque FastAPI ``HTTPException`` default.
+ *
+ * Forward-additive (`.passthrough()`); new error codes ship in
+ * CONCERT with the producer enum + the zod twin update.
+ */
+export const ErrorCodeSchema = z.enum([
+  "bad_request",
+  "unauthorized",
+  "forbidden",
+  "not_found",
+  "conflict",
+  "unprocessable",
+  "too_many_requests",
+  "internal",
+  "service_unavailable",
+  "gateway_timeout",
+  "engine_not_running",
+  "registry_unavailable",
+  "dependency_unavailable",
+]);
+
+export const ErrorEnvelopeSchema = z
+  .object({
+    error: z.string(),
+    error_code: ErrorCodeSchema,
+    detail: z.string().nullable().optional(),
+    retry_after_seconds: z.number().int().nonnegative().nullable().optional(),
+  })
+  .passthrough();
+
+export const EngineDegradedResponseSchema = z
+  .object({
+    axes: z.array(DegradedAxisSchema).optional().default([]),
+    composite_severity: z
+      .enum(["warn", "error", "critical"])
+      .nullable()
+      .optional(),
+    composite_axis_count: z.number().int().nonnegative().optional().default(0),
+    // Mission D.1 / D-P0-1 — additive max-per-axis severity field.
+    // Carries the highest per-entry DegradedEntry.severity under
+    // None < warn < error < critical ordering. When the server-side
+    // SOVYX_TUNING__DASHBOARD__COMPOSITE_SEVERITY_BY_MAX knob is True
+    // (default after the D.1-c PERCEIVED flip), composite_severity
+    // already reflects max(per-axis, count-tier); this field is still
+    // emitted so consumers that want the raw per-axis signal can read
+    // it independently. Pre-D.1 producers omit the field entirely —
+    // .nullable().optional() preserves that pathway.
+    composite_max_severity: z
+      .enum(["warn", "error", "critical"])
+      .nullable()
+      .optional(),
+    // Default ack uses an explicit ``acked: false`` so the inferred
+    // TS shape stays satisfied (zod cannot fully infer "empty object
+    // is valid when every field is optional" with .passthrough()).
+    ack: AckStateSchema.optional().default({ acked: false }),
+  })
+  .passthrough();
+
+/* Mission H4 §T3.3 — Engine resources zod twin.
+ *
+ * Mirrors ``EngineResourcesResponse`` + ``ResourceCohortMetrics`` in
+ * ``src/sovyx/dashboard/routes/engine_resources.py``.
+ *
+ * ``.passthrough()`` matches the backend's ``ConfigDict(extra="allow",
+ * populate_by_name=True)`` — Phase 1.E will add cohort-governor budget
+ * verdicts + heap-snapshot manifests forward-additively.
+ *
+ * Field-name shape preserves the dotted-key SSoT (`to_thread.pool_size`
+ * etc.) so log-stream consumers + REST consumers see the same keys.
+ */
+export const ResourceCohortMetricsSchema = z
+  .object({
+    // Mission C C-P0-1 / Phase C.2 — post-A.1 SSoT canonical key set.
+    // The typed view declares every field the pydantic peer at
+    // src/sovyx/dashboard/routes/engine_resources.py:62-168
+    // emits via Field(alias=...), so z.infer<typeof Schema>
+    // reflects the WIRE shape rather than depending on
+    // .passthrough() for fields the consumer wants to read.
+    //
+    // Anti-pattern #59 (proposed) instance closure — Gate 17
+    // mechanically prevents future drift.
+
+    // process block (MISSION-A.2.P4 F-012)
+    "process.open_files_status": z.string().optional(),
+    "process.connections_status": z.string().optional(),
+
+    // asyncio block (MISSION-A.1.P3 F-005 + F-014; ADR-D15 + ADR-D16)
+    "asyncio.all_task_names": z.array(z.string()).optional(),
+    "asyncio.not_done_count": z.number().int().nonnegative().optional(),
+    "asyncio.awaiting_count": z.number().int().nonnegative().optional(),
+
+    // to_thread canonical (MISSION-A.1.P3.b F-007; ADR-D16):
+    // *_at_last_dispatch is the freshness-suffixed canonical;
+    // pool_size / active_workers / queue_depth / max_workers are
+    // LENIENT dual-emit legacy aliases that sunset at v0.55.0.
+    "to_thread.pool_size_at_last_dispatch": z
+      .number()
+      .int()
+      .nonnegative()
+      .optional(),
+    "to_thread.queue_depth_at_last_dispatch": z
+      .number()
+      .int()
+      .nonnegative()
+      .optional(),
+    "to_thread.max_workers_at_last_dispatch": z
+      .number()
+      .int()
+      .nonnegative()
+      .optional(),
+    // to_thread legacy aliases (LENIENT dual-emit; sunset v0.55.0
+    // per ADR-D14). Kept in the typed view so consumers can still
+    // read the old names during the sunset window.
+    "to_thread.pool_size": z.number().int().nonnegative().optional(),
+    // Mission H4 §3 F2 + §22 v0.49.32 — canonical alias of pool_size.
+    "to_thread.active_workers": z.number().int().nonnegative().optional(),
+    "to_thread.queue_depth": z.number().int().nonnegative().optional(),
+    "to_thread.max_workers": z.number().int().nonnegative().optional(),
+    "to_thread.dispatch_count_total": z.number().int().nonnegative().optional(),
+    "to_thread.dispatch_count_per_label": z.record(z.string(), z.number()).optional(),
+    // lock_dict block
+    "lock_dict.total_cardinality": z.number().int().nonnegative().optional(),
+    "lock_dict.per_owner": z.record(z.string(), z.number()).optional(),
+    "lock_dict.instance_count": z.number().int().nonnegative().optional(),
+    // onnx block
+    "onnx.session_count": z.number().int().nonnegative().optional(),
+    "onnx.session_labels": z.array(z.string()).optional(),
+    // gc block
+    "gc.collections_by_gen": z.array(z.number()).optional(),
+    "gc.objects_count": z.number().int().nonnegative().optional(),
+    // tracemalloc block
+    "tracemalloc.is_tracing": z.boolean().optional(),
+    "tracemalloc.current_kb": z.number().int().nonnegative().optional(),
+    "tracemalloc.peak_kb": z.number().int().nonnegative().optional(),
+
+    // exception_cohort canonical (MISSION-A.1 F-002 + F-003; ADR-D14).
+    // Cumulative fields are monotonic since process start; window
+    // fields decay as observations age out of the deque
+    // (exception_cohort_window_s). The legacy
+    // retained_bytes_estimate / distinct_group_id_count aliases
+    // remain in the typed view through the sunset window.
+    "exception_cohort.cumulative_retained_bytes_since_start": z
+      .number()
+      .int()
+      .nonnegative()
+      .optional(),
+    "exception_cohort.cumulative_distinct_group_id_count": z
+      .number()
+      .int()
+      .nonnegative()
+      .optional(),
+    "exception_cohort.window_retained_bytes": z
+      .number()
+      .int()
+      .nonnegative()
+      .optional(),
+    "exception_cohort.window_distinct_group_id_count": z
+      .number()
+      .int()
+      .nonnegative()
+      .optional(),
+    // exception_cohort legacy aliases (LENIENT dual-emit; sunset v0.55.0).
+    "exception_cohort.retained_bytes_estimate": z
+      .number()
+      .int()
+      .nonnegative()
+      .optional(),
+    "exception_cohort.distinct_group_id_count": z
+      .number()
+      .int()
+      .nonnegative()
+      .optional(),
+    "exception_cohort.last_observation_monotonic": z.number().optional(),
+  })
+  .passthrough();
+
+export const EngineResourcesResponseSchema = z
+  .object({
+    observed_at_unix: z.number(),
+    cohorts: ResourceCohortMetricsSchema,
+    canonical_field_count: z.number().int().nonnegative(),
+    legacy_alias_count: z.number().int().nonnegative(),
+  })
+  .passthrough();
+
+/* Mission C3 §T2.9 — Failover-history zod twin.
+ *
+ * Mirrors ``FailoverHistoryResponse`` + ``FailoverHistoryEntryModel`` +
+ * ``FailoverCandidateModel`` in ``src/sovyx/dashboard/routes/voice_health.py``.
+ * ``.passthrough()`` matches the backend's ``extra="allow"``.
+ */
+export const FailoverCandidateSchema = z
+  .object({
+    index: z.number().int().nonnegative(),
+    target_endpoint: z.string(),
+    target_friendly_name: z.string().optional().default(""),
+    verdict: z.enum(["succeeded", "failed", "skipped"]),
+    error_class: z.string().optional().default(""),
+    error_detail: z.string().optional().default(""),
+    elapsed_ms: z.number().nullable().optional(),
+    skipped_reason: z.string().nullable().optional(),
+  })
+  .passthrough();
+
+export const FailoverHistoryEntrySchema = z
+  .object({
+    ladder_id: z.string(),
+    started_monotonic: z.number(),
+    completed_monotonic: z.number().nullable().optional(),
+    verdict: z.enum(["in_progress", "succeeded", "exhausted"]),
+    candidates_tried: z.number().int().nonnegative().optional().default(0),
+    succeeded_index: z.number().int().nullable().optional(),
+    candidates: z.array(FailoverCandidateSchema).optional().default([]),
+    from_endpoint: z.string().optional().default(""),
+    elapsed_ms: z.number().nullable().optional(),
+    derived_reason: z.string().optional().default(""),
+    mind_id: z.string().optional().default(""),
+  })
+  .passthrough();
+
+export const FailoverHistoryResponseSchema = z
+  .object({
+    entries: z.array(FailoverHistoryEntrySchema).optional().default([]),
+    ring_capacity: z.number().int().positive(),
+  })
+  .passthrough();
+
+export const VoiceStatusResponseSchema = z
+  .object({
+    pipeline: VoiceStatusPipelineSchema,
+    capture: VoiceStatusCaptureSchema.optional(),
+    stt: VoiceStatusSTTSchema.optional(),
+    tts: VoiceStatusTTSSchema.optional(),
+    wake_word: VoiceStatusWakeWordSchema.optional(),
+    vad: VoiceStatusVADSchema.optional(),
+    wyoming: VoiceStatusWyomingSchema.optional(),
+    hardware: VoiceStatusHardwareSchema.optional(),
+    degraded: VoiceStatusDegradedSchema.optional(),
+    preflight_warnings: z.array(z.record(z.string(), z.unknown())).optional(),
+  })
+  .passthrough();
+
+/* ── Voice models — full mirror of /api/voice/models (F2-H02) ──
+ *
+ * Mirrors ``VoiceModelsResponse`` + ``VoiceModelSelectionPayload`` in
+ * ``src/sovyx/dashboard/routes/voice.py``. Distinct from
+ * ``VoiceModelsStatusResponseSchema`` (which validates
+ * ``/api/voice/models/status`` — the disk-state endpoint).
+ */
+
+const VoiceModelSelectionPayloadSchema = z.object({
+  stt_primary: z.string(),
+  stt_streaming: z.string(),
+  tts_primary: z.string(),
+  tts_quality: z.string(),
+  wake: z.string(),
+  vad: z.string(),
+});
+
+export const VoiceModelsResponseSchema = z
+  .object({
+    detected_tier: z.string().nullable().optional(),
+    active: VoiceModelSelectionPayloadSchema.nullable().optional(),
+    available_tiers: z.record(z.string(), VoiceModelSelectionPayloadSchema).optional(),
+  })
+  .passthrough();
+
+// ── LLM pricing-info (issue #45) ──
+
+/**
+ * GET /api/providers/pricing-info — pricing rates and source classification
+ * for the active (or queried) model.
+ *
+ * ``source`` is the contract surface for the dashboard fallback banner:
+ * anything other than ``"exact"`` means cost reports for this model are
+ * estimated from a provider/global default, not authoritative.
+ */
+export const PricingSourceSchema = z.enum([
+  "exact",
+  "provider_default",
+  "global_default",
+]);
+
+export const PricingInfoResponseSchema = z.object({
+  model: z.string(),
+  provider: z.string(),
+  input_per_1m_usd: z.number(),
+  output_per_1m_usd: z.number(),
+  source: PricingSourceSchema,
+});
+
+// ── Cost breakdown (issue #43) ──
+
+export const CostBreakdownResponseSchema = z.object({
+  total_cost: z.number(),
+  total_tokens: z.number(),
+  cache_read_tokens: z.number(),
+  cache_creation_tokens: z.number(),
+  by_phase: z.record(z.string(), z.number()),
+  by_provider: z.record(z.string(), z.number()),
+  by_model: z.record(z.string(), z.number()),
+  tokens_by_phase: z.record(z.string(), z.number()),
+});
+
+// ── §3.4 closure (GAPS-CONSOLIDATED-2026-05-13) — mutation-endpoint coverage ──
+//
+// The schemas below close the 27/111 dashboard ``api.*`` call sites
+// that lacked runtime zod validation per Agent #6's audit. Each
+// schema is paired with a ``schema: ...`` argument at the call site
+// in v0.41.5. Onboarding + setup-wizard + provider flows are the
+// highest-risk surfaces (silent shape drift could persist bad
+// credentials or stall the operator on a phantom step) — they get
+// schemas first; lower-risk dashboard internal-state mutations follow.
+
+/**
+ * Canonical ``{ ok: boolean; error?: string }`` mutation-acknowledgement
+ * shape. Used across ~8 onboarding / setup / wizard / settings sites
+ * that simply confirm a side-effect succeeded. `.passthrough()` keeps
+ * the contract forward-additive for new diagnostic fields.
+ */
+export const OkErrorResponseSchema = z
+  .object({
+    ok: z.boolean(),
+    error: z.string().optional(),
+  })
+  .passthrough();
+
+/** Telegram channel setup response — onboarding + channel-status panel. */
+export const TelegramSetupResultSchema = z
+  .object({
+    ok: z.boolean(),
+    bot_username: z.string().optional(),
+    bot_name: z.string().optional(),
+    hot_started: z.boolean().optional(),
+    error: z.string().optional(),
+  })
+  .passthrough();
+
+/**
+ * Plugin connection-test response shape — setup-wizard
+ * TestConnectionButton + plugin install validation. Mirrors
+ * ``components/setup-wizard/types.ts::TestConnectionResult``.
+ */
+export const TestConnectionResultSchema = z
+  .object({
+    success: z.boolean(),
+    message: z.string(),
+    details: z.record(z.string(), z.unknown()).optional(),
+  })
+  .passthrough();
+
+/**
+ * Provider configuration result — onboarding ProviderStep
+ * confirms the provider + model the daemon adopted after the
+ * operator clicked "Confirm". The ``provider`` and ``model``
+ * fields echo the daemon's resolution (may differ from the
+ * operator's submission if a fallback rule fired).
+ */
+export const ProviderSetupResultSchema = z
+  .object({
+    ok: z.boolean(),
+    provider: z.string(),
+    model: z.string(),
+    error: z.string().optional(),
+  })
+  .passthrough();

@@ -1,0 +1,29 @@
+[package]
+name = "chalk-lsp"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "chalk_lsp"
+path = "src/lib.rs"
+
+[[bin]]
+name = "chalk-lsp"
+path = "src/main.rs"
+
+[dependencies]
+chalk-ast = { path = "../chalk-ast" }
+chalk-ignore = { path = "../chalk-ignore" }
+chalk-project = { path = "../chalk-project" }
+chalk-utils = { path = "../chalk-utils" }
+lsp-types = "0.97"
+lsp-server = "0.7"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+crossbeam-channel = "0.5"
+log = "0.4"
+env_logger = "0.11"
+
+[dev-dependencies]
+tempfile = "3"

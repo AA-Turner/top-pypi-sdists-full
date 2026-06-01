@@ -85,6 +85,16 @@ def _file_stem(path: Path) -> str:
     return path.stem
 
 
+def _file_node_id(rel_path: Path) -> str:
+    """File-level node ID matching the skill.md spec: ``{parent_dir}_{stem}`` —
+    one parent directory level, no extension. ``rel_path`` MUST be relative to
+    the project root so top-level files collapse to a bare stem (``setup.py`` ->
+    ``setup``) instead of picking up the root directory name. This must equal the
+    ID semantic subagents generate, or AST and semantic extraction split a file
+    into two disconnected ghost nodes (#1033)."""
+    return _make_id(_file_stem(rel_path))
+
+
 _TSCONFIG_ALIAS_CACHE: dict[str, dict[str, str]] = {}
 _WORKSPACE_PACKAGE_CACHE: dict[str, dict[str, Path]] = {}
 _JS_CACHE_BYPASS_SUFFIXES = {".js", ".jsx", ".mjs", ".ts", ".tsx", ".vue", ".svelte"}
@@ -6435,11 +6445,19 @@ def _apply_symbol_resolution_facts(
 
     for use_fact in facts.uses:
         file_path = use_fact.file_path.resolve()
+        target_id = None
         unresolved_origin = local_aliases_by_file.get(file_path, {}).get(use_fact.local_name)
-        if unresolved_origin is None:
-            continue
-        origin_path, origin_symbol = resolve_exported_origin(*unresolved_origin)
-        target_id = symbol_nodes.get((origin_path, origin_symbol))
+        if unresolved_origin is not None:
+            origin_path, origin_symbol = resolve_exported_origin(*unresolved_origin)
+            target_id = symbol_nodes.get((origin_path, origin_symbol))
+        if target_id is None and use_fact.relation in ("inherits", "implements"):
+            # Same-file fallback for HERITAGE only: a base declared in the same
+            # file (`class X extends Y`, `interface A extends B`) has no import
+            # alias, so resolve it directly against the file's own symbol nodes.
+            # Scoped to heritage because same-file calls/uses already resolve via
+            # the dedicated call-graph pass; widening this would duplicate those
+            # edges. Import resolution still takes precedence (#1095).
+            target_id = symbol_nodes.get((file_path, use_fact.local_name))
         if target_id is None:
             continue
         add_edge(
@@ -6697,6 +6715,16 @@ def _ts_walk_class_members(class_node, source: bytes, path: Path, class_nid: str
                             _SymbolUseFact(path, class_nid, name, "implements", "type",
                                            clause.start_point[0] + 1)
                         )
+        elif child.type == "extends_type_clause":
+            # Interface heritage (`interface A extends B, C`) is an
+            # extends_type_clause node, NOT a class_heritage. Its base entries
+            # are the same node types extends_clause holds, so the helper is
+            # reusable. Without this branch interface inheritance is dropped (#1095).
+            for name in _ts_heritage_clause_entries(child, source):
+                facts.uses.append(
+                    _SymbolUseFact(path, class_nid, name, "inherits", "type",
+                                   child.start_point[0] + 1)
+                )
 
     body = class_node.child_by_field_name("body")
     if body is None:
@@ -10370,17 +10398,35 @@ def extract(
 
     _augment_symbol_resolution_edges(paths, all_nodes, all_edges, root)
 
-    # Remap file node IDs from absolute-path-derived to project-relative so
-    # graph.json edge endpoints are stable across machines (#502)
+    # Remap file node IDs from absolute-path-derived to the canonical
+    # {parent_dir}_{stem} spec form so (a) graph.json edge endpoints are stable
+    # across machines (#502) and (b) AST file nodes match the IDs semantic
+    # subagents generate (#1033). Resolve before relativizing so paths passed in
+    # relative form still anchor to the (resolved) root.
     id_remap: dict[str, str] = {}
+    # Symbol node IDs embed the file stem as a prefix (_file_node_id of the path
+    # the extractor saw). For a root-level file that stem picks up the absolute
+    # parent directory name, so a symbol becomes <rootdir>_main_run while the
+    # file node is correctly relativized to main and the skill.md spec wants
+    # main_run -- splitting the symbol into AST/semantic ghosts (#1096). Relativize
+    # the symbol prefix the same way, gated by source_file so two files sharing a
+    # prefix can't cross-contaminate. Keyed by resolved path -> (old_pref, new_pref).
+    prefix_remap: dict[Path, tuple[str, str]] = {}
     for path in paths:
         old_id = _make_id(str(path))
         try:
-            new_id = _make_id(str(path.relative_to(root)))
+            rel = path.relative_to(root)
         except ValueError:
-            continue
+            try:
+                rel = path.resolve().relative_to(root)
+            except ValueError:
+                continue
+        new_id = _file_node_id(rel)
         if old_id != new_id:
             id_remap[old_id] = new_id
+        old_pref = _file_node_id(path)
+        if old_pref != new_id:
+            prefix_remap[path.resolve()] = (old_pref, new_id)
     if id_remap:
         for n in all_nodes:
             if n.get("id") in id_remap:
@@ -10390,6 +10436,40 @@ def extract(
                 e["source"] = id_remap[e["source"]]
             if e.get("target") in id_remap:
                 e["target"] = id_remap[e["target"]]
+    if prefix_remap:
+        sym_remap: dict[str, str] = {}
+        for n in all_nodes:
+            sf = n.get("source_file")
+            if not sf:
+                continue
+            try:
+                entry = prefix_remap.get(Path(sf).resolve())
+            except Exception:
+                continue
+            if entry is None:
+                continue
+            old_pref, new_pref = entry
+            nid = n.get("id", "")
+            if nid.startswith(old_pref + "_"):
+                new_nid = new_pref + nid[len(old_pref):]
+                if new_nid != nid:
+                    sym_remap[nid] = new_nid
+        if sym_remap:
+            for n in all_nodes:
+                if n.get("id") in sym_remap:
+                    n["id"] = sym_remap[n["id"]]
+            for e in all_edges:
+                if e.get("source") in sym_remap:
+                    e["source"] = sym_remap[e["source"]]
+                if e.get("target") in sym_remap:
+                    e["target"] = sym_remap[e["target"]]
+            # raw_calls carry caller_nid (a symbol id) consumed by the cross-file
+            # call pass below, after this remap — rewrite it too or those edges
+            # would dangle on their (stale) source.
+            for rc in all_raw_calls:
+                cn = rc.get("caller_nid")
+                if cn in sym_remap:
+                    rc["caller_nid"] = sym_remap[cn]
 
     _merge_swift_extensions(per_file, all_nodes, all_edges)
     _disambiguate_colliding_node_ids(all_nodes, all_edges, all_raw_calls, root)
@@ -10462,7 +10542,7 @@ def extract(
             sf_rel = sf_path.relative_to(root) if sf_path.is_absolute() else sf_path
         except ValueError:
             sf_rel = sf_path
-        nid_to_file_nid[n["id"]] = _make_id(str(sf_rel))
+        nid_to_file_nid[n["id"]] = _file_node_id(sf_rel)
 
     existing_pairs = {(e["source"], e["target"]) for e in all_edges}
     for rc in all_raw_calls:

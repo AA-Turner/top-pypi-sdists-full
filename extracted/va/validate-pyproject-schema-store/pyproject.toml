@@ -1,0 +1,205 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+
+[project]
+name = "validate-pyproject-schema-store"
+version = "2026.05.28"
+authors = [
+  { name = "Henry Schreiner", email = "henryfs@princeton.edu" },
+]
+description = "A plugin set for validate-pyproject and schema-store."
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Software Development :: Quality Assurance",
+  "Typing :: Typed",
+]
+
+[project.optional-dependencies]
+validate-pyproject = [
+  "validate-pyproject",
+]
+all = [
+  "validate-pyproject[all]",
+]
+
+[dependency-groups]
+test = [
+  "pytest >=6",
+  "pytest-cov >=3",
+  "validate-pyproject >=0.24.1",
+  "tomli; python_version<'3.11'",
+  "packaging",
+]
+dev = [
+  { include-group = "test" },
+  "validate-pyproject[all]",
+]
+
+[project.urls]
+Homepage = "https://github.com/henryiii/validate-pyproject-schema-store"
+"Bug Tracker" = "https://github.com/henryiii/validate-pyproject-schema-store/issues"
+Discussions = "https://github.com/henryiii/validate-pyproject-schema-store/discussions"
+Changelog = "https://github.com/henryiii/validate-pyproject-schema-store/releases"
+
+[project.entry-points."validate_pyproject.tool_schema"]
+black = "validate_pyproject_schema_store.schema:get_schema"
+cibuildwheel = "validate_pyproject_schema_store.schema:get_schema"
+fastapi = "validate_pyproject_schema_store.schema:get_schema"
+scheduled = "validate_pyproject_schema_store.schema:get_schema"
+mypy = "validate_pyproject_schema_store.schema:get_schema"
+ruff = "validate_pyproject_schema_store.schema:get_schema"
+ty = "validate_pyproject_schema_store.schema:get_schema"
+hatch = "validate_pyproject_schema_store.schema:get_schema"
+maturin = "validate_pyproject_schema_store.schema:get_schema"
+scikit-build = "validate_pyproject_schema_store.schema:get_schema"
+setuptools_scm = "validate_pyproject_schema_store.schema:get_schema"
+pixi = "validate_pyproject_schema_store.schema:get_schema"
+poe = "validate_pyproject_schema_store.schema:get_schema"
+poetry = "validate_pyproject_schema_store.schema:get_schema"
+pdm = "validate_pyproject_schema_store.schema:get_schema"
+pyright = "validate_pyproject_schema_store.schema:get_schema"
+pytest = "validate_pyproject_schema_store.schema:get_schema"
+repo-review = "validate_pyproject_schema_store.schema:get_schema"
+taskipy = "validate_pyproject_schema_store.schema:get_schema"
+tombi = "validate_pyproject_schema_store.schema:get_schema"
+tox = "validate_pyproject_schema_store.schema:get_schema"
+uv = "validate_pyproject_schema_store.schema:get_schema"
+dfc = "validate_pyproject_schema_store.schema:get_schema"
+quikrun = "validate_pyproject_schema_store.schema:get_schema"
+
+[project.entry-points."validate_pyproject.multi_schema"]
+validate-pyproject-schema-store = "validate_pyproject_schema_store.schema:get_multi_schema"
+
+[project.entry-points."pipx.run"]
+validate-pyproject-schema-store = "validate_pyproject.cli:main"
+
+[tool.hatch.envs.default]
+installer = "uv"
+
+[tool.hatch.envs.hatch-test]
+# Duplicated waiting for dependency-group support
+dependencies = [
+  "pytest >=6",
+  "pytest-cov >=3",
+  "validate-pyproject >=0.24.1",
+  "tomli; python_version<'3.11'",
+  "packaging",
+]
+
+[tool.hatch.envs.lint]
+dependencies = ["pre-commit"]
+skip-install = true
+scripts.lint = "pre-commit run --all-files --show-diff-on-failures {args}"
+
+[tool.hatch.envs.pylint]
+dependencies = ["pylint"]
+scripts.lint = "pylint validate_pyproject_schema_store {args}"
+
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ["3.14", "3.13", "3.12", "3.11", "3.10", "3.9"]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
+xfail_strict = true
+filterwarnings = [
+  "error",
+]
+log_level = "INFO"
+testpaths = [
+  "tests",
+]
+
+
+[tool.coverage]
+run.source = ["validate_pyproject_schema_store"]
+port.exclude_lines = [
+  'pragma: no cover',
+  '\.\.\.',
+  'if typing.TYPE_CHECKING:',
+]
+
+[tool.mypy]
+files = ["src", "tests", "tools"]
+python_version = "3.11"
+warn_unused_configs = true
+strict = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+warn_unreachable = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+[[tool.mypy.overrides]]
+module = "validate_pyproject_schema_store.*"
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+
+[tool.ruff.lint]
+extend-select = [
+  "B",           # flake8-bugbear
+  "I",           # isort
+  "ARG",         # flake8-unused-arguments
+  "C4",          # flake8-comprehensions
+  "EM",          # flake8-errmsg
+  "ISC",
+  "ICN",         # flake8-import-conventions
+  "G",           # flake8-logging-format
+  "PGH",         # pygrep-hooks
+  "PIE",         # flake8-pie
+  "PL",          # pylint
+  "PT",          # flake8-pytest-style
+  "PTH",         # flake8-use-pathlib
+  "RET",         # flake8-return
+  "RUF",         # Ruff-specific
+  "SIM",         # flake8-simplify
+  "T20",         # flake8-print
+  "UP",          # pyupgrade
+  "YTT",         # flake8-2020
+  "EXE",         # flake8-executable
+  "NPY",         # NumPy specific rules
+  "PD",          # pandas-vet
+]
+ignore = [
+  "PLR",    # Design related pylint codes
+  "ISC001", # Conflicts with formatter
+  "EXE003", # Doesn't support uv
+]
+isort.required-imports = ["from __future__ import annotations"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["T20"]
+"tools/**" = ["T20"]
+
+
+[tool.pylint]
+py-version = "3.9"
+ignore-paths = [".*/_version.py"]
+reports.output-format = "colorized"
+similarities.ignore-imports = "yes"
+messages_control.disable = [
+  "design",
+  "fixme",
+  "line-too-long",
+  "missing-module-docstring",
+  "wrong-import-position",
+]
+
+[tool.repo-review]
+ignore = ["RTD", "PY004", "PC170"]

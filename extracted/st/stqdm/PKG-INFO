@@ -1,36 +1,48 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: stqdm
-Version: 0.0.5
+Version: 0.2.0
 Summary: Easy progress bar for streamlit based on the awesome streamlit.progress and tqdm
-Home-page: https://github.com/Wirg/stqdm
-License: Apache-2.0
-Keywords: streamlit,progressbar,progressmeter,progress,bar,meter,rate,eta,tqdm
-Author: Wirg
-Author-email: Wirg@users.noreply.github.com
-Maintainer: Wirg
-Maintainer-email: Wirg@users.noreply.github.com
-Requires-Python: >=3.7.2,<4.0.0
+Project-URL: Homepage, https://github.com/Wirg/stqdm
+Project-URL: Repository, https://github.com/Wirg/stqdm
+Project-URL: Issues, https://github.com/Wirg/stqdm/issues
+Project-URL: Changelog, https://github.com/Wirg/stqdm/releases
+Author-email: Wirg <Wirg@users.noreply.github.com>
+Maintainer-email: Wirg <Wirg@users.noreply.github.com>
+License: Apache License 2.0
+License-File: LICENSE
+Keywords: bar,eta,meter,progress,progressbar,progressmeter,rate,streamlit,tqdm
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Dist: streamlit (>=0.66)
-Requires-Dist: tqdm (>=4.50)
-Project-URL: Repository, https://github.com/Wirg/stqdm
+Requires-Python: >=3.11
+Requires-Dist: streamlit>=1.41.0
+Requires-Dist: tqdm>=4.66.0
 Description-Content-Type: text/markdown
 
 # stqdm
 ![Tests](https://github.com/Wirg/stqdm/workflows/Tests/badge.svg)
 [![codecov](https://codecov.io/gh/Wirg/stqdm/branch/main/graph/badge.svg?token=YeHnzpfMty)](https://codecov.io/gh/Wirg/stqdm)
 [![CodeQL](https://github.com/Wirg/stqdm/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/Wirg/stqdm/actions/workflows/codeql-analysis.yml)
+[![Downloads](https://static.pepy.tech/personalized-badge/stqdm?period=month&units=international_system&left_color=grey&right_color=brightgreen&left_text=downloads/month)](https://pepy.tech/project/stqdm)
+![Supported Python Versions](https://img.shields.io/pypi/pyversions/stqdm)
+![pypi version](https://img.shields.io/pypi/v/stqdm)
 
 stqdm is the simplest way to handle a progress bar in streamlit app.
 
 ![demo gif](https://raw.githubusercontent.com/Wirg/stqdm/main/assets/demo.gif)
+
+## Maintenance Status
+
+STqdm is intentionally small and low-churn, but it is actively maintained for compatibility and security.
+
+The public API is kept close to `tqdm`, supported combinations are tracked in CI, and security reports should be sent privately through [SECURITY.md](SECURITY.md).
 
 ## How to install
 
@@ -38,9 +50,33 @@ stqdm is the simplest way to handle a progress bar in streamlit app.
 pip install stqdm
 ```
 
+## Development
+
+This project uses `uv` for packaging and dependency management, with `mise` managing local tools and sourcing uv's `.venv`.
+Trust the local mise config once, then install tools and dependencies:
+
+```sh
+mise trust
+mise install
+mise run install
+mise run test
+```
+
+`mise` manages local tools, `uv` manages the project environment and lockfile, and `nox` creates isolated compatibility environments. Nox is configured to use uv as its virtualenv backend when available.
+
+Compatibility checks are managed with `nox`:
+
+```sh
+mise run nox-list
+mise run compat
+```
+
 ## How to use
 
-You can find some examples in `examples/`
+You can run the Streamlit demo app from `demo/app/Home.py`.
+The live deployment is available at [stqdm-demo.streamlit.app](https://stqdm-demo.streamlit.app/).
+
+The demo surface and the behaviors it covers are documented in [demo/FEATURES.md](demo/FEATURES.md).
 
 ### Use stqdm in main
 ```python
@@ -103,3 +139,48 @@ for i in stqdm(range(50), backend=True, frontend=False):
     sleep(0.5)
 ```
 
+### Setting Default Configuration
+stqdm can set default configuration for all future progress bars.
+
+```python
+from time import sleep
+
+from stqdm import stqdm
+
+# Set default configuration to suppress frontend display
+stqdm.set_default_config(frontend=False)
+
+# Utilize stqdm with the default configuration
+# It will use the new default configuration with frontend=False
+for _ in stqdm(range(50)):
+    sleep(0.5)
+```
+
+### Scoped Configuration
+Use `scope` to temporarily override default arguments in a `with` block.
+
+```python
+from time import sleep
+
+import streamlit as st
+from stqdm import stqdm
+
+# Override default settings temporarily within a scope
+with stqdm.scope(desc="Processing", bar_format="{desc}"):
+    for _ in stqdm(range(10)):
+        sleep(0.5)
+
+# Outside the scope, stqdm reverts to the default settings
+for _ in stqdm(range(10)):
+    sleep(0.5)
+
+# Attach all the stqdm instances used inside the scope
+# to the sidebar, then go back to normal
+with stqdm.scope(st_container=st.sidebar):
+    function_1()
+    function_2()
+```
+
+### Going further with configuration management
+
+See the Streamlit demo app for the complete scoped configuration example.

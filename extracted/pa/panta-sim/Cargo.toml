@@ -1,0 +1,3 @@
+[workspace]
+members = ["crates/core", "crates/simulator", "crates/python-binding", "crates/qasm", "crates/transpiler", "crates/gpu", "crates/mps"]
+resolver = "2"

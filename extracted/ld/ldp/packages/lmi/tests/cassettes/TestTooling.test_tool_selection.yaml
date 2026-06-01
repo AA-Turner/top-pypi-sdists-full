@@ -1,0 +1,228 @@
+interactions:
+  - request:
+      body:
+        '{"messages": [{"role": "system", "content": "You are a helpful assistant
+        who can use tools to do math. Use a tool if needed. If you don''t need a tool,
+        just respond with the answer."}, {"role": "user", "content": "What is double
+        of 8?"}], "model": "gpt-4o-mini-2024-07-18", "n": 1, "temperature": 1.0, "tool_choice":
+        "auto", "tools": [{"type": "function", "function": {"name": "double", "description":
+        "Double the input.", "parameters": {"type": "object", "properties": {"x": {"description":
+        "The input to double", "title": "X", "type": "integer"}}, "required": ["x"]}}}]}'
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate
+        connection:
+          - keep-alive
+        content-length:
+          - "534"
+        content-type:
+          - application/json
+        host:
+          - api.openai.com
+        user-agent:
+          - AsyncOpenAI/Python 2.30.0
+        x-stainless-arch:
+          - arm64
+        x-stainless-async:
+          - async:asyncio
+        x-stainless-lang:
+          - python
+        x-stainless-os:
+          - MacOS
+        x-stainless-package-version:
+          - 2.30.0
+        x-stainless-raw-response:
+          - "true"
+        x-stainless-read-timeout:
+          - "60.0"
+        x-stainless-retry-count:
+          - "0"
+        x-stainless-runtime:
+          - CPython
+        x-stainless-runtime-version:
+          - 3.13.5
+      method: POST
+      uri: https://api.openai.com/v1/chat/completions
+    response:
+      body:
+        string: !!binary |
+          H4sIAAAAAAAA/6rmUlBQykxRslJQSs5ILEnOLcjRdYlwMixKyQAAAAD//4xTTVPbMBC9+1cwOtsd
+          G9I44caB8tFSKLTDARiNIq8dUVlyJRnCZPLfkeTEVkKYqQ8ee9++3bdf6ttPKX9cT8t/r+fm/vtz
+          e35z9PsKxY4hZ89AzYb1hUrLA8Ok6GCqgBhwUbM8H+fT6ddp5oFaFsAdrWpMMpJJzQRLDtPDUZLm
+          STZZs+eSUdDW7cH+Hhws/dvpFAUsrDmNN5YatCYVWNvGyRqV5M6CiNZMGyIMigeQSmFAOOmi5TwA
+          jJQcU8L5kLh7lsH30CzriE/GL79OL/n9nTi7vjq7WNzcnv45yeE1yNeFfmu8oLIVtG9SgPf2451k
+          FhOk9txCtjNbVryLE1W1tS3IqUbLR7R4RMeTFdpyW0X7vp+C4hWUrSb8Y1eIENIQJ8635WmNrPoJ
+          cFk1Ss70DhWVdrJ6ju0iaF9Y2N9oI8RLQO3WCJENVzcGG/kXfNLJpAuKhi0bwOxoDRorkwf2NIv3
+          hMMFGML8iPutooTOoRiow3aRtmAyAKKg9I9q9sXuymei+p/wA0ApNPZ+cKOgYHS74sFNgTvCz9z6
+          JnvBSIN6sVeFDQPl9wlK0vLuNJB+0wZqbGdWgWoU8/eBygaT8YiQvEjLEkWr6B0AAP//AwA8xvZr
+          LQQAAA==
+      headers:
+        Access-Control-Expose-Headers:
+          - X-Request-ID
+        CF-Cache-Status:
+          - DYNAMIC
+        CF-Ray:
+          - 9efec7e45ad3f31f-SJC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - gzip
+        Content-Type:
+          - application/json
+        Date:
+          - Tue, 21 Apr 2026 19:26:31 GMT
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - <FILTERED>
+        Strict-Transport-Security:
+          - max-age=31536000; includeSubDomains; preload
+        Transfer-Encoding:
+          - chunked
+        X-Content-Type-Options:
+          - nosniff
+        alt-svc:
+          - h3=":443"; ma=86400
+        openai-organization:
+          - <FILTERED>
+        openai-processing-ms:
+          - "464"
+        openai-project:
+          - <FILTERED>
+        openai-version:
+          - "2020-10-01"
+        x-openai-proxy-wasm:
+          - v0.1
+        x-ratelimit-limit-requests:
+          - "30000"
+        x-ratelimit-limit-tokens:
+          - "150000000"
+        x-ratelimit-remaining-requests:
+          - "29999"
+        x-ratelimit-remaining-tokens:
+          - "149999957"
+        x-ratelimit-reset-requests:
+          - 2ms
+        x-ratelimit-reset-tokens:
+          - 0s
+        x-request-id:
+          - req_c628fbaaf3b34a5fb3ecb5dce0453f09
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        '{"messages": [{"role": "system", "content": "You are a helpful assistant
+        who can use tools to do math. Use a tool if needed. If you don''t need a tool,
+        just respond with the answer."}, {"role": "user", "content": "What is double
+        of 8?"}, {"role": "assistant", "tool_calls": [{"id": "call_A6vQEJlWSnGOMGIxPREUA7ew",
+        "type": "function", "function": {"arguments": "{\"x\": 8}", "name": "double"}}]},
+        {"role": "tool", "content": "Observation: 16", "name": "double", "tool_call_id":
+        "call_A6vQEJlWSnGOMGIxPREUA7ew"}], "model": "gpt-4o-mini-2024-07-18", "n": 1,
+        "temperature": 1.0, "tool_choice": "auto", "tools": [{"type": "function", "function":
+        {"name": "double", "description": "Double the input.", "parameters": {"type":
+        "object", "properties": {"x": {"description": "The input to double", "title":
+        "X", "type": "integer"}}, "required": ["x"]}}}]}'
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate
+        connection:
+          - keep-alive
+        content-length:
+          - "788"
+        content-type:
+          - application/json
+        host:
+          - api.openai.com
+        user-agent:
+          - AsyncOpenAI/Python 2.30.0
+        x-stainless-arch:
+          - arm64
+        x-stainless-async:
+          - async:asyncio
+        x-stainless-lang:
+          - python
+        x-stainless-os:
+          - MacOS
+        x-stainless-package-version:
+          - 2.30.0
+        x-stainless-raw-response:
+          - "true"
+        x-stainless-read-timeout:
+          - "60.0"
+        x-stainless-retry-count:
+          - "0"
+        x-stainless-runtime:
+          - CPython
+        x-stainless-runtime-version:
+          - 3.13.5
+      method: POST
+      uri: https://api.openai.com/v1/chat/completions
+    response:
+      body:
+        string: !!binary |
+          H4sIAAAAAAAA/41STa/TMBC891dYPjdPSSlNyw3ECY4ghISeoq29TgyObdmb8qqn/nfspH1J+ZC4
+          WPLMznp2vM8rxriW/A3jogMSvTfF+6/vquDV9gM8fTxWe3WSX16dfsL57Zk+lXydFe74HQXdVA/C
+          JR2SdnaiRUAgzF2rut7Vh8PrQzUSvZNosqz1VGxd0Wuri0252RZlXVT7q7pzWmBMZd/SlbHn8cw+
+          rcSnBJfrG9JjjNBiwm5FCQzOZIRDjDoSWOLrmRTOEtrR+ucOmXTD0SBziu2ZjqzaPSyLA6ohQjZs
+          B2MWBFjrCPLAo83HK3N5MWZc64M7xt+kXKWBY9ekfGIKK5mI5Dwf2Us6H8cAhruZeGrUe2rI/cDx
+          uaraTP34nPuCvabDKTk0C3xzU931ayQSaBMXEXIBokM5S+e8YZDaLYjVYuo/3fyt9zS5tu3/tJ8J
+          IdCnjWp8QKnF/cRzWcC8lv8qe0l5NMwjhlPas4Y0hvwTEhUMZloWHs+RsG/Sd7UYfNDTxijfwG4L
+          UMtSKb66rH4BI2WkXj8DAAA=
+      headers:
+        Access-Control-Expose-Headers:
+          - X-Request-ID
+        CF-Cache-Status:
+          - DYNAMIC
+        CF-Ray:
+          - 9efec7e84cb7f31f-SJC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - gzip
+        Content-Type:
+          - application/json
+        Date:
+          - Tue, 21 Apr 2026 19:26:32 GMT
+        Server:
+          - cloudflare
+        Strict-Transport-Security:
+          - max-age=31536000; includeSubDomains; preload
+        Transfer-Encoding:
+          - chunked
+        X-Content-Type-Options:
+          - nosniff
+        alt-svc:
+          - h3=":443"; ma=86400
+        openai-organization:
+          - <FILTERED>
+        openai-processing-ms:
+          - "450"
+        openai-project:
+          - <FILTERED>
+        openai-version:
+          - "2020-10-01"
+        x-openai-proxy-wasm:
+          - v0.1
+        x-ratelimit-limit-requests:
+          - "30000"
+        x-ratelimit-limit-tokens:
+          - "150000000"
+        x-ratelimit-remaining-requests:
+          - "29999"
+        x-ratelimit-remaining-tokens:
+          - "149999952"
+        x-ratelimit-reset-requests:
+          - 2ms
+        x-ratelimit-reset-tokens:
+          - 0s
+        x-request-id:
+          - req_f6f1e3df89a14afdbef4818d4e3f3c27
+      status:
+        code: 200
+        message: OK
+version: 1

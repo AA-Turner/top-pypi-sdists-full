@@ -71,7 +71,7 @@ class VerifyReport:
     @property
     def tests_ok(self) -> bool | None:
         for s in self.steps:
-            if s.name.lower() in {"pytest", "npm test", "go test", "cargo test"}:
+            if s.name.lower() in {"pytest", "npm test", "bun test", "go test", "cargo test"}:
                 return s.ok
         return None
 
@@ -217,11 +217,15 @@ def _run_background_check(
     cmd: list[str],
     cwd: Path,
     timeout: float = 3.0,
+    env: dict[str, str] | None = None,
 ) -> StepResult:
     """Start a server command in the background, wait `timeout` seconds,
     and make sure it doesn't crash/exit with an error.
     """
     start = time.monotonic()
+    full_env = os.environ.copy()
+    if env:
+        full_env.update(env)
     try:
         proc = subprocess.Popen(
             cmd,
@@ -229,7 +233,7 @@ def _run_background_check(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env=os.environ.copy(),
+            env=full_env,
         )
         
         time.sleep(timeout)
@@ -306,12 +310,26 @@ def _verify_python(project: DiscoveredProject) -> list[StepResult]:
             )
         )
 
+    # Set up PYTHONPATH environment variable for running compile/import/test steps
+    python_path_dirs = [str(root)]
+    if root.name == "backend":
+        python_path_dirs.append(str(root.parent))
+    if (root / "app").exists():
+        python_path_dirs.append(str(root / "app"))
+    
+    existing_pythonpath = os.environ.get("PYTHONPATH", "")
+    if existing_pythonpath:
+        python_path_dirs.append(existing_pythonpath)
+        
+    python_env = {"PYTHONPATH": os.pathsep.join(python_path_dirs)}
+
     # 2. Compile check (syntax check)
     steps.append(
         run_step(
             "python compile",
             [sys.executable, "-m", "compileall", "-q", "."],
             cwd=root,
+            env=python_env,
         )
     )
 
@@ -330,6 +348,7 @@ def _verify_python(project: DiscoveredProject) -> list[StepResult]:
                 [sys.executable, "-c", f"import {import_mod}"],
                 cwd=root,
                 timeout=15,
+                env=python_env,
             )
         )
         
@@ -353,6 +372,7 @@ def _verify_python(project: DiscoveredProject) -> list[StepResult]:
                     [sys.executable, "-m", "uvicorn", f"{import_mod}:app", "--host", "127.0.0.1", "--port", "8999"],
                     cwd=root,
                     timeout=3.0,
+                    env=python_env,
                 )
             )
         else:
@@ -362,6 +382,7 @@ def _verify_python(project: DiscoveredProject) -> list[StepResult]:
                     [sys.executable, str(main_py.relative_to(root))],
                     cwd=root,
                     timeout=3.0,
+                    env=python_env,
                 )
             )
 
@@ -371,6 +392,7 @@ def _verify_python(project: DiscoveredProject) -> list[StepResult]:
             "pytest",
             [sys.executable, "-m", "pytest", "-q"],
             cwd=root,
+            env=python_env,
         )
     )
 
@@ -384,7 +406,7 @@ def _verify_python(project: DiscoveredProject) -> list[StepResult]:
         root / "venv" / "Scripts" / "ruff",
     ]
     if shutil.which("ruff") or any(p.exists() for p in ruff_paths):
-        steps.append(run_step("ruff check", ["ruff", "check", "."], cwd=root))
+        steps.append(run_step("ruff check", ["ruff", "check", "."], cwd=root, env=python_env))
     return steps
 
 
@@ -393,31 +415,60 @@ def _verify_node(project: DiscoveredProject) -> list[StepResult]:
     root = project.root
     pkg = root / "package.json"
 
+    # Detect if Bun is the target runtime
+    is_bun = False
+    if shutil.which("bun"):
+        if (root / "bun.lockb").exists() or (root / "bun.lock").exists() or (root / "bunfig.toml").exists():
+            is_bun = True
+        else:
+            try:
+                pkg_data = json.loads(pkg.read_text("utf-8", errors="replace"))
+                if "bun" in pkg_data.get("packageManager", ""):
+                    is_bun = True
+                else:
+                    scripts = pkg_data.get("scripts", {})
+                    if any("bun" in str(v) for v in scripts.values()):
+                        is_bun = True
+            except Exception:
+                pass
+
+    pm = "bun" if is_bun else "npm"
+
     # 1. Install
-    steps.append(
-        run_step(
-            "npm install",
-            ["npm", "install", "--no-audit", "--no-fund"],
-            cwd=root,
-            timeout=1200,
+    if is_bun:
+        steps.append(
+            run_step(
+                "bun install",
+                ["bun", "install"],
+                cwd=root,
+                timeout=1200,
+            )
         )
-    )
+    else:
+        steps.append(
+            run_step(
+                "npm install",
+                ["npm", "install", "--no-audit", "--no-fund"],
+                cwd=root,
+                timeout=1200,
+            )
+        )
 
     # 2. Build check
     if _has_script(pkg, "build"):
-        steps.append(run_step("npm build", ["npm", "run", "build"], cwd=root, timeout=600))
+        steps.append(run_step(f"{pm} build", [pm, "run", "build"], cwd=root, timeout=600))
 
     # 3. Runnable check
     run_cmd = None
     if _has_script(pkg, "start"):
-        run_cmd = ["npm", "run", "start"]
+        run_cmd = [pm, "run", "start"]
     elif _has_script(pkg, "dev"):
-        run_cmd = ["npm", "run", "dev"]
+        run_cmd = [pm, "run", "dev"]
         
     if run_cmd:
         steps.append(
             _run_background_check(
-                "npm server start check",
+                f"{pm} server start check",
                 run_cmd,
                 cwd=root,
                 timeout=4.0,
@@ -426,7 +477,7 @@ def _verify_node(project: DiscoveredProject) -> list[StepResult]:
     else:
         steps.append(
             StepResult(
-                name="npm server start check",
+                name=f"{pm} server start check",
                 ok=False,
                 log="No 'start' or 'dev' script found in package.json",
                 duration_s=0.0,
@@ -436,30 +487,33 @@ def _verify_node(project: DiscoveredProject) -> list[StepResult]:
 
     # 4. Test (only if defined)
     if _has_script(pkg, "test"):
-        _is_vitest = False
-        try:
-            _pkg_data = json.loads(pkg.read_text("utf-8", errors="replace"))
-            _deps = {
-                **_pkg_data.get("devDependencies", {}),
-                **_pkg_data.get("dependencies", {}),
-            }
-            _is_vitest = "vitest" in _deps
-        except Exception:
-            pass
-        _test_cmd = (
-            ["npm", "test", "--silent"]
-            if _is_vitest
-            else ["npm", "test", "--silent", "--", "--watchAll=false"]
-        )
-        steps.append(run_step("npm test", _test_cmd, cwd=root))
+        if is_bun:
+            steps.append(run_step("bun test", ["bun", "test"], cwd=root))
+        else:
+            _is_vitest = False
+            try:
+                _pkg_data = json.loads(pkg.read_text("utf-8", errors="replace"))
+                _deps = {
+                    **_pkg_data.get("devDependencies", {}),
+                    **_pkg_data.get("dependencies", {}),
+                }
+                _is_vitest = "vitest" in _deps
+            except Exception:
+                pass
+            _test_cmd = (
+                ["npm", "test", "--silent"]
+                if _is_vitest
+                else ["npm", "test", "--silent", "--", "--watchAll=false"]
+            )
+            steps.append(run_step("npm test", _test_cmd, cwd=root))
 
     # 5. Typecheck
     if _has_script(pkg, "typecheck"):
-        steps.append(run_step("npm typecheck", ["npm", "run", "typecheck"], cwd=root))
+        steps.append(run_step(f"{pm} typecheck", [pm, "run", "typecheck"], cwd=root))
 
     # 6. Lint
     if _has_script(pkg, "lint"):
-        steps.append(run_step("npm lint", ["npm", "run", "lint"], cwd=root))
+        steps.append(run_step(f"{pm} lint", [pm, "run", "lint"], cwd=root))
 
     return steps
 

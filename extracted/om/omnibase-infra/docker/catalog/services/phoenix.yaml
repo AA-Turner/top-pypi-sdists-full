@@ -1,0 +1,32 @@
+name: phoenix
+description: Arize Phoenix LLM observability — traces, spans, and evals
+image: arizephoenix/phoenix:13.11.0
+layer: observability
+container_name: omnibase-infra-phoenix
+required_env: []
+hardcoded_env:
+  PHOENIX_WORKING_DIR: /data
+operational_defaults: {}
+ports:
+  external: 6006
+  internal: 6006
+healthcheck:
+  # Phoenix distroless image — use embedded Python to probe /healthz.
+  # Retry generously since Phoenix can be slow to start (large model loads).
+  test:
+    - /usr/bin/python3
+    - -c
+    - "import urllib.request; urllib.request.urlopen('http://localhost:6006/healthz')"
+  interval_s: 30
+  timeout_s: 10
+  retries: 3
+  start_period_s: 20
+volumes:
+  - phoenix_data:/data
+depends_on: []
+restart: unless-stopped
+resources: null
+labels:
+  com.omninode.service: phoenix
+  com.omninode.layer: observability
+  com.omninode.ticket: OMN-3542

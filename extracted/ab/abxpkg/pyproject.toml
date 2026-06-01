@@ -1,0 +1,157 @@
+[project]
+name = "abxpkg"
+version = "1.11.112"
+description = "System package manager interfaces with Python type hints"
+authors = [{name = "Nick Sweeting"}, {name = "ArchiveBox"}]
+requires-python = ">=3.12,<3.15"
+license = {text = "MIT"}
+readme = "README.md"
+keywords = [
+    "pydantic",
+    "packagemanager",
+    "apt",
+    "brew",
+    "pip",
+    "nix",
+    "cargo",
+    "gem",
+    "docker",
+    "pyinfra",
+    "ansible",
+    "devops",
+    "system",
+    "dependencies",
+]
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Framework :: Django",
+    "Framework :: Django :: 4.0",
+    "Framework :: Django :: 5.0",
+    "Framework :: Django :: 6.0",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+]
+
+dependencies = [
+    "pip>=26.0.1",
+    "typing-extensions>=4.15.0",
+    "platformdirs>=4.9.2",
+    "pydantic>=2.12.5",
+    "rich-click>=1.9.7",
+]
+
+[project.scripts]
+abxpkg = "abxpkg.cli:main"
+abx = "abxpkg.cli:abx_main"
+
+[project.optional-dependencies]
+rich = [
+    "rich>=14.0.0",
+]
+abxbus = [
+    "abxbus>=2.4.9",
+]
+pyinfra = [
+    'pyinfra>=3.6.1',
+]
+ansible = [
+    'ansible>=12.3.0',
+    'ansible-core>=2.0.0',
+    'ansible-runner>=2.4.2',
+]
+all = [
+    "abxpkg[rich,abxbus,pyinfra,ansible]",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["abxpkg"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "abxpkg/**",
+    "abxpkg/js/base/config.json",
+    "abxpkg/js/base/utils.js",
+    "abxpkg/js/chrome/config.json",
+    "abxpkg/js/chrome/chrome_utils.js",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.19.1",
+    "pyright",
+    "django>=4.0",
+    "django-stubs>=5.0.0",
+    "django-admin-data-views>=0.3.1",
+    "django-pydantic-field>=0.3.9",
+    "django-jsonform>=2.22.0",
+    "abxbus>=2.4.9",
+    "pytest>=9.0.2",
+    "rich>=14.0.0",
+    "prek>=0.3.6",
+    "ruff>=0.15.7",
+    "ty>=0.0.24",
+    "pytest-asyncio>=1.3.0",
+]
+
+[tool.uv]
+# Pin lockfile resolution to a recent upstream cutoff so CI/test runs stay
+# reproducible. ``uv`` (as of 0.8.x) requires a literal RFC 3339 date/time
+# here, not a relative duration like ``"5 days"`` — passing an invalid value
+# silently disables the cutoff and regenerates the lockfile on every invoke.
+exclude-newer = "2026-04-04T00:00:00Z"
+
+[tool.mypy]
+mypy_path = "abxpkg"
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+plugins = [
+    "mypy_django_plugin.main",
+]
+
+[tool.pyright]
+include = ["abxpkg", "tests", "django_example_project/project"]
+exclude = [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/migrations",
+]
+reportMissingImports = true
+reportMissingTypeStubs = false
+pythonVersion = "3.12"
+pythonPlatform = "Linux"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "root_required: tests that require root privileges and run in the privileged live-integration job",
+    "docker_required: tests that require a working Docker daemon and run in the Linux live-integration job",
+]
+
+[tool.ty.src]
+exclude = [
+    "**/migrations/**",
+    "docs/**",
+]
+
+
+[project.urls]
+Homepage = "https://github.com/ArchiveBox/abxpkg"
+Source = "https://github.com/ArchiveBox/abxpkg"
+Documentation = "https://github.com/ArchiveBox/abxpkg"
+"Bug Tracker" = "https://github.com/ArchiveBox/abxpkg/issues"
+Changelog = "https://github.com/ArchiveBox/abxpkg/releases"
+Donate = "https://github.com/ArchiveBox/ArchiveBox/wiki/Donations"

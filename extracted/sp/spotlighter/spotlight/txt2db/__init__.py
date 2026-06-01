@@ -1,1 +1,0 @@
-from spotlight.txt2db.txt2db import runTxt2Db

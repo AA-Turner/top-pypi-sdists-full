@@ -1,0 +1,13 @@
+[project]
+[project.plugins]
+[project.plugins.git-revision-date-localized]
+type = "datetime"
+timezone = "Europe/Zurich"
+GIT_DEPTH = 0
+
+# [project.plugins.minify]
+# minify_css = true
+# minify_js = true
+# cache_safe = true
+
+[[project.plugins.autorefs]]

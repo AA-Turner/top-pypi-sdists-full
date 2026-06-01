@@ -1,0 +1,74 @@
+Metadata-Version: 2.4
+Name: csrd-versioning
+Version: 0.5.28
+Summary: API versioning, dispatch, docs, and actuator for FastAPI
+Project-URL: Repository, https://github.com/csrd-api/fastapi-common
+Project-URL: Documentation, https://github.com/csrd-api/fastapi-common/tree/main/packages/versioning
+Project-URL: Changelog, https://github.com/csrd-api/fastapi-common/blob/main/CHANGELOG.md
+License: MIT
+Requires-Python: >=3.12
+Requires-Dist: csrd-context
+Requires-Dist: csrd-models
+Requires-Dist: fastapi<1,>=0.115
+Requires-Dist: httpx<1,>=0.27
+Requires-Dist: pydantic-settings<3,>=2
+Requires-Dist: pydantic<3,>=2
+Description-Content-Type: text/markdown
+
+# csrd-versioning
+
+API versioning, dispatch, docs, and actuator for FastAPI.
+
+**Package**: `csrd.versioning` · **Import**: `from csrd.versioning import compose_versioned_apps, configure_versioned_api`
+
+## What's included
+
+- **Version dispatch** — raw ASGI middleware for version-aware routing (streaming/SSE safe)
+- **Swagger UI** — custom docs with version picker, dark mode, SRI hashes, plugin system
+- **Actuator** — Spring Boot-style management endpoints (health, info, env)
+- **Exception handlers** — structured `APIErrorResponse` JSON for HTTP and validation errors
+- **Dependency wiring** — auto path-param injection, bearer guard opt-out
+
+## Installation
+
+```bash
+uv pip install "csrd-versioning @ git+ssh://git@github.com/csrd-api/fastapi-common.git#subdirectory=packages/versioning"
+```
+
+## Quick start
+
+```python
+from enum import Enum
+from fastapi import FastAPI
+from csrd.versioning import compose_versioned_apps, VersionedApiConfig, VersionedAppComposeConfig
+
+class Versions(Enum):
+    Unversioned = "Unversioned"
+    V1 = "2025-06-20"
+
+unv = FastAPI()
+v1 = FastAPI()
+
+app = compose_versioned_apps(
+    {Versions.Unversioned: unv, Versions.V1: v1},
+    config=VersionedAppComposeConfig(
+        api=VersionedApiConfig(prefix="api"),
+    ),
+)
+```
+
+## Security notes
+
+- **`/actuator/env`**: The `ShowValues.ALWAYS` setting exposes environment variable values. Use `ShowValues.NEVER` (default) in production to redact sensitive data.
+- **CORS**: Add `CORSMiddleware` **before** calling `configure_versioned_api`. The version dispatch middleware must be the outermost middleware. Example:
+
+```python
+app = FastAPI()
+app.add_middleware(CORSMiddleware, allow_origins=["https://app.example.com"], ...)
+configure_versioned_api(app, version_mapping, ...)
+```
+
+## Dependencies
+
+- `csrd-models`, `csrd-context` (Tier 1 packages — `csrd-versioning` is Tier 3)
+- For JWT auth, use [`csrd-auth`](../auth/README.md) alongside this package

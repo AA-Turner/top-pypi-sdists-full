@@ -1,0 +1,1558 @@
+"""
+routes/meta.py — Auth / gateway / OTLP / version / version-impact.
+
+Extracted from dashboard.py as Phase 5.12 of the incremental modularisation.
+Six small Blueprints bundled into one file because each is tiny (1-3 routes)
+and they are all auth/meta/observability plumbing:
+
+  bp_version        (2)  — /api/version, /api/update
+  bp_gateway        (3)  — /api/gw/{config,invoke,rpc}
+  bp_auth           (3)  — /api/auth/check, /auth, /  (main page)
+  bp_otel           (3)  — /v1/metrics, /v1/traces, /api/otel-status
+  bp_version_impact (1)  — /api/version-impact
+  bp_cloud_relay    (1)  — /api/cloud/subscribe
+
+Module-level helpers (``_auto_discover_gateway``, ``_gw_invoke_docker``,
+``_gw_invoke``, ``_gw_ws_rpc``, ``_load_gw_config``, ``_ext_emit``,
+``_process_otlp_metrics``, ``_process_otlp_traces``, ``_has_otel_data``,
+``_get_openclaw_version``, ``_record_version_if_changed``,
+``_version_impact_db``, ``_compute_session_stats_in_range``,
+``_stats_to_summary``, ``_compute_diff``) and module
+state (``GATEWAY_URL``, ``GATEWAY_TOKEN``, ``_ws_client``, ``_ws_connected``,
+``_GW_CONFIG_FILE``, ``_CURRENT_PLATFORM``, ``__version__``, ``_pypi_cache``,
+``_budget_paused``, ``_HAS_OTEL_PROTO``, ``_metrics_lock``, ``metrics_store``,
+``_otel_last_received``, ``SESSIONS_DIR``, ``DASHBOARD_HTML``) stay in
+``dashboard.py`` and are reached via late ``import dashboard as _d``.
+
+The ``@app.before_request`` ``_check_auth`` hook is registered on the global
+Flask app, not a Blueprint, so it stays in ``dashboard.py``.
+
+Pure mechanical move — zero behaviour change.
+"""
+
+import collections
+import hashlib
+import html
+import json
+import logging
+import os
+import sys
+import threading
+import time
+import uuid
+from datetime import datetime, timezone
+
+from flask import Blueprint, jsonify, make_response, render_template_string, request
+from clawmetry.config import is_local_store_read_enabled
+
+bp_version = Blueprint('version', __name__)
+bp_gateway = Blueprint('gateway', __name__)
+bp_auth = Blueprint('auth', __name__)
+bp_otel = Blueprint('otel', __name__)
+bp_version_impact = Blueprint('version_impact', __name__)
+bp_cloud_relay = Blueprint('cloud_relay', __name__)
+# NOTE: This blueprint owns /api/export/traces (outbound OTLP traces export,
+# shipped in #2206). It must NOT share its name with routes/otel_export.py's
+# bp_otel_export (which owns /api/otel/export, the older Enterprise OTLP/JSON
+# export). Pre-0.12.353 both blueprints were named 'otel_export' -> Flask
+# refused the second registration -> /api/export/traces was silently dropped
+# at runtime. Distinct name 'otlp_traces' fixes the collision; keep the
+# variable name as bp_otlp_traces and update dashboard.py's import + register.
+bp_otlp_traces = Blueprint('otlp_traces', __name__)
+
+
+# ── OTLP trace export ──────────────────────────────────────────────────────────────
+
+
+def _ts_to_ns(val) -> int:
+    """Convert a timestamp to Unix nanoseconds."""
+    if val is None:
+        return 0
+    if isinstance(val, (int, float)):
+        return int(val * 1_000_000_000)
+    if isinstance(val, str):
+        for fmt in ("%Y-%m-%dT%H:%M:%S.%fZ", "%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S"):
+            try:
+                from datetime import datetime, timezone
+                dt = datetime.strptime(val, fmt).replace(tzinfo=timezone.utc)
+                return int(dt.timestamp() * 1_000_000_000)
+            except ValueError:
+                continue
+        try:
+            return int(float(val) * 1_000_000_000)
+        except (TypeError, ValueError):
+            pass
+    return 0
+
+
+def _iso_to_unix(val) -> "float | None":
+    """ISO timestamp string → float unix seconds (for query_spans since/until)."""
+    if val is None:
+        return None
+    if isinstance(val, (int, float)):
+        return float(val)
+    for fmt in ("%Y-%m-%dT%H:%M:%S.%fZ", "%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S"):
+        try:
+            from datetime import datetime, timezone
+            return datetime.strptime(val, fmt).replace(tzinfo=timezone.utc).timestamp()
+        except ValueError:
+            continue
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return None
+
+
+def _kv_attrs(d: dict) -> list:
+    """Flat dict → OTLP KeyValue attribute list."""
+    out = []
+    for k, v in d.items():
+        if v is None:
+            continue
+        if isinstance(v, bool):
+            out.append({"key": k, "value": {"boolValue": v}})
+        elif isinstance(v, int):
+            out.append({"key": k, "value": {"intValue": str(v)}})
+        elif isinstance(v, float):
+            out.append({"key": k, "value": {"doubleValue": v}})
+        else:
+            out.append({"key": k, "value": {"stringValue": str(v)}})
+    return out
+
+
+def _pad_tid(s: str) -> str:
+    return ((s or "").replace("-", "") + "0" * 32)[:32]
+
+
+def _pad_sid(s: str) -> str:
+    return ((s or "").replace("-", "") + "0" * 16)[:16]
+
+
+def _span_row_to_otlp(r: dict) -> dict:
+    start_ns = _ts_to_ns(r.get("start_ts"))
+    end_ns = _ts_to_ns(r.get("end_ts"))
+    if not end_ns or end_ns <= start_ns:
+        end_ns = start_ns + int((r.get("duration_ms") or 1) * 1_000_000)
+
+    raw_attrs = r.get("attributes") or {}
+    if isinstance(raw_attrs, str):
+        try:
+            raw_attrs = json.loads(raw_attrs)
+        except Exception:
+            raw_attrs = {}
+
+    extra = {k: v for k, v in {
+        "session.id": r.get("session_id"),
+        "agent.id": r.get("agent_id"),
+        "llm.model": r.get("model"),
+        "tool.name": r.get("tool_name"),
+        "cost.usd": r.get("cost_usd"),
+        "tokens.total": r.get("token_count"),
+        "tokens.input": r.get("tokens_input"),
+        "tokens.output": r.get("tokens_output"),
+    }.items() if v is not None}
+
+    _KIND = {"INTERNAL": 1, "SERVER": 2, "CLIENT": 3, "PRODUCER": 4, "CONSUMER": 5}
+    _STATUS = {"STATUS_CODE_OK": 1, "STATUS_CODE_ERROR": 2}
+
+    span = {
+        "traceId": _pad_tid(r.get("trace_id") or r.get("session_id") or ""),
+        "spanId": _pad_sid(r.get("span_id") or ""),
+        "name": r.get("name") or "span",
+        "kind": _KIND.get(r.get("kind") or "", 1),
+        "startTimeUnixNano": str(start_ns),
+        "endTimeUnixNano": str(end_ns),
+        "attributes": _kv_attrs({**raw_attrs, **extra}),
+        "status": {
+            "code": _STATUS.get(r.get("status_code") or "", 0),
+            "message": r.get("status_message") or "",
+        },
+    }
+    parent = r.get("parent_span_id") or ""
+    if parent:
+        span["parentSpanId"] = _pad_sid(parent)
+    return span
+
+
+def _rows_to_otlp(rows: list, version: str) -> dict:
+    """Convert LocalStore span rows to OTLP JSON resourceSpans."""
+    by_svc: dict = {}
+    for r in rows:
+        svc = r.get("service_name") or "clawmetry"
+        by_svc.setdefault(svc, []).append(_span_row_to_otlp(r))
+
+    res_attrs = _kv_attrs({
+        "telemetry.sdk.name": "clawmetry",
+        "telemetry.sdk.version": version,
+    })
+    return {
+        "resourceSpans": [
+            {
+                "resource": {
+                    "attributes": res_attrs + _kv_attrs({"service.name": svc}),
+                },
+                "scopeSpans": [{
+                    "scope": {"name": "clawmetry.exporter", "version": version},
+                    "spans": spans,
+                }],
+            }
+            for svc, spans in by_svc.items()
+        ]
+    }
+
+
+def _sessions_to_otlp_fallback(sessions: list, version: str) -> dict:
+    """Synthesise OTLP root spans from sessions when the spans table is empty."""
+    spans = []
+    for s in sessions:
+        sid = s.get("session_id") or ""
+        trace_id = _pad_tid(hashlib.md5(sid.encode(), usedforsecurity=False).hexdigest())
+        start_ns = _ts_to_ns(s.get("started_at") or s.get("last_active_at"))
+        end_ns = _ts_to_ns(s.get("last_active_at") or s.get("ended_at"))
+        if not end_ns or end_ns <= start_ns:
+            end_ns = start_ns + 1_000_000_000
+        attrs = {k: v for k, v in {
+            "session.id": sid,
+            "agent.id": s.get("agent_id"),
+            "agent.type": s.get("agent_type"),
+            "session.title": s.get("title"),
+            "session.status": s.get("status"),
+            "tokens.total": s.get("total_tokens"),
+            "cost.usd": s.get("cost_usd"),
+            "messages": s.get("message_count"),
+        }.items() if v is not None}
+        status = 2 if s.get("status") in ("error", "failed") else 1
+        spans.append({
+            "traceId": trace_id,
+            "spanId": trace_id[:16],
+            "name": f"session:{s.get('title') or sid[:12]}",
+            "kind": 1,
+            "startTimeUnixNano": str(start_ns),
+            "endTimeUnixNano": str(end_ns),
+            "attributes": _kv_attrs(attrs),
+            "status": {"code": status},
+        })
+    if not spans:
+        return {"resourceSpans": []}
+    res_attrs = _kv_attrs({
+        "service.name": "clawmetry",
+        "telemetry.sdk.name": "clawmetry",
+        "telemetry.sdk.version": version,
+    })
+    return {
+        "resourceSpans": [{
+            "resource": {"attributes": res_attrs},
+            "scopeSpans": [{
+                "scope": {"name": "clawmetry.session_synthesizer", "version": version},
+                "spans": spans,
+            }],
+        }]
+    }
+
+
+@bp_otlp_traces.route("/api/export/traces", methods=["GET"])
+def export_otlp_traces():
+    """Export agent traces as OTLP JSON.
+
+    Query params: limit (default 500, max 2000), session_id, since (ISO), until (ISO).
+    Returns OTLP JSON. When the spans table is empty, falls back to synthesising
+    root spans from the sessions table so the endpoint is always useful.
+    """
+    import dashboard as _d
+    from routes.local_query import local_store_via_daemon, _dispatch, _store
+
+    limit = min(max(int(request.args.get("limit") or 500), 1), 2000)
+    session_id = request.args.get("session_id") or None
+    since_f = _iso_to_unix(request.args.get("since"))
+    until_f = _iso_to_unix(request.args.get("until"))
+    version = getattr(_d, "__version__", "0")
+
+    # Primary: spans table (populated by OTLP ingestion or sync daemon)
+    kwargs = {"limit": limit}
+    if session_id:
+        kwargs["session_id"] = session_id
+    if since_f is not None:
+        kwargs["since"] = since_f
+    if until_f is not None:
+        kwargs["until"] = until_f
+
+    use_full = bool(session_id or since_f is not None or until_f is not None)
+    method = "query_spans" if use_full else "query_recent_spans"
+    rows = local_store_via_daemon(method, **kwargs)
+    if rows is None:
+        try:
+            store = _store()
+            fn = store.query_spans if use_full else store.query_recent_spans
+            rows = fn(**kwargs)
+        except Exception:
+            rows = []
+
+    if rows:
+        return make_response(
+            json.dumps(_rows_to_otlp(rows, version)),
+            200,
+            {"Content-Type": "application/json"},
+        )
+
+    # Fallback: synthesise from sessions table when spans table is empty
+    try:
+        body = _dispatch("sessions", {"limit": min(limit, 500)})
+        sessions = body.get("rows") or []
+    except Exception:
+        sessions = []
+
+    return make_response(
+        json.dumps(_sessions_to_otlp_fallback(sessions, version)),
+        200,
+        {"Content-Type": "application/json"},
+    )
+
+
+# ── Version check & self-update routes ─────────────────────────────────────────────
+
+
+@bp_version.route("/api/version")
+def api_version():
+    """Return current and latest version info."""
+    import dashboard as _d
+    import time as _time
+    import json as _json
+
+    current = _d.__version__
+    latest = current
+    update_available = False
+    now = _time.time()
+    # Cache PyPI check for 1 hour
+    if _d._pypi_cache["version"] and (now - _d._pypi_cache["ts"]) < 3600:
+        latest = _d._pypi_cache["version"]
+    else:
+        try:
+            import urllib.request as _ur
+
+            req = _ur.Request(
+                "https://pypi.org/pypi/clawmetry/json",
+                headers={"User-Agent": "clawmetry/" + current},
+            )
+            with _ur.urlopen(req, timeout=10) as resp:
+                data = _json.loads(resp.read().decode())
+                latest = data.get("info", {}).get("version", current)
+                _d._pypi_cache["version"] = latest
+                _d._pypi_cache["ts"] = now
+        except Exception:
+            pass
+    if latest != current:
+        # Compare version tuples
+        try:
+            cur_parts = [int(x) for x in current.split(".")]
+            lat_parts = [int(x) for x in latest.split(".")]
+            update_available = lat_parts > cur_parts
+        except Exception:
+            update_available = latest != current
+    return {"current": current, "latest": latest, "update_available": update_available}
+
+
+def perform_self_update(reason: str = "manual"):
+    """Core self-update: ``pip install -U clawmetry`` then schedule a process
+    restart. Returns ``(payload_dict, http_status)``.
+
+    Shared by the manual ``/api/update`` route and the background auto-updater
+    (``routes/update_check.py``) so both use one vetted upgrade+restart path.
+    Safe to call from a worker thread — the restart is scheduled on a Timer
+    that exits the process (launchd/systemd respawns it on the new wheel).
+    """
+    import dashboard as _d
+    import subprocess as _sp
+    import threading as _thr
+    import logging as _log
+
+    _ulog = _log.getLogger(__name__)
+    old_version = _d.__version__
+    _ulog.info("self-update (%s): pip install -U clawmetry from v%s", reason, old_version)
+    py = sys.executable
+    # Bootstrap pip via the stdlib's ensurepip first. The daemon's venv at
+    # ~/.clawmetry/bin/python3 is provisioned WITHOUT pip by uv-style
+    # installers (uv venv defaults to --no-pip), so `python -m pip ...`
+    # exits 1 with "No module named pip" — which the banner used to surface
+    # as just "Command [...] returned non-zero exit status 1." with no
+    # actionable detail (stderr was piped to DEVNULL). ensurepip is in the
+    # stdlib, idempotent if pip already exists, and cheap. Burned 2026-05-23.
+    try:
+        _sp.run(
+            [py, "-m", "ensurepip", "--upgrade", "--default-pip"],
+            timeout=60, capture_output=True,
+        )
+    except Exception:
+        # If ensurepip itself isn't available the pip call below will surface
+        # a real error message via capture_output, which we now return verbatim.
+        pass
+    try:
+        proc = _sp.run(
+            # --no-cache-dir dodges the uv-cache-stale-after-[RELEASE] race
+            # (see feedback_uv_cache_stale_after_release.md): a fresh PyPI
+            # publish is sometimes shadowed by uv's "already at latest" cache.
+            [py, "-m", "pip", "install", "--upgrade", "--no-cache-dir", "clawmetry"],
+            timeout=180, capture_output=True, text=True,
+        )
+        if proc.returncode != 0:
+            # Surface pip's actual last lines so the banner is actionable —
+            # the old code swallowed everything into DEVNULL.
+            tail = ((proc.stdout or "") + (proc.stderr or "")).strip()[-800:]
+            return {"ok": False,
+                    "error": f"pip exit {proc.returncode}: {tail or '(no output)'}"}, 500
+    except _sp.TimeoutExpired:
+        return {"ok": False, "error": "pip install timed out after 180s"}, 500
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}, 500
+    # Re-read new version from pip metadata
+    new_version = old_version
+    try:
+        out = _sp.check_output(
+            [sys.executable, "-m", "pip", "show", "clawmetry"],
+            timeout=10,
+        ).decode()
+        for line in out.splitlines():
+            if line.startswith("Version:"):
+                new_version = line.split(":", 1)[1].strip()
+                break
+    except Exception:
+        pass
+
+    # Schedule restart after response is sent.
+    # CRITICAL: kick the sync daemon FIRST. Otherwise it keeps the OLD wheel in
+    # memory until launchctl restarts it on next boot (see
+    # ``feedback_restart_both_processes_after_upgrade.md``).
+    def _restart():
+        import os as _os
+        import platform as _pl
+
+        if _pl.system() == "Darwin":
+            try:
+                uid = _os.getuid()
+                _sp.run(
+                    ["launchctl", "kickstart", "-k",
+                     f"gui/{uid}/com.clawmetry.sync"],
+                    timeout=5,
+                    stdout=_sp.DEVNULL,
+                    stderr=_sp.DEVNULL,
+                    check=False,
+                )
+            except Exception:
+                pass  # daemon may not be running; dashboard restart is enough
+        _os._exit(0)
+
+    _ulog.info("self-update (%s): upgraded v%s -> v%s; restarting in 2s",
+               reason, old_version, new_version)
+    _thr.Timer(2.0, _restart).start()
+    return {"ok": True, "old_version": old_version, "new_version": new_version}, 200
+
+
+@bp_version.route("/api/update", methods=["POST"])
+def api_update():
+    """Self-update clawmetry via pip, then schedule process restart."""
+    payload, status = perform_self_update(reason="manual")
+    return payload, status
+
+
+@bp_version.route("/api/install-age")
+def api_install_age():
+    """Return the ctime of ``~/.clawmetry/config.json`` as a Unix epoch.
+
+    Used by the Brain restoration toast (issue #1195) to distinguish
+    fresh installs from upgrades across the 0.12.182 empty-detail
+    regression window. Returns ``{exists: false, ctime: null}`` when the
+    config file is missing (fresh install with no prior daemon).
+    """
+    cfg_path = os.path.expanduser("~/.clawmetry/config.json")
+    try:
+        st = os.stat(cfg_path)
+        # Prefer ctime (inode creation) over mtime, since `clawmetry connect`
+        # rewrites the file on every key change. ctime is closer to "first
+        # ever install" than mtime.
+        return {"exists": True, "ctime": int(st.st_ctime), "mtime": int(st.st_mtime)}
+    except FileNotFoundError:
+        return {"exists": False, "ctime": None, "mtime": None}
+    except Exception:
+        # Never crash on bad filesystem state; treat as fresh-install.
+        return {"exists": False, "ctime": None, "mtime": None}
+
+
+# ── Gateway proxy routes ────────────────────────────────────────────────────────────────
+
+
+@bp_gateway.route("/api/gw/config", methods=["GET", "POST"])
+def api_gw_config():
+    """Get or set gateway configuration."""
+    import dashboard as _d
+    if request.method == "POST":
+        data = request.get_json(silent=True) or {}
+        token = data.get("token", "").strip()
+        if not token:
+            return jsonify({"error": "Token is required"}), 400
+        # Auto-discover gateway: explicit URL wins, then env var, then port scan.
+        gw_url = data.get("url", "").strip()
+        if not gw_url:
+            gw_url = os.environ.get("OPENCLAW_GATEWAY_URL", "").strip()
+        if not gw_url:
+            gw_url = _d._auto_discover_gateway(token)
+        if not gw_url:
+            return jsonify(
+                {"error": "Could not find OpenClaw gateway. Please provide URL."}
+            ), 404
+        # Validate the connection
+        valid = False
+
+        # Docker mode: skip HTTP/WS, validate via docker exec
+        if gw_url.startswith("docker://"):
+            result = _d._gw_invoke_docker("session_status", {}, token)
+            if result:
+                valid = True
+
+        # WebSocket validation (non-docker)
+        if not valid and not gw_url.startswith("docker://"):
+            ws_url = gw_url.replace("http://", "ws://").replace("https://", "wss://")
+            try:
+                import websocket
+
+                ws = websocket.create_connection(f"{ws_url}/", timeout=5)
+                ws.recv()  # challenge
+                connect_msg = {
+                    "type": "req",
+                    "id": "validate",
+                    "method": "connect",
+                    "params": {
+                        "minProtocol": 3,
+                        "maxProtocol": 3,
+                        "client": {
+                            "id": "cli",
+                            "version": _d.__version__,
+                            "platform": _d._CURRENT_PLATFORM,
+                            "mode": "cli",
+                            "instanceId": "clawmetry-validate",
+                        },
+                        "role": "operator",
+                        "scopes": ["operator.admin", "operator.read"],
+                        "auth": {"token": token},
+                    },
+                }
+                ws.send(json.dumps(connect_msg))
+                for _ in range(5):
+                    r = json.loads(ws.recv())
+                    if r.get("type") == "res" and r.get("id") == "validate":
+                        valid = r.get("ok", False)
+                        break
+                ws.close()
+            except Exception:
+                pass
+
+        # HTTP fallback validation (non-docker)
+        if not valid and not gw_url.startswith("docker://"):
+            try:
+                payload = json.dumps({"tool": "session_status", "args": {}}).encode()
+                req = _d._urllib_req.Request(
+                    f"{gw_url.rstrip('/')}/tools/invoke",
+                    data=payload,
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "Content-Type": "application/json",
+                    },
+                    method="POST",
+                )
+                with _d._urllib_req.urlopen(req, timeout=5) as resp:
+                    result = json.loads(resp.read())
+                    valid = result.get("ok", False)
+            except Exception:
+                pass
+
+        # Docker exec fallback (last resort)
+        if not valid:
+            result = _d._gw_invoke_docker("session_status", {}, token)
+            if result:
+                valid = True
+                gw_url = "docker://localhost:18789"
+
+        if not valid:
+            return jsonify({"error": "Invalid token or gateway not responding"}), 401
+        # Save config
+        _d.GATEWAY_URL = gw_url
+        _d.GATEWAY_TOKEN = token
+        # Reset WS connection to use new credentials
+        _d._ws_connected = False
+        _d._ws_client = None
+        cfg = {"url": gw_url, "token": token}
+        try:
+            with open(_d._GW_CONFIG_FILE, "w") as f:
+                json.dump(cfg, f)
+            os.chmod(_d._GW_CONFIG_FILE, 0o600)
+        except Exception:
+            pass
+        return jsonify({"ok": True, "url": gw_url})
+    else:
+        cfg = _d._load_gw_config()
+        return jsonify(
+            {
+                "configured": bool(cfg.get("url") and cfg.get("token")),
+                "url": cfg.get("url", ""),
+                "hasToken": bool(cfg.get("token")),
+            }
+        )
+
+
+@bp_gateway.route("/api/gw/invoke", methods=["POST"])
+def api_gw_invoke():
+    """Proxy a tool invocation to the OpenClaw gateway."""
+    import dashboard as _d
+    data = request.get_json(silent=True) or {}
+    tool = data.get("tool")
+    args = data.get("args", {})
+    if not tool:
+        return jsonify({"error": "tool is required"}), 400
+    if _d._budget_paused and tool in ("sessions_spawn", "session_start", "session.create"):
+        return jsonify(
+            {"error": "Auto-pause active: refusing new session starts", "paused": True}
+        ), 429
+    result = _d._gw_invoke(tool, args)
+    if result is None:
+        return jsonify({"error": "Gateway not configured or unreachable"}), 503
+    return jsonify(result)
+
+
+@bp_gateway.route("/api/gw/rpc", methods=["POST"])
+def api_gw_rpc():
+    """Proxy a JSON-RPC method call to the OpenClaw gateway via WebSocket."""
+    import dashboard as _d
+    data = request.get_json(silent=True) or {}
+    method = data.get("method", "")
+    params = data.get("params", {})
+    if not method:
+        return jsonify({"error": "method is required"}), 400
+    result = _d._gw_ws_rpc(method, params)
+    if result is None:
+        return jsonify({"error": "Gateway not connected or method failed"}), 503
+    return jsonify(result)
+
+
+# ── Auth routes ─────────────────────────────────────────────────────────────────────────
+
+
+@bp_auth.route("/api/auth/check")
+def api_auth_check():
+    """Check if auth is required and validate token."""
+    import dashboard as _d
+    # Defensive env-var fallback: if _d.GATEWAY_TOKEN is not yet populated
+    # (e.g. visual-diff preflight hits this endpoint before _load_gw_config
+    # has run), read OPENCLAW_GATEWAY_TOKEN directly so CI never returns
+    # needsSetup:true when the token was correctly injected via env.
+    gateway_token = _d.GATEWAY_TOKEN or os.environ.get("OPENCLAW_GATEWAY_TOKEN", "").strip()
+    if not gateway_token:
+        return jsonify({"authRequired": True, "valid": False, "needsSetup": True})
+    token = request.headers.get("Authorization", "").replace("Bearer ", "").strip()
+    if not token:
+        token = request.args.get("token", "").strip()
+    if token == gateway_token:
+        try:
+            _d._ext_emit("auth.check", {"ok": True})
+        except Exception:
+            pass
+        return jsonify({"authRequired": True, "valid": True})
+    return jsonify({"authRequired": True, "valid": False})
+
+
+# Loopback addresses allowed to bootstrap their auth header via
+# /api/auth/detected-token. Anything else (LAN IP, public IP, proxied request)
+# is rejected with 403 to keep the GATEWAY_TOKEN from leaking off-box.
+_LOOPBACK_ADDRS = frozenset({"127.0.0.1", "::1", "localhost"})
+
+# Host header values accepted by the bootstrap endpoint. A browser pointed at a
+# DNS-rebound name (evil.com → 127.0.0.1) will still send Host: evil.com, so we
+# reject anything outside this set even when remote_addr is loopback.
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "[::1]", "::1"})
+
+
+def _is_loopback_request(req) -> bool:
+    """Return True iff *req* originates from this machine without a proxy.
+
+    Four checks must all hold:
+
+    1. ``REMOTE_ADDR`` (read from raw WSGI environ, not the Flask attribute,
+       so a future ProxyFix wrap can't silently invert this) is one of the
+       loopback aliases above.
+    2. ``Host:`` header (sans port) is also a loopback alias — defends
+       against DNS rebinding where remote_addr is genuinely loopback but
+       the page origin is attacker-controlled.
+    3. No ``X-Forwarded-For`` / ``X-Real-IP`` / ``Forwarded`` header is
+       present. Their presence means *something* on the path declared
+       this request was proxied; even on a loopback peer we must assume
+       the original client could be remote.
+    4. The dashboard was started bound to a loopback host. If the operator
+       passed ``--host 0.0.0.0`` (LAN exposure), refuse to hand out the
+       token at all — we cannot tell from a single request whether the
+       browser is on this box or on the LAN.
+    """
+    raw_addr = (req.environ.get("REMOTE_ADDR") or "").strip().lower()
+    if raw_addr not in _LOOPBACK_ADDRS:
+        return False
+    host = (req.host or "").strip().lower()
+    if host.startswith("["):
+        # Bracketed IPv6: "[::1]" or "[::1]:8900" -> "[::1]"
+        end = host.find("]")
+        if end != -1:
+            host = host[: end + 1]
+    elif ":" in host:
+        # IPv4 / hostname with port -> strip port
+        host = host.rsplit(":", 1)[0]
+    if host not in _LOOPBACK_HOSTS:
+        return False
+    if req.headers.get("X-Forwarded-For", "").strip():
+        return False
+    if req.headers.get("X-Real-IP", "").strip():
+        return False
+    if req.headers.get("Forwarded", "").strip():
+        return False
+    if not _server_bound_loopback():
+        return False
+    return True
+
+
+def _server_bound_loopback() -> bool:
+    """Did we boot bound to a loopback host? Defaults to True when unknown.
+
+    The dashboard records its bind address in ``_d._SERVER_HOST`` when
+    served via ``cli.serve()``. If that attribute is missing (pytest /
+    ad-hoc imports), assume loopback — the test harness drives requests
+    from the same process anyway.
+    """
+    import dashboard as _d
+    bind = getattr(_d, "_SERVER_HOST", None)
+    if not bind:
+        return True
+    bind = str(bind).strip().lower()
+    return bind in _LOOPBACK_ADDRS or bind in {"", "localhost"}
+
+
+def _detected_token_source(token: str):
+    """Best-effort label for where ``token`` was sourced from.
+
+    Re-walks the same locations as ``dashboard._detect_gateway_token``
+    (env var → running gateway process → openclaw.json) and returns the
+    first match. ``"process"`` is the Linux ``/proc/<pid>/environ`` path
+    that lets us read the live gateway's env vars even when the user
+    never exported ``OPENCLAW_GATEWAY_TOKEN`` in their own shell.
+
+    Falls back to ``"openclaw.json"`` if no source can be confirmed —
+    that's the most common origin in practice and the label only drives
+    a UI hint, never a security decision.
+    """
+    import dashboard as _d
+    if not token:
+        return "openclaw.json"
+    env_token = os.environ.get("OPENCLAW_GATEWAY_TOKEN", "").strip()
+    if env_token and env_token == token:
+        return "env"
+    # Linux /proc-based discovery from the running openclaw-gateway process.
+    try:
+        import subprocess as _sp
+
+        result = _sp.run(
+            ["pgrep", "-f", "openclaw-gateway"],
+            capture_output=True,
+            text=True,
+            timeout=3,
+        )
+        for pid in (result.stdout or "").strip().split("\n"):
+            pid = pid.strip()
+            if not pid:
+                continue
+            try:
+                with open(f"/proc/{pid}/environ", "r") as f:
+                    env_data = f.read()
+            except (PermissionError, FileNotFoundError, OSError):
+                continue
+            for entry in env_data.split("\0"):
+                if entry.startswith("OPENCLAW_GATEWAY_TOKEN="):
+                    if entry.split("=", 1)[1] == token:
+                        return "process"
+    except Exception:
+        pass
+    # Fall through: assume openclaw.json (or one of the other config files
+    # _detect_gateway_token scans). We don't re-read the file just to
+    # confirm — the label is informational, and `_d.GATEWAY_TOKEN` being
+    # populated already proves *some* discovery path succeeded.
+    return "openclaw.json"
+
+
+@bp_auth.route("/api/auth/detected-token")
+def api_auth_detected_token():
+    """Return the locally-detected gateway token to bootstrap the dashboard.
+
+    Solves a chicken-and-egg problem: the dashboard JS needs the token
+    *before* it can send any authenticated request, but the token lives
+    in OpenClaw's config — not in the browser. This endpoint hands the
+    token back to the page on first load, but ONLY when the request is
+    provably loopback-local and unproxied. Anything else gets 403.
+
+    Intentionally callable without an Authorization header — this IS
+    the bootstrap.
+    """
+    import dashboard as _d
+    if not _is_loopback_request(request):
+        return jsonify({"error": "localhost only"}), 403
+    token = getattr(_d, "GATEWAY_TOKEN", None)
+    if not token:
+        return jsonify({"error": "no token detected"}), 404
+    return jsonify({"token": token, "source": _detected_token_source(token)})
+
+
+# ── Anonymous funnel-loss instrumentation (issue #1365) ──────────────────────────────────
+# Allowed event names. Keep this tiny — every new value is an analytics
+# schema commitment. Today we only ship the one funnel we got burned on
+# in #1357 (typo'd pgrep killed auto-detect).
+_ANON_ALLOWED_EVENTS = frozenset({"auth_fail_first_load"})
+_ANON_ALLOWED_UA = frozenset({"chrome", "safari", "firefox", "other"})
+_ANON_LOG_PATH = os.path.expanduser("~/.clawmetry/anon_events.jsonl")
+# Hard caps: defence in depth against anything that slips past the JS
+# helpers and posts pathological payloads.
+_ANON_VERSION_MAX = 32
+_ANON_EVENT_MAX = 64
+_ANON_LOG_MAX_BYTES = 5 * 1024 * 1024  # 5 MB rolling cap — older entries pruned.
+
+# Fields that MUST NEVER appear in a body — defense against accidental PII
+# leak if a future caller forgets the schema. Server rejects 400 on any.
+_ANON_FORBIDDEN_FIELDS = frozenset({
+    "token", "auth", "authorization", "bearer", "password", "secret",
+    "ip", "remote_addr", "x_forwarded_for", "user_id", "email", "username",
+    "session_id", "cookie",
+})
+
+
+def _anon_append_local(payload: dict) -> None:
+    """Append ``payload`` as a JSONL line to the local durable log.
+
+    Local DuckDB is process-locked (see memory: DuckDB locks at PROCESS
+    level — daemon owns the writer). We don't want to add a daemon-proxy
+    hop for a fire-and-forget telemetry ping, so we use a plain JSONL
+    file as the durable record. The daemon can flush it to cloud later;
+    losing a few lines on crash is acceptable for a counter ping.
+    """
+    try:
+        os.makedirs(os.path.dirname(_ANON_LOG_PATH), exist_ok=True)
+        # Rolling cap: if the file is over the limit, truncate. We could
+        # do a proper rotate, but this is a counter ping — keeping the
+        # most recent 5 MB is more than enough for funnel-loss analysis.
+        try:
+            if os.path.getsize(_ANON_LOG_PATH) > _ANON_LOG_MAX_BYTES:
+                with open(_ANON_LOG_PATH, "w"):
+                    pass
+        except OSError:
+            pass
+        with open(_ANON_LOG_PATH, "a") as fh:
+            fh.write(json.dumps(payload, separators=(",", ":")) + "\n")
+    except Exception:
+        # Telemetry must never break the dashboard. Eat all errors.
+        pass
+
+
+def _anon_forward_cloud(payload: dict) -> None:
+    """Best-effort POST to the cloud analytics ingest. Fail-silent.
+
+    The cloud endpoint may not exist yet — that's fine, the local JSONL
+    is the durable record. We try anyway so once cloud catches up, the
+    OSS side starts feeding live data without another release.
+    """
+    try:
+        import urllib.request as _ur
+        req = _ur.Request(
+            "https://app.clawmetry.com/api/admin/anon-event",
+            data=json.dumps(payload, separators=(",", ":")).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        # Short timeout — never block the OSS request thread on the cloud.
+        _ur.urlopen(req, timeout=2).close()
+    except Exception:
+        pass
+
+
+@bp_auth.route("/api/anon-auth-fail-ping", methods=["POST"])
+def api_anon_auth_fail_ping():
+    """Receive an anonymous funnel-loss ping from the dashboard JS.
+
+    Triggered by the OSS dashboard's bootstrap path when ``/api/auth/check``
+    rejects on first page-load with no prior token in localStorage. The
+    typo regression of #1357 was completely invisible to us because no
+    such ping existed; this is the early-warning canary so we catch the
+    next one within a day instead of a week.
+
+    Strict allowlist on schema — any unexpected field, any token-like
+    name, any unbucketed UA class is a 400. We default-deny to keep the
+    "anonymous only" invariant verifiable from a single function.
+    """
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body, dict):
+        return jsonify({"error": "body must be a JSON object"}), 400
+
+    # Defense in depth: reject any forbidden field before parsing the
+    # allowed ones. If a future client (or attacker) tries to sneak
+    # ``{event: ..., token: "leak"}`` past us, we'd rather 400 than
+    # silently drop the token and persist the rest.
+    for key in body.keys():
+        if str(key).strip().lower() in _ANON_FORBIDDEN_FIELDS:
+            return jsonify({"error": "forbidden field in body"}), 400
+
+    event = str(body.get("event") or "").strip()
+    version = str(body.get("version") or "").strip()
+    ua_class = str(body.get("user_agent_class") or "").strip().lower()
+
+    if event not in _ANON_ALLOWED_EVENTS:
+        return jsonify({"error": "unknown event"}), 400
+    if ua_class not in _ANON_ALLOWED_UA:
+        return jsonify({"error": "unknown user_agent_class"}), 400
+    if not version or len(version) > _ANON_VERSION_MAX:
+        return jsonify({"error": "invalid version"}), 400
+    if len(event) > _ANON_EVENT_MAX:
+        return jsonify({"error": "event too long"}), 400
+
+    # Build the durable record. Server stamps ``ts`` (UTC seconds) so the
+    # client clock can't pollute the time series. No IP, no user id, no
+    # token — explicitly so.
+    payload = {
+        "ts": int(time.time()),
+        "event": event,
+        "version": version,
+        "user_agent_class": ua_class,
+    }
+    # Both helpers swallow their own errors, but we wrap defensively
+    # too: if a future refactor accidentally lets an exception escape,
+    # we still return 200 to the dashboard instead of breaking boot.
+    try:
+        _anon_append_local(payload)
+    except Exception:
+        pass
+    try:
+        _anon_forward_cloud(payload)
+    except Exception:
+        pass
+    return jsonify({"ok": True})
+
+
+@bp_auth.route("/auth")
+def auth_token():
+    """Accept ?token=XXX, store in localStorage via JS, redirect to /.
+    Works for both OSS gateway tokens and cloud cm_ keys.
+    URL: /auth?token=YOUR_TOKEN
+    """
+    token = request.args.get("token", "").strip()
+    if not token:
+        return (
+            '<html><body style="background:#0b0f1a;color:#e2e8f0;font-family:sans-serif;padding:40px;">'
+            "<h2>Missing token</h2><p>Usage: <code>/auth?token=YOUR_TOKEN</code></p></body></html>",
+            400,
+        )
+    # Escape token before JS interpolation. html.escape with quote=True converts
+    # ' and " to &#x27; / &quot; which break out of the JS string-literal
+    # context inside <script>...</script> (the browser does NOT decode HTML
+    # entities inside raw <script> content, so the escaped form is just inert
+    # literal characters). Originally reported by @dumko2001 in #511.
+    escaped = html.escape(token, quote=True)
+    return f"""<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="background:#0b0f1a;color:#e2e8f0;font-family:sans-serif;padding:40px;min-height:100vh;">
+<p>Authenticating...</p>
+<script>
+  localStorage.setItem('clawmetry-token', '{escaped}');
+  localStorage.setItem('clawmetry-gw-token', '{escaped}');
+  window.location.href = '/';
+</script>
+</body></html>"""
+
+
+# When --v2-default is active the v2 SPA owns '/' and v1 shifts to '/v1/'.
+# The env var is set by cli.py before dashboard.py (and this module) is
+# imported, so the value is stable for the lifetime of the process.
+_v1_root = "/v1/" if os.environ.get("CLAWMETRY_V2_DEFAULT") == "1" else "/"
+
+
+@bp_auth.route(_v1_root)
+def index():
+    import dashboard as _d
+    # v2_enabled gates the unobtrusive "Try v2" link in the v1 sidebar
+    # (week-1 migration plan, README §"What to communicate"). Mirrors the
+    # same env var the v2 blueprint registration in dashboard.py uses, so we
+    # never advertise /v2 to users who'd hit a 404.
+    v2_enabled = os.environ.get("CLAWMETRY_V2") == "1"
+    # Issue #1603: server-side Pro-tier gate. Tab templates branch on this
+    # so the Pro-feature DOM (NemoClaw governance shell, alerts rule editor
+    # modal) never enters the page for Free users. Eliminates the first-paint
+    # flash where the full Pro UI rendered, then a client-side overlay slammed
+    # down on top — a frame-perfect click could bypass the gate, and Free
+    # users could screenshot the Pro UI source. Fail-closed: any error in
+    # ``_is_pro_user`` returns False, which matches the conservative default
+    # the helper itself uses.
+    try:
+        is_pro = bool(_d._is_pro_user())
+    except Exception:
+        is_pro = False
+    # Phase-1 IA refactor (issue #1659): power-user opt-out via `?legacy_nav=1`
+    # falls back to the old top-nav layout. Default is the new 7-item left-nav
+    # + Advanced drawer. Boolean-coerce so any truthy value in the query string
+    # ("1", "true", "yes") flips the legacy template branch on.
+    legacy_nav_raw = request.args.get("legacy_nav", "")
+    legacy_nav = legacy_nav_raw.lower() in ("1", "true", "yes", "on")
+    resp = make_response(
+        render_template_string(
+            _d.DASHBOARD_HTML,
+            version=_d.__version__,
+            v2_enabled=v2_enabled,
+            is_pro=is_pro,
+            legacy_nav=legacy_nav,
+        )
+    )
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return resp
+
+
+# ── OTLP receiver routes ──────────────────────────────────────────────────────────────────
+
+
+@bp_otel.route("/v1/metrics", methods=["POST"])
+def otlp_metrics():
+    """OTLP/HTTP receiver for metrics (protobuf)."""
+    import dashboard as _d
+    if _d._budget_paused:
+        return jsonify(
+            {"error": "Budget limit exceeded - intake paused", "paused": True}
+        ), 429
+    if not _d._HAS_OTEL_PROTO:
+        return jsonify(
+            {
+                "error": "opentelemetry-proto not installed",
+                "message": "Install OTLP support: pip install clawmetry[otel]  "
+                "or: pip install opentelemetry-proto protobuf",
+            }
+        ), 501
+
+    try:
+        pb_data = request.get_data()
+        _d._process_otlp_metrics(pb_data)
+        return "{}", 200, {"Content-Type": "application/json"}
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@bp_otel.route("/v1/traces", methods=["POST"])
+def otlp_traces():
+    """OTLP/HTTP receiver for traces (protobuf)."""
+    import dashboard as _d
+    if _d._budget_paused:
+        return jsonify(
+            {"error": "Budget limit exceeded - intake paused", "paused": True}
+        ), 429
+    if not _d._HAS_OTEL_PROTO:
+        return jsonify(
+            {
+                "error": "opentelemetry-proto not installed",
+                "message": "Install OTLP support: pip install clawmetry[otel]  "
+                "or: pip install opentelemetry-proto protobuf",
+            }
+        ), 501
+
+    try:
+        pb_data = request.get_data()
+        _d._process_otlp_traces(pb_data)
+        return "{}", 200, {"Content-Type": "application/json"}
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@bp_otel.route("/api/otel-status")
+def api_otel_status():
+    """Return OTLP receiver + exporter status."""
+    import dashboard as _d
+    counts = {}
+    with _d._metrics_lock:
+        for k in _d.metrics_store:
+            counts[k] = len(_d.metrics_store[k])
+    export_stats: dict = {}
+    try:
+        from clawmetry.otel_exporter import get_stats as _otel_get_stats
+        export_stats = _otel_get_stats()
+    except Exception:
+        pass
+    return jsonify(
+        {
+            "available": _d._HAS_OTEL_PROTO,
+            "hasData": _d._has_otel_data(),
+            "lastReceived": _d._otel_last_received,
+            "counts": counts,
+            "exportEndpoint": export_stats.get("endpoint", ""),
+            "exportLastFlushAt": export_stats.get("last_flush_at"),
+            "exportSpansSent": export_stats.get("spans_sent", 0),
+            "exportLastError": export_stats.get("last_error"),
+        }
+    )
+
+
+# ── Version impact analysis ─────────────────────────────────────────────────────────────────────
+
+
+def _ls_call(method_name, **kwargs):
+    """Cross-process LocalStore call with single-process fallback.
+
+    Mirrors ``routes/usage.py:_ls_call`` — daemon HTTP proxy first
+    (covers the standard install where the daemon owns the DuckDB writer
+    lock), then falls back to a direct read-only open for single-process
+    boots (tests + dev mode). Returns ``None`` on miss so callers defer
+    to the legacy SQLite + JSONL fallback path.
+    """
+    try:
+        from routes.local_query import local_store_via_daemon
+        result = local_store_via_daemon(method_name, **kwargs)
+        if result is not None:
+            return result
+    except Exception:
+        pass
+    try:
+        from clawmetry import local_store
+        store = local_store.get_store(read_only=True)
+        return getattr(store, method_name)(**kwargs)
+    except Exception:
+        return None
+
+
+def _to_epoch(s):
+    """Parse an ISO-8601 timestamp string to a Unix epoch seconds float.
+
+    Returns 0.0 on failure so callers can sort/compare uniformly.
+    """
+    if not s:
+        return 0.0
+    if isinstance(s, (int, float)):
+        return float(s)
+    try:
+        return datetime.fromisoformat(
+            str(s).replace("Z", "+00:00")
+        ).timestamp()
+    except Exception:
+        return 0.0
+
+
+def _try_local_store_version_impact(current_version):
+    """DuckDB fast path for /api/version-impact (Tier-1 #1565).
+
+    Strategy:
+
+    1. Pull every ``session.started`` event (these carry ``data.version``
+       on real OpenClaw v3 installs — see
+       ``clawmetry/sync.py::_parse_v3_event`` and
+       ``reference_openclaw_v3_event_types.md``).
+    2. Group by version → earliest detection timestamp. That gives us the
+       same shape the legacy SQLite ``version_events`` table tracks
+       (version + detected_at), but derived from real session activity
+       rather than per-process polling. Replaces the JSONL re-walk that
+       happened on every request.
+    3. For each adjacent (prev, curr) version pair, aggregate per-session
+       stats (token spend, cost, tool-call count, error count, duration)
+       for sessions that started inside the version's active window.
+       Uses ``query_sessions`` (already sibling-pair deduped at the SQL
+       layer per issue #1460) for cost+tokens, and ``query_events`` for
+       tool/error counts.
+
+    Returns ``None`` when no ``session.started`` events carry a version
+    field — older installs / fresh DuckDB stores fall through to the
+    SQLite + JSONL legacy path so the route never regresses to empty.
+    """
+    started_rows = _ls_call("query_events", event_type="session.started", limit=5000)
+    if started_rows is None:
+        return None
+
+    # Group by version → (earliest_ts, session_ids_seen).
+    versions_seen: dict[str, dict] = {}
+    for row in started_rows:
+        data = row.get("data") if isinstance(row.get("data"), dict) else {}
+        version = (data.get("version") or data.get("openclawVersion")
+                   or data.get("openclaw_version"))
+        if not version:
+            continue
+        version = str(version)
+        ts_epoch = _to_epoch(row.get("ts"))
+        if ts_epoch <= 0:
+            continue
+        entry = versions_seen.setdefault(version, {"earliest": ts_epoch, "sids": set()})
+        if ts_epoch < entry["earliest"]:
+            entry["earliest"] = ts_epoch
+        sid = row.get("session_id")
+        if sid:
+            entry["sids"].add(sid)
+
+    if not versions_seen:
+        # No version-bearing events — defer to SQLite/JSONL fallback.
+        return None
+
+    # Sort versions by earliest-detected ascending — matches the legacy
+    # SQLite ``version_events`` ORDER BY detected_at ASC.
+    version_order = sorted(versions_seen.items(), key=lambda kv: kv[1]["earliest"])
+    now_ts = time.time()
+
+    def _summarise_range(start_ts, end_ts):
+        """Aggregate per-session metrics for sessions started in [start, end)."""
+        since_iso = datetime.fromtimestamp(start_ts, tz=timezone.utc).isoformat()
+        until_iso = datetime.fromtimestamp(end_ts, tz=timezone.utc).isoformat()
+        sessions = _ls_call("query_sessions", since=since_iso, until=until_iso,
+                            limit=10000) or []
+        # tool/error counts come from the raw events table (query_sessions
+        # gives us deduped cost+tokens but not tool-call frequency).
+        events = _ls_call("query_events", since=since_iso, until=until_iso,
+                          limit=20000) or []
+        tool_types = {"tool_call", "tool.call", "toolCall", "tool_use"}
+        error_types = {"error", "session.error", "model.error"}
+        per_sid_tools: dict[str, int] = {}
+        per_sid_errors: dict[str, int] = {}
+        for ev in events:
+            sid = ev.get("session_id")
+            if not sid:
+                continue
+            et = ev.get("event_type") or ""
+            if et in tool_types:
+                per_sid_tools[sid] = per_sid_tools.get(sid, 0) + 1
+            elif et in error_types:
+                per_sid_errors[sid] = per_sid_errors.get(sid, 0) + 1
+
+        total_cost = 0.0
+        total_tokens = 0
+        total_tools = 0
+        total_errors = 0
+        duration_ms_total = 0
+        duration_sessions = 0
+        session_count = 0
+        for s in sessions:
+            sid = s.get("session_id")
+            if not sid:
+                continue
+            session_count += 1
+            total_cost += float(s.get("cost_usd") or 0.0)
+            total_tokens += int(s.get("token_count") or 0)
+            total_tools += per_sid_tools.get(sid, 0)
+            total_errors += per_sid_errors.get(sid, 0)
+            start_s = _to_epoch(s.get("started_at"))
+            end_s = _to_epoch(s.get("updated_at"))
+            if start_s and end_s and end_s > start_s:
+                duration_ms_total += int((end_s - start_s) * 1000)
+                duration_sessions += 1
+        return {
+            "session_count": session_count,
+            "total_cost": total_cost,
+            "total_tokens": total_tokens,
+            "error_count": total_errors,
+            "tool_calls": total_tools,
+            "duration_ms_total": duration_ms_total,
+            "duration_sessions": duration_sessions,
+        }
+
+    import dashboard as _d
+    transitions = []
+    version_history = []
+
+    for i, (version, info) in enumerate(version_order):
+        start_ts = info["earliest"]
+        end_ts = (version_order[i + 1][1]["earliest"]
+                  if i + 1 < len(version_order) else now_ts)
+        version_history.append({
+            "version": version,
+            "detected_at": datetime.fromtimestamp(
+                start_ts, tz=timezone.utc
+            ).isoformat(),
+        })
+        if i == 0:
+            continue
+        prev_version, prev_info = version_order[i - 1]
+        before = _d._stats_to_summary(
+            _summarise_range(prev_info["earliest"], start_ts))
+        after = _d._stats_to_summary(_summarise_range(start_ts, end_ts))
+        transitions.append({
+            "from_version": prev_version,
+            "to_version": version,
+            "upgraded_at": datetime.fromtimestamp(
+                start_ts, tz=timezone.utc
+            ).isoformat(),
+            "before": before,
+            "after": after,
+            "diff": _d._compute_diff(before, after),
+        })
+
+    return {
+        "current_version": (current_version
+                            or version_order[-1][0]
+                            or "unknown"),
+        "version_detected": bool(current_version),
+        "version_history": version_history,
+        "transitions": transitions,
+        "_source": "local_store",
+    }
+
+
+@bp_version_impact.route("/api/version-impact")
+def api_version_impact():
+    """Return version transition list with before/after metric comparisons."""
+    import dashboard as _d
+    current_version = _d._get_openclaw_version()
+    _d._record_version_if_changed(current_version)
+
+    # DuckDB fast path: derive version timeline + per-version stats from
+    # session.started events in the local store. Returns None on fresh
+    # installs / pre-v3 data so the legacy SQLite + JSONL walker stays
+    # the canonical fallback.
+    if is_local_store_read_enabled():
+        fast = _try_local_store_version_impact(current_version)
+        if fast is not None:
+            return jsonify(fast)
+
+    db = _d._version_impact_db()
+    try:
+        rows = db.execute(
+            "SELECT version, detected_at FROM version_events ORDER BY detected_at ASC"
+        ).fetchall()
+    finally:
+        db.close()
+
+    if not rows:
+        return jsonify(
+            {
+                "current_version": current_version or "unknown",
+                "transitions": [],
+                "version_detected": bool(current_version),
+                "note": "No version history yet. Version tracking starts from first load."
+                if not current_version
+                else "First version recorded. Comparisons will appear after next version upgrade.",
+            }
+        )
+
+    sessions_dir = _d.SESSIONS_DIR or os.path.expanduser(
+        "~/.openclaw/agents/main/sessions"
+    )
+    transitions = []
+    now_ts = time.time()
+
+    for i in range(len(rows)):
+        row = rows[i]
+        version = row["version"]
+        start_ts = row["detected_at"]
+        end_ts = rows[i + 1]["detected_at"] if i + 1 < len(rows) else now_ts
+
+        if i > 0:
+            prev_row = rows[i - 1]
+            prev_version = prev_row["version"]
+            prev_start = prev_row["detected_at"]
+            prev_end = start_ts
+
+            before_stats = _d._compute_session_stats_in_range(
+                sessions_dir, prev_start, prev_end
+            )
+            after_stats = _d._compute_session_stats_in_range(
+                sessions_dir, start_ts, end_ts
+            )
+
+            before_summary = _d._stats_to_summary(before_stats)
+            after_summary = _d._stats_to_summary(after_stats)
+            diff = _d._compute_diff(before_summary, after_summary)
+
+            transitions.append(
+                {
+                    "from_version": prev_version,
+                    "to_version": version,
+                    "upgraded_at": datetime.fromtimestamp(
+                        start_ts, tz=timezone.utc
+                    ).isoformat(),
+                    "before": before_summary,
+                    "after": after_summary,
+                    "diff": diff,
+                }
+            )
+
+    return jsonify(
+        {
+            "current_version": current_version
+            or (rows[-1]["version"] if rows else "unknown"),
+            "version_detected": bool(current_version),
+            "version_history": [
+                {
+                    "version": r["version"],
+                    "detected_at": datetime.fromtimestamp(
+                        r["detected_at"], tz=timezone.utc
+                    ).isoformat(),
+                }
+                for r in rows
+            ],
+            "transitions": transitions,
+        }
+    )
+
+
+# ── Heartbeat-piggyback subscribe queue (issue #1595) ────────────────────────
+# The cloud-relay path queues query-shape requests against a per-(owner, node)
+# list that the daemon drains during its next /ingest/heartbeat. With no upper
+# bound, a refresh-happy viewer (5 panels x 12 polls/min x 10 min open) can
+# stuff 500+ stale entries into the queue, starving the freshest subscribes
+# behind dead work. The fix:
+#
+#   * Cap each (owner, node) queue at QUEUE_MAX_LEN (env-overridable).
+#   * On overflow: drop the OLDEST entry (FIFO eviction). Recent subscribes
+#     are more likely to reflect current viewer intent — dropping the
+#     newest would punish the active tab.
+#   * Emit a ``subscribe_queue_overflow`` metric (counter + sample dropped
+#     key) so cloud can alert on stuck viewers.
+#   * Surface ``queue_len`` in the subscribe response so clients can
+#     back off when the queue starts to fill (signal to the polling JS to
+#     slow its auto-refresh until the daemon catches up).
+#
+# The real cloud-side implementation lives in ``clawmetry-cloud``; this OSS
+# copy is the canonical reference + smoke target so we can drift-test the
+# contract from this repo's CI without spinning up the cloud Flask app.
+
+# Per-(owner, node) ring buffer cap. 100 covers a generous 5-panel
+# dashboard burst at the default 60 s drain cadence; lower it in tests
+# via the env var to exercise the overflow path without enqueueing 100
+# entries.
+QUEUE_MAX_LEN = max(1, int(os.environ.get("CLAWMETRY_SUBSCRIBE_QUEUE_MAX", "100")))
+
+# Allowlist mirrors the cloud-side gatekeeper + routes/local_query._SHAPES.
+# Keep these in sync — drift is caught by tests/test_heartbeat_relay_e2e.py.
+_SUBSCRIBE_ALLOWED_SHAPES = frozenset({
+    "events", "sessions", "aggregates", "health", "transcript",
+})
+
+# Module state. The lock is held across the small critical section that
+# coalesces dupes + appends + computes queue_len so two concurrent subscribes
+# can't race past the cap.
+_subscribe_queues: dict = {}            # (owner, node) -> deque[query dict]
+_subscribe_memo: dict = {}              # (owner, node, args_hash) -> cache_key
+_subscribe_lock = threading.Lock()
+
+# Overflow metric. ``count`` ticks once per dropped entry; ``last_dropped``
+# keeps a sample so an operator can see *which* key starved (owner/node/shape
+# + the args_hash that was evicted). Cleared by tests via _reset_subscribe_state.
+subscribe_queue_overflow = {
+    "count": 0,
+    "last_dropped": None,  # {"owner", "node", "shape", "args_hash", "ts"}
+}
+
+_log = logging.getLogger(__name__)
+
+
+def _hash_subscribe_args(shape: str, args: dict) -> str:
+    """Deterministic short hash so identical (shape, args) collapse to one
+    cache_key — matches the cloud-side hashing in
+    ``tests/test_heartbeat_relay_e2e.py:_hash_args``."""
+    payload = json.dumps({"shape": shape, "args": args or {}}, sort_keys=True)
+    return hashlib.sha256(payload.encode()).hexdigest()[:32]
+
+
+def _reset_subscribe_state() -> None:
+    """Test-only helper. Clear queues + memo + overflow metric so each
+    test starts from a clean module state."""
+    with _subscribe_lock:
+        _subscribe_queues.clear()
+        _subscribe_memo.clear()
+        subscribe_queue_overflow["count"] = 0
+        subscribe_queue_overflow["last_dropped"] = None
+
+
+@bp_cloud_relay.route("/api/cloud/subscribe", methods=["POST"])
+def api_cloud_subscribe():
+    """Enqueue a (shape, args) cache_key for the next daemon heartbeat drain.
+
+    Response shape:
+      { cache_key, query_id, status: "queued"|"cache_hit"|"rejected",
+        eta_sec, queue_len }
+
+    ``queue_len`` is the post-append depth of THIS subscribe's
+    (owner, node) queue — the dashboard JS should treat anything
+    >= QUEUE_MAX_LEN * 0.8 as a backpressure signal and slow its
+    auto-refresh until the next drain catches up.
+
+    On overflow the oldest queued entry is dropped (FIFO eviction) and
+    the ``subscribe_queue_overflow`` counter ticks. The newly enqueued
+    subscribe is always accepted — recent intent wins.
+    """
+    body = request.get_json(silent=True) or {}
+    owner = (body.get("owner") or "default").strip() or "default"
+    node_id = (body.get("node_id") or "").strip()
+    shape = body.get("shape")
+    args = body.get("args") or {}
+
+    if not node_id:
+        return jsonify({"error": "node_id required"}), 400
+    if shape not in _SUBSCRIBE_ALLOWED_SHAPES:
+        return jsonify({
+            "error": f"unknown shape: {shape!r}",
+            "allowed_shapes": sorted(_SUBSCRIBE_ALLOWED_SHAPES),
+            "status": "rejected",
+        }), 400
+
+    args_hash = _hash_subscribe_args(shape, args)
+    queue_key = (owner, node_id)
+    memo_key = (owner, node_id, args_hash)
+
+    with _subscribe_lock:
+        # Coalesce: if this exact (owner, node, shape, args) is already
+        # queued, return the same cache_key instead of stacking dupes.
+        existing = _subscribe_memo.get(memo_key)
+        if existing is not None:
+            depth = len(_subscribe_queues.get(queue_key, ()))
+            return jsonify({
+                "cache_key": existing,
+                "query_id": existing,
+                "status": "queued",
+                "eta_sec": 60,
+                "queue_len": depth,
+            })
+
+        cache_key = f"ck_{uuid.uuid4().hex[:24]}"
+        entry = {
+            "id": cache_key,
+            "cache_key": cache_key,
+            "shape": shape,
+            "args": args,
+            "args_hash": args_hash,
+            "enqueued_at": time.time(),
+        }
+
+        q = _subscribe_queues.get(queue_key)
+        if q is None:
+            q = collections.deque(maxlen=QUEUE_MAX_LEN)
+            _subscribe_queues[queue_key] = q
+
+        # Drop-oldest FIFO: if we're at cap, evict head BEFORE appending so
+        # we can capture the dropped entry for the overflow metric. (deque
+        # with maxlen would silently drop on append; doing it explicitly
+        # lets us emit the metric.)
+        if len(q) >= q.maxlen:
+            dropped = q.popleft()
+            # Forget the memo so a re-subscribe for the dropped shape is
+            # accepted rather than coalesced onto a key the daemon will
+            # never see.
+            _subscribe_memo.pop(
+                (owner, node_id, dropped.get("args_hash", "")), None
+            )
+            subscribe_queue_overflow["count"] += 1
+            subscribe_queue_overflow["last_dropped"] = {
+                "owner": owner,
+                "node": node_id,
+                "shape": dropped.get("shape"),
+                "args_hash": dropped.get("args_hash"),
+                "ts": time.time(),
+            }
+            _log.warning(
+                "subscribe_queue_overflow owner=%s node=%s dropped_shape=%s "
+                "queue_cap=%d", owner, node_id,
+                dropped.get("shape"), q.maxlen,
+            )
+
+        q.append(entry)
+        _subscribe_memo[memo_key] = cache_key
+        depth = len(q)
+
+    return jsonify({
+        "cache_key": cache_key,
+        "query_id": cache_key,
+        "status": "queued",
+        "eta_sec": 60,
+        "queue_len": depth,
+    })

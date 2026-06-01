@@ -1,0 +1,1694 @@
+from __future__ import annotations
+
+import ast
+from collections import defaultdict
+import contextlib
+import dataclasses
+import enum
+import itertools
+import math
+import threading
+from typing import TYPE_CHECKING
+from typing import NamedTuple
+from typing import Protocol
+from typing import TypeVar
+from typing import cast
+
+import sympy
+import torch
+from torch._dynamo.source import LocalSource
+from torch._inductor.codegen.triton import TritonPrinter
+from torch.fx.graph import _Namespace
+
+from .. import exc
+from .._compat import get_tensor_descriptor_fn_name
+from .ast_extension import ExtendedAST
+from .ast_extension import create
+from .ast_extension import create_arg
+from .ast_extension import create_arguments
+from .ast_extension import expr_from_string
+from .ast_extension import statement_from_string
+from .ast_read_writes import ReadWrites
+from .ast_read_writes import ast_rename
+from .ast_read_writes import dead_assignment_elimination
+from .ast_read_writes import dead_lane_loop_elimination
+from .backend_registry import all_reserved_launch_param_names
+from .compile_environment import CompileEnvironment
+from .host_function import HostFunction
+from .host_function import NoCurrentFunction
+from .output_header import reserved_names
+from .source_location import SyntheticLocation
+from .variable_origin import BlockSizeOrigin
+from .variable_origin import GridOrigin
+from .variable_origin import Origin
+from .variable_origin import TensorSizeOrigin
+
+if TYPE_CHECKING:
+    from ..runtime.config import Config
+    from .cute.aux_tensor import Tcgen05AuxTensorDescriptor
+    from .device_ir import HelperFunctionGraphInfo
+    from .generate_ast import GenerateAST
+    from .indexing_strategy import IndexingStrategy
+    from .program_id import ProgramIDs
+    from helion._compiler.pallas.plan_tiling import DimensionTiling
+
+    _P = TypeVar("_P", bound="TensorPropertyArg")
+
+    class _TLS(Protocol):
+        functions: list[DeviceFunction]
+
+
+tls: _TLS = cast("_TLS", threading.local())
+
+
+class VarInfo(NamedTuple):
+    """Information about a variable derived from a sympy expression."""
+
+    name: str
+    fx_node: torch.fx.Node
+
+
+def find_block_size_symbols(
+    expr: sympy.Expr,
+) -> tuple[dict[sympy.Symbol, int], set[sympy.Symbol]]:
+    """
+    Find block size symbols in a sympy expression.
+
+    Returns:
+        tuple of (block_size_mapping, non_block_size_symbols) where:
+        - block_size_mapping: dict mapping block size symbols to their block_id
+        - non_block_size_symbols: set of symbols that are NOT block sizes
+    """
+    if not isinstance(expr, sympy.Expr):
+        return {}, set()
+
+    hf = HostFunction.current()
+    block_sizes = {}
+    non_block_size_symbols = set()
+
+    for symbol in expr.free_symbols:
+        # pyrefly: ignore [no-matching-overload, bad-argument-type]
+        origin_info = hf.expr_to_origin.get(symbol)
+        if origin_info is None or not isinstance(origin_info.origin, BlockSizeOrigin):
+            # pyrefly: ignore [bad-argument-type]
+            non_block_size_symbols.add(symbol)
+        else:
+            # pyrefly: ignore [unsupported-operation]
+            block_sizes[symbol] = origin_info.origin.block_id
+
+    # pyrefly: ignore[bad-return]
+    return block_sizes, non_block_size_symbols
+
+
+def contains_only_block_size_symbols(expr: sympy.Expr) -> bool:
+    """Check if expression contains only block size symbols (no other variables)."""
+    _, non_block = find_block_size_symbols(expr)
+    return len(non_block) == 0
+
+
+@dataclasses.dataclass
+class Argument:
+    name: str  # in the device function
+
+    def host_str(self) -> str:
+        raise NotImplementedError
+
+    def arg_def_node(self) -> ast.arg:
+        return create_arg(self.name)
+
+    def sort_key(self) -> tuple[object, ...]:
+        return (_sort_order[type(self)],)
+
+
+@dataclasses.dataclass
+class TensorArg(Argument):
+    fake_value: torch.Tensor
+    _host_str: str | None
+
+    def host_str(self) -> str:
+        if self._host_str is None:
+            raise RuntimeError("TensorArg has no host representation")
+        return self._host_str
+
+
+@dataclasses.dataclass
+class TensorDescriptorArg(TensorArg):
+    # Permutation applied to make stride==1 dimension last
+    permutation: list[int] | None = None
+
+    def host_str(self) -> str:
+        if self._host_str is None:
+            raise RuntimeError(
+                "TensorDescriptorArg is device-only and has no host representation"
+            )
+        return self._host_str
+
+    @property
+    def inverse_permutation(self) -> list[int]:
+        """Get the inverse permutation to undo the applied permutation."""
+        if (permutation := self.permutation) is None:
+            raise RuntimeError("TensorDescriptorArg.permutation is None")
+        inverse_perm = [0] * len(permutation)
+        for i, p in enumerate(permutation):
+            inverse_perm[p] = i
+        return inverse_perm
+
+
+@dataclasses.dataclass
+class TensorPropertyArg(Argument):
+    tensor_arg: TensorArg
+    dim: int
+
+    def sort_key(self) -> tuple[object, ...]:
+        return (_sort_order[type(self)], self.tensor_arg.name, self.dim)
+
+
+class TensorSizeArg(TensorPropertyArg):
+    def host_str(self) -> str:
+        return f"{self.tensor_arg.host_str()}.size({self.dim})"
+
+
+class TensorStrideArg(TensorPropertyArg):
+    def host_str(self) -> str:
+        return f"{self.tensor_arg.host_str()}.stride({self.dim})"
+
+
+@dataclasses.dataclass
+class NumericArgument(Argument):
+    _host_str: str
+
+    def host_str(self) -> str:
+        return self._host_str
+
+
+class ConstExprArg(NumericArgument):
+    def arg_def_node(self) -> ast.arg:
+        return create_arg(
+            self.name, CompileEnvironment.current().backend.constexpr_type
+        )
+
+
+@dataclasses.dataclass
+class SymbolArgument(NumericArgument):
+    pass
+
+
+class StaticShape(Argument):
+    def __init__(self, val: int) -> None:
+        super().__init__(repr(val))
+
+
+@dataclasses.dataclass(frozen=True)
+class CuteTcgen05StoreValue:
+    bm: int = 0
+    bn: int = 0
+    bk: int = 0
+    thr_mma: str = ""
+    epi_warp_count: int = 0
+    epi_acc_frag_base: str = ""
+    epi_tidx: str = ""
+    epi_active: str = ""
+    exec_active: str = ""
+    warp_idx: str = ""
+    epi_tile: str = ""
+    c_stage_count: int = 0
+    epilog_sync_barrier_id: int = 0
+    tmem_load_atom: str = ""
+    epilogue_rest_mode: str = ""
+    acc_pipeline: str = ""
+    acc_producer_state: str = ""
+    acc_consumer_state: str = ""
+    tmem_alloc_barrier: str = ""
+    tmem_allocator: str = ""
+    tmem_holding_buf: str = ""
+    tmem_dealloc_mbar_ptr: str = ""
+    epi_acc_tmem_ptr: str = ""
+    acc_tmem_cols: str = ""
+    tma_warp: str = ""
+    tma_pipeline: str = ""
+    tma_producer_state: str = ""
+    tma_store_atom: str = ""
+    tma_store_tensor: str = ""
+    role_local_tile_counter: str = ""
+    is_two_cta: bool = False
+    use_tma: bool = False
+    use_role_local_epi: bool = False
+    use_tma_store_epilogue: bool = False
+    ab_stage_count: int = 0
+    acc_stage_count: int = 0
+    skip_ab_producer_advance: bool = False
+    # Output element dtype (cutlass type-string, e.g. "cutlass.BFloat16") that
+    # the matmul plan used when computing `epi_tile` /
+    # `tcgen05_tmem_load_atom`. The store path
+    # (`_codegen_cute_store_tcgen05_tile`) asserts the runtime D-tensor dtype
+    # agrees with this so the role-local `tcgen05_epi_tile` and the
+    # store-side `tcgen05_store_epi_tile` cannot silently disagree on
+    # `compute_epilogue_tile_shape`.
+    epi_elem_dtype_str: str = ""
+
+
+@dataclasses.dataclass(frozen=True)
+class CuteTcgen05MatmulPlan:
+    """Kernel-wide tcgen05 collective contract selected by CuTe matmul codegen.
+
+    Warp-role layout in the launched CTA:
+
+    - ``epi_warp_count`` epilogue warps starting at warp 0
+    - one MMA exec warp at ``exec_warp_id``
+    - one A/B load warp at ``tma_warp_id`` -- doubles as the TMA warp and,
+      in the persistent path, also owns the tile scheduler
+
+    ``ab_load_warp_count`` defaults to 1 -- the current lowering has a
+    single TMA / A-B load warp. The field is kept so the role layout /
+    launch shape continues to plumb through if a future role-local
+    persistent rewrite splits TMA load and A/B prefetch onto separate
+    warps.
+
+    The scheduler-warp role came back via ``scheduler_warp_count``
+    once ``Tcgen05Strategy.ROLE_LOCAL_WITH_SCHEDULER`` was wired —
+    when set to 1, the scheduler warp owns a centralized
+    ``StaticPersistentTileScheduler`` and broadcasts work-tile
+    metadata through ``cute_tcgen05_sched_pipeline_plan`` to the
+    consumer warps. The C-input epi-load warp slot Quack uses for
+    C input became reachable in cycle 34 (G3.1 first slice,
+    ``cute_plan.md`` §7.5.3.2) via ``c_input_warp_count`` — when
+    set to 1 under WITH_SCHEDULER the role-warp layout grows to
+    8 role warps that exactly matches the warpgroup-aligned launch
+    envelope (no inert padding). The C-input warp body is inert
+    in cycle 34; the productive TMA-prefetch body is deferred.
+    """
+
+    bm: int
+    bn: int
+    bk: int
+    k_tile_count: int
+    cluster_m: int
+    is_two_cta: bool
+    uses_role_local_persistent_body: bool
+    uses_cluster_m2_one_cta_role_local_bridge: bool
+    cta_thread_count: int
+    physical_m_threads: int
+    acc_stage_count: int
+    ab_stage_count: int
+    c_stage_count: int
+    epi_warp_count: int
+    ab_load_warp_count: int = 1
+    # Scheduler-warp count for ``Tcgen05Strategy.ROLE_LOCAL_WITH_SCHEDULER``.
+    # Default 0 matches ``ROLE_LOCAL_MONOLITHIC`` (the byte-identity-pinned
+    # path) where persistent scheduling rides on the TMA warp; 1 dedicates
+    # one warp to centralized scheduling that broadcasts via a
+    # ``PipelineAsync`` to the consumer warps. The scheduler warp sits
+    # *after* the AB-load warps in the launched-CTA layout when present so
+    # all ``MONOLITHIC`` warp IDs are unchanged by the addition.
+    scheduler_warp_count: int = 0
+    # ``sched_stage_count`` is meaningful only when
+    # ``scheduler_warp_count > 0``; controls the depth of the scheduler
+    # broadcast pipeline. Today's value is 1 (single SMEM mailbox
+    # shared across consumer warps requires the producer to wait
+    # for *all* consumers to release before the next publish); see
+    # the comment at the ``tcgen05_sched_stage_count_value =`` site
+    # in ``cute_mma._codegen_cute_mma`` for why Helion does not
+    # mirror Quack's depth-2.
+    sched_stage_count: int = 0
+    # ``c_input_warp_count`` is the dedicated C-input / auxiliary-tensor
+    # warp count for the role-local layout (``cute_plan.md`` §7.5.3.2).
+    # Default 0 keeps the historical ``WITH_SCHEDULER`` 7-role-warp +
+    # 1-inert-padding layout. The validator accepts the value 1 under
+    # WITH_SCHEDULER — the C-input warp then occupies what was
+    # previously the inert padding slot (sitting after the scheduler
+    # warp in the launched-CTA layout). ``launched_warp_count`` stays
+    # at 8 either way because ``role_warp_count`` (8 with the slot
+    # lifted) already matches the warpgroup-aligned envelope.
+    #
+    # The C-input warp's sched-pipeline participation depends on
+    # whether the productive-body gate fires (``c_input_warp_count
+    # > 0`` AND non-empty ``aux_tensor_descriptors``):
+    #
+    # - Gate fires: ``program_id._build_c_input_warp_role_local_while``
+    #   emits a consumer-side role-local while that calls
+    #   ``consumer_wait`` / ``consumer_release`` on the
+    #   sched_pipeline every iteration. The sched-pipeline consumer
+    #   arrive count in ``cute_mma._codegen_cute_mma`` includes the
+    #   C-input warp.
+    #
+    # - Gate closed (no aux residual, or ``c_input_warps=0``): the
+    #   C-input warp body is fully inert and never calls
+    #   ``consumer_arrive`` on the sched_pipeline. The arrive count
+    #   subtracts ``c_input_warp_count`` to compensate so
+    #   ``producer_commit`` does not block on a missing arrival.
+    #
+    # MONOLITHIC keeps this at 0 by validator; only WITH_SCHEDULER
+    # hosts the slot.
+    c_input_warp_count: int = 0
+    # ``persistence_model`` selects the persistence axis of the
+    # generated kernel. ``STATIC_PERSISTENT`` (default) keeps the
+    # existing ``StaticPersistentTileScheduler`` path. ``CLC_PERSISTENT``
+    # (G2-H, cute_plan.md) emits ``nvvm.clusterlaunchcontrol_try_cancel``
+    # from the dedicated scheduler warp instead — only valid under
+    # ``ROLE_LOCAL_WITH_SCHEDULER`` (scheduler_warp_count == 1) on
+    # arch >= 100. Stored as the enum value (string) so the dataclass
+    # stays free of cute-internal imports.
+    persistence_model: str = "static_persistent"
+    # ``cluster_n`` is the multicast factor along the N axis of the cluster
+    # layout. Default 1 preserves byte-identity for every cluster_m=1 and
+    # cluster_m=2/cluster_n=1 path. ``cluster_n=2`` only runs under the
+    # validated ``cluster_m=2 use_2cta=True`` Quack-canonical 4-CTA cluster.
+    # See cute_plan.md §6.12 for the V-leader gate / mcast_size derivation
+    # that lets cluster_n=2 close the G2 perf gap.
+    cluster_n: int = 1
+    # ``l2_swizzle_size`` is the L2 tile-scheduler grouping factor (Quack's
+    # ``max_swizzle_size`` equivalent). Default 1 means no swizzle (the
+    # cycle 41 byte-identity path); concrete values map onto
+    # ``cutlass.utils.PersistentTileSchedulerParams(swizzle_size=...)``,
+    # which groups consecutive cluster linear-IDs along the slow raster
+    # axis to promote L2 reuse on bandwidth-bound shapes.
+    # See ``cute_plan.md`` §7.6.7 (cycle 42 wiring + bench).
+    l2_swizzle_size: int = 1
+    # ``aux_tensor_descriptors`` is the set of auxiliary-tensor
+    # descriptors discovered by the forward FX walker
+    # (``cute.aux_tensor.discover_tcgen05_aux_tensor_descriptors``)
+    # at MMA-codegen time. Each descriptor carries the FX node
+    # identity, shape, dtype, and broadcast axis of one aux tensor
+    # consumed by a downstream store's epilogue chain (e.g. the
+    # ``residual[tile_m, tile_n]`` operand in
+    # ``out[tile] = (acc + residual[tile]).to(dtype)``). The
+    # productive C-input warp (``cute_plan.md`` §7.5.3.2) uses these
+    # to allocate the SMEM ring + TMA atom for the aux load at the
+    # same point where the matmul plan is constructed, well before
+    # the store-codegen splice runs and discovers the same chains
+    # backward. Default empty tuple keeps the field optional so
+    # non-residual kernels — and every kernel until the productive
+    # body lands — preserve byte identity (the codegen consumers
+    # gate on ``aux_tensor_descriptors`` being non-empty, which is
+    # only true on chains the walker actually accepts).
+    #
+    # ``compare=False``: the descriptors are *per-anchor* data —
+    # two matmuls with identical collective parameters (cluster
+    # shape, stages, warp roles, …) but distinct downstream aux
+    # tensors must not be rejected as "mixed collective plans" by
+    # ``register_cute_tcgen05_matmul_plan``'s equality gate, and
+    # ``Tcgen05AuxTensorDescriptor.host_tensor_val: torch.Tensor``
+    # would otherwise drive the auto-generated ``__eq__`` through a
+    # tensor ``==`` that does not reduce to ``bool`` for non-scalar
+    # tensors. Excluding the field from ``__eq__`` keeps the plan
+    # equality semantics strictly about collective parameters; the
+    # descriptors are read by their per-anchor consumers without
+    # going through the equality path.
+    aux_tensor_descriptors: tuple[Tcgen05AuxTensorDescriptor, ...] = dataclasses.field(
+        default=(), compare=False
+    )
+
+    @property
+    def is_clc_persistent(self) -> bool:
+        # Lazy enum import to avoid a top-level cycle (cute.strategies
+        # imports from this module's siblings) and to keep the enum
+        # value the single source of truth — a rename of
+        # ``Tcgen05PersistenceModel.CLC_PERSISTENT`` would propagate
+        # via the ``.value`` lookup instead of silently degrading to
+        # always-False against a stale string literal.
+        from .cute.strategies import Tcgen05PersistenceModel
+
+        return self.persistence_model == Tcgen05PersistenceModel.CLC_PERSISTENT.value
+
+    @property
+    def exec_warp_id(self) -> int:
+        return self.epi_warp_count
+
+    @property
+    def ab_load_warp_begin(self) -> int:
+        return self.exec_warp_id + 1
+
+    @property
+    def ab_load_warp_end(self) -> int:
+        return self.ab_load_warp_begin + self.ab_load_warp_count
+
+    @property
+    def tma_warp_id(self) -> int:
+        return self.ab_load_warp_begin
+
+    @property
+    def has_scheduler_warp(self) -> bool:
+        return self.scheduler_warp_count > 0
+
+    @property
+    def scheduler_warp_id(self) -> int:
+        # Dedicated scheduler warp sits after the AB-load warps. Reading
+        # this when ``scheduler_warp_count == 0`` is a contract violation —
+        # callers must guard on ``has_scheduler_warp``.
+        assert self.has_scheduler_warp, (
+            "scheduler_warp_id is only valid when scheduler_warp_count > 0"
+        )
+        return self.ab_load_warp_end
+
+    @property
+    def persistent_scheduler_owner_warp_id(self) -> int:
+        # ``ROLE_LOCAL_MONOLITHIC``: persistent scheduling rides on the
+        # TMA warp because the role-local body uses one producer sync
+        # structure shared between TMA load and scheduler state.
+        # ``ROLE_LOCAL_WITH_SCHEDULER``: a dedicated warp owns the
+        # scheduler; consumers wait on its broadcast pipeline.
+        if self.has_scheduler_warp:
+            return self.scheduler_warp_id
+        return self.tma_warp_id
+
+    @property
+    def has_c_input_warp(self) -> bool:
+        return self.c_input_warp_count > 0
+
+    @property
+    def c_input_warp_id(self) -> int:
+        # Dedicated C-input warp sits after the scheduler warp. The
+        # validator rejects ``c_input_warps>0`` under ``MONOLITHIC``
+        # (which has no scheduler warp), so the read implies
+        # ``has_scheduler_warp`` in practice; callers must guard on
+        # ``has_c_input_warp`` before reading. Consumed by the C-input
+        # role-local while builder in ``program_id.py`` to gate the
+        # producer body on the matching warp predicate.
+        assert self.has_c_input_warp, (
+            "c_input_warp_id is only valid when c_input_warp_count > 0"
+        )
+        return self.scheduler_warp_id + self.scheduler_warp_count
+
+    @property
+    def role_warp_count(self) -> int:
+        return (
+            self.epi_warp_count
+            + 1
+            + self.ab_load_warp_count
+            + self.scheduler_warp_count
+            + self.c_input_warp_count
+        )
+
+    @property
+    def launched_warp_count(self) -> int:
+        # ``setmaxregister`` is warpgroup-uniform on sm_100a (all 4
+        # warps of a warpgroup must request the same register
+        # budget). For ``WITH_SCHEDULER`` with the default
+        # ``c_input_warp_count=0`` the 7 role warps split as 4 epi
+        # (consumers) + 3 producer warps; padding to 8 launched
+        # warps moves the partial producer warpgroup back to a
+        # clean 4-warp warpgroup that uniformly decreases. With
+        # ``c_input_warp_count=1`` the 8 role warps already match
+        # the warpgroup-aligned launch envelope so no padding is
+        # needed — the launched-warp count stays at 8 and the
+        # C-input warp simply occupies what was previously the
+        # inert padding slot.
+        # ``MONOLITHIC`` keeps 6 launched warps because byte-identity
+        # against the recorded golden is load-bearing and the
+        # 6-warp shape happens to work in practice (mma+tma alone
+        # produces a 2-warp partial warpgroup that only the exec
+        # warp inside increases — empirically tolerated by the
+        # hardware on the validated cluster_m=1/2 paths).
+        if self.has_scheduler_warp:
+            warpgroup = 4
+            return (self.role_warp_count + warpgroup - 1) // warpgroup * warpgroup
+        return self.role_warp_count
+
+    @property
+    def block_shape(self) -> tuple[int, int, int]:
+        return (self.physical_m_threads, self.launched_warp_count, 1)
+
+
+_sort_order: dict[type[Argument], int] = {
+    TensorDescriptorArg: 0,
+    TensorArg: 0,
+    TensorSizeArg: 1,
+    TensorStrideArg: 2,
+    SymbolArgument: 3,
+    ConstExprArg: 4,
+}
+
+
+@dataclasses.dataclass
+class ScratchArg:
+    """A scratch memory buffer allocated in device memory (e.g., VMEM on TPU).
+
+    scratch_type can be "vmem" (default) for VMEM buffers or "dma_semaphore"
+    for DMA semaphores used with pltpu.make_async_copy.
+    """
+
+    name: str
+    shape: tuple[int, ...]
+    dtype: torch.dtype | None  # None for semaphores
+    scratch_type: str = "vmem"  # "vmem" or "dma_semaphore"
+
+
+def _is_literal_constexpr(arg: ConstExprArg) -> bool:
+    """Check if a constexpr arg has a known literal value that can be inlined at module level."""
+    host_str = arg.host_str()
+    if host_str == arg.name:
+        return False
+    try:
+        ast.literal_eval(host_str)
+        return True
+    except (ValueError, SyntaxError):
+        return False
+
+
+class PallasMemorySpace(enum.Enum):
+    """TPU memory space for Pallas tensors."""
+
+    HBM = "hbm"  # Pipeline body tensors (DMA)
+    SMEM = "smem"  # Scalar-only access
+    VMEM = "vmem"  # Vector/slice access (default)
+
+
+class DeviceFunction:
+    def __init__(
+        self,
+        name: str,
+        config: Config,
+        codegen: GenerateAST,
+    ) -> None:
+        super().__init__()
+        self.name = name
+        self.config = config
+        self.codegen = codegen
+        self.arguments: list[Argument] = []
+        self.preamble: list[ast.AST] = []
+        self.body: list[ast.AST] = []
+        self._tensor_args: dict[torch.Tensor, TensorArg] = {}
+        self._tensor_descriptor_args: dict[
+            tuple[torch.Tensor, str], TensorDescriptorArg
+        ] = {}
+        self._expr_args: dict[sympy.Expr, SymbolArgument] = {}
+        self._constexpr_args: dict[str, ConstExprArg] = {}
+        self._constexpr_host_defs: set[str] = set()
+        self._scratch_args: list[ScratchArg] = []
+        self.wrapper_only_params: list[str] = []
+        self._tensor_properties: dict[
+            tuple[type[TensorPropertyArg], torch.Tensor, int], TensorPropertyArg
+        ] = {}
+        self._unique_counter: dict[str, itertools.count[int]] = defaultdict(
+            itertools.count
+        )
+        self.pid: ProgramIDs | None = None
+        self.namespace: _Namespace = _Namespace()
+        self.namespace._used_names.update(reserved_names())
+
+        self.namespace._used_names.update(all_reserved_launch_param_names())
+        self.namespace._used_names.update(
+            x.removeprefix("_triton_config_")
+            for x in config
+            if x.startswith("_triton_config_")
+        )
+        self._variable_renames: dict[str, list[str]] = {}
+        self.dce_vars: list[str] = []
+        # Arg names referenced only by fusion placeholder strings
+        # (<STORE_OUTPUT_*>, <LOAD_INPUT_*>), not by the AST body.
+        # DCE would incorrectly strip them without this exemption.
+        self.placeholder_args: set[str] = set()
+        # Sourceless prologue params (e.g. ones_like) that are fully inlined
+        # by the prologue hook.  These should be DCE'd away and also removed
+        # from the host function signature (populated by _codegen_prologue_fusion).
+        self.sourceless_prologue_params: set[str] = set()
+        self.block_size_var_cache: dict[tuple[int, ...], str] = {}
+        self.expr_to_var_info: dict[sympy.Expr, VarInfo] = {}
+        self.deferred_rdim_defs: list[tuple[str, sympy.Expr]] = []
+        self._cute_tcgen05_store_values: dict[str, CuteTcgen05StoreValue] = {}
+        # FX nodes (matmul / hl.dot / addmm) that were lowered to the tcgen05
+        # MMA path. The cute store codegen consults this set to detect the
+        # "fused-epilogue store after a tcgen05 matmul" pattern (the FX
+        # chain from the store value reaches a tcgen05-lowered matmul) and
+        # raise a structured `BackendUnsupported` instead of falling
+        # through to the SIMT-fallback store path, which would crash inside
+        # the cute DSL on undefined `indices_<n>` / `mask_<n>` names.
+        self.cute_tcgen05_matmul_fx_nodes: set[torch.fx.Node] = set()
+        # Mapping from a tcgen05-lowered matmul fx_node to the AST variable
+        # name (registered in ``_cute_tcgen05_store_values``) that holds
+        # the per-thread MMA result. The G3.1.1 fused-epilogue splice
+        # path walks back from the store value's FX chain to the matmul
+        # fx_node, then looks the result var up here so the splice can
+        # reuse the existing ``CuteTcgen05StoreValue`` registered under
+        # the matmul's result var (the user's chained value-name was
+        # registered to the cast result, not the matmul). Populated in
+        # ``_codegen_cute_mma`` at the
+        # ``register_cute_tcgen05_store_value`` call site, which is
+        # where ``result_var`` is finalized — the
+        # ``cute_tcgen05_matmul_fx_nodes.add(fx_node)`` line earlier in
+        # the same function happens before ``result_var`` exists.
+        # Lifetime is one-to-one with ``cute_tcgen05_matmul_fx_nodes``:
+        # both live for the duration of one ``DeviceFunction`` (i.e.
+        # one ``to_triton_code`` call) and are repopulated on each
+        # compile. There is no eviction logic; relying on the
+        # ``DeviceFunction`` instance going out of scope is the
+        # cleanup model.
+        self.cute_tcgen05_matmul_fx_node_result_vars: dict[torch.fx.Node, str] = {}
+        self.cute_tcgen05_matmul_plan: CuteTcgen05MatmulPlan | None = None
+        # Variable names for the ``ROLE_LOCAL_WITH_SCHEDULER`` broadcast
+        # pipeline. Set in ``_codegen_cute_mma`` when the strategy is
+        # active; ``program_id.py`` reads them when emitting the
+        # consumer-side ``consumer_wait``/``consumer_release`` and the
+        # scheduler-warp role-local while.
+        self.cute_tcgen05_sched_pipeline_plan: object | None = None
+        # ``_Tcgen05AuxPipelinePlan`` for the C-input warp's
+        # auxiliary-tensor SMEM-ring pipeline (``cute_plan.md``
+        # §7.5.3.2 cycle 2). Set in ``_codegen_cute_mma`` when the
+        # productive-body gate fires (``c_input_warp_count > 0`` AND
+        # non-empty ``aux_tensor_descriptors``); ``program_id.py``
+        # reads it when emitting the C-input warp role-local while
+        # body (per-descriptor ``producer_acquire`` → cooperative
+        # ``cute.copy(GMEM, SMEM_ring[stage])`` → ``producer_commit``),
+        # and ``memory_ops._aux_subtile_load_source`` reads the
+        # per-descriptor SMEM ring when cycle 3's consumer flip
+        # lands.
+        self.cute_tcgen05_aux_pipeline_plan: object | None = None
+        self._cute_tcgen05_per_tile_stmt_ids: set[int] = set()
+        self._cute_tcgen05_post_loop_stmt_ids: set[int] = set()
+        self._cute_tcgen05_tma_load_role_stmt_ids: set[int] = set()
+        self._cute_tcgen05_mma_exec_role_stmt_ids: set[int] = set()
+        self._cute_tcgen05_epi_role_stmt_ids: set[int] = set()
+        self.cute_tcgen05_epi_role_tile_counter_var: str | None = None
+        self._cute_collective_handled_loads: set[str] = set()
+        self.cute_cluster_shape: tuple[int, int, int] | None = None
+        self.cute_block_shape: tuple[int, int, int] | None = None
+        self.suppress_cute_root_lane_loops = False
+
+        from .helper_function import HelperFunctionManager
+
+        self.helper_manager = HelperFunctionManager()
+
+        from .tile_dispatch import TileStrategyDispatch
+
+        self.tile_strategy: TileStrategyDispatch = TileStrategyDispatch(self, config)
+
+        # Store indexing config to lazily create strategies per load/store
+        self._indexing_config = config.indexing
+        self.indexing_strategies: list[IndexingStrategy] = []
+
+        # Atomic indexing config (separate from load/store indexing)
+        self._atomic_indexing_config = config.atomic_indexing
+        self.atomic_indexing_strategies: list[IndexingStrategy] = []
+        self.atomic_op_index = 0
+
+        self.rng_seed_count = 0
+        self.device_load_index = 0
+        self.device_store_index = 0
+        # Single counter for both loads and stores for indexing assignment
+        self.device_memory_op_index = 0
+        self.epilogue_subtile_store_indices: dict[str, int] = {}
+        self.rng_seed_buffer_param_name = None
+
+        # Pallas: id(fake_tensor) → [DimensionTiling], recorded during `plan_tiling`
+        self.pallas_tensor_dim_tilings: dict[int, list[DimensionTiling]] = {}
+        # Pallas: id(fake_tensor) → memory space, determined during
+        # tracing (HBM for pipeline) and codegen (SMEM for scalar access).
+        # NOTE: Currently each tensor can only have one memory space.
+        # If a tensor needs both SMEM (scalar access) and VMEM (slice
+        # access), it will need tensor duplication — passing the same
+        # data as two separate args in different memory spaces. This
+        # dict would then need to support multiple entries per tensor
+        # or the tensor would get distinct arg IDs per memory space.
+        self.pallas_memory_space: dict[int, PallasMemorySpace] = {}
+        # Pallas: id(fake_tensor) → {dim: (block_id, extra_pad)} for dims
+        # using pl.ds() that may need host-side padding.
+        self.pallas_pad_info: dict[int, dict[int, tuple[int, int]]] = {}
+
+    def allocate_store_index(self) -> int:
+        """Bump store counters and return the indexing strategy slot."""
+        self.device_store_index += 1
+        idx = self.device_memory_op_index
+        self.device_memory_op_index += 1
+        return idx
+
+    def get_indexing_strategy(self, index: int) -> IndexingStrategy:
+        from .indexing_strategy import IndexingStrategy
+        from .indexing_strategy import PointerIndexingStrategy
+
+        # Expand strategies list if needed
+        while len(self.indexing_strategies) <= index:
+            idx = len(self.indexing_strategies)
+
+            if isinstance(self._indexing_config, str):
+                # Single string: all loads/stores use the same strategy
+                if not self.indexing_strategies:
+                    strategy = IndexingStrategy.select(self._indexing_config)
+                else:
+                    strategy = self.indexing_strategies[0]
+            elif isinstance(self._indexing_config, list) and self._indexing_config:
+                # List: one strategy per load/store
+                assert idx < len(self._indexing_config), (
+                    f"Load/Store operation {idx} exceeds indexing config length "
+                    f"{len(self._indexing_config)}. Please specify indexing for all loads and stores."
+                )
+                strategy = IndexingStrategy.select(self._indexing_config[idx])
+            else:
+                # Empty/default: use pointer
+                strategy = PointerIndexingStrategy()
+
+            self.indexing_strategies.append(strategy)
+
+        return self.indexing_strategies[index]
+
+    def get_atomic_indexing_strategy(self, index: int) -> IndexingStrategy:
+        from .indexing_strategy import IndexingStrategy
+        from .indexing_strategy import PointerIndexingStrategy
+
+        while len(self.atomic_indexing_strategies) <= index:
+            idx = len(self.atomic_indexing_strategies)
+
+            if isinstance(self._atomic_indexing_config, str):
+                if not self.atomic_indexing_strategies:
+                    strategy = IndexingStrategy.select(self._atomic_indexing_config)
+                else:
+                    strategy = self.atomic_indexing_strategies[0]
+            elif (
+                isinstance(self._atomic_indexing_config, list)
+                and self._atomic_indexing_config
+            ):
+                assert idx < len(self._atomic_indexing_config), (
+                    f"Atomic operation {idx} exceeds atomic_indexing config length "
+                    f"{len(self._atomic_indexing_config)}. Please specify atomic_indexing for all atomic ops."
+                )
+                strategy = IndexingStrategy.select(self._atomic_indexing_config[idx])
+            else:
+                strategy = PointerIndexingStrategy()
+
+            self.atomic_indexing_strategies.append(strategy)
+
+        return self.atomic_indexing_strategies[index]
+
+    def has_rng_ops(self) -> bool:
+        """Check if this kernel uses any RNG operations."""
+        return self.rng_seed_count > 0 and self.rng_seed_buffer_param_name is not None
+
+    def reserve_rng_seed(self, seed_index: int) -> None:
+        """Ensure the RNG seed buffer is available up to a specific index."""
+        assert seed_index >= 0
+        self.rng_seed_count = max(self.rng_seed_count, seed_index + 1)
+        if self.rng_seed_buffer_param_name is None:
+            # pyrefly: ignore [bad-assignment]
+            self.rng_seed_buffer_param_name = self.new_var("rng_seed_buffer")
+
+    def block_size_var(self, block_id: int) -> str | None:
+        key = (block_id,)
+
+        # Block size var could be used outside of a hl.tile loop, and at that point
+        # no tile strategy has populated the cache yet, so we must lazily create
+        # the constexpr argument here and lift it as device function argument;
+        # later strategies will reuse the cached name or intentionally replace it
+        # (e.g. flattened loops, reductions).
+        if key not in self.block_size_var_cache:
+            env = CompileEnvironment.current()
+            block_value = env.block_sizes[block_id].from_config(self.config)
+
+            if block_value is None:
+                return None
+
+            var_name = self.new_var(f"_BLOCK_SIZE_{block_id}")
+            self.block_size_var_cache[key] = var_name
+            self.constexpr_arg_with_host_def(var_name, block_value)
+
+        return self.block_size_var_cache[key]
+
+    def resolved_block_size(self, block_id: int) -> int | torch.SymInt | None:
+        """Resolve a block_id to its concrete size for the current config."""
+        env = CompileEnvironment.current()
+        return env.block_sizes[block_id].from_config(self.config)
+
+    def try_map_block_symbols_to_vars(self, expr: sympy.Expr) -> sympy.Expr | None:
+        """Try to map all block size symbols in expression to their variable names.
+
+        Returns:
+            - The expression with symbols replaced if ALL symbols are block sizes and have variables
+            - None if the expression contains non-block symbols or unmapped block symbols
+        """
+        block_mapping, non_block_symbols = find_block_size_symbols(expr)
+
+        # Can't map if there are non-block symbols
+        if non_block_symbols:
+            return None
+
+        # No symbols to map - return as-is
+        if not block_mapping:
+            return expr
+
+        # Try to map all block symbols to their variables
+        var_map = {}
+        for symbol, block_id in block_mapping.items():
+            block_var = self.block_size_var(block_id)
+            if not block_var:
+                # Can't map this block symbol - fail
+                return None
+            var_map[symbol] = sympy.Symbol(block_var, integer=True)
+
+        # Successfully mapped all symbols
+        # pyrefly: ignore [bad-return]
+        return expr.xreplace(var_map)
+
+    def merge_variable_names(self, a: str, b: str) -> None:
+        name_group = [
+            *self._variable_renames.get(a, [a]),
+            *self._variable_renames.get(b, [b]),
+        ]
+        for n in name_group:
+            self._variable_renames[n] = name_group
+
+    def register_cute_tcgen05_store_value(
+        self, name: str, value: CuteTcgen05StoreValue
+    ) -> None:
+        self._cute_tcgen05_store_values[name] = value
+
+    def register_cute_tcgen05_matmul_plan(self, plan: CuteTcgen05MatmulPlan) -> None:
+        if self.cute_tcgen05_matmul_plan is not None:
+            if self.cute_tcgen05_matmul_plan != plan:
+                raise exc.BackendUnsupported(
+                    "cute", "mixed tcgen05 matmul collective plans in one kernel"
+                )
+            return
+        self.cute_tcgen05_matmul_plan = plan
+
+    def register_cute_tcgen05_sched_pipeline_plan(self, plan: object) -> None:
+        """Register the scheduler-broadcast ``PipelineAsync`` plan.
+
+        Set by ``cute_mma._codegen_cute_mma`` when the active strategy
+        is ``ROLE_LOCAL_WITH_SCHEDULER`` so ``program_id.py`` can
+        reach the variable names for the consumer-side
+        ``consumer_wait`` / ``consumer_release`` emissions and for
+        the scheduler-warp role-local while.
+        """
+        self.cute_tcgen05_sched_pipeline_plan = plan
+
+    def register_cute_tcgen05_aux_pipeline_plan(self, plan: object) -> None:
+        """Register the C-input warp's auxiliary-tensor SMEM-ring
+        ``PipelineAsync`` plan (``cute_plan.md`` §7.5.3.2 cycle 2).
+
+        Set by ``cute_mma._codegen_cute_mma`` when the productive-body
+        gate fires (``c_input_warp_count > 0`` AND non-empty
+        ``aux_tensor_descriptors``). ``program_id.py`` reads it when
+        emitting the C-input warp's role-local while body
+        (per-descriptor ``producer_acquire`` → cooperative
+        ``cute.copy(GMEM, SMEM_ring[stage])`` → ``producer_commit``),
+        and ``memory_ops._aux_subtile_load_source`` reads the
+        per-descriptor SMEM ring when cycle 3's consumer flip lands.
+        """
+        self.cute_tcgen05_aux_pipeline_plan = plan
+
+    def register_cute_tcgen05_per_tile_stmts(self, stmts: list[ast.AST]) -> None:
+        """Mark statements that depend on per-tile coordinates.
+
+        When the persistent kernel splits the device-loop prefix into a
+        once-per-CTA setup and a per-tile body, statements registered here
+        stay inside the work-tile loop; everything else can be hoisted out.
+        Use for things like ``cute.local_tile`` over the per-tile (m, n)
+        offset, ``tma_partition`` of those per-tile tensors, and the initial
+        ``producer_acquire`` / TMA prefetch that warm the pipeline at the
+        start of each tile.
+        """
+        self._cute_tcgen05_per_tile_stmt_ids.update(id(stmt) for stmt in stmts)
+
+    def is_cute_tcgen05_per_tile(self, stmt: ast.stmt) -> bool:
+        return id(stmt) in self._cute_tcgen05_per_tile_stmt_ids
+
+    @property
+    def has_cute_tcgen05_per_tile_marks(self) -> bool:
+        return bool(self._cute_tcgen05_per_tile_stmt_ids)
+
+    def register_cute_tcgen05_post_loop_stmts(self, stmts: list[ast.AST]) -> None:
+        """Mark statements that should run AFTER the persistent work-tile loop.
+
+        This is the natural home for one-shot pipeline drains (``producer_tail``),
+        TMEM deallocation, and any other cleanup that conceptually runs once
+        the kernel has finished all its tiles. Without this tag, those
+        statements would remain inside the work-tile loop and execute on
+        every virtual tile, which is at best wasted work and at worst
+        incorrect (re-freeing a TMEM buffer the next tile still needs).
+
+        Non-persistent kernels skip the post-loop split entirely; the
+        statements stay where the codegen emitted them, which is already
+        the end of the device function.
+        """
+        self._cute_tcgen05_post_loop_stmt_ids.update(id(stmt) for stmt in stmts)
+
+    def is_cute_tcgen05_post_loop(self, stmt: ast.stmt) -> bool:
+        return id(stmt) in self._cute_tcgen05_post_loop_stmt_ids
+
+    @property
+    def has_cute_tcgen05_post_loop_marks(self) -> bool:
+        return bool(self._cute_tcgen05_post_loop_stmt_ids)
+
+    def register_cute_tcgen05_tma_load_role_stmts(self, stmts: list[ast.AST]) -> None:
+        """Mark statements that belong to the TMA-load warp's role block.
+
+        When the persistent kernel splits the work-tile body into role
+        blocks (see ``Tcgen05PersistentProgramIDs._collect_tcgen05_role_blocks``),
+        statements registered here are pulled into a TMA-load-specific
+        role block. The block is gated by the TMA-load warp predicate so
+        only that warp executes its body. Use for statements whose work
+        is conceptually owned by the TMA-load warp -- e.g. the initial
+        TMA prefetch ``producer_acquire`` / ``cute.copy`` /
+        ``producer_commit`` cycle that warms the AB pipeline at the
+        start of each tile.
+
+        Statements registered here must be reachable from the per-tile
+        wrapped body when the role partitioner runs. Two registration
+        shapes are valid:
+
+        - **Top-level statements** -- register the statement as per-tile
+          first via ``register_cute_tcgen05_per_tile_stmts``, otherwise
+          the splitter will hoist it out of the work-tile body before
+          the role partitioner ever sees it. The initial TMA prefetch
+          IF-blocks emitted from ``cute_mma.py`` take this shape.
+        - **Nested statements inside a per-tile container** (e.g. the
+          per-K-iter TMA producer block emitted inside the K-loop body
+          via ``cg.add_statement(...)``) -- the containing statement
+          stays in the work-tile body because it transitively depends
+          on per-tile names, and the role partitioner recurses into
+          top-level ``for`` / ``while`` loops to find tagged children.
+          These tagged children do NOT need to be per-tile-registered
+          themselves; the parent loop carries them.
+        """
+        self._cute_tcgen05_tma_load_role_stmt_ids.update(id(stmt) for stmt in stmts)
+
+    def is_cute_tcgen05_tma_load_role(self, stmt: ast.stmt) -> bool:
+        return id(stmt) in self._cute_tcgen05_tma_load_role_stmt_ids
+
+    @property
+    def has_cute_tcgen05_tma_load_role_marks(self) -> bool:
+        return bool(self._cute_tcgen05_tma_load_role_stmt_ids)
+
+    @property
+    def cute_tcgen05_tma_load_role_stmt_ids(self) -> frozenset[int]:
+        """Snapshot of every registered TMA-load role-tag id. The role
+        partitioner uses this to validate that every registered tag was
+        consumed (either at top level or via the one-level for/while
+        recursion) -- a registered tag that never gets visited indicates
+        a bad registration shape that would otherwise silently miscompile.
+        """
+        return frozenset(self._cute_tcgen05_tma_load_role_stmt_ids)
+
+    def register_cute_tcgen05_mma_exec_role_stmts(self, stmts: list[ast.AST]) -> None:
+        """Mark statements that belong to the MMA-exec warp's role block.
+
+        The persistent tcgen05 role partitioner pulls these statements into
+        an MMA-exec-specific role-local ``while``. Use for AB consumer wait /
+        release, UMMA issue, and acc-pipeline producer work that must advance
+        once per tile on the exec warp.
+        """
+        self._cute_tcgen05_mma_exec_role_stmt_ids.update(id(stmt) for stmt in stmts)
+
+    def is_cute_tcgen05_mma_exec_role(self, stmt: ast.stmt) -> bool:
+        return id(stmt) in self._cute_tcgen05_mma_exec_role_stmt_ids
+
+    @property
+    def has_cute_tcgen05_mma_exec_role_marks(self) -> bool:
+        return bool(self._cute_tcgen05_mma_exec_role_stmt_ids)
+
+    @property
+    def cute_tcgen05_mma_exec_role_stmt_ids(self) -> frozenset[int]:
+        """Snapshot of every registered MMA-exec role-tag id."""
+        return frozenset(self._cute_tcgen05_mma_exec_role_stmt_ids)
+
+    def register_cute_tcgen05_epi_role_stmts(self, stmts: list[ast.AST]) -> None:
+        """Mark statements that belong to the epilogue warp role block.
+
+        The persistent tcgen05 role partitioner pulls these statements into
+        an epi-warp-local ``while``. Use for acc-pipeline consumer work and
+        TMEM-to-GMEM store work that must advance once per tile on epi warps.
+        """
+        self._cute_tcgen05_epi_role_stmt_ids.update(id(stmt) for stmt in stmts)
+
+    def register_cute_tcgen05_epi_role_tile_counter(self, name: str) -> None:
+        """Publish the per-iteration tile counter used by the epi role.
+
+        Persistent TMA-store epilogues use this counter to rotate SMEM stages
+        across work tiles. The role-local while builder owns its lifetime; the
+        store body only reads it.
+        """
+        if self.cute_tcgen05_epi_role_tile_counter_var is None:
+            self.cute_tcgen05_epi_role_tile_counter_var = name
+            return
+        assert self.cute_tcgen05_epi_role_tile_counter_var == name
+
+    def is_cute_tcgen05_epi_role(self, stmt: ast.stmt) -> bool:
+        return id(stmt) in self._cute_tcgen05_epi_role_stmt_ids
+
+    @property
+    def has_cute_tcgen05_epi_role_marks(self) -> bool:
+        return bool(self._cute_tcgen05_epi_role_stmt_ids)
+
+    @property
+    def cute_tcgen05_epi_role_stmt_ids(self) -> frozenset[int]:
+        """Snapshot of every registered epilogue role-tag id."""
+        return frozenset(self._cute_tcgen05_epi_role_stmt_ids)
+
+    def get_cute_tcgen05_store_value(self, name: str) -> CuteTcgen05StoreValue | None:
+        for alias in self._variable_renames.get(name, [name]):
+            if (value := self._cute_tcgen05_store_values.get(alias)) is not None:
+                return value
+        return None
+
+    def register_cute_collective_handled_load(self, name: str) -> None:
+        self._cute_collective_handled_loads.add(name)
+
+    def is_cute_collective_handled_load(self, name: str) -> bool:
+        return name in self._cute_collective_handled_loads
+
+    def set_pid(self, pid: ProgramIDs) -> None:
+        if self.pid is not None:
+            raise exc.InvalidAPIUsage(
+                "Multiple top-level grid loops are not supported with this config. "
+                "Try using pid_type='persistent' or combining the loops into a single "
+                "hl.tile/hl.grid call."
+            )
+        self.pid = pid
+
+    def sympy_expr(self, expr: sympy.Expr) -> str:
+        env = CompileEnvironment.current()
+        with contextlib.suppress(Exception):
+            expr = env.shape_env.simplify(expr)
+        expr = env.specialize_expr(expr)
+        if not expr.free_symbols:
+            return env.backend.sympy_printer_expr(expr)
+        if expr in self.expr_to_var_info:
+            return self.expr_to_var_info[expr].name
+        expr_to_origin = HostFunction.current().expr_to_origin
+        if expr in expr_to_origin:
+            return self._lift_sympy_arg(expr)
+        replacements = {}
+        for sym in sorted(expr.free_symbols, key=lambda x: x.name):
+            assert isinstance(sym, sympy.Symbol)
+            if sym in self.expr_to_var_info:
+                replacements[sym] = sympy.Symbol(
+                    self.expr_to_var_info[sym].name, integer=True
+                )
+            else:
+                assert sym in expr_to_origin, f"no origin found for {sym.name}"
+                replacements[sym] = sympy.Symbol(
+                    self._lift_sympy_arg(sym), integer=True
+                )
+        # pyrefly: ignore [bad-argument-type]
+        return env.backend.sympy_printer_expr(expr.xreplace(replacements))
+
+    def _lift_sympy_arg(self, expr: sympy.Expr) -> str:
+        env = CompileEnvironment.current()
+        origin = HostFunction.current().expr_to_origin[expr]
+        if isinstance(origin.origin, TensorSizeOrigin):
+            assert origin.fake_value is not None
+            arg = self.tensor_size(
+                origin.fake_value,
+                origin.origin.key,
+            )
+            return arg.name
+        if isinstance(origin.origin, BlockSizeOrigin):
+            result = self.block_size_var(env.canonical_block_id(origin.origin.block_id))
+            assert result is not None
+            return result
+        if isinstance(origin.origin, GridOrigin):
+            return self.codegen.offset_var(
+                env.resolve_codegen_block_id(origin.origin.block_id, self.codegen)
+            )
+        return self.expr_arg(expr, origin.origin).name
+
+    def user_sympy_expr(self, expr: sympy.Expr) -> str:
+        """A sympy expression that flows into user computations."""
+        expr_to_origin = HostFunction.current().expr_to_origin
+        replacements = {}
+        for sym in sorted(expr.free_symbols, key=lambda s: s.name):
+            assert isinstance(sym, sympy.Symbol)
+            origin_info = expr_to_origin.get(sym)
+            if origin_info is None:
+                continue
+            origin = origin_info.origin
+            if isinstance(origin, BlockSizeOrigin):
+                replacements[sym] = self.tile_strategy.user_size(origin.block_id)
+        if replacements:
+            # pyrefly: ignore [bad-assignment]
+            expr = expr.xreplace(replacements)
+        return self.sympy_expr(expr)
+
+    def literal_expr(self, expr: object) -> str:
+        if isinstance(expr, (torch.SymInt, torch.SymFloat, torch.SymBool)):
+            return self.sympy_expr(expr._sympy_())
+        if isinstance(expr, sympy.Expr):
+            return self.sympy_expr(expr)
+        if isinstance(expr, float) and not math.isfinite(expr):
+            return f"float('{expr}')"
+        return repr(expr)
+
+    def unique_name(self, prefix: str, dce: bool = False) -> str:
+        return self.new_var(f"{prefix}_{next(self._unique_counter[prefix])}", dce=dce)
+
+    def new_var(self, name: str, *, dce: bool = False) -> str:
+        name = self.namespace.create_name(name, None)
+        if dce:
+            self.dce_vars.append(name)
+        return name
+
+    def tensor_arg(
+        self, fake_value: torch.Tensor, prefer_name: str | None = None
+    ) -> TensorArg:
+        if fake_value not in self._tensor_args:
+            origin = HostFunction.current().tensor_to_origin[fake_value]
+            arg = TensorArg(
+                self.new_var(prefer_name or origin.suggest_var_name()),
+                fake_value,
+                origin.host_str(),
+            )
+            self.arguments.append(arg)
+            self._tensor_args[fake_value] = arg
+        return self._tensor_args[fake_value]
+
+    def tensor_descriptor_arg(
+        self, fake_value: torch.Tensor, block_size: list[int | torch.SymInt]
+    ) -> TensorDescriptorArg:
+        host_function = HostFunction.current()
+        block_size_expr = ", ".join(map(self.literal_expr, block_size))
+        key = (fake_value, block_size_expr)
+        if key not in self._tensor_descriptor_args:
+            origin = host_function.tensor_to_origin[fake_value]
+            desc_name = self.new_var(origin.suggest_var_name() + "_desc")
+            env = CompileEnvironment.current()
+
+            # Find which dimension has stride==1
+            layout_signature = env.tensor_descriptor_layout_signature(fake_value)
+            assert layout_signature is not None
+            stride_one_dim = layout_signature[0]
+            assert stride_one_dim is not None
+
+            # Determine if we need permutation (stride==1 dimension is not last)
+            permutation = None
+            if stride_one_dim != fake_value.ndim - 1:
+                # Create permutation to move stride==1 dimension to last position
+                permutation = [*range(fake_value.ndim)]
+                permutation.pop(stride_one_dim)
+                permutation.append(stride_one_dim)
+
+            # Create the regular tensor arg and size/stride args
+            tensor_arg = self.tensor_arg(fake_value)
+            size_args = [
+                self.tensor_size(fake_value, i) for i in range(fake_value.ndim)
+            ]
+            stride_args = [
+                self.tensor_stride(fake_value, i) for i in range(fake_value.ndim)
+            ]
+
+            # Apply permutation if needed
+            if permutation is not None:
+                size_args = [size_args[i] for i in permutation]
+                stride_args = [stride_args[i] for i in permutation]
+                block_size = [block_size[i] for i in permutation]
+                # Update block_size_expr for the permuted order
+                block_size_expr = ", ".join(map(self.literal_expr, block_size))
+
+            descriptor_dims = (
+                permutation if permutation is not None else [*range(fake_value.ndim)]
+            )
+            assert descriptor_dims[-1] == stride_one_dim
+            # The descriptor permutation above makes the last descriptor
+            # dimension the proven stride-one dimension. Triton checks this
+            # predicate at JIT time, so emit it as a literal even when other
+            # dynamic strides are runtime scalars.
+            stride_args[-1] = StaticShape(1)
+
+            # Add tl.make_tensor_descriptor call to preamble
+            sizes = ", ".join([arg.name for arg in size_args])
+            strides = ", ".join([arg.name for arg in stride_args])
+
+            tensor_descriptor_fn_name = get_tensor_descriptor_fn_name()
+            descriptor_stmt = statement_from_string(
+                f"{desc_name} = {tensor_descriptor_fn_name}({tensor_arg.name}, [{sizes}], [{strides}], [{block_size_expr}])"
+            )
+            self.preamble.append(descriptor_stmt)
+
+            arg = TensorDescriptorArg(
+                desc_name,
+                fake_value,
+                None,  # No host_str since this is device-only
+                permutation,
+            )
+            # Don't add to self.arguments since this is device-only
+            self._tensor_descriptor_args[key] = arg
+        return self._tensor_descriptor_args[key]
+
+    def expr_arg(self, sym: sympy.Expr, origin: Origin) -> SymbolArgument:
+        if sym not in self._expr_args:
+            arg = SymbolArgument(
+                name=self.new_var(origin.suggest_var_name()),
+                _host_str=origin.host_str(),
+            )
+            self.arguments.append(arg)
+            self._expr_args[sym] = arg
+        return self._expr_args[sym]
+
+    def constexpr_arg(self, name: str, value: object | None = None) -> bool:
+        """Create a constexpr argument, returns True if created, False if already exists."""
+        if name in self._constexpr_args:
+            return False
+        host_str = name if value is None else self._format_constexpr_value(value)
+        self._constexpr_args[name] = rv = ConstExprArg(name, host_str)
+        self.arguments.append(rv)
+        return True
+
+    def constexpr_arg_with_host_def(self, name: str, value: object) -> None:
+        """Create a constexpr argument and add its host-side definition if needed."""
+        created = self.constexpr_arg(name, value)
+        host_expr = self._constexpr_args[name].host_str()
+        if created or name not in self._constexpr_host_defs:
+            self.codegen.host_statements.append(
+                statement_from_string(f"{name} = {host_expr}")
+            )
+        self._constexpr_host_defs.add(name)
+
+    def _format_constexpr_value(self, value: object) -> str:
+        if isinstance(value, str):
+            return value
+        if isinstance(value, (int, float, bool)):
+            return repr(value)
+
+        # Extract sympy expression from torch symbolic types
+        if isinstance(value, (torch.SymInt, torch.SymFloat, torch.SymBool)):
+            value = value._sympy_()
+
+        # Handle sympy expressions
+        if isinstance(value, sympy.Expr):
+            return HostFunction.current().sympy_expr(value)
+
+        return HostFunction.current().literal_expr(value)
+
+    def _tensor_property(
+        self,
+        prop_cls: type[_P],
+        fake_value: torch.Tensor,
+        dim: int,
+        prefix: str,
+    ) -> _P:
+        # TODO(jansel): dedupe based on sympy expressions
+        key = (prop_cls, fake_value, dim)
+        if key not in self._tensor_properties:
+            arg = self.tensor_arg(fake_value)
+            prop = prop_cls(f"{arg.name}_{prefix}_{dim}", arg, dim)
+            self.arguments.append(prop)
+            self._tensor_properties[key] = prop
+        return cast("_P", self._tensor_properties[key])
+
+    def tensor_size(self, fake_value: torch.Tensor, dim: int) -> Argument:
+        if isinstance(v := fake_value.size(dim), int) or isinstance(
+            v._sympy_(), sympy.Integer
+        ):
+            return StaticShape(int(v))
+        return self._tensor_property(TensorSizeArg, fake_value, dim, "size")
+
+    def tensor_stride(self, fake_value: torch.Tensor, dim: int) -> Argument:
+        v = fake_value.stride(dim)
+        env = CompileEnvironment.current()
+        # Check if this stride was explicitly specialized
+        source = env.input_sources.get(fake_value)
+        if (
+            isinstance(source, LocalSource)
+            and (source.local_name, dim) in env.specialized_strides
+        ):
+            return StaticShape(int(v))
+        if isinstance(v, int):
+            if env.settings.static_shapes:
+                return StaticShape(v)
+        return self._tensor_property(TensorStrideArg, fake_value, dim, "stride")
+
+    def sorted_args(self) -> list[Argument]:
+        self.arguments.sort(key=lambda arg: arg.sort_key())
+        return self.arguments
+
+    def codegen_function_def(self) -> list[ast.stmt]:
+        prefix = []
+        if self._tensor_descriptor_args:
+            prefix.append(
+                statement_from_string("helion.runtime.set_triton_allocator()")
+            )
+
+        backend = CompileEnvironment.current().backend
+        sorted_arguments = self.sorted_args()
+
+        # Separate constexpr args: inline those with known literal values at
+        # module level, keep dynamic ones as function parameters
+        constexpr_to_inline = [
+            arg
+            for arg in sorted_arguments
+            if isinstance(arg, ConstExprArg) and _is_literal_constexpr(arg)
+        ]
+        inlined_names = {arg.name for arg in constexpr_to_inline}
+        param_args = [
+            arg
+            for arg in sorted_arguments
+            if not isinstance(arg, ConstExprArg) or arg.name not in inlined_names
+        ]
+
+        args = [arg.arg_def_node() for arg in param_args]
+        # Ordering invariant:
+        # [param_args, extra_params, rng_seed, scratch_args, wrapper_only_params].
+        # codegen_function_call must match this order — it builds positional args
+        # from param_args, extends with extra_params, then build_launcher_args
+        # appends rng_seed_buffer.
+        args.extend(create_arg(name) for name in self.codegen._extra_params)
+        if self.has_rng_ops():
+            # Add the seed buffer as a pointer parameter to kernel signature
+            assert self.rng_seed_buffer_param_name is not None
+            args.append(create_arg(self.rng_seed_buffer_param_name))
+
+        # Add scratch memory parameters (for emit_pipeline on Pallas/TPU)
+        for scratch_arg in self._scratch_args:
+            args.append(create_arg(scratch_arg.name))
+        args.extend(create_arg(name) for name in self.wrapper_only_params)
+
+        # Generate inlined constexpr assignments at module level
+        # (e.g., _BLOCK_SIZE_0 = tl.constexpr(256))
+        # Use SyntheticLocation to suppress source origin comments on these statements
+        with SyntheticLocation():
+            for arg in constexpr_to_inline:
+                self.codegen.module_statements.append(
+                    statement_from_string(
+                        backend.inline_constexpr(arg.name, arg.host_str())
+                    )
+                )
+
+        # Generate preamble to dereference scalar refs (e.g., Pallas 0-dim tensors)
+        scalar_preamble: list[ast.AST] = []
+        for arg in param_args:
+            scalar_preamble.extend(backend.scalar_arg_preamble(arg))
+
+        function_decorator = backend.function_decorator_for_args(param_args)
+        return [
+            *prefix,
+            ast_rename(
+                create(
+                    ast.FunctionDef,
+                    name=self.name,
+                    args=create_arguments(args),
+                    body=[
+                        *scalar_preamble,
+                        *self.preamble,
+                        *self.body,
+                    ],
+                    decorator_list=[expr_from_string(function_decorator)]
+                    if function_decorator
+                    else [],
+                    type_params=[],
+                ),
+                {k: v[0] for k, v in self._variable_renames.items()},
+            ),
+        ]
+
+    def codegen_function_call(self) -> ast.AST:
+        env = CompileEnvironment.current()
+        backend = env.backend
+
+        args: list[str] = []
+        tensor_host_args: list[str] = []
+        arg_objects: list[Argument] = []
+        for arg in self.sorted_args():
+            # Skip constexpr args that are inlined at module level
+            if isinstance(arg, ConstExprArg) and _is_literal_constexpr(arg):
+                continue
+            if isinstance(arg, ConstExprArg) and arg.name in self._constexpr_host_defs:
+                host_arg = arg.name
+            else:
+                host_arg = arg.host_str()
+            if isinstance(arg, TensorArg):
+                tensor_host_args.append(host_arg)
+            host_arg = backend.transform_host_arg(arg, host_arg, tensor_host_args)
+            args.append(host_arg)
+            arg_objects.append(arg)
+
+        pid = self.pid
+        assert pid is not None
+
+        call_grid_expr = pid.codegen_grid()
+        # Extra params are positional and must come before any keyword args that
+        # build_launcher_args appends (e.g. num_warps=, num_stages=).
+        args.extend(self.codegen._extra_params)
+        call_args = backend.build_launcher_args(
+            args,
+            tensor_host_args=tensor_host_args,
+            has_rng_ops=self.has_rng_ops(),
+            config=self.config,
+            has_barrier=env.has_barrier,
+            sorted_args=arg_objects,
+        )
+        # Check if the backend wants to capture return values for output-only tensors.
+        output_only_names = getattr(backend, "_output_only_names", [])
+        launcher_call = (
+            f"_launcher({self.name}, {{call_grid_expr}}, {', '.join(call_args)})"
+        )
+        if output_only_names:
+            if len(output_only_names) == 1:
+                assign_target = output_only_names[0]
+            else:
+                assign_target = ", ".join(output_only_names)
+            call_statement = statement_from_string(
+                f"{assign_target} = {launcher_call}",
+                call_grid_expr=call_grid_expr,
+            )
+        else:
+            call_statement = statement_from_string(
+                launcher_call,
+                call_grid_expr=call_grid_expr,
+            )
+        assert isinstance(call_statement, ExtendedAST)
+        # Mark the kernel call so we can find it in codegen_precompile_def
+        call_statement._is_kernel_call = True
+        return call_statement
+
+    def dead_code_elimination(self) -> None:
+        """
+        Remove variables that are not used in the function body.
+        """
+
+        for _ in range(8):
+            rw = ReadWrites.from_list([*self.preamble, *self.body])
+            dead_assignment_elimination(self.body, self.dce_vars, 1, rw)
+            dead_assignment_elimination(self.preamble, self.dce_vars, 1, rw)
+            dead_lane_loop_elimination(self.body)
+            dead_lane_loop_elimination(self.preamble)
+        rw = ReadWrites.from_list([*self.preamble, *self.body])
+
+        # Drop unused args, but keep placeholder_args (fusion-injected tensor
+        # pointers referenced only by placeholder strings, not the AST body).
+        # sourceless_prologue_params are intentionally NOT exempted — they are
+        # fully inlined by the prologue hook and should be removed by DCE.
+        args_to_remove = {
+            arg.name
+            for arg in self.arguments
+            # pyrefly: ignore [unbound-name]
+            if arg.name not in rw.reads and arg.name not in self.placeholder_args
+        }
+        if args_to_remove:
+            self.arguments = [
+                arg for arg in self.arguments if arg.name not in args_to_remove
+            ]
+            for cache in cast(
+                "list[dict[object, Argument]]",
+                [
+                    self._tensor_args,
+                    self._tensor_descriptor_args,
+                    self._expr_args,
+                    self._tensor_properties,
+                ],
+            ):
+                for k, v in [*cache.items()]:
+                    if v.name in args_to_remove:
+                        del cache[k]
+
+    def register_helper_function(
+        self, helper_graph_info: HelperFunctionGraphInfo
+    ) -> None:
+        """Register a helper function to be generated at global scope."""
+        name = self.namespace.create_name(helper_graph_info.name, None)
+        self.helper_manager.register_helper_function(helper_graph_info, name)
+
+    def codegen_helper_functions(self) -> list[ast.stmt]:
+        """Generate helper function definitions at global scope."""
+        return self.helper_manager.codegen_helper_functions()
+
+    def flush_deferred_rdim_defs(self, codegen: GenerateAST) -> None:
+        """Add all deferred RDIM definitions to host statements."""
+        backend = CompileEnvironment.current().backend
+        for var_name, expr in self.deferred_rdim_defs:
+            expr_str = HostFunction.current().sympy_expr(expr)
+            stmt = statement_from_string(
+                f"{var_name} = {backend.dynamic_rdim_size_expr(expr_str)}"
+            )
+            codegen.host_statements.append(stmt)
+        self.deferred_rdim_defs.clear()
+
+    def register_scratch(
+        self,
+        shape: tuple[int, ...],
+        dtype: torch.dtype | None,
+        name_hint: str = "scratch",
+        scratch_type: str = "vmem",
+    ) -> str:
+        """Register a scratch memory buffer and return its variable name."""
+        if CompileEnvironment.current().backend_name != "pallas":
+            raise NotImplementedError(
+                "register_scratch is only supported by the Pallas backend"
+            )
+        name = self.new_var(name_hint)
+        self._scratch_args.append(ScratchArg(name, shape, dtype, scratch_type))
+        return name
+
+    def scratch_read_slice(self, name: str) -> str | None:
+        """Return the index expression for reading logical data from a padded scratch.
+
+        Returns None if no padding was applied.
+        """
+        return None
+
+    def register_dma_semaphore(self, name_hint: str = "sem") -> str:
+        """Register a DMA semaphore scratch buffer and return its variable name."""
+        return self.register_scratch(
+            (), None, name_hint=name_hint, scratch_type="dma_semaphore"
+        )
+
+    def get_tensor_read_write_names(self) -> tuple[set[str], set[str]]:
+        """Returns AST names of read and written tensors"""
+        from helion.language import memory_ops
+        from helion.language import tile_index
+        from helion.language.atomic_ops import ATOMIC_OPS
+
+        read_names: set[str] = set()
+        write_names: set[str] = set()
+        for graph in self.codegen.codegen_graphs:
+            for node in graph.graph.nodes:
+                if node.op != "call_function":
+                    continue
+
+                def _get_tensor_name(node: torch.fx.Node) -> str | None:
+                    tensor_arg = node.args[0]
+                    assert isinstance(tensor_arg, torch.fx.Node)
+                    # tile.index loads operate on a synthesized FakeTensor
+                    # that is not registered in ``tensor_to_origin``; they
+                    # are materialized inline by the load codegen rather
+                    # than referencing a kernel-arg tensor.
+                    if (
+                        tensor_arg.op == "call_function"
+                        and tensor_arg.target == tile_index
+                    ):
+                        return None
+                    tensor_val = tensor_arg.meta.get("val")
+                    assert isinstance(tensor_val, torch.Tensor)
+                    return self.tensor_arg(tensor_val).name
+
+                if node.target is memory_ops.load:
+                    name = _get_tensor_name(node)
+                    if name is not None:
+                        read_names.add(name)
+                elif node.target is memory_ops.store:
+                    name = _get_tensor_name(node)
+                    if name is not None:
+                        write_names.add(name)
+                elif node.target in ATOMIC_OPS:
+                    name = _get_tensor_name(node)
+                    if name is not None:
+                        read_names.add(name)
+                        write_names.add(name)
+        return read_names, write_names
+
+    def __enter__(self) -> None:
+        try:
+            tls.functions.append(self)
+        except AttributeError:
+            tls.functions = [self]
+
+    def __exit__(self, *args: object) -> None:
+        tls.functions.pop()
+
+    @staticmethod
+    def current() -> DeviceFunction:
+        try:
+            return tls.functions[-1]
+        except (AttributeError, IndexError):
+            raise NoCurrentFunction from None
+
+
+class HelionTritonPrinter(TritonPrinter):
+    """Custom Triton printer that does the following:
+
+    - Avoids wrapping float literals in tl.full().
+     Inductor's default TritonPrinter prints SymPy Float as a 0-D Triton value
+     via tl.full([], <val>, tl.float64). We override this to emit the raw numeric
+     literal, letting downstream type promotion and casts handle dtype.
+
+    - Avoids triton_helpers.div_floor_integer(...) calls when both operands are
+      provably non-negative integers. TritonPrinter by default converts
+      floor(u1/2) to triton_helpers.div_floor_integer(...). We override this to
+      emit u1 // 2 only when the numerator is known to be non-negative and the
+      denominator is a positive integer, so that we keep helper calls for cases
+      that rely on floor semantics with mixed signs.
+    """
+
+    def _print_Float(self, expr: sympy.Expr) -> str:
+        return str(expr)
+
+    def _print_ToFloat(self, expr: sympy.Expr) -> str:
+        assert expr.func.__name__ == "ToFloat" and len(expr.args) == 1
+        # pyrefly: ignore [missing-attribute]
+        return f"{self._print(expr.args[0])} + 0.0"
+
+    def _print_FloorDiv(self, expr: sympy.Expr) -> str:
+        lhs, rhs = expr.args
+        # Only use // operator when:
+        # 1. RHS is an integer constant
+        # 2. LHS is a constexpr argument (autotune parameter like block size)
+        # This ensures TMA descriptors get compile-time constants while preserving
+        if (
+            isinstance(rhs, sympy.Integer)
+            and getattr(lhs, "name", None) in DeviceFunction.current()._constexpr_args
+        ):
+            # pyrefly: ignore [missing-attribute]
+            lhs_str = self._print(lhs)
+            # pyrefly: ignore [missing-attribute]
+            rhs_str = self._print(rhs)
+            if not (lhs.is_Integer or lhs.is_Symbol):
+                lhs_str = f"({lhs_str})"
+            return f"{lhs_str} // {rhs_str}"
+        return super()._print_FloorDiv(expr)
+
+
+def texpr(expr: sympy.Expr) -> str:
+    return HelionTritonPrinter().doprint(expr)
+
+
+class HelionCutePrinter(HelionTritonPrinter):
+    """CuTe printer that avoids Triton runtime helpers in device expressions."""
+
+    def _print_basic_expr(self, expr: sympy.Basic) -> str:
+        return self.doprint(cast("sympy.Expr", expr))
+
+    def _print_FloorDiv(self, expr: sympy.Expr) -> str:
+        lhs, rhs = expr.args
+        return f"({self._print_basic_expr(lhs)} // {self._print_basic_expr(rhs)})"
+
+    def _print_CleanDiv(self, expr: sympy.Expr) -> str:
+        lhs, rhs = expr.args
+        return f"({self._print_basic_expr(lhs)} // {self._print_basic_expr(rhs)})"
+
+    def _print_CeilDiv(self, expr: sympy.Expr) -> str:
+        lhs, rhs = expr.args
+        lhs_printed = self._print_basic_expr(lhs)
+        rhs_printed = self._print_basic_expr(rhs)
+        return f"(({lhs_printed} + {rhs_printed} - 1) // {rhs_printed})"
+
+    def _print_PythonMod(self, expr: sympy.Expr) -> str:
+        lhs, rhs = expr.args
+        return f"({self._print_basic_expr(lhs)} % {self._print_basic_expr(rhs)})"
+
+
+def cute_texpr(expr: sympy.Expr) -> str:
+    return HelionCutePrinter().doprint(expr)
+
+
+class HelionPallasPrinter(HelionTritonPrinter):
+    """Pallas printer that emits plain Python operators instead of Triton runtime helpers."""
+
+    def _print_FloorDiv(self, expr: sympy.Expr) -> str:
+        lhs, rhs = expr.args
+        # pyrefly: ignore [missing-attribute]
+        return f"({self._print(lhs)} // {self._print(rhs)})"
+
+    def _print_PythonMod(self, expr: sympy.Expr) -> str:
+        lhs, rhs = expr.args
+        # pyrefly: ignore [missing-attribute]
+        return f"({self._print(lhs)} % {self._print(rhs)})"
+
+
+def pallas_texpr(expr: sympy.Expr) -> str:
+    return HelionPallasPrinter().doprint(expr)

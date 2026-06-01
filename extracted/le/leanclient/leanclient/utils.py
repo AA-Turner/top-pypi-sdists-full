@@ -1,0 +1,353 @@
+# Varia to be sorted later...
+import logging
+from dataclasses import dataclass
+from functools import wraps
+from pathlib import Path
+from typing import Any, Tuple
+
+import orjson
+
+logger = logging.getLogger(__name__)
+
+# Mapping SymbolKinds ints to string names:
+# https://github.com/leanprover/lean4/blob/8422d936cff3b609bd2a1396e82356c82c383386/src/Lean/Data/Lsp/LanguageFeatures.lean#L202C1-L229C27
+SYMBOL_KIND_MAP = {
+    1: "file",
+    2: "module",
+    3: "namespace",
+    4: "package",
+    5: "class",
+    6: "method",
+    7: "property",
+    8: "field",
+    9: "constructor",
+    10: "enum",
+    11: "interface",
+    12: "function",
+    13: "variable",
+    14: "constant",
+    15: "string",
+    16: "number",
+    17: "boolean",
+    18: "array",
+    19: "object",
+    20: "key",
+    21: "null",
+    22: "enumMember",
+    23: "struct",
+    24: "event",
+    25: "operator",
+    26: "typeParameter",
+}
+
+
+class SemanticTokenProcessor:
+    """Converts semantic token response using a token legend.
+
+    This function is a reverse translation of the LSP specification:
+    `Semantic Tokens Full Request <https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#semanticTokens_fullRequest>`_
+
+    Token modifiers are ignored for speed gains, since they are not used. See: `LanguageFeatures.lean <https://github.com/leanprover/lean4/blob/10b2f6b27e79e2c38d4d613f18ead3323a58ba4b/src/Lean/Data/Lsp/LanguageFeatures.lean#L360>`_
+    """
+
+    def __init__(self, token_types: list[str]):
+        self.token_types = token_types
+
+    def __call__(self, raw_response: list[int]) -> list:
+        return self._process_semantic_tokens(raw_response)
+
+    def _process_semantic_tokens(self, raw_response: list[int]) -> list:
+        tokens = []
+        line = char = 0
+        it = iter(raw_response)
+        types = self.token_types
+        for d_line, d_char, length, token, __ in zip(it, it, it, it, it):
+            line += d_line
+            char = char + d_char if d_line == 0 else d_char
+            tokens.append([line, char, length, types[token]])
+        return tokens
+
+
+def normalize_newlines(text: str) -> str:
+    """Convert CRLF sequences to LF for stable indexing."""
+    return text.replace("\r\n", "\n")
+
+
+def _utf16_len(char: str) -> int:
+    """Return the UTF-16 length of a single character (1 or 2 code units)."""
+    code_point = ord(char)
+    # Characters outside the BMP (Basic Multilingual Plane) need 2 UTF-16 code units (surrogate pairs)
+    return 2 if code_point > 0xFFFF else 1
+
+
+def _utf16_pos_to_utf8_pos(text: str, line: int, utf16_character: int) -> int:
+    """
+    Convert LSP position (line, UTF-16 character offset) to UTF-8 byte index.
+
+    This matches the Lean LSP server implementation:
+    - line is 0-indexed
+    - character is a UTF-16 code unit offset
+    - character is accepted liberally: actual character := min(line length, character)
+
+    Args:
+        text: The text content (UTF-8 encoded, with LF newlines)
+        line: 0-indexed line number
+        utf16_character: UTF-16 code unit offset within the line
+
+    Returns:
+        UTF-8 byte offset into text
+    """
+    if line < 0:
+        return 0
+
+    lines = text.split("\n")
+    if line >= len(lines):
+        return len(text)
+
+    # Get byte offset to start of line
+    line_start_byte = sum(len(lines[i]) + 1 for i in range(line))  # +1 for '\n'
+
+    # Convert UTF-16 character offset to UTF-8 byte offset within the line
+    line_content = lines[line]
+    utf16_offset = 0
+    utf8_offset = 0
+
+    for char in line_content:
+        if utf16_offset >= utf16_character:
+            break
+        utf16_offset += _utf16_len(char)
+        utf8_offset += len(char.encode("utf-8"))
+
+    return line_start_byte + utf8_offset
+
+
+def _index_from_line_character(text: str, line: int, character: int) -> int:
+    """
+    Convert LSP position to UTF-8 byte index.
+
+    Args:
+        text: The text content
+        line: 0-indexed line number
+        character: UTF-16 code unit offset
+
+    Returns:
+        UTF-8 byte index
+    """
+    return _utf16_pos_to_utf8_pos(text, line, character)
+
+
+@dataclass(frozen=True)
+class DocumentContentChange:
+    """Represents a change in a document."""
+
+    text: str
+    start: Tuple[int, int] | None = None
+    end: Tuple[int, int] | None = None
+
+    def __post_init__(self) -> None:
+        normalized_text = normalize_newlines(self.text)
+        object.__setattr__(self, "text", normalized_text)
+
+        if (self.start is None) != (self.end is None):
+            raise ValueError(
+                "DocumentContentChange requires both start and end for ranged edits."
+            )
+
+        if self.start is not None:
+            start = tuple(int(v) for v in self.start)
+            if len(start) != 2:
+                raise ValueError("start must be a (line, character) pair")
+            object.__setattr__(self, "start", start)
+        if self.end is not None:
+            end = tuple(int(v) for v in self.end)
+            if len(end) != 2:
+                raise ValueError("end must be a (line, character) pair")
+            object.__setattr__(self, "end", end)
+
+    def is_full_change(self) -> bool:
+        return self.start is None
+
+    def get_dict(self) -> dict:
+        if self.is_full_change():
+            return {"text": self.text}
+
+        assert self.start is not None and self.end is not None
+        return {
+            "text": self.text,
+            "range": {
+                "start": {"line": self.start[0], "character": self.start[1]},
+                "end": {"line": self.end[0], "character": self.end[1]},
+            },
+        }
+
+
+def apply_changes_to_text(text: str, changes: list[DocumentContentChange]) -> str:
+    """Apply LSP-style incremental changes to ``text``."""
+
+    text = normalize_newlines(text)
+    if not changes:
+        return text
+
+    for change in changes:
+        if change.is_full_change():
+            text = change.text
+            continue
+
+        assert change.start is not None and change.end is not None
+        start_idx = _index_from_line_character(text, change.start[0], change.start[1])
+        end_idx = _index_from_line_character(text, change.end[0], change.end[1])
+        text = text[:start_idx] + change.text + text[end_idx:]
+
+    return text
+
+
+def get_diagnostics_in_range(
+    diagnostics: list,
+    start_line: int,
+    end_line: int,
+) -> list:
+    """Find overlapping diagnostics for a range of lines.
+
+    Uses fullRange (with fallback to range) for filtering to capture the
+    semantic span of errors, as Lean may truncate range for display purposes.
+
+    Args:
+        diagnostics (list): List of diagnostics.
+        start_line (int): Start line.
+        end_line (int): End line.
+
+    Returns:
+        list: Overlapping diagnostics.
+    """
+    result = []
+    for diag in diagnostics:
+        # Use fullRange if available, fall back to range
+        diag_range = diag.get("fullRange", diag.get("range", {}))
+        diag_start = diag_range.get("start", {}).get("line", 0)
+        diag_end = diag_range.get("end", {}).get("line", 0)
+        if diag_start <= end_line and diag_end >= start_line:
+            result.append(diag)
+    return result
+
+
+def needs_mathlib_cache_get(project_path: Path) -> bool:
+    """Check if `lake exe cache get` should be run for this project.
+
+    Returns True only when mathlib is a dependency AND cache isn't extracted yet.
+
+    Args:
+        project_path: Path to the Lean project root directory.
+
+    Returns:
+        bool: True if cache get should be run, False to skip it.
+    """
+    project_path = Path(project_path)
+    manifest = project_path / "lake-manifest.json"
+    if not manifest.exists():
+        return False
+
+    try:
+        pkgs = orjson.loads(manifest.read_bytes()).get("packages", [])
+        mathlib_pkg = next((p for p in pkgs if p.get("name") == "mathlib"), None)
+        if mathlib_pkg is None:
+            return False
+    except Exception:
+        return False
+
+    # Resolve mathlib directory: path-type uses "dir" field, git-type uses .lake/packages/mathlib
+    if mathlib_pkg.get("type") == "path":
+        mathlib_dir = Path(mathlib_pkg["dir"])
+        if not mathlib_dir.is_absolute():
+            mathlib_dir = project_path / mathlib_dir
+    else:
+        mathlib_dir = project_path / ".lake/packages/mathlib"
+
+    # Check if mathlib olean files already exist
+    olean_dir = mathlib_dir / ".lake/build/lib/lean/Mathlib"
+    return not any(olean_dir.glob("*.olean"))
+
+
+def experimental(func):
+    """Decorator to mark a method as experimental."""
+
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        logger.warning("%s() is experimental! Use with caution.", func.__name__)
+        return func(self, *args, **kwargs)
+
+    # Change __doc__ to include a sphinx warning
+    warning = "\n        .. admonition:: Experimental\n\n            This method is experimental. Use with caution.\n            Warnings are logged via the 'leanclient' logger.\n"
+    doc_lines = wrapper.__doc__.split("\n")
+    doc_lines.insert(1, warning)
+    wrapper.__doc__ = "\n".join(doc_lines)
+    return wrapper
+
+
+def extract_widgets_from_interactive_diag(diag: dict) -> list[dict]:
+    """Recursively extract widget instances from interactive diagnostic message data.
+
+    The interactive diagnostic message structure is:
+    {
+      "message": {
+        "tag": [
+          {
+            "widget": {
+              "wi": { "id": "...", "props": {...}, ... },
+              "alt": {...}
+            }
+          },
+          ...
+        ]
+      }
+    }
+
+    Args:
+        diag: Interactive diagnostic dictionary.
+
+    Returns:
+        List of widget instance dictionaries.
+    """
+    widgets: list[dict] = []
+
+    def extract_from_tagged_text(tt: Any) -> None:
+        """Recursively search TaggedText structure for widget embeds."""
+        if isinstance(tt, dict):
+            # Check if this is a widget embed - structure is {"widget": {"wi": {...}, "alt": ...}}
+            if "widget" in tt:
+                widget_data = tt.get("widget", {})
+                if isinstance(widget_data, dict):
+                    # The actual widget instance is in "wi" field
+                    wi = widget_data.get("wi")
+                    if isinstance(wi, dict):
+                        widgets.append(wi)
+                    elif widget_data.get("id") or widget_data.get("props"):
+                        # Fallback: widget_data itself might be the widget instance
+                        widgets.append(widget_data)
+
+            # Check tag field which may contain list of embeds
+            tag = tt.get("tag")
+            if isinstance(tag, list):
+                for item in tag:
+                    extract_from_tagged_text(item)
+            elif isinstance(tag, dict):
+                extract_from_tagged_text(tag)
+
+            # Recurse into other fields
+            for key in ["text", "append", "children", "alt"]:
+                if key in tt:
+                    val = tt[key]
+                    if isinstance(val, list):
+                        for item in val:
+                            extract_from_tagged_text(item)
+                    elif isinstance(val, dict):
+                        extract_from_tagged_text(val)
+
+        elif isinstance(tt, list):
+            for item in tt:
+                extract_from_tagged_text(item)
+
+    message = diag.get("message")
+    if message:
+        extract_from_tagged_text(message)
+
+    return widgets

@@ -36,12 +36,14 @@ from weblate.accounts.notifications import (
     NotificationScope,
 )
 from weblate.accounts.views import log_handled_auth_failure
-from weblate.auth.models import User
-from weblate.billing.models import Plan
+from weblate.auth.models import Group, User
+from weblate.billing.models import Billing, Plan
 from weblate.lang.models import Language
+from weblate.trans.actions import ActionEvents
 from weblate.trans.tests.test_models import RepoTestCase
 from weblate.trans.tests.test_views import FixtureTestCase
 from weblate.trans.tests.utils import (
+    create_test_billing,
     social_core_modify_settings,
     social_core_override_settings,
 )
@@ -233,7 +235,7 @@ class ViewTest(RepoTestCase):
         self.assertContains(response, "640k")
         response = self.client.post(reverse("trial"), follow=True)
         self.assertContains(response, "Create project")
-        billing = user.billing_set.get()
+        billing = Billing.objects.get(workspace__defined_groups__memberships__user=user)
         self.assertTrue(billing.is_trial)
 
         # Repeated attempt should fail
@@ -278,6 +280,30 @@ class ViewTest(RepoTestCase):
         # Get public profile
         response = self.client.get(user.get_absolute_url())
         self.assertContains(response, "table-activity")
+
+    @modify_settings(INSTALLED_APPS={"remove": "weblate.billing"})
+    def test_user_without_billing(self) -> None:
+        """Test user pages without billing."""
+        user = self.get_user()
+
+        self.client.login(username=user.username, password="testpassword")
+        response = self.client.get(user.get_absolute_url())
+
+        self.assertContains(response, "table-activity")
+        self.assertEqual(response.context["page_user_billings"], [])
+
+    def test_user_billing_tab(self) -> None:
+        """Test billing tab on user pages."""
+        user = self.get_user()
+        user.is_superuser = True
+        user.save()
+        billing = create_test_billing(user, invoice=False)
+
+        self.client.login(username=user.username, password="testpassword")
+        response = self.client.get(user.get_absolute_url())
+
+        self.assertEqual(response.context["page_user_billings"], [billing])
+        self.assertContains(response, 'data-bs-target="#billing"')
 
     def test_suggestions(self) -> None:
         """Test user pages."""
@@ -668,6 +694,22 @@ class ProfileTest(FixtureTestCase):
             },
         )
         self.assertRedirects(response, reverse("profile"))
+
+    def test_profile_inherited_license_display(self) -> None:
+        self.project.license = "MIT"
+        self.project.save(update_fields=["license"])
+        self.component.license = ""
+        self.component.inherit_license = True
+        self.component.save(update_fields=["license", "inherit_license"])
+        unit = self.get_unit()
+        unit.change_set.create(
+            action=ActionEvents.CHANGE, user=self.user, author=self.user
+        )
+
+        response = self.client.get(reverse("profile"))
+
+        self.assertContains(response, "MIT License")
+        self.assertContains(response, 'class="license badge">MIT</span>')
 
     def test_profile_contact_rejects_direct_download(self) -> None:
         form = ProfileForm(
@@ -1130,6 +1172,36 @@ class EditUserTest(FixtureTestCase):
             },
         )
         self.assertEqual(response.status_code, 403)
+
+    def test_add_team_with_language_limit(self) -> None:
+        target = User.objects.create_user(
+            username="team-target", password="testpassword"
+        )
+        group = Group.objects.create(name="Translate", defining_project=self.project)
+        language = Language.objects.get(code="cs")
+
+        response = self.client.post(
+            target.get_absolute_url(),
+            {"add_group": group.pk, "limit_languages": [language.code]},
+        )
+        self.assertRedirects(response, f"{target.get_absolute_url()}#groups")
+
+        membership = target.team_memberships.get(group=group)
+        self.assertEqual(
+            list(membership.limit_languages.values_list("code", flat=True)), ["cs"]
+        )
+
+        response = self.client.post(target.get_absolute_url(), {"add_group": group.pk})
+        self.assertRedirects(response, f"{target.get_absolute_url()}#groups")
+        self.assertFalse(membership.limit_languages.exists())
+        audit = target.auditlog_set.get(activity="team-change")
+        self.assertEqual(audit.params["team"], group.name)
+        self.assertEqual(audit.params["username"], self.user.username)
+        self.assertEqual(audit.params["previous_limit_languages"], ["cs"])
+        self.assertEqual(audit.params["limit_languages"], [])
+
+        response = self.client.get(target.get_absolute_url())
+        self.assertContains(response, "No language limit")
 
 
 class AdminUserRevertTest(FixtureTestCase):

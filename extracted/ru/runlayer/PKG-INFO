@@ -1,0 +1,969 @@
+Metadata-Version: 2.4
+Name: runlayer
+Version: 0.24.14
+Summary: A command-line interface for running MCP servers via HTTP transport
+Project-URL: Homepage, https://runlayer.com
+Project-URL: Documentation, https://docs.runlayer.com/
+Author-email: Runlayer <engineering@runlayer.com>
+License:                                  Apache License
+                                   Version 2.0, January 2004
+                                http://www.apache.org/licenses/
+        
+           TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+        
+           1. Definitions.
+        
+              "License" shall mean the terms and conditions for use, reproduction,
+              and distribution as defined by Sections 1 through 9 of this document.
+        
+              "Licensor" shall mean the copyright owner or entity authorized by
+              the copyright owner that is granting the License.
+        
+              "Legal Entity" shall mean the union of the acting entity and all
+              other entities that control, are controlled by, or are under common
+              control with that entity. For the purposes of this definition,
+              "control" means (i) the power, direct or indirect, to cause the
+              direction or management of such entity, whether by contract or
+              otherwise, or (ii) ownership of fifty percent (50%) or more of the
+              outstanding shares, or (iii) beneficial ownership of such entity.
+        
+              "You" (or "Your") shall mean an individual or Legal Entity
+              exercising permissions granted by this License.
+        
+              "Source" form shall mean the preferred form for making modifications,
+              including but not limited to software source code, documentation
+              source, and configuration files.
+        
+              "Object" form shall mean any form resulting from mechanical
+              transformation or translation of a Source form, including but
+              not limited to compiled object code, generated documentation,
+              and conversions to other media types.
+        
+              "Work" shall mean the work of authorship, whether in Source or
+              Object form, made available under the License, as indicated by a
+              copyright notice that is included in or attached to the work
+              (an example is provided in the Appendix below).
+        
+              "Derivative Works" shall mean any work, whether in Source or Object
+              form, that is based on (or derived from) the Work and for which the
+              editorial revisions, annotations, elaborations, or other modifications
+              represent, as a whole, an original work of authorship. For the purposes
+              of this License, Derivative Works shall not include works that remain
+              separable from, or merely link (or bind by name) to the interfaces of,
+              the Work and Derivative Works thereof.
+        
+              "Contribution" shall mean any work of authorship, including
+              the original version of the Work and any modifications or additions
+              to that Work or Derivative Works thereof, that is intentionally
+              submitted to Licensor for inclusion in the Work by the copyright owner
+              or by an individual or Legal Entity authorized to submit on behalf of
+              the copyright owner. For the purposes of this definition, "submitted"
+              means any form of electronic, verbal, or written communication sent
+              to the Licensor or its representatives, including but not limited to
+              communication on electronic mailing lists, source code control systems,
+              and issue tracking systems that are managed by, or on behalf of, the
+              Licensor for the purpose of discussing and improving the Work, but
+              excluding communication that is conspicuously marked or otherwise
+              designated in writing by the copyright owner as "Not a Contribution."
+        
+              "Contributor" shall mean Licensor and any individual or Legal Entity
+              on behalf of whom a Contribution has been received by Licensor and
+              subsequently incorporated within the Work.
+        
+           2. Grant of Copyright License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              copyright license to reproduce, prepare Derivative Works of,
+              publicly display, publicly perform, sublicense, and distribute the
+              Work and such Derivative Works in Source or Object form.
+        
+           3. Grant of Patent License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              (except as stated in this section) patent license to make, have made,
+              use, offer to sell, sell, import, and otherwise transfer the Work,
+              where such license applies only to those patent claims licensable
+              by such Contributor that are necessarily infringed by their
+              Contribution(s) alone or by combination of their Contribution(s)
+              with the Work to which such Contribution(s) was submitted. If You
+              institute patent litigation against any entity (including a
+              cross-claim or counterclaim in a lawsuit) alleging that the Work
+              or a Contribution incorporated within the Work constitutes direct
+              or contributory patent infringement, then any patent licenses
+              granted to You under this License for that Work shall terminate
+              as of the date such litigation is filed.
+        
+           4. Redistribution. You may reproduce and distribute copies of the
+              Work or Derivative Works thereof in any medium, with or without
+              modifications, and in Source or Object form, provided that You
+              meet the following conditions:
+        
+              (a) You must give any other recipients of the Work or
+                  Derivative Works a copy of this License; and
+        
+              (b) You must cause any modified files to carry prominent notices
+                  stating that You changed the files; and
+        
+              (c) You must retain, in the Source form of any Derivative Works
+                  that You distribute, all copyright, patent, trademark, and
+                  attribution notices from the Source form of the Work,
+                  excluding those notices that do not pertain to any part of
+                  the Derivative Works; and
+        
+              (d) If the Work includes a "NOTICE" text file as part of its
+                  distribution, then any Derivative Works that You distribute must
+                  include a readable copy of the attribution notices contained
+                  within such NOTICE file, excluding those notices that do not
+                  pertain to any part of the Derivative Works, in at least one
+                  of the following places: within a NOTICE text file distributed
+                  as part of the Derivative Works; within the Source form or
+                  documentation, if provided along with the Derivative Works; or,
+                  within a display generated by the Derivative Works, if and
+                  wherever such third-party notices normally appear. The contents
+                  of the NOTICE file are for informational purposes only and
+                  do not modify the License. You may add Your own attribution
+                  notices within Derivative Works that You distribute, alongside
+                  or as an addendum to the NOTICE text from the Work, provided
+                  that such additional attribution notices cannot be construed
+                  as modifying the License.
+        
+              You may add Your own copyright statement to Your modifications and
+              may provide additional or different license terms and conditions
+              for use, reproduction, or distribution of Your modifications, or
+              for any such Derivative Works as a whole, provided Your use,
+              reproduction, and distribution of the Work otherwise complies with
+              the conditions stated in this License.
+        
+           5. Submission of Contributions. Unless You explicitly state otherwise,
+              any Contribution intentionally submitted for inclusion in the Work
+              by You to the Licensor shall be under the terms and conditions of
+              this License, without any additional terms or conditions.
+              Notwithstanding the above, nothing herein shall supersede or modify
+              the terms of any separate license agreement you may have executed
+              with Licensor regarding such Contributions.
+        
+           6. Trademarks. This License does not grant permission to use the trade
+              names, trademarks, service marks, or product names of the Licensor,
+              except as required for reasonable and customary use in describing the
+              origin of the Work and reproducing the content of the NOTICE file.
+        
+           7. Disclaimer of Warranty. Unless required by applicable law or
+              agreed to in writing, Licensor provides the Work (and each
+              Contributor provides its Contributions) on an "AS IS" BASIS,
+              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+              implied, including, without limitation, any warranties or conditions
+              of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+              PARTICULAR PURPOSE. You are solely responsible for determining the
+              appropriateness of using or redistributing the Work and assume any
+              risks associated with Your exercise of permissions under this License.
+        
+           8. Limitation of Liability. In no event and under no legal theory,
+              whether in tort (including negligence), contract, or otherwise,
+              unless required by applicable law (such as deliberate and grossly
+              negligent acts) or agreed to in writing, shall any Contributor be
+              liable to You for damages, including any direct, indirect, special,
+              incidental, or consequential damages of any character arising as a
+              result of this License or out of the use or inability to use the
+              Work (including but not limited to damages for loss of goodwill,
+              work stoppage, computer failure or malfunction, or any and all
+              other commercial damages or losses), even if such Contributor
+              has been advised of the possibility of such damages.
+        
+           9. Accepting Warranty or Additional Liability. While redistributing
+              the Work or Derivative Works thereof, You may choose to offer,
+              and charge a fee for, acceptance of support, warranty, indemnity,
+              or other liability obligations and/or rights consistent with this
+              License. However, in accepting such obligations, You may act only
+              on Your own behalf and on Your sole responsibility, not on behalf
+              of any other Contributor, and only if You agree to indemnify,
+              defend, and hold each Contributor harmless for any liability
+              incurred by, or claims asserted against, such Contributor by reason
+              of your accepting any such warranty or additional liability.
+        
+           END OF TERMS AND CONDITIONS
+        
+           APPENDIX: How to apply the Apache License to your work.
+        
+              To apply the Apache License to your work, attach the following
+              boilerplate notice, with the fields enclosed by brackets "[]"
+              replaced with your own identifying information. (Don't include
+              the brackets!)  The text should be enclosed in the appropriate
+              comment syntax for the file format. We also recommend that a
+              file or class name and description of purpose be included on the
+              same "printed page" as the copyright notice for easier
+              identification within third-party archives.
+        
+           Copyright [yyyy] [name of copyright owner]
+        
+           Licensed under the Apache License, Version 2.0 (the "License");
+           you may not use this file except in compliance with the License.
+           You may obtain a copy of the License at
+        
+               http://www.apache.org/licenses/LICENSE-2.0
+        
+           Unless required by applicable law or agreed to in writing, software
+           distributed under the License is distributed on an "AS IS" BASIS,
+           WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+           See the License for the specific language governing permissions and
+           limitations under the License.
+License-File: LICENSE
+Keywords: agent,anysource,cli,llm,mcp,runlayer
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
+Requires-Dist: authlib<1.7.0,>=1.6.5
+Requires-Dist: docker>=7.0.0
+Requires-Dist: fakeredis<2.35.0
+Requires-Dist: fastmcp<3,>=2.14.5
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: json5>=0.12.1
+Requires-Dist: keyring<26,>=25.0.0
+Requires-Dist: mcp>=1.23.0
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: pyyaml>=6.0.0
+Requires-Dist: questionary>=2.0.0
+Requires-Dist: rich>=13.0.0
+Requires-Dist: structlog>=25.4.0
+Requires-Dist: tomli>=2.0.0; python_version < '3.11'
+Requires-Dist: truststore<0.11,>=0.10.4
+Requires-Dist: typer>=0.17.4
+Provides-Extra: aiwatch
+Requires-Dist: httpx>=0.27.0; extra == 'aiwatch'
+Requires-Dist: json5>=0.12.1; extra == 'aiwatch'
+Requires-Dist: keyring<26,>=25.0.0; extra == 'aiwatch'
+Requires-Dist: pydantic>=2.0.0; extra == 'aiwatch'
+Requires-Dist: pyyaml>=6.0.0; extra == 'aiwatch'
+Requires-Dist: rich>=13.0.0; extra == 'aiwatch'
+Requires-Dist: structlog>=25.4.0; extra == 'aiwatch'
+Requires-Dist: tomli>=2.0.0; (python_version < '3.11') and extra == 'aiwatch'
+Requires-Dist: truststore<0.11,>=0.10.4; extra == 'aiwatch'
+Requires-Dist: typer>=0.17.4; extra == 'aiwatch'
+Description-Content-Type: text/markdown
+
+# Runlayer CLI
+
+The Runlayer CLI enables secure execution of trusted MCP servers with enterprise-grade security, auditing, and permission management. Run Model Context Protocol servers through an authenticated proxy that enforces access controls, maintains audit logs, and manages permissions - allowing AI agents to safely connect to internal systems without exposing credentials or running unvetted code locally.
+
+The CLI also provides deployment capabilities to build and deploy Docker-based services to your Runlayer infrastructure, and scanning capabilities to discover MCP server configurations across devices.
+
+## Quick Start
+
+**Install the CLI locally (editable, for development):**
+
+```bash
+uv tool install --editable .   # from the cli/ directory
+```
+
+This puts `runlayer` on PATH at `~/.local/bin`. Restart your terminal if `runlayer --help` shows "command not found", or run `uv tool update-shell`.
+
+> **Why `uv tool install` instead of `uvx`?** Enforce hooks (`runlayer setup hooks`) need `runlayer` on PATH at runtime. `uv tool install` places a persistent binary; `uvx` re-resolves on every call and may not be on PATH in GUI-launched editors like Cursor.
+
+The easiest way to get started is to **copy the complete command from the server overview page in your Runlayer app** - it includes all the required parameters pre-filled for your server.
+
+Alternatively, you can construct the command manually:
+
+```bash
+runlayer login --host <runlayer_url>
+runlayer run <server_uuid> --host <runlayer_url>
+```
+
+## Commands
+
+### `run` - Run an MCP Server
+
+Run an MCP server through the Runlayer proxy.
+
+#### Command Arguments
+
+- `server_uuid`: UUID of your MCP server (found in your Runlayer deployment)
+
+#### Command Options
+
+- `--secret`, `-s`: Raw API key override for authentication (optional; normal usage is `runlayer login`)
+- `--host`: Your Runlayer instance URL (e.g., https://runlayer.example.com)
+
+### Global Options
+
+These options can be passed to any command:
+
+- `--secret`, `-s`: Raw API key override for authentication (user or org key)
+- `--host`, `-H`: Runlayer host URL
+- `--org-api-key`: Name of a stored org API key to use (see `org-api-key` command)
+- `--ca-bundle`: Path to a PEM CA bundle for enterprise TLS inspection proxies
+
+#### Example
+
+```bash
+uvx runlayer login --host https://runlayer.example.com
+uvx runlayer run abc123-def456 --host https://runlayer.example.com
+```
+
+## Enterprise Network Configuration
+
+The Runlayer CLI delegates TLS verification to the OS trust store via [`truststore`](https://truststore.readthedocs.io):
+
+- **macOS** — login + System Keychain (`security add-trusted-cert` or MDM Configuration Profile)
+- **Windows** — Current User + Local Machine certificate stores (manual import or GPO/Intune)
+- **Linux** — distro CA bundle (`update-ca-certificates` / `update-ca-trust`)
+
+Any CA trusted by the OS is automatically honored — no extra config needed when your corp root is installed system-wide.
+
+If the corp root is not installed in the system trust store, provide a PEM bundle with one of these options:
+
+```bash
+runlayer --ca-bundle /path/to/corporate-ca.pem scan
+RUNLAYER_CA_BUNDLE=/path/to/corporate-ca.pem runlayer scan
+SSL_CERT_FILE=/path/to/corporate-ca.pem runlayer scan
+REQUESTS_CA_BUNDLE=/path/to/corporate-ca.pem runlayer scan
+```
+
+Precedence is `--ca-bundle` / `RUNLAYER_CA_BUNDLE`, then `SSL_CERT_FILE`, then `REQUESTS_CA_BUNDLE`. The bundle is added to system trust rather than replacing it.
+
+For the cleanest deployment, security teams should exempt the Runlayer tenant hostname from TLS inspection, such as `*.runlayer.com` or customer-managed hostnames like `runlayer.dev.company.com`. This avoids certificate interception issues for security tooling while preserving normal endpoint controls.
+
+### `login` - Authenticate with Runlayer
+
+Authenticate using a browser-based device flow. Opens a browser and displays a code for verification.
+
+#### Command Options
+
+- `--host`, `-H`: Runlayer host URL (required if not already configured)
+
+#### Example
+
+```bash
+uvx runlayer login --host https://runlayer.example.com
+```
+
+### `logout` - Clear Credentials
+
+Clear saved Runlayer credentials from the credential store and config file.
+
+#### Command Options
+
+- `--host`, `-H`: Clear credentials for a specific host only (clears all if omitted)
+
+#### Example
+
+```bash
+# Clear all credentials
+uvx runlayer logout
+
+# Clear credentials for a specific host
+uvx runlayer logout --host https://runlayer.example.com
+```
+
+### `cache` - Manage CLI Cache
+
+Manage the Runlayer CLI OAuth client cache.
+
+#### `cache clear`
+
+Remove the OAuth client cache directory.
+
+```bash
+uvx runlayer cache clear
+```
+
+### `deploy` - Deploy a Service
+
+Deploy a Docker-based service to your Runlayer infrastructure based on a `runlayer.yaml` configuration file.
+
+#### Command Options
+
+- `--config`, `-c`: Path to runlayer.yaml config file (default: `runlayer.yaml`)
+- `--secret`, `-s`: Raw API key override for authentication (optional; normal usage is `runlayer login`)
+- `--host`, `-H`: Your Runlayer instance URL (required if not already configured)
+- `--env-file`, `-e`: Path to .env file for environment variable substitution (optional, defaults to `.env` in config file directory or current directory)
+
+#### Example
+
+```bash
+uvx runlayer login --host https://runlayer.example.com
+uvx runlayer deploy --config runlayer.yaml --host https://runlayer.example.com
+```
+
+For CI/CD pipelines, use an organization API key with the Deploy role:
+
+```bash
+# Pass the key directly
+uvx runlayer deploy --config runlayer.yaml --host https://runlayer.example.com --secret <org-api-key>
+
+# Or store it and reference by name
+uvx runlayer org-api-key add ci-deploy --host https://runlayer.example.com
+uvx runlayer --org-api-key ci-deploy deploy --config runlayer.yaml --host https://runlayer.example.com
+```
+
+#### Configuration File (`runlayer.yaml`)
+
+The deploy command reads from a `runlayer.yaml` file that defines your service configuration:
+
+```yaml
+name: my-awesome-service
+runtime: docker
+
+build:
+  dockerfile: Dockerfile
+  context: .
+  platform: x86  # or "arm"
+
+service:
+  port: 8000
+  path: /api
+
+infrastructure:
+  cpu: 512
+  memory: 1024
+
+env:
+  DATABASE_URL: postgres://...
+  API_KEY: secret123
+```
+
+#### Environment Variable Substitution
+
+The CLI supports standard Docker Compose / shell-style environment variable substitution in your `runlayer.yaml` file. This allows you to reference local environment variables or values from a `.env` file without hardcoding sensitive values.
+
+**Variable Syntax:**
+
+- `${VAR}` - Required variable (error if not set)
+- `${VAR:-default}` - Use default value if variable is unset or empty
+- `${VAR-default}` - Use default value only if variable is unset (not if empty)
+- `$$DEPLOYMENT_URL`, `$$RUNLAYER_URL`, `$$RUNLAYER_OAUTH_CALLBACK_URL` - Reserved system variables (backend replaces at deploy time)
+
+**Example Configuration:**
+
+```yaml
+name: my-service
+env:
+  API_KEY: ${MY_API_KEY}                      # Required - error if not set
+  DATABASE_URL: ${DATABASE_URL}               # Required
+  LOG_LEVEL: ${LOG_LEVEL:-info}               # Default to 'info' if not set
+  DEBUG: ${DEBUG:-false}                      # Default to 'false'
+  WEBHOOK_URL: $$DEPLOYMENT_URL/webhook    # Backend replaces (double $$)
+```
+
+**Usage:**
+
+```bash
+# Using environment variables
+export MY_API_KEY=secret123
+export DATABASE_URL=postgres://localhost/db
+uvx runlayer deploy --host https://runlayer.example.com
+
+# Using a .env file (auto-discovered from config file directory or current directory)
+# Place .env file next to runlayer.yaml or in current directory
+uvx runlayer deploy --host https://runlayer.example.com
+
+# Using a specific .env file
+uvx runlayer deploy --host https://runlayer.example.com --env-file .env.prod
+```
+
+**Auto-discovery:** The CLI automatically looks for a `.env` file in:
+1. The same directory as your `runlayer.yaml` config file
+2. The current working directory (if config file is elsewhere)
+
+If you specify `--env-file`, it will use that file instead of auto-discovery.
+
+**Standard .env file format:**
+
+```
+MY_API_KEY=secret123
+DATABASE_URL=postgres://localhost/db
+LOG_LEVEL=debug
+```
+
+**Limits:** Each `env` value in `runlayer.yaml` must be 2000 chars or less. If a value is too long, deploy validation fails and names the offending env var.
+
+**Note:** Variables from `.env` files override values from `os.environ`. The `$$VAR` syntax (double dollar sign) is reserved for backend variable substitution and will not be replaced by the CLI.
+
+### `deploy validate` - Validate Configuration
+
+Validate `runlayer.yaml` configuration without deploying.
+
+#### Command Options
+
+- `--config`, `-c`: Path to runlayer.yaml config file (default: `runlayer.yaml`)
+- `--env-file`, `-e`: Path to .env file for environment variable substitution
+- `--secret`, `-s`: Raw API key override for authentication
+- `--host`, `-H`: Your Runlayer instance URL
+
+#### Example
+
+```bash
+uvx runlayer deploy validate --config runlayer.yaml
+```
+
+### `deploy pull` - Pull Deployment Configuration
+
+Fetch deployment configuration from the backend and save as YAML.
+
+#### Command Options
+
+- `--config`, `-c`: Path to save runlayer.yaml config file (default: `runlayer.yaml`)
+- `--deployment-id`, `-d`: Deployment ID to pull (overrides config file)
+- `--secret`, `-s`: Raw API key override for authentication
+- `--host`, `-H`: Your Runlayer instance URL
+
+#### Example
+
+```bash
+uvx runlayer deploy pull --deployment-id <deployment-id>
+```
+
+### `deploy destroy` - Destroy a Deployment
+
+Destroy a deployment and tear down its infrastructure.
+
+#### Command Options
+
+- `--config`, `-c`: Path to runlayer.yaml config file (default: `runlayer.yaml`)
+- `--deployment-id`, `-d`: Deployment ID to destroy (overrides config file)
+- `--secret`, `-s`: Raw API key override for authentication
+- `--host`, `-H`: Your Runlayer instance URL
+
+#### Example
+
+```bash
+uvx runlayer deploy destroy --deployment-id <deployment-id>
+```
+
+### `deploy init` - Initialize a New Deployment
+
+Create a new deployment and generate a `runlayer.yaml` configuration file.
+
+#### Example
+
+```bash
+uvx runlayer login --host https://runlayer.example.com
+uvx runlayer deploy init --config runlayer.yaml --host https://runlayer.example.com
+```
+
+### `org-api-key` - Manage Organization API Keys
+
+Store, list, and remove named organization API keys in the CLI config. Org API keys are scoped keys created in the Runlayer web app (Settings > API Keys) for specific roles like Deploy (CI/CD workflows), Detect Scan (MCP Watch scanning), Security Scan API access, and Tunnel Connect.
+
+#### `org-api-key add` - Store a Named Key
+
+```bash
+uvx runlayer org-api-key add <name> --secret <key>
+```
+
+- `name`: A short name to reference this key by (e.g., `ci-deploy`, `mcp-watch`, `security-scan`)
+- `--secret`, `-s`: The org API key value (`rl_org_...`). Prompted securely if omitted.
+- `--host`, `-H`: Host to store the key for (defaults to current host)
+
+#### `org-api-key remove` - Remove a Named Key
+
+```bash
+uvx runlayer org-api-key remove <name>
+```
+
+#### `org-api-key list` - List Stored Keys
+
+```bash
+uvx runlayer org-api-key list
+```
+
+Shows key names and truncated prefixes for the current host.
+
+#### Using Stored Org API Keys
+
+Once stored, reference a key by name with the `--org-api-key` flag on any command:
+
+```bash
+# Use a stored org key for scanning
+uvx runlayer scan --org-api-key mcp-watch
+
+# The --org-api-key flag also works as a global option
+uvx runlayer --org-api-key mcp-watch scan
+
+# Or via environment variable (scan command only)
+RUNLAYER_ORG_API_KEY_NAME=mcp-watch uvx runlayer scan
+```
+
+The `--secret` flag still accepts any raw API key (user or org) directly and takes priority over `--org-api-key`.
+
+### `scan` - Scan MCP Client Configurations
+
+Scan for MCP server configurations, skills, and plugins across supported clients (Cursor, Claude Desktop, Claude Code, VS Code, Windsurf, Goose, Zed, OpenCode, Codex, Cline, Cline CLI, Gemini CLI, Antigravity, GitHub Copilot CLI) and submit results to Runlayer for classification.
+
+#### Command Options
+
+- `--secret`, `-s`: Raw API key override for authentication (optional unless `--dry-run`)
+- `--host`, `-H`: Your Runlayer instance URL (required unless already configured)
+- `--org-api-key`: Name of a stored org API key to use for authentication
+- `--dry-run`, `-n`: Print scan results as JSON without submitting to API
+- `--verbose`, `-v`: Enable verbose output
+- `--quiet`, `-q`: Suppress all output except errors
+- `--device-id`: Custom device identifier (auto-generated if not provided)
+- `--org-device-id`: Organization-provided device ID (e.g., MDM asset tag)
+- `--no-projects`: Skip scanning for project-level configurations
+- `--project-depth`: Maximum directory depth for project scanning (default: 5)
+- `--project-timeout`: Timeout in seconds for project scanning (default: 60)
+- `--username`: Override detected username (e.g., for MDM deployments running as root)
+
+#### Example
+
+```bash
+# With a stored org API key
+uvx runlayer scan --org-api-key mcp-watch
+
+# With saved login credentials
+uvx runlayer login --host https://runlayer.example.com
+uvx runlayer scan --host https://runlayer.example.com
+```
+
+### `setup install` - Install MCP Servers and Plugins
+
+Install MCP servers and plugins directly to your client configuration files.
+
+#### Supported Clients
+
+- `cursor` - Cursor IDE
+- `claude_desktop` - Claude Desktop
+- `claude_code` - Claude Code (supports plugins)
+- `vscode` - VS Code
+- `windsurf` - Windsurf
+- `goose` - Goose
+- `zed` - Zed
+
+**Note:** Plugins are only supported for Claude Code.
+
+#### Command Options
+
+- `--client`, `-c`: Target client (required for non-interactive mode)
+- `--server-id`, `-S`: Server ID(s) to install (can be repeated)
+- `--plugin-id`, `-P`: Plugin ID(s) to install (Claude Code only, can be repeated)
+- `--interactive`, `-i`: Interactive mode - browse and select servers/plugins
+- `--secret`, `-s`: Your Runlayer API key (optional if logged in)
+- `--host`, `-H`: Your Runlayer instance URL (optional if logged in)
+- `--header`: HTTP header for remote servers (format: `Key: Value`, can be repeated)
+- `--yes`, `-y`: Skip confirmation prompts
+
+#### Authentication for Remote Servers
+
+For remote MCP servers requiring authentication, use the `--header` option:
+
+```bash
+# Add authorization header
+uvx runlayer setup install --client vscode --server-id abc123 --header "Authorization: Bearer your-token"
+
+# Add custom API key header
+uvx runlayer setup install --client cursor --server-id abc123 --header "X-Api-Key: your-key"
+
+# Multiple headers
+uvx runlayer setup install --client vscode --server-id abc123 \
+  --header "Authorization: Bearer token" \
+  --header "X-Custom-Header: value"
+```
+
+#### Config File Handling
+
+The CLI safely handles JSONC files (JSON with comments and trailing commas), which are used by VS Code, Zed, and other editors. Existing comments and formatting are preserved when installing servers.
+
+**Note for VS Code users:** VS Code supports user-level and profile-specific MCP configurations. The CLI installs to the default user settings location. If you use VS Code profiles, you may need to manually copy configurations between profiles.
+
+#### Non-Interactive Mode
+
+Install specific servers or plugins by ID:
+
+```bash
+# Install a single server to Cursor
+uvx runlayer setup install --client cursor --server-id abc123
+
+# Install multiple servers
+uvx runlayer setup install --client cursor --server-id abc123 --server-id def456
+
+# Install servers and plugins to Claude Code
+uvx runlayer setup install --client claude_code --server-id abc123 --plugin-id xyz789
+```
+
+#### Interactive Mode
+
+Browse available servers and plugins, then select which to install:
+
+```bash
+# Interactive mode with client selection
+uvx runlayer setup install --interactive
+
+# Interactive mode with pre-selected client
+uvx runlayer setup install --interactive --client cursor
+```
+
+#### Examples
+
+```bash
+# First, log in to your Runlayer instance
+uvx runlayer login --host https://runlayer.example.com
+
+# Interactive installation
+uvx runlayer setup install --interactive
+
+# Non-interactive installation
+uvx runlayer setup install --client cursor --server-id abc123 --host https://runlayer.example.com
+
+# Skip confirmation prompts
+uvx runlayer setup install --client cursor --server-id abc123 --yes
+```
+
+### `setup hooks` - Install Client Hooks
+
+Install or uninstall Runlayer hooks that validate MCP tool calls and block access to sensitive files (`.env`, MCP configs).
+
+#### Command Options
+
+- `--client`, `-c`: Client to configure (`cursor`, `claude_code`, or `codex`). All clients if omitted.
+- `--install`, `-i`: Install hooks
+- `--uninstall`, `-u`: Uninstall hooks
+- `--event-hooks` (`--all-events`): Register all event/session hooks (default: enforcement only)
+- `--no-enforcement`: Monitoring only — register hooks but skip blocking enforcement
+- `--mdm`: Install to enterprise location (requires elevated permissions)
+- `--host`, `-H`: Validate this host exists in config before install
+- `--yes`, `-y`: Skip confirmation prompt
+
+#### Example
+
+```bash
+# Install hooks for all clients
+uvx runlayer setup hooks --install
+
+# Install for Claude Code only
+uvx runlayer setup hooks --install --client claude_code
+
+# Install to enterprise (MDM) location
+sudo uvx runlayer setup hooks --install --mdm
+
+# Install enforcement plus full event/session telemetry hooks
+uvx runlayer setup hooks --install --event-hooks
+
+# Monitor without blocking
+uvx runlayer setup hooks --install --no-enforcement
+
+# Uninstall
+uvx runlayer setup hooks --uninstall
+```
+
+### `setup sync` - Sync Auto-Synced MCPs
+
+Install all auto-synced MCPs to client configs. Auto-detects installed clients or use `--client` to target a specific one.
+
+#### Command Options
+
+- `--client`, `-c`: Target client (auto-detects if omitted)
+- `--header`: HTTP header for remote servers (format: `Key: Value`, can be repeated)
+- `--secret`, `-s`: Your Runlayer API key (optional if logged in)
+- `--host`, `-H`: Your Runlayer instance URL (optional if logged in)
+- `--yes`, `-y`: Skip confirmation prompts
+
+#### Example
+
+```bash
+# Sync to all detected clients
+uvx runlayer setup sync
+
+# Sync to a specific client
+uvx runlayer setup sync --client cursor --yes
+```
+
+### `skills` - Manage Skills
+
+Push, install, and manage reusable prompt packages.
+
+#### `skills push`
+
+```bash
+uvx runlayer skills push [PATH] --namespace <namespace> [OPTIONS]
+```
+
+- `PATH`: Root directory to scan (default: `.`)
+- If `PATH` itself is a skill dir, the pushed skill path uses that folder name
+- If `PATH` contains many skill dirs, each pushed skill path uses its relative subpath
+- `--namespace, -N`: Required. Groups skills by repo (e.g. `myorg/my-repo`)
+- `--public`: Publish pushed skills as public
+- `--prune`: Delete remote skills whose directories no longer exist locally
+- `--dry-run, -n`: Preview changes without making API calls
+
+#### `skills scan`
+
+```bash
+uvx runlayer skills scan <PATH> [OPTIONS]
+```
+
+- `PATH`: Skill dir, `SKILL.md` path, or a root containing many skills
+- `--name`: Override skill name sent to the security scan API for single-skill scans only
+- `--fail-on`: Exit non-zero on `warn` or `block`
+- Output is always JSON. Single-skill scans return one scan object; multi-skill scans return `{ "skills": [...] }`
+
+This calls the security scan API to score one or many local skills without pushing them to the
+Runlayer skills catalog or AI Watch shadow-skill discovery flow.
+
+#### `skills add`
+
+```bash
+uvx runlayer skills add [SOURCE] [OPTIONS]
+```
+
+- `SOURCE`: Skill UUID or namespace (e.g. `Org/Repo`). Optional when `--all` is used
+- `--all`: Install all accessible skills across namespaces
+- `--skill`: Filter by skill name within a namespace
+- `--client, -c`: Target editor: `claude_code` (default), `cursor`, `opencode`, `vscode`
+- `--global, -g`: Install globally instead of project-level
+- `--dry-run, -n`: Preview without writing files
+
+#### `skills list`
+
+```bash
+uvx runlayer skills list [OPTIONS]
+```
+
+- `--client, -c`: Target editor (default: `claude_code`)
+- `--global, -g`: List global skills
+
+#### `skills update`
+
+```bash
+uvx runlayer skills update [OPTIONS]
+```
+
+- `--skill`: Update a specific skill only
+- `--client, -c`: Target editor (default: `claude_code`)
+- `--global, -g`: Update global skills
+- `--dry-run, -n`: Preview without writing files
+
+#### `skills remove`
+
+```bash
+uvx runlayer skills remove [NAME] [OPTIONS]
+```
+
+- `NAME`: Skill name. Optional when `--all` is used
+- `--all`: Remove all installed skills in the selected scope
+- `--yes`: Skip confirmation prompt
+- `--client, -c`: Target editor (default: `claude_code`)
+- `--global, -g`: Remove from global skills
+
+### `plugins` - Manage Plugins
+
+Push, install, and manage plugin bundles (MCP connectors + skills).
+
+#### Supported Clients
+
+| Client | Install mode |
+|--------|-------------|
+| `claude_code` (default) | Native |
+| `cursor` | Native |
+| `vscode` | Native |
+| `windsurf` | MCP fallback |
+| `goose` | MCP fallback |
+| `zed` | MCP fallback |
+| `opencode` | MCP fallback |
+
+#### `plugins push`
+
+```bash
+uvx runlayer plugins push [PATH] --namespace <namespace> [OPTIONS]
+```
+
+- `PATH`: Root directory to scan (default: `.`)
+- `--namespace, -N`: Required. Groups plugins by repo or source namespace
+- `--public`: Publish the plugin as public
+- `--dynamic-tools`: Enable dynamic tools mode
+- `--prune`: Delete remote plugins missing locally
+- `--dry-run, -n`: Preview changes without making writes
+
+#### `plugins add`
+
+```bash
+uvx runlayer plugins add [SOURCE] [OPTIONS]
+```
+
+- `SOURCE`: Plugin UUID or namespace. Optional when `--all` is used
+- `--all`: Install all accessible plugins across namespaces
+- `--plugin`: Filter by plugin name within a namespace
+- `--client, -c`: Target editor (default: `claude_code`)
+- `--global, -g`: Install globally instead of project-level
+- `--dry-run, -n`: Preview without writing files
+
+#### `plugins list`
+
+```bash
+uvx runlayer plugins list [OPTIONS]
+```
+
+- `--client, -c`: Target editor (default: `claude_code`)
+- `--global, -g`: List global plugins
+
+#### `plugins update`
+
+```bash
+uvx runlayer plugins update [OPTIONS]
+```
+
+- `--plugin`: Update a specific plugin only
+- `--client, -c`: Target editor (default: `claude_code`)
+- `--global, -g`: Update global plugins
+- `--dry-run, -n`: Preview without writing files
+
+#### `plugins remove`
+
+```bash
+uvx runlayer plugins remove [PLUGIN_REF] [OPTIONS]
+```
+
+- `PLUGIN_REF`: Plugin name or UUID. Optional when `--all` is used
+- `--all`: Remove all installed plugins in the selected scope
+- `--yes`: Skip confirmation prompt
+- `--client, -c`: Target editor (default: `claude_code`)
+- `--global, -g`: Remove from global plugins
+
+### `verified-local` - Run a Verified Local MCP Server Proxy
+
+Secure proxy for verified local MCP servers. Verifies code signatures before forwarding MCP traffic to local applications, ensuring the target application hasn't been tampered with.
+
+#### Command Arguments
+
+- `server_id`: Server identifier (e.g., `com.figma/desktop-mcp`)
+
+#### Command Options
+
+- `--list`, `-l`: List available server IDs and exit
+- `--verbose`, `-v`: Enable verbose output
+
+#### Example
+
+```bash
+# List available servers
+uvx runlayer verified-local --list
+
+# Run a verified proxy
+uvx runlayer verified-local com.figma/desktop-mcp
+```
+
+## Credential Storage
+
+When you run `runlayer login`, the CLI stores your API key in your operating system's **credential store**. The backing service depends on the platform:
+
+| Platform | Backend |
+|----------|---------|
+| macOS | Keychain Access |
+| Windows | Windows Credential Vault |
+| Linux (desktop) | Secret Service (GNOME Keyring / KDE Wallet) |
+| CI / Docker / headless | Falls back to `~/.runlayer/config.yaml` |
+
+The `~/.runlayer/config.yaml` file still stores host URLs, default host, and org API keys — but user API keys are kept in the credential store when it is usable.
+
+If no credential store is available (headless environments, SSH sessions without D-Bus, and similar), credentials fall back to the config file with a one-time warning. No action is needed — the CLI handles this automatically.
+
+**Upgrading from older versions:** Existing secrets in `config.yaml` continue to work. New logins store user API keys in the credential store. Run `runlayer login` again to move a host's secret off the file and into the store.
+
+## Logs
+
+Logs are written to `~/.runlayer/logs/`. Set `LOG_LEVEL` environment variable to control verbosity (DEBUG, INFO, WARNING, ERROR).

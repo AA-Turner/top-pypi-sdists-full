@@ -1,0 +1,529 @@
+"""AI-generated one-line summaries for Matrix threads."""
+
+from __future__ import annotations
+
+import asyncio
+import hashlib
+import re
+from collections import defaultdict
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
+
+import nio
+from agno.agent import Agent
+from agno.models.vertexai.claude import Claude as VertexAIClaude
+from pydantic import BaseModel, Field
+
+from mindroom import model_loading
+from mindroom.ai_runtime import cached_agent_run
+from mindroom.logging_config import get_logger
+from mindroom.matrix.client_delivery import send_message_result
+from mindroom.matrix.message_builder import build_message_content
+from mindroom.timing import timed
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from mindroom.config.main import Config
+    from mindroom.constants import RuntimePaths
+    from mindroom.matrix.client_visible_messages import ResolvedVisibleMessage
+    from mindroom.matrix.conversation_cache import ConversationCacheProtocol
+
+logger = get_logger(__name__)
+THREAD_SUMMARY_MAX_LENGTH = 300
+_MARKDOWN_LINK_RE = re.compile(r"!\[([^\]]*)\]\([^)]+\)|\[([^\]]+)\]\([^)]+\)")
+_MARKDOWN_CODE_BLOCK_RE = re.compile(r"```(?:[^\n`]*)\n?(.*?)```", re.DOTALL)
+_MARKDOWN_DOUBLE_EMPHASIS_RE = re.compile(r"(\*\*|__)(.*?)\1", re.DOTALL)
+_MARKDOWN_SINGLE_ASTERISK_RE = re.compile(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", re.DOTALL)
+_MARKDOWN_STRIKETHROUGH_RE = re.compile(r"~~(.*?)~~", re.DOTALL)
+_MARKDOWN_INLINE_CODE_RE = re.compile(r"`([^`]*)`")
+_MARKDOWN_HEADING_RE = re.compile(r"(?m)^\s{0,3}#{1,6}\s+")
+_MARKDOWN_BLOCKQUOTE_RE = re.compile(r"(?m)^\s{0,3}>\s?")
+_MARKDOWN_LIST_ITEM_RE = re.compile(r"(?m)^\s*(?:[-+*]|\d+\.)\s+")
+_PREQUEUE_CONCURRENCY_MARGIN = 2
+
+# In-memory tracking of last summarized message count per thread.
+# Key: "{room_id}:{thread_id}", value: message count at last summary.
+_last_summary_counts: dict[str, int] = {}
+_thread_locks: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
+
+
+class ThreadSummaryWriteError(RuntimeError):
+    """Raised when a manual thread summary cannot be written."""
+
+
+@dataclass(frozen=True)
+class _ThreadSummaryWriteResult:
+    """Successful manual thread summary write details."""
+
+    event_id: str
+    message_count: int
+    summary: str
+
+
+class _ThreadSummary(BaseModel):
+    """Structured thread summary response."""
+
+    summary: str = Field(
+        max_length=THREAD_SUMMARY_MAX_LENGTH,
+        description="One-line summary of the thread conversation",
+    )
+
+
+@runtime_checkable
+class _SupportsTemperature(Protocol):
+    """Protocol for model instances that accept a temperature override."""
+
+    temperature: float | None
+
+
+def _configure_summary_model_temperature(
+    model: object,
+    *,
+    summary_temperature: float | None,
+    model_name: str,
+) -> None:
+    """Prepare the summary model's temperature setting for one request."""
+    if isinstance(model, VertexAIClaude):
+        # Vertex Claude's rawPredict helper rejects a temperature field entirely.
+        model.temperature = None
+        return
+    if isinstance(model, _SupportsTemperature):
+        model.temperature = summary_temperature
+        return
+    if summary_temperature is None:
+        return
+
+    model_class = type(model).__name__
+    logger.warning(
+        f"Thread summary model class {model_class} does not support a runtime temperature override; continuing with provider defaults",
+        model_class=model_class,
+        model_name=model_name,
+    )
+
+
+def normalize_thread_summary_text(raw_text: str) -> str:
+    """Strip common markdown formatting and collapse the result to one plain-text line."""
+    normalized = raw_text.strip()
+    if not normalized:
+        return ""
+
+    normalized = _MARKDOWN_CODE_BLOCK_RE.sub(r"\1", normalized)
+    normalized = _MARKDOWN_LINK_RE.sub(lambda match: match.group(1) or match.group(2) or "", normalized)
+    normalized = _MARKDOWN_HEADING_RE.sub("", normalized)
+    normalized = _MARKDOWN_BLOCKQUOTE_RE.sub("", normalized)
+    normalized = _MARKDOWN_LIST_ITEM_RE.sub("", normalized)
+    normalized = _MARKDOWN_DOUBLE_EMPHASIS_RE.sub(r"\2", normalized)
+    normalized = _MARKDOWN_SINGLE_ASTERISK_RE.sub(r"\1", normalized)
+    normalized = _MARKDOWN_STRIKETHROUGH_RE.sub(r"\1", normalized)
+    normalized = _MARKDOWN_INLINE_CODE_RE.sub(r"\1", normalized)
+    return " ".join(normalized.split())
+
+
+def _thread_summary_cache_key(room_id: str, thread_id: str) -> str:
+    """Return the in-memory cache key for one room/thread pair."""
+    return f"{room_id}:{thread_id}"
+
+
+def _thread_summary_lock(room_id: str, thread_id: str) -> asyncio.Lock:
+    """Return the shared per-thread lock for summary writes."""
+    return _thread_locks[_thread_summary_cache_key(room_id, thread_id)]
+
+
+def update_last_summary_count(room_id: str, thread_id: str, message_count: int) -> None:
+    """Record the latest summarized message count for one thread monotonically."""
+    cache_key = _thread_summary_cache_key(room_id, thread_id)
+    existing_count = _last_summary_counts.get(cache_key, 0)
+    if message_count > existing_count:
+        _last_summary_counts[cache_key] = message_count
+
+
+def _next_threshold(
+    last_summarized_count: int,
+    *,
+    first_threshold: int,
+    subsequent_interval: int,
+) -> int:
+    """Return the next message count at which a summary should be generated."""
+    if last_summarized_count <= 0:
+        return first_threshold
+    return last_summarized_count + subsequent_interval
+
+
+def _is_thread_summary_message(message: ResolvedVisibleMessage) -> bool:
+    """Return whether a visible thread message is itself a summary notice."""
+    return isinstance(message.content.get("io.mindroom.thread_summary"), dict)
+
+
+def _count_non_summary_messages(thread_history: Sequence[ResolvedVisibleMessage]) -> int:
+    """Count visible thread messages while excluding summary notices."""
+    return sum(1 for message in thread_history if not _is_thread_summary_message(message))
+
+
+def thread_summary_message_count_hint(
+    thread_history: Sequence[ResolvedVisibleMessage],
+) -> int:
+    """Return a lower-bound post-response thread size without refetching history."""
+    return _count_non_summary_messages(thread_history) + 1
+
+
+def _next_thread_summary_threshold(
+    room_id: str,
+    thread_id: str,
+    config: Config,
+) -> int:
+    """Return the next summary threshold using the current in-memory baseline."""
+    return _next_threshold(
+        _last_summary_counts.get(_thread_summary_cache_key(room_id, thread_id), 0),
+        first_threshold=config.defaults.thread_summary_first_threshold,
+        subsequent_interval=config.defaults.thread_summary_subsequent_interval,
+    )
+
+
+def should_queue_thread_summary(
+    room_id: str,
+    thread_id: str,
+    config: Config,
+    *,
+    message_count_hint: int | None,
+) -> bool:
+    """Return whether the lower-bound hint is close enough to justify a live recheck."""
+    if message_count_hint is None:
+        return True
+    threshold = _next_thread_summary_threshold(room_id, thread_id, config)
+    return message_count_hint >= threshold - _PREQUEUE_CONCURRENCY_MARGIN
+
+
+async def _load_thread_history(
+    conversation_cache: ConversationCacheProtocol,
+    room_id: str,
+    thread_id: str,
+) -> list[ResolvedVisibleMessage]:
+    """Load thread history through the explicit conversation-cache seam."""
+    return list(
+        await conversation_cache.get_thread_history(
+            room_id,
+            thread_id,
+            caller_label="thread_summary_background",
+        ),
+    )
+
+
+async def _recover_last_summary_count(
+    client: nio.AsyncClient,
+    room_id: str,
+    thread_id: str,
+) -> int:
+    """Recover the last summarized message count from existing summary events in the thread.
+
+    Scans recent room messages for events with ``io.mindroom.thread_summary``
+    metadata that belong to *thread_id* and returns the highest
+    ``message_count`` found, or 0.
+    """
+    response = await client.room_messages(
+        room_id,
+        start=None,
+        limit=100,
+        message_filter={"types": ["m.room.message"]},
+        direction=nio.MessageDirection.back,
+    )
+    if not isinstance(response, nio.RoomMessagesResponse):
+        return 0
+
+    best_count = 0
+    for event in response.chunk:
+        content = event.source.get("content", {})
+        meta = content.get("io.mindroom.thread_summary")
+        if not isinstance(meta, dict):
+            continue
+        relates_to = content.get("m.relates_to")
+        if not isinstance(relates_to, dict):
+            continue
+        if relates_to.get("event_id") != thread_id:
+            continue
+        count = meta.get("message_count")
+        if not isinstance(count, int):
+            continue
+        best_count = max(best_count, count)
+    return best_count
+
+
+_MAX_MESSAGES_BEFORE_TRUNCATION = 50
+_TRUNCATION_SAMPLE_SIZE = 3
+
+
+def _build_conversation_text(thread_history: Sequence[ResolvedVisibleMessage]) -> str:
+    """Build conversation text from thread history.
+
+    Prior thread summary notices (``io.mindroom.thread_summary``) are excluded
+    so they don't pollute the conversation.
+
+    For threads exceeding ``_MAX_MESSAGES_BEFORE_TRUNCATION`` messages, samples
+    the first and last few messages with an omission note in between.
+    """
+    lines: list[str] = []
+    for msg in thread_history:
+        if _is_thread_summary_message(msg):
+            continue
+        sender = msg.sender or "unknown"
+        body = msg.body or ""
+        if body:
+            lines.append(f"{sender}: {body}")
+
+    if len(lines) > _MAX_MESSAGES_BEFORE_TRUNCATION:
+        n = _TRUNCATION_SAMPLE_SIZE
+        omitted = len(lines) - 2 * n
+        lines = [*lines[:n], f"[... {omitted} messages omitted ...]", *lines[-n:]]
+
+    return "\n".join(lines)
+
+
+async def _generate_summary(
+    thread_history: Sequence[ResolvedVisibleMessage],
+    config: Config,
+    runtime_paths: RuntimePaths,
+) -> str | None:
+    """Generate a one-line summary of a thread conversation via LLM."""
+    model_name = config.defaults.thread_summary_model or "default"
+    model = model_loading.get_model_instance(config, runtime_paths, model_name)
+    _configure_summary_model_temperature(
+        model,
+        summary_temperature=config.defaults.thread_summary_temperature,
+        model_name=model_name,
+    )
+
+    conversation = _build_conversation_text(thread_history)
+    session_hash = hashlib.sha256(conversation.encode()).hexdigest()[:8]
+
+    prompt = config.render_prompt("THREAD_SUMMARY_USER_PROMPT_TEMPLATE", conversation=conversation)
+    agent = Agent(
+        name="ThreadSummarizer",
+        instructions=config.get_prompt("THREAD_SUMMARY_INSTRUCTIONS").splitlines(),
+        model=model,
+        output_schema=_ThreadSummary,
+        telemetry=False,
+    )
+    response = await cached_agent_run(
+        agent=agent,
+        run_input=prompt,
+        session_id=f"thread_summary_{session_hash}",
+    )
+    content = response.content
+    if isinstance(content, _ThreadSummary):
+        return content.summary
+    return str(content) if content else None
+
+
+@timed("maybe_generate_thread_summary")
+async def _timed_generate_summary(
+    thread_history: Sequence[ResolvedVisibleMessage],
+    config: Config,
+    runtime_paths: RuntimePaths,
+) -> str | None:
+    """Run the summary generation attempt with timing instrumentation."""
+    return await _generate_summary(thread_history, config, runtime_paths)
+
+
+async def send_thread_summary_event(
+    client: nio.AsyncClient,
+    room_id: str,
+    thread_id: str,
+    summary: str,
+    message_count: int,
+    model_name: str,
+    conversation_cache: ConversationCacheProtocol,
+    *,
+    config: Config,
+) -> str | None:
+    """Send a thread summary as a standard Matrix notice event."""
+    normalized_summary = normalize_thread_summary_text(summary)
+    if not normalized_summary:
+        logger.warning(
+            "Refusing to send empty normalized thread summary",
+            room_id=room_id,
+            thread_id=thread_id,
+            message_count=message_count,
+        )
+        return None
+
+    truncated_summary = (
+        normalized_summary[: THREAD_SUMMARY_MAX_LENGTH - 3] + "..."
+        if len(normalized_summary) > THREAD_SUMMARY_MAX_LENGTH
+        else normalized_summary
+    )
+    try:
+        latest_thread_event_id = await conversation_cache.get_latest_thread_event_id_if_needed(
+            room_id,
+            thread_id,
+            caller_label="thread_summary_send",
+        )
+    except Exception as exc:
+        logger.warning(
+            "Falling back to thread root for summary send after latest-event lookup failure",
+            room_id=room_id,
+            thread_id=thread_id,
+            error=str(exc),
+        )
+        latest_thread_event_id = None
+    content = build_message_content(
+        truncated_summary,
+        thread_event_id=thread_id,
+        latest_thread_event_id=latest_thread_event_id or thread_id,
+        extra_content={
+            "msgtype": "m.notice",
+            "io.mindroom.thread_summary": {
+                "version": 1,
+                "summary": truncated_summary,
+                "message_count": message_count,
+                "generated_at": datetime.now(UTC).isoformat(),
+                "model": model_name,
+            },
+        },
+    )
+    delivered = await send_message_result(client, room_id, content, config=config)
+    if delivered is not None:
+        conversation_cache.notify_outbound_message(
+            room_id,
+            delivered.event_id,
+            delivered.content_sent,
+        )
+        logger.info(
+            "Sent thread summary",
+            room_id=room_id,
+            thread_id=thread_id,
+            message_count=message_count,
+        )
+        return delivered.event_id
+    logger.warning("Failed to send thread summary", room_id=room_id, thread_id=thread_id)
+    return None
+
+
+async def set_manual_thread_summary(
+    client: nio.AsyncClient,
+    room_id: str,
+    thread_id: str,
+    summary: str,
+    *,
+    config: Config,
+    conversation_cache: ConversationCacheProtocol,
+) -> _ThreadSummaryWriteResult:
+    """Write one validated manual summary for a canonical thread root."""
+    if not isinstance(summary, str) or not summary.strip():
+        msg = "summary must be a non-empty string."
+        raise ThreadSummaryWriteError(msg)
+
+    normalized_summary = normalize_thread_summary_text(summary)
+    if not normalized_summary:
+        msg = "summary must be a non-empty string."
+        raise ThreadSummaryWriteError(msg)
+    if len(normalized_summary) > THREAD_SUMMARY_MAX_LENGTH:
+        msg = f"summary must be {THREAD_SUMMARY_MAX_LENGTH} characters or fewer after whitespace normalization."
+        raise ThreadSummaryWriteError(msg)
+
+    async with _thread_summary_lock(room_id, thread_id):
+        try:
+            thread_history = await _load_thread_history(
+                conversation_cache,
+                room_id,
+                thread_id,
+            )
+        except Exception as exc:
+            msg = "Failed to fetch thread history for the target thread."
+            raise ThreadSummaryWriteError(msg) from exc
+
+        message_count = _count_non_summary_messages(thread_history)
+        try:
+            event_id = await send_thread_summary_event(
+                client,
+                room_id,
+                thread_id,
+                normalized_summary,
+                message_count,
+                "manual",
+                conversation_cache,
+                config=config,
+            )
+        except Exception as exc:
+            msg = "Failed to send thread summary event."
+            raise ThreadSummaryWriteError(msg) from exc
+        if event_id is None:
+            msg = "Failed to send thread summary event."
+            raise ThreadSummaryWriteError(msg)
+
+        update_last_summary_count(room_id, thread_id, message_count)
+        return _ThreadSummaryWriteResult(
+            event_id=event_id,
+            message_count=message_count,
+            summary=normalized_summary,
+        )
+
+
+async def maybe_generate_thread_summary(
+    client: nio.AsyncClient,
+    room_id: str,
+    thread_id: str,
+    config: Config,
+    runtime_paths: RuntimePaths,
+    *,
+    conversation_cache: ConversationCacheProtocol,
+    message_count_hint: int | None = None,
+) -> None:
+    """Generate and send a thread summary if the message count crosses a threshold."""
+    async with _thread_summary_lock(room_id, thread_id):
+        cache_key = _thread_summary_cache_key(room_id, thread_id)
+        # Recover from existing summary events on cache miss (e.g., after restart)
+        if cache_key not in _last_summary_counts:
+            recovered = await _recover_last_summary_count(client, room_id, thread_id)
+            if recovered > 0:
+                update_last_summary_count(room_id, thread_id, recovered)
+
+        threshold = _next_thread_summary_threshold(room_id, thread_id, config)
+
+        # message_count_hint comes from a pre-send snapshot and is only a
+        # lower bound. Other agents or humans can post before this background
+        # task runs, so a stale hint must never suppress the live re-fetch.
+        thread_history = await _load_thread_history(conversation_cache, room_id, thread_id)
+        message_count = _count_non_summary_messages(thread_history)
+        if message_count_hint is not None:
+            message_count = max(message_count, message_count_hint)
+        if message_count < threshold:
+            return
+        try:
+            summary = await _timed_generate_summary(thread_history, config, runtime_paths)
+        except Exception:
+            logger.exception("Thread summary generation failed", room_id=room_id, thread_id=thread_id)
+            # Record current count to prevent retry storms until next threshold
+            update_last_summary_count(room_id, thread_id, message_count)
+            return
+
+        if summary is None:
+            logger.warning("Thread summary generation returned None", room_id=room_id, thread_id=thread_id)
+            # Record current count to prevent retry storms until next threshold
+            update_last_summary_count(room_id, thread_id, message_count)
+            return
+
+        normalized_summary = normalize_thread_summary_text(summary)
+        if not normalized_summary:
+            logger.warning(
+                "Thread summary generation returned no plain-text content",
+                room_id=room_id,
+                thread_id=thread_id,
+            )
+            update_last_summary_count(room_id, thread_id, message_count)
+            return
+
+        model_name = config.defaults.thread_summary_model or "default"
+        # Record count before sending — the LLM cost is already incurred, so don't
+        # retry on Matrix send failure (avoids cost amplification loop).
+        update_last_summary_count(room_id, thread_id, message_count)
+        await send_thread_summary_event(
+            client,
+            room_id,
+            thread_id,
+            normalized_summary,
+            message_count,
+            model_name,
+            conversation_cache,
+            config=config,
+        )

@@ -257,6 +257,46 @@ class TestRequests(EnumTypeMixin, TestCase):
             self.assertEqual(field.to_representation((1, 2, 4)), (1, 2, 4))
             self.assertIsNone(field.primitive_field)
 
+        def test_drf_field_name_coercion(self):
+            """
+            The drf field should coerce by name in the same way the model
+            field and django-filter do - not just by primitive value.
+            See https://github.com/django-commons/django-enum/issues/194
+            """
+            from rest_framework.exceptions import ValidationError
+
+            from django_enum.drf import EnumField
+
+            # SmallPosIntEnum.VAL1 has name "VAL1", value 0 and label
+            # "Value 1" - all distinct, so accepting "VAL1" proves the
+            # field resolved it by name and not coincidentally by value.
+            for strict in (True, False):
+                field = EnumField(self.SmallPosIntEnum, strict=strict)
+                # by name
+                self.assertEqual(
+                    field.to_internal_value("VAL1"), self.SmallPosIntEnum.VAL1
+                )
+                # by primitive value (and its string form)
+                self.assertEqual(field.to_internal_value(0), self.SmallPosIntEnum.VAL1)
+                self.assertEqual(
+                    field.to_internal_value("0"), self.SmallPosIntEnum.VAL1
+                )
+                # by enum instance
+                self.assertEqual(
+                    field.to_internal_value(self.SmallPosIntEnum.VAL1),
+                    self.SmallPosIntEnum.VAL1,
+                )
+
+            # name coercion also works for non-int primitives
+            field = EnumField(self.TextEnum)
+            self.assertEqual(field.to_internal_value("VALUE1"), self.TextEnum.VALUE1)
+            self.assertEqual(field.to_internal_value("V1"), self.TextEnum.VALUE1)
+
+            # an unknown name is still rejected when strict
+            field = EnumField(self.SmallPosIntEnum, strict=True)
+            with self.assertRaises(ValidationError):
+                field.to_internal_value("DOES_NOT_EXIST")
+
         def test_drf_serializer(self):
             from rest_framework import serializers
 

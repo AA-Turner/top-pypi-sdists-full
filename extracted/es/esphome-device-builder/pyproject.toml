@@ -1,0 +1,251 @@
+[project]
+authors = [
+    { name = "The ESPHome Authors", email = "esphome@openhomefoundation.org" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Home Automation",
+]
+dependencies = [
+    "esphome-device-builder-frontend==0.1.112",
+    "aiohttp>=3.9.0",
+    "aiohttp-asyncmdnsresolver>=0.1.1",
+    "colorlog>=6.8.0",
+    "cryptography>=42.0.2",
+    "fnv-hash-fast>=2.0.0",
+    "ifaddr>=0.2.0",
+    "mashumaro>=3.13",
+    "orjson>=3.9.0",
+    "pyyaml>=6.0",
+    "ruamel.yaml>=0.18.0",
+    "voluptuous>=0.13.1",
+]
+description = "ESPHome Device Builder"
+license = "Apache-2.0"
+maintainers = [
+    { name = "Open Home Foundation", email = "esphome@openhomefoundation.org" },
+]
+name = "esphome-device-builder"
+readme = "README.md"
+requires-python = ">=3.12"
+version = "0.1.0b81"
+
+[project.optional-dependencies]
+esphome = [
+    "esphome>=2024.1.0",
+]
+test = [
+    "blockbuster>=1.5.5,<1.6",
+    "codespell==2.4.2",
+    "jsonschema>=4.20.0",
+    "mypy==2.1.0",
+    "pre-commit==4.6.0",
+    "pre-commit-hooks==6.0.0",
+    "pytest==9.0.3",
+    "pytest-aiohttp==1.1.0",
+    "pytest-codspeed==5.0.3",
+    "pytest-cov==7.1.0",
+    "pytest-timeout==2.4.0",
+    "pytest-xdist==3.8.0",
+    "ruff==0.15.15",
+    "types-PyYAML",
+]
+
+[project.urls]
+Documentation = "https://esphome.io"
+Homepage = "https://esphome.io"
+Issues = "https://github.com/esphome/device-builder/issues"
+Repository = "https://github.com/esphome/device-builder"
+
+[project.scripts]
+esphome-device-builder = "esphome_device_builder.__main__:main"
+esphome-device-builder-discover = "esphome_device_builder.discover:main"
+
+[tool.setuptools]
+include-package-data = true
+platforms = [
+    "any",
+]
+zip-safe = false
+
+[tool.setuptools.packages.find]
+include = [
+    "esphome_device_builder*",
+]
+
+[tool.setuptools.package-data]
+esphome_device_builder = [
+    "py.typed",
+    "definitions/boards/*/images/*",
+    "definitions/boards.index.json",
+    "definitions/board_bodies/*.json",
+    "definitions/featured_components.index.json",
+    "definitions/components.index.json",
+    "definitions/components/*.json",
+    "definitions/automations.index.json",
+    "definitions/automations/*/*.json",
+]
+
+[tool.ruff]
+fix = true
+line-length = 100
+show-fixes = true
+target-version = "py312"
+
+[tool.ruff.format]
+line-ending = "lf"
+
+[tool.ruff.lint]
+preview = true
+explicit-preview-rules = true
+ignore = [
+    "D101",
+    "D102",
+    "D103",
+    "D107",
+    "D203",
+    "D213",
+    "D417",
+    "PLR0913",
+    "PLR2004",
+    "RUF001",
+    "RUF002",
+    "RUF003",
+    "S101",
+    "S104",
+    "ASYNC109",
+    "ASYNC240",
+    "TRY003",
+]
+select = [
+    "A",
+    "ASYNC",
+    "B",
+    "BLE",
+    "C4",
+    "C90",
+    "D",
+    "DTZ",
+    "E",
+    "EXE",
+    "F",
+    "FBT",
+    "FLY",
+    "FURB",
+    "G",
+    "I",
+    "ICN",
+    "INP",
+    "ISC",
+    "LOG",
+    "N",
+    "PERF",
+    "PGH",
+    "PIE",
+    "PL",
+    "PTH",
+    "PLR0904",
+    "PLW1514",
+    "PYI",
+    "Q",
+    "RET",
+    "RSE",
+    "RUF",
+    "S",
+    "SIM",
+    "SLOT",
+    "SLF",
+    "T10",
+    "T20",
+    "TRY",
+    "UP",
+    "W",
+    "YTT",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"script/*" = [
+    "T20",
+    "S108",
+    "S310",
+    "S110",
+    "S603",
+    "S607",
+    "E501",
+    "PLC0415",
+    "SLF001",
+    "BLE001",
+    "FBT001",
+    "FBT002",
+    "TRY400",
+    "INP001",
+]
+"esphome_device_builder/discover.py" = [
+    "T20",
+]
+"tests/*" = [
+    "S105",
+    "S106",
+    "SLF001",
+    "ASYNC110",
+    "BLE001",
+    "FBT001",
+    "FBT002",
+    "FBT003",
+    "TRY301",
+]
+"tests/manual/*" = [
+    "T20",
+    "S108",
+    "PLC0415",
+]
+"esphome_device_builder/controllers/**/*.py" = [
+    "SLF001",
+]
+".github/actions/**" = [
+    "T20",
+    "S108",
+    "PLC0415",
+    "BLE001",
+    "SLF001",
+    "INP001",
+    "PTH123",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "esphome_device_builder",
+]
+
+[tool.codespell]
+skip = "*.json,*/definitions/*"
+ignore-words-list = "commitish,hass"
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+follow_imports = "silent"
+ignore_missing_imports = true
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+addopts = "--dist=loadgroup --ignore=tests/real_compile"
+timeout = 10
+
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+    "setuptools>=75.0",
+]

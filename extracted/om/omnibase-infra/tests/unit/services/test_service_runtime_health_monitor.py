@@ -1,0 +1,671 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Unit tests for ServiceRuntimeHealthMonitor.
+
+Validates:
+- Model instantiation and field constraints
+- run_once() produces a correctly-shaped event
+- Discovery errors surface as DEGRADED
+- Empty consumer groups surface as DEGRADED
+- Uncovered topics surface as CRITICAL/DEGRADED
+- Event emission to Kafka via ProtocolEventBusLike
+- Start/stop lifecycle is idempotent
+
+Related Tickets:
+    - OMN-8623: Runtime health alerting
+"""
+
+from __future__ import annotations
+
+import os
+from datetime import UTC, datetime
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
+
+import pytest
+
+from omnibase_infra.models.health.model_runtime_health_check_event import (
+    ModelRuntimeHealthCheckEvent,
+)
+from omnibase_infra.models.health.model_runtime_health_dimension import (
+    ModelRuntimeHealthDimension,
+)
+from omnibase_infra.runtime.auto_wiring.models import (
+    ModelAutoWiringManifest,
+    ModelContractVersion,
+    ModelDiscoveredContract,
+    ModelEventBusWiring,
+)
+from omnibase_infra.services.service_runtime_health_monitor import (
+    ConsumerGroupSnapshot,
+    ServiceRuntimeHealthMonitor,
+    _discover_contracts,
+    _expected_consumer_groups_from_manifest,
+    _worst,
+)
+from omnibase_infra.topics import topic_keys
+from omnibase_infra.topics.service_topic_registry import ServiceTopicRegistry
+
+# =============================================================================
+# Helpers
+# =============================================================================
+
+
+def _make_manifest(contracts=5, errors=0, subscribe_topics=()):
+    """Return a minimal mock ModelAutoWiringManifest."""
+    m = MagicMock()
+    m.total_discovered = contracts
+    m.total_errors = errors
+    m.all_subscribe_topics.return_value = subscribe_topics
+    return m
+
+
+def _make_discovered_contract(
+    *,
+    name: str = "node_contract_sweep",
+    package_name: str = "omnimarket",
+    topic: str = "onex.cmd.omnimarket.contract-sweep-start.v1",
+    runtime_profiles: tuple[str, ...] = (),
+) -> ModelDiscoveredContract:
+    return ModelDiscoveredContract(
+        name=name,
+        node_type="ORCHESTRATOR",
+        contract_version=ModelContractVersion(major=1, minor=2, patch=3),
+        contract_path=__file__,
+        entry_point_name=name,
+        package_name=package_name,
+        runtime_profiles=runtime_profiles,
+        event_bus=ModelEventBusWiring(subscribe_topics=(topic,), publish_topics=()),
+    )
+
+
+# =============================================================================
+# _worst helper
+# =============================================================================
+
+
+class TestWorstHelper:
+    def test_all_healthy(self):
+        assert _worst(["HEALTHY", "HEALTHY"]) == "HEALTHY"
+
+    def test_one_degraded(self):
+        assert _worst(["HEALTHY", "DEGRADED"]) == "DEGRADED"
+
+    def test_critical_wins(self):
+        assert _worst(["HEALTHY", "DEGRADED", "CRITICAL"]) == "CRITICAL"
+
+    def test_empty_list(self):
+        assert _worst([]) == "HEALTHY"
+
+
+class TestDiscoverContractsHelper:
+    @pytest.mark.unit
+    def test_filters_manifest_to_runtime_profile(self):
+        raw_manifest = _make_manifest(contracts=9, errors=0, subscribe_topics=["a"])
+        filtered_manifest = _make_manifest(
+            contracts=2, errors=0, subscribe_topics=["b"]
+        )
+
+        with (
+            patch.dict(os.environ, {"RUNTIME_PROFILE": "effects"}, clear=False),
+            patch(
+                "omnibase_infra.runtime.auto_wiring.discovery.discover_contracts",
+                return_value=raw_manifest,
+            ),
+            patch(
+                "omnibase_infra.runtime.auto_wiring.profile_ownership.filter_manifest_for_runtime_profile",
+                return_value=SimpleNamespace(manifest=filtered_manifest),
+            ) as mock_filter,
+        ):
+            result = _discover_contracts()
+
+        assert result is filtered_manifest
+        mock_filter.assert_called_once_with(
+            manifest=raw_manifest,
+            runtime_profile="effects",
+        )
+
+
+# =============================================================================
+# Model validation
+# =============================================================================
+
+
+class TestModelRuntimeHealthCheckEvent:
+    def test_valid_instantiation(self):
+        ev = ModelRuntimeHealthCheckEvent(
+            correlation_id=uuid4(),
+            timestamp=datetime.now(UTC),
+            status="HEALTHY",
+        )
+        assert ev.status == "HEALTHY"
+        assert ev.dimensions == ()
+
+    def test_dimension_validation(self):
+        dim = ModelRuntimeHealthDimension(
+            name="test_dim", status="DEGRADED", detail="something bad"
+        )
+        assert dim.status == "DEGRADED"
+
+    def test_invalid_status_rejected(self):
+        with pytest.raises(Exception):
+            ModelRuntimeHealthCheckEvent(
+                correlation_id=uuid4(),
+                timestamp=datetime.now(UTC),
+                status="UNKNOWN",  # type: ignore[arg-type]
+            )
+
+
+# =============================================================================
+# ServiceRuntimeHealthMonitor — init
+# =============================================================================
+
+
+class TestServiceRuntimeHealthMonitorInit:
+    def test_defaults(self):
+        monitor = ServiceRuntimeHealthMonitor()
+        assert monitor._check_interval == 300.0
+        assert monitor._event_bus is None
+        assert not monitor._running
+
+    def test_custom_interval(self):
+        monitor = ServiceRuntimeHealthMonitor(check_interval_seconds=60.0)
+        assert monitor._check_interval == 60.0
+
+    def test_topic_resolved(self):
+        registry = ServiceTopicRegistry.from_defaults()
+        monitor = ServiceRuntimeHealthMonitor(topic_registry=registry)
+        assert (
+            monitor._health_topic == "onex.evt.omnibase-infra.runtime-health-check.v1"
+        )
+
+
+# =============================================================================
+# ServiceRuntimeHealthMonitor — run_once (no Kafka)
+# =============================================================================
+
+
+class TestRunOnceNoKafka:
+    """Tests that run_once works when bootstrap_servers is not set."""
+
+    @pytest.mark.asyncio
+    async def test_healthy_when_no_errors(self):
+        manifest = _make_manifest(contracts=10, errors=0)
+        monitor = ServiceRuntimeHealthMonitor(bootstrap_servers="")
+
+        with patch(
+            "omnibase_infra.services.service_runtime_health_monitor._discover_contracts",
+            return_value=manifest,
+        ):
+            event = await monitor.run_once()
+
+        assert event.contract_count == 10
+        assert event.discovery_error_count == 0
+        # No bootstrap_servers → consumer checks skipped → should be HEALTHY overall
+        assert event.status == "HEALTHY"
+
+    @pytest.mark.asyncio
+    async def test_degraded_on_discovery_errors(self):
+        manifest = _make_manifest(contracts=8, errors=3)
+        monitor = ServiceRuntimeHealthMonitor(bootstrap_servers="")
+
+        with patch(
+            "omnibase_infra.services.service_runtime_health_monitor._discover_contracts",
+            return_value=manifest,
+        ):
+            event = await monitor.run_once()
+
+        assert event.discovery_error_count == 3
+        assert event.status in ("DEGRADED", "CRITICAL")
+        dim_names = {d.name for d in event.dimensions}
+        assert "discovery_errors" in dim_names
+        degraded_dims = [d for d in event.dimensions if d.status != "HEALTHY"]
+        assert any(d.name == "discovery_errors" for d in degraded_dims)
+
+    @pytest.mark.asyncio
+    async def test_critical_on_discovery_exception(self):
+        monitor = ServiceRuntimeHealthMonitor(bootstrap_servers="")
+
+        with patch(
+            "omnibase_infra.services.service_runtime_health_monitor._discover_contracts",
+            side_effect=RuntimeError("boom"),
+        ):
+            event = await monitor.run_once()
+
+        assert event.status == "CRITICAL"
+        critical_dims = [d for d in event.dimensions if d.status == "CRITICAL"]
+        assert any(d.name == "discovery_errors" for d in critical_dims)
+
+
+# =============================================================================
+# ServiceRuntimeHealthMonitor — run_once with mocked Kafka admin
+# =============================================================================
+
+
+class TestRunOnceWithKafka:
+    """Tests consumer group coverage checks with mocked Kafka group snapshots."""
+
+    def _mock_admin(self, groups, empty_groups):
+        """Build mock group snapshots."""
+        return [
+            ConsumerGroupSnapshot(
+                group_id=g,
+                state="EMPTY" if g in empty_groups else "STABLE",
+            )
+            for g in groups
+        ]
+
+    @pytest.mark.asyncio
+    async def test_healthy_when_all_groups_active(self):
+        groups = ["onex-consumer-topic.v1", "onex-consumer-v2"]
+        manifest = _make_manifest(contracts=5, errors=0, subscribe_topics=["topic.v1"])
+        monitor = ServiceRuntimeHealthMonitor(bootstrap_servers="localhost:9092")
+
+        snapshots = self._mock_admin(groups, empty_groups=set())
+
+        with (
+            patch(
+                "omnibase_infra.services.service_runtime_health_monitor._discover_contracts",
+                return_value=manifest,
+            ),
+            patch(
+                "omnibase_infra.services.service_runtime_health_monitor._list_consumer_group_snapshots",
+                return_value=snapshots,
+            ),
+        ):
+            event = await monitor.run_once()
+
+        assert event.consumer_group_count == 2
+        assert event.empty_consumer_group_count == 0
+        assert event.uncovered_topic_count == 0
+
+    @pytest.mark.asyncio
+    async def test_degraded_when_empty_groups(self):
+        groups = ["onex-consumer-v1", "onex-consumer-v2", "onex-consumer-v3"]
+        manifest = _make_manifest(contracts=5, errors=0)
+        monitor = ServiceRuntimeHealthMonitor(bootstrap_servers="localhost:9092")
+
+        snapshots = self._mock_admin(groups, empty_groups={"onex-consumer-v2"})
+
+        with (
+            patch(
+                "omnibase_infra.services.service_runtime_health_monitor._discover_contracts",
+                return_value=manifest,
+            ),
+            patch(
+                "omnibase_infra.services.service_runtime_health_monitor._list_consumer_group_snapshots",
+                return_value=snapshots,
+            ),
+        ):
+            event = await monitor.run_once()
+
+        assert event.empty_consumer_group_count == 1
+        degraded_dims = [d for d in event.dimensions if d.status != "HEALTHY"]
+        assert any(d.name == "empty_consumer_groups" for d in degraded_dims)
+
+    @pytest.mark.asyncio
+    async def test_degraded_when_group_listing_fails(self):
+        manifest = _make_manifest(contracts=5, errors=0, subscribe_topics=["topic.v1"])
+        monitor = ServiceRuntimeHealthMonitor(bootstrap_servers="localhost:9092")
+
+        with (
+            patch(
+                "omnibase_infra.services.service_runtime_health_monitor._discover_contracts",
+                return_value=manifest,
+            ),
+            patch(
+                "omnibase_infra.services.service_runtime_health_monitor._list_consumer_group_snapshots",
+                side_effect=UnicodeDecodeError("utf-8", b"\x80", 0, 1, "bad byte"),
+            ),
+        ):
+            event = await monitor.run_once()
+
+        assert event.status == "DEGRADED"
+        degraded_dims = [d for d in event.dimensions if d.status == "DEGRADED"]
+        assert any(d.name == "consumer_coverage" for d in degraded_dims)
+
+    @pytest.mark.asyncio
+    async def test_exact_expected_group_id_required_for_discovered_contracts(self):
+        contract = _make_discovered_contract()
+        manifest = ModelAutoWiringManifest(contracts=(contract,), errors=())
+        expected = _expected_consumer_groups_from_manifest(manifest)[0]
+        snapshots = self._mock_admin(
+            [
+                # Contains the topic, but is not the group ID EventBusKafka
+                # actually creates for auto-wired runtime subscriptions.
+                f"wrong-prefix.__t.{contract.event_bus.subscribe_topics[0]}",
+                expected.group_id,
+            ],
+            empty_groups=set(),
+        )
+        monitor = ServiceRuntimeHealthMonitor(bootstrap_servers="localhost:9092")
+
+        with (
+            patch(
+                "omnibase_infra.services.service_runtime_health_monitor._discover_contracts",
+                return_value=manifest,
+            ),
+            patch(
+                "omnibase_infra.services.service_runtime_health_monitor._list_consumer_group_snapshots",
+                return_value=snapshots,
+            ),
+        ):
+            event = await monitor.run_once()
+
+        assert event.uncovered_topic_count == 0
+        assert event.status == "HEALTHY"
+
+    @pytest.mark.asyncio
+    async def test_missing_exact_expected_group_reports_node_and_group(self):
+        contract = _make_discovered_contract(name="node_session_orchestrator")
+        manifest = ModelAutoWiringManifest(contracts=(contract,), errors=())
+        topic = contract.event_bus.subscribe_topics[0]
+        snapshots = self._mock_admin([f"wrong-prefix.__t.{topic}"], empty_groups=set())
+        monitor = ServiceRuntimeHealthMonitor(bootstrap_servers="localhost:9092")
+
+        with (
+            patch(
+                "omnibase_infra.services.service_runtime_health_monitor._discover_contracts",
+                return_value=manifest,
+            ),
+            patch(
+                "omnibase_infra.services.service_runtime_health_monitor._list_consumer_group_snapshots",
+                return_value=snapshots,
+            ),
+        ):
+            event = await monitor.run_once()
+
+        assert event.uncovered_topic_count == 1
+        degraded_dims = [d for d in event.dimensions if d.name == "topic_coverage"]
+        assert degraded_dims
+        assert "node_session_orchestrator" in degraded_dims[0].detail
+        assert "local.omnimarket.node_session_orchestrator.consume.1.2.3" in (
+            degraded_dims[0].detail
+        )
+
+    @pytest.mark.asyncio
+    async def test_live_event_bus_groups_override_stale_discovered_contracts(self):
+        stale_contract = _make_discovered_contract(name="node_superseded_projection")
+        manifest = ModelAutoWiringManifest(contracts=(stale_contract,), errors=())
+        topic = stale_contract.event_bus.subscribe_topics[0]
+        live_group = f"runtime.projection.consume.v1.__i.instance-1.__t.{topic}"
+        stale_empty_group = f"old.projection.consume.v1.__i.instance-1.__t.{topic}"
+        snapshots = self._mock_admin(
+            [live_group, stale_empty_group],
+            empty_groups={stale_empty_group},
+        )
+        bus = MagicMock()
+        bus.get_consumer_groups.return_value = {
+            (topic, "runtime.projection.consume.v1"): live_group
+        }
+        monitor = ServiceRuntimeHealthMonitor(
+            event_bus=bus,
+            bootstrap_servers="localhost:9092",
+        )
+
+        with (
+            patch(
+                "omnibase_infra.services.service_runtime_health_monitor._discover_contracts",
+                return_value=manifest,
+            ),
+            patch(
+                "omnibase_infra.services.service_runtime_health_monitor._list_consumer_group_snapshots",
+                return_value=snapshots,
+            ),
+        ):
+            event = await monitor.run_once()
+
+        assert event.uncovered_topic_count == 0
+        assert event.empty_consumer_group_count == 0
+        assert event.status == "HEALTHY"
+
+    @pytest.mark.asyncio
+    async def test_topic_coverage_uses_runtime_profile_ownership_filter(self):
+        main_contract = _make_discovered_contract(
+            name="node_main_owner",
+            topic="onex.cmd.omnimarket.main-owned.v1",
+            runtime_profiles=("main",),
+        )
+        effects_contract = _make_discovered_contract(
+            name="node_effects_owner",
+            topic="onex.cmd.omnimarket.effects-owned.v1",
+            runtime_profiles=("effects",),
+        )
+        manifest = ModelAutoWiringManifest(
+            contracts=(main_contract, effects_contract),
+            errors=(),
+        )
+        expected_main = _expected_consumer_groups_from_manifest(
+            ModelAutoWiringManifest(contracts=(main_contract,), errors=())
+        )[0]
+        snapshots = self._mock_admin([expected_main.group_id], empty_groups=set())
+        monitor = ServiceRuntimeHealthMonitor(bootstrap_servers="localhost:9092")
+
+        with (
+            patch.dict("os.environ", {"RUNTIME_PROFILE": "main"}),
+            patch(
+                "omnibase_infra.services.service_runtime_health_monitor._discover_contracts",
+                return_value=manifest,
+            ),
+            patch(
+                "omnibase_infra.services.service_runtime_health_monitor._list_consumer_group_snapshots",
+                return_value=snapshots,
+            ),
+        ):
+            event = await monitor.run_once()
+
+        assert event.contract_count == 1
+        assert event.uncovered_topic_count == 0
+        assert event.status == "HEALTHY"
+
+
+# =============================================================================
+# ServiceRuntimeHealthMonitor — event emission
+# =============================================================================
+
+
+class TestEventEmission:
+    @pytest.mark.asyncio
+    async def test_emits_to_event_bus(self):
+        bus = AsyncMock()
+        manifest = _make_manifest()
+        monitor = ServiceRuntimeHealthMonitor(
+            event_bus=bus, bootstrap_servers="", boot_grace_seconds=0.0
+        )
+
+        with patch(
+            "omnibase_infra.services.service_runtime_health_monitor._discover_contracts",
+            return_value=manifest,
+        ):
+            await monitor.run_once()
+
+        bus.publish_envelope.assert_awaited_once()
+        call_kwargs = bus.publish_envelope.await_args
+        assert call_kwargs is not None
+        topic_arg = call_kwargs.kwargs.get("topic") or call_kwargs.args[1]
+        assert "runtime-health-check" in topic_arg
+
+    @pytest.mark.asyncio
+    async def test_emission_failure_does_not_crash(self):
+        bus = AsyncMock()
+        bus.publish_envelope.side_effect = RuntimeError("kafka down")
+        manifest = _make_manifest()
+        monitor = ServiceRuntimeHealthMonitor(
+            event_bus=bus, bootstrap_servers="", boot_grace_seconds=0.0
+        )
+
+        with patch(
+            "omnibase_infra.services.service_runtime_health_monitor._discover_contracts",
+            return_value=manifest,
+        ):
+            # Should not raise
+            event = await monitor.run_once()
+
+        assert event is not None
+
+    @pytest.mark.asyncio
+    async def test_no_emission_when_no_bus(self):
+        manifest = _make_manifest()
+        monitor = ServiceRuntimeHealthMonitor(event_bus=None, bootstrap_servers="")
+
+        with patch(
+            "omnibase_infra.services.service_runtime_health_monitor._discover_contracts",
+            return_value=manifest,
+        ):
+            event = await monitor.run_once()
+
+        assert event is not None
+
+
+# =============================================================================
+# ServiceRuntimeHealthMonitor — lifecycle
+# =============================================================================
+
+
+class TestLifecycle:
+    @pytest.mark.asyncio
+    async def test_start_stop(self):
+        manifest = _make_manifest(contracts=5, errors=0)
+        monitor = ServiceRuntimeHealthMonitor(
+            bootstrap_servers="", check_interval_seconds=9999.0
+        )
+        with patch(
+            "omnibase_infra.services.service_runtime_health_monitor._discover_contracts",
+            return_value=manifest,
+        ):
+            await monitor.start()
+        assert monitor._running
+        assert monitor._task is not None
+        await monitor.stop()
+        assert not monitor._running
+        assert monitor._task is None
+
+    @pytest.mark.asyncio
+    async def test_start_idempotent(self):
+        manifest = _make_manifest(contracts=5, errors=0)
+        monitor = ServiceRuntimeHealthMonitor(
+            bootstrap_servers="", check_interval_seconds=9999.0
+        )
+        with patch(
+            "omnibase_infra.services.service_runtime_health_monitor._discover_contracts",
+            return_value=manifest,
+        ):
+            await monitor.start()
+            task_before = monitor._task
+            await monitor.start()  # second call — should not re-run initial check
+        assert monitor._task is task_before
+        await monitor.stop()
+
+    @pytest.mark.asyncio
+    async def test_start_does_not_run_health_check_synchronously(self):
+        monitor = ServiceRuntimeHealthMonitor(
+            bootstrap_servers="", check_interval_seconds=9999.0
+        )
+
+        with patch.object(monitor, "run_once", new=AsyncMock()) as run_once:
+            await monitor.start()
+            run_once.assert_not_called()
+
+        await monitor.stop()
+
+    @pytest.mark.asyncio
+    async def test_stop_idempotent_without_start(self):
+        monitor = ServiceRuntimeHealthMonitor(bootstrap_servers="")
+        await monitor.stop()  # should not raise
+        assert not monitor._running
+
+
+# =============================================================================
+# Topic key registration
+# =============================================================================
+
+
+class TestTopicKey:
+    def test_topic_key_registered(self):
+        assert hasattr(topic_keys, "RUNTIME_HEALTH_CHECK")
+
+    def test_topic_resolves(self):
+        registry = ServiceTopicRegistry.from_defaults()
+        topic = registry.resolve(topic_keys.RUNTIME_HEALTH_CHECK)
+        assert topic == "onex.evt.omnibase-infra.runtime-health-check.v1"
+
+
+# =============================================================================
+# Boot grace period — OMN-9552
+# =============================================================================
+
+
+class TestBootGracePeriod:
+    """_emit() is suppressed while time.monotonic() - _started_at < boot_grace_seconds."""
+
+    def test_default_boot_grace_is_positive(self):
+        monitor = ServiceRuntimeHealthMonitor()
+        assert monitor._boot_grace_seconds > 0
+
+    def test_custom_boot_grace_accepted(self):
+        monitor = ServiceRuntimeHealthMonitor(boot_grace_seconds=120.0)
+        assert monitor._boot_grace_seconds == 120.0
+
+    def test_zero_boot_grace_accepted(self):
+        monitor = ServiceRuntimeHealthMonitor(boot_grace_seconds=0.0)
+        assert monitor._boot_grace_seconds == 0.0
+
+    def test_negative_boot_grace_rejected(self):
+        with pytest.raises(ValueError, match="boot_grace_seconds"):
+            ServiceRuntimeHealthMonitor(boot_grace_seconds=-1.0)
+
+    def test_boot_grace_not_started_at_construction(self):
+        monitor = ServiceRuntimeHealthMonitor(boot_grace_seconds=120.0)
+        assert monitor._started_at is None
+
+    @pytest.mark.asyncio
+    async def test_start_anchors_boot_grace_timer(self):
+        mock_bus = AsyncMock()
+        monitor = ServiceRuntimeHealthMonitor(
+            event_bus=mock_bus,
+            bootstrap_servers="",
+            boot_grace_seconds=9999.0,
+        )
+
+        with patch(
+            "omnibase_infra.services.service_runtime_health_monitor.time.monotonic",
+            return_value=1234.5,
+        ):
+            await monitor.start()
+        await monitor.stop()
+
+        assert monitor._started_at == 1234.5
+        mock_bus.publish_envelope.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_emit_suppressed_during_grace(self):
+        """_emit() must not call publish_envelope while inside the grace window."""
+        mock_bus = AsyncMock()
+        monitor = ServiceRuntimeHealthMonitor(
+            event_bus=mock_bus,
+            boot_grace_seconds=9999.0,  # effectively infinite
+        )
+        ev = ModelRuntimeHealthCheckEvent(
+            correlation_id=uuid4(),
+            timestamp=datetime.now(UTC),
+            status="HEALTHY",
+        )
+        await monitor._emit(ev)
+        mock_bus.publish_envelope.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_emit_fires_after_grace_expires(self):
+        """_emit() must call publish_envelope once the grace window has passed."""
+        mock_bus = AsyncMock()
+        monitor = ServiceRuntimeHealthMonitor(
+            event_bus=mock_bus,
+            boot_grace_seconds=0.0,  # grace already expired at first emit
+        )
+        ev = ModelRuntimeHealthCheckEvent(
+            correlation_id=uuid4(),
+            timestamp=datetime.now(UTC),
+            status="HEALTHY",
+        )
+        await monitor._emit(ev)
+        mock_bus.publish_envelope.assert_awaited_once()

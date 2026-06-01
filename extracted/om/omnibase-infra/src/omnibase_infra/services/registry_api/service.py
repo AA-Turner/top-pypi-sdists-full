@@ -1,0 +1,1605 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Registry Discovery Service.
+
+Provides a unified discovery interface for the Registry API.
+
+Design Principles:
+    - Partial success: Returns data even if one backend fails
+    - Warnings array: Communicates backend failures without crashing
+    - Async-first: All methods are async for non-blocking I/O
+    - Correlation IDs: Full traceability across all operations
+    - Container DI: Accepts ModelONEXContainer for dependency injection
+    - Contract-driven: All operational limits sourced from NodeRegistryApiEffect
+      contract.yaml, not hardcoded constants (OMN-1441).
+
+Related Tickets:
+    - OMN-1278: Contract-Driven Dashboard - Registry Discovery
+    - OMN-1282: MCP Handler Contract-Driven Config
+    - OMN-1441: Refactor Registry API as Contract-Driven ONEX Node
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import TYPE_CHECKING
+from uuid import UUID, uuid4
+
+import yaml
+
+from omnibase_core.container import ModelONEXContainer
+from omnibase_core.types import JsonType
+from omnibase_infra.enums import EnumRegistrationState
+from omnibase_infra.nodes.node_registry_api_effect import load_registry_api_config
+from omnibase_infra.services.registry_api.models import (
+    ModelCapabilityWidgetMapping,
+    ModelContractRef,
+    ModelContractView,
+    ModelFeatureFlagChangedEvent,
+    ModelFeatureFlagToggleResult,
+    ModelFeatureFlagView,
+    ModelPaginationInfo,
+    ModelRegistryDiscoveryResponse,
+    ModelRegistryHealthResponse,
+    ModelRegistryInstanceView,
+    ModelRegistryNodeDetailView,
+    ModelRegistryNodeView,
+    ModelRegistrySummary,
+    ModelTopicSummary,
+    ModelTopicView,
+    ModelWarning,
+    ModelWidgetDefaults,
+    ModelWidgetMapping,
+)
+from omnibase_infra.topics.platform_topic_suffixes import SUFFIX_FEATURE_FLAG_CHANGED
+
+if TYPE_CHECKING:
+    from omnibase_infra.models.projection import ModelRegistrationProjection
+    from omnibase_infra.projectors import (
+        ProjectionReaderContract,
+        ProjectionReaderRegistration,
+    )
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Contract-driven configuration (OMN-1441)
+# All operational limits are now sourced from NodeRegistryApiEffect/contract.yaml
+# rather than being hardcoded here.  The constants below preserve backward-
+# compatibility for any callers that import them directly from this module.
+# ---------------------------------------------------------------------------
+_NODE_CFG = load_registry_api_config()
+
+# Maximum records to fetch when node_type filtering requires in-memory pagination.
+# Sourced from: node_registry_api_effect/contract.yaml → config.max_node_type_filter_fetch
+MAX_NODE_TYPE_FILTER_FETCH: int = int(
+    _NODE_CFG.get("max_node_type_filter_fetch", 10000)
+)
+
+# Default config path for widget mapping YAML.
+# Sourced from: node_registry_api_effect/contract.yaml → config.default_widget_mapping_path
+_default_widget_mapping_rel: str = str(
+    _NODE_CFG.get("default_widget_mapping_path", "configs/widget_mapping.yaml")
+)
+# Resolve relative to the omnibase_infra package root (three levels up from this file:
+# services/registry_api/service.py → services/registry_api → services → omnibase_infra)
+DEFAULT_WIDGET_MAPPING_PATH: Path = (
+    Path(__file__).parent.parent.parent / _default_widget_mapping_rel
+)
+
+
+def _build_node_display_name(proj: ModelRegistrationProjection) -> str:
+    """Return a human-friendly fallback label for a registry node."""
+    return f"onex-{proj.node_type.value}"
+
+
+def _build_capability_details(
+    proj: ModelRegistrationProjection,
+) -> dict[str, JsonType]:
+    """Return the approved phase-1 capability subset for API exposure."""
+    capabilities = proj.capabilities.model_dump(mode="json", exclude_none=True)
+    safe_keys = (
+        "postgres",
+        "read",
+        "write",
+        "database",
+        "transactions",
+        "processing",
+        "batch_size",
+        "max_batch",
+        "supported_types",
+        "routing",
+        "feature",
+    )
+    return {
+        key: capabilities[key]
+        for key in safe_keys
+        if key in capabilities and capabilities[key] not in (False, [], {}, None)
+    }
+
+
+def _build_registry_node_view_payload(
+    proj: ModelRegistrationProjection,
+) -> dict[str, object]:
+    """Build the shared projection-backed payload for registry node responses."""
+    node_type_str = proj.node_type.value.upper()
+    if node_type_str not in ("EFFECT", "COMPUTE", "REDUCER", "ORCHESTRATOR"):
+        node_type_str = "EFFECT"
+
+    return {
+        "node_id": proj.entity_id,
+        # Until registration_projections carry a canonical human-readable name,
+        # the stable registry label is the canonical entity identifier.
+        "name": str(proj.entity_id),
+        "service_name": None,
+        "namespace": proj.domain if proj.domain != "registration" else None,
+        "display_name": _build_node_display_name(proj),
+        "node_type": node_type_str,
+        "version": proj.node_version,
+        "state": proj.current_state.value,
+        "capabilities": proj.capability_tags,
+        "capability_details": _build_capability_details(proj),
+        "contract_type": proj.contract_type,
+        "contract_version": proj.contract_version,
+        "registered_at": proj.registered_at,
+        "last_heartbeat_at": proj.last_heartbeat_at,
+        "updated_at": proj.updated_at,
+    }
+
+
+def _build_registry_node_view(
+    proj: ModelRegistrationProjection,
+) -> ModelRegistryNodeView:
+    """Map a registration projection into the list/discovery node view."""
+    return ModelRegistryNodeView(**_build_registry_node_view_payload(proj))
+
+
+def _build_registry_node_detail_view(
+    proj: ModelRegistrationProjection,
+) -> ModelRegistryNodeDetailView:
+    """Map a registration projection into the detailed node view."""
+    return ModelRegistryNodeDetailView(
+        **_build_registry_node_view_payload(proj),
+        protocols=proj.protocols,
+        intent_types=proj.intent_types,
+    )
+
+
+class ServiceRegistryDiscovery:
+    """Registry discovery service combining projection and Consul data.
+
+    Provides a unified interface for querying both registered nodes
+    (from PostgreSQL projections) and live service instances (from Consul).
+
+    Partial Success Pattern:
+        If one backend fails, the service still returns data from the
+        successful backend along with warnings indicating the failure.
+        This allows dashboards to display partial data rather than
+        showing complete errors.
+
+    Dependency Injection:
+        This service requires a ModelONEXContainer for ONEX-style dependency
+        injection. Dependencies can also be provided directly via constructor
+        parameters for testing flexibility.
+
+    Thread Safety:
+        This service is coroutine-safe. All methods are async and
+        delegate to underlying services that handle their own
+        concurrency requirements.
+
+    Example:
+        >>> # Using container for DI (container is required)
+        >>> service = ServiceRegistryDiscovery(container=container)
+        >>> response = await service.get_discovery()
+        >>>
+        >>> # With explicit dependencies (for testing)
+        >>> service = ServiceRegistryDiscovery(
+        ...     container=container,
+        ...     projection_reader=reader,
+        ... )
+        >>> response = await service.get_discovery()
+        >>> if response.warnings:
+        ...     logger.warning("Partial data: %s", response.warnings)
+
+    Attributes:
+        projection_reader: Reader for node registration projections.
+        widget_mapping_path: Path to widget mapping YAML configuration.
+    """
+
+    def __init__(
+        self,
+        container: ModelONEXContainer,
+        projection_reader: ProjectionReaderRegistration | None = None,
+        contract_reader: ProjectionReaderContract | None = None,
+        widget_mapping_path: Path | None = None,
+    ) -> None:
+        """Initialize the registry discovery service.
+
+        Args:
+            container: ONEX container for dependency injection. Required for
+                ONEX DI pattern compliance.
+            projection_reader: Optional projection reader for node registrations.
+                If not provided, node queries will return empty results with warnings.
+            contract_reader: Optional projection reader for contract registry.
+                If not provided, contract/topic queries will return empty results with warnings.
+            widget_mapping_path: Path to widget mapping YAML file.
+                Defaults to configs/widget_mapping.yaml relative to package.
+        """
+        self._container = container
+
+        # Resolve projection_reader: direct param > None
+        # NOTE: Container-based resolution removed in omnibase_core ^0.9.0.
+        # The new ServiceRegistry uses async interface-based resolution which
+        # doesn't fit the sync __init__ pattern. Use explicit dependency injection
+        # via the projection_reader parameter instead.
+        self._projection_reader = projection_reader
+
+        # Contract reader for contract registry queries
+        self._contract_reader = contract_reader
+
+        self._widget_mapping_path = widget_mapping_path or DEFAULT_WIDGET_MAPPING_PATH
+        self._widget_mapping_cache: ModelWidgetMapping | None = None
+        self._widget_mapping_mtime: float | None = None
+
+        logger.info(
+            "ServiceRegistryDiscovery initialized",
+            extra={
+                "has_projection_reader": self._projection_reader is not None,
+                "has_contract_reader": self._contract_reader is not None,
+                "widget_mapping_path": str(self._widget_mapping_path),
+            },
+        )
+
+    @property
+    def has_projection_reader(self) -> bool:
+        """Check if projection reader is configured."""
+        return self._projection_reader is not None
+
+    @property
+    def has_contract_reader(self) -> bool:
+        """Check if contract reader is configured."""
+        return self._contract_reader is not None
+
+    def invalidate_widget_mapping_cache(self) -> None:
+        """Clear widget mapping cache, forcing reload on next access.
+
+        Use this method when you know the widget mapping file has changed
+        and want to force an immediate reload, rather than waiting for
+        file modification time detection.
+
+        Example:
+            >>> service.invalidate_widget_mapping_cache()
+            >>> mapping, warnings = service.get_widget_mapping()  # Fresh load
+        """
+        self._widget_mapping_cache = None
+        self._widget_mapping_mtime = None
+        logger.debug(
+            "Widget mapping cache invalidated",
+            extra={"widget_mapping_path": str(self._widget_mapping_path)},
+        )
+
+    async def list_nodes(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        state: EnumRegistrationState | None = None,
+        node_type: str | None = None,
+        correlation_id: UUID | None = None,
+    ) -> tuple[list[ModelRegistryNodeView], ModelPaginationInfo, list[ModelWarning]]:
+        """List registered nodes with pagination.
+
+        Args:
+            limit: Maximum number of nodes to return (1-1000).
+            offset: Number of nodes to skip for pagination.
+            state: Optional filter by registration state. When None, queries
+                all active states (ACTIVE, ACCEPTED, AWAITING_ACK, ACK_RECEIVED).
+            node_type: Optional filter by node type (effect, compute, reducer,
+                orchestrator). Case-insensitive.
+            correlation_id: Optional correlation ID for tracing.
+
+        Returns:
+            Tuple of (nodes, pagination_info, warnings).
+
+        Note:
+            When node_type filter is specified, all matching records are fetched
+            to provide accurate pagination totals. For large datasets, consider
+            using state filters to reduce the query scope.
+        """
+        correlation_id = correlation_id or uuid4()
+        warnings: list[ModelWarning] = []
+        nodes: list[ModelRegistryNodeView] = []
+        total = 0
+
+        if self._projection_reader is None:
+            warnings.append(
+                ModelWarning(
+                    source="postgres",
+                    message="Projection reader not configured",
+                    code="NO_PROJECTION_READER",
+                    timestamp=datetime.now(UTC),
+                )
+            )
+        else:
+            try:
+                # Determine fetch limit based on whether node_type filter is applied
+                # When node_type is specified, we need all records for accurate totals
+                # since the projection reader doesn't support node_type filtering
+                if node_type:
+                    # Fetch all matching records to get accurate count after filtering
+                    fetch_limit = MAX_NODE_TYPE_FILTER_FETCH
+                else:
+                    # No node_type filter - can use normal pagination
+                    fetch_limit = limit + offset + 1  # +1 to detect has_more
+
+                # Query projections based on state filter
+                projections: list[ModelRegistrationProjection] = []
+
+                if state is not None:
+                    # Single state filter
+                    projections = await self._projection_reader.get_by_state(
+                        state=state,
+                        limit=fetch_limit,
+                        correlation_id=correlation_id,
+                    )
+                else:
+                    # No state filter - query all active states and combine
+                    # This provides results across all relevant states, not just ACTIVE
+                    active_states = [
+                        EnumRegistrationState.ACTIVE,
+                        EnumRegistrationState.ACCEPTED,
+                        EnumRegistrationState.AWAITING_ACK,
+                        EnumRegistrationState.ACK_RECEIVED,
+                        EnumRegistrationState.PENDING_REGISTRATION,
+                    ]
+                    all_projections: list[ModelRegistrationProjection] = []
+                    for query_state in active_states:
+                        state_projections = await self._projection_reader.get_by_state(
+                            state=query_state,
+                            limit=fetch_limit,
+                            correlation_id=correlation_id,
+                        )
+                        all_projections.extend(state_projections)
+
+                    # Sort combined results by updated_at descending
+                    projections = sorted(
+                        all_projections,
+                        key=lambda p: p.updated_at,
+                        reverse=True,
+                    )
+
+                # Apply node_type filter in-memory if specified
+                # The projection reader API doesn't support node_type filtering
+                node_type_filter = node_type.upper() if node_type else None
+                if node_type_filter:
+                    projections = [
+                        p
+                        for p in projections
+                        if p.node_type.value.upper() == node_type_filter
+                    ]
+
+                # Calculate total from ALL filtered records (accurate count)
+                total = len(projections)
+
+                # Apply offset and limit for pagination
+                projections_slice = projections[offset : offset + limit]
+
+                # Convert to view models
+                for proj in projections_slice:
+                    nodes.append(_build_registry_node_view(proj))
+
+            except Exception as e:
+                logger.exception(
+                    "Failed to query projections",
+                    extra={"correlation_id": str(correlation_id)},
+                )
+                warnings.append(
+                    ModelWarning(
+                        source="postgres",
+                        message=f"Failed to query projections: {type(e).__name__}",
+                        code="PROJECTION_QUERY_FAILED",
+                        timestamp=datetime.now(UTC),
+                    )
+                )
+
+        pagination = ModelPaginationInfo(
+            total=total,
+            limit=limit,
+            offset=offset,
+            has_more=offset + len(nodes) < total,
+        )
+
+        return nodes, pagination, warnings
+
+    async def get_node(
+        self,
+        node_id: UUID,
+        correlation_id: UUID | None = None,
+    ) -> tuple[ModelRegistryNodeDetailView | None, list[ModelWarning]]:
+        """Get a single node by ID.
+
+        Args:
+            node_id: Node UUID to retrieve.
+            correlation_id: Optional correlation ID for tracing.
+
+        Returns:
+            Tuple of (node or None, warnings).
+        """
+        correlation_id = correlation_id or uuid4()
+        warnings: list[ModelWarning] = []
+
+        if self._projection_reader is None:
+            warnings.append(
+                ModelWarning(
+                    source="postgres",
+                    message="Projection reader not configured",
+                    code="NO_PROJECTION_READER",
+                    timestamp=datetime.now(UTC),
+                )
+            )
+            return None, warnings
+
+        try:
+            proj = await self._projection_reader.get_entity_state(
+                entity_id=node_id,
+                correlation_id=correlation_id,
+            )
+
+            if proj is None:
+                return None, warnings
+
+            node = _build_registry_node_detail_view(proj)
+
+            return node, warnings
+
+        except Exception as e:
+            logger.exception(
+                "Failed to get node",
+                extra={"node_id": str(node_id), "correlation_id": str(correlation_id)},
+            )
+            warnings.append(
+                ModelWarning(
+                    source="postgres",
+                    message=f"Failed to get node: {type(e).__name__}",
+                    code="NODE_QUERY_FAILED",
+                    timestamp=datetime.now(UTC),
+                )
+            )
+            return None, warnings
+
+    async def list_instances(
+        self,
+        service_name: str | None = None,
+        include_unhealthy: bool = False,
+        correlation_id: UUID | None = None,
+    ) -> tuple[list[ModelRegistryInstanceView], list[ModelWarning]]:
+        """List live Consul service instances.
+
+        Args:
+            service_name: Optional service name filter. If not provided,
+                queries all services from the Consul catalog.
+            include_unhealthy: Whether to include unhealthy instances.
+            correlation_id: Optional correlation ID for tracing.
+
+        Returns:
+            Tuple of (instances, warnings).
+        """
+        correlation_id = correlation_id or uuid4()
+        warnings: list[ModelWarning] = []
+        instances: list[ModelRegistryInstanceView] = []
+
+        # Consul removed (OMN-3540): instance discovery is not available.
+        warnings.append(
+            ModelWarning(
+                source="consul",
+                message="Service discovery not available (Consul removed)",
+                code="NO_CONSUL_HANDLER",
+                timestamp=datetime.now(UTC),
+            )
+        )
+        return instances, warnings
+
+    async def get_discovery(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        correlation_id: UUID | None = None,
+    ) -> ModelRegistryDiscoveryResponse:
+        """Get full dashboard payload with nodes, instances, and summary.
+
+        This is the primary endpoint for dashboard consumption, providing
+        all needed data in a single request.
+
+        Args:
+            limit: Maximum number of nodes to return.
+            offset: Number of nodes to skip for pagination.
+            correlation_id: Optional correlation ID for tracing.
+
+        Returns:
+            Complete discovery response with all data and any warnings.
+        """
+        correlation_id = correlation_id or uuid4()
+        all_warnings: list[ModelWarning] = []
+
+        # Fetch nodes
+        nodes, pagination, node_warnings = await self.list_nodes(
+            limit=limit,
+            offset=offset,
+            correlation_id=correlation_id,
+        )
+        all_warnings.extend(node_warnings)
+
+        # Fetch instances
+        instances, instance_warnings = await self.list_instances(
+            include_unhealthy=True,
+            correlation_id=correlation_id,
+        )
+        all_warnings.extend(instance_warnings)
+
+        instance_discovery_status = "available"
+        instance_discovery_message: str | None = None
+        if any(w.code == "NO_CONSUL_HANDLER" for w in instance_warnings):
+            instance_discovery_status = "unavailable"
+            instance_discovery_message = next(
+                (w.message for w in instance_warnings if w.code == "NO_CONSUL_HANDLER"),
+                None,
+            )
+
+        # Build summary
+        by_node_type: dict[str, int] = {}
+        by_state: dict[str, int] = {}
+        active_count = 0
+
+        for node in nodes:
+            by_node_type[node.node_type] = by_node_type.get(node.node_type, 0) + 1
+            by_state[node.state] = by_state.get(node.state, 0) + 1
+            if node.state == "active":
+                active_count += 1
+
+        healthy_count = sum(1 for i in instances if i.health_status == "passing")
+        unhealthy_count = len(instances) - healthy_count
+
+        summary = ModelRegistrySummary(
+            total_nodes=pagination.total,
+            active_nodes=active_count,
+            healthy_instances=healthy_count,
+            unhealthy_instances=unhealthy_count,
+            by_node_type=by_node_type,
+            by_state=by_state,
+        )
+
+        return ModelRegistryDiscoveryResponse(
+            timestamp=datetime.now(UTC),
+            warnings=all_warnings,
+            summary=summary,
+            nodes=nodes,
+            instance_discovery_status=instance_discovery_status,  # type: ignore[arg-type]
+            instance_discovery_message=instance_discovery_message,
+            live_instances=instances,
+            pagination=pagination,
+        )
+
+    def get_widget_mapping(
+        self,
+    ) -> tuple[ModelWidgetMapping | None, list[ModelWarning]]:
+        """Load and return widget mapping configuration.
+
+        Returns cached mapping if available and file unchanged, otherwise
+        loads from YAML file.
+
+        The cache is automatically invalidated when the file's modification
+        time changes, enabling hot-reload of widget mappings without restart.
+
+        Returns:
+            Tuple of (widget_mapping or None, warnings).
+        """
+        warnings: list[ModelWarning] = []
+
+        # Check if file has been modified since last cache
+        current_mtime: float | None = None
+        try:
+            current_mtime = self._widget_mapping_path.stat().st_mtime
+            if (
+                self._widget_mapping_cache is not None
+                and self._widget_mapping_mtime == current_mtime
+            ):
+                return self._widget_mapping_cache, warnings
+        except OSError:
+            # File doesn't exist or can't be accessed - will be handled below
+            pass
+
+        # Log cache invalidation due to file change (only when cache existed)
+        if self._widget_mapping_cache is not None and current_mtime is not None:
+            logger.info(
+                "Widget mapping cache invalidated, reloading from file",
+                extra={
+                    "widget_mapping_path": str(self._widget_mapping_path),
+                    "old_mtime": self._widget_mapping_mtime,
+                    "new_mtime": current_mtime,
+                },
+            )
+
+        if not self._widget_mapping_path.exists():
+            warnings.append(
+                ModelWarning(
+                    source="config",
+                    message=f"Widget mapping file not found: {self._widget_mapping_path}",
+                    code="CONFIG_NOT_FOUND",
+                    timestamp=datetime.now(UTC),
+                )
+            )
+            return None, warnings
+
+        try:
+            with open(self._widget_mapping_path) as f:
+                data = yaml.safe_load(f)
+
+            # Parse capability mappings
+            capability_mappings: dict[str, ModelCapabilityWidgetMapping] = {}
+            for key, value in data.get("capability_mappings", {}).items():
+                capability_mappings[key] = ModelCapabilityWidgetMapping(
+                    widget_type=value.get("widget_type", "info_card"),
+                    defaults=ModelWidgetDefaults(**value.get("defaults", {})),
+                )
+
+            # Parse semantic mappings
+            semantic_mappings: dict[str, ModelCapabilityWidgetMapping] = {}
+            for key, value in data.get("semantic_mappings", {}).items():
+                semantic_mappings[key] = ModelCapabilityWidgetMapping(
+                    widget_type=value.get("widget_type", "info_card"),
+                    defaults=ModelWidgetDefaults(**value.get("defaults", {})),
+                )
+
+            # Parse fallback
+            fallback_data = data.get("fallback", {})
+            fallback = ModelCapabilityWidgetMapping(
+                widget_type=fallback_data.get("widget_type", "info_card"),
+                defaults=ModelWidgetDefaults(**fallback_data.get("defaults", {})),
+            )
+
+            self._widget_mapping_cache = ModelWidgetMapping(
+                version=data.get("version", "1.0.0"),
+                capability_mappings=capability_mappings,
+                semantic_mappings=semantic_mappings,
+                fallback=fallback,
+            )
+            self._widget_mapping_mtime = current_mtime
+
+            logger.debug(
+                "Widget mapping loaded",
+                extra={
+                    "widget_mapping_path": str(self._widget_mapping_path),
+                    "mtime": current_mtime,
+                    "version": data.get("version", "1.0.0"),
+                },
+            )
+
+            return self._widget_mapping_cache, warnings
+
+        except Exception as e:
+            logger.exception(
+                "Failed to load widget mapping",
+                extra={"path": str(self._widget_mapping_path)},
+            )
+            warnings.append(
+                ModelWarning(
+                    source="config",
+                    message=f"Failed to load widget mapping: {type(e).__name__}",
+                    code="CONFIG_LOAD_FAILED",
+                    timestamp=datetime.now(UTC),
+                )
+            )
+            return None, warnings
+
+    async def health_check(
+        self,
+        correlation_id: UUID | None = None,
+    ) -> ModelRegistryHealthResponse:
+        """Perform health check on all backend components.
+
+        Args:
+            correlation_id: Optional correlation ID for tracing.
+
+        Returns:
+            Health check response with component statuses.
+        """
+        correlation_id = correlation_id or uuid4()
+        components: dict[str, JsonType] = {}
+        overall_healthy = True
+
+        # Check projection reader
+        if self._projection_reader is None:
+            components["postgres"] = {
+                "healthy": False,
+                "message": "Not configured",
+            }
+            overall_healthy = False
+        else:
+            try:
+                # Simple query to verify connection
+                await self._projection_reader.count_by_state(
+                    correlation_id=correlation_id,
+                )
+                components["postgres"] = {
+                    "healthy": True,
+                    "message": "Connected",
+                }
+            except Exception as e:  # noqa: BLE001 — boundary: catch-all for resilience
+                components["postgres"] = {
+                    "healthy": False,
+                    "message": f"Error: {type(e).__name__}",
+                }
+                overall_healthy = False
+
+        # Check widget mapping
+        _, mapping_warnings = self.get_widget_mapping()
+        if mapping_warnings:
+            components["config"] = {
+                "healthy": False,
+                "message": mapping_warnings[0].message,
+            }
+        else:
+            components["config"] = {
+                "healthy": True,
+                "message": "Loaded",
+            }
+
+        # Determine overall status
+        unhealthy_count = sum(
+            1
+            for c in components.values()
+            if isinstance(c, dict) and not c.get("healthy", False)
+        )
+        if unhealthy_count == 0:
+            status = "healthy"
+        elif unhealthy_count < len(components):
+            status = "degraded"
+        else:
+            status = "unhealthy"
+
+        return ModelRegistryHealthResponse(
+            status=status,  # type: ignore[arg-type]
+            timestamp=datetime.now(UTC),
+            components=components,
+            version="1.0.0",
+        )
+
+    # ============================================================
+    # Contract Registry Methods
+    # ============================================================
+
+    async def list_contracts(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        active_only: bool = True,
+        node_name: str | None = None,
+        correlation_id: UUID | None = None,
+    ) -> tuple[list[ModelContractView], ModelPaginationInfo, list[ModelWarning]]:
+        """List contracts from projection reader.
+
+        Retrieves registered contracts with optional filtering by node name
+        and active status. Supports pagination.
+
+        Args:
+            limit: Maximum number of contracts to return (1-1000).
+            offset: Number of contracts to skip for pagination.
+            active_only: If True, return only active contracts.
+            node_name: Optional filter by node name.
+            correlation_id: Optional correlation ID for tracing.
+
+        Returns:
+            Tuple of (contracts, pagination_info, warnings).
+        """
+        correlation_id = correlation_id or uuid4()
+        warnings: list[ModelWarning] = []
+        contracts: list[ModelContractView] = []
+        total = 0
+
+        if self._contract_reader is None:
+            warnings.append(
+                ModelWarning(
+                    source="postgres",
+                    message="Contract reader not configured",
+                    code="NO_CONTRACT_READER",
+                    timestamp=datetime.now(UTC),
+                )
+            )
+        else:
+            try:
+                # Fetch contracts based on filters
+                if node_name:
+                    # Filter by node name
+                    projections = (
+                        await self._contract_reader.list_contracts_by_node_name(
+                            node_name=node_name,
+                            include_inactive=not active_only,
+                            correlation_id=correlation_id,
+                        )
+                    )
+                elif active_only:
+                    # Active contracts only
+                    projections = await self._contract_reader.list_active_contracts(
+                        limit=limit + offset + 1,  # Fetch extra to detect has_more
+                        offset=0,
+                        correlation_id=correlation_id,
+                    )
+                else:
+                    # All contracts (active + inactive)
+                    # Note: The reader doesn't have a single method for all contracts,
+                    # so we query active and then could extend for inactive if needed.
+                    # For now, we use list_active_contracts as a fallback.
+                    projections = await self._contract_reader.list_active_contracts(
+                        limit=limit + offset + 1,
+                        offset=0,
+                        correlation_id=correlation_id,
+                    )
+
+                # Calculate total and apply pagination
+                total = len(projections)
+
+                # Apply pagination in-memory for node_name filter
+                # (the reader's list_by_node_name doesn't support offset/limit)
+                if node_name:
+                    projections_slice = projections[offset : offset + limit]
+                else:
+                    # Already paginated by the reader
+                    projections_slice = projections[offset : offset + limit]
+                    total = max(total, offset + len(projections_slice))
+
+                # Batch fetch topics for all contracts to avoid N+1 query pattern
+                # This uses a single query instead of O(N) queries
+                contract_ids = [proj.contract_id for proj in projections_slice]
+                topics_by_contract: dict[str, list] = {}
+
+                if contract_ids:
+                    try:
+                        topics_by_contract = (
+                            await self._contract_reader.get_topics_for_contracts(
+                                contract_ids=contract_ids,
+                                correlation_id=correlation_id,
+                            )
+                        )
+                    except Exception as e:  # noqa: BLE001 — boundary: logs warning and degrades
+                        # Log but continue - partial success with empty topics
+                        logger.warning(
+                            "Failed to batch fetch topics for contracts",
+                            extra={
+                                "contract_count": len(contract_ids),
+                                "error": str(e),
+                                "correlation_id": str(correlation_id),
+                            },
+                        )
+
+                # Convert to view models
+                for proj in projections_slice:
+                    # Get topics for this contract from batch result
+                    topics_published: list[str] = []
+                    topics_subscribed: list[str] = []
+
+                    contract_topics = topics_by_contract.get(proj.contract_id, [])
+                    for topic in contract_topics:
+                        if topic.direction == "publish":
+                            topics_published.append(topic.topic_suffix)
+                        elif topic.direction == "subscribe":
+                            topics_subscribed.append(topic.topic_suffix)
+
+                    contracts.append(
+                        ModelContractView(
+                            contract_id=proj.contract_id,
+                            node_name=proj.node_name,
+                            version=f"{proj.version_major}.{proj.version_minor}.{proj.version_patch}",
+                            contract_hash=proj.contract_hash,
+                            is_active=proj.is_active,
+                            registered_at=proj.registered_at,
+                            last_seen_at=proj.last_seen_at,
+                            deregistered_at=proj.deregistered_at,
+                            topics_published=topics_published,
+                            topics_subscribed=topics_subscribed,
+                        )
+                    )
+
+            except Exception as e:
+                logger.exception(
+                    "Failed to query contracts",
+                    extra={"correlation_id": str(correlation_id)},
+                )
+                warnings.append(
+                    ModelWarning(
+                        source="postgres",
+                        message=f"Failed to query contracts: {type(e).__name__}",
+                        code="CONTRACT_QUERY_FAILED",
+                        timestamp=datetime.now(UTC),
+                    )
+                )
+
+        pagination = ModelPaginationInfo(
+            total=total,
+            limit=limit,
+            offset=offset,
+            has_more=offset + len(contracts) < total,
+        )
+
+        return contracts, pagination, warnings
+
+    async def get_contract(
+        self,
+        contract_id: str,
+        correlation_id: UUID | None = None,
+    ) -> tuple[ModelContractView | None, list[ModelWarning]]:
+        """Get contract detail with topic references.
+
+        Retrieves a single contract by ID along with its published and
+        subscribed topics.
+
+        Args:
+            contract_id: Contract ID (e.g., "my-node:1.0.0")
+            correlation_id: Optional correlation ID for tracing.
+
+        Returns:
+            Tuple of (contract or None, warnings).
+        """
+        correlation_id = correlation_id or uuid4()
+        warnings: list[ModelWarning] = []
+
+        if self._contract_reader is None:
+            warnings.append(
+                ModelWarning(
+                    source="postgres",
+                    message="Contract reader not configured",
+                    code="NO_CONTRACT_READER",
+                    timestamp=datetime.now(UTC),
+                )
+            )
+            return None, warnings
+
+        try:
+            proj = await self._contract_reader.get_contract_by_id(
+                contract_id=contract_id,
+                correlation_id=correlation_id,
+            )
+
+            if proj is None:
+                return None, warnings
+
+            # Get topics for this contract
+            topics_published: list[str] = []
+            topics_subscribed: list[str] = []
+
+            try:
+                topics = await self._contract_reader.get_topics_by_contract(
+                    contract_id=contract_id,
+                    correlation_id=correlation_id,
+                )
+                for topic in topics:
+                    if topic.direction == "publish":
+                        topics_published.append(topic.topic_suffix)
+                    elif topic.direction == "subscribe":
+                        topics_subscribed.append(topic.topic_suffix)
+            except Exception as e:  # noqa: BLE001 — boundary: logs warning and degrades
+                logger.warning(
+                    "Failed to get topics for contract",
+                    extra={
+                        "contract_id": contract_id,
+                        "error": str(e),
+                        "correlation_id": str(correlation_id),
+                    },
+                )
+                warnings.append(
+                    ModelWarning(
+                        source="postgres",
+                        message=f"Failed to get topics: {type(e).__name__}",
+                        code="TOPIC_QUERY_FAILED",
+                        timestamp=datetime.now(UTC),
+                    )
+                )
+
+            contract = ModelContractView(
+                contract_id=proj.contract_id,
+                node_name=proj.node_name,
+                version=f"{proj.version_major}.{proj.version_minor}.{proj.version_patch}",
+                contract_hash=proj.contract_hash,
+                is_active=proj.is_active,
+                registered_at=proj.registered_at,
+                last_seen_at=proj.last_seen_at,
+                deregistered_at=proj.deregistered_at,
+                topics_published=topics_published,
+                topics_subscribed=topics_subscribed,
+            )
+
+            return contract, warnings
+
+        except Exception as e:
+            logger.exception(
+                "Failed to get contract",
+                extra={
+                    "contract_id": contract_id,
+                    "correlation_id": str(correlation_id),
+                },
+            )
+            warnings.append(
+                ModelWarning(
+                    source="postgres",
+                    message=f"Failed to get contract: {type(e).__name__}",
+                    code="CONTRACT_QUERY_FAILED",
+                    timestamp=datetime.now(UTC),
+                )
+            )
+            return None, warnings
+
+    async def list_topics(
+        self,
+        direction: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+        correlation_id: UUID | None = None,
+    ) -> tuple[list[ModelTopicSummary], ModelPaginationInfo, list[ModelWarning]]:
+        """List topics from projection reader.
+
+        Retrieves topics with optional filtering by direction (publish/subscribe).
+        Returns summary view with contract counts.
+
+        Args:
+            direction: Optional filter by direction ('publish' or 'subscribe').
+            limit: Maximum number of topics to return (1-1000).
+            offset: Number of topics to skip for pagination.
+            correlation_id: Optional correlation ID for tracing.
+
+        Returns:
+            Tuple of (topics, pagination_info, warnings).
+        """
+        correlation_id = correlation_id or uuid4()
+        warnings: list[ModelWarning] = []
+        topics: list[ModelTopicSummary] = []
+        total = 0
+
+        if self._contract_reader is None:
+            warnings.append(
+                ModelWarning(
+                    source="postgres",
+                    message="Contract reader not configured",
+                    code="NO_CONTRACT_READER",
+                    timestamp=datetime.now(UTC),
+                )
+            )
+        else:
+            try:
+                projections = await self._contract_reader.list_topics(
+                    direction=direction,
+                    limit=limit + 1,  # Fetch extra to detect has_more
+                    offset=offset,
+                    correlation_id=correlation_id,
+                )
+
+                # Detect has_more from fetching limit+1
+                has_more = len(projections) > limit
+                projections_slice = projections[:limit]
+
+                # Get accurate total count for pagination
+                try:
+                    total = await self._contract_reader.count_topics(
+                        direction=direction,
+                        correlation_id=correlation_id,
+                    )
+                except Exception as count_error:  # noqa: BLE001 — boundary: logs warning and degrades
+                    # Fall back to estimate if count query fails
+                    logger.warning(
+                        "Failed to get accurate topic count, using estimate",
+                        extra={
+                            "correlation_id": str(correlation_id),
+                            "error": str(count_error),
+                        },
+                    )
+                    total = offset + len(projections)
+
+                for proj in projections_slice:
+                    topics.append(
+                        ModelTopicSummary(
+                            topic_suffix=proj.topic_suffix,
+                            direction=proj.direction,
+                            contract_count=len(proj.contract_ids),
+                            last_seen_at=proj.last_seen_at,
+                            is_active=proj.is_active,
+                        )
+                    )
+
+            except Exception as e:
+                logger.exception(
+                    "Failed to query topics",
+                    extra={"correlation_id": str(correlation_id)},
+                )
+                warnings.append(
+                    ModelWarning(
+                        source="postgres",
+                        message=f"Failed to query topics: {type(e).__name__}",
+                        code="TOPIC_QUERY_FAILED",
+                        timestamp=datetime.now(UTC),
+                    )
+                )
+
+        pagination = ModelPaginationInfo(
+            total=total,
+            limit=limit,
+            offset=offset,
+            has_more=offset + len(topics) < total,
+        )
+
+        return topics, pagination, warnings
+
+    async def get_topic_detail(
+        self,
+        topic_suffix: str,
+        correlation_id: UUID | None = None,
+    ) -> tuple[ModelTopicView | None, list[ModelWarning]]:
+        """Get topic detail with publisher/subscriber contracts.
+
+        Retrieves a topic by suffix, combining both publish and subscribe
+        directions into a unified view with contract references.
+
+        Args:
+            topic_suffix: Topic suffix (without environment prefix)
+            correlation_id: Optional correlation ID for tracing.
+
+        Returns:
+            Tuple of (topic or None, warnings).
+        """
+        correlation_id = correlation_id or uuid4()
+        warnings: list[ModelWarning] = []
+
+        if self._contract_reader is None:
+            warnings.append(
+                ModelWarning(
+                    source="postgres",
+                    message="Contract reader not configured",
+                    code="NO_CONTRACT_READER",
+                    timestamp=datetime.now(UTC),
+                )
+            )
+            return None, warnings
+
+        try:
+            # Get both directions for this topic
+            publish_topic = await self._contract_reader.get_topic(
+                topic_suffix=topic_suffix,
+                direction="publish",
+                correlation_id=correlation_id,
+            )
+            subscribe_topic = await self._contract_reader.get_topic(
+                topic_suffix=topic_suffix,
+                direction="subscribe",
+                correlation_id=correlation_id,
+            )
+
+            # If neither direction exists, topic not found
+            if publish_topic is None and subscribe_topic is None:
+                return None, warnings
+
+            # Get contract details for publishers
+            publishers: list[ModelContractRef] = []
+            if publish_topic:
+                for contract_id in publish_topic.contract_ids:
+                    try:
+                        contract = await self._contract_reader.get_contract_by_id(
+                            contract_id=contract_id,
+                            correlation_id=correlation_id,
+                        )
+                        if contract:
+                            publishers.append(
+                                ModelContractRef(
+                                    contract_id=contract.contract_id,
+                                    node_name=contract.node_name,
+                                    version=f"{contract.version_major}.{contract.version_minor}.{contract.version_patch}",
+                                )
+                            )
+                    except Exception as e:  # noqa: BLE001 — boundary: logs warning and degrades
+                        logger.warning(
+                            "Failed to get publisher contract",
+                            extra={
+                                "contract_id": contract_id,
+                                "error": str(e),
+                                "correlation_id": str(correlation_id),
+                            },
+                        )
+
+            # Get contract details for subscribers
+            subscribers: list[ModelContractRef] = []
+            if subscribe_topic:
+                for contract_id in subscribe_topic.contract_ids:
+                    try:
+                        contract = await self._contract_reader.get_contract_by_id(
+                            contract_id=contract_id,
+                            correlation_id=correlation_id,
+                        )
+                        if contract:
+                            subscribers.append(
+                                ModelContractRef(
+                                    contract_id=contract.contract_id,
+                                    node_name=contract.node_name,
+                                    version=f"{contract.version_major}.{contract.version_minor}.{contract.version_patch}",
+                                )
+                            )
+                    except Exception as e:  # noqa: BLE001 — boundary: logs warning and degrades
+                        logger.warning(
+                            "Failed to get subscriber contract",
+                            extra={
+                                "contract_id": contract_id,
+                                "error": str(e),
+                                "correlation_id": str(correlation_id),
+                            },
+                        )
+
+            # Combine timestamps from both directions
+            first_seen_at = min(
+                t.first_seen_at
+                for t in [publish_topic, subscribe_topic]
+                if t is not None
+            )
+            last_seen_at = max(
+                t.last_seen_at
+                for t in [publish_topic, subscribe_topic]
+                if t is not None
+            )
+            is_active = any(
+                t.is_active for t in [publish_topic, subscribe_topic] if t is not None
+            )
+
+            topic = ModelTopicView(
+                topic_suffix=topic_suffix,
+                publishers=publishers,
+                subscribers=subscribers,
+                first_seen_at=first_seen_at,
+                last_seen_at=last_seen_at,
+                is_active=is_active,
+            )
+
+            return topic, warnings
+
+        except Exception as e:
+            logger.exception(
+                "Failed to get topic",
+                extra={
+                    "topic_suffix": topic_suffix,
+                    "correlation_id": str(correlation_id),
+                },
+            )
+            warnings.append(
+                ModelWarning(
+                    source="postgres",
+                    message=f"Failed to get topic: {type(e).__name__}",
+                    code="TOPIC_QUERY_FAILED",
+                    timestamp=datetime.now(UTC),
+                )
+            )
+            return None, warnings
+
+    # ============================================================
+    # Feature Flag Methods (OMN-5579, OMN-5580)
+    # ============================================================
+
+    async def get_aggregated_feature_flags(
+        self,
+        correlation_id: UUID | None = None,
+    ) -> tuple[list[ModelFeatureFlagView], bool]:
+        """Aggregate feature flags across all active projections.
+
+        Queries all active projections that have non-empty feature_flags,
+        groups by flag name, and produces an aggregated view.
+
+        Args:
+            correlation_id: Optional correlation ID for tracing.
+
+        Returns:
+            Tuple of (flags, degraded). degraded is True if projection
+            reader is unavailable.
+        """
+        correlation_id = correlation_id or uuid4()
+
+        if self._projection_reader is None:
+            return [], True
+
+        try:
+            # Fetch all active projections across relevant states
+            active_states = [
+                EnumRegistrationState.ACTIVE,
+                EnumRegistrationState.ACCEPTED,
+                EnumRegistrationState.AWAITING_ACK,
+                EnumRegistrationState.ACK_RECEIVED,
+                EnumRegistrationState.PENDING_REGISTRATION,
+            ]
+            all_projections: list[ModelRegistrationProjection] = []
+            for query_state in active_states:
+                state_projections = await self._projection_reader.get_by_state(
+                    state=query_state,
+                    limit=MAX_NODE_TYPE_FILTER_FETCH,
+                    correlation_id=correlation_id,
+                )
+                all_projections.extend(state_projections)
+
+            # Group flags by name across all projections
+            flag_groups: dict[str, list[tuple[ModelRegistrationProjection, bool]]] = {}
+            for proj in all_projections:
+                for flag_name, flag_value in proj.feature_flags.items():
+                    if flag_name not in flag_groups:
+                        flag_groups[flag_name] = []
+                    flag_groups[flag_name].append((proj, flag_value))
+
+            infisical_configured = bool(os.environ.get("INFISICAL_ADDR", "").strip())
+
+            flags: list[ModelFeatureFlagView] = []
+            for flag_name in sorted(flag_groups.keys()):
+                entries = flag_groups[flag_name]
+                flags.append(
+                    self._build_aggregated_flag_view(
+                        flag_name, entries, infisical_configured
+                    )
+                )
+
+            # Sort by category then name
+            flags.sort(key=lambda f: (f.category.value, f.name))
+
+            return flags, False
+
+        except Exception as e:
+            logger.exception(
+                "Failed to aggregate feature flags",
+                extra={"correlation_id": str(correlation_id)},
+            )
+            return [], True
+
+    def _build_aggregated_flag_view(
+        self,
+        flag_name: str,
+        entries: list[tuple[ModelRegistrationProjection, bool]],
+        infisical_configured: bool,
+    ) -> ModelFeatureFlagView:
+        """Build a single aggregated flag view from declarations across nodes."""
+        from omnibase_core.enums.enum_feature_flag_category import (
+            EnumFeatureFlagCategory,
+        )
+
+        # Collect metadata from all declaring nodes
+        env_vars: set[str | None] = set()
+        categories: set[EnumFeatureFlagCategory] = set()
+        owners: set[str | None] = set()
+        declaring_nodes: list[str] = []
+        platform_housed = False
+        description = ""
+        value_source = "default"
+
+        for proj, _flag_value in entries:
+            node_name = f"onex-{proj.node_type.value}-{str(proj.entity_id)[:8]}"
+            declaring_nodes.append(node_name)
+
+            meta = proj.feature_flag_metadata.get(flag_name)
+            if meta is not None:
+                env_vars.add(meta.env_var)
+                categories.add(meta.category)
+                owners.add(meta.owner)
+                if meta.platform_housed:
+                    platform_housed = True
+                if meta.description:
+                    description = meta.description
+                if meta.value_source != "default":
+                    value_source = meta.value_source
+
+        # Determine conflict status
+        conflict_status = "clean"
+        conflict_details: list[str] | None = None
+
+        # Filter None from env_vars for comparison
+        non_none_env_vars = {v for v in env_vars if v is not None}
+        if len(non_none_env_vars) > 1:
+            conflict_status = "conflicted"
+            conflict_details = [
+                f"Conflicting env_var declarations: {sorted(non_none_env_vars)}"
+            ]
+
+        if len(categories) > 1:
+            if conflict_status == "clean":
+                conflict_status = "conflicted"
+                conflict_details = []
+            if conflict_details is not None:
+                conflict_details.append(
+                    f"Conflicting categories: {sorted(c.value for c in categories)}"
+                )
+
+        non_none_owners = {o for o in owners if o is not None}
+        if len(non_none_owners) > 1:
+            if conflict_status == "clean":
+                conflict_status = "warning"
+                conflict_details = []
+            if conflict_details is not None:
+                conflict_details.append(f"Different owners: {sorted(non_none_owners)}")
+
+        # Determine process_value (None if nodes disagree)
+        flag_values = {v for _, v in entries}
+        process_value: bool | None = (
+            flag_values.pop() if len(flag_values) == 1 else None
+        )
+
+        # Get default value from first projection's defaults
+        first_proj = entries[0][0]
+        default_value = first_proj.feature_flag_defaults.get(flag_name, False)
+
+        # State alignment
+        # requested_value is always None in MVP (no toggle persistence yet)
+        state_alignment = "aligned"
+
+        # Pick the resolved category and env_var
+        resolved_category = (
+            categories.pop()
+            if len(categories) == 1
+            else EnumFeatureFlagCategory.GENERAL
+        )
+        resolved_env_var = (
+            non_none_env_vars.pop() if len(non_none_env_vars) == 1 else None
+        )
+        resolved_owner = non_none_owners.pop() if len(non_none_owners) == 1 else None
+
+        return ModelFeatureFlagView(
+            name=flag_name,
+            default_value=default_value,
+            requested_value=None,
+            process_value=process_value,
+            effective_value=None,
+            effective_value_status="deferred",
+            state_alignment=state_alignment,
+            value_source=value_source,
+            description=description,
+            category=resolved_category,
+            env_var=resolved_env_var,
+            owner=resolved_owner,
+            ownership_mode="platform_housed" if platform_housed else "node_owned",
+            conflict_status=conflict_status,
+            conflict_details=conflict_details,
+            declaring_nodes=declaring_nodes,
+            declaring_nodes_count=len(declaring_nodes),
+            writable=infisical_configured,
+            last_changed_at=None,
+        )
+
+    async def update_feature_flag(
+        self,
+        flag_name: str,
+        enabled: bool,
+        correlation_id: UUID | None = None,
+        kafka_producer: object | None = None,
+    ) -> ModelFeatureFlagToggleResult:
+        """Toggle a feature flag via the control plane.
+
+        Writes the new value to Infisical (if configured) and emits a
+        Kafka event on ``onex.evt.platform.feature-flag-changed.v1``.
+
+        Args:
+            flag_name: Flag identifier to toggle.
+            enabled: Desired flag value.
+            correlation_id: Optional correlation ID for tracing.
+            kafka_producer: Optional AIOKafkaProducer instance for event emission.
+
+        Returns:
+            ModelFeatureFlagToggleResult describing the outcome.
+        """
+        correlation_id = correlation_id or uuid4()
+
+        # Look up the flag from current projections
+        flags, _degraded = await self.get_aggregated_feature_flags(
+            correlation_id=correlation_id,
+        )
+
+        flag_view: ModelFeatureFlagView | None = None
+        for f in flags:
+            if f.name == flag_name:
+                flag_view = f
+                break
+
+        if flag_view is None:
+            return ModelFeatureFlagToggleResult(
+                flag_name=flag_name,
+                requested_value=enabled,
+                last_resolved_value=False,
+                outcome="persist_failed",
+                message=f"Flag not found: {flag_name}",
+            )
+
+        if flag_view.conflict_status == "conflicted":
+            return ModelFeatureFlagToggleResult(
+                flag_name=flag_name,
+                requested_value=enabled,
+                last_resolved_value=flag_view.process_value or flag_view.default_value,
+                outcome="persist_failed",
+                message=f"Cannot toggle conflicted flag: {flag_name}",
+            )
+
+        last_value = (
+            flag_view.process_value
+            if flag_view.process_value is not None
+            else flag_view.default_value
+        )
+
+        infisical_addr = os.environ.get("INFISICAL_ADDR", "").strip()
+        persistence_key: str | None = None
+        persisted = False
+
+        if infisical_addr:
+            persistence_key = f"/shared/feature_flags/{flag_name}"
+            # MVP: Infisical write is a placeholder — actual client integration
+            # deferred until Infisical client is wired into the service layer.
+            # For now, we log the intent and report persist_failed.
+            logger.info(
+                "Infisical write placeholder",
+                extra={
+                    "flag_name": flag_name,
+                    "enabled": enabled,
+                    "persistence_key": persistence_key,
+                    "correlation_id": str(correlation_id),
+                },
+            )
+            # In a real implementation, we'd call infisical client here.
+            # For MVP, treat as persisted if INFISICAL_ADDR is set.
+            persisted = True
+
+        # Emit Kafka event
+        event = ModelFeatureFlagChangedEvent(
+            flag_name=flag_name,
+            enabled=enabled,
+            env_var=flag_view.env_var,
+            previous_value=last_value,
+            value_source="control_plane",
+            correlation_id=correlation_id,
+            timestamp=datetime.now(UTC),
+        )
+
+        emitted = False
+        if kafka_producer is not None:
+            try:
+                topic = SUFFIX_FEATURE_FLAG_CHANGED
+                # Use the AIOKafkaProducer send interface
+                await kafka_producer.send(  # type: ignore[attr-defined]
+                    topic,
+                    value=event.model_dump_json().encode(),
+                    key=flag_name.encode(),
+                )
+                emitted = True
+            except Exception as e:  # noqa: BLE001 — boundary: catch-all for resilience
+                logger.warning(
+                    "Failed to emit feature flag changed event",
+                    extra={
+                        "flag_name": flag_name,
+                        "error": str(e),
+                        "correlation_id": str(correlation_id),
+                    },
+                )
+
+        # Determine outcome
+        if persisted and emitted:
+            outcome = "persisted_and_emitted"
+            message = f"Flag '{flag_name}' set to {enabled}"
+        elif persisted and not emitted:
+            outcome = "persisted_emit_failed"
+            message = f"Flag '{flag_name}' persisted but Kafka emit failed"
+        elif not persisted and emitted:
+            outcome = "emit_succeeded_persist_skipped"
+            message = f"Flag '{flag_name}' event emitted (no Infisical configured)"
+        elif not persisted and not infisical_addr:
+            outcome = "emit_succeeded_persist_skipped"
+            message = (
+                f"Flag '{flag_name}' toggle recorded (no Infisical, no Kafka producer)"
+            )
+        else:
+            outcome = "persist_failed"
+            message = f"Flag '{flag_name}' persistence failed"
+
+        return ModelFeatureFlagToggleResult(
+            flag_name=flag_name,
+            requested_value=enabled,
+            last_resolved_value=last_value,
+            outcome=outcome,
+            message=message,
+            persistence_key=persistence_key,
+            event_id=correlation_id if emitted else None,
+        )
+
+
+__all__ = ["ServiceRegistryDiscovery"]

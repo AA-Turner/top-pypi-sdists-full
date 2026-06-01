@@ -1,0 +1,55 @@
+# Enable the creation of Neutron networks for isolated Overcloud
+# traffic and configure each role to assign ports (related
+# to that role) on these networks.
+# Many networks are disabled by default because they are not used
+# in a typical configuration. Override via parameter_defaults.
+resource_registry:
+  # Network Interface templates to use (these files must exist)
+  OS::TripleO::BlockStorage::Net::SoftwareConfig:
+    /home/stack/templates/network/config/cinder-storage.yaml
+  OS::TripleO::Compute::Net::SoftwareConfig:
+    /home/stack/templates/network/config/compute.yaml
+  OS::TripleO::Controller::Net::SoftwareConfig:
+    /home/stack/templates/network/config/controller.yaml
+  OS::TripleO::ObjectStorage::Net::SoftwareConfig:
+    /home/stack/templates/network/config/swift-storage.yaml
+  OS::TripleO::CephStorage::Net::SoftwareConfig:
+    /home/stack/templates/network/config/ceph-storage.yaml
+
+parameter_defaults:
+  # This section is where deployment-specific configuration is done
+  # Customize the IP subnets to match the local environment
+  InternalApiNetCidr: 172.17.0.0/24
+  StorageNetCidr: 172.18.0.0/24
+  StorageMgmtNetCidr: 172.19.0.0/24
+  TenantNetCidr: 172.16.0.0/24
+  ExternalNetCidr: 10.8.65.0/24
+  # CIDR subnet mask length for provisioning network
+  ControlPlaneSubnetCidr: '24'
+  # Customize the IP ranges on each network to use for static IPs and VIPs
+  InternalApiAllocationPools: [{'start': '172.17.0.10', 'end': '172.17.0.30'}]
+  StorageAllocationPools: [{'start': '172.18.0.10', 'end': '172.18.0.30'}]
+  StorageMgmtAllocationPools: [{'start': '172.19.0.10', 'end': '172.19.0.30'}]
+  TenantAllocationPools: [{'start': '172.16.0.10', 'end': '172.16.0.30'}]
+  # Leave room if the external network is also used for floating IPs
+  ExternalAllocationPools: [{'start': '10.8.65.200', 'end': '10.8.65.220'}]
+  # Gateway router for the external network
+  ExternalInterfaceDefaultRoute: 10.8.65.1
+  # Gateway router for the provisioning network (or Undercloud IP)
+  ControlPlaneDefaultRoute: 192.0.2.1
+  # Generally the IP of the Undercloud
+  EC2MetadataIp: 192.0.2.1
+  # Define the DNS servers (maximum 2) for the overcloud nodes
+  DnsServers: ["8.8.8.8","8.8.4.4"]
+  # Customize the VLAN IDs to match the local environment
+  InternalApiNetworkVlanID: 3005
+  StorageNetworkVlanID: 3006
+  StorageMgmtNetworkVlanID: 3007
+  TenantNetworkVlanID: 3008
+  ExternalNetworkVlanID: 10
+  # Set to empty string to enable multiple external networks or VLANs
+  NeutronExternalNetworkBridge: "''"
+  # Customize bonding options, e.g. "mode=4 lacp_rate=1 updelay=1000 miimon=100"
+  BondInterfaceOvsOptions: "mode=4 lacp_rate=1 updelay=1000 use_carrier=1"
+  NeutronNetworkType: "vlan"
+  NeutronNetworkVLANRanges: "datacentre:2000:2050"

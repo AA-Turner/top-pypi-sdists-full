@@ -1,0 +1,27 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "msbench-utils"
+version = "0.0.2"
+description = "Common MSBench utilities"
+readme = "README.md"
+requires-python = ">=3.7"
+authors = [
+    { name = "Ben Steenhoek", email = "bensteenhoek@microsoft.com" },
+    { name = "Avi Arora", email = "aviarora@microsoft.com" },
+]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: POSIX :: Linux",
+  "License :: OSI Approved :: MIT License",
+]
+
+dependencies = []
+
+[project.scripts]
+msbench-report-error = "msbench_utils.cli:main"
+
+[tool.flit.module]
+name = "msbench_utils"

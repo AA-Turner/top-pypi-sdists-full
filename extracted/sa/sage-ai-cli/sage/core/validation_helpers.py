@@ -261,6 +261,8 @@ def _write_file(
     - Files with syntax errors (Python, JSON)
     - Files that appear truncated or incomplete
     """
+    if Path(filepath_str).name == "__init__.py":
+        content = ""
     from sage.main import _INVALID_FILENAMES
     candidate = (filepath_str or "").strip()
     if Path(candidate).is_absolute() or candidate.startswith("~"):

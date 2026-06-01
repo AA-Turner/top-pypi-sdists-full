@@ -1,0 +1,5 @@
+DATASETINFO:
+  n_rows: 100
+  n_cols: 100
+  n_block_x: 2
+  n_block_y: 2

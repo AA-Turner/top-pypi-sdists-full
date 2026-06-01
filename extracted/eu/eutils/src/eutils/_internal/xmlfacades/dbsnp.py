@@ -1,0 +1,92 @@
+import re
+
+from .base import Base
+
+genome_ac_re = re.compile("^(?:NC)_")
+transcript_ac_re = re.compile("^(?:ENST|NG|NM)_")
+protein_ac_re = re.compile("^(?:ENSP|NP)_")
+
+
+class ExchangeSet(Base):
+    _root_tag = "{https://www.ncbi.nlm.nih.gov/SNP/docsum}ExchangeSet"
+
+    def __iter__(self):
+        return (
+            Rs(n)
+            for n in self._xml_root.iterfind(
+                "docsum:DocumentSummary", namespaces={"docsum": self._xml_root.nsmap[None]}
+            )
+        )
+
+    def __len__(self):
+        return len(
+            self._xml_root.findall(
+                "docsum:DocumentSummary", namespaces={"docsum": self._xml_root.nsmap[None]}
+            )
+        )
+
+
+class Rs:
+    _root_tag = "DocumentSummary"
+
+    def __init__(self, rs_node):
+        assert rs_node.tag == "{https://www.ncbi.nlm.nih.gov/SNP/docsum}DocumentSummary"  # noqa: S101
+        self._n = rs_node
+
+    # def __str__(self):
+    #    return "Rs({self.id})".format(self=self)
+
+    @property
+    def rs_id(self):
+        ns = {"docsum": self._n.nsmap[None]}
+        snp_id = self._n.findtext("docsum:SNP_ID", namespaces=ns)
+        return "rs" + snp_id
+
+    @property
+    def withdrawn(self):
+        # snpType is no longer available in DocumentSummary format
+        # This would need to be determined from other fields if available
+        return False
+
+    @property
+    def orient(self):
+        # orient attribute is no longer available in DocumentSummary format
+        return None
+
+    @property
+    def strand(self):
+        # strand attribute is no longer available in DocumentSummary format
+        return None
+
+    @property
+    def hgvs_tags(self):
+        return self._n.xpath("docsum:hgvs/text()", namespaces={"docsum": self._n.nsmap[None]})
+
+    @property
+    def hgvs_genome_tags(self):
+        return [t for t in self.hgvs_tags if genome_ac_re.match(t)]
+
+    @property
+    def hgvs_transcript_tags(self):
+        return [t for t in self.hgvs_tags if transcript_ac_re.match(t)]
+
+    @property
+    def hgvs_protein_tags(self):
+        return [t for t in self.hgvs_tags if protein_ac_re.match(t)]
+
+
+# <LICENSE>
+# Copyright 2015 eutils Committers
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+# or implied. See the License for the specific language governing
+# permissions and limitations under the License.
+# </LICENSE>

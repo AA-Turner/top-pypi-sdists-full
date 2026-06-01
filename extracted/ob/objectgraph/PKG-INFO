@@ -1,0 +1,57 @@
+Metadata-Version: 2.4
+Name: objectgraph
+Version: 1.0.5
+Summary: A basic graph library
+Home-page: https://objectgraph.readthedocs.io/
+Author: Ronald Oussoren
+Author-email: ronaldoussoren@mac.com
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
+License: MIT
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Free Threading :: 3 - Stable
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Development Status :: 5 - Production/Stable
+Requires-Dist: typing_extensions
+Project-URL: Documentation, https://objectgraph.readthedocs.io/
+Project-URL: Issue Tracker, https://github.com/ronaldoussoren/objectgraph/issues
+Project-URL: Source Code, https://github.com/ronaldoussoren/objectgraph/
+Project-URL: Supporting, https://blog.ronaldoussoren.net/support/
+
+Introduction
+------------
+
+Objectgraph is a library that provides a class representing
+basic graphs with nodes and edges between nodes.
+
+Nodes can be arbitrary objects with an "identifier" attribute
+(which should be hashable). Edges can have arbitrary attributes.
+
+The model for edges is slighly non-standard: There can be multiple
+edges between nodes, but all edges with the same attributes are
+collapsed into one edge.
+
+There is `documentation at readthedocs <https://objectgraph.readthedocs.io>`_
+
+Historic
+........
+
+Objectgraph is a complete rewrite of the ObjectGraph class in
+`altgraph <https://pypi.org/project/altgraph/>`_,
+using lessons learned in that project but with a complete new
+Python 3 code base and full test coverage.
+

@@ -19,6 +19,7 @@ use std::ops::Bound;
 use std::ops::Range;
 use std::ops::RangeBounds;
 use std::sync::Arc;
+use std::sync::OnceLock;
 
 use crate::raw::*;
 use crate::*;
@@ -33,6 +34,8 @@ pub struct ReadContext {
     args: OpRead,
     /// Options for the reader.
     options: OpReader,
+    /// Complete object metadata observed from successful read opens.
+    metadata: OnceLock<Metadata>,
 }
 
 impl ReadContext {
@@ -44,6 +47,7 @@ impl ReadContext {
             path,
             args,
             options,
+            metadata: OnceLock::new(),
         }
     }
 
@@ -71,6 +75,17 @@ impl ReadContext {
         &self.options
     }
 
+    /// Get complete object metadata observed by this reader.
+    #[inline]
+    pub fn metadata(&self) -> Option<&Metadata> {
+        self.metadata.get()
+    }
+
+    /// Set cached object metadata observed from successful read opens once.
+    pub(crate) fn set_metadata(&self, metadata: Metadata) {
+        let _ = self.metadata.set(metadata);
+    }
+
     /// Parse the range bounds into a range.
     pub(crate) async fn parse_into_range(
         &self,
@@ -78,25 +93,39 @@ impl ReadContext {
     ) -> Result<Range<u64>> {
         let start = match range.start_bound() {
             Bound::Included(v) => *v,
-            Bound::Excluded(v) => v + 1,
+            Bound::Excluded(v) => v.checked_add(1).ok_or_else(|| {
+                Error::new(
+                    ErrorKind::RangeNotSatisfied,
+                    "range start overflow: excluded bound at u64::MAX cannot be incremented",
+                )
+            })?,
             Bound::Unbounded => 0,
         };
 
         let end = match range.end_bound() {
-            Bound::Included(v) => v + 1,
+            Bound::Included(v) => v.checked_add(1).ok_or_else(|| {
+                Error::new(
+                    ErrorKind::RangeNotSatisfied,
+                    "range end overflow: inclusive bound at u64::MAX cannot be incremented",
+                )
+            })?,
             Bound::Excluded(v) => *v,
             Bound::Unbounded => {
-                let mut op_stat = OpStat::new();
+                if let Some(v) = self.options().content_length_hint() {
+                    v
+                } else {
+                    let mut op_stat = OpStat::new();
 
-                if let Some(v) = self.args().version() {
-                    op_stat = op_stat.with_version(v);
+                    if let Some(v) = self.args().version() {
+                        op_stat = op_stat.with_version(v);
+                    }
+
+                    self.accessor()
+                        .stat(self.path(), op_stat)
+                        .await?
+                        .into_metadata()
+                        .content_length()
                 }
-
-                self.accessor()
-                    .stat(self.path(), op_stat)
-                    .await?
-                    .into_metadata()
-                    .content_length()
             }
         };
 
@@ -165,8 +194,18 @@ impl ReadGenerator {
         };
 
         let args = self.ctx.args.clone().with_range(range);
-        let (_, r) = self.ctx.acc.read(&self.ctx.path, args).await?;
+        let (rp, r) = self.ctx.acc.read(&self.ctx.path, args).await?;
+        if let Some(metadata) = rp.into_metadata() {
+            if self.ctx.metadata().is_none() {
+                self.ctx.set_metadata(metadata);
+            }
+        }
         Ok(Some(r))
+    }
+
+    /// Get metadata observed by generated readers.
+    pub(crate) fn metadata(&self) -> Option<&Metadata> {
+        self.ctx.metadata()
     }
 }
 
@@ -225,6 +264,60 @@ mod tests {
         }
 
         pretty_assertions::assert_eq!(readers.len(), 1);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_parse_into_range_inclusive_end_u64_max() -> Result<()> {
+        let op = Operator::via_iter(services::MEMORY_SCHEME, [])?;
+        op.write("test", Buffer::from(Bytes::new())).await?;
+
+        let acc = op.into_inner();
+        let ctx = ReadContext::new(acc, "test".to_string(), OpRead::new(), OpReader::new());
+
+        let result = ctx.parse_into_range(..=u64::MAX).await;
+        assert!(
+            result.is_err(),
+            "..=u64::MAX should return error, not overflow"
+        );
+        assert_eq!(result.unwrap_err().kind(), ErrorKind::RangeNotSatisfied);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_parse_into_range_excluded_start_u64_max() -> Result<()> {
+        let op = Operator::via_iter(services::MEMORY_SCHEME, [])?;
+        op.write("test", Buffer::from(Bytes::new())).await?;
+
+        let acc = op.into_inner();
+        let ctx = ReadContext::new(acc, "test".to_string(), OpRead::new(), OpReader::new());
+
+        let result = ctx
+            .parse_into_range((Bound::Excluded(u64::MAX), Bound::Unbounded))
+            .await;
+        assert!(
+            result.is_err(),
+            "Excluded(u64::MAX) start should return error, not overflow"
+        );
+        assert_eq!(result.unwrap_err().kind(), ErrorKind::RangeNotSatisfied);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_parse_into_range_uses_content_length_hint() -> Result<()> {
+        let op = Operator::via_iter(services::MEMORY_SCHEME, [])?;
+
+        let acc = op.into_inner();
+        let ctx = ReadContext::new(
+            acc,
+            "test".to_string(),
+            OpRead::new(),
+            OpReader::new().with_content_length_hint(42),
+        );
+
+        let range = ctx.parse_into_range(10..).await?;
+
+        pretty_assertions::assert_eq!(range, 10..42);
         Ok(())
     }
 }

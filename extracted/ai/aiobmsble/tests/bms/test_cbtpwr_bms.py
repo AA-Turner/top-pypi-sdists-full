@@ -1,0 +1,290 @@
+"""Test the CBT power BMS implementation."""
+
+from collections.abc import Buffer
+from uuid import UUID
+
+from bleak.backends.characteristic import BleakGATTCharacteristic
+from bleak.uuids import normalize_uuid_str
+import pytest
+
+from aiobmsble import BMSSample
+from aiobmsble.bms.cbtpwr_bms import BMS
+from tests.bluetooth import generate_ble_device
+from tests.conftest import MockBleakClient
+from tests.test_basebms import BMSBasicTests
+
+
+def ref_value() -> BMSSample:
+    """Return reference value for mock CBT power BMS."""
+    return {
+        "voltage": 13.4,
+        "current": -3.14,
+        "battery_level": 100,
+        "cycles": 3,
+        "cycle_charge": 40.0,
+        "cell_count": 5,
+        "cell_voltages": [3.339, 3.339, 3.338, 3.338, 2.317],
+        "delta_voltage": 1.022,
+        "temp_values": [-2],
+        "temperature": -2,
+        "cycle_capacity": 536.0,
+        "design_capacity": 40,
+        "power": -42.076,
+        "runtime": 22608,
+        "battery_charging": False,
+        "problem": False,
+        "problem_code": 0,
+    }
+
+
+class TestBasicBMS(BMSBasicTests):
+    """Test the basic BMS functionality."""
+
+    bms_class = BMS
+
+
+class MockCBTpwrBleakClient(MockBleakClient):
+    """Emulate a CBT power BMS BleakClient."""
+
+    RESP: dict[int, bytes] = {
+        0x05: b"\xaa\x55\x05\x0a\x0b\x0d\x0b\x0d\x0a\x0d\x0a\x0d\x0d\x09\x83\x0d\x0a",  # cell voltage info (5 cells)
+        0x06: b"\xaa\x55\x06\x0a\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10\x0d\x0a",  # cell voltage info (no additional cells)
+        0x09: b"\xaa\x55\x09\x0c\xfe\xff\xfe\xff\x00\x00\x00\x00\x00\x00\x00\x00\x0f\x0d\x0a",  # temperature frame
+        0x0B: b"\xaa\x55\x0b\x08\x58\x34\x00\x00\xbc\xf3\xff\xff\x4c\x0d\x0a",  # voltage/current frame
+        0x0A: b"\xaa\x55\x0a\x06\x64\x13\x0d\x00\x00\x00\x94\x0d\x0a",  # capacity frame
+        0x0C: b"\xaa\x55\x0c\x0c\x00\x00\x00\x00\x5b\x06\x00\x00\x03\x00\x74\x02\xf2\x0d\x0a",  # runtime info frame, 6.28h*100
+        0x15: b"\xaa\x55\x15\x04\x28\x00\x03\x00\x44\x0d\x0a",  # cycle info frame
+        0x21: b"\xaa\x55\x21\x04\x00\x00\x00\x00\x25\x0d\x0a",  # warnings frame
+    }
+
+    def _response(
+        self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
+    ) -> bytearray:
+        if isinstance(char_specifier, str) and normalize_uuid_str(
+            char_specifier
+        ) != normalize_uuid_str("ffe9"):
+            return bytearray()
+        cmd: int = int(bytearray(data)[2])
+        assert bytearray(data)[4] == cmd, "incorrect CRC"
+        if cmd in (0x07, 0x08):
+            pytest.fail("only 5 cells available, do not query.")
+
+        return bytearray(self.RESP.get(cmd, b""))
+
+    async def write_gatt_char(
+        self,
+        char_specifier: BleakGATTCharacteristic | int | str | UUID,
+        data: Buffer,
+        response: bool | None = None,
+    ) -> None:
+        """Issue write command to GATT."""
+        await super().write_gatt_char(char_specifier, data, response)
+
+        assert self._notify_callback is not None
+
+        if (resp := self._response(char_specifier, data)) != bytearray():
+            self._notify_callback("MockCBTpwrBleakClient", resp)
+
+
+class MockAllCellsBleakClient(MockCBTpwrBleakClient):
+    """Emulate a CBT power BMS BleakClient."""
+
+    RESP: dict[int, bytes] = {
+        0x05: b"\xaa\x55\x05\x0a\x0b\x0d\x0a\x0d\x09\x0d\x08\x0d\x07\x0d\x7d\x0d\x0a",
+        0x06: b"\xaa\x55\x06\x0a\x06\x0d\x05\x0d\x04\x0d\x03\x0d\x02\x0d\x65\x0d\x0a",
+        0x07: b"\xaa\x55\x07\x0a\x01\x0d\x00\x0d\xff\x0c\xfe\x0c\xfd\x0c\x4a\x0d\x0a",
+        0x08: b"\xaa\x55\x08\x0a\xfc\x0c\xfb\x0c\xfa\x0c\xf9\x0c\xf8\x0c\x30\x0d\x0a",
+        0x09: b"\xaa\x55\x09\x0c\x15\x00\x15\x00\x00\x00\x00\x00\x00\x00\x00\x00\x3f\x0d\x0a",  # temperature frame
+        0x0B: b"\xaa\x55\x0b\x08\x58\x34\x00\x00\x00\x00\x00\x00\x9f\x0d\x0a",  # voltage/current frame
+        0x15: b"\xaa\x55\x15\x04\x28\x00\x03\x00\x44\x0d\x0a",  # cycle info frame
+        0x0A: b"\xaa\x55\x0a\x06\x64\x13\x0d\x00\x00\x00\x94\x0d\x0a",  # capacity frame
+        0x0C: b"\xaa\x55\x0c\x0c\x00\x00\x00\x00\x5b\x06\x00\x00\x03\x00\x74\x02\xf2\x0d\x0a",  # runtime info frame, 6.28h*100
+        0x21: b"\xaa\x55\x21\x04\x00\x00\x00\x00\x25\x0d\x0a",  # warnings frame
+    }
+
+    def _response(
+        self, char_specifier: BleakGATTCharacteristic | int | str | UUID, data: Buffer
+    ) -> bytearray:
+        if isinstance(char_specifier, str) and normalize_uuid_str(
+            char_specifier
+        ) != normalize_uuid_str("ffe9"):
+            return bytearray()
+        cmd: int = int(bytearray(data)[2])
+
+        return bytearray(self.RESP.get(cmd, b""))
+
+
+async def test_update(
+    patch_bleak_client, patch_bms_timeout, keep_alive_fixture: bool
+) -> None:
+    """Test CBT power BMS data update."""
+
+    patch_bms_timeout()
+    patch_bleak_client(MockCBTpwrBleakClient)
+
+    bms = BMS(generate_ble_device(), keep_alive_fixture)
+
+    assert await bms.async_update() == ref_value()
+
+    # query again to check already connected state
+    await bms.async_update()
+    assert bms.is_connected is keep_alive_fixture
+
+    await bms.disconnect()
+
+
+@pytest.mark.parametrize(
+    "wrong_response",
+    [
+        b"\x12\x34\x00\x00\x00\x56\x78",
+        b"invalid_len",
+        b"\xaa\x55\x15\x04\x00\x00\x00\x00\x00\x0d\x0a",
+        b"",
+    ],
+    ids=[
+        "invalid start/end",
+        "invalid length",
+        "wrong CRC",
+        "empty frame",
+    ],
+)
+async def test_invalid_response(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    wrong_response: bytes,
+) -> None:
+    """Test data update with BMS returning invalid data."""
+
+    patch_bms_timeout()
+    monkeypatch.setattr(
+        MockCBTpwrBleakClient,
+        "RESP",
+        MockCBTpwrBleakClient.RESP | {0x0B: bytearray(wrong_response)},
+    )
+    patch_bleak_client(MockCBTpwrBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    with pytest.raises(TimeoutError):
+        await bms.async_update()
+
+    await bms.disconnect()
+
+
+async def test_partly_base_data(
+    monkeypatch: pytest.MonkeyPatch, patch_bleak_client, patch_bms_timeout
+) -> None:
+    """Test data update with BMS returning invalid data."""
+
+    patch_bms_timeout()
+    monkeypatch.setattr(
+        MockCBTpwrBleakClient,
+        "RESP",
+        MockCBTpwrBleakClient.RESP | {0x0B: MockCBTpwrBleakClient.RESP[0x15]},
+    )  # wrong response to voltage/current req (0xB) with cycle info (0x15)
+    patch_bleak_client(MockCBTpwrBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    with pytest.raises(ValueError, match="BMS data incomplete."):
+        await bms.async_update()
+
+    await bms.disconnect()
+
+
+async def test_all_cell_voltages(patch_bleak_client, patch_bms_timeout) -> None:
+    """Test data update with BMS returning invalid data."""
+
+    patch_bms_timeout()
+    patch_bleak_client(MockAllCellsBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    assert await bms.async_update() == {
+        "voltage": 13.4,
+        "current": 0,
+        "battery_level": 100,
+        "cycles": 3,
+        "cycle_charge": 40.0,
+        "cell_count": 20,
+        "cell_voltages": [
+            3.339,
+            3.338,
+            3.337,
+            3.336,
+            3.335,
+            3.334,
+            3.333,
+            3.332,
+            3.331,
+            3.330,
+            3.329,
+            3.328,
+            3.327,
+            3.326,
+            3.325,
+            3.324,
+            3.323,
+            3.322,
+            3.321,
+            3.320,
+        ],
+        "delta_voltage": 0.019,
+        "temperature": 21,
+        "temp_values": [21],
+        "cycle_capacity": 536.0,
+        "design_capacity": 40,
+        "power": 0,
+        "battery_charging": False,
+        "problem": False,
+        "problem_code": 0,
+    }
+
+    await bms.disconnect()
+
+
+@pytest.fixture(
+    name="problem_response",
+    params=[
+        (
+            {0x21: bytearray(b"\xaa\x55\x21\x04\x01\x00\x00\x00\x26\x0d\x0a")},
+            "first_bit",
+        ),
+        (
+            {0x21: bytearray(b"\xaa\x55\x21\x04\x00\x00\x00\x80\xa5\x0d\x0a")},
+            "last_bit",
+        ),
+    ],
+    ids=lambda param: param[1],
+)
+def prb_response(request: pytest.FixtureRequest) -> tuple[dict[int, bytearray], str]:
+    """Return faulty response frame."""
+    assert isinstance(request.param, tuple)
+    return request.param
+
+
+async def test_problem_response(
+    monkeypatch: pytest.MonkeyPatch,
+    patch_bleak_client,
+    patch_bms_timeout,
+    problem_response: tuple[dict[int, bytearray], str],
+) -> None:
+    """Test data update with BMS returning error flags."""
+
+    monkeypatch.setattr(  # patch response dictionary to only problem reports (no other data)
+        MockCBTpwrBleakClient, "RESP", MockCBTpwrBleakClient.RESP | problem_response[0]
+    )
+
+    patch_bms_timeout()
+    patch_bleak_client(MockCBTpwrBleakClient)
+
+    bms = BMS(generate_ble_device())
+
+    result: BMSSample = await bms.async_update()
+    assert result == ref_value() | {
+        "problem": True,
+        "problem_code": 1 << (0 if problem_response[1] == "first_bit" else 31),
+    }
+
+    await bms.disconnect()

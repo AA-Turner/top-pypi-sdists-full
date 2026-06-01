@@ -5,7 +5,7 @@ import warnings
 
 from grpc_reflection.v1alpha import reflection_pb2 as grpc__reflection_dot_v1alpha_dot_reflection__pb2
 
-GRPC_GENERATED_VERSION = '1.80.0'
+GRPC_GENERATED_VERSION = '1.81.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -25,7 +25,7 @@ if _version_not_supported:
     )
 
 
-class ServerReflectionStub(object):
+class ServerReflectionStub:
     """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
@@ -41,7 +41,7 @@ class ServerReflectionStub(object):
                 _registered_method=True)
 
 
-class ServerReflectionServicer(object):
+class ServerReflectionServicer:
     """Missing associated documentation comment in .proto file."""
 
     def ServerReflectionInfo(self, request_iterator, context):
@@ -68,7 +68,7 @@ def add_ServerReflectionServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class ServerReflection(object):
+class ServerReflection:
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod

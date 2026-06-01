@@ -1,7 +1,0 @@
-connection:
-  local_file:
-    root: data
-  metadata:
-    source:
-      path: connections/local_files.yaml
-  name: local_files

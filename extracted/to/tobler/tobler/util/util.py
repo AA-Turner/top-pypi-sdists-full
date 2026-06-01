@@ -1,0 +1,272 @@
+"""Useful functions to support tobler's interpolation methods."""
+
+from copy import deepcopy
+from warnings import catch_warnings, filterwarnings, warn
+
+import geopandas
+import numpy as np
+import pandas
+import shapely
+from packaging.version import Version
+from shapely.geometry import Polygon
+
+__all__ = ["h3fy", "circumradius"]
+
+
+def _h3lt4(p) -> bool:
+    """Helper to isolate h3 version without importing globally."""
+
+    return Version(p.__version__) < Version("4.0")
+
+
+def circumradius(resolution):
+    """Find the circumradius of an h3 hexagon at given resolution.
+
+    Parameters
+    ----------
+    resolution : int
+        h3 grid resolution
+
+    Returns
+    -------
+    circumradius : float
+        circumradius in meters
+    """
+    try:
+        import h3
+    except ImportError as err:
+        raise ImportError(
+            "This function requires the `h3` library. "
+            "You can install it with `conda install h3-py` or "
+            "`pip install h3`"
+        ) from err
+    if _h3lt4(h3):
+        return h3.edge_length(resolution, "m")
+    return h3.average_hexagon_edge_length(resolution, "m")
+
+
+def _check_crs(source_df, target_df):
+    """check if crs is identical"""
+    if source_df.crs != target_df.crs:
+        print("Source and target dataframes have different crs. Please correct.")
+        return False
+    return True
+
+
+def _nan_check(df, column, fill_value=0.0):
+    """Check if variable has nan values.
+
+    Warn and replace nan with 0.0.
+    """
+
+    values = df[column].copy()
+
+    if isinstance(fill_value, str):
+        if fill_value not in ["mean", "median", "max", "min"]:
+            raise ValueError(
+                "fill_value should be either None, a numeric value, or "
+                "one of 'mean', 'median', 'max', or 'min'"
+            )
+        fill_value = values.agg(fill_value)
+    if values.isna().any():
+        warn(
+            f"nan values in variable: {column}, replacing with {fill_value}",
+            stacklevel=2,
+        )
+    if fill_value is None:
+        return values.values
+    return values.fillna(fill_value).values
+
+
+def _inf_check(vals, column, fill_value=0.0):
+    """Check if variable has nan values.
+
+    Warn and replace inf with 0.0.
+    """
+    values = pandas.Series(vals)
+    if isinstance(fill_value, str):
+        if fill_value not in ["mean", "median", "max", "min"]:
+            raise ValueError(
+                "fill_value should be either None, a numeric value, or "
+                "one of 'mean', 'median', 'max', or 'min'"
+            )
+        fill_value = values.agg(fill_value)
+    if np.isinf(values).any():
+        warn(
+            f"inf values in variable: {column}, replacing with {fill_value}",
+            stacklevel=2,
+        )
+    return values.replace([np.inf, -np.inf], fill_value).values
+
+
+def _check_presence_of_crs(geoinput):
+    """check if there is crs in the polygon/geodataframe"""
+    if geoinput.crs is None:
+        raise KeyError("Geodataframe must have a CRS set before using this function.")
+
+
+def h3fy(source, resolution=6, clip=False, buffer=False, return_geoms=True):
+    """Generate a hexgrid geodataframe that covers the face of a source geodataframe.
+
+    Parameters
+    ----------
+    source : geopandas.GeoDataFrame
+        GeoDataFrame to transform into a hexagonal grid
+    resolution : int, optional (default is 6)
+        resolution of output h3 hexgrid.
+        See <https://h3geo.org/docs/core-library/restable> for more information
+    clip : bool, optional (default is False)
+        if True, hexagons are clipped by the boundary of the source gdf. Otherwise,
+        heaxgons along the boundary will be left intact.
+    buffer : bool, optional (default is False)
+        if True, force hexagons to completely fill the interior of the source area.
+        if False, (h3 default) may result in empty areas within the source area.
+    return_geoms: bool, optional (default is True)
+        whether to generate hexagon geometries as a geodataframe or simply return
+        hex ids as a pandas.Series
+
+    Returns
+    -------
+    pandas.Series or geopandas.GeoDataFrame
+        if `return_geoms` is True, a geopandas.GeoDataFrame whose rows comprise a
+        hexagonal h3 grid (indexed on h3 hex id).
+        if `return_geoms` is False, a pandas.Series of h3 hexagon ids
+    """
+    try:
+        import h3  # noqa: F401
+    except ImportError as err:
+        raise ImportError(
+            "This function requires the `h3` library. "
+            "You can install it with `conda install h3-py` or "
+            "`pip install h3`"
+        ) from err
+    # h3 hexes only work on polygons, not multipolygons
+    if source.crs is None:
+        raise ValueError(
+            "source geodataframe must have a valid CRS set before using this function"
+        )
+    source = source.copy()
+    orig_crs = deepcopy(source.crs)
+    if clip:
+        clipper = source.to_crs(4326)
+
+    if orig_crs.is_geographic:
+        if buffer:  # if CRS is geographic but user wants a buffer, we need to estimate
+            warn(
+                "The source geodataframe is stored in a geographic CRS. "
+                "Falling back to estimated UTM zone to generate desired buffer. "
+                "If this produces unexpected results, reproject the input data "
+                "prior to using this function",
+                stacklevel=2,
+            )
+            source = (
+                source.to_crs(source.estimate_utm_crs())
+                .buffer(circumradius(resolution))
+                .to_crs(4326)
+            )
+
+    else:  # if CRS is projected, we need lat/long
+        with catch_warnings():
+            filterwarnings(
+                "ignore",
+                category=UserWarning,
+                message=(
+                    "You will likely lose important projection information "
+                    "when converting to a PROJ string from another format"
+                ),
+            )
+            crs_units = source.crs.to_dict()["units"]
+        if buffer:  #  we can only convert between units we know
+            if crs_units not in ["m", "us-ft"]:
+                raise ValueError(
+                    "The CRS of source geodataframe uses an unknown "
+                    f"measurement unit: `{crs_units}`. The `buffer` "
+                    "argument requires either a geographic CRS or a projected "
+                    "one measured in meters or feet (U.S.)"
+                )
+            distance = circumradius(resolution)
+            source = source.buffer(distance).to_crs(4326)
+        else:
+            source = source.to_crs(4326)
+
+    source_unary = shapely.force_2d(source.union_all())
+
+    if isinstance(source_unary, Polygon):
+        hexagons = _to_hex(
+            source_unary, resolution=resolution, return_geoms=return_geoms
+        )
+    else:
+        output = []
+        for geom in source_unary.geoms:
+            hexes = _to_hex(geom, resolution=resolution, return_geoms=return_geoms)
+            output.append(hexes)
+        hexagons = pandas.concat(output)
+
+    if return_geoms and clip:
+        hexagons = geopandas.clip(hexagons, clipper)
+
+    if return_geoms and not hexagons.crs.equals(orig_crs):
+        hexagons = hexagons.to_crs(orig_crs)
+
+    return hexagons
+
+
+def _to_hex(source, resolution=6, return_geoms=True):
+    """Generate a hexgrid geodataframe that covers the face of a source geometry.
+
+    Parameters
+    ----------
+    source : geometry
+        geometry to transform into a hexagonal grid (needs to support __geo_interface__)
+    resolution : int, optional (default is 6)
+        resolution of output h3 hexgrid.
+        See <https://h3geo.org/docs/core-library/restable> for more information
+    return_geoms: bool, optional (default is True)
+        whether to generate hexagon geometries as a geodataframe or simply return
+        hex ids as a pandas.Series
+
+    Returns
+    -------
+    pandas.Series or geopandas.GeoDataFrame
+        if `return_geoms` is True, a geopandas.GeoDataFrame whose rows comprise
+        a hexagonal h3 grid (indexed on h3 hex id).
+        if `return_geoms` is False, a pandas.Series of h3 hexagon ids
+    """
+    try:
+        import h3
+    except ImportError as err:
+        raise ImportError(
+            "This function requires the `h3` library. "
+            "You can install it with `conda install h3-py` or "
+            "`pip install h3`"
+        ) from err
+
+    if _h3lt4(h3):
+        polyfill = h3.polyfill
+        kwargs = {"geo_json_conformant": True}
+    else:
+        polyfill = h3.geo_to_cells
+        kwargs = {}
+
+    hexids = pandas.Series(
+        list(polyfill(source.__geo_interface__, resolution, **kwargs)),
+        name="hex_id",
+    )
+
+    if not return_geoms:
+        return hexids
+
+    if _h3lt4(h3):
+        polys = hexids.apply(
+            lambda hex_id: Polygon(h3.h3_to_geo_boundary(hex_id, geo_json=True)),
+        )
+    else:
+        polys = hexids.apply(
+            lambda hex_id: shapely.geometry.shape(h3.cells_to_geo([hex_id])),
+        )
+
+    hexs = geopandas.GeoDataFrame(hexids, geometry=polys.values, crs=4326).set_index(
+        "hex_id"
+    )
+
+    return hexs

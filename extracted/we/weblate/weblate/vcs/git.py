@@ -32,7 +32,6 @@ from urllib.parse import urlparse, urlunparse
 from zipfile import ZipFile
 
 import requests
-import sentry_sdk
 from django.conf import settings
 from django.core.cache import cache
 from django.utils.functional import cached_property
@@ -48,6 +47,7 @@ from weblate.utils.files import (
 )
 from weblate.utils.lock import WeblateLock, WeblateLockTimeoutError
 from weblate.utils.render import render_template
+from weblate.utils.tracing import start_span
 from weblate.utils.xml import parse_xml
 from weblate.utils.zip import (
     ZipSafetyError,
@@ -255,16 +255,17 @@ class GitRepository(Repository):
             for section, key, value in updates:
                 try:
                     old = config.get(section, key)
-                    if value is None:
-                        config.remove_option(section, key)
-                        continue
-                    if old == value:
-                        continue
                 except NoSectionError:
                     if value is not None:
                         config.add_section(section)
                 except NoOptionError:
                     pass
+                else:
+                    if value is None:
+                        config.remove_option(section, key)
+                        continue
+                    if old == value:
+                        continue
                 if value is not None:
                     config.set(section, key, value)
 
@@ -827,9 +828,10 @@ class GitRepository(Repository):
     def update_remote(self) -> None:
         """Update remote repository."""
         branch = self.validate_branch_name(self.branch)
+        refspec = f"+refs/heads/{branch}:refs/remotes/origin/{branch}"
         # Update existing branch only, not changing depth
         self.execute(
-            [*self.get_auth_args(), "fetch", "origin", branch],
+            [*self.get_auth_args(), "fetch", "--no-tags", "origin", refspec],
             remote_op="pull",
         )
         self.clean_revision_cache()
@@ -1514,7 +1516,7 @@ class GitMergeRequestBase(GitForcePushRepository):
         if component is None:
             raise RepositoryError(0, "Repository operation requires component.")
         lines = render_template(
-            component.pull_message.strip(), component=component
+            component.effective_pull_message.strip(), component=component
         ).splitlines()
         return lines[0], "\n".join(lines[1:]).strip()
 
@@ -1590,6 +1592,57 @@ class GitMergeRequestBase(GitForcePushRepository):
     def set_next_request_time(self, delay: int) -> None:
         cache.set(self.request_time_cache_key, time() + delay)
 
+    def send_api_request(
+        self,
+        method: str,
+        credentials: GitCredentials,
+        url: str,
+        lock: WeblateLock,
+        cache_id: str,
+        vcs_id: str,
+        *,
+        data: dict | None,
+        params: dict | None,
+        json: dict | None,
+    ) -> tuple[bool, dict, requests.Response]:
+        do_retry = False
+        with lock:
+            next_api_time = cache.get(cache_id)
+            now = time()
+            if next_api_time is not None and now < next_api_time:
+                with start_span(op="vcs.api_sleep", name=vcs_id):
+                    sleep(next_api_time - now)
+            try:
+                response = requests.request(
+                    method,
+                    url,
+                    headers=self.get_headers(credentials),
+                    data=data,
+                    params=params,
+                    json=json,
+                    auth=self.get_auth(credentials),
+                    timeout=settings.VCS_API_TIMEOUT,
+                )
+            except (OSError, HTTPError) as error:
+                report_error("Git API request")
+                raise RepositoryError(0, str(error)) from error
+
+            # GitHub recommends a delay between 2 requests of at least 1s,
+            # but in reality this hits secondary rate limits.
+            self.set_next_request_time(settings.VCS_API_DELAY)
+
+            self.add_response_breadcrumb(response)
+            try:
+                response_data = {} if response.status_code == 204 else response.json()
+            except JSONDecodeError as error:
+                report_error("GIT API request json decoding")
+                self.raise_for_response(response)
+                raise RepositoryError(0, str(error)) from error
+
+            if self.should_retry_request(response, response_data):
+                do_retry = True
+        return do_retry, response_data, response
+
     def request(
         self,
         method: str,
@@ -1612,44 +1665,17 @@ class GitMergeRequestBase(GitForcePushRepository):
             timeout=3 * max(settings.VCS_API_DELAY, 10),
         )
         try:
-            with lock:
-                next_api_time = cache.get(cache_id)
-                now = time()
-                if next_api_time is not None and now < next_api_time:
-                    with sentry_sdk.start_span(op="vcs.api_sleep", name=vcs_id):
-                        sleep(next_api_time - now)
-                try:
-                    response = requests.request(
-                        method,
-                        url,
-                        headers=self.get_headers(credentials),
-                        data=data,
-                        params=params,
-                        json=json,
-                        auth=self.get_auth(credentials),
-                        timeout=settings.VCS_API_TIMEOUT,
-                    )
-                except (OSError, HTTPError) as error:
-                    report_error("Git API request")
-                    raise RepositoryError(0, str(error)) from error
-
-                # GitHub recommends a delay between 2 requests of at least 1s,
-                # but in reality this hits secondary rate limits.
-                self.set_next_request_time(settings.VCS_API_DELAY)
-
-                self.add_response_breadcrumb(response)
-                try:
-                    if response.status_code == 204:
-                        response_data = {}
-                    else:
-                        response_data = response.json()
-                except JSONDecodeError as error:
-                    report_error("GIT API request json decoding")
-                    self.raise_for_response(response)
-                    raise RepositoryError(0, str(error)) from error
-
-                if self.should_retry_request(response, response_data):
-                    do_retry = True
+            do_retry, response_data, response = self.send_api_request(
+                method,
+                credentials,
+                url,
+                lock,
+                cache_id,
+                vcs_id,
+                data=data,
+                params=params,
+                json=json,
+            )
         except WeblateLockTimeoutError:
             do_retry = True
 
@@ -2113,6 +2139,48 @@ class GiteaRepository(GitMergeRequestBase):
         "This will push changes and create a Gitea pull request."
     )
 
+    @staticmethod
+    def is_matching_repository(repository: dict, owner: str, slug: str) -> bool:
+        expected_full_name = f"{owner}/{slug}".casefold()
+        full_name = repository.get("full_name")
+        if isinstance(full_name, str) and full_name.casefold() == expected_full_name:
+            return True
+        name = repository.get("name")
+        if not isinstance(name, str) or name.casefold() != slug.casefold():
+            return False
+        repo_owner = repository.get("owner")
+        if not isinstance(repo_owner, dict):
+            return False
+        owner_name = owner.casefold()
+        return owner_name in {
+            value.casefold()
+            for value in (
+                repo_owner.get("login"),
+                repo_owner.get("username"),
+                repo_owner.get("name"),
+            )
+            if isinstance(value, str)
+        }
+
+    def validate_existing_fork(
+        self, repository: dict, credentials: GitCredentials
+    ) -> None:
+        parent = repository.get("parent")
+        if (
+            repository.get("fork") is True
+            and isinstance(parent, dict)
+            and self.is_matching_repository(
+                parent, credentials["owner"], credentials["slug"]
+            )
+        ):
+            return
+        raise RepositoryError(
+            0,
+            "Existing repository "
+            f"{credentials['username']}/{credentials['slug']} is not a fork of "
+            f"{credentials['owner']}/{credentials['slug']}.",
+        )
+
     def create_fork(self, credentials: GitCredentials) -> None:
         fork_url = f"{credentials['url']}/forks"
 
@@ -2126,9 +2194,16 @@ class GiteaRepository(GitMergeRequestBase):
             and "repository is already forked by user" in error
         ) or response.status_code == 409:
             # we have to get the repository again if it is already forked
-            response_data, response, error = self.request(
-                "get", credentials, credentials["url"]
+            fork_api_url = self.format_url(
+                credentials["scheme"],
+                credentials["hostname"],
+                credentials["username"],
+                credentials["slug"],
             )
+            response_data, response, error = self.request(
+                "get", credentials, fork_api_url
+            )
+            self.validate_existing_fork(response_data, credentials)
         if "ssh_url" not in response_data:
             report_error("Could not fork repository", message=True)
             raise RepositoryError(
@@ -2267,11 +2342,16 @@ class LocalRepository(GitRepository):
                 remove_tree(target)
             cls._clone("local:", target, cls.default_branch)
             # Populate files
-            yield repo
-            # Add to repository
-            repo.execute(["add", target], remote_op="none")
-            if repo.needs_commit():
-                repo.commit(commit_message)
+            success = False
+            try:
+                yield repo
+                success = True
+            finally:
+                if success:
+                    # Add to repository
+                    repo.execute(["add", target], remote_op="none")
+                    if repo.needs_commit():
+                        repo.commit(commit_message)
 
     @classmethod
     def from_zip(cls, target: str, zipfile: BinaryIO) -> Self:

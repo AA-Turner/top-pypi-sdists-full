@@ -1,0 +1,94 @@
+Metadata-Version: 2.4
+Name: Ncore
+Version: 0.9.815
+Summary: Высокопроизводительная асинхронная библиотека для работы с MTProto (Telegram API).
+Author: zovdev
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/zovdev/Ncore
+Project-URL: Bug Tracker, https://github.com/zovdev/Ncore/issues
+Keywords: telegram,asyncio,mtproto,telegram-api,telegram-bot
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: <3.15,>=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: msgpack>=1.1.0
+Requires-Dist: tgcrypto>=1.2.5
+Dynamic: license-file
+
+# Ncore ✨
+
+[![PyPI version](https://badge.fury.io/py/Ncore.svg)](https://badge.fury.io/py/Ncore)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
+
+**Ncore** — это высокопроизводительный, легковесный и элегантный асинхронный MTProto-фреймворк для Telegram, написанный на Python с использованием Cython.
+
+Созданный как современная альтернатива перегруженным решениям (таким как Pyrogram или Telethon), Ncore выжимает максимум скорости за счет C-style оптимизаций, отсутствия лишних абстракций и грамотной работы с памятью.
+
+## 🔥 Ключевые особенности и преимущества
+
+* 🚀 **Cython TL-парсер**: Ядро парсинга TL-схем на Cython, что дает колоссальный прирост скорости десериализации пакетов по сравнению с чистым Python.
+* ⚡️ **C-style Python и Zero-copy оптимизации**: Никаких "костылей" с конкатенацией строк. Используется высокооптимизированный модуль `struct`. Чтение данных из сокетов происходит без лишних аллокаций памяти благодаря `memoryview`.
+* 🛡 **Lock-free батчинг**: Устойчивая асинхронная группировка запросов (batching) без блокировок, реализованная на базе `asyncio.Event`.
+* 🌊 **Автоматический FloodWait**: Встроенный механизм обработки ограничений `FLOOD_WAIT_X` — фреймворк сам ставит задачу на паузу и прозрачно повторяет запрос.
+* 🔒 **Нативная поддержка прокси**: Поддержка SOCKS5 и HTTP прокси с авторизацией прямо "из коробки", без необходимости тянуть тяжелые сторонние библиотеки.
+* 🎛 **Dual-API Loop Management**: Удобное и гибкое управление циклом событий. Вы можете запускать клиент как внутри собственного `asyncio.run()`, так и через классический `client.run()`.
+* 🎯 **Продвинутый Regex-роутер**: Система обработки команд. Роутер автоматически парсит параметры с учетом типов, поддерживает **обязательные аргументы** и отлично справляется с динамическими пробелами и переносами строк.
+
+## Установка
+
+```bash
+pip install Ncore
+```
+
+## 📦 Быстрый старт
+
+Минимальный пример запуска бота на Ncore:
+
+```python
+import asyncio
+from Ncore import Client, Router
+
+# Инициализируем клиент
+client = Client(
+    api_id=12345,
+    api_hash="your_api_hash",
+    bot_token="YOUR_BOT_TOKEN"
+)
+
+# Инициализируем роутер с префиксами команд
+router = Router(prefixes=["/", "!"])
+
+# Пример команды с использованием роутера Ncore
+@router.add("start")
+async def start_handler(event):
+    await event.answer("Привет! Я работаю на сверхбыстром Ncore 🚀")
+
+# Запуск клиента
+if __name__ == "__main__":
+    client.run(router=router)
+```
+
+## 📚 Документация
+
+Полное руководство по API, механике роутинга, типам параметров и работе с событиями находится в файле [DOCUMENTATION.md](DOCUMENTATION.md).
+
+## Лицензия
+
+Проект распространяется под лицензией **Apache License, Version 2.0**. Подробности см. в файле [LICENSE](LICENSE).
+
+В проекте используются следующие сторонние библиотеки:
+
+* **msgpack** (Apache 2.0)
+* **tgcrypto** (LGPLv3 — динамическое связывание)
+
+**Сборка:**
+Для компиляции модуля `tl` используется **Cython** (Apache 2.0).

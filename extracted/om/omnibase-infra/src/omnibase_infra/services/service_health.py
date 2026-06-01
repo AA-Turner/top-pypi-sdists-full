@@ -1,0 +1,1570 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# ruff: noqa: S104
+# S104 disabled: Binding to 0.0.0.0 is intentional for Docker/K8s health checks
+"""HTTP Health Service for ONEX Runtime.
+
+A minimal HTTP service for exposing health check endpoints.
+It is designed to run alongside the ONEX runtime kernel to satisfy Docker/K8s
+health check requirements.
+
+The service exposes:
+    - GET /health: Returns runtime liveness status as JSON (process alive)
+    - GET /ready: Returns runtime readiness status as JSON (can serve traffic)
+    - GET /health/detailed: Returns verbose per-component diagnostics (OMN-519)
+    - GET /v1/introspection/manifest: Returns auto-wiring manifest JSON (OMN-11198)
+
+Configuration:
+    ONEX_HTTP_PORT: Port to listen on (default: 8085)
+
+Exports:
+    ServiceHealth: HTTP health check service class
+    DEFAULT_HTTP_HOST: Default bind address ("0.0.0.0")
+    DEFAULT_HTTP_PORT: Default HTTP port (8085)
+
+Example (Direct Runtime Injection):
+    >>> from omnibase_infra.services.service_health import ServiceHealth
+    >>> from omnibase_infra.runtime import RuntimeHostProcess
+    >>>
+    >>> async def main():
+    ...     runtime = RuntimeHostProcess()
+    ...     server = ServiceHealth(runtime=runtime, port=8085)
+    ...     await server.start()
+    ...     # Server is now running
+    ...     await server.stop()
+
+Example (Container-Based Injection - ONEX-Compliant):
+    >>> from omnibase_infra.services.service_health import ServiceHealth
+    >>> from omnibase_core.container import ModelONEXContainer
+    >>>
+    >>> async def main():
+    ...     container = ModelONEXContainer()
+    ...     # Wire infrastructure services to register RuntimeHostProcess
+    ...     await wire_infrastructure_services(container)
+    ...     # Create ServiceHealth using async factory method
+    ...     server = await ServiceHealth.create_from_container(container)
+    ...     await server.start()
+    ...     # Server is now running with container-resolved runtime
+    ...     await server.stop()
+
+Note:
+    This service uses aiohttp for async HTTP handling, which is already a
+    dependency of omnibase_infra for other infrastructure operations.
+
+See Also:
+    - :class:`ServiceHealth` for initialization modes and container integration
+    - :meth:`ServiceHealth.create_from_container` for ONEX-compliant factory method
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+from datetime import UTC, datetime
+from inspect import isawaitable
+from typing import TYPE_CHECKING, Literal, cast
+from uuid import UUID
+
+from aiohttp import web
+
+from omnibase_core.models.runtime.model_runtime_skill_error import (
+    ModelRuntimeSkillError,
+)
+from omnibase_core.models.runtime.model_runtime_skill_request import (
+    ModelRuntimeSkillRequest,
+)
+from omnibase_core.models.runtime.model_runtime_skill_response import (
+    ModelRuntimeSkillResponse,
+)
+from omnibase_core.types import JsonType
+from omnibase_infra.enums import EnumInfraTransportType
+from omnibase_infra.errors import (
+    ModelInfraErrorContext,
+    ProtocolConfigurationError,
+    RuntimeHostError,
+)
+from omnibase_infra.runtime.models.model_component_health import ModelComponentHealth
+from omnibase_infra.runtime.models.model_detailed_health_response import (
+    ModelDetailedHealthResponse,
+)
+from omnibase_infra.runtime.models.model_health_check_response import (
+    ModelHealthCheckResponse,
+)
+from omnibase_infra.runtime.models.model_local_runtime_ingress_request import (
+    ModelLocalRuntimeIngressRequest,
+)
+from omnibase_infra.utils.correlation import generate_correlation_id
+
+if TYPE_CHECKING:
+    from omnibase_core.container import ModelONEXContainer
+    from omnibase_infra.runtime.auto_wiring.models.model_auto_wiring_manifest import (
+        ModelAutoWiringManifest,
+    )
+    from omnibase_infra.runtime.service_runtime_host_process import RuntimeHostProcess
+
+logger = logging.getLogger(__name__)
+
+# Default configuration - hardcoded to avoid import-time crashes from invalid env vars
+# Environment variable override is handled safely in ServiceHealth.__init__
+DEFAULT_HTTP_PORT: int = 8085
+DEFAULT_HTTP_HOST = "0.0.0.0"
+
+
+def _get_port_from_env(default: int) -> int:
+    """Safely parse ONEX_HTTP_PORT from environment with fallback to default.
+
+    Invalid environment variable values gracefully by
+    logging a warning and returning the default value, rather than raising
+    an exception. This prevents import-time crashes and allows the application
+    to start even with misconfigured environment variables.
+
+    Args:
+        default: The fallback port value if env var is unset or invalid.
+
+    Returns:
+        Parsed port value if valid and within range (1-65535), otherwise default.
+    """
+    from omnibase_infra.errors import ProtocolConfigurationError
+    from omnibase_infra.utils.util_env_parsing import parse_env_int
+
+    try:
+        return parse_env_int(
+            "ONEX_HTTP_PORT",
+            default,
+            min_value=1,
+            max_value=65535,
+            transport_type=EnumInfraTransportType.HTTP,
+            service_name="health_server",
+        )
+    except ProtocolConfigurationError as e:
+        logger.warning(
+            "Invalid ONEX_HTTP_PORT environment variable, using default %d: %s",
+            default,
+            e,
+        )
+        return default
+
+
+class ServiceHealth:
+    """Minimal HTTP server for liveness and readiness endpoints.
+
+    This server provides separate liveness (``/health``) and readiness
+    (``/ready``) endpoints for Docker and Kubernetes probes. Liveness is
+    delegated to ``RuntimeHostProcess.health_check()``; readiness is
+    delegated to ``RuntimeHostProcess.readiness_check()``, which verifies
+    that all required Kafka consumers have active partition assignments.
+
+    Attributes:
+        runtime: The RuntimeHostProcess instance to query for health status.
+            Accessed via the :attr:`runtime` property, which raises
+            :exc:`ProtocolConfigurationError` if not available.
+        port: Port to listen on (default: 8085 or ONEX_HTTP_PORT env var).
+        host: Host to bind to (default: 0.0.0.0 for container networking).
+        version: Runtime version string to include in health response.
+        container: Optional ONEX dependency injection container for ONEX compliance.
+
+    Container Integration (OMN-529):
+        ServiceHealth supports two initialization modes to accommodate both
+        legacy code and ONEX-compliant container-based dependency injection:
+
+        **Mode 1: Direct Runtime Injection (Legacy/Simple)**
+
+        For simple use cases or legacy code, provide the runtime directly::
+
+            runtime = RuntimeHostProcess()
+            server = ServiceHealth(runtime=runtime, port=8085)
+            await server.start()
+
+        **Mode 2: Container-Based Injection (ONEX-Compliant)**
+
+        For ONEX-compliant applications using dependency injection, use the
+        async factory method which resolves RuntimeHostProcess from the container::
+
+            container = ModelONEXContainer()
+            await wire_infrastructure_services(container)
+            server = await ServiceHealth.create_from_container(container)
+            await server.start()
+
+        **Mode 3: Hybrid (Container + Explicit Runtime)**
+
+        When you have a container but want to provide a specific runtime instance::
+
+            server = ServiceHealth(container=container, runtime=my_runtime)
+
+        This is useful for testing or when the container's registered runtime
+        differs from the one you want to use for health checks.
+
+    Validation:
+        The constructor requires at least one of ``container`` or ``runtime`` to be
+        provided. If neither is provided, a :exc:`ProtocolConfigurationError` is raised.
+        When only ``container`` is provided, use :meth:`create_from_container` to
+        resolve the runtime, or access the :attr:`runtime` property will raise.
+
+    Example:
+        >>> server = ServiceHealth(runtime=runtime, port=8085)
+        >>> await server.start()
+        >>> # Liveness:  curl http://localhost:8085/health
+        >>> # Readiness: curl http://localhost:8085/ready
+        >>> await server.stop()
+
+    See Also:
+        - :meth:`create_from_container`: Async factory for container-based initialization
+        - :attr:`runtime`: Property that returns RuntimeHostProcess or raises if unavailable
+    """
+
+    def __init__(
+        self,
+        container: ModelONEXContainer | None = None,
+        runtime: RuntimeHostProcess | None = None,
+        port: int | None = None,
+        host: str = DEFAULT_HTTP_HOST,
+        version: str = "unknown",
+    ) -> None:
+        """Initialize the health server.
+
+        This constructor validates that at least one dependency source is provided,
+        but it does NOT resolve the runtime from the container. For container-based
+        initialization with automatic runtime resolution, use the async factory
+        method :meth:`create_from_container` instead.
+
+        Args:
+            container: Optional ONEX dependency injection container. When provided
+                alone (without runtime), the :attr:`runtime` property will raise
+                :exc:`ProtocolConfigurationError` until runtime is resolved via
+                :meth:`create_from_container` or set explicitly.
+            runtime: RuntimeHostProcess instance to delegate health checks to.
+                When provided, this instance is used directly for health checks.
+            port: Port to listen on. If None, uses ONEX_HTTP_PORT env var or 8085.
+            host: Host to bind to (default: 0.0.0.0 for container networking).
+            version: Runtime version string for health response.
+
+        Raises:
+            ProtocolConfigurationError: If neither ``container`` nor ``runtime``
+                is provided. At least one must be specified. The error includes
+                :class:`ModelInfraErrorContext` with transport type and operation.
+
+        Note:
+            **Why both container and runtime can be provided:**
+
+            The constructor accepts both parameters to support multiple use cases:
+
+            1. **Runtime-only** (``runtime=runtime``): Legacy/simple initialization.
+               The runtime is used directly without container involvement.
+
+            2. **Container-only** (``container=container``): ONEX-compliant pattern.
+               Use :meth:`create_from_container` to resolve runtime from container.
+               Direct ``__init__`` with container-only stores the container but
+               leaves runtime unresolved (accessing :attr:`runtime` will raise).
+
+            3. **Both provided** (``container=container, runtime=runtime``): Hybrid
+               pattern for testing or custom runtime selection. The container is
+               stored for ONEX compliance, but the explicit runtime is used.
+
+            **Container-only initialization pattern:**
+
+            If you only have a container, use the async factory method::
+
+                # Correct: Use factory method to resolve runtime
+                server = await ServiceHealth.create_from_container(container)
+
+                # Incorrect: Runtime will be None, accessing it will raise
+                server = ServiceHealth(container=container)  # Works, but...
+                server.runtime  # Raises ProtocolConfigurationError!
+
+        Warning:
+            When initializing with ``container`` only (no ``runtime``), the
+            :attr:`runtime` property will raise :exc:`ProtocolConfigurationError`
+            when accessed. This is by design - synchronous ``__init__`` cannot
+            perform async service resolution. Use :meth:`create_from_container`
+            for automatic runtime resolution from the container's service registry.
+        """
+        # Store container for ONEX compliance (OMN-529)
+        self._container: ModelONEXContainer | None = container
+
+        # Validate that at least one dependency source is provided
+        if container is None and runtime is None:
+            context = ModelInfraErrorContext.with_correlation(
+                transport_type=EnumInfraTransportType.HTTP,
+                operation="initialize_health_server",
+                target_name="ServiceHealth",
+            )
+            raise ProtocolConfigurationError(
+                "ServiceHealth requires either 'container' or 'runtime' to be provided. "
+                "Use ServiceHealth(runtime=runtime) or ServiceHealth(container=container).",
+                context=context,
+            )
+
+        self._runtime: RuntimeHostProcess | None = runtime
+        # If port is explicitly provided, use it; otherwise parse from env var safely
+        self._port: int = (
+            port if port is not None else _get_port_from_env(DEFAULT_HTTP_PORT)
+        )
+        self._host: str = host
+        self._version: str = version
+
+        # Server state
+        self._app: web.Application | None = None
+        self._runner: web.AppRunner | None = None
+        self._site: web.TCPSite | None = None
+        self._is_running: bool = False
+
+        # OMN-11198: Manifest attached after startup for introspection endpoint
+        self._manifest: ModelAutoWiringManifest | None = None
+
+        # OMN-519: Track last successful health check timestamps per component
+        self._last_healthy_timestamps: dict[str, str] = {}
+        # Track health phase transitions so frequent probes do not flood logs.
+        self._last_health_probe_signature: (
+            tuple[
+                str,
+                bool,
+                bool,
+                bool,
+                bool,
+            ]
+            | None
+        ) = None
+
+        logger.debug(
+            "ServiceHealth initialized",
+            extra={
+                "port": self._port,
+                "host": self._host,
+                "version": self._version,
+            },
+        )
+
+    @property
+    def is_running(self) -> bool:
+        """Return True if the health server is running.
+
+        Returns:
+            Boolean indicating whether the server is running.
+        """
+        return self._is_running
+
+    @property
+    def port(self) -> int:
+        """Return the configured port.
+
+        Returns:
+            The port number the server listens on.
+        """
+        return self._port
+
+    @property
+    def container(self) -> ModelONEXContainer | None:
+        """Return the optional ONEX dependency injection container.
+
+        Returns:
+            The stored ModelONEXContainer instance, or None if not provided.
+        """
+        return self._container
+
+    @property
+    def runtime(self) -> RuntimeHostProcess:
+        """Return the RuntimeHostProcess instance, or raise if not available.
+
+        This property provides access to the RuntimeHostProcess that handles
+        the actual health status determination. The runtime must be provided
+        either directly via ``__init__`` or resolved from a container via
+        :meth:`create_from_container`.
+
+        Behavior:
+            - **When runtime is set**: Returns the RuntimeHostProcess instance.
+            - **When runtime is None**: Raises :exc:`ProtocolConfigurationError`
+              immediately. This happens when ``ServiceHealth(container=container)``
+              was called without using :meth:`create_from_container` to resolve
+              the runtime from the container's service registry.
+
+        Returns:
+            The RuntimeHostProcess instance used to determine health status.
+
+        Raises:
+            ProtocolConfigurationError: If runtime is not available. This occurs when:
+
+                1. ``ServiceHealth(container=container)`` was called without runtime
+                   and :meth:`create_from_container` was not used.
+
+                2. The runtime was never provided or resolved.
+
+                The error includes :class:`ModelInfraErrorContext` with transport
+                type (HTTP), operation name, and target for debugging.
+
+        Example:
+            >>> # Runtime provided directly - property works
+            >>> server = ServiceHealth(runtime=runtime)
+            >>> server.runtime  # Returns RuntimeHostProcess
+
+            >>> # Container-only without factory - property raises
+            >>> server = ServiceHealth(container=container)
+            >>> server.runtime  # Raises ProtocolConfigurationError!
+
+            >>> # Container with factory - property works
+            >>> server = await ServiceHealth.create_from_container(container)
+            >>> server.runtime  # Returns RuntimeHostProcess
+
+        See Also:
+            :meth:`create_from_container`: Factory method that resolves runtime
+        """
+        if self._runtime is None:
+            context = ModelInfraErrorContext.with_correlation(
+                transport_type=EnumInfraTransportType.HTTP,
+                operation="get_runtime",
+                target_name="ServiceHealth.runtime",
+            )
+            raise ProtocolConfigurationError(
+                "RuntimeHostProcess not available. "
+                "Either provide runtime during __init__ or use create_from_container().",
+                context=context,
+            )
+        return self._runtime
+
+    def attach_runtime(self, runtime: RuntimeHostProcess) -> None:
+        """Attach a runtime after early health-server startup."""
+        self._runtime = runtime
+        logger.info(
+            "ServiceHealth attached runtime after early startup",
+            extra={"port": self._port, "host": self._host},
+        )
+
+    def attach_manifest(self, manifest: ModelAutoWiringManifest) -> None:
+        """Attach the auto-wiring manifest for the introspection endpoint (OMN-11198)."""
+        self._manifest = manifest
+        logger.info(
+            "ServiceHealth attached manifest (%d contracts)",
+            manifest.total_discovered,
+            extra={"port": self._port, "host": self._host},
+        )
+
+    async def _try_attach_runtime_from_container(self) -> bool:
+        """Resolve and attach runtime from the container when available."""
+        if self._runtime is not None or self._container is None:
+            return self._runtime is not None
+
+        service_registry = getattr(self._container, "service_registry", None)
+        if service_registry is None:
+            return False
+
+        try_resolve = getattr(service_registry, "try_resolve_service", None)
+        if not callable(try_resolve):
+            return False
+
+        from omnibase_infra.runtime.service_runtime_host_process import (
+            RuntimeHostProcess,
+        )
+
+        try:
+            resolution = try_resolve(RuntimeHostProcess)
+            if not isawaitable(resolution):
+                return False
+            runtime = await resolution
+        except Exception:  # noqa: BLE001 — degraded startup: best-effort recovery
+            logger.debug(
+                "ServiceHealth could not resolve RuntimeHostProcess from container yet",
+                exc_info=True,
+            )
+            return False
+
+        if runtime is None:
+            return False
+
+        self.attach_runtime(runtime)
+        return True
+
+    def _log_health_transition(
+        self,
+        *,
+        status: str,
+        runtime_attached: bool,
+        startup_in_progress: bool,
+        is_running: bool,
+        event_bus_healthy: bool,
+    ) -> None:
+        """Log health state transitions once per distinct phase."""
+        signature = (
+            status,
+            runtime_attached,
+            startup_in_progress,
+            is_running,
+            event_bus_healthy,
+        )
+        if signature == self._last_health_probe_signature:
+            return
+        self._last_health_probe_signature = signature
+        logger.info(
+            "ServiceHealth health probe state changed",
+            extra={
+                "status": status,
+                "runtime_attached": runtime_attached,
+                "startup_in_progress": startup_in_progress,
+                "is_running": is_running,
+                "event_bus_healthy": event_bus_healthy,
+                "port": self._port,
+                "host": self._host,
+            },
+        )
+
+    @classmethod
+    async def create_from_container(
+        cls,
+        container: ModelONEXContainer,
+        port: int | None = None,
+        host: str = DEFAULT_HTTP_HOST,
+        version: str = "unknown",
+    ) -> ServiceHealth:
+        """Create a ServiceHealth by resolving RuntimeHostProcess from container.
+
+        This is the preferred ONEX-compliant way to create a ServiceHealth when
+        using container-based dependency injection. It performs async service
+        resolution that cannot be done in the synchronous ``__init__`` method.
+
+        Parameters:
+            This factory method accepts 4 parameters (1 required, 3 optional):
+
+            - ``container`` (required): The ONEX container with registered services
+            - ``port`` (optional): Override for HTTP port
+            - ``host`` (optional): Override for bind address
+            - ``version`` (optional): Version string for health response
+
+        Args:
+            container: ONEX dependency injection container. Must have
+                RuntimeHostProcess registered in its service registry via
+                ``wire_infrastructure_services(container)`` or equivalent.
+            port: Port to listen on. If None, uses ONEX_HTTP_PORT env var or 8085.
+            host: Host to bind to (default: 0.0.0.0 for container networking).
+            version: Runtime version string for health response.
+
+        Returns:
+            Initialized ServiceHealth with runtime resolved from container.
+
+        Raises:
+            ProtocolConfigurationError: If RuntimeHostProcess cannot be resolved
+                from the container's service registry. This typically occurs when:
+
+                1. ``wire_infrastructure_services()`` was not called before this method.
+                2. The container's service registry does not have RuntimeHostProcess
+                   registered.
+                3. The service registry's ``resolve_service()`` method failed
+                   for an infrastructure-related reason.
+
+                The error includes :class:`ModelInfraErrorContext` with correlation_id
+                for distributed tracing.
+
+        Example:
+            >>> container = ModelONEXContainer()
+            >>> await wire_infrastructure_services(container)
+            >>> server = await ServiceHealth.create_from_container(container)
+            >>> await server.start()
+
+        Example Error:
+            >>> container = ModelONEXContainer()  # No wiring!
+            >>> server = await ServiceHealth.create_from_container(container)
+            ProtocolConfigurationError: Failed to resolve RuntimeHostProcess from container: ...
+            (correlation_id: 123e4567-e89b-12d3-a456-426614174000)
+        """
+        from omnibase_infra.runtime.service_runtime_host_process import (
+            RuntimeHostProcess,
+        )
+
+        correlation_id = generate_correlation_id()
+        try:
+            runtime = await container.service_registry.resolve_service(
+                RuntimeHostProcess
+            )
+        except Exception as e:
+            context = ModelInfraErrorContext(
+                transport_type=EnumInfraTransportType.HTTP,
+                operation="resolve_runtime_from_container",
+                target_name="ServiceHealth.create_from_container",
+                correlation_id=correlation_id,
+            )
+            logger.exception(
+                "Failed to resolve RuntimeHostProcess from container (correlation_id=%s)",
+                correlation_id,
+                extra={
+                    "error_type": type(e).__name__,
+                },
+            )
+            raise ProtocolConfigurationError(
+                f"Failed to resolve RuntimeHostProcess from container: {e}",
+                context=context,
+            ) from e
+
+        return cls(
+            container=container,
+            runtime=runtime,
+            port=port,
+            host=host,
+            version=version,
+        )
+
+    async def start(self) -> None:
+        """Start the HTTP health server for Docker/Kubernetes probes.
+
+        Creates an aiohttp web application with health check endpoints and starts
+        listening on the configured host and port. The server exposes standardized
+        health check endpoints that integrate with container orchestration platforms.
+
+        Startup Process:
+            1. Check if server is already running (idempotent safety check)
+            2. Create aiohttp Application instance
+            3. Register health check routes (/health, /ready)
+            4. Initialize AppRunner and perform async setup
+            5. Create TCPSite bound to configured host and port
+            6. Start listening for incoming health check requests
+            7. Mark server as running and log startup with correlation tracking
+
+        Health Endpoints:
+            - GET /health: Liveness probe -- reports whether the process is alive.
+              Delegates to ``RuntimeHostProcess.health_check()`` and returns
+              healthy / degraded / unhealthy status.
+            - GET /ready: Readiness probe -- reports whether the runtime can
+              serve traffic that depends on Kafka-driven orchestration. Checks
+              that all required Kafka subscriptions have active partition
+              assignments. This is an independent check, **not** an alias for
+              ``/health``.
+
+        Response Format (both endpoints):
+            JSON with:
+            - status: "healthy" | "degraded" | "unhealthy"
+            - version: Runtime kernel version
+            - details: Endpoint-specific check details
+
+        HTTP Status Codes:
+            /health:
+                - 200: Healthy or degraded (container operational)
+                - 503: Unhealthy (container should be restarted)
+            /ready:
+                - 200: Ready (all consumers subscribed with partition assignments)
+                - 503: Not ready (starting up or lost assignments)
+
+        This method is idempotent - calling start() on an already running
+        server is safe and has no effect. This prevents double-start errors
+        during rapid restart scenarios.
+
+        Raises:
+            RuntimeHostError: If server fails to start. Common causes include:
+                - Port already in use (OSError with EADDRINUSE)
+                - Permission denied on privileged port (OSError with EACCES)
+                - Network interface unavailable
+                - Unexpected aiohttp initialization errors
+
+            All errors include:
+                - correlation_id: UUID for distributed tracing
+                - context: ModelInfraErrorContext with transport type, operation
+                - Original exception chaining: via "from e" for root cause analysis
+
+        Example:
+            >>> server = ServiceHealth(runtime=runtime, port=8085)
+            >>> await server.start()
+            >>> # Liveness:  curl http://localhost:8085/health
+            >>> # Readiness: curl http://localhost:8085/ready
+
+        Example Error (Port In Use):
+            RuntimeHostError: Failed to start health server on 0.0.0.0:8085: [Errno 48] Address already in use
+            (correlation_id: 123e4567-e89b-12d3-a456-426614174000)
+
+        Docker Integration (liveness):
+            HEALTHCHECK --interval=30s --timeout=3s \\
+                CMD curl -f http://localhost:8085/health || exit 1
+
+            Kubernetes readiness probes should target ``/ready`` instead
+            of ``/health``.
+        """
+        if self._is_running:
+            logger.debug("ServiceHealth already started, skipping")
+            return
+
+        correlation_id = generate_correlation_id()
+        context = ModelInfraErrorContext(
+            transport_type=EnumInfraTransportType.HTTP,
+            operation="start_health_server",
+            target_name=f"{self._host}:{self._port}",
+            correlation_id=correlation_id,
+        )
+
+        try:
+            # Create aiohttp application
+            self._app = web.Application()
+
+            # Register routes (OMN-1931: /ready has its own handler)
+            self._app.router.add_get("/health", self._handle_health)
+            self._app.router.add_get("/ready", self._handle_readiness)
+            # OMN-519: Detailed diagnostics endpoint
+            self._app.router.add_get("/health/detailed", self._handle_health_detailed)
+            # OMN-10860: Skill dispatch endpoint
+            self._app.router.add_post("/skill", self._handle_skill)
+            # OMN-11198: Manifest introspection endpoint (internal only)
+            self._app.router.add_get(
+                "/v1/introspection/manifest", self._handle_introspection_manifest
+            )
+
+            # Create and start runner
+            self._runner = web.AppRunner(self._app)
+            await self._runner.setup()
+
+            # Create site and start listening
+            self._site = web.TCPSite(
+                self._runner,
+                self._host,
+                self._port,
+            )
+            await self._site.start()
+
+            self._is_running = True
+
+            logger.info(
+                "ServiceHealth started (correlation_id=%s)",
+                correlation_id,
+                extra={
+                    "host": self._host,
+                    "port": self._port,
+                    "endpoints": [
+                        "/health",
+                        "/ready",
+                        "/health/detailed",
+                        "/skill",
+                        "/v1/introspection/manifest",
+                    ],
+                    "version": self._version,
+                },
+            )
+
+        except OSError as e:
+            # Port binding failure (e.g., address already in use, permission denied)
+            error_msg = (
+                f"Failed to start health server on {self._host}:{self._port}: {e}"
+            )
+            logger.exception(
+                "%s (correlation_id=%s)",
+                error_msg,
+                correlation_id,
+                extra={
+                    "error_type": type(e).__name__,
+                    "errno": e.errno if hasattr(e, "errno") else None,
+                },
+            )
+            raise RuntimeHostError(
+                error_msg,
+                context=context,
+            ) from e
+
+        except Exception as e:
+            # Unexpected error during server startup
+            error_msg = f"Unexpected error starting health server: {e}"
+            logger.exception(
+                "%s (correlation_id=%s)",
+                error_msg,
+                correlation_id,
+                extra={
+                    "error_type": type(e).__name__,
+                },
+            )
+            raise RuntimeHostError(
+                error_msg,
+                context=context,
+            ) from e
+
+    async def stop(self) -> None:
+        """Stop the HTTP health server gracefully.
+
+        Gracefully shuts down the aiohttp web server and releases all resources.
+        The shutdown process ensures proper cleanup of network resources, active
+        connections, and internal state.
+
+        Shutdown Process:
+            1. Check if server is already stopped (idempotent safety check)
+            2. Stop TCPSite to reject new connections
+            3. Clean up AppRunner to release resources
+            4. Clear Application reference
+            5. Mark server as not running
+            6. Log successful shutdown with correlation tracking
+
+        Resource Cleanup Order:
+            The cleanup follows reverse initialization order to ensure proper
+            resource release and prevent resource leaks:
+            - TCPSite (network binding)
+            - AppRunner (request handlers)
+            - Application (route definitions)
+
+        This method is idempotent - calling stop() on an already stopped
+        server is safe and has no effect. This prevents double-stop errors
+        during graceful shutdown scenarios.
+
+        Cleanup Guarantees:
+            - All network sockets are closed
+            - Active HTTP connections are terminated gracefully
+            - Event loop resources are released
+            - Server state is reset for potential restart
+
+        Example:
+            >>> server = ServiceHealth(runtime=runtime, port=8085)
+            >>> await server.start()
+            >>> # ... runtime operation ...
+            >>> await server.stop()
+            >>> # Server no longer listening, resources released
+
+        Exception Handling:
+            This method does not raise exceptions. Any errors during cleanup
+            are logged but do not prevent the shutdown sequence from completing.
+            This ensures that stop() always succeeds and the server state is
+            consistently marked as stopped.
+        """
+        if not self._is_running:
+            logger.debug("ServiceHealth already stopped, skipping")
+            return
+
+        correlation_id = generate_correlation_id()
+        logger.info(
+            "Stopping ServiceHealth (correlation_id=%s)",
+            correlation_id,
+        )
+
+        # Cleanup in reverse order of creation
+        # Stop TCPSite first to reject new connections
+        if self._site is not None:
+            try:
+                await self._site.stop()
+            except Exception as e:  # noqa: BLE001 — boundary: logs warning and degrades
+                logger.warning(
+                    "Error stopping TCPSite during shutdown (correlation_id=%s)",
+                    correlation_id,
+                    extra={
+                        "error_type": type(e).__name__,
+                        "error": str(e),
+                    },
+                )
+            self._site = None
+
+        # Clean up AppRunner to release resources
+        if self._runner is not None:
+            try:
+                await self._runner.cleanup()
+            except Exception as e:  # noqa: BLE001 — boundary: logs warning and degrades
+                logger.warning(
+                    "Error cleaning up AppRunner during shutdown (correlation_id=%s)",
+                    correlation_id,
+                    extra={
+                        "error_type": type(e).__name__,
+                        "error": str(e),
+                    },
+                )
+            self._runner = None
+
+        # Clear application reference
+        self._app = None
+        self._is_running = False
+
+        logger.info(
+            "ServiceHealth stopped successfully (correlation_id=%s)",
+            correlation_id,
+        )
+
+    async def _handle_health(self, request: web.Request) -> web.Response:
+        """Handle GET /health requests (liveness probe).
+
+        This is the liveness endpoint handler for Docker/Kubernetes health
+        probes. It delegates to RuntimeHostProcess.health_check() for actual
+        health status determination and returns a standardized JSON response
+        with status information and diagnostics.
+
+        Note:
+            Readiness checking is handled separately by ``_handle_readiness()``
+            which serves the ``/ready`` endpoint (OMN-1931).
+
+        Health Status Logic:
+            1. Query RuntimeHostProcess for current health state
+            2. Analyze health details to determine overall status
+            3. Map status to appropriate HTTP status code
+            4. Construct JSON response with version and diagnostics
+            5. Return response to health probe client
+
+        Status Determination:
+            - healthy: All components operational, return HTTP 200
+            - degraded: Core running but some handlers failed, return HTTP 200
+            - unhealthy: Critical failure, return HTTP 503
+
+        Degraded State HTTP 200 Design Decision:
+            Degraded containers intentionally return HTTP 200 to keep them in service
+            rotation. This is a deliberate design choice that prioritizes investigation
+            over automatic restarts.
+
+            Rationale:
+                1. Automatic restarts may mask recurring issues that need investigation
+                2. Reduced functionality is often preferable to no functionality
+                3. Cascading failures can occur if multiple containers restart simultaneously
+                4. Operators can monitor degraded status via metrics/alerts and investigate
+
+            Alternative Considered:
+                Returning HTTP 503 would remove degraded containers from load balancer
+                rotation while keeping liveness probes passing. This was rejected because
+                it reduces capacity during partial outages when some functionality may
+                still be valuable to users.
+
+            Customization:
+                If your deployment requires removing degraded containers from rotation,
+                you can override this behavior by subclassing ServiceHealth and modifying
+                the _handle_health method, or configure your load balancer to inspect
+                the response body "status" field instead of relying solely on HTTP codes.
+
+        Args:
+            request: The incoming aiohttp HTTP request. This parameter is required
+                by the aiohttp handler signature but is intentionally unused in this
+                implementation as health checks do not require request data.
+
+        Returns:
+            JSON response with health status information. The HTTP status code
+            indicates container health to orchestration platforms:
+                - HTTP 200: Container is healthy or degraded (operational)
+                - HTTP 503: Container is unhealthy (restart recommended)
+
+        Response Format (Success):
+            {
+                "status": "healthy" | "degraded" | "unhealthy",
+                "version": "x.y.z",
+                "details": {
+                    "healthy": bool,
+                    "degraded": bool,
+                    "is_running": bool,
+                    "is_draining": bool,  // True during graceful shutdown drain
+                    "pending_message_count": int,  // In-flight messages
+                    "handlers": {...},
+                    // Additional health check details
+                }
+            }
+
+        Response Format (Error):
+            {
+                "status": "unhealthy",
+                "version": "x.y.z",
+                "error": "Exception message",
+                "correlation_id": "uuid-for-tracing"
+            }
+
+        Docker Integration Example:
+            HEALTHCHECK --interval=30s --timeout=3s --retries=3 \\
+                CMD curl -f http://localhost:8085/health || exit 1
+
+        Kubernetes Integration Example:
+            livenessProbe:
+              httpGet:
+                path: /health
+                port: 8085
+              initialDelaySeconds: 30
+              periodSeconds: 10
+
+        Exception Handling:
+            If health_check() raises an exception, the handler:
+            1. Logs the full exception with correlation_id for tracing
+            2. Returns HTTP 503 with error details
+            3. Includes correlation_id in response for debugging
+            This ensures health probes always receive a response even during
+            runtime failures, preventing indefinite probe hangs.
+        """
+        # Suppress unused argument warning - aiohttp handler signature requires request
+        _ = request
+
+        try:
+            await self._try_attach_runtime_from_container()
+            if self._runtime is None:
+                self._log_health_transition(
+                    status="degraded",
+                    runtime_attached=False,
+                    startup_in_progress=True,
+                    is_running=False,
+                    event_bus_healthy=False,
+                )
+                response = ModelHealthCheckResponse.success(
+                    status="degraded",
+                    version=self._version,
+                    details=cast(
+                        "dict[str, JsonType]",
+                        {
+                            "healthy": False,
+                            "degraded": True,
+                            "is_running": False,
+                            "runtime_attached": False,
+                            "startup_phase": "runtime_pending",
+                        },
+                    ),
+                )
+                return web.Response(
+                    text=response.model_dump_json(exclude_none=True),
+                    status=200,
+                    content_type="application/json",
+                )
+
+            # Get health status from runtime
+            health_details = await self.runtime.health_check()
+
+            # Runtime type validation: health_check() returns dict per contract
+            # This helps static analysis and provides runtime validation
+            # NOTE: Use explicit if/raise instead of assert - assertions can be
+            # disabled with Python's -O flag, which would skip this safety check
+            if not isinstance(health_details, dict):
+                context = ModelInfraErrorContext.with_correlation(
+                    transport_type=EnumInfraTransportType.HTTP,
+                    operation="validate_health_check_response",
+                    target_name="RuntimeHostProcess.health_check",
+                )
+                raise ProtocolConfigurationError(
+                    f"health_check() must return dict, got {type(health_details).__name__}",
+                    context=context,
+                )
+
+            # Determine overall status based on health check results
+            is_healthy = bool(health_details.get("healthy", False))
+            is_degraded = bool(health_details.get("degraded", False))
+            startup_in_progress = bool(health_details.get("startup_in_progress", False))
+            is_running = bool(health_details.get("is_running", False))
+            event_bus_healthy = bool(health_details.get("event_bus_healthy", False))
+
+            if is_healthy:
+                status: Literal["healthy", "degraded", "unhealthy"] = "healthy"
+                http_status = 200
+            elif is_degraded:
+                # DESIGN DECISION: Degraded status returns HTTP 200 (not 503)
+                #
+                # Rationale: Degraded containers remain in service rotation to allow
+                # operators to investigate issues without triggering automatic restarts.
+                # The "degraded" status in the response body indicates reduced functionality
+                # while keeping the container operational for Docker/Kubernetes probes.
+                #
+                # Why HTTP 200 instead of 503:
+                #   1. Prevents cascading failures if multiple containers degrade together
+                #   2. Reduced functionality is often better than no functionality
+                #   3. Automatic restarts may mask recurring issues needing investigation
+                #   4. Operators can monitor "degraded" status via metrics/alerts
+                #
+                # Alternative considered: HTTP 503 would remove degraded containers from
+                # load balancer rotation while keeping liveness probes passing. Rejected
+                # because it reduces capacity during partial outages when degraded
+                # containers may still serve valuable traffic.
+                #
+                # Customization: To remove degraded containers from rotation, either:
+                #   - Subclass ServiceHealth and override _handle_health()
+                #   - Configure load balancer to inspect response body "status" field
+                #   - Change http_status below to 503 if restart-on-degrade is preferred
+                status = "degraded"
+                http_status = 200
+            else:
+                status = "unhealthy"
+                http_status = 503
+
+            self._log_health_transition(
+                status=status,
+                runtime_attached=True,
+                startup_in_progress=startup_in_progress,
+                is_running=is_running,
+                event_bus_healthy=event_bus_healthy,
+            )
+
+            # OMN-519: Add component breakdown to health response details
+            components = self._build_component_health(health_details)
+            enriched_details = dict(health_details)
+            enriched_details["degraded"] = is_degraded
+            enriched_details["startup_in_progress"] = startup_in_progress
+            enriched_details["components"] = {
+                name: comp.model_dump(mode="json", exclude_none=True)
+                for name, comp in components.items()
+            }
+
+            response = ModelHealthCheckResponse.success(
+                status=status,
+                version=self._version,
+                details=cast("dict[str, JsonType]", enriched_details),
+            )
+
+            return web.Response(
+                text=response.model_dump_json(exclude_none=True),
+                status=http_status,
+                content_type="application/json",
+            )
+
+        except Exception as e:
+            # Health check itself failed - generate correlation_id for tracing
+            correlation_id = generate_correlation_id()
+            logger.exception(
+                "Health check failed with exception (correlation_id=%s)",
+                correlation_id,
+                extra={
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+            )
+
+            error_response = ModelHealthCheckResponse.failure(
+                version=self._version,
+                error=str(e),
+                error_type=type(e).__name__,
+                correlation_id=str(correlation_id),
+            )
+
+            return web.Response(
+                text=error_response.model_dump_json(exclude_none=True),
+                status=503,
+                content_type="application/json",
+            )
+
+    async def _handle_readiness(self, request: web.Request) -> web.Response:
+        """Handle GET /ready requests (readiness probe).
+
+        Readiness indicates whether the runtime can serve traffic that depends
+        on Kafka-driven orchestration. Unlike ``/health`` (liveness), this
+        checks that all required Kafka subscriptions have active partition
+        assignments.
+
+        Readiness is continuously evaluated:
+            - Returns 200 when all required consumers are subscribed and assigned
+            - Returns 503 when starting up or when required consumers lose assignments
+            - ``/health`` remains independent (process health only)
+
+        This matches Kubernetes semantics: loss of readiness removes the pod
+        from service rotation but does not restart it.
+
+        Args:
+            request: Incoming HTTP request. The ``X-Correlation-ID`` header, if
+                present and a valid UUID, is propagated into error responses so
+                callers can correlate failures with their original request.
+
+        Returns:
+            JSON response with readiness status:
+                - HTTP 200: Runtime is ready to serve traffic
+                - HTTP 503: Runtime is not ready (starting up or lost assignments)
+        """
+        # Extract correlation ID from request header, or generate a new one.
+        # This ensures the caller's trace context is propagated into error responses.
+        raw_correlation = request.headers.get("X-Correlation-ID")
+        try:
+            correlation_id: UUID = (
+                UUID(raw_correlation) if raw_correlation else generate_correlation_id()
+            )
+        except ValueError:
+            correlation_id = generate_correlation_id()
+
+        try:
+            await self._try_attach_runtime_from_container()
+            readiness_details = await self.runtime.readiness_check(
+                correlation_id=correlation_id,
+            )
+
+            if not isinstance(readiness_details, dict):
+                context = ModelInfraErrorContext.with_correlation(
+                    correlation_id=correlation_id,
+                    transport_type=EnumInfraTransportType.HTTP,
+                    operation="validate_readiness_check_response",
+                    target_name="RuntimeHostProcess.readiness_check",
+                )
+                raise ProtocolConfigurationError(
+                    f"readiness_check() must return dict, got {type(readiness_details).__name__}",
+                    context=context,
+                )
+
+            is_ready = bool(readiness_details.get("ready", False))
+            status: Literal["healthy", "degraded", "unhealthy"] = (
+                "healthy" if is_ready else "unhealthy"
+            )
+            http_status = 200 if is_ready else 503
+
+            response = ModelHealthCheckResponse.success(
+                status=status,
+                version=self._version,
+                details=cast("dict[str, JsonType]", readiness_details),
+            )
+
+            return web.Response(
+                text=response.model_dump_json(exclude_none=True),
+                status=http_status,
+                content_type="application/json",
+            )
+
+        except Exception as e:
+            context = ModelInfraErrorContext.with_correlation(
+                correlation_id=correlation_id,
+                transport_type=EnumInfraTransportType.HTTP,
+                operation="readiness_check",
+                target_name="RuntimeHostProcess.readiness_check",
+            )
+            logger.exception(
+                "Readiness check failed with exception (correlation_id=%s)",
+                correlation_id,
+                extra={
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                    "correlation_id": str(context.correlation_id),
+                    "transport_type": context.transport_type,
+                    "operation": context.operation,
+                },
+            )
+
+            error_response = ModelHealthCheckResponse.failure(
+                version=self._version,
+                error=str(e),
+                error_type=type(e).__name__,
+                correlation_id=str(correlation_id),
+            )
+
+            return web.Response(
+                text=error_response.model_dump_json(exclude_none=True),
+                status=503,
+                content_type="application/json",
+            )
+
+    async def _handle_skill(self, request: web.Request) -> web.Response:
+        """Handle POST /skill requests — dispatch to local runtime ingress.
+
+        Accepts a JSON body matching ModelRuntimeSkillRequest, dispatches through
+        the runtime's local ingress path, and returns a ModelRuntimeSkillResponse.
+
+        HTTP Status Codes:
+            - 200: Dispatch completed (check response.ok for execution result)
+            - 400: Request body failed validation
+            - 500: Unexpected server error
+        """
+        raw_correlation = request.headers.get("X-Correlation-ID")
+        try:
+            correlation_id: UUID = (
+                UUID(raw_correlation) if raw_correlation else generate_correlation_id()
+            )
+        except ValueError:
+            correlation_id = generate_correlation_id()
+
+        try:
+            body = await request.json()
+        except Exception as exc:  # noqa: BLE001 — boundary: aiohttp json() raises various types
+            skill_response = ModelRuntimeSkillResponse(
+                ok=False,
+                command_name="unknown",
+                correlation_id=correlation_id,
+                error=ModelRuntimeSkillError(
+                    code="validation_error",
+                    message=f"Invalid JSON body: {exc}",
+                ),
+            )
+            return web.Response(
+                text=skill_response.model_dump_json(exclude_none=True),
+                status=400,
+                content_type="application/json",
+            )
+
+        try:
+            skill_request = ModelRuntimeSkillRequest.model_validate(body, strict=False)
+        except Exception as exc:  # noqa: BLE001 — boundary: Pydantic ValidationError + others
+            skill_response = ModelRuntimeSkillResponse(
+                ok=False,
+                command_name=body.get("command_name", "unknown")
+                if isinstance(body, dict)
+                else "unknown",
+                correlation_id=correlation_id,
+                error=ModelRuntimeSkillError(
+                    code="validation_error",
+                    message=f"Invalid skill request: {exc}",
+                ),
+            )
+            return web.Response(
+                text=skill_response.model_dump_json(exclude_none=True),
+                status=400,
+                content_type="application/json",
+            )
+
+        ingress_request = ModelLocalRuntimeIngressRequest(
+            command_name=skill_request.command_name,
+            payload=skill_request.payload,
+            correlation_id=skill_request.correlation_id or correlation_id,
+            timeout_ms=min(skill_request.timeout_ms, 600_000),
+        )
+
+        try:
+            ingress_response = await self.runtime.dispatch_local_ingress_request(
+                ingress_request
+            )
+        except Exception as exc:
+            logger.exception(
+                "Skill dispatch failed with exception (correlation_id=%s)",
+                correlation_id,
+                extra={"error": str(exc), "error_type": type(exc).__name__},
+            )
+            skill_response = ModelRuntimeSkillResponse(
+                ok=False,
+                command_name=skill_request.command_name,
+                correlation_id=correlation_id,
+                error=ModelRuntimeSkillError(
+                    code="dispatch_error",
+                    message=f"Skill dispatch failed: {exc}",
+                ),
+            )
+            return web.Response(
+                text=skill_response.model_dump_json(exclude_none=True),
+                status=500,
+                content_type="application/json",
+            )
+
+        if ingress_response.ok and ingress_response.dispatch_result is not None:
+            skill_response = ModelRuntimeSkillResponse(
+                ok=True,
+                command_name=ingress_response.command_name,
+                node_alias=ingress_response.node_alias,
+                resolved_node_name=ingress_response.resolved_node_name,
+                contract_name=ingress_response.contract_name,
+                command_topic=ingress_response.command_topic,
+                terminal_event=ingress_response.terminal_event,
+                correlation_id=ingress_response.correlation_id,
+                dispatch_result=ingress_response.dispatch_result,
+                output_payloads=ingress_response.output_payloads,
+            )
+        else:
+            ingress_err = ingress_response.error
+            skill_response = ModelRuntimeSkillResponse(
+                ok=False,
+                command_name=ingress_response.command_name,
+                correlation_id=ingress_response.correlation_id,
+                error=ModelRuntimeSkillError(
+                    code=ingress_err.code
+                    if ingress_err is not None
+                    else "dispatch_error",
+                    message=ingress_err.message
+                    if ingress_err is not None
+                    else "dispatch failed",
+                    retryable=ingress_err.retryable
+                    if ingress_err is not None
+                    else False,
+                    details=ingress_err.details if ingress_err is not None else None,
+                ),
+            )
+
+        return web.Response(
+            text=skill_response.model_dump_json(exclude_none=True),
+            status=200,
+            content_type="application/json",
+        )
+
+    def _build_component_health(
+        self,
+        health_details: dict[str, object],
+    ) -> dict[str, ModelComponentHealth]:
+        """Build per-component health status from runtime health details.
+
+        Extracts component-level health information from the runtime's
+        health_check() response and constructs typed ModelComponentHealth
+        instances for each component.
+
+        OMN-519: Component-level health diagnostics.
+
+        Args:
+            health_details: The raw health check dict from RuntimeHostProcess.
+
+        Returns:
+            Dictionary mapping component name to ModelComponentHealth.
+        """
+        now = datetime.now(tz=UTC).isoformat()
+        components: dict[str, ModelComponentHealth] = {}
+
+        # Event bus health
+        event_bus_healthy = bool(health_details.get("event_bus_healthy", False))
+        event_bus_data = health_details.get("event_bus", {})
+        if event_bus_healthy:
+            self._last_healthy_timestamps["event_bus"] = now
+        event_bus_details: dict[str, JsonType] | None = None
+        if isinstance(event_bus_data, dict):
+            event_bus_details = cast("dict[str, JsonType]", event_bus_data)
+        if event_bus_healthy:
+            components["event_bus"] = ModelComponentHealth.healthy(
+                name="event_bus",
+                last_healthy=self._last_healthy_timestamps.get("event_bus"),
+                details=event_bus_details,
+            )
+        else:
+            error_msg = ""
+            if isinstance(event_bus_data, dict):
+                error_msg = str(event_bus_data.get("error", "unhealthy"))
+            else:
+                error_msg = "unhealthy"
+            components["event_bus"] = ModelComponentHealth.unhealthy(
+                name="event_bus",
+                error=error_msg,
+                last_healthy=self._last_healthy_timestamps.get("event_bus"),
+                details=event_bus_details,
+            )
+
+        # Per-handler health
+        handlers_data = health_details.get("handlers", {})
+        if isinstance(handlers_data, dict):
+            for handler_type, handler_health in handlers_data.items():
+                handler_healthy = False
+                handler_details: dict[str, JsonType] | None = None
+                handler_error: str | None = None
+
+                if isinstance(handler_health, dict):
+                    handler_healthy = bool(handler_health.get("healthy", False))
+                    handler_details = cast("dict[str, JsonType]", handler_health)
+                    if not handler_healthy:
+                        handler_error = str(
+                            handler_health.get("error", "health check failed")
+                        )
+
+                if handler_healthy:
+                    self._last_healthy_timestamps[handler_type] = now
+                    components[handler_type] = ModelComponentHealth.healthy(
+                        name=handler_type,
+                        last_healthy=self._last_healthy_timestamps.get(handler_type),
+                        details=handler_details,
+                    )
+                else:
+                    components[handler_type] = ModelComponentHealth.unhealthy(
+                        name=handler_type,
+                        error=handler_error or "health check failed",
+                        last_healthy=self._last_healthy_timestamps.get(handler_type),
+                        details=handler_details,
+                    )
+
+        # Failed handlers (degraded components)
+        failed_handlers = health_details.get("failed_handlers", {})
+        if isinstance(failed_handlers, dict):
+            for handler_type, error_msg_raw in failed_handlers.items():
+                components[handler_type] = ModelComponentHealth.degraded(
+                    name=handler_type,
+                    error=str(error_msg_raw),
+                    last_healthy=self._last_healthy_timestamps.get(handler_type),
+                )
+
+        return components
+
+    async def _handle_health_detailed(self, request: web.Request) -> web.Response:
+        """Handle GET /health/detailed requests (verbose diagnostics).
+
+        Returns per-component health breakdowns, last successful health check
+        timestamps, and dependency health status. This endpoint provides more
+        detail than /health for debugging degraded or unhealthy states.
+
+        OMN-519: Health Check - Add degraded status detailed diagnostics.
+
+        HTTP Status Codes:
+            - 200: Healthy or degraded (container operational)
+            - 503: Unhealthy (container should be restarted)
+
+        Response Format:
+            {
+                "status": "degraded",
+                "version": "x.y.z",
+                "checked_at": "2025-12-08T10:05:00Z",
+                "components": {
+                    "kafka": {"name": "kafka", "status": "healthy", "latency_ms": 5},
+                    "postgres": {"name": "postgres", "status": "healthy", "latency_ms": 12},
+                    "consul": {"name": "consul", "status": "degraded", "error": "timeout",
+                               "last_healthy": "2025-12-08T10:00:00Z"}
+                },
+                "details": { ... }
+            }
+
+        Args:
+            request: Incoming HTTP request (unused per aiohttp handler contract).
+
+        Returns:
+            JSON response with detailed component health information.
+        """
+        _ = request
+
+        try:
+            check_start = time.monotonic()
+            health_details = await self.runtime.health_check()
+            check_duration_ms = (time.monotonic() - check_start) * 1000
+
+            if not isinstance(health_details, dict):
+                context = ModelInfraErrorContext.with_correlation(
+                    transport_type=EnumInfraTransportType.HTTP,
+                    operation="validate_health_check_response",
+                    target_name="RuntimeHostProcess.health_check",
+                )
+                raise ProtocolConfigurationError(
+                    f"health_check() must return dict, got {type(health_details).__name__}",
+                    context=context,
+                )
+
+            is_healthy = bool(health_details.get("healthy", False))
+            is_degraded = bool(health_details.get("degraded", False))
+
+            if is_healthy:
+                status: Literal["healthy", "degraded", "unhealthy"] = "healthy"
+                http_status = 200
+            elif is_degraded:
+                status = "degraded"
+                http_status = 200
+            else:
+                status = "unhealthy"
+                http_status = 503
+
+            checked_at = datetime.now(tz=UTC).isoformat()
+            components = self._build_component_health(health_details)
+
+            # Add overall check latency to details
+            enriched_details = dict(health_details)
+            enriched_details["check_latency_ms"] = round(check_duration_ms, 2)
+
+            response = ModelDetailedHealthResponse.success(
+                status=status,
+                version=self._version,
+                checked_at=checked_at,
+                components=components,
+                details=cast("dict[str, JsonType]", enriched_details),
+            )
+
+            return web.Response(
+                text=response.model_dump_json(exclude_none=True),
+                status=http_status,
+                content_type="application/json",
+            )
+
+        except Exception as e:
+            correlation_id = generate_correlation_id()
+            logger.exception(
+                "Detailed health check failed with exception (correlation_id=%s)",
+                correlation_id,
+                extra={
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+            )
+
+            error_response = ModelDetailedHealthResponse.failure(
+                version=self._version,
+                error=str(e),
+                error_type=type(e).__name__,
+                correlation_id=str(correlation_id),
+            )
+
+            return web.Response(
+                text=error_response.model_dump_json(exclude_none=True),
+                status=503,
+                content_type="application/json",
+            )
+
+    async def _handle_introspection_manifest(
+        self, request: web.Request
+    ) -> web.Response:
+        """Handle GET /v1/introspection/manifest (internal only, OMN-11198).
+
+        Returns the auto-wiring manifest as JSON so operators can inspect which
+        contracts were discovered at startup without SSHing into the container.
+
+        HTTP Status Codes:
+            - 200: Manifest is available; body is the full manifest JSON.
+            - 503: Manifest not yet built (startup not complete).
+        """
+        _ = request
+
+        if self._manifest is None:
+            return web.Response(
+                text='{"error": "manifest not yet built", "status": "starting"}',
+                status=503,
+                content_type="application/json",
+            )
+
+        return web.Response(
+            text=self._manifest.model_dump_json(),
+            status=200,
+            content_type="application/json",
+        )
+
+
+__all__: list[str] = ["DEFAULT_HTTP_HOST", "DEFAULT_HTTP_PORT", "ServiceHealth"]

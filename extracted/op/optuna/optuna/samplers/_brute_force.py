@@ -2,20 +2,22 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import decimal
+import math
+from numbers import Real
+import sys
 from typing import Any
 from typing import TYPE_CHECKING
 
 import numpy as np
 
 from optuna._experimental import experimental_class
-from optuna.distributions import BaseDistribution
+from optuna.distributions import CategoricalChoiceType
 from optuna.distributions import CategoricalDistribution
 from optuna.distributions import FloatDistribution
 from optuna.distributions import IntDistribution
 from optuna.samplers import BaseSampler
 from optuna.samplers._lazy_random_state import LazyRandomState
 from optuna.trial import create_trial
-from optuna.trial import FrozenTrial
 from optuna.trial import TrialState
 
 
@@ -23,17 +25,27 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from collections.abc import Sequence
 
+    from optuna.distributions import BaseDistribution
     from optuna.study import Study
+    from optuna.trial import FrozenTrial
 
 
-@dataclass
+# TODO(nabenabe): Simply use `slots=True` once Python 3.9 is dropped.
+@dataclass(**({"slots": True} if sys.version_info >= (3, 10) else {}))
 class _TreeNode:
-    # This is a class to represent the tree of search space.
-
-    # A tree node has three states:
-    # 1. Unexpanded. This is represented by children=None.
-    # 2. Leaf. This is represented by children={} and param_name=None.
-    # 3. Normal node. It has a param_name and non-empty children.
+    # A tree representing the search space for brute force sampling.
+    # Each internal node corresponds to a parameter, and its children are keyed by the parameter's
+    # candidate values (in internal representation). A path from the root to a terminal node
+    # represents a complete ``params``.
+    #
+    # A node takes one of the following four states:
+    #   1. Unexpanded (no trial tried the ``params``). ``children=None`` and ``is_running=False``.
+    #   2. Running. ``children=None`` and ``is_running=True``.
+    #   3. Leaf. ``children={}`` and ``param_name=None``.
+    #   4. Internal. ``param_name`` is set and ``children`` is non-empty.
+    # Leaf represents the last parameter of a finished ``params``, and internal means the node
+    # does not represent a complete ``params``.
+    # NOTE(nabenabe): I tried representations by list and dict, but they did not really speed up.
 
     param_name: str | None = None
     children: dict[float, "_TreeNode"] | None = None
@@ -73,6 +85,11 @@ class _TreeNode:
             current_node = current_node.children[value]
         return current_node
 
+    def is_any_expandable(self, exclude_running: bool) -> bool:
+        if (children := self.children) is None:
+            return not exclude_running or not self.is_running
+        return any(child.is_any_expandable(exclude_running) for child in children.values())
+
     def count_unexpanded(self, exclude_running: bool) -> int:
         # Count the number of unexpanded nodes in the subtree.
         if self.children is None:
@@ -82,14 +99,20 @@ class _TreeNode:
 
     def sample_child(self, rng: np.random.RandomState, exclude_running: bool) -> float:
         assert self.children is not None
-        # Sample an unexpanded node in the subtree uniformly, and return the first
-        # parameter value in the path to the node.
-        # Equivalently, we sample the child node with weights proportional to the number
-        # of unexpanded nodes in the subtree.
-        weights = np.array(
+
+        unexpanded_counts = np.array(
             [child.count_unexpanded(exclude_running) for child in self.children.values()],
             dtype=np.float64,
         )
+
+        # Blend exact uniform sampling with flat uniform sampling
+        # to prevent starvation of unexplored branches
+        alpha = 0.5
+        weights_orig = unexpanded_counts / unexpanded_counts.sum()
+        weights_flat = np.where(unexpanded_counts > 0, 1.0, 0.0)
+        weights_flat /= weights_flat.sum()
+
+        weights = (1.0 - alpha) * weights_orig + alpha * weights_flat
         if any(
             not value.is_running and weights[i] > 0
             for i, value in enumerate(self.children.values())
@@ -99,12 +122,29 @@ class _TreeNode:
                 if child.is_running:
                     weights[i] = 0.0
         weights /= weights.sum()
-        return rng.choice(list(self.children.keys()), p=weights)
+        return rng.choice(list(self.children.keys()), p=weights).item()
+
+
+def _get_non_waiting_trials_and_current_trial_index(
+    study: Study, current_trial_number: int
+) -> tuple[list[FrozenTrial], int]:
+    # We directly query the storage to get trials here instead of `study.get_trials`,
+    # since some pruners such as `HyperbandPruner` use the study transformed
+    # to filter trials. See https://github.com/optuna/optuna/issues/2327 for details.
+    states = (TrialState.COMPLETE, TrialState.PRUNED, TrialState.RUNNING, TrialState.FAIL)
+    trials = study._storage.get_all_trials(study._study_id, deepcopy=False, states=states)
+    # `trials` is fetched by shallow copy, so pop() or element replacement are safe operations.
+    for i in range(1, len(trials) + 1):
+        # The current trial can be found at the later part for almost all cases.
+        t = trials[-i]
+        if t.number == current_trial_number:
+            return trials, len(trials) - i
+    assert False, "Should not reach"
 
 
 @experimental_class("3.1.0")
 class BruteForceSampler(BaseSampler):
-    """Sampler using brute force.
+    """Sampler that performs exhaustive search over the define-by-run search space.
 
     This sampler performs exhaustive search on the defined search space.
 
@@ -166,13 +206,18 @@ class BruteForceSampler(BaseSampler):
         return {}
 
     @staticmethod
-    def _populate_tree(
-        tree: _TreeNode, trials: Iterable[FrozenTrial], params: dict[str, Any]
-    ) -> None:
+    def _populate_tree(tree: _TreeNode, trials: list[FrozenTrial], params: dict[str, Any]) -> None:
         # Populate tree under given params from the given trials.
+        params_items = params.items()
+        nonnan_params_items = {k: v for k, v in params_items if not _is_nan(v)}.items()
+        nan_param_names = [k for k, v in params_items if _is_nan(v)]
         for trial in trials:
-            if not all(p in trial.params and trial.params[p] == v for p, v in params.items()):
-                continue
+            trial_params = trial.params
+            if params:
+                if not (nonnan_params_items <= trial_params.items()):
+                    continue
+                if not all(_is_nan(trial_params.get(p)) for p in nan_param_names):
+                    continue
             leaf = tree.add_path(
                 (
                     (
@@ -199,77 +244,39 @@ class BruteForceSampler(BaseSampler):
         param_distribution: BaseDistribution,
     ) -> Any:
         exclude_running = not self._avoid_premature_stop
-
-        # We directly query the storage to get trials here instead of `study.get_trials`,
-        # since some pruners such as `HyperbandPruner` use the study transformed
-        # to filter trials. See https://github.com/optuna/optuna/issues/2327 for details.
-        trials = study._storage.get_all_trials(
-            study._study_id,
-            deepcopy=False,
-            states=(
-                TrialState.COMPLETE,
-                TrialState.PRUNED,
-                TrialState.RUNNING,
-                TrialState.FAIL,
-            ),
-        )
+        trials, current_idx = _get_non_waiting_trials_and_current_trial_index(study, trial.number)
+        trials.pop(current_idx)
         tree = _TreeNode()
         candidates = _enumerate_candidates(param_distribution)
         tree.expand(param_name, candidates)
         # Populating must happen after the initialization above to prevent `tree` from
         # being initialized as an empty graph, which is created with n_jobs > 1
         # where we get trials[i].params = {} for some i.
-        self._populate_tree(tree, (t for t in trials if t.number != trial.number), trial.params)
-        if tree.count_unexpanded(exclude_running) == 0:
-            return param_distribution.to_external_repr(self._rng.rng.choice(candidates))
+        self._populate_tree(tree, trials, trial.params)
+        if not tree.is_any_expandable(exclude_running):
+            return param_distribution.to_external_repr(self._rng.rng.choice(candidates).item())
         else:
             return param_distribution.to_external_repr(
                 tree.sample_child(self._rng.rng, exclude_running)
             )
 
     def after_trial(
-        self,
-        study: Study,
-        trial: FrozenTrial,
-        state: TrialState,
-        values: Sequence[float] | None,
+        self, study: Study, trial: FrozenTrial, state: TrialState, values: Sequence[float] | None
     ) -> None:
         exclude_running = not self._avoid_premature_stop
-
-        # We directly query the storage to get trials here instead of `study.get_trials`,
-        # since some pruners such as `HyperbandPruner` use the study transformed
-        # to filter trials. See https://github.com/optuna/optuna/issues/2327 for details.
-        trials = study._storage.get_all_trials(
-            study._study_id,
-            deepcopy=False,
-            states=(
-                TrialState.COMPLETE,
-                TrialState.PRUNED,
-                TrialState.RUNNING,
-                TrialState.FAIL,
-            ),
+        trials, current_idx = _get_non_waiting_trials_and_current_trial_index(study, trial.number)
+        # Set current trial as complete.
+        trials[current_idx] = create_trial(
+            state=state, values=values, params=trial.params, distributions=trial.distributions
         )
         tree = _TreeNode()
-        self._populate_tree(
-            tree,
-            (
-                (
-                    t
-                    if t.number != trial.number
-                    else create_trial(
-                        state=state,  # Set current trial as complete.
-                        values=values,
-                        params=trial.params,
-                        distributions=trial.distributions,
-                    )
-                )
-                for t in trials
-            ),
-            {},
-        )
-
-        if tree.count_unexpanded(exclude_running) == 0:
+        self._populate_tree(tree, trials, {})
+        if not tree.is_any_expandable(exclude_running):
             study.stop()
+
+
+def _is_nan(v: CategoricalChoiceType) -> bool:
+    return isinstance(v, Real) and math.isnan(float(v))
 
 
 def _enumerate_candidates(param_distribution: BaseDistribution) -> Sequence[float]:

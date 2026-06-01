@@ -1,0 +1,16 @@
+Metadata-Version: 2.4
+Name: kagent-core
+Version: 0.9.4
+Summary: kagent common library for kagent python packages
+Requires-Python: >=3.10
+Requires-Dist: a2a-sdk[http-server]>=0.3.23
+Requires-Dist: opentelemetry-api<1.39.0,>=1.38.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc<1.39.0,>=1.38.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<1.39.0,>=1.38.0
+Requires-Dist: opentelemetry-instrumentation-anthropic>=0.52.5
+Requires-Dist: opentelemetry-instrumentation-fastapi>=0.52.0
+Requires-Dist: opentelemetry-instrumentation-google-generativeai>=0.52.5
+Requires-Dist: opentelemetry-instrumentation-httpx>=0.52.0
+Requires-Dist: opentelemetry-instrumentation-openai>=0.52.5
+Requires-Dist: opentelemetry-sdk<1.39.0,>=1.38.0
+Requires-Dist: typing-extensions>=4.0.0

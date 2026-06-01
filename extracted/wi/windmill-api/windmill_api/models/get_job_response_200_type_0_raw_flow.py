@@ -31,6 +31,9 @@ class GetJobResponse200Type0RawFlow:
         preprocessor_module (Union[Unset, GetJobResponse200Type0RawFlowPreprocessorModule]): A single step in a flow.
             Can be a script, subflow, loop, or branch
         same_worker (Union[Unset, bool]): If true, all steps run on the same worker for better performance
+        preserve_step_tags (Union[Unset, bool]): If true and the flow runs on a custom worker tag, steps that declare
+            their own non-empty tag run on it instead of inheriting the flow tag. Steps without their own tag still inherit
+            the flow tag.
         concurrent_limit (Union[Unset, float]): Maximum number of concurrent executions of this flow
         concurrency_key (Union[Unset, str]): Expression to group concurrent executions (e.g., by user ID)
         concurrency_time_window_s (Union[Unset, float]): Time window in seconds for concurrent_limit
@@ -59,6 +62,7 @@ class GetJobResponse200Type0RawFlow:
     failure_module: Union[Unset, "GetJobResponse200Type0RawFlowFailureModule"] = UNSET
     preprocessor_module: Union[Unset, "GetJobResponse200Type0RawFlowPreprocessorModule"] = UNSET
     same_worker: Union[Unset, bool] = UNSET
+    preserve_step_tags: Union[Unset, bool] = UNSET
     concurrent_limit: Union[Unset, float] = UNSET
     concurrency_key: Union[Unset, str] = UNSET
     concurrency_time_window_s: Union[Unset, float] = UNSET
@@ -95,6 +99,7 @@ class GetJobResponse200Type0RawFlow:
             preprocessor_module = self.preprocessor_module.to_dict()
 
         same_worker = self.same_worker
+        preserve_step_tags = self.preserve_step_tags
         concurrent_limit = self.concurrent_limit
         concurrency_key = self.concurrency_key
         concurrency_time_window_s = self.concurrency_time_window_s
@@ -146,6 +151,8 @@ class GetJobResponse200Type0RawFlow:
             field_dict["preprocessor_module"] = preprocessor_module
         if same_worker is not UNSET:
             field_dict["same_worker"] = same_worker
+        if preserve_step_tags is not UNSET:
+            field_dict["preserve_step_tags"] = preserve_step_tags
         if concurrent_limit is not UNSET:
             field_dict["concurrent_limit"] = concurrent_limit
         if concurrency_key is not UNSET:
@@ -222,6 +229,8 @@ class GetJobResponse200Type0RawFlow:
 
         same_worker = d.pop("same_worker", UNSET)
 
+        preserve_step_tags = d.pop("preserve_step_tags", UNSET)
+
         concurrent_limit = d.pop("concurrent_limit", UNSET)
 
         concurrency_key = d.pop("concurrency_key", UNSET)
@@ -278,6 +287,7 @@ class GetJobResponse200Type0RawFlow:
             failure_module=failure_module,
             preprocessor_module=preprocessor_module,
             same_worker=same_worker,
+            preserve_step_tags=preserve_step_tags,
             concurrent_limit=concurrent_limit,
             concurrency_key=concurrency_key,
             concurrency_time_window_s=concurrency_time_window_s,

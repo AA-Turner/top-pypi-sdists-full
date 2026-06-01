@@ -1,0 +1,95 @@
+[project]
+name = "jambo"
+dynamic = ["version"]
+description = "Jambo - JSON Schema to Pydantic Converter"
+requires-python = ">=3.10,<4.0"
+maintainers = [
+    { name = "Vitor Hideyoshi", email = "vitor.h.n.batista@gmail.com" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+
+    "Intended Audience :: Developers",
+
+    "License :: OSI Approved :: MIT License",
+
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+license = "MIT"
+readme = "README.md"
+
+# Project Dependencies
+dependencies = [
+    "email-validator>=2.2.0",
+    "jsonschema>=4.23.0",
+    "pydantic>=2.12.4",
+]
+
+[dependency-groups]
+dev = [
+    "coverage>=7.8.0",
+    "mypy>=1.18.1",
+    "poethepoet>=0.33.1",
+    "pre-commit>=4.2.0",
+    "ruff>=0.11.4",
+    "sphinx>=8.1.3",
+    "sphinx-autobuild>=2024.10.3",
+    "sphinx-autodoc-typehints>=3.0.1",
+    "sphinx-rtd-theme>=3.0.2",
+    "types-jsonschema>=4.25.1.20250822",
+]
+
+
+[project.urls]
+homepage = "https://github.com/HideyoshiNakazone/jambo"
+repository = "https://github.com/HideyoshiNakazone/jambo.git"
+
+
+# POE Tasks
+[tool.poe.tasks]
+create-hooks        = "bash .githooks/set-hooks.sh"
+tests               = "python -m coverage run -m unittest discover -v"
+tests-report        = "python -m coverage xml"
+type-check          = "mypy jambo"
+serve-docs          = "sphinx-autobuild docs/source docs/build"
+
+# Build System
+[tool.hatch.version]
+source = "vcs"
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+
+# Tests
+[tool.coverage.run]
+omit = [
+    "tests/*",
+]
+
+
+
+# Linters
+[tool.ruff.lint]
+extend-select = ["I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["jambo"]
+section-order=[
+    "future",
+    "first-party",
+    "local-folder",
+    "third-party",
+    "standard-library",
+]
+lines-after-imports = 2
+
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv" 

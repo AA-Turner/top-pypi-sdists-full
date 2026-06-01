@@ -1,1 +1,0 @@
-from .Cors import Cors

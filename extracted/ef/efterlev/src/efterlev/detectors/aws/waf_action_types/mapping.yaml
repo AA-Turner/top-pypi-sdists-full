@@ -1,0 +1,44 @@
+detector_id: aws.waf_action_types
+
+ksis:
+  - id: KSI-CNA-RVP
+    name: "Reviewing Protections"
+    coverage: partial
+    notes: >
+      Evidences whether each `aws_wafv2_web_acl`'s rules enforce or
+      merely observe. Custom rules use `action { block | allow |
+      captcha | count {} }`; managed-group rules use
+      `override_action { none | count {} }`. A `count` action means
+      "log this rule's matches but do not block them" -- observability
+      without enforcement. The canonical gap: a managed-group rule
+      with `override_action { count {} }` looks like protection in
+      the AWS console but blocks nothing. Three states (binary gap-
+      flagging on `observing_only`; `mixed` is informational): joins
+      `aws.cna_dos_protection`, `aws.api_gateway_waf_attached`,
+      `aws.waf_rule_count`, `aws.waf_managed_rule_groups`,
+      `aws.waf_rate_limiting` on this KSI -- 6th detector evidencing
+      KSI-CNA-RVP. Per the DECISIONS entry, per-Web-ACL emission (NOT
+      per-rule). Does NOT evidence whether the action choices are
+      appropriate per rule (block vs captcha vs allow), whether count
+      is intentional ramp-up vs forgotten dry-run, or whether rule
+      priorities short-circuit (a high-priority allow above a
+      low-priority block defeats the block).
+
+controls:
+  - id: SI-3
+    evidence_type: infrastructure
+    coverage: partial
+    notes: >
+      Malicious Code Protection at the L7 boundary -- enforcement
+      action types are the binary "does this Web ACL actually block
+      anything" prerequisite. Joins SI-3 evidence from
+      `aws.waf_rule_count` (rule presence) and
+      `aws.waf_managed_rule_groups` (managed-group presence).
+  - id: SC-5
+    evidence_type: infrastructure
+    coverage: partial
+    notes: >
+      Denial of Service Protection -- a rate-based statement set to
+      count action is the canonical "rate limiting in dry-run mode"
+      gap that defeats SC-5 at this layer. Joins
+      `aws.waf_rate_limiting` (presence) on the SC-5 dimension.

@@ -1,0 +1,1016 @@
+# Copyright (c) 2023 Oracle and/or its affiliates.
+# Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl/
+
+"""Generic provider implementation for OCI Generative AI.
+
+Supports Meta Llama, xAI Grok, OpenAI, Mistral, and Google Gemini models.
+
+This module provides:
+- GenericProvider: Base provider for generic API (Meta, xAI, Mistral, OpenAI)
+- MetaProvider: For Meta Llama models (extends GenericProvider)
+- GeminiProvider: For Google Gemini models (handles max_output_tokens mapping)
+
+Multimodal Content Support:
+- Text: Standard text content
+- Images: Base64 or URL-based images (Meta Llama Vision, Gemini, Cohere, xAI)
+- Documents: PDF and other document formats (multimodal-capable models)
+- Video: MP4 and other video formats (multimodal-capable models)
+- Audio: Audio file formats (multimodal-capable models)
+
+Note: Document, video, and audio content require multimodal-capable models.
+Currently, Google Gemini models have the broadest multimodal support on OCI.
+"""
+
+import json
+import uuid
+import warnings
+from typing import Any, Callable, Dict, List, Literal, Optional, Type, Union
+
+from langchain_core.messages import (
+    AIMessage,
+    BaseMessage,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
+from langchain_core.messages.tool import ToolCallChunk, tool_call_chunk
+from langchain_core.tools import BaseTool
+from langchain_core.utils.function_calling import convert_to_openai_function
+from pydantic import BaseModel
+
+from langchain_oci.chat_models.providers.base import Provider
+from langchain_oci.common.utils import OCIUtils
+from langchain_oci.common.xml_tool_call_parser import (
+    XmlStreamBuffer,
+    XmlToolCall,
+    extract_xml_tool_calls,
+)
+
+
+def _should_allow_more_tool_calls(
+    messages: List[BaseMessage], max_tool_calls: int
+) -> bool:
+    """
+    Determine if the model should be allowed to call more tools.
+
+    Only counts tool calls in the **current turn** (since the last HumanMessage),
+    so multi-turn conversations don't accumulate a stale count that blocks
+    legitimate tool use on subsequent user prompts.
+
+    Returns False (force stop) if:
+    - Tool call limit exceeded in the current turn
+    - Infinite loop detected (same tool called repeatedly with same args)
+
+    Returns True otherwise to allow multi-step tool orchestration.
+
+    Args:
+        messages: Conversation history
+        max_tool_calls: Maximum number of tool calls before forcing stop
+    """
+    # Find the start of the current turn (last HumanMessage)
+    current_turn_start = 0
+    for i in range(len(messages) - 1, -1, -1):
+        if isinstance(messages[i], HumanMessage):
+            current_turn_start = i
+            break
+
+    current_turn = messages[current_turn_start:]
+
+    # Count tool calls in the current turn only
+    tool_call_count = sum(1 for msg in current_turn if isinstance(msg, ToolMessage))
+
+    # Safety limit: prevent runaway tool calling
+    if tool_call_count >= max_tool_calls:
+        return False
+
+    # Detect infinite loop: same tool called with same arguments in succession
+    recent_calls: list = []
+    for msg in reversed(current_turn):
+        if hasattr(msg, "tool_calls") and msg.tool_calls:
+            for tc in msg.tool_calls:
+                # Create signature: (tool_name, sorted_args)
+                try:
+                    args_str = json.dumps(tc.get("args", {}), sort_keys=True)
+                    signature = (tc.get("name", ""), args_str)
+
+                    # Check if this exact call was made in last 2 calls
+                    if signature in recent_calls[-2:]:
+                        return False  # Infinite loop detected
+
+                    recent_calls.append(signature)
+                except Exception:
+                    # If we can't serialize args, be conservative and continue
+                    pass
+
+        # Only check last 4 AI messages (last 4 tool call attempts)
+        if len(recent_calls) >= 4:
+            break
+
+    return True
+
+
+class GenericProvider(Provider):
+    """Provider for models using generic API spec."""
+
+    stop_sequence_key: str = "stop"
+
+    def normalize_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize parameters. Returns params unchanged by default.
+
+        Subclasses can override for provider-specific transformations.
+        """
+        return params
+
+    @property
+    def supports_tool_choice(self) -> bool:
+        """GenericProvider models support tool_choice."""
+        return True
+
+    @property
+    def supports_parallel_tool_calls(self) -> bool:
+        """GenericProvider models support parallel tool calling."""
+        return True
+
+    def __init__(self) -> None:
+        from oci.generative_ai_inference import models
+
+        # Per-stream incremental parser for inline <tool_call>...</tool_call>
+        # blocks emitted by Hermes/Llama/Qwen-style fine-tunes. Reset by
+        # `reset_stream_state()` at the start of each `_stream` call.
+        self._xml_buffer = XmlStreamBuffer()
+
+        # Chat request and message models
+        self.oci_chat_request = models.GenericChatRequest
+        self.oci_chat_message = {
+            "USER": models.UserMessage,
+            "SYSTEM": models.SystemMessage,
+            "ASSISTANT": models.AssistantMessage,
+            "TOOL": models.ToolMessage,
+        }
+
+        # Content models - Text and Image
+        self.oci_chat_message_content = models.ChatContent
+        self.oci_chat_message_text_content = models.TextContent
+        self.oci_chat_message_image_content = models.ImageContent
+        self.oci_chat_message_image_url = models.ImageUrl
+
+        # Content models - Document (PDF, etc.) - for multimodal-capable models
+        self.oci_chat_message_document_content = models.DocumentContent
+        self.oci_chat_message_document_url = models.DocumentUrl
+
+        # Content models - Video - for multimodal-capable models
+        self.oci_chat_message_video_content = models.VideoContent
+        self.oci_chat_message_video_url = models.VideoUrl
+
+        # Content models - Audio - for multimodal-capable models
+        self.oci_chat_message_audio_content = models.AudioContent
+        self.oci_chat_message_audio_url = models.AudioUrl
+
+        # Tool-related models
+        self.oci_function_definition = models.FunctionDefinition
+        self.oci_tool_choice_auto = models.ToolChoiceAuto
+        self.oci_tool_choice_function = models.ToolChoiceFunction
+        self.oci_tool_choice_none = models.ToolChoiceNone
+        self.oci_tool_choice_required = models.ToolChoiceRequired
+        self.oci_tool_call = models.FunctionCall
+        self.oci_tool_message = models.ToolMessage
+
+        # Response format models
+        self.oci_response_json_schema = models.ResponseJsonSchema
+        self.oci_json_schema_response_format = models.JsonSchemaResponseFormat
+
+        self.chat_api_format = models.BaseChatRequest.API_FORMAT_GENERIC
+
+    def chat_response_to_text(self, response: Any) -> str:
+        """Extract text from chat response, or '' if unavailable.
+
+        Strips any ``<tool_call>...</tool_call>`` blocks emitted inline by
+        Hermes/Llama-style fine-tunes — those are surfaced as structured
+        ``tool_calls`` by ``chat_tool_calls`` instead.
+        """
+        chat_resp = getattr(response.data, "chat_response", None)
+        choices = getattr(chat_resp, "choices", None)
+        text = ""
+        if choices:
+            msg = getattr(choices[0], "message", None)
+            if msg and msg.content:
+                # Concatenate all text content parts to avoid dropping later chunks.
+                text = "".join(
+                    part.text for part in msg.content if getattr(part, "text", None)
+                )
+        cleaned, _ = extract_xml_tool_calls(text)
+        if cleaned == "" and text == "":
+            warnings.warn(
+                "GenericProvider could not extract text and returned an empty "
+                "string. Ensure the selected provider matches the response "
+                "payload format, otherwise content extraction will return an "
+                "empty string.",
+                UserWarning,
+                stacklevel=2,
+            )
+        return cleaned
+
+    def chat_response_to_text_from_dict(self, response_data: Dict[str, Any]) -> str:
+        """Extract text from chat response dict (async path).
+
+        Strips inline ``<tool_call>...</tool_call>`` blocks for the same reason
+        as :meth:`chat_response_to_text`.
+        """
+        chat_response = response_data.get("chatResponse", {})
+        choices = chat_response.get("choices", [])
+        text = ""
+        if choices:
+            content = choices[0].get("message", {}).get("content", [])
+            if content:
+                if isinstance(content, list):
+                    text = "".join(
+                        c.get("text", "")
+                        for c in content
+                        if isinstance(c, dict) and c.get("type") == "TEXT"
+                    )
+                else:
+                    text = str(content)
+        cleaned, _ = extract_xml_tool_calls(text)
+        if cleaned == "" and text == "":
+            warnings.warn(
+                "GenericProvider could not extract text and returned an empty "
+                "string. Ensure the selected provider matches the response "
+                "payload format, otherwise content extraction will return an "
+                "empty string.",
+                UserWarning,
+                stacklevel=2,
+            )
+        return cleaned
+
+    def chat_stream_to_text(self, event_data: Dict) -> str:
+        """Extract text from Meta chat stream event.
+
+        Routes the raw delta through :class:`XmlStreamBuffer` so inline
+        ``<tool_call>``/``<tool_calling>`` blocks (Hermes/Llama/Qwen-style
+        fine-tunes) are surfaced via :meth:`process_stream_tool_calls`
+        instead of leaking into normal token-stream content.
+        """
+        content = event_data.get("message", {}).get("content", None)
+        if not content:
+            raw_delta = ""
+        else:
+            raw_delta = "".join(
+                part.get("text", "") for part in content if part.get("text")
+            )
+        return self._xml_buffer.feed(raw_delta)
+
+    def reset_stream_state(self) -> None:
+        """Clear per-stream ``<tool_call>`` parsing state.
+
+        Called by ``ChatOCIGenAI._stream`` / ``_astream`` at the start of each
+        new stream so a previous, possibly-aborted stream's leftover buffer
+        doesn't leak into the next one.
+        """
+        self._xml_buffer.reset()
+
+    def flush_stream_state(self) -> str:
+        """Return any held-back text and reset the per-stream buffer.
+
+        Called once at end-of-stream so trailing characters that were held
+        back as a possible ``<tool_call>`` prefix don't get dropped if the
+        opener never actually arrived.
+        """
+        return self._xml_buffer.flush()
+
+    def is_chat_stream_end(self, event_data: Dict) -> bool:
+        """Determine if Meta chat stream event indicates the end."""
+        return "finishReason" in event_data
+
+    def chat_generation_info(self, response: Any) -> Dict[str, Any]:
+        """Extract generation metadata from chat response."""
+        choices = response.data.chat_response.choices
+        finish_reason = choices[0].finish_reason if choices else None
+        generation_info: Dict[str, Any] = {
+            "finish_reason": finish_reason,
+            "time_created": str(response.data.chat_response.time_created),
+        }
+
+        # Surface reasoning_content from reasoning models (xAI Grok, OpenAI o1).
+        if choices and choices[0].message is not None:
+            reasoning = getattr(choices[0].message, "reasoning_content", None)
+            if reasoning:
+                generation_info["reasoning_content"] = reasoning
+
+        # Include token usage if available
+        if (
+            hasattr(response.data.chat_response, "usage")
+            and response.data.chat_response.usage
+        ):
+            generation_info["total_tokens"] = (
+                response.data.chat_response.usage.total_tokens
+            )
+
+        return generation_info
+
+    def chat_stream_generation_info(self, event_data: Dict) -> Dict[str, Any]:
+        """Extract generation metadata from Meta chat stream event."""
+        return {"finish_reason": event_data["finishReason"]}
+
+    def chat_tool_calls(self, response: Any) -> List[Any]:
+        """Retrieve tool calls from chat response.
+
+        Falls back to parsing inline ``<tool_call>...</tool_call>`` blocks out
+        of the assistant message text when the model didn't populate the
+        structured ``tool_calls`` field — typical for Hermes/Llama-style
+        fine-tunes hosted on OCI Dedicated AI Clusters.
+        """
+        choices = response.data.chat_response.choices
+        if not choices or choices[0].message is None:
+            return []
+        message = choices[0].message
+        native = message.tool_calls or []
+        if native:
+            return native
+        # Fallback: parse <tool_call>...</tool_call> blocks from the text.
+        text = "".join(
+            part.text for part in (message.content or []) if getattr(part, "text", None)
+        )
+        _, parsed = extract_xml_tool_calls(text)
+        if not parsed:
+            return []
+        # Synthesise objects shaped like OCI FunctionCall so the downstream
+        # `format_response_tool_calls` path keeps working unchanged.
+        return [XmlToolCall(**tc) for tc in parsed]
+
+    def chat_stream_tool_calls(self, event_data: Dict) -> List[Any]:
+        """Retrieve tool calls from Meta stream event."""
+        return event_data.get("message", {}).get("toolCalls", [])
+
+    def format_response_tool_calls(self, tool_calls: List[Any]) -> List[Dict]:
+        """
+        Formats a OCI GenAI API Meta response
+        into the tool call format used in Langchain.
+        """
+
+        if not tool_calls:
+            return []
+
+        formatted_tool_calls: List[Dict] = []
+        for tool_call in tool_calls:
+            # Parse arguments with error handling for malformed JSON from LLM
+            try:
+                arguments = json.loads(tool_call.arguments)
+            except json.JSONDecodeError:
+                # If JSON parsing fails, return raw string as arguments
+                # This allows downstream code to handle the error gracefully
+                arguments = {"_raw_arguments": tool_call.arguments}
+            formatted_tool_calls.append(
+                {
+                    "id": tool_call.id,
+                    "function": {
+                        "name": tool_call.name,
+                        "arguments": arguments,
+                    },
+                    "type": "function",
+                }
+            )
+        return formatted_tool_calls
+
+    def format_stream_tool_calls(
+        self,
+        tool_calls: Optional[List[Any]] = None,
+    ) -> List[Dict]:
+        """
+        Formats a OCI GenAI API Meta stream response
+        into the tool call format used in Langchain.
+        """
+        if not tool_calls:
+            return []
+
+        formatted_tool_calls: List[Dict] = []
+        for tool_call in tool_calls:
+            # Use None for missing fields to ensure proper chunk merging.
+            # Empty strings can overwrite previously set values during
+            # streaming.
+            tool_id = tool_call.get("id")
+            tool_name = tool_call.get("name")
+            tool_args = tool_call.get("arguments")
+
+            formatted_tool_calls.append(
+                {
+                    "id": tool_id if tool_id else None,
+                    "function": {
+                        "name": tool_name if tool_name else None,
+                        "arguments": tool_args if tool_args else None,
+                    },
+                    "type": "function",
+                }
+            )
+        return formatted_tool_calls
+
+    def get_role(self, message: BaseMessage) -> str:
+        """Map a LangChain message to Meta's role representation."""
+        if isinstance(message, HumanMessage):
+            return "USER"
+        elif isinstance(message, AIMessage):
+            return "ASSISTANT"
+        elif isinstance(message, SystemMessage):
+            return "SYSTEM"
+        elif isinstance(message, ToolMessage):
+            return "TOOL"
+        raise ValueError(f"Unknown message type: {type(message)}")
+
+    def messages_to_oci_params(
+        self, messages: List[BaseMessage], **kwargs: Any
+    ) -> Dict[str, Any]:
+        """Convert LangChain messages to OCI chat parameters.
+
+        Args:
+            messages: List of LangChain BaseMessage objects
+            **kwargs: Additional keyword arguments
+                model_id: Optional model ID for provider-specific handling.
+                    Gemini models require 1:1 function call/response pairing.
+
+        Returns:
+            Dict containing OCI chat parameters
+
+        Raises:
+            ValueError: If message content is invalid
+        """
+        # Gemini requires 1:1 function_call to function_response per turn.
+        # Flatten parallel tool calls into sequential pairs.
+        model_id = kwargs.get("model_id", "")
+        if model_id and model_id.startswith("google."):
+            messages = OCIUtils.flatten_parallel_tool_calls(messages)
+
+        oci_messages = []
+
+        for message in messages:
+            role = self.get_role(message)
+            if isinstance(message, ToolMessage):
+                # For tool messages, wrap the content in a text content object.
+                tool_content = [
+                    self.oci_chat_message_text_content(text=str(message.content))
+                ]
+                if message.tool_call_id:
+                    oci_message = self.oci_chat_message[role](
+                        content=tool_content,
+                        tool_call_id=message.tool_call_id,
+                    )
+                else:
+                    oci_message = self.oci_chat_message[role](content=tool_content)
+            elif isinstance(message, AIMessage) and (
+                message.tool_calls or message.additional_kwargs.get("tool_calls")
+            ):
+                # Process content and tool calls for assistant messages
+                if message.content:
+                    content = self._process_message_content(message.content)
+                # Issue 78 fix: Check if original content is empty BEFORE processing
+                # to prevent NullPointerException in OCI backend
+                else:
+                    content = [self.oci_chat_message_text_content(text=".")]
+                tool_calls = []
+                for tool_call in message.tool_calls:
+                    # Skip tool calls with empty/missing names or IDs to
+                    # prevent API errors. This can occur when streaming
+                    # chunks are improperly merged.
+                    if not tool_call.get("name") or not tool_call.get("id"):
+                        continue
+                    tool_calls.append(
+                        self.oci_tool_call(
+                            id=tool_call["id"],
+                            name=tool_call["name"],
+                            arguments=json.dumps(tool_call["args"]),
+                        )
+                    )
+                oci_message = self.oci_chat_message[role](
+                    content=content,
+                    tool_calls=tool_calls,
+                )
+            else:
+                # For regular messages, process content normally.
+                content = self._process_message_content(message.content)
+                oci_message = self.oci_chat_message[role](content=content)
+            oci_messages.append(oci_message)
+
+        # BUGFIX (Issue #28): When tool results are present, inject a system
+        # message to guide models (especially Meta Llama) to incorporate tool
+        # results into their response. This prevents the model from outputting
+        # raw JSON tool-call syntax instead of a natural language answer.
+        has_tool_results = any(isinstance(msg, ToolMessage) for msg in messages)
+        if (
+            has_tool_results
+            and "tools" in kwargs
+            and kwargs.get("tool_result_guidance")
+        ):
+            guidance = self.oci_chat_message["SYSTEM"](
+                content=[
+                    self.oci_chat_message_text_content(
+                        text=(
+                            "You have received tool results above. Respond to "
+                            "the user with a helpful, natural language answer "
+                            "that incorporates the tool results. Do not output "
+                            "raw JSON or tool call syntax. If you need "
+                            "additional information, you may call another tool."
+                        )
+                    )
+                ]
+            )
+            oci_messages.append(guidance)
+
+        result = {
+            "messages": oci_messages,
+            "api_format": self.chat_api_format,
+        }
+
+        # BUGFIX: Intelligently manage tool_choice to prevent infinite loops
+        # while allowing legitimate multi-step tool orchestration.
+        # This addresses a known issue with Meta Llama models that
+        # continue calling tools even after receiving results.
+        has_tool_results = any(isinstance(msg, ToolMessage) for msg in messages)
+        if has_tool_results and "tools" in kwargs and "tool_choice" not in kwargs:
+            max_tool_calls = kwargs.get("max_sequential_tool_calls", 8)
+            if not _should_allow_more_tool_calls(messages, max_tool_calls):
+                # Force model to stop and provide final answer
+                result["tool_choice"] = self.oci_tool_choice_none()
+            # else: Allow model to decide (default behavior)
+
+        # Add parallel tool calls support (GenericChatRequest models)
+        if "is_parallel_tool_calls" in kwargs:
+            result["is_parallel_tool_calls"] = kwargs["is_parallel_tool_calls"]
+
+        return result
+
+    def _process_message_content(
+        self, content: Union[str, List[Union[str, Dict]]]
+    ) -> List[Any]:
+        """Process message content into OCI chat content format.
+
+        Supports multimodal content types:
+        - text: Plain text content
+        - image_url: Images (base64 or URL) - supported by vision models
+        - document_url / document / file: PDFs and documents
+        - video_url / video: Video files
+        - audio_url / audio: Audio files
+
+        Note: Document, video, and audio content require multimodal-capable models.
+        Check your model's documentation for supported content types.
+
+        Args:
+            content: Message content as string or list of content items.
+                Each item can be a string or dict with 'type' key.
+
+        Returns:
+            List of OCI chat content objects
+
+        Raises:
+            ValueError: If content format is invalid
+
+        Examples:
+            # Text only
+            content = "Hello, world!"
+
+            # Image with text
+            content = [
+                {"type": "text", "text": "What's in this image?"},
+                {"type": "image_url", "image_url": {"url": "data:image/png;base64,..."}}
+            ]
+
+            # PDF document (requires multimodal-capable model)
+            content = [
+                {"type": "text", "text": "Summarize this PDF"},
+                {"type": "document_url", "document_url": {
+                    "url": "data:application/pdf;base64,..."
+                }}
+            ]
+
+            # Video (requires multimodal-capable model)
+            content = [
+                {"type": "text", "text": "Describe this video"},
+                {"type": "video_url", "video_url": {
+                    "url": "data:video/mp4;base64,..."
+                }}
+            ]
+
+            # Audio (requires multimodal-capable model)
+            content = [
+                {"type": "text", "text": "Transcribe this audio"},
+                {"type": "audio_url", "audio_url": {
+                    "url": "data:audio/wav;base64,..."
+                }}
+            ]
+
+            # Generic media type (routes by mime_type)
+            content = [
+                {"type": "text", "text": "Describe this video"},
+                {"type": "media", "data": "<base64>", "mime_type": "video/mp4"}
+            ]
+        """
+        if isinstance(content, str):
+            return [self.oci_chat_message_text_content(text=content)]
+
+        if not isinstance(content, list):
+            raise ValueError("Message content must be a string or a list of items.")
+
+        processed_content = []
+        for item in content:
+            if isinstance(item, str):
+                processed_content.append(self.oci_chat_message_text_content(text=item))
+            elif isinstance(item, dict):
+                if "type" not in item:
+                    raise ValueError("Dict content item must have a 'type' key.")
+
+                content_type = item["type"]
+
+                # Text content
+                if content_type == "text":
+                    processed_content.append(
+                        self.oci_chat_message_text_content(text=item["text"])
+                    )
+
+                # Image content
+                elif content_type == "image_url":
+                    processed_content.append(
+                        self.oci_chat_message_image_content(
+                            image_url=self.oci_chat_message_image_url(
+                                url=item["image_url"]["url"]
+                            )
+                        )
+                    )
+
+                # Document content (PDF, etc.) - requires multimodal-capable model
+                elif content_type in ("document_url", "document", "file"):
+                    doc_data = (
+                        item.get("document_url")
+                        or item.get("document")
+                        or item.get("file")
+                        or item
+                    )
+                    url = doc_data.get("url") if isinstance(doc_data, dict) else None
+                    if not url:
+                        raise ValueError(
+                            "Document content must have a 'url' field. "
+                            "Expected: {'type': 'document_url', "
+                            "'document_url': {'url': 'data:application/pdf;...'}}"
+                        )
+                    processed_content.append(
+                        self.oci_chat_message_document_content(
+                            document_url=self.oci_chat_message_document_url(url=url)
+                        )
+                    )
+
+                # Video content - requires multimodal-capable model
+                elif content_type in ("video_url", "video"):
+                    video_data = item.get("video_url") or item.get("video") or item
+                    url = (
+                        video_data.get("url") if isinstance(video_data, dict) else None
+                    )
+                    if not url:
+                        raise ValueError(
+                            "Video content must have a 'url' field. "
+                            "Expected: {'type': 'video_url', "
+                            "'video_url': {'url': 'data:video/mp4;base64,...'}}"
+                        )
+                    processed_content.append(
+                        self.oci_chat_message_video_content(
+                            video_url=self.oci_chat_message_video_url(url=url)
+                        )
+                    )
+
+                # Audio content - requires multimodal-capable model
+                elif content_type in ("audio_url", "audio"):
+                    audio_data = item.get("audio_url") or item.get("audio") or item
+                    url = (
+                        audio_data.get("url") if isinstance(audio_data, dict) else None
+                    )
+                    if not url:
+                        raise ValueError(
+                            "Audio content must have a 'url' field. "
+                            "Expected: {'type': 'audio_url', "
+                            "'audio_url': {'url': 'data:audio/wav;base64,...'}}"
+                        )
+                    processed_content.append(
+                        self.oci_chat_message_audio_content(
+                            audio_url=self.oci_chat_message_audio_url(url=url)
+                        )
+                    )
+
+                # Generic media content — route by mime_type
+                elif content_type == "media":
+                    mime_type = item.get("mime_type", "")
+                    data = item.get("data", "")
+                    if not mime_type or not data:
+                        raise ValueError(
+                            "Media content must have 'data' and 'mime_type'. "
+                            "Example: {'type': 'media', 'data': '<base64>', "
+                            "'mime_type': 'video/mp4'}"
+                        )
+                    url = f"data:{mime_type};base64,{data}"
+                    if mime_type.startswith("image/"):
+                        processed_content.append(
+                            self.oci_chat_message_image_content(
+                                image_url=self.oci_chat_message_image_url(url=url)
+                            )
+                        )
+                    elif mime_type.startswith("video/"):
+                        processed_content.append(
+                            self.oci_chat_message_video_content(
+                                video_url=self.oci_chat_message_video_url(url=url)
+                            )
+                        )
+                    elif mime_type.startswith("audio/"):
+                        processed_content.append(
+                            self.oci_chat_message_audio_content(
+                                audio_url=self.oci_chat_message_audio_url(url=url)
+                            )
+                        )
+                    elif mime_type == "application/pdf":
+                        processed_content.append(
+                            self.oci_chat_message_document_content(
+                                document_url=self.oci_chat_message_document_url(url=url)
+                            )
+                        )
+                    else:
+                        raise ValueError(
+                            f"Unsupported mime_type for media: {mime_type}. "
+                            f"Supported: image/*, video/*, audio/*, "
+                            f"application/pdf"
+                        )
+
+                else:
+                    raise ValueError(
+                        f"Unsupported content type: {content_type}. "
+                        f"Supported types: text, image_url, document_url, "
+                        f"video_url, audio_url, media"
+                    )
+            else:
+                raise ValueError(
+                    f"Content items must be str or dict, got: {type(item)}"
+                )
+        return processed_content
+
+    def _get_tool_parameters(self, tool: BaseTool) -> Dict[str, Any]:
+        """Extract parameters from a BaseTool for OCI tool conversion.
+
+        Uses tool_call_schema (the model-facing schema) as the primary source.
+        This correctly excludes injected runtime parameters (e.g., ToolRuntime
+        with Callable types from Deep Agents middleware) that args_schema
+        includes and that Pydantic cannot serialize to JSON schema.
+
+        After building the base schema from tool_call_schema, overlays any
+        json_schema_extra constraints (enum, format, pattern, etc.) from the
+        original args_schema field definitions, since tool_call_schema does
+        not carry those forward.
+
+        Args:
+            tool: The BaseTool to extract parameters from.
+
+        Returns:
+            Dict containing the tool parameters schema.
+        """
+        tool_call_schema = getattr(tool, "tool_call_schema", None)
+        if tool_call_schema and hasattr(tool_call_schema, "model_json_schema"):
+            schema = tool_call_schema.model_json_schema()
+            # Overlay json_schema_extra constraints from args_schema when present
+            if tool.args_schema:
+                OCIUtils.overlay_schema_extras(schema, tool.args_schema)
+            return schema
+        # Final fallback for tools without tool_call_schema
+        as_json_schema_function = convert_to_openai_function(tool)
+        return as_json_schema_function.get("parameters", {})
+
+    def convert_to_oci_tool(
+        self,
+        tool: Union[Dict[str, Any], Type[BaseModel], Callable, BaseTool],
+    ) -> Dict[str, Any]:
+        """Convert a BaseTool instance, TypedDict or BaseModel type
+        to a OCI tool in Meta's format.
+
+        Args:
+            tool: The tool to convert, can be a BaseTool instance, TypedDict,
+                or BaseModel type.
+
+        Returns:
+            Dict containing the tool definition in Meta's format.
+
+        Raises:
+            ValueError: If the tool type is not supported.
+        """
+        # Check BaseTool first since it's callable but needs special handling
+        if isinstance(tool, BaseTool):
+            # Use model_json_schema() if available to preserve json_schema_extra
+            # constraints (enum, format, etc.) that convert_to_openai_function strips
+            parameters = self._get_tool_parameters(tool)
+
+            # Resolve $ref/$defs and anyOf — OCI doesn't support them
+            resolved_params = OCIUtils.resolve_schema_refs(parameters)
+            resolved_params = OCIUtils.resolve_anyof(resolved_params)
+            resolved_params = OCIUtils.sanitize_schema(resolved_params)
+            properties = resolved_params.get("properties", {})
+
+            return self.oci_function_definition(
+                name=tool.name,
+                description=OCIUtils.remove_signature_from_tool_description(
+                    tool.name, tool.description
+                ),
+                parameters={
+                    "type": "object",
+                    "properties": properties,
+                    "required": resolved_params.get("required", []),
+                },
+            )
+        if (isinstance(tool, type) and issubclass(tool, BaseModel)) or callable(tool):
+            as_json_schema_function = convert_to_openai_function(tool)
+            parameters = as_json_schema_function.get("parameters", {})
+            fn_name = as_json_schema_function.get("name", "")
+            return self.oci_function_definition(
+                name=fn_name,
+                description=as_json_schema_function.get("description") or fn_name,
+                parameters={
+                    "type": "object",
+                    "properties": parameters.get("properties", {}),
+                    "required": parameters.get("required", []),
+                },
+            )
+        raise ValueError(
+            f"Unsupported tool type {type(tool)}. "
+            "Tool must be passed in as a BaseTool "
+            "instance, TypedDict class, or BaseModel type."
+        )
+
+    def process_tool_choice(
+        self,
+        tool_choice: Optional[
+            Union[dict, str, Literal["auto", "none", "required", "any"], bool]
+        ],
+    ) -> Optional[Any]:
+        """Process tool choice for Meta provider.
+
+        Args:
+            tool_choice: Which tool to require the model to call. Options are:
+                - str of the form "<<tool_name>>": calls <<tool_name>> tool.
+                - "auto": automatically selects a tool (including no tool).
+                - "none": does not call a tool.
+                - "any" or "required" or True: force at least one tool to be called.
+                - dict of the form
+                    {"type": "function", "function": {"name": <<tool_name>>}}:
+                calls <<tool_name>> tool.
+                - False or None: no effect, default Meta behavior.
+
+        Returns:
+            Meta-specific tool choice object.
+
+        Raises:
+            ValueError: If tool_choice type is not recognized.
+        """
+        if tool_choice is None:
+            return None
+
+        if isinstance(tool_choice, str):
+            if tool_choice not in ("auto", "none", "any", "required"):
+                return self.oci_tool_choice_function(name=tool_choice)
+            elif tool_choice == "auto":
+                return self.oci_tool_choice_auto()
+            elif tool_choice == "none":
+                return self.oci_tool_choice_none()
+            elif tool_choice in ("any", "required"):
+                return self.oci_tool_choice_required()
+        elif isinstance(tool_choice, bool):
+            if tool_choice:
+                return self.oci_tool_choice_required()
+            else:
+                return self.oci_tool_choice_none()
+        elif isinstance(tool_choice, dict):
+            # For Meta, we use ToolChoiceAuto for tool selection
+            return self.oci_tool_choice_auto()
+        raise ValueError(
+            f"Unrecognized tool_choice type. Expected str, bool or dict. "
+            f"Received: {tool_choice}"
+        )
+
+    def process_stream_tool_calls(
+        self, event_data: Dict, tool_call_ids: Dict[int, str]
+    ) -> List[ToolCallChunk]:
+        """
+        Process Meta stream tool calls and convert them to ToolCallChunks.
+
+        Drains any inline ``<tool_call>...</tool_call>`` blocks parsed by
+        :meth:`chat_stream_to_text` first, then falls through to the standard
+        OCI structured tool-call path.
+
+        Args:
+            event_data: The event data from the stream
+            tool_call_ids: Dict mapping tool call index to ID for aggregation
+
+        Returns:
+            List of ToolCallChunk objects
+        """
+        tool_call_chunks: List[ToolCallChunk] = []
+
+        # Drain XML tool calls that completed during this event.
+        for parsed in self._xml_buffer.drain_completed():
+            index = len(tool_call_ids)
+            tool_call_ids[index] = parsed["id"]
+            tool_call_chunks.append(
+                tool_call_chunk(
+                    name=parsed["name"],
+                    args=parsed["arguments"],
+                    id=parsed["id"],
+                    index=index,
+                )
+            )
+
+        tool_call_response = self.chat_stream_tool_calls(event_data)
+
+        if not tool_call_response:
+            return tool_call_chunks
+
+        for idx, tool_call in enumerate(
+            self.format_stream_tool_calls(tool_call_response)
+        ):
+            tool_id = tool_call.get("id")
+
+            if tool_id:
+                if idx not in tool_call_ids or tool_call_ids[idx] == tool_id:
+                    # New idx - use idx as index
+                    # Same ID at same idx - reuse idx as index
+                    index = idx
+                else:
+                    # Different ID at same idx - parallel tool call (Grok pattern)
+                    # New idx - use len(tool_call_ids) as index
+                    index = len(tool_call_ids)
+            elif idx in tool_call_ids:
+                # Subsequent chunk - reuse stored ID (gpt-oss pattern)
+                index = idx
+                tool_id = tool_call_ids[index]
+            else:
+                # No ID and no stored ID - generate new one (e.g., Gemini models)
+                tool_id = str(uuid.uuid4())
+                index = idx
+            tool_call_ids[index] = tool_id
+
+            tool_call_chunks.append(
+                tool_call_chunk(
+                    name=tool_call["function"].get("name"),
+                    args=tool_call["function"].get("arguments"),
+                    id=tool_id,
+                    index=index,
+                )
+            )
+        return tool_call_chunks
+
+
+class MetaProvider(GenericProvider):
+    """Provider for Meta models. This provider is for backward compatibility."""
+
+    pass
+
+
+class OpenAIProvider(GenericProvider):
+    """Provider for OpenAI models served via OCI GenAI.
+
+    Handles OpenAI-specific parameter requirements:
+    - max_tokens → max_completion_tokens (OpenAI rejects max_tokens on GPT-5
+      family and reasoning models; max_completion_tokens is the forward-compatible
+      name).
+    """
+
+    def normalize_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize OpenAI parameters, mapping legacy max_tokens."""
+        result = params.copy()
+        if "max_tokens" in result and "max_completion_tokens" not in result:
+            result["max_completion_tokens"] = result.pop("max_tokens")
+        elif "max_tokens" in result and "max_completion_tokens" in result:
+            # Both provided - prefer the OpenAI-native key and drop the legacy one
+            result.pop("max_tokens")
+        return result
+
+
+class GeminiProvider(GenericProvider):
+    """Provider for Google Gemini models.
+
+    Handles Gemini-specific parameter requirements:
+    - max_output_tokens → max_tokens (Gemini SDK uses max_output_tokens,
+      but OCI API expects max_tokens)
+    """
+
+    def normalize_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize Gemini parameters with warnings for mapped keys."""
+        result = params.copy()
+
+        if "max_output_tokens" in result:
+            if "max_tokens" not in result:
+                result["max_tokens"] = result.pop("max_output_tokens")
+                warnings.warn(
+                    "Gemini models on OCI use `max_tokens`. "
+                    "Mapped `max_output_tokens` -> `max_tokens`.",
+                    UserWarning,
+                    stacklevel=4,
+                )
+            else:
+                # Both provided - prefer max_tokens
+                result.pop("max_output_tokens")
+                warnings.warn(
+                    "Both `max_tokens` and `max_output_tokens` were provided "
+                    "for a Gemini model. Using `max_tokens` and ignoring "
+                    "`max_output_tokens`.",
+                    UserWarning,
+                    stacklevel=4,
+                )
+
+        return result

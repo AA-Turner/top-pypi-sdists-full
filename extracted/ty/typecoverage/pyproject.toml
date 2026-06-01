@@ -1,0 +1,146 @@
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "typecoverage"
+version = "1.0.1"
+description = "A strict CLI + library API to report untyped variables, arguments, and function returns in Python code"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Joao Lopes", email = "joaslopes@gmail.com"}
+]
+maintainers = [
+    {name = "Joao Lopes", email = "joaslopes@gmail.com"}
+]
+keywords = [
+    "type-checking",
+    "static-analysis", 
+    "type-annotations",
+    "code-quality",
+    "python-typing",
+    "ast-analysis"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Natural Language :: English",
+    "Typing :: Typed",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Debuggers",
+    "Environment :: Console",
+    "Environment :: Web Environment"
+]
+dependencies = [
+    "pytest>=7.0.0",
+    "replit==4.1.0",
+    "black",
+    "flake8",
+    "build",
+    "requests",
+    "pyright",
+    "toml",
+    "pyyaml",
+    "isort",
+    "pyproject-flake8",
+    "zipfile38==0.0.3"
+]
+
+[project.urls]
+Homepage = "https://github.com/kairos-xx/typecoverage"
+Repository = "https://github.com/kairos-xx/typecoverage"
+Documentation = "https://github.com/kairos-xx/typecoverage/docs"
+Issues = "https://github.com/kairos-xx/typecoverage/issues"
+Changelog = "https://github.com/kairos-xx/typecoverage/releases"
+
+[project.scripts]
+typecoverage = "typecoverage.core:typecoverage.parse_and_run"
+
+[project.optional-dependencies]
+dev = [
+    "pytest-cov",
+    "pytest-xdist",
+    "mypy",
+    "ruff",
+    "pre-commit"
+]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov",
+    "coverage[toml]"
+]
+
+[tool.setuptools]
+packages = ["typecoverage"]
+
+[tool.setuptools.package-data]
+typecoverage = ["py.typed"]
+
+[tool.ruff]
+line-length = 79
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "ARG", "SIM"]
+ignore = ["W291", "W292", "W293", "E203", "E701"]
+
+[tool.flake8]
+max-line-length = 79
+ignore = ["E203", "E701", "W503"]
+
+[tool.black]
+line-length = 79
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+line_length = 79
+multi_line_output = 1
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short --strict-markers"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests"
+]
+
+[tool.coverage.run]
+source = ["typecoverage"]
+omit = ["tests/*", "setup.py", "scripts/*", "demos/*", "build/*", "dist/*", "*.egg-info/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+]
+show_missing = true
+skip_covered = false
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true

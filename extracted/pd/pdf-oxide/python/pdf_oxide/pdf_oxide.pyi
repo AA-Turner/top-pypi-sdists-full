@@ -526,6 +526,7 @@ class PdfDocument:
         transparent: bool = False,
         render_annotations: bool | None = None,
         jpeg_quality: int | None = None,
+        excluded_layers: list[str] | None = None,
     ) -> bytes:
         """
         Render a page to image bytes.
@@ -541,6 +542,7 @@ class PdfDocument:
         (wins over `background`).
         - `render_annotations`: toggle for annotation rendering.
         - `jpeg_quality`: 1..=100, only applied when `format="jpeg"`.
+        - `excluded_layers`: list of OCG layer names to hide during rendering.
         """
 
     def render_page_fit(
@@ -554,6 +556,7 @@ class PdfDocument:
         transparent: bool = False,
         render_annotations: bool | None = None,
         jpeg_quality: int | None = None,
+        excluded_layers: list[str] | None = None,
     ) -> bytes:
         """
         Render a page to fit inside a target pixel bounding box, preserving
@@ -571,6 +574,7 @@ class PdfDocument:
         transparent (bool, optional): If True, no background fill.
         render_annotations (bool, optional): default True.
         jpeg_quality (int, optional): 1-100, default 85.
+        excluded_layers (list[str], optional): OCG layer names to hide.
 
         Returns: bytes of the rendered image. Issue #441 / #448.
         """
@@ -1083,6 +1087,13 @@ class PdfDocument:
 
     def get_outline(self) -> t.Any | None:
         """Get document outline."""
+
+    def extract_structured(self, page: int) -> str:
+        """
+        Extract a page as structured typed regions (issue #536), returned as a
+        JSON string (deserialize with `json.loads`): a `StructuredPage` whose
+        `regions` each carry `kind`, `text`, `bbox`, `spans`, and `column_index`.
+        """
 
     def get_annotations(self, page: int) -> t.Any:
         """Get page annotations info."""
@@ -1669,6 +1680,7 @@ class Page:
         transparent: bool = False,
         render_annotations: bool | None = None,
         jpeg_quality: int | None = None,
+        excluded_layers: list[str] | None = None,
     ) -> bytes: ...
     def render_pixmap(self, dpi: int | None = None) -> t.Any:
         """

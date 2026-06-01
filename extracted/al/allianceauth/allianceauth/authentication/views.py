@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import urlencode
 
 import requests
 
@@ -7,18 +8,19 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
-from django.core import signing
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext_lazy as _
+from django.core import signing
+from django_registration.backends.activation import REGISTRATION_SALT
 from django_registration.backends.activation.views import (
-    REGISTRATION_SALT,
     ActivationView as BaseActivationView,
     RegistrationView as BaseRegistrationView,
 )
+from django_registration.exceptions import ActivationError
 from django_registration.signals import user_registered
 
 from esi.decorators import token_required
@@ -31,7 +33,7 @@ from allianceauth.hooks import get_hooks
 from .constants import ESI_ERROR_MESSAGE_OVERRIDES
 from .core.celery_workers import active_tasks_count, queued_tasks_count
 from allianceauth.admin_status.templatetags.admin_status import _celery_stats
-from .forms import RegistrationForm
+from .forms import RegistrationActivationForm, RegistrationForm
 from .models import CharacterOwnership
 
 if 'allianceauth.eveonline.autogroups' in settings.INSTALLED_APPS:
@@ -236,6 +238,7 @@ def sso_login(request, token):
 
 # Step 2
 class RegistrationView(BaseRegistrationView):
+    disallowed_url = reverse_lazy('registration_disallowed')
     form_class = RegistrationForm
     template_name = "public/register.html"
     email_body_template = "registration/activation_email.txt"
@@ -321,36 +324,23 @@ class RegistrationView(BaseRegistrationView):
     def get_email_context(self, activation_key):
         context = super().get_email_context(activation_key)
         context['url'] = context['site'].domain + \
-            reverse('registration_activate', args=[activation_key])
+            reverse('registration_activate') + '?' + urlencode({'activation_key': activation_key})
         return context
 
 
 # Step 3
 class ActivationView(BaseActivationView):
+    form_class = RegistrationActivationForm
     template_name = "registration/activate.html"
     success_url = reverse_lazy('registration_activation_complete')
 
-    def validate_key(self, activation_key):
-        try:
-            dump = signing.loads(
-                activation_key,
-                salt=REGISTRATION_SALT,
-                max_age=settings.ACCOUNT_ACTIVATION_DAYS * 86400
-            )
-            return dump
-        except signing.BadSignature:
-            return None
-
-    def activate(self, *args, **kwargs):
-        dump = self.validate_key(kwargs.get('activation_key'))
-        if dump:
-            user = self.get_user(dump[0])
-            if user:
-                user.email = dump[1]
-                user.is_active = True
-                user.save()
-                return user
-        return False
+    def activate(self, form):
+        username, email = form.cleaned_data["activation_key"]
+        user = self.get_user(username)
+        user.email = email
+        user.is_active = True
+        user.save()
+        return user
 
 
 def registration_complete(request):

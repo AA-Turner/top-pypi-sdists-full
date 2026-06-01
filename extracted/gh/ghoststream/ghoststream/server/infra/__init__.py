@@ -1,1 +1,0 @@
-"""GhostStream server infrastructure package."""

@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Add heat container agent into Kubernetes cluster worker nodes to support
-    cluster rolling upgrade.

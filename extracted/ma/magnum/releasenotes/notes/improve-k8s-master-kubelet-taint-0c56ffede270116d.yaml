@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    The taint of master node kubelet has been improved to get the
-    conformance test (sonobuoy) passed.

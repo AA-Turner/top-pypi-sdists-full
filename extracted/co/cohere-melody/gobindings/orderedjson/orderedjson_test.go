@@ -1,0 +1,236 @@
+package orderedjson
+
+import (
+	"encoding/json"
+	"reflect"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
+func TestObjectLen(t *testing.T) {
+	ob := New()
+	require.Equal(t, 0, ob.Len())
+	ob.Set("b", "1")
+	require.Equal(t, 1, ob.Len())
+	ob.Delete("b")
+	require.Equal(t, 0, ob.Len())
+	ob = Object{}
+	require.Equal(t, 0, ob.Len())
+}
+
+func TestObjectInit(t *testing.T) {
+	ob := New(WithInitialData(Pair{"b", "1"}, Pair{"a", "2"}))
+	require.Equal(t, 2, ob.Len())
+	require.Equal(t, []string{"b", "a"}, ob.Keys())
+
+	ob2 := New(WithInitialData(Pair{"b", "1"}, Pair{"b", "2"}))
+	require.Equal(t, 1, ob2.Len())
+	require.Equal(t, []string{"b"}, ob2.Keys())
+}
+
+func TestObjectIter(t *testing.T) {
+	ob := New(WithInitialData(Pair{"b", "1"}, Pair{"a", "2"}))
+	i := 0
+	for k, v := range ob.Pairs() {
+		if i == 0 {
+			require.Equal(t, "b", k)
+			require.Equal(t, "1", v)
+		} else {
+			require.Equal(t, "a", k)
+			require.Equal(t, "2", v)
+		}
+		i++
+	}
+	ob = Object{}
+	for k, v := range ob.Pairs() {
+		require.Fail(t, "should not iterate over empty object", "key: %s, value: %v", k, v)
+	}
+}
+
+func TestObject_ToMap(t *testing.T) {
+	ob := New(WithInitialData(Pair{"b", "1"}, Pair{"a", "2"}))
+	m := ob.ToMap()
+	require.Equal(t, map[string]any{"b": "1", "a": "2"}, m)
+	// add nested map
+	ob2 := New(WithInitialData(Pair{"c", []string{"3"}}, Pair{"d", 4}, Pair{"e", []any{"5", 6}}))
+	ob.Set("f", ob2)
+	m = ob.ToMap()
+	require.Equal(t, map[string]any{"b": "1", "a": "2", "f": map[string]any{"c": []string{"3"}, "d": 4, "e": []any{"5", 6}}}, m)
+	ob = Object{}
+	require.Equal(t, map[string]any{}, ob.ToMap())
+}
+
+func TestObjectSetGetDelete(t *testing.T) {
+	ob := New(WithInitialData(Pair{"b", "1"}, Pair{"a", "2"}))
+	v, ok := ob.Get("b")
+	require.True(t, ok)
+	require.Equal(t, "1", v)
+	_, ok = ob.Get("c")
+	require.False(t, ok)
+
+	// override b
+	ob.Set("b", "3")
+	v, ok = ob.Get("b")
+	require.True(t, ok)
+	require.Equal(t, "3", v)
+	// ensure order does not change
+	require.Equal(t, []string{"b", "a"}, ob.Keys())
+
+	// add new value
+	ob.Set("c", "4")
+	v, ok = ob.Get("c")
+	require.True(t, ok)
+	require.Equal(t, "4", v)
+	require.Equal(t, []string{"b", "a", "c"}, ob.Keys())
+
+	// remove key
+	ob.Delete("a")
+	require.Equal(t, []string{"b", "c"}, ob.Keys())
+
+	ob = Object{}
+	v, ok = ob.Get("c")
+	require.False(t, ok)
+	require.Nil(t, v)
+	ob.Delete("c") // don't panic
+	ob.Set("c", 5)
+	v, ok = ob.Get("c")
+	require.True(t, ok)
+	require.Equal(t, 5, v)
+}
+
+func TestObject_MarshalJSON(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		input    Object
+		expected string
+	}{
+		{
+			name:     "basic",
+			input:    New(WithInitialData(Pair{"b", "1"}, Pair{"a", "2"})),
+			expected: `{"b":"1","a":"2"}`,
+		},
+		{
+			name:     "nested object",
+			input:    New(WithInitialData(Pair{"b", "1"}, Pair{"obj", New(WithInitialData(Pair{"b", "1"}, Pair{"a", "2"}))})),
+			expected: `{"b":"1","obj":{"b":"1","a":"2"}}`,
+		},
+		{
+			name:     "numeric types",
+			input:    New(WithInitialData(Pair{"b", 1.0}, Pair{"a", 2})),
+			expected: `{"b":1.0,"a":2}`,
+		},
+		{
+			name:     "nil type",
+			input:    New(WithInitialData(Pair{"b", nil}, Pair{"a", 2})),
+			expected: `{"b":null,"a":2}`,
+		},
+		{
+			name:     "handles scientific notation",
+			input:    New(WithInitialData(Pair{"loan_amount", 1000000.0}, Pair{"interest_rate", 0.03}, Pair{"loan_period", 30})),
+			expected: `{"loan_amount":1e+06,"interest_rate":0.03,"loan_period":30}`,
+		},
+		{
+			name:     "doesn't escape html characters",
+			input:    New(WithInitialData(Pair{"b", "<>&'\""}, Pair{"a", 2})),
+			expected: `{"b":"<>&'\"","a":2}`,
+		}, {
+			name:     "empty object marshals",
+			input:    Object{},
+			expected: `{}`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := tc.input.MarshalJSON()
+			require.NoError(t, err)
+			require.Equal(t, tc.expected, string(got))
+		})
+	}
+}
+
+func TestObject_UnmarshalJSON(t *testing.T) {
+	t.Parallel()
+	typeOfObject := reflect.TypeOf(map[string]any{})
+	tests := []struct {
+		name        string
+		input       string
+		expected    Object
+		expectedErr error
+	}{
+		{
+			name:     "null object unmarshals",
+			input:    `null`,
+			expected: Object{},
+		},
+		{
+			name:        "wrong type",
+			input:       `"a string"`,
+			expectedErr: &json.UnmarshalTypeError{Value: "string", Type: typeOfObject, Offset: 10},
+		},
+		{
+			name:     "basic object",
+			input:    `{"b" : "v1", "a": 2}`,
+			expected: New(WithInitialData(Pair{"b", "v1"}, Pair{"a", int64(2)})),
+		},
+		{
+			name:     "basic object, float preserved",
+			input:    `{"b" : "v1", "a": 2.0}`,
+			expected: New(WithInitialData(Pair{"b", "v1"}, Pair{"a", float64(2)})),
+		},
+		{
+			name:     "nested object ordered",
+			input:    `{"obj" : {"b": "1", "a": "2"}}`,
+			expected: New(WithInitialData(Pair{"obj", New(WithInitialData(Pair{Key: "b", Value: "1"}, Pair{Key: "a", Value: "2"}))})),
+		}, {
+			name:     "handles scientific notation",
+			input:    `{"loan_amount":1e+06,"interest_rate":0.03,"loan_period":30}`,
+			expected: New(WithInitialData(Pair{"loan_amount", float64(1000000.0)}, Pair{"interest_rate", float64(0.03)}, Pair{"loan_period", int64(30)})),
+		}, {
+			name:     "ensure escaped characters are handled correctly",
+			input:    `{"key": "hel\\\"lo"}`,
+			expected: New(WithInitialData(Pair{"key", `hel\"lo`})),
+		}, {
+			name:  "array of nested objects are recursively unmarshalled as ordered json",
+			input: `{"arr": [{"b": "1", "a": "2"}, {"d": "4", "c": [[{"foo": 2, "bar": 5}, {"tuv": 6}], {"xyz": 9}]}]}`,
+			expected: New(WithInitialData(Pair{"arr", []any{
+				New(WithInitialData(Pair{"b", "1"}, Pair{"a", "2"})),
+				New(WithInitialData(Pair{"d", "4"}, Pair{"c", []any{
+					[]any{
+						New(WithInitialData(Pair{"foo", int64(2)}, Pair{"bar", int64(5)})),
+						New(WithInitialData(Pair{"tuv", int64(6)})),
+					},
+					New(WithInitialData(Pair{"xyz", int64(9)})),
+				}})),
+			}})),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var got Object
+			err := json.Unmarshal([]byte(tc.input), &got)
+			if tc.expectedErr != nil {
+				require.Equal(t, tc.expectedErr, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.expected, got)
+		})
+	}
+}
+
+func TestUnMarshalMarshalProducesSameJSON(t *testing.T) {
+	jsonStr := `{"obj":{"b":"1","a":"2"}, "b":"1", "c":["1", 2], "a":"2"}`
+	var obj Object
+	err := json.Unmarshal([]byte(jsonStr), &obj)
+	require.NoError(t, err)
+	orderedJSON, err := json.Marshal(obj)
+	require.NoError(t, err)
+	require.JSONEq(t, jsonStr, string(orderedJSON))
+}

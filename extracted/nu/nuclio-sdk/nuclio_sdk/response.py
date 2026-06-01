@@ -1,0 +1,202 @@
+# Copyright 2017 The Nuclio Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import base64
+import json
+import types
+
+SINGLE_RESPONSE = "single"
+GENERATOR_RESPONSE = "generator"
+RESPONSE_WITH_GENERATOR_BODY = "response_with_generator_body"
+
+
+class Response(object):
+    def __init__(
+        self, headers=None, body=None, content_type=None, status_code=200, event_id=None
+    ):
+        self.headers = headers or {}
+        self.body = body
+        self.status_code = status_code
+        self.content_type = content_type or "text/plain"
+
+        # id of event, it needs to be set for event batching
+        self.event_id = event_id
+
+    def __repr__(self):
+        cls = self.__class__.__name__
+        items = self.__dict__.items()
+        args = ("{}={!r}".format(key, value) for key, value in items)
+        return "{}({})".format(cls, ", ".join(args))
+
+    def ensure_no_ack(self):
+        """
+        ensures that offset is not marked on stream
+        """
+        self.headers["x-nuclio-stream-no-ack"] = True
+
+    @staticmethod
+    async def from_entrypoint_output_async(json_encoder, handler_output):
+        handler_output_type = Response.get_handler_output_type(handler_output)
+
+        if handler_output_type in [GENERATOR_RESPONSE, RESPONSE_WITH_GENERATOR_BODY]:
+            response_output = (
+                handler_output.body
+                if handler_output_type == RESPONSE_WITH_GENERATOR_BODY
+                else handler_output
+            )
+            async for chunk in Response.from_generator_output(
+                json_encoder=json_encoder,
+                body_generator=response_output,
+                response_object=(
+                    handler_output
+                    if handler_output_type == RESPONSE_WITH_GENERATOR_BODY
+                    else None
+                ),
+            ):
+                yield chunk
+        else:
+            yield Response.from_entrypoint_output(json_encoder, handler_output)
+
+    @staticmethod
+    def get_handler_output_type(handler_output):
+        if isinstance(handler_output, (types.AsyncGeneratorType, types.GeneratorType)):
+            return GENERATOR_RESPONSE
+        if isinstance(handler_output, Response) and isinstance(
+            handler_output.body, (types.AsyncGeneratorType, types.GeneratorType)
+        ):
+            return RESPONSE_WITH_GENERATOR_BODY
+        return SINGLE_RESPONSE
+
+    @staticmethod
+    async def from_generator_output(
+        json_encoder,
+        body_generator,
+        response_object,
+    ):
+        first = True
+        async_body_gen = (
+            body_generator
+            if isinstance(body_generator, types.AsyncGeneratorType)
+            else _sync_to_async_gen(body_generator)
+        )
+
+        async for body_item in async_body_gen:
+            raw_body = body_item.body if isinstance(body_item, Response) else body_item
+            if first:
+                first = False
+                # Use regular response logic for the first item only
+                # so it includes headers, status code, etc.
+
+                # If user code returned a response object with body as generator which yields bodies
+                # we need to create a copy of the original response object with the first item as body
+                # because even if generator yields Response objects, context_type and response from the global
+                # Response should take precedence
+                if isinstance(response_object, Response):
+                    body_item = response_object._get_copy_with_custom_body(
+                        body=raw_body
+                    )
+
+                response = Response.from_entrypoint_output(json_encoder, body_item)
+                yield response
+            else:
+                # All subsequent outputs are base64-encoded raw bodies
+                # extract response body if it's a Response object
+                if isinstance(raw_body, str):
+                    raw_bytes = raw_body.encode()
+                elif isinstance(raw_body, (bytes, bytearray)):
+                    raw_bytes = raw_body
+                else:
+                    raw_bytes = str(raw_body).encode()
+                encoded = base64.b64encode(raw_bytes).decode("ascii")
+                yield encoded
+
+    @staticmethod
+    def from_entrypoint_output(json_encoder, handler_output):
+        """
+        Given a handler output's type, generates a response towards the
+        processor
+        """
+        response = Response.empty_response()
+
+        # if the type of the output is a string, just return that and 200
+        if isinstance(handler_output, str):
+            response["body"] = handler_output
+
+        # if it's a tuple of 2 elements, first is status second is body
+        elif isinstance(handler_output, tuple) and len(handler_output) == 2:
+            response["status_code"] = handler_output[0]
+
+            if isinstance(handler_output[1], str):
+                response["body"] = handler_output[1]
+            else:
+                response["body"] = json_encoder(handler_output[1])
+                response["content_type"] = "application/json"
+
+        # if it's a dict, populate the response and set content type to json
+        elif isinstance(handler_output, dict) or isinstance(handler_output, list):
+            response["content_type"] = "application/json"
+            response["body"] = json_encoder(handler_output)
+
+        # if it's a response object, populate the response
+        elif isinstance(handler_output, Response):
+            if isinstance(handler_output.body, dict):
+                response["body"] = json.dumps(handler_output.body)
+                response["content_type"] = "application/json"
+            else:
+                response["body"] = handler_output.body
+                response["content_type"] = handler_output.content_type
+            if handler_output.event_id:
+                response["event_id"] = handler_output.event_id
+            response["headers"] = handler_output.headers
+            response["status_code"] = handler_output.status_code
+        else:
+            response["body"] = handler_output
+
+        Response._ensure_str_body(response)
+
+        return response
+
+    @staticmethod
+    def empty_response():
+        return {
+            "body": "",
+            "content_type": "text/plain",
+            "headers": {},
+            "status_code": 200,
+            "body_encoding": "text",
+        }
+
+    @staticmethod
+    def _ensure_str_body(response):
+        if isinstance(response["body"], bytes):
+            response["body"] = base64.b64encode(response["body"]).decode("ascii")
+            response["body_encoding"] = "base64"
+
+        if response["body_encoding"] == "text":
+            response["body"] = str(response["body"])
+
+    def _get_copy_with_custom_body(self, body):
+        return Response(
+            headers=self.headers.copy(),
+            body=body,
+            content_type=self.content_type,
+            status_code=self.status_code,
+            event_id=self.event_id,
+        )
+
+
+async def _sync_to_async_gen(sync_gen):
+    # Helper to convert sync generator to async generator
+    for item in sync_gen:
+        yield item

@@ -1,0 +1,103 @@
+# configuration won't be overrided by any openstack installer
+
+# mandatory, openstack release, example newton, ocata, pike and so on.
+# please check deployment guide for specific bcf_version and openstack
+# release compatibility matrix
+openstack_release: queens
+
+# mandatory, skip all nodes if true
+default_skip: false
+
+# mandatory for p+v fabric, the Switch Light VX tar file
+ivs_packages:
+- /root/BCF-SL-VX-master-2018-02-09.tar.gz
+
+# mandatory, bcf version
+bcf_version: 4.7.0
+
+# mandatory, bcf controller ip:port
+bcf_controllers:
+- 10.212.1.231:8000
+- 10.212.1.230:8000
+
+# proxy for pip
+#pip_proxy: http://10.10.10.10:3128
+
+# mandatory, bcf controller admin user name
+bcf_controller_user: admin
+
+# mandatory, bcf controller admin user password
+bcf_controller_passwd: adminadmin
+
+# mandatory for fuel deployment, the tenant name for fuel networks
+bcf_openstack_management_tenant: os-mgmt
+
+# mandatory if the openstack installer takes over pxe boot (fuel, rhosp)
+# It will be the default gw for all nodes if external gw is not specified.
+installer_pxe_interface_ip: 192.168.1.1
+
+# mandatory if the openstack installer can list all nodes (fuel, rhosp).
+# bosi directly gets node list from openstack installer
+# and deploys bcf patch to all of them by default.
+# If user wants to deploy bcf patch only on specified
+# nodes, this field needs to be true
+deploy_to_specified_nodes_only: false
+
+# mandatory, used to let bcf ml2 plugin differenciate different openstack clusters
+neutron_id: neutron
+
+# All following configurations can be overrided by openstack installers
+
+# node os user name
+default_user: root
+
+# node os user password
+default_passwd: bsn
+
+# node os
+default_os: centos
+
+# node os version
+default_os_version: 7.0.1406
+
+# neutron physnet and vlan ranges
+network_vlan_ranges: physnet1:500:2000
+
+# mandatory, can be controller or compute
+default_role: compute
+
+# mandatory, specify data plane uplinks
+default_uplink_interfaces:
+- p2p1
+- p2p2
+
+# optional, used in RHOSP SRIOV env.
+# legit options - static, lacp
+default_bond_mode: static
+
+# list of nodes to be deployed
+nodes:
+- hostname: 10.4.9.100
+  role: controller
+- hostname: 10.4.9.101
+  uplink_interfaces:
+  - p1p1
+  - p1p2
+- hostname: 10.4.9.102
+  role: sriov
+  physnets:
+  - phy_name: physnetA
+    uplink_interfaces:
+    - p1p1
+  - phy_name: physnetB
+    uplink_interfaces:
+    - p1p2
+    bond_mode: lacp
+- hostname: 10.4.9.103
+  role: ovs-dpdk
+  physnets:
+  - phy_name: physnetdpdk
+    uplink_interfaces:
+    - p1p1
+    - p1p2
+- hostname: 10.4.9.104

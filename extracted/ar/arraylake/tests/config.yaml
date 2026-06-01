@@ -1,0 +1,6 @@
+service:
+  uri: http://localhost:8000
+s3:
+  endpoint_url: http://localhost:9000
+icechunk:
+  scatter_initial_credentials: False

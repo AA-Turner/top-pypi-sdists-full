@@ -206,7 +206,7 @@ class EveCorporationManager(Manager["EveCorporationInfo"]):
             shares=corporation.shares if corporation.shares else None,
             tax_rate=corporation.tax_rate,
             corporation_ticker=corporation.ticker,
-            url=corporation.url if corporation.url else "",
+            url=corporation.url if corporation.url and len(corporation.url) <= 2048 else "",
             war_eligible=corporation.war_eligible if corporation.war_eligible else False,
             last_updated=datetime.strptime(response.headers.get("Last-Modified"), "%a, %d %b %Y %H:%M:%S GMT").replace(tzinfo=timezone.utc)
         )

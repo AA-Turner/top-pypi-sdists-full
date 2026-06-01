@@ -1,5 +1,0 @@
----
-deprecations:
-  - |
-    Remove period job send_cluster_metrics. This job has been deprecated since
-    Rocky.

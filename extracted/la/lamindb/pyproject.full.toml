@@ -13,9 +13,10 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
-    "lamindb-core[full]==2.5.0",
+    "lamindb-core[full]==2.5.1",
 ]
 
 [project.urls]
@@ -33,22 +34,7 @@ fcs = [
     "readfcs>=2.0.1",
 ]
 dev = [
-    # basic test
-    "tomlkit",
-    "line_profiler",
-    "pre-commit",
-    "nox",
-    "laminci>=0.3",
-    "pytest>=6.0",
-    "coverage",
-    "pytest-cov<7.0.0",  # v7 drops support for subprocess measurement
-    "mudata",
-    # others
-    "nbproject_test>=0.6.0",
-    # biology
-    "faker-biology",
-    # bionty
-    "pronto",
+     "lamindb-core[full,dev]",
 ]
 
 [tool.flit.module]

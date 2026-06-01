@@ -1,0 +1,789 @@
+/*
+ * ANISE Toolkit
+ * Copyright (C) 2021-onward Christopher Rabotin <christopher.rabotin@gmail.com> et al. (cf. AUTHORS.md)
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ *
+ * Documentation: https://nyxspace.com/
+ */
+
+use crate::errors::{InvalidRotationSnafu, PhysicsError};
+use crate::math::rotation::EPSILON;
+use crate::structure::dataset::DataSetT;
+use crate::{NaifId, math::Vector3, math::Vector4};
+use core::fmt;
+use core::ops::Mul;
+use der::{Decode, Encode, Reader, Writer};
+use nalgebra::Matrix4x3;
+use serde::{Deserialize, Serialize};
+use snafu::ensure;
+
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+
+use super::EPSILON_RAD;
+
+/// Represents the orientation of a rigid body or a coordinate frame transformation in three-dimensional space using Euler parameters.
+///
+/// Euler parameters, also known as unit quaternions, are a set of four parameters `w`, `x`, `y`, `z`.
+/// They are particularly useful because they avoid gimbal lock, are more compact than rotation matrices,
+/// and allow for smooth interpolation (SLERP).
+///
+/// # Conventions
+///
+/// ANISE strictly adheres to the following conventions to ensure consistency with `DCM` and standard
+/// Guidance, Navigation, and Control (GNC) mathematics:
+///
+/// 1. **Hamiltonian Algebra:** The quaternion multiplication follows the right-handed rule where \
+///    `i * j = k`. This is the standard in robotics and computer graphics, but distinct from the
+///    "JPL/Shuster" convention (`i * j = -k`) sometimes found in legacy aerospace software.
+///
+/// 2. **Passive Rotation (Coordinate Transformation):** A quaternion defined with `from: A` and `to: B`
+///    represents the transformation of **coordinates** from Frame A to Frame B.
+///    * The rotation of a vector `v` is computed as: `v_B = q.conjugate() * v_A * q`.
+///    * This matches the behavior of a Direction Cosine Matrix (DCM): `v_B = [DCM_A->B] * v_A`.
+///
+/// 3. **Operator Composition (Backward Chaining):** Rotations are composed in "Operator Order",
+///    matching matrix multiplication rules.
+///    * To compute the rotation A -> C, you multiply B->C by A->B.
+///    * `q_A_to_C = q_B_to_C * q_A_to_B`
+///    * ANISE enforces strict frame checking: `LHS.from` must equal `RHS.to`.
+///
+/// # Definitions
+///
+/// Euler parameters are defined in terms of the principal rotation vector. If a frame is rotated
+/// by an angle `θ` about a unit axis `e = [e1, e2, e3]`:
+///
+/// * `w = cos(θ / 2)`
+/// * `x = e1 * sin(θ / 2)`
+/// * `y = e2 * sin(θ / 2)`
+/// * `z = e3 * sin(θ / 2)`
+///
+/// These parameters satisfy `w^2 + x^2 + y^2 + z^2 = 1`, which means they represent
+/// a rotation in SO(3) and can be used to interpolate rotations smoothly.
+///
+/// # Applications
+///
+/// In the context of spacecraft mechanics, Euler parameters are often used because they provide a
+/// numerically stable way to represent the attitude of a spacecraft without the singularities that
+/// are present with Euler angles.
+///
+/// # Usage
+/// Importantly, ANISE prevents the composition of two Euler Parameters if the frames do not match.
+///
+/// :type w: float
+/// :type x: float
+/// :type y: float
+/// :type z: float
+/// :type from_id: int
+/// :type to_id: int
+pub type Quaternion = EulerParameter;
+
+/// Represents the orientation of a rigid body or a coordinate frame transformation in three-dimensional space using Euler parameters.
+///
+/// Euler parameters, also known as unit quaternions, are a set of four parameters `w`, `x`, `y`, `z`.
+/// They are particularly useful because they avoid gimbal lock, are more compact than rotation matrices,
+/// and allow for smooth interpolation (SLERP).
+///
+/// # Conventions
+///
+/// ANISE strictly adheres to the following conventions to ensure consistency with `DCM` and standard
+/// Guidance, Navigation, and Control (GNC) mathematics:
+///
+/// 1. **Hamiltonian Algebra:** The quaternion multiplication follows the right-handed rule where \
+///    `i * j = k`. This is the standard in robotics and computer graphics, but distinct from the
+///    "JPL/Shuster" convention (`i * j = -k`) sometimes found in legacy aerospace software.
+///
+/// 2. **Passive Rotation (Coordinate Transformation):** A quaternion defined with `from: A` and `to: B`
+///    represents the transformation of **coordinates** from Frame A to Frame B.
+///    * The rotation of a vector `v` is computed as: `v_B = q.conjugate() * v_A * q`.
+///    * This matches the behavior of a Direction Cosine Matrix (DCM): `v_B = [DCM_A->B] * v_A`.
+///
+/// 3. **Operator Composition (Backward Chaining):** Rotations are composed in "Operator Order",
+///    matching matrix multiplication rules.
+///    * To compute the rotation A -> C, you multiply B->C by A->B.
+///    * `q_A_to_C = q_B_to_C * q_A_to_B`
+///    * ANISE enforces strict frame checking: `LHS.from` must equal `RHS.to`.
+///
+/// # Definitions
+///
+/// Euler parameters are defined in terms of the principal rotation vector. If a frame is rotated
+/// by an angle `θ` about a unit axis `e = [e1, e2, e3]`:
+///
+/// * `w = cos(θ / 2)`
+/// * `x = e1 * sin(θ / 2)`
+/// * `y = e2 * sin(θ / 2)`
+/// * `z = e3 * sin(θ / 2)`
+///
+/// These parameters satisfy `w^2 + x^2 + y^2 + z^2 = 1`, which means they represent
+/// a rotation in SO(3) and can be used to interpolate rotations smoothly.
+///
+/// # Applications
+///
+/// In the context of spacecraft mechanics, Euler parameters are often used because they provide a
+/// numerically stable way to represent the attitude of a spacecraft without the singularities that
+/// are present with Euler angles.
+///
+/// # Usage
+/// Importantly, ANISE prevents the composition of two Euler Parameters if the frames do not match.
+///
+/// :type w: float
+/// :type x: float
+/// :type y: float
+/// :type z: float
+/// :type from_id: int
+/// :type to_id: int
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "python", pyclass(from_py_object))]
+#[cfg_attr(
+    feature = "python",
+    pyo3(name = "Quaternion", module = "anise.rotation")
+)]
+pub struct EulerParameter {
+    pub w: f64,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub from: NaifId,
+    pub to: NaifId,
+}
+
+impl EulerParameter {
+    pub const fn identity(from: NaifId, to: NaifId) -> Self {
+        Self {
+            w: 1.0,
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            from,
+            to,
+        }
+    }
+
+    /// Creates a new Euler Parameter and ensures that it's the short rotation
+    pub fn new(w: f64, x: f64, y: f64, z: f64, from: NaifId, to: NaifId) -> Self {
+        Self {
+            w,
+            x,
+            y,
+            z,
+            from,
+            to,
+        }
+        .normalize()
+    }
+
+    /// Creates an Euler Parameter representing the short way rotation around the X (R1) axis.
+    pub fn about_x(angle_rad: f64, from: NaifId, to: NaifId) -> Self {
+        let (s_theta, c_theta) = (angle_rad / 2.0).sin_cos();
+
+        Self {
+            w: c_theta,
+            x: s_theta,
+            y: 0.0,
+            z: 0.0,
+            from,
+            to,
+        }
+        .normalize()
+    }
+
+    /// Creates an Euler Parameter representing the short way rotation around the Y (R2) axis.
+    pub fn about_y(angle_rad: f64, from: NaifId, to: NaifId) -> Self {
+        let (s_theta, c_theta) = (angle_rad / 2.0).sin_cos();
+
+        Self {
+            w: c_theta,
+            x: 0.0,
+            y: s_theta,
+            z: 0.0,
+            from,
+            to,
+        }
+        .normalize()
+    }
+
+    /// Creates an Euler Parameter representing the short way rotation around the Z (R3) axis.
+    pub fn about_z(angle_rad: f64, from: NaifId, to: NaifId) -> Self {
+        let (s_theta, c_theta) = (angle_rad / 2.0).sin_cos();
+
+        Self {
+            w: c_theta,
+            x: 0.0,
+            y: 0.0,
+            z: s_theta,
+            from,
+            to,
+        }
+        .normalize()
+    }
+
+    /// Returns the euler parameter derivative for this Euler parameter and body angular velocity vector omega (in rad/s).
+    /// dQ/dt = 1/2 [B(Q)] omega_rad_s
+    pub fn derivative(&self, omega_rad_s: Vector3) -> Self {
+        let q = 0.5 * self.b_matrix() * omega_rad_s;
+
+        Self {
+            w: q[0],
+            x: q[1],
+            y: q[2],
+            z: q[3],
+            from: self.from,
+            to: self.to,
+        }
+    }
+
+    /// Returns the 4x3 matrix which relates the body angular velocity vector w to the derivative of this Euler Parameter.
+    /// dQ/dt = 1/2 [B(Q)] w
+    pub fn b_matrix(&self) -> Matrix4x3<f64> {
+        Matrix4x3::new(
+            -self.x, -self.y, -self.z, self.w, -self.z, self.y, self.z, self.w, -self.x, -self.y,
+            self.x, self.w,
+        )
+    }
+
+    #[deprecated(since = "0.7.0", note = "use uvec_angle_rad")]
+    pub fn uvec_angle(&self) -> (Vector3, f64) {
+        self.uvec_angle_rad()
+    }
+
+    /// Returns the principal line of rotation (a unit vector) and the angle of rotation in radians
+    pub fn uvec_angle_rad(&self) -> (Vector3, f64) {
+        let half_angle_rad = self.w.acos();
+        if half_angle_rad.abs() < EPSILON {
+            // Prevent divisions by (near) zero
+            (Vector3::zeros(), 2.0 * half_angle_rad)
+        } else {
+            let prv = Vector3::new(self.x, self.y, self.z) / half_angle_rad.sin();
+
+            (prv / prv.norm(), 2.0 * half_angle_rad)
+        }
+    }
+
+    /// Returns the principal rotation vector representation of this Euler Parameter
+    pub fn prv(&self) -> Vector3 {
+        let (uvec, angle) = self.uvec_angle_rad();
+        angle * uvec
+    }
+
+    /// Returns the data of this Euler Parameter as a vector, simplifies lots of computations
+    /// but at the cost of losing frame information.
+    pub fn as_vector(&self) -> Vector4 {
+        Vector4::new(self.w, self.x, self.y, self.z)
+    }
+}
+
+#[cfg_attr(feature = "python", pymethods)]
+impl EulerParameter {
+    /// Compute the conjugate of the quaternion.
+    ///
+    /// # Note
+    /// Because Euler Parameters are unit quaternions, the inverse and the conjugate are identical.
+    ///
+    /// :rtype: Quaternion
+    pub fn conjugate(&self) -> Self {
+        Self {
+            w: self.w,
+            x: -self.x,
+            y: -self.y,
+            z: -self.z,
+            from: self.to,
+            to: self.from,
+        }
+    }
+
+    /// Returns true if the quaternion represents a rotation of zero radians
+    ///
+    /// :rtype: bool
+    pub fn is_zero(&self) -> bool {
+        self.w.abs() < EPSILON || (1.0 - self.w.abs()) < EPSILON
+    }
+
+    /// Returns the norm of this Euler Parameter as a scalar.
+    ///
+    /// :rtype: float
+    pub fn scalar_norm(&self) -> f64 {
+        (self.w * self.w + self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
+    }
+
+    /// Normalize the quaternion.
+    ///
+    /// :rtype: Quaternion
+    pub fn normalize(&self) -> Self {
+        let norm = self.scalar_norm();
+        let mut me = *self;
+        me.w /= norm;
+        me.x /= norm;
+        me.y /= norm;
+        me.z /= norm;
+        me
+    }
+
+    /// Returns the short way rotation of this quaternion
+    ///
+    /// :rtype: Quaternion
+    pub fn short(&self) -> Self {
+        if self.w < 0.0 {
+            Self {
+                w: -self.w,
+                x: -self.x,
+                y: -self.y,
+                z: -self.z,
+                from: self.from,
+                to: self.to,
+            }
+        } else {
+            *self
+        }
+    }
+}
+
+impl Mul for Quaternion {
+    type Output = Result<Self, PhysicsError>;
+
+    fn mul(self, rhs: Quaternion) -> Self::Output {
+        ensure!(
+            self.from == rhs.to,
+            InvalidRotationSnafu {
+                action: "multiply quaternions",
+                from1: self.from,
+                to1: self.to,
+                from2: rhs.from,
+                to2: rhs.to
+            }
+        );
+
+        let p = rhs; // A -> B
+        let q = self; // B -> C
+
+        let s = p.w * q.w - p.x * q.x - p.y * q.y - p.z * q.z;
+        let i = p.w * q.x + p.x * q.w + p.y * q.z - p.z * q.y;
+        let j = p.w * q.y - p.x * q.z + p.y * q.w + p.z * q.x;
+        let k = p.w * q.z + p.x * q.y - p.y * q.x + p.z * q.w;
+
+        Ok(Quaternion {
+            w: s,
+            x: i,
+            y: j,
+            z: k,
+            from: rhs.from, // Source comes from the Right-Hand Side
+            to: self.to,    // Destination comes from the Left-Hand Side
+        })
+    }
+}
+
+impl Mul for &Quaternion {
+    type Output = Result<Quaternion, PhysicsError>;
+
+    fn mul(self, other: &Quaternion) -> Result<Quaternion, PhysicsError> {
+        *self * *other
+    }
+}
+
+impl Mul<Vector3> for Quaternion {
+    type Output = Vector3;
+
+    fn mul(self, rhs: Vector3) -> Self::Output {
+        // Efficient implementation of a passive rotation (coordinate transformation) using the formula for v' = q_conj * v * q.
+        // This transforms the coordinates of the right hand side from the `from` frame to the `to` frame.
+        // Formula: v' = v + 2 * r_conj x (r_conj x v + w * v)
+        // where r_conj = -r
+
+        let r = Vector3::new(self.x, self.y, self.z);
+        let t = 2.0 * r.cross(&rhs);
+
+        // The difference from Active is the subtraction of (w * t) instead of addition
+        rhs - (self.w * t) + r.cross(&t)
+    }
+}
+
+impl PartialEq for Quaternion {
+    fn eq(&self, other: &Self) -> bool {
+        if self.to == other.to && self.from == other.from {
+            if (self.w - other.w).abs() < 1e-12 && (self.w - 1.0).abs() < 1e-12 {
+                true
+            } else {
+                let (self_uvec, self_angle) = self.uvec_angle_rad();
+                let (other_uvec, other_angle) = other.uvec_angle_rad();
+
+                (self_angle - other_angle).abs() < EPSILON_RAD
+                    && (self_uvec - other_uvec).norm() <= 1e-12
+            }
+        } else {
+            false
+        }
+    }
+}
+
+impl fmt::Display for EulerParameter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(
+            f,
+            "Euler Parameter {} -> {} = [w = {:1.6}, {:1.6}, {:1.6}, {:1.6}]",
+            self.from, self.to, self.w, self.x, self.y, self.z
+        )
+    }
+}
+
+impl Default for EulerParameter {
+    fn default() -> Self {
+        Self::identity(0, 0)
+    }
+}
+
+impl<'a> Decode<'a> for EulerParameter {
+    fn decode<R: Reader<'a>>(decoder: &mut R) -> der::Result<Self> {
+        let from = decoder.decode()?;
+        let to = decoder.decode()?;
+        let w = decoder.decode()?;
+        let x = decoder.decode()?;
+        let y = decoder.decode()?;
+        let z = decoder.decode()?;
+
+        Ok(Self {
+            w,
+            x,
+            y,
+            z,
+            from,
+            to,
+        })
+    }
+}
+
+impl Encode for EulerParameter {
+    fn encoded_len(&self) -> der::Result<der::Length> {
+        self.from.encoded_len()?
+            + self.to.encoded_len()?
+            + self.w.encoded_len()?
+            + self.x.encoded_len()?
+            + self.y.encoded_len()?
+            + self.z.encoded_len()?
+    }
+
+    fn encode(&self, encoder: &mut impl Writer) -> der::Result<()> {
+        self.from.encode(encoder)?;
+        self.to.encode(encoder)?;
+        self.w.encode(encoder)?;
+        self.x.encode(encoder)?;
+        self.y.encode(encoder)?;
+        self.z.encode(encoder)
+    }
+}
+
+impl DataSetT for EulerParameter {
+    const NAME: &'static str = "euler parameter";
+}
+
+#[cfg(test)]
+mod ut_quaternion {
+    use crate::math::{
+        Vector4,
+        rotation::{DCM, generate_angles, vec3_eq},
+    };
+
+    use super::{EPSILON, EulerParameter, Quaternion, Vector3};
+    use core::f64::consts::{FRAC_PI_2, PI};
+
+    #[test]
+    fn test_quat_frames() {
+        // Ensure that we cannot compose two rotations when the frames don't match.
+        // We are using arbitrary numbers for the frames
+
+        for angle in generate_angles() {
+            for (i, q) in [
+                Quaternion::about_x(angle, 0, 1),
+                Quaternion::about_y(angle, 0, 1),
+                Quaternion::about_z(angle, 0, 1),
+            ]
+            .iter()
+            .enumerate()
+            {
+                assert!((q * q).is_err());
+                assert!((q * &q.conjugate()).is_ok());
+                assert_eq!(
+                    (q * &q.conjugate()).unwrap(),
+                    Quaternion::identity(1, 1),
+                    "axis {i} and {angle}"
+                );
+                // Check that the PRV is entirely in the appropriate direction
+                let prv = q.prv();
+
+                // The i-th index should be equal to the angle input
+                assert!((prv[i] - angle).abs() < EPSILON, "{} with {angle}", prv[i]);
+                // The overall norm should be PI, i.e. all other components are zero.
+                assert!(
+                    (prv.norm() - angle.abs()).abs() < EPSILON,
+                    "{prv} with {angle}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_quat_start_end_frames() {
+        for angle in generate_angles() {
+            let q1 = Quaternion::about_x(angle, 0, 1);
+            let (uvec_q1, _angle_rad) = q1.uvec_angle_rad();
+            let q2 = Quaternion::about_x(angle, 1, 2);
+            // Correct Passive Chaining:
+            // q(0->2) = q(1->2) * q(0->1)
+            let q1_to_q2 = (q2 * q1).unwrap();
+            assert_eq!(q1_to_q2.from, 0, "{angle}");
+            assert_eq!(q1_to_q2.to, 2, "{angle}");
+
+            let (uvec, angle_rad) = q1_to_q2.uvec_angle_rad();
+
+            if uvec.norm() > EPSILON {
+                if !(-PI..=PI).contains(&angle) {
+                    assert_eq!(uvec, -uvec_q1, "{angle}");
+                } else {
+                    assert_eq!(uvec, uvec_q1, "{angle}");
+                    let cmp_angle = (2.0 * angle).abs();
+                    assert!(
+                        (angle_rad - cmp_angle).abs() < 1e-12,
+                        "got: {angle_rad}\twant: {cmp_angle} (orig: {angle})"
+                    );
+                }
+            }
+
+            // Check the conjugate
+
+            let q2_to_q1 = (q1.conjugate() * q2.conjugate()).unwrap();
+            assert_eq!(q2_to_q1.from, 2, "{angle}");
+            assert_eq!(q2_to_q1.to, 0, "{angle}");
+
+            let (uvec, _angle_rad) = q2_to_q1.uvec_angle_rad();
+            if uvec.norm() > EPSILON {
+                if (-PI..=PI).contains(&angle) {
+                    assert_eq!(uvec, -uvec_q1, "{angle}");
+                } else {
+                    assert_eq!(uvec, uvec_q1, "{angle}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_zero() {
+        let z = EulerParameter::identity(0, 1);
+        assert!(z.is_zero());
+        // Test that the identity DCM matches.
+        let c = DCM::identity(0, 1);
+        let q = Quaternion::from(c);
+        assert_eq!(c, q.into());
+    }
+
+    #[test]
+    fn test_derivative_zero_angular_velocity() {
+        let euler_params = EulerParameter::identity(0, 1);
+        let w = Vector3::new(0.0, 0.0, 0.0);
+        let derivative = euler_params.derivative(w);
+
+        // With zero angular velocity, the derivative should be zero
+        assert!(derivative.is_zero());
+    }
+
+    #[test]
+    fn test_dcm_recip() {
+        // Test the reciprocity with DCMs
+        for angle in generate_angles() {
+            let c_x = DCM::r1(angle, 0, 1);
+            let q_x = Quaternion::about_x(angle, 0, 1);
+
+            println!("{q_x} for {:.2} deg", angle.to_degrees());
+
+            // Check that rotating X by anything around R1 returns the same regardless of whether we're using the DCM or EP representation
+            vec3_eq(
+                DCM::from(q_x) * Vector3::x(),
+                c_x * Vector3::x(),
+                format!("X on {}", angle.to_degrees()),
+            );
+
+            vec3_eq(
+                q_x * Vector3::x(),
+                c_x * Vector3::x(),
+                format!("X on {}", angle.to_degrees()),
+            );
+
+            // Idem around Y
+            vec3_eq(
+                q_x * Vector3::y(),
+                c_x * Vector3::y(),
+                format!("Y on {}", angle.to_degrees()),
+            );
+
+            // Idem around Z
+            vec3_eq(
+                DCM::from(q_x) * Vector3::z(),
+                c_x * Vector3::z(),
+                format!("Z on {}", angle.to_degrees()),
+            );
+        }
+    }
+
+    #[test]
+    fn test_single_axis_rotations() {
+        let q_x = Quaternion::about_x(FRAC_PI_2, 0, 1);
+        // Check the components
+        assert!(
+            (q_x.as_vector() - Vector4::new(0.5_f64.sqrt(), 0.5_f64.sqrt(), 0.0, 0.0)).norm()
+                < EPSILON
+        );
+        assert_eq!(q_x * Vector3::x(), Vector3::x());
+        // Check that rotating Y by PI /2 about X returns -Z
+        let d = DCM::from(q_x);
+        assert_eq!(d * Vector3::y(), q_x * Vector3::y());
+        assert!((d * Vector3::y() - -Vector3::z()).norm() < 1e-12);
+        assert!((q_x * Vector3::y() - -Vector3::z()).norm() < 1e-12);
+
+        let q_y = Quaternion::about_y(FRAC_PI_2, 0, 1);
+        assert_eq!(q_y * Vector3::y(), Vector3::y());
+        let d = DCM::from(q_y);
+        assert_eq!(d * Vector3::z(), q_y * Vector3::z());
+        assert!((d * Vector3::x() - Vector3::z()).norm() < 1e-12);
+        assert!((q_y * Vector3::x() - Vector3::z()).norm() < 1e-12);
+
+        let q_z = Quaternion::about_z(FRAC_PI_2, 0, 1);
+        assert_eq!(q_z * Vector3::z(), Vector3::z());
+        let d = DCM::from(q_z);
+        assert_eq!(d * Vector3::x(), q_z * Vector3::x());
+    }
+
+    use der::{Decode, Encode};
+
+    #[test]
+    fn ep_encdec_min_repr() {
+        // A minimal representation of a planetary constant.
+        let repr = EulerParameter {
+            from: -123,
+            to: 345,
+            w: 0.1,
+            x: 0.2,
+            y: 0.2,
+            z: 0.2,
+        }
+        .normalize();
+
+        let mut buf = vec![];
+        repr.encode_to_vec(&mut buf).unwrap();
+
+        let repr_dec = EulerParameter::from_der(&buf).unwrap();
+
+        assert_eq!(repr, repr_dec);
+    }
+
+    #[test]
+    fn test_derivative_values() {
+        // q = identity
+        let q = EulerParameter::identity(0, 1);
+        // w = [1, 0, 0] (rotate around x)
+        let w = Vector3::new(1.0, 0.0, 0.0);
+        // dq/dt = 0.5 * q * w
+        // q = (1, 0, 0, 0)
+        // w = (0, 1, 0, 0) as quat
+        // q * w = (0, 1, 0, 0)
+        // dq/dt = (0, 0.5, 0, 0)
+        let dq = q.derivative(w);
+        assert!((dq.w - 0.0).abs() < EPSILON);
+        assert!((dq.x - 0.5).abs() < EPSILON);
+        assert!((dq.y - 0.0).abs() < EPSILON);
+        assert!((dq.z - 0.0).abs() < EPSILON);
+
+        // q = 180 deg around Z (0, 0, 0, 1)
+        let q = Quaternion::about_z(PI, 0, 1);
+        // w = [0, 0, 1]
+        let w = Vector3::new(0.0, 0.0, 1.0);
+        // dq/dt = 0.5 * q * w
+        // q = (0, 0, 0, 1)
+        // w = (0, 0, 0, 1)
+        // q * w = (-1, 0, 0, 0) (k * k = -1)
+        // dq/dt = (-0.5, 0, 0, 0)
+        let dq = q.derivative(w);
+        assert!((dq.w + 0.5).abs() < EPSILON);
+        assert!((dq.x - 0.0).abs() < EPSILON);
+        assert!((dq.y - 0.0).abs() < EPSILON);
+        assert!((dq.z - 0.0).abs() < EPSILON);
+    }
+
+    #[test]
+    fn test_short_rotation() {
+        let q = Quaternion::about_x(3.0 * FRAC_PI_2, 0, 1); // 270 deg
+
+        // 270 deg = -90 deg.
+        // cos(135) < 0. So w < 0.
+        assert!(q.w < 0.0);
+
+        let q_short = q.short();
+        assert!(q_short.w > 0.0);
+
+        // Check they represent same rotation on a vector
+        let v = Vector3::new(0.0, 1.0, 0.0);
+        let v1 = q * v;
+        let v2 = q_short * v;
+        assert!((v1 - v2).norm() < EPSILON);
+    }
+
+    #[test]
+    fn test_normalization_explicit() {
+        let q = EulerParameter {
+            w: 10.0,
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            from: 0,
+            to: 1,
+        };
+        let q_norm = q.normalize();
+        assert!((q_norm.w - 1.0).abs() < EPSILON);
+        assert!((q_norm.scalar_norm() - 1.0).abs() < EPSILON);
+
+        let q = EulerParameter {
+            w: 1.0,
+            x: 1.0,
+            y: 1.0,
+            z: 1.0,
+            from: 0,
+            to: 1,
+        }; // Norm is 2
+        let q_norm = q.normalize();
+        assert!((q_norm.scalar_norm() - 1.0).abs() < EPSILON);
+        assert!((q_norm.w - 0.5).abs() < EPSILON);
+    }
+
+    #[test]
+    fn test_vector_rotation_arbitrary() {
+        // Rotate X by 90 deg around Z -> Y
+        // Note: The operator `q * v` performs `q* . v . q`, so it rotates the vector in the passive sense (frame rotation).
+        // If q rotates frame A to B by 90 deg Z.
+        // A vector v_A = [1, 0, 0].
+        // v_B = q * v_A.
+        // If frame B is rotated 90 deg Z wrt A, then X_B corresponds to Y_A. Y_B corresponds to -X_A.
+        // So a vector pointing along X_A (v_A) will have components in B:
+        // X_A = -Y_B? No.
+        // Rotation matrix R_BA (from A to B) = [0 1 0; -1 0 0; 0 0 1].
+        // v_B = R_BA * v_A = [0; -1; 0]. i.e. -Y.
+        // Let's check the implementation of Mul<Vector3>.
+        // It does `self.conjugate() * rhs_q * self`.
+        // This is the standard "active" rotation of a vector by the INVERSE quaternion?
+        // Or passive rotation?
+        // Usually, active rotation of vector v by q is `q * v * q*`.
+        // Here it is `q* * v * q`.
+        // This corresponds to rotation by q*.
+        // If q is "about Z by 90", q* is "about Z by -90".
+        // Rotating X by -90 deg Z gives -Y.
+
+        let q = Quaternion::about_z(FRAC_PI_2, 0, 1);
+        let v = Vector3::x();
+        let rotated = q * v;
+        // q* * v * q rotates v by -90 deg around Z.
+        // X -> -Y.
+        assert!((rotated + Vector3::y()).norm() < EPSILON);
+
+        // Rotate Y by -90 deg around Z -> X
+        let v = Vector3::y();
+        let rotated = q * v;
+        assert!((rotated - Vector3::x()).norm() < EPSILON);
+    }
+}

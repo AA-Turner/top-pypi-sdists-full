@@ -1,4 +1,0 @@
----
-upgrade:
-  - |
-    Upgrade flannel version to v0.12.0-amd64 for Fedora CoreOS driver.

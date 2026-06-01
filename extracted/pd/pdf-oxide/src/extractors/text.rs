@@ -1006,6 +1006,21 @@ pub(crate) fn is_monospace_font(font_name: &str) -> bool {
     MONO_MARKERS.iter().any(|m| lower.contains(m))
 }
 
+/// True for codepoints in the main emoji / pictographic blocks.
+///
+/// Used only as a word-spacing hint — ISO 32000-1:2008 §9.10 leaves word
+/// segmentation to the reader. Deliberately **excludes** arrows
+/// (U+2190–U+21FF) and the math-operator blocks so symbolic/technical text is
+/// unaffected; restricted to clearly pictographic ranges plus the VS16 emoji
+/// presentation selector.
+pub(crate) fn is_pictographic(c: char) -> bool {
+    matches!(c as u32,
+        0x1F300..=0x1FAFF   // Misc & Supplemental Symbols and Pictographs, Ext-A
+        | 0x1F000..=0x1F0FF // Mahjong / Dominoes / Playing cards
+        | 0x2600..=0x27BF   // Misc Symbols + Dingbats
+        | 0xFE0F) // VS16 emoji presentation selector
+}
+
 fn should_insert_space(
     preceding_text: &str,
     following_text: &str,
@@ -1035,6 +1050,29 @@ fn should_insert_space(
     // Spaces already present in text strings should not be duplicated
     if has_boundary_space(preceding_text, following_text) {
         return SpaceDecision::no_space(SpaceSource::AlreadyPresent, 1.0);
+    }
+
+    // Rule 0.4: Emoji / pictographic → letter boundary.
+    // A wide pictographic glyph (e.g. 📄) advances far, so the residual gap to
+    // the next token falls below the proportional-font space threshold and the
+    // inter-token space would otherwise be dropped (`📄README` instead of
+    // `📄 README`). In practice the emoji glyph's right edge abuts the next
+    // token (gap ≈ 0). Word boundaries are reader latitude (§9.10), so when an
+    // emoji is immediately followed by a letter, keep the space. The
+    // `is_alphabetic` requirement on the following char already excludes combined
+    // ZWJ/VS emoji sequences (whose next char is a selector or another pictograph,
+    // never a letter), so a non-negative gap is the correct gate.
+    if gap_pt >= 0.0
+        && preceding_text
+            .chars()
+            .next_back()
+            .is_some_and(is_pictographic)
+        && following_text
+            .chars()
+            .next()
+            .is_some_and(char::is_alphabetic)
+    {
+        return SpaceDecision::insert(SpaceSource::GeometricGap, 0.85);
     }
 
     // Rule 0.5: Email Pattern Detection
@@ -2763,74 +2801,28 @@ impl<'doc> TextExtractor<'doc> {
 
     /// Decode a PDF text string (handles UTF-16BE/LE with BOM and PDFDocEncoding).
     ///
-    /// Per ISO 32000 §7.9.2, strings without a UTF-16 BOM are PDFDocEncoding.
-    /// We try UTF-8 first as a lenient path for non-spec-compliant PDFs that
-    /// embed raw UTF-8 without a BOM; if that fails we fall back to the correct
-    /// PDFDocEncoding lookup (which handles the 0x80–0x9E special-char zone
-    /// maps 0xA0–0xFF as ISO Latin-1, unlike from_utf8_lossy which substitutes
-    /// U+FFFD for any byte that is not valid UTF-8).
+    /// Thin delegate to [`crate::optional_content::decode_pdf_text_string`] — that
+    /// module owns the canonical implementation shared with the rendering path
+    /// (UTF-16BE/LE with BOM, PDFDocEncoding fallback per ISO 32000-1:2008 §7.9.2).
     fn decode_pdf_text_string(bytes: &[u8]) -> String {
-        if bytes.len() >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF {
-            // UTF-16BE with BOM
-            let utf16_pairs: Vec<u16> = bytes[2..]
-                .chunks_exact(2)
-                .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
-                .collect();
-            String::from_utf16(&utf16_pairs)
-                .unwrap_or_else(|_| String::from_utf8_lossy(bytes).to_string())
-        } else if bytes.len() >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE {
-            // UTF-16LE with BOM
-            let utf16_pairs: Vec<u16> = bytes[2..]
-                .chunks_exact(2)
-                .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
-                .collect();
-            String::from_utf16(&utf16_pairs)
-                .unwrap_or_else(|_| String::from_utf8_lossy(bytes).to_string())
-        } else {
-            // Try UTF-8 first (lenient: some PDFs embed raw UTF-8 without a BOM).
-            // Fall back to PDFDocEncoding per ISO 32000 §7.9.2.
-            String::from_utf8(bytes.to_vec()).unwrap_or_else(|_| {
-                bytes
-                    .iter()
-                    .filter_map(|&b| crate::fonts::font_dict::pdfdoc_encoding_lookup(b))
-                    .collect()
-            })
-        }
+        crate::optional_content::decode_pdf_text_string(bytes)
     }
 
     /// Resolve BDC properties: can be an inline dictionary or a name referencing /Properties resource.
+    ///
+    /// Thin delegate to [`crate::optional_content::resolve_bdc_properties`].
+    /// Passing `self.document` as `Option` lets the inline-dict fast path work
+    /// even on a freshly-constructed extractor with no document attached (used
+    /// by unit tests).
     fn resolve_bdc_properties(
         &self,
         properties: &Object,
     ) -> Option<std::collections::HashMap<String, Object>> {
-        // Inline dictionary
-        if let Some(dict) = properties.as_dict() {
-            return Some(dict.clone());
-        }
-
-        // Name reference — look up in /Properties sub-dictionary of resources
-        let prop_name = properties.as_name()?;
-        let resources = self.resources.as_ref()?;
-        let res_dict = if let Some(res_ref) = resources.as_reference() {
-            self.document?.load_object(res_ref).ok()?
-        } else {
-            resources.clone()
-        };
-        let res_dict = res_dict.as_dict()?;
-        let properties_dict_obj = res_dict.get("Properties")?;
-        let properties_dict = if let Some(r) = properties_dict_obj.as_reference() {
-            self.document?.load_object(r).ok()?
-        } else {
-            properties_dict_obj.clone()
-        };
-        let properties_dict = properties_dict.as_dict()?;
-        let prop_obj = properties_dict.get(prop_name)?;
-        let resolved = if let Some(r) = prop_obj.as_reference() {
-            self.document?.load_object(r).ok()?
-        } else {
-            prop_obj.clone()
-        };
-        resolved.as_dict().cloned()
+        crate::optional_content::resolve_bdc_properties(
+            properties,
+            self.resources.as_ref(),
+            self.document,
+        )
     }
 
     /// Resolve a named color space from the /Resources /ColorSpace dictionary.
@@ -2912,69 +2904,15 @@ impl<'doc> TextExtractor<'doc> {
 
     /// Check whether a BDC properties dict represents an excluded OCG or OCMD.
     ///
-    /// Handles two cases per ISO 32000-1 Section 8.11.2:
-    /// - Direct OCG: dict has `/Name` -> check against excluded layers
-    /// - OCMD: dict has `/Type /OCMD` and `/OCGs` array -> resolve each
-    ///   referenced OCG and check its `/Name` against excluded layers
+    /// Thin delegate to [`crate::optional_content::check_ocg_excluded`] — that
+    /// module is the single source of truth for OCG/OCMD evaluation, including
+    /// OCMD `/P` visibility-policy handling.
     fn check_ocg_excluded(&self, props_dict: &std::collections::HashMap<String, Object>) -> bool {
-        if let Some(ocg_name) = props_dict.get("Name") {
-            return self.ocg_name_is_excluded(ocg_name);
-        }
-
-        if let Some(Object::Name(t)) = props_dict.get("Type") {
-            if t == "OCMD" {
-                if let Some(ocgs_obj) = props_dict.get("OCGs") {
-                    return self.ocmd_ocgs_excluded(ocgs_obj);
-                }
-            }
-        }
-
-        false
-    }
-
-    fn ocg_name_is_excluded(&self, name_obj: &Object) -> bool {
-        if let Some(name_str) = name_obj.as_name() {
-            return self.excluded_layers.contains(name_str);
-        }
-        if let Some(name_bytes) = name_obj.as_string() {
-            let name_str = Self::decode_pdf_text_string(name_bytes);
-            return self.excluded_layers.contains(&name_str);
-        }
-        false
-    }
-
-    /// Resolve OCMD /OCGs and check if any referenced OCG is excluded.
-    /// /OCGs can be a single reference or an array of references.
-    fn ocmd_ocgs_excluded(&self, ocgs_obj: &Object) -> bool {
         let doc = match self.document {
             Some(d) => d,
             None => return false,
         };
-
-        let refs: Vec<&Object> = if let Some(arr) = ocgs_obj.as_array() {
-            arr.iter().collect()
-        } else {
-            vec![ocgs_obj]
-        };
-
-        for obj in refs {
-            let resolved = if let Some(r) = obj.as_reference() {
-                match doc.load_object(r) {
-                    Ok(o) => o,
-                    Err(_) => continue,
-                }
-            } else {
-                obj.clone()
-            };
-            if let Some(d) = resolved.as_dict() {
-                if let Some(name_obj) = d.get("Name") {
-                    if self.ocg_name_is_excluded(name_obj) {
-                        return true;
-                    }
-                }
-            }
-        }
-        false
+        crate::optional_content::check_ocg_excluded(props_dict, doc, &self.excluded_layers)
     }
 
     /// Get current ActualText from marked content stack (PDF Spec Section 14.9.4).
@@ -7770,6 +7708,7 @@ mod tests {
             multi_char_map: HashMap::new(),
             byte_to_char_table: std::sync::OnceLock::new(),
             byte_to_width_table: std::sync::OnceLock::new(),
+            diff_glyph_names: std::collections::HashMap::new(),
         }
     }
 
@@ -12292,6 +12231,43 @@ mod tests {
             7.2,
         );
         assert!(decision.insert_space, "Citation context with TJ should insert space");
+    }
+
+    #[test]
+    fn test_is_pictographic_ranges() {
+        assert!(is_pictographic('📄'));
+        assert!(is_pictographic('✅'));
+        assert!(!is_pictographic('A'));
+        assert!(!is_pictographic('→')); // arrow excluded (math/symbol text)
+        assert!(!is_pictographic('5'));
+    }
+
+    #[test]
+    fn test_should_insert_space_emoji_letter_boundary() {
+        let config = SpanMergingConfig::default();
+        let fonts = HashMap::new();
+        // The real case (arxiv_2510.26287): a wide emoji glyph abuts the next
+        // token, so the gap is exactly 0. The space must still be kept.
+        let decision0 = should_insert_space(
+            "📄", "README", 0.0, 12.0, "F1", &fonts, false, &config, None, None, 12.0, 12.0,
+        );
+        assert!(
+            decision0.insert_space,
+            "emoji→letter with a zero (abutting) gap must keep space"
+        );
+
+        // A positive gap also keeps it.
+        let decision = should_insert_space(
+            "📄", "README", 0.5, 12.0, "F1", &fonts, false, &config, None, None, 12.0, 12.0,
+        );
+        assert!(decision.insert_space, "emoji→letter with a positive gap keeps the space");
+
+        // A combined emoji sequence (next char is another pictograph, not a
+        // letter) must NOT be forced into a space by this rule.
+        let combined = should_insert_space(
+            "📄", "📄", 0.0, 12.0, "F1", &fonts, false, &config, None, None, 12.0, 12.0,
+        );
+        assert!(!combined.insert_space, "emoji→emoji must not be forced into a space");
     }
 
     #[test]

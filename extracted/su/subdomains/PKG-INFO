@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: subdomains
+Version: 3.0.1
+Summary: Subdomain tools for the Django framework, including subdomain-based URL routing.
+Home-page: http://github.com/abe312/django-subdomains/
+Author: abe312
+Author-email: abhineet312@gmail.com
+License: MIT License
+Description: UNKNOWN
+Platform: UNKNOWN

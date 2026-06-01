@@ -1,0 +1,87 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 OmniNode Team
+#
+# baselines-scheduler.yml — Daily Baselines & ROI computation
+#
+# Invokes NodeBaselinesBatchCompute once per day on the trusted runner selector.
+#
+# Requirements (self-hosted runner environment):
+#   OMNIBASE_INFRA_DB_URL  — set in ~/.omnibase/.env (runner picks up via env)
+#   KAFKA_BOOTSTRAP_SERVERS — defaults to localhost:19092 in the script
+#
+# Ticket: OMN-3335
+
+name: Baselines Scheduler
+
+on:
+  schedule:
+    # Daily at 06:00 UTC (before business hours)
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Skip Kafka emission (set KAFKA_BOOTSTRAP_SERVERS to empty)'
+        required: false
+        default: 'false'
+
+env:
+  UV_VERSION: "0.8.3"
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  baselines-compute:
+    name: Baselines Batch Compute
+    # Trusted runner required: needs PostgreSQL and Kafka access.
+    # OMNI_RUNNER_SELECTOR_V1 — trusted CI defaults to self-hosted omnibase-ci; public forks default to ubuntu-latest
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run baselines batch compute
+        env:
+          # Trusted runner: OMNIBASE_INFRA_DB_URL comes from ~/.omnibase/.env.
+          OMNIBASE_INFRA_DB_URL: ${{ secrets.OMNIBASE_INFRA_DB_URL }}
+          KAFKA_BOOTSTRAP_SERVERS: >-
+            ${{
+              github.event.inputs.dry_run == 'true'
+              && ''
+              || 'localhost:19092'
+            }}
+        run: |
+          # On self-hosted runner, shell env from ~/.omnibase/.env overrides the secret.
+          source ~/.omnibase/.env 2>/dev/null || true
+          uv run python scripts/run_baselines_batch_compute.py
+
+      - name: Post summary
+        if: always()
+        run: |
+          echo "## Baselines Batch Compute (OMN-3335)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Ran NodeBaselinesBatchCompute to populate Baselines & ROI dashboard." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Topic: \`onex.evt.omnibase-infra.baselines-computed.v1\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Tables populated: \`baselines_snapshots\`, \`baselines_comparisons\`, \`baselines_trend\`, \`baselines_breakdown\`" >> $GITHUB_STEP_SUMMARY

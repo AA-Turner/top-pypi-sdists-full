@@ -1,0 +1,140 @@
+import subprocess
+import time
+import os
+import atexit
+import socket
+import requests
+import json
+
+from ckanapi import RemoteCKAN, NotFound
+from ckanapi.common import REQUEST_TIMEOUT
+import unittest
+from unittest import mock
+from subprocess import DEVNULL
+from urllib.request import urlopen, URLError
+from io import StringIO
+
+TEST_CKAN = 'http://localhost:8901'
+
+NUMBER_THING_CSV = """
+Number,Thing
+5,sasquach
+""".lstrip()
+
+class TestRemoteAction(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        script = os.path.join(os.path.dirname(__file__), 'mock/mock_ckan.py')
+        _mock_ckan = subprocess.Popen(['python', script],
+            stdout=DEVNULL, stderr=DEVNULL)
+        def kill_child():
+            try:
+                _mock_ckan.kill()
+                _mock_ckan.wait()
+            except OSError:
+                pass  # alread cleaned up from tearDownClass
+        atexit.register(kill_child)
+        cls._mock_ckan = _mock_ckan
+        while True: # wait for the server to start
+            try:
+                r = urlopen(TEST_CKAN + '/api/action/site_read')
+                if r.getcode() == 200:
+                    break
+            except URLError as e:
+                pass
+            time.sleep(0.1)
+
+    def test_good_oldstyle(self):
+        ckan = RemoteCKAN(TEST_CKAN)
+        self.assertEqual(
+            ckan.action.organization_list(),
+            ['aa', 'bb', 'cc'])
+        ckan.close()
+
+    def test_good(self):
+        with RemoteCKAN(TEST_CKAN) as ckan:
+            self.assertEqual(
+                ckan.action.organization_list(),
+                ['aa', 'bb', 'cc'])
+
+    def test_missing(self):
+        with RemoteCKAN(TEST_CKAN) as ckan:
+            self.assertRaises(
+                NotFound,
+                ckan.action.organization_show,
+                id='qqq')
+
+    def test_default_ua(self):
+        with RemoteCKAN(TEST_CKAN) as ckan:
+            self.assertTrue(
+                ckan.action.test_echo_user_agent().startswith('ckanapi'))
+
+    def test_custom_ua(self):
+        ua = 'testckanapibot/1.0 (+https://github.com/ckan/ckanapi)'
+        with RemoteCKAN(TEST_CKAN, user_agent=ua) as ckan:
+            self.assertEqual(ckan.action.test_echo_user_agent(), ua)
+
+    def test_default_content_type(self):
+        with RemoteCKAN(TEST_CKAN) as ckan:
+            self.assertEqual(ckan.action.test_echo_content_type(),
+                "application/json")
+
+    def test_resource_upload(self):
+        with RemoteCKAN(TEST_CKAN) as ckan:
+            res = ckan.call_action('test_upload',
+                {'option': "42"},
+                files={'upload': StringIO(NUMBER_THING_CSV)})
+        self.assertEqual(res.get('last_row'), ['5', 'sasquach'])
+
+    def test_resource_upload_extra_param(self):
+        with RemoteCKAN(TEST_CKAN) as ckan:
+            res = ckan.call_action('test_upload',
+                {'option': "42"},
+                files={'upload': StringIO(NUMBER_THING_CSV)})
+        self.assertEqual(res.get('option'), "42")
+
+    def test_resource_upload_unicode_param(self):
+        uname = b't\xc3\xab\xc3\x9ft resource'.decode('utf-8')
+        with RemoteCKAN(TEST_CKAN) as ckan:
+            res = ckan.call_action('test_upload',
+                {'option': uname},
+                files={'upload': StringIO(NUMBER_THING_CSV)})
+        self.assertEqual(res.get('option'), uname)
+
+    def test_resource_upload_content_type(self):
+        with RemoteCKAN(TEST_CKAN) as ckan:
+            res = ckan.call_action('test_echo_content_type',
+                {'option': "42"},
+                files={'upload': StringIO(NUMBER_THING_CSV)})
+        self.assertEqual(res.split(';')[0], "multipart/form-data")
+
+    def test_default_timeout(self):
+        mock_response = mock.MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = json.dumps({"success": True, "result": []})
+
+        with mock.patch('requests.Session.post', return_value=mock_response) as mock_post:
+            with RemoteCKAN(TEST_CKAN) as ckan:
+                ckan.action.organization_list()
+            _, kwargs = mock_post.call_args
+            self.assertIs(REQUEST_TIMEOUT, None)
+            self.assertEqual(kwargs.get('timeout'), REQUEST_TIMEOUT)
+
+    def test_custom_timeout(self):
+        mock_response = mock.MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = json.dumps({"success": True, "result": []})
+
+        # We patch at the module level because the env var is read at import time and
+        # can't be patched
+        with mock.patch("ckanapi.remoteckan.REQUEST_TIMEOUT", (2, 30)):
+            with mock.patch('requests.Session.post', return_value=mock_response) as mock_post:
+                with RemoteCKAN(TEST_CKAN) as ckan:
+                    ckan.action.organization_list()
+                _, kwargs = mock_post.call_args
+                self.assertEqual(kwargs.get('timeout'), (2, 30))
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._mock_ckan.kill()
+        cls._mock_ckan.wait()

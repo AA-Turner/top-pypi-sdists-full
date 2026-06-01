@@ -1,0 +1,103 @@
+from unittest.mock import patch
+
+import asyncio
+import pytest
+import panel as pn
+from panel_material_ui import ChatInterface
+
+pn.extension()
+
+@pytest.fixture
+def loop():
+    try:
+        loop = asyncio.get_event_loop()
+        is_new = False
+    except (RuntimeError, DeprecationWarning):
+        is_new = True
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    try:
+        yield loop
+    finally:
+        if is_new:
+            loop.close()
+
+
+def test_chat_interface_basic_creation():
+    """Test that ChatInterface can be created with basic parameters."""
+    def on_click_send(event, instance):
+        instance.send("Received new message.")
+
+    chat_interface = ChatInterface(
+        on_submit=on_click_send,
+    )
+
+    chat_interface._click_send(None, chat_interface)
+    assert chat_interface.objects[0].object == "Received new message."
+
+
+def test_chat_interface_auto_scroll_limit_default():
+    """auto_scroll_limit should default to 2000."""
+    chat = ChatInterface()
+    assert chat.auto_scroll_limit == 2000
+
+
+def test_chat_interface_auto_scroll_limit_override():
+    """User-provided auto_scroll_limit should not be overridden."""
+    chat = ChatInterface(auto_scroll_limit=500)
+    assert chat.auto_scroll_limit == 500
+
+
+def test_chat_interface_chat_log_flex_stylesheet():
+    """_chat_log should have the flex stylesheet for sticky input."""
+    chat = ChatInterface()
+    assert any("flex: 1 1 0px" in s for s in chat._chat_log.stylesheets)
+
+
+def test_chat_area_input_focus():
+    """ChatAreaInput.focus() should send a focus message."""
+    chat = ChatInterface()
+    with patch.object(chat._widget, '_send_msg') as mock_send:
+        chat._widget.focus()
+        mock_send.assert_called_once_with({"type": "focus"})
+
+
+def test_chat_interface_focus_after_callback_state(loop):
+    """_update_input_disabled should call focus() when callback finishes."""
+    chat = ChatInterface()
+    with patch.object(chat._widget, 'focus') as mock_focus:
+        chat._widget.loading = True
+        # Simulate callback finishing — loading goes to False and focus is called
+        loop.run_until_complete(chat._update_input_disabled())
+        mock_focus.assert_called_once()
+
+
+def test_input_params_placeholder_init():
+    """Placeholder set via input_params at init should propagate to the input widget."""
+    chat = ChatInterface(input_params={"placeholder": "Type here..."})
+    assert chat._widget.placeholder == "Type here..."
+
+
+def test_input_params_dynamic_update():
+    """Changing input_params after init should update the input widget."""
+    chat = ChatInterface(input_params={"placeholder": "Initial"})
+    assert chat._widget.placeholder == "Initial"
+    chat.input_params = {"placeholder": "Updated placeholder"}
+    assert chat._widget.placeholder == "Updated placeholder"
+
+
+def test_input_params_multiple_keys():
+    """Multiple input_params should all propagate to the input widget."""
+    chat = ChatInterface(input_params={"placeholder": "Ask me...", "max_rows": 5})
+    assert chat._widget.placeholder == "Ask me..."
+    assert chat._widget.max_rows == 5
+
+
+def test_input_params_ignores_managed_keys():
+    """Managed keys (disabled, sizing_mode) in input_params should not crash."""
+    chat = ChatInterface(input_params={"disabled": True, "placeholder": "Test"})
+    # disabled is managed separately via self.param.disabled, so input_params value is ignored
+    assert chat._widget.placeholder == "Test"
+    # dynamic update should also skip managed keys
+    chat.input_params = {"sizing_mode": "fixed", "placeholder": "Updated"}
+    assert chat._widget.placeholder == "Updated"

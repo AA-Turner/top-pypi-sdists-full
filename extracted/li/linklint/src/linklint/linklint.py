@@ -1,0 +1,253 @@
+"""Linter to find link problems in RST files."""
+
+import collections
+import re
+from collections import defaultdict
+from dataclasses import dataclass
+from typing import Iterable
+
+from docutils import nodes
+from sphinx import addnodes
+
+from linklint.regions import Region, find_regions
+from linklint.rsthelp import parse_rst, resub_in_rst_line
+from linklint.utils import node_line_number, node_traceback
+
+
+class Resolver:
+    # Build a map from reference roles to object types.
+
+    # Dummy lambda's so that the object_types dict can be identical to the
+    # code in sphinx/sphinx/domains/python/__init__.py.
+    ObjType = lambda _, *refs: refs  # noqa: E731
+    _ = lambda s: 0  # noqa: E731
+
+    # object_types map from sphinx
+    # sphinx/sphinx/domains/python/__init__.py:725
+    object_types = {
+        "function": ObjType(_("function"), "func", "obj"),
+        "data": ObjType(_("data"), "data", "obj"),
+        "class": ObjType(_("class"), "class", "exc", "obj"),
+        "exception": ObjType(_("exception"), "exc", "class", "obj"),
+        "method": ObjType(_("method"), "meth", "obj"),
+        "classmethod": ObjType(_("class method"), "meth", "obj"),
+        "staticmethod": ObjType(_("static method"), "meth", "obj"),
+        "attribute": ObjType(_("attribute"), "attr", "obj"),
+        "property": ObjType(_("property"), "attr", "_prop", "obj"),
+        "type": ObjType(_("type alias"), "type", "class", "obj"),
+        "module": ObjType(_("module"), "mod", "obj"),
+    }
+
+    reftype_to_objtype = collections.defaultdict(list)
+    for objtype, names in object_types.items():
+        for name in names:
+            reftype_to_objtype[name].append(objtype)
+
+    def __init__(self, doctree: nodes.document) -> None:
+        self.region_map = {(r.kind, r.name): r for r in find_regions(doctree)}
+
+    def find_region(self, reftype: str, target: str) -> Region | None:
+        for objtype in self.reftype_to_objtype[reftype]:
+            region = self.region_map.get((objtype, target))
+            if region is not None:
+                return region
+        return None
+
+
+@dataclass
+class LintIssue:
+    line: int
+    message: str
+    fixed: bool = False
+
+
+@dataclass
+class LintWork:
+    doctree: nodes.document
+    content_lines: list[str]
+    fix: bool
+    fixed: bool
+
+
+CHECKS = {}
+
+
+def check(name: str):
+    """Decorator to register a lint check function."""
+
+    def decorator(func):
+        CHECKS[name] = func
+        return func
+
+    return decorator
+
+
+# pat/repl pairs for references styles.
+REF_FIXES = [
+    (
+        # :class:`MyClass` -> :class:`!MyClass`
+        r":{reftype}:`[~.]?{target}`",
+        r":{reftype}:`!{target}`",
+    ),
+    (
+        # :class:`Some Class <mymodule.MyClass>` -> :class:`!Some Class`
+        r":{reftype}:`([^<]+?)\s*<{target}>`",
+        r":{reftype}:`!\1`",
+    ),
+]
+
+# Sphinx roles that are explicit references elsewhere and should always be links.
+ALWAYS_REF = {"doc", "download", "numref", "ref"}
+
+
+@check("self")
+def check_self_links(work: LintWork) -> Iterable[LintIssue]:
+    for ref in find_self_refs(work.doctree):
+        line = node_line_number(ref)
+        reftype = ref.get("reftype")  # type: ignore
+        target = ref.get("reftarget")  # type: ignore
+        fixed = False
+        if work.fix:
+            for pat, repl in REF_FIXES:
+                fixed = resub_in_rst_line(
+                    lines=work.content_lines,
+                    line_num=line - 1,
+                    pat=pat.format(reftype=reftype, target=re.escape(target)),
+                    repl=repl.format(reftype=reftype, target=target),
+                    count=1,
+                )
+                if fixed:
+                    break
+            work.fixed |= fixed
+            if not fixed:
+                print(f"Line {line}: Couldn't fix self-link to :{reftype}:`{target}`")
+                print(f"Line was: {work.content_lines[line - 1]!r}")
+        yield LintIssue(line, f"self-link to :{reftype}:`{target}`", fixed=fixed)
+
+
+class RefFinder(nodes.SparseNodeVisitor):
+    """Visitor for nodes to track class context and find self-references."""
+
+    def __init__(self, doctree: nodes.document) -> None:
+        super().__init__(doctree)
+        self.resolver = Resolver(doctree)
+        self.self_refs: list[nodes.Node] = []
+        self.class_stack: list[str] = []
+        self.pushed_class: list[bool] = []
+
+    def visit_pending_xref(self, node: addnodes.pending_xref) -> None:
+        line = node_line_number(node)
+        reftype = node.get("reftype")
+        if reftype in ALWAYS_REF:
+            # :ref: references are explicitly meant to be links, so should
+            # never be unlinked. I don't know why someone would put a :ref:
+            # to its own section, but who are we to judge?
+            return
+        target = node.get("reftarget")
+
+        if reftype == "meth" and "." not in target:
+            if self.class_stack:
+                target = f"{self.class_stack[-1]}.{target}"
+            else:
+                # Method reference without class context: can't resolve, so skip.
+                target = None
+
+        if target:
+            region = self.resolver.find_region(reftype, target)
+            if region is not None and region.start <= line <= region.end_total:
+                self.self_refs.append(node)
+
+    def visit_desc(self, node: addnodes.desc) -> None:
+        pushed = False
+        is_target = not node.get("no-index", False)
+        if is_target:
+            objtype = node.get("objtype")
+            if objtype == "class":
+                self.class_stack.append(node.children[0].get("fullname"))
+                pushed = True
+            elif objtype == "method" and not self.class_stack:
+                self.class_stack.append(node.children[0].get("class"))
+                pushed = True
+        self.pushed_class.append(pushed)
+
+    def depart_desc(self, node: addnodes.desc) -> None:
+        if self.pushed_class.pop():
+            self.class_stack.pop()
+
+    # Have to explicitly pass on unknown nodes, and Python docs have a bunch.
+    def unknown_visit(self, node):  # pragma: no cover
+        pass
+
+    def unknown_departure(self, node):  # pragma: no cover
+        pass
+
+
+def find_self_refs(doctree: nodes.document) -> Iterable[nodes.Node]:
+    """Find references that point to the same region they are in."""
+
+    finder = RefFinder(doctree)
+    doctree.walkabout(finder)
+    return finder.self_refs
+
+
+@check("paradup")
+def check_duplicate_refs_in_paragraph(work: LintWork) -> Iterable[LintIssue]:
+    """Check references that appear more than once in the same paragraph."""
+    if work.fix:
+        raise Exception("Fixing is not available for --check=paradup")
+
+    for ref in find_duplicate_refs(work.doctree):
+        line = node_line_number(ref)
+        reftype = ref.get("reftype")  # type: ignore
+        target = ref.get("reftarget")  # type: ignore
+        yield LintIssue(line, f"duplicate :{reftype}:`{target}` in paragraph")
+
+
+def find_duplicate_refs(doctree: nodes.document) -> Iterable[nodes.Node]:
+    """Find references that appear more than once in the same paragraph."""
+    for para in doctree.findall(nodes.paragraph):
+        refs_by_target = defaultdict(list)
+        for ref in para.findall(addnodes.pending_xref):
+            reftype = ref.get("reftype")
+            if reftype in ALWAYS_REF:
+                # :ref: references are explicitly meant to be links, so should
+                # never be unlinked.
+                continue
+            target = ref.get("reftarget")
+            assert reftype and target, (
+                f"Reference missing reftype or target: {ref}\n{node_traceback(ref)}"
+            )
+            refs_by_target[(reftype, target)].append(ref)
+
+        for refs in refs_by_target.values():
+            if len(refs) > 1:
+                yield from refs[1:]
+
+
+@dataclass
+class LintResult:
+    content: str
+    issues: list[LintIssue]
+    fixed: bool
+
+
+def lint_content(content: str, fix: bool, checks: set[str]) -> LintResult:
+    doctree = parse_rst(content)
+    work = LintWork(
+        content_lines=content.splitlines(keepends=True),
+        doctree=doctree,
+        fix=fix,
+        fixed=False,
+    )
+
+    issues = []
+    for check_name in checks:
+        issues.extend(CHECKS[check_name](work))
+
+    result = LintResult(
+        content="".join(work.content_lines),
+        issues=issues,
+        fixed=work.fixed,
+    )
+
+    return result

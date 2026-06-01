@@ -1,0 +1,195 @@
+######################################################################################################
+#                                 Auto-generated Metaflow stub file                                  #
+# MF version: 2.19.31                                                                                #
+# Generated on 2026-06-01T01:50:49.569486                                                            #
+######################################################################################################
+
+from __future__ import annotations
+
+import metaflow
+import typing
+if typing.TYPE_CHECKING:
+    import metaflow.decorators
+
+from ..metaflow_current import current as current
+from ..exception import MetaflowException as MetaflowException
+from ..parameters import DeployTimeField as DeployTimeField
+from ..parameters import deploy_time_eval as deploy_time_eval
+from ..parameters import ParameterContext as ParameterContext
+
+class TriggerDecorator(metaflow.decorators.FlowDecorator, metaclass=type):
+    """
+    Specifies the event(s) that this flow depends on.
+    
+    ```
+    @trigger(event='foo')
+    ```
+    or
+    ```
+    @trigger(events=['foo', 'bar'])
+    ```
+    
+    Additionally, you can specify the parameter mappings
+    to map event payload to Metaflow parameters for the flow.
+    ```
+    @trigger(event={'name':'foo', 'parameters':{'flow_param': 'event_field'}})
+    ```
+    or
+    ```
+    @trigger(events=[{'name':'foo', 'parameters':{'flow_param_1': 'event_field_1'},
+                     {'name':'bar', 'parameters':{'flow_param_2': 'event_field_2'}])
+    ```
+    
+    'parameters' can also be a list of strings and tuples like so:
+    ```
+    @trigger(event={'name':'foo', 'parameters':['common_name', ('flow_param', 'event_field')]})
+    ```
+    This is equivalent to:
+    ```
+    @trigger(event={'name':'foo', 'parameters':{'common_name': 'common_name', 'flow_param': 'event_field'}})
+    ```
+    
+    For namespaced events, you can use `namespaced_event_name` which resolves the
+    full event name at deploy time based on @project settings:
+    ```
+    from metaflow import namespaced_event_name
+    
+    @trigger(event=namespaced_event_name('foo'))
+    
+    @trigger(event={'name': namespaced_event_name('foo'), 'parameters': {'x': 'y'}})
+    ```
+    
+    Parameters
+    ----------
+    event : Union[str, Dict[str, Any], Callable[[ParameterContext], Union[str, Dict[str, Any]]]], optional, default None
+        Event dependency for this flow. Can be a string, dict, or a callable that
+        returns a string or dict at deploy time.
+    events : List[Union[str, Dict[str, Any],Callable[[ParameterContext], Union[str, Dict[str, Any]]]]], default []
+        Events dependency for this flow. Each element can be a string, dict, or callable.
+    options : Dict[str, Any], default {}
+        Backend-specific configuration for tuning eventing behavior.
+    
+    MF Add To Current
+    -----------------
+    trigger -> metaflow.events.Trigger
+        Returns `Trigger` if the current run is triggered by an event
+    
+        @@ Returns
+        -------
+        Trigger
+            `Trigger` if triggered by an event
+    """
+    def process_event(self, event):
+        """
+        Process a single event and return a dictionary if static trigger and a function
+        if deploy-time trigger.
+        
+        Parameters
+        ----------
+        event : Union[str, Dict[str, Any], Callable]
+            Event to process
+        
+        Returns
+        -------
+        Union[Dict[str, Union[str, Callable]], Callable]
+            Processed event
+        
+        Raises
+        ------
+        MetaflowException
+            If the event is not in the correct format
+        """
+        ...
+    def process_parameters(self, parameters, event_name):
+        """
+        Process the parameters for an event and return a dictionary of parameter mappings if
+        parameters was statically defined or a function if deploy-time trigger.
+        
+        Parameters
+        ----------
+        Parameters : Union[Dict[str, str], List[Union[str, Tuple[str, str]]], Callable]
+            Parameters to process
+        
+        event_name : Union[str, callable]
+            Name of the event
+        
+        Returns
+        -------
+        Union[Dict[str, str], Callable]
+            Processed parameters
+        
+        Raises
+        ------
+        MetaflowException
+            If the parameters are not in the correct format
+        """
+        ...
+    def flow_init(self, flow_name, graph, environment, flow_datastore, metadata, logger, echo, options):
+        ...
+    def format_deploytime_value(self):
+        ...
+    ...
+
+class TriggerOnFinishDecorator(metaflow.decorators.FlowDecorator, metaclass=type):
+    """
+    Specifies the flow(s) that this flow depends on.
+    
+    ```
+    @trigger_on_finish(flow='FooFlow')
+    ```
+    or
+    ```
+    @trigger_on_finish(flows=['FooFlow', 'BarFlow'])
+    ```
+    This decorator respects the @project decorator and triggers the flow
+    when upstream runs within the same namespace complete successfully
+    
+    Additionally, you can specify project aware upstream flow dependencies
+    by specifying the fully qualified project_flow_name.
+    ```
+    @trigger_on_finish(flow='my_project.branch.my_branch.FooFlow')
+    ```
+    or
+    ```
+    @trigger_on_finish(flows=['my_project.branch.my_branch.FooFlow', 'BarFlow'])
+    ```
+    
+    You can also specify just the project or project branch (other values will be
+    inferred from the current project or project branch):
+    ```
+    @trigger_on_finish(flow={"name": "FooFlow", "project": "my_project", "project_branch": "branch"})
+    ```
+    
+    Note that `branch` is typically one of:
+      - `prod`
+      - `user.bob`
+      - `test.my_experiment`
+      - `prod.staging`
+    
+    Parameters
+    ----------
+    flow : Union[str, Dict[str, str]], optional, default None
+        Upstream flow dependency for this flow.
+    flows : List[Union[str, Dict[str, str]]], default []
+        Upstream flow dependencies for this flow.
+    options : Dict[str, Any], default {}
+        Backend-specific configuration for tuning eventing behavior.
+    
+    MF Add To Current
+    -----------------
+    trigger -> metaflow.events.Trigger
+        Returns `Trigger` if the current run is triggered by an event
+    
+        @@ Returns
+        -------
+        Trigger
+            `Trigger` if triggered by an event
+    """
+    def flow_init(self, flow_name, graph, environment, flow_datastore, metadata, logger, echo, options):
+        ...
+    def format_deploytime_value(self):
+        ...
+    def get_top_level_options(self):
+        ...
+    ...
+

@@ -1,0 +1,247 @@
+"""
+Splice helpers for list-shaped handlers under a component instance.
+
+These handlers are a YAML *list* nested under a configured component
+instance — light ``effects:`` today, list-form triggers (``time.on_time``)
+next. They share one shape: parse-mutate-reemit the whole list block, then
+splice it back through :func:`helpers.yaml.upsert_inline_handler` (or remove
+it when emptied). Kept out of ``writing.py`` so that file stays focused on
+the single-handler / top-level splice paths.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from ...helpers.api import CommandError
+from ...helpers.yaml import (
+    remove_inline_handler,
+    synthetic_instance_index,
+    upsert_inline_handler,
+)
+from ...models.api import ErrorCode
+from ...models.automations import (
+    AutomationTree,
+    LightEffectLocation,
+    YamlDiff,
+)
+from . import catalog
+from .emitter import dump, emit_effect_item, emit_trigger_list_item
+from .parsing import make_yaml
+
+
+def wrap_handler_list_block(handler_key: str, rendered_list: str) -> str:
+    """Prefix a rendered dashed list with its ``<handler_key>:`` header."""
+    # ``upsert_inline_handler`` writes ``rendered_yaml`` verbatim under the
+    # component instance; the list dump is bare, so add the header here.
+    return f"{handler_key}:\n" + rendered_list.rstrip() + "\n"
+
+
+def _drop_after_block_comment(entries: list) -> None:
+    """
+    Strip the comments ruamel bound to the last list entry.
+
+    That trailing slot also holds whatever followed the block in the
+    source (the next sibling's leading comment); re-emitting it would
+    duplicate that comment on splice. The sequence's own comments and
+    earlier entries are untouched, so inner comments survive. A comment
+    authored at the tail of the last entry is indistinguishable from the
+    after-block one, so it's dropped; an accepted cost versus the
+    duplication it would otherwise cause.
+    """
+    if entries:
+        _strip_comments(entries[-1])
+
+
+def _strip_comments(node: Any) -> None:
+    """Recursively clear ruamel comment associations on *node*."""
+    ca = getattr(node, "ca", None)
+    if ca is not None:
+        ca.items.clear()
+        ca.comment = None
+        ca.end.clear()
+    if isinstance(node, dict):
+        for child in node.values():
+            _strip_comments(child)
+    elif isinstance(node, list):
+        for child in node:
+            _strip_comments(child)
+
+
+def _resplice_list_block(
+    yaml_text: str,
+    *,
+    domain: str,
+    component_id: str,
+    handler_key: str,
+    entries: list,
+) -> tuple[str, YamlDiff]:
+    """
+    Re-emit a component's list handler from *entries* and return the diff.
+
+    Non-empty *entries* replace the whole block; an empty list removes the
+    handler key. Callers locate the instance first, so a ``None`` splice
+    result is unreachable.
+    """
+    if entries:
+        rendered = wrap_handler_list_block(handler_key, dump(entries))
+        res = upsert_inline_handler(
+            yaml_text,
+            component_domain=domain,
+            component_id=component_id,
+            handler_key=handler_key,
+            rendered_yaml=rendered,
+        )
+        if res is None:  # pragma: no cover — instance located by the caller
+            msg = f"Component instance id={component_id!r} not found under {domain!r}"
+            raise CommandError(ErrorCode.INTERNAL_ERROR, msg)
+        new_text, from_line, to_line, replacement = res
+        return new_text, YamlDiff(fromLine=from_line, toLine=to_line, replacement=replacement)
+    removed = remove_inline_handler(
+        yaml_text,
+        component_domain=domain,
+        component_id=component_id,
+        handler_key=handler_key,
+    )
+    if removed is None:  # pragma: no cover — instance located by the caller
+        msg = f"{handler_key}: not found on component id={component_id!r}"
+        raise CommandError(ErrorCode.INTERNAL_ERROR, msg)
+    new_text, from_line, to_line = removed
+    return new_text, YamlDiff(fromLine=from_line, toLine=to_line, replacement="")
+
+
+def upsert_component_on_entry(
+    yaml_text: str,
+    *,
+    tree: AutomationTree,
+    domain: str,
+    component_id: str,
+    trigger_key: str,
+    index: int,
+) -> tuple[str, YamlDiff]:
+    """
+    Insert or replace one entry of a list-shaped trigger (``time.on_time``).
+
+    ``index == len(entries)`` appends; an in-range index replaces. Refuses
+    when the existing handler is a single mapping rather than a list — the
+    user picked that shape, so don't silently rewrite it.
+    """
+    instance = _require_instance(
+        yaml_text, domain=domain, component_id=component_id, error_code=ErrorCode.INVALID_ARGS
+    )
+    existing = instance.get(trigger_key)
+    if existing is not None and not isinstance(existing, list):
+        msg = f"{trigger_key}: is a single mapping, not a list; convert it to a list first"
+        raise CommandError(ErrorCode.INVALID_ARGS, msg)
+    entries = existing if isinstance(existing, list) else []
+    _drop_after_block_comment(entries)
+    new_item = emit_trigger_list_item(tree)
+    if index == len(entries):
+        entries.append(new_item)
+    elif 0 <= index < len(entries):
+        entries[index] = new_item
+    else:
+        msg = f"{trigger_key}[{index}] out of range (have {len(entries)})"
+        raise CommandError(ErrorCode.INVALID_ARGS, msg)
+    return _resplice_list_block(
+        yaml_text,
+        domain=domain,
+        component_id=component_id,
+        handler_key=trigger_key,
+        entries=entries,
+    )
+
+
+def _require_instance(
+    yaml_text: str, *, domain: str, component_id: str, error_code: ErrorCode
+) -> dict:
+    """
+    Return the ``<domain>:`` list item whose ``id`` matches *component_id*.
+
+    ``error_code`` selects the ``CommandError`` code so callers keep their
+    INVALID_ARGS (upsert) / NOT_FOUND (delete) contracts.
+    """
+    data = make_yaml().load(yaml_text) or {}
+    section = data.get(domain) if isinstance(data, dict) else None
+    if isinstance(section, list):
+        for instance in section:
+            if isinstance(instance, dict) and str(instance.get("id", "")) == component_id:
+                return instance
+        # Fall back to the parser's positional ``<domain>_<idx>`` label for
+        # an id-less instance (only when that instance is genuinely id-less).
+        idx = synthetic_instance_index(domain, component_id)
+        if idx is not None and idx < len(section):
+            candidate = section[idx]
+            if isinstance(candidate, dict) and "id" not in candidate:
+                return candidate
+    msg = f"Component instance id={component_id!r} not found under {domain!r}"
+    raise CommandError(error_code, msg)
+
+
+def delete_list_entry(
+    yaml_text: str, *, domain: str, component_id: str, handler_key: str, index: int
+) -> tuple[str, YamlDiff]:
+    """Drop entry *index* from a component's ``<handler_key>:`` list; re-splice."""
+    instance = _require_instance(
+        yaml_text, domain=domain, component_id=component_id, error_code=ErrorCode.NOT_FOUND
+    )
+    entries = instance.get(handler_key)
+    if not isinstance(entries, list) or not 0 <= index < len(entries):
+        msg = f"{handler_key}[{index}] not present on component id={component_id!r}"
+        raise CommandError(ErrorCode.NOT_FOUND, msg)
+    _drop_after_block_comment(entries)
+    del entries[index]
+    return _resplice_list_block(
+        yaml_text,
+        domain=domain,
+        component_id=component_id,
+        handler_key=handler_key,
+        entries=entries,
+    )
+
+
+def upsert_light_effect(
+    yaml_text: str,
+    tree: AutomationTree,
+    location: LightEffectLocation,
+) -> tuple[str, YamlDiff]:
+    """Splice an ``effects:`` list item under a configured light."""
+    # The tree carries the effect id under ``trigger_params`` (one
+    # key mapping to its params dict). Reverse the parser's shape.
+    if not tree.trigger_params or len(tree.trigger_params) != 1:
+        msg = "LightEffect upsert requires exactly one effect-id key in trigger_params"
+        raise CommandError(ErrorCode.INVALID_ARGS, msg)
+    effect_id, params = next(iter(tree.trigger_params.items()))
+    catalog_entry = catalog.light_effect_by_id(str(effect_id))
+    if catalog_entry is None:
+        msg = f"Unknown light effect id: {effect_id!r}"
+        raise CommandError(ErrorCode.INVALID_ARGS, msg)
+    _require_instance(
+        yaml_text,
+        domain="light",
+        component_id=location.component_id,
+        error_code=ErrorCode.INVALID_ARGS,
+    )
+    item = emit_effect_item(catalog_entry, str(effect_id), params or {})
+    # Effects upsert replaces the whole block with the one rendered entry.
+    return _resplice_list_block(
+        yaml_text,
+        domain="light",
+        component_id=location.component_id,
+        handler_key="effects",
+        entries=[item],
+    )
+
+
+def delete_light_effect(
+    yaml_text: str,
+    location: LightEffectLocation,
+) -> tuple[str, YamlDiff]:
+    """Drop one entry from a light's ``effects:`` list."""
+    return delete_list_entry(
+        yaml_text,
+        domain="light",
+        component_id=location.component_id,
+        handler_key="effects",
+        index=location.index,
+    )

@@ -1,0 +1,17 @@
+name: Test Cron Schedule
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    name: Cron Ping
+    runs-on: ubuntu-latest
+    steps:
+      - name: Echo timestamp
+        run: echo "Cron fired at $(date -u '+%Y-%m-%d %H:%M:%S UTC')"

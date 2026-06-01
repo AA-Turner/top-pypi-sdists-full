@@ -1,0 +1,93 @@
+"""Google BigQuery tool configuration."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from mindroom.tool_system.metadata import ConfigField, SetupType, ToolCategory, ToolStatus, register_tool_with_metadata
+
+if TYPE_CHECKING:
+    from agno.tools.google.bigquery import GoogleBigQueryTools
+
+
+@register_tool_with_metadata(
+    name="google_bigquery",
+    display_name="Google BigQuery",
+    description="Query Google BigQuery - list tables, describe schemas, and run SQL queries",
+    category=ToolCategory.DEVELOPMENT,
+    status=ToolStatus.REQUIRES_CONFIG,
+    setup_type=SetupType.SPECIAL,
+    icon="SiGooglebigquery",
+    icon_color="text-blue-600",
+    config_fields=[
+        ConfigField(
+            name="dataset",
+            label="Dataset",
+            type="text",
+            required=True,
+            placeholder="my_dataset",
+            description="BigQuery dataset name",
+        ),
+        ConfigField(
+            name="project",
+            label="Project",
+            type="text",
+            required=True,
+            placeholder="my-gcp-project",
+            description="Google Cloud project ID",
+        ),
+        ConfigField(
+            name="location",
+            label="Location",
+            type="text",
+            required=True,
+            placeholder="US",
+            description="BigQuery location",
+        ),
+        ConfigField(
+            name="credentials",
+            label="Credentials",
+            type="text",
+            required=False,
+            default=None,
+            description="Optional Google Cloud credentials object passed directly to the toolkit",
+        ),
+        ConfigField(
+            name="list_tables",
+            label="List Tables",
+            type="boolean",
+            required=False,
+            default=True,
+        ),
+        ConfigField(
+            name="describe_table",
+            label="Describe Table",
+            type="boolean",
+            required=False,
+            default=True,
+        ),
+        ConfigField(
+            name="run_sql_query",
+            label="Run SQL Query",
+            type="boolean",
+            required=False,
+            default=True,
+        ),
+        ConfigField(
+            name="all",
+            label="All",
+            type="boolean",
+            required=False,
+            default=False,
+        ),
+    ],
+    dependencies=["google-cloud-bigquery"],
+    docs_url="https://docs.agno.com/tools/toolkits/others/google_bigquery",
+    helper_text="Configure dataset, project, and location explicitly. If the toolkit needs credentials, pass them explicitly through saved config or a credentials object.",
+    function_names=("describe_table", "list_tables", "run_sql_query"),
+)
+def google_bigquery_tools() -> type[GoogleBigQueryTools]:
+    """Return Google BigQuery tools for data analytics."""
+    from agno.tools.google.bigquery import GoogleBigQueryTools
+
+    return GoogleBigQueryTools

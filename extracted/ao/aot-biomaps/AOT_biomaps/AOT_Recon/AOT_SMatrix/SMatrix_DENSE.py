@@ -96,7 +96,7 @@ class SMatrix_DENSE:
 
     def _check_gpu_available(self) -> bool:
         """Check if GPU operations are available."""
-        if self.device != 'gpu':
+        if not isinstance(self.device, str) or "gpu" not in self.device:
             return False
         if not CUPY_AVAILABLE:
             warnings.warn("CuPy not available. Falling back to CPU.")
@@ -117,15 +117,16 @@ class SMatrix_DENSE:
                     "Falling back to CPU implementation."
                 )
                 self.device = 'cpu'
-                return
-            
+                return    
             try:
-                # Read CUDA source code
-                with open(self.cuda_source_path, 'r', encoding='utf-8') as f:
+                with open(self.cuda_source_path, 'r') as f:
                     cuda_source = f.read()
+
+                SMatrix_DENSE._compiled_module = cp.RawModule(
+                    code=cuda_source,
+                    options=('--std=c++11', '-use_fast_math')
+                )
                 
-                # Compile with CuPy (uses cache automatically)
-                SMatrix_DENSE._compiled_module = cp.cuda.compile_with_cache(cuda_source)
                 
             except Exception as e:
                 warnings.warn(f"Failed to compile CUDA module: {e}. Falling back to CPU.")
@@ -284,7 +285,7 @@ class SMatrix_DENSE:
         """
         from AOT_biomaps.AOT_Recon.ReconEnums import PreconditionerType
         
-        if preconditioner_type == PreconditionerType.NONE or preconditioner_type == 'none':
+        if preconditioner_type == PreconditionerType.NONE:
             self.preconditioner = None
             self.preconditioner_inv = None
             self.preconditioner_gpu = None

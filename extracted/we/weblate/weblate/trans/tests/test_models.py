@@ -4,12 +4,14 @@
 
 """Test for translation models."""
 
+import importlib
 import os
 from contextlib import ExitStack
 from datetime import timedelta
 from pathlib import Path
 from unittest.mock import patch
 
+from django.apps import apps
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -17,16 +19,18 @@ from django.test import TestCase
 from django.test.utils import override_settings
 from django.utils import timezone
 from django.utils.translation import activate
+from translate.storage.base import ParseError
 from translate.storage.fluent import FluentContentError
 
 from weblate.auth.models import Group, User
 from weblate.checks.models import Check
 from weblate.lang.models import Language
 from weblate.trans.actions import ActionEvents
-from weblate.trans.exceptions import SuggestionSimilarToTranslationError
+from weblate.trans.exceptions import FileParseError, SuggestionSimilarToTranslationError
 from weblate.trans.models import (
     Announcement,
     AutoComponentList,
+    Category,
     Change,
     Comment,
     Component,
@@ -47,7 +51,6 @@ from weblate.trans.tests.utils import (
     create_test_user,
     fixup_languages_seq,
 )
-from weblate.utils.django_hacks import immediate_on_commit, immediate_on_commit_leave
 from weblate.utils.files import remove_tree
 from weblate.utils.state import (
     STATE_APPROVED,
@@ -57,8 +60,9 @@ from weblate.utils.state import (
     STATE_READONLY,
     STATE_TRANSLATED,
 )
-from weblate.utils.stats import GlobalStats
+from weblate.utils.stats import CategoryLanguage, GlobalStats, ProjectLanguage
 from weblate.utils.version import GIT_VERSION
+from weblate.workspaces.models import Workspace
 
 
 class BaseTestCase(TestCase):
@@ -71,16 +75,6 @@ class BaseTestCase(TestCase):
     def setUpTestData(cls) -> None:
         fixup_languages_seq()
 
-    @classmethod
-    def setUpClass(cls) -> None:
-        super().setUpClass()
-        immediate_on_commit(cls)
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        super().tearDownClass()
-        immediate_on_commit_leave(cls)
-
 
 class BaseLiveServerTestCase(StaticLiveServerTestCase):
     def setUp(self) -> None:
@@ -91,16 +85,6 @@ class BaseLiveServerTestCase(StaticLiveServerTestCase):
     @classmethod
     def setUpTestData(cls) -> None:
         fixup_languages_seq()
-
-    @classmethod
-    def setUpClass(cls) -> None:
-        super().setUpClass()
-        immediate_on_commit(cls)
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        super().tearDownClass()
-        immediate_on_commit_leave(cls)
 
 
 class RepoTestCase(BaseTestCase, RepoTestMixin):
@@ -188,7 +172,10 @@ class ProjectTest(RepoTestCase):
             slug="linked-b",
         )
 
-        with patch.object(Component, "update_alerts", autospec=True) as update_alerts:
+        with (
+            patch.object(Component, "update_alerts", autospec=True) as update_alerts,
+            self.captureOnCommitCallbacks(execute=True),
+        ):
             actual_project_removal(project.pk, None)
 
         self.assertFalse(
@@ -220,8 +207,11 @@ class ProjectTest(RepoTestCase):
                     )
                 original_flush(batch_self)
 
-        with patch.object(
-            RemovalBatch, "flush", autospec=True, side_effect=record_flush
+        with (
+            patch.object(
+                RemovalBatch, "flush", autospec=True, side_effect=record_flush
+            ),
+            self.captureOnCommitCallbacks(execute=True),
         ):
             actual_project_removal(project.pk, None)
 
@@ -269,8 +259,11 @@ class ProjectTest(RepoTestCase):
                     )
                 original_flush(batch_self)
 
-        with patch.object(
-            RemovalBatch, "flush", autospec=True, side_effect=record_flush
+        with (
+            patch.object(
+                RemovalBatch, "flush", autospec=True, side_effect=record_flush
+            ),
+            self.captureOnCommitCallbacks(execute=True),
         ):
             actual_project_removal(project.pk, None)
 
@@ -413,6 +406,40 @@ class ProjectTest(RepoTestCase):
 class TranslationTest(RepoTestCase):
     """Translation testing."""
 
+    def test_store_translate_parse_error_is_not_reported(self) -> None:
+        component = self.create_component()
+        translation = component.translation_set.get(language_code="cs")
+
+        with (
+            patch.object(translation, "load_store", side_effect=ParseError("invalid")),
+            patch("weblate.trans.models.translation.report_error") as report_error,
+            self.assertRaises(FileParseError),
+        ):
+            # pylint: disable-next=pointless-statement
+            translation.store  # noqa: B018
+
+        report_error.assert_not_called()
+
+    def test_store_unexpected_error_is_reported(self) -> None:
+        component = self.create_component()
+        translation = component.translation_set.get(language_code="cs")
+
+        with (
+            patch.object(
+                translation, "load_store", side_effect=ValueError("unexpected")
+            ),
+            patch("weblate.trans.models.translation.report_error") as report_error,
+            self.assertRaises(FileParseError),
+        ):
+            # pylint: disable-next=pointless-statement
+            translation.store  # noqa: B018
+
+        report_error.assert_called_once_with(
+            "Translation parse error",
+            project=component.project,
+            print_tb=True,
+        )
+
     def test_basic(self) -> None:
         component = self.create_component()
         # Verify source translation
@@ -488,8 +515,9 @@ class TranslationTest(RepoTestCase):
         translation = component.translation_set.get(language_code="cs")
         self.assertEqual(translation.stats.all, 4)
         self.assertEqual(translation.stats.all_words, 19)
-        translation.unit_set.all().delete()
-        translation.invalidate_cache()
+        with self.captureOnCommitCallbacks(execute=True):
+            translation.unit_set.all().delete()
+            translation.invalidate_cache()
         self.assertEqual(translation.stats.all, 0)
         self.assertEqual(translation.stats.all_words, 0)
 
@@ -981,7 +1009,8 @@ class SourceUnitTest(ModelTestCase):
         self.assertEqual(self.component.stats.allchecks, 3)
         source = unit.source_unit
         source.extra_flags = f"ignore-{check.name}"
-        source.save()
+        with self.captureOnCommitCallbacks(execute=True):
+            source.save()
         self.assertEqual(Check.objects.count(), 0)
         self.assertEqual(Component.objects.get(pk=self.component.pk).stats.allchecks, 0)
 
@@ -1065,6 +1094,57 @@ class UnitTest(ModelTestCase):
         ).order_by_request({"sort_by": "position,timestamp"}, None)
         self.assertEqual(multiple_ordered_unit.count(), 4)
 
+    def test_order_by_request_language_scope_orders_by_component(self) -> None:
+        category = Category.objects.create(
+            name="Docs", slug="docs", project=self.component.project
+        )
+        Component.objects.filter(pk=self.component.pk).update(
+            category=category, priority=120
+        )
+        high_component = self.create_po(
+            category=category,
+            name="High",
+            locked=True,
+            priority=80,
+            project=self.component.project,
+        )
+        language = Language.objects.get(code="cs")
+        high_translation = high_component.translation_set.get(language=language)
+        high_units = list(high_translation.unit_set.order_by("position"))
+        low_units = list(
+            self.component.translation_set.get(language=language).unit_set.order_by(
+                "position"
+            )
+        )
+        high_priority_unit = high_units[-1]
+        Unit.objects.filter(pk=high_priority_unit.pk).update(priority=200)
+
+        expected_ids = [
+            *(unit.pk for unit in low_units),
+            high_priority_unit.pk,
+            *(unit.pk for unit in high_units if unit.pk != high_priority_unit.pk),
+        ]
+
+        scopes = [
+            ProjectLanguage(self.component.project, language),
+            CategoryLanguage(category, language),
+        ]
+        for scope in scopes:
+            for form_data in (
+                {},
+                {"sort_by": "component,-priority"},
+                {"sort_by": "-component,-priority"},
+            ):
+                ordered_ids = list(
+                    Unit.objects.filter(
+                        translation__component__in=(self.component, high_component),
+                        translation__language=language,
+                    )
+                    .order_by_request(form_data, scope)
+                    .values_list("pk", flat=True)
+                )
+                self.assertEqual(ordered_ids, expected_ids)
+
     def test_get_max_length_no_pk(self) -> None:
         unit = Unit.objects.filter(translation__language_code="cs")[0]
         unit.pk = False
@@ -1130,19 +1210,27 @@ class AnnouncementTest(ModelTestCase):
     def setUp(self) -> None:
         super().setUp()
         self.second_project = self.create_project("Other", "other")
-        Announcement.objects.create(
-            language=Language.objects.get(code="cs"), message="test cs"
-        )
-        Announcement.objects.create(
-            language=Language.objects.get(code="de"), message="test de"
-        )
+        self.czech = Language.objects.get(code="cs")
+        self.german = Language.objects.get(code="de")
+        Announcement.objects.create(language=self.czech, message="test cs")
+        Announcement.objects.create(language=self.german, message="test de")
         Announcement.objects.create(
             project=self.second_project,
-            language=Language.objects.get(code="cs"),
+            language=self.czech,
             message="test other cs",
         )
         Announcement.objects.create(
             project=self.component.project, message="test project"
+        )
+        Announcement.objects.create(
+            project=self.component.project,
+            language=self.czech,
+            message="test project cs",
+        )
+        Announcement.objects.create(
+            project=self.component.project,
+            language=self.german,
+            message="test project de",
         )
         Announcement.objects.create(
             component=self.component,
@@ -1167,6 +1255,28 @@ class AnnouncementTest(ModelTestCase):
             "test project",
         )
 
+    def test_contextfilter_project_language(self) -> None:
+        self.assertCountEqual(
+            [
+                announcement.message
+                for announcement in Announcement.objects.context_filter(
+                    project=self.component.project,
+                    language=self.czech,
+                )
+            ],
+            ["test project", "test project cs"],
+        )
+        self.assertCountEqual(
+            [
+                announcement.message
+                for announcement in Announcement.objects.context_filter(
+                    project=self.component.project,
+                    language=self.german,
+                )
+            ],
+            ["test project", "test project de"],
+        )
+
     def test_contextfilter_category(self) -> None:
         category = self.create_category(self.component.project)
         self.component.category = category
@@ -1175,6 +1285,16 @@ class AnnouncementTest(ModelTestCase):
         Announcement.objects.create(
             category=category,
             message="test category",
+        )
+        Announcement.objects.create(
+            category=category,
+            language=self.czech,
+            message="test category cs",
+        )
+        Announcement.objects.create(
+            category=category,
+            language=self.german,
+            message="test category de",
         )
 
         self.assertCountEqual(
@@ -1185,6 +1305,40 @@ class AnnouncementTest(ModelTestCase):
                 )
             ],
             ["test project"],
+        )
+        self.assertCountEqual(
+            [
+                announcement.message
+                for announcement in Announcement.objects.context_filter(
+                    component=self.component,
+                    language=self.czech,
+                )
+            ],
+            [
+                "test cs",
+                "test project",
+                "test project cs",
+                "test component",
+                "test category",
+                "test category cs",
+            ],
+        )
+        self.assertCountEqual(
+            [
+                announcement.message
+                for announcement in Announcement.objects.context_filter(
+                    component=self.component,
+                    language=self.german,
+                )
+            ],
+            [
+                "test de",
+                "test project",
+                "test project de",
+                "test component",
+                "test category",
+                "test category de",
+            ],
         )
         self.assertCountEqual(
             [
@@ -1215,30 +1369,44 @@ class AnnouncementTest(ModelTestCase):
         )
 
     def test_contextfilter_component(self) -> None:
-        self.verify_filter(
-            Announcement.objects.context_filter(component=self.component), 2
+        self.assertCountEqual(
+            [
+                announcement.message
+                for announcement in Announcement.objects.context_filter(
+                    component=self.component
+                )
+            ],
+            ["test project", "test component"],
         )
 
     def test_contextfilter_translation(self) -> None:
-        self.verify_filter(
-            Announcement.objects.context_filter(
-                component=self.component, language=Language.objects.get(code="cs")
-            ),
-            3,
+        self.assertCountEqual(
+            [
+                announcement.message
+                for announcement in Announcement.objects.context_filter(
+                    component=self.component, language=self.czech
+                )
+            ],
+            ["test cs", "test project", "test project cs", "test component"],
+        )
+        self.assertCountEqual(
+            [
+                announcement.message
+                for announcement in Announcement.objects.context_filter(
+                    component=self.component, language=self.german
+                )
+            ],
+            ["test de", "test project", "test project de", "test component"],
         )
 
     def test_contextfilter_language(self) -> None:
         self.verify_filter(
-            Announcement.objects.context_filter(
-                language=Language.objects.get(code="cs")
-            ),
+            Announcement.objects.context_filter(language=self.czech),
             1,
             "test cs",
         )
         self.verify_filter(
-            Announcement.objects.context_filter(
-                language=Language.objects.get(code="de")
-            ),
+            Announcement.objects.context_filter(language=self.german),
             1,
             "test de",
         )
@@ -1246,6 +1414,108 @@ class AnnouncementTest(ModelTestCase):
 
 class ChangeTest(ModelTestCase):
     """Test(s) for Change model."""
+
+    def test_fixup_references_inherits_project_workspace(self) -> None:
+        workspace = Workspace.objects.create(name="Change workspace")
+        Project.objects.filter(pk=self.component.project_id).update(workspace=workspace)
+
+        project = Project.objects.get(pk=self.component.project_id)
+        component = Component.objects.select_related("project__workspace").get(
+            pk=self.component.pk
+        )
+        translation = Translation.objects.select_related(
+            "component__project__workspace", "language"
+        ).get(component=component, language_code="cs")
+        unit = Unit.objects.select_related(
+            "translation__component__project__workspace",
+            "translation__language",
+        ).filter(translation=translation)[0]
+
+        for change in (
+            Change(project=project),
+            Change(component=component),
+            Change(translation=translation),
+            Change(unit=unit),
+        ):
+            self.assertEqual(change.workspace_id, workspace.pk)
+
+    def test_existing_change_keeps_workspace_after_project_move(self) -> None:
+        original = Workspace.objects.create(name="Original change workspace")
+        target = Workspace.objects.create(name="Target change workspace")
+        project = self.component.project
+        Project.objects.filter(pk=project.pk).update(workspace=original)
+        project.refresh_from_db()
+
+        change = Change.objects.create(
+            project=project, action=ActionEvents.CREATE_PROJECT
+        )
+
+        project.workspace = target
+        project.save(update_fields=["workspace"])
+        change.refresh_from_db()
+
+        self.assertEqual(change.workspace_id, original.pk)
+
+    def test_workspace_last_changes_includes_project_changes_for_superuser(
+        self,
+    ) -> None:
+        workspace = Workspace.objects.create(name="Change workspace")
+        project = self.component.project
+        Project.objects.filter(pk=project.pk).update(workspace=workspace)
+        project.refresh_from_db()
+        user = User.objects.create_user("history", "history@example.com", "history")
+        user.is_superuser = True
+        user.save(update_fields=["is_superuser"])
+
+        workspace_change = Change.objects.create(
+            workspace=workspace, action=ActionEvents.CREATE_PROJECT
+        )
+        project_change = Change.objects.create(
+            project=project, action=ActionEvents.LOCK
+        )
+
+        changes = Change.objects.last_changes(user, workspace=workspace)
+
+        self.assertIn(workspace_change, changes)
+        self.assertIn(project_change, changes)
+
+    def test_change_workspace_backfill_migration(self) -> None:
+        migration = importlib.import_module(
+            "weblate.trans.migrations.0088_change_workspace_backfill"
+        )
+        workspace = Workspace.objects.create(name="Backfilled change workspace")
+        existing = Workspace.objects.create(name="Existing change workspace")
+        project = self.component.project
+        Project.objects.filter(pk=project.pk).update(workspace=workspace)
+        project.refresh_from_db()
+        Change.objects.all().delete()
+
+        backfilled = Change.objects.create(
+            project=project, action=ActionEvents.CREATE_PROJECT
+        )
+        kept = Change.objects.create(project=project, action=ActionEvents.LOCK)
+        standalone = Change.objects.create(action=ActionEvents.CREATE_PROJECT)
+        standalone_project = self.create_project(
+            name="Standalone backfill project",
+            slug="standalone-backfill-project",
+        )
+        standalone_project_change = Change.objects.create(
+            project=standalone_project,
+            action=ActionEvents.CREATE_PROJECT,
+        )
+        Change.objects.filter(pk=backfilled.pk).update(workspace=None)
+        Change.objects.filter(pk=kept.pk).update(workspace=existing)
+
+        migration.backfill_change_workspace(apps, None)
+
+        backfilled.refresh_from_db()
+        kept.refresh_from_db()
+        standalone.refresh_from_db()
+        standalone_project_change.refresh_from_db()
+        self.assertEqual(backfilled.workspace_id, workspace.pk)
+        self.assertEqual(kept.workspace_id, existing.pk)
+        self.assertIsNone(standalone.workspace_id)
+        self.assertIsNone(standalone_project_change.workspace_id)
 
     def test_day_filtering(self) -> None:
         Change.objects.all().delete()

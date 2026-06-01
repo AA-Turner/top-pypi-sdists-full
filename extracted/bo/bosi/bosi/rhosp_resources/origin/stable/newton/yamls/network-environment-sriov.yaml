@@ -1,0 +1,73 @@
+# Enable the creation of Neutron networks for isolated Overcloud
+# traffic and configure each role to assign ports (related
+# to that role) on these networks.
+# Many networks are disabled by default because they are not used
+# in a typical configuration. Override via parameter_defaults.
+resource_registry:
+  # Network Interface templates to use (these files must exist)
+  OS::TripleO::BlockStorage::Net::SoftwareConfig:
+    /home/stack/templates/network/config/cinder-storage.yaml
+  OS::TripleO::Compute::Net::SoftwareConfig:
+    /home/stack/templates/network/config/compute.yaml
+  OS::TripleO::Controller::Net::SoftwareConfig:
+    /home/stack/templates/network/config/controller.yaml
+  OS::TripleO::ObjectStorage::Net::SoftwareConfig:
+    /home/stack/templates/network/config/swift-storage.yaml
+  OS::TripleO::CephStorage::Net::SoftwareConfig:
+    /home/stack/templates/network/config/ceph-storage.yaml
+  OS::TripleO::NodeUserData: /home/stack/templates/first-boot.yaml
+
+parameter_defaults:
+  # This section is where deployment-specific configuration is done
+  # Customize the IP subnets to match the local environment
+  InternalApiNetCidr: 172.17.0.0/24
+  StorageNetCidr: 172.18.0.0/24
+  StorageMgmtNetCidr: 172.19.0.0/24
+  TenantNetCidr: 172.16.0.0/24
+  ExternalNetCidr: 10.8.65.0/24
+  # CIDR subnet mask length for provisioning network
+  ControlPlaneSubnetCidr: '24'
+  # Customize the IP ranges on each network to use for static IPs and VIPs
+  InternalApiAllocationPools: [{'start': '172.17.0.10', 'end': '172.17.0.30'}]
+  StorageAllocationPools: [{'start': '172.18.0.10', 'end': '172.18.0.30'}]
+  StorageMgmtAllocationPools: [{'start': '172.19.0.10', 'end': '172.19.0.30'}]
+  TenantAllocationPools: [{'start': '172.16.0.10', 'end': '172.16.0.30'}]
+  # Leave room if the external network is also used for floating IPs
+  ExternalAllocationPools: [{'start': '10.8.65.200', 'end': '10.8.65.220'}]
+  # Gateway router for the external network
+  ExternalInterfaceDefaultRoute: 10.8.65.1
+  # Gateway router for the provisioning network (or Undercloud IP)
+  ControlPlaneDefaultRoute: 192.0.2.1
+  # Generally the IP of the Undercloud
+  EC2MetadataIp: 192.0.2.1
+  # Define the DNS servers (maximum 2) for the overcloud nodes
+  DnsServers: ["8.8.8.8","8.8.4.4"]
+  # Customize the VLAN IDs to match the local environment
+  InternalApiNetworkVlanID: 3005
+  StorageNetworkVlanID: 3006
+  StorageMgmtNetworkVlanID: 3007
+  TenantNetworkVlanID: 3008
+  ExternalNetworkVlanID: 10
+  # Set to empty string to enable multiple external networks or VLANs
+  NeutronExternalNetworkBridge: "''"
+  # Customize bonding options, e.g. "mode=4 lacp_rate=1 updelay=1000 miimon=100"
+  BondInterfaceOvsOptions: "mode=4 lacp_rate=1 updelay=1000 miimon=50"
+  NeutronNetworkType: "vlan"
+  NeutronNetworkVLANRanges: ['datacentre:2000:2050','BSN-ACTIVE-1:2051:2100','BSN-ACTIVE-2:2051:2100']
+  NovaPCIPassthrough:
+  - devname: "enp4s0f0"
+    vendor_id: "8086"
+    product_id: "154d"
+    physical_network: "BSN-ACTIVE-1"
+  - devname: "enp4s0f1"
+    vendor_id: "8086"
+    product_id: "154d"
+    physical_network: "BSN-ACTIVE-2"
+  NovaSchedulerAvailableFilters: ["nova.scheduler.filters.all_filters","nova.scheduler.filters.pci_passthrough_filter.PciPassthroughFilter"]
+  NovaSchedulerDefaultFilters: ['AvailabilityZoneFilter','RamFilter','ComputeFilter','ComputeCapabilitiesFilter','ImagePropertiesFilter','ServerGroupAntiAffinityFilter','ServerGroupAffinityFilter', 'PciPassthroughFilter']
+  NeutronSupportedPCIVendorDevs: ['8086:154d','8086:10ed']
+  NeutronPhysicalDevMappings: ["BSN-ACTIVE-1:enp4s0f0","BSN-ACTIVE-2:enp4s0f1"]
+  NeutronSriovNumVFs: ["enp4s0f0:15","enp4s0f1:15"]
+  ComputeKernelArgs: "intel_iommu=on default_hugepagesz=1GB hugepagesz=1G hugepages=12"
+#  NovaVcpuPinSet: ['6-40']
+  HostCpusList: "2,4,6,8,10,12,14,18,20,22,24,26,28,30"

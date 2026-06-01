@@ -1,0 +1,100 @@
+name: oscal-cli-conformance
+
+# v0.1.110: NIST oscal-cli round-trip CI gate.
+#
+# The v0.1.106 schema gate + v0.1.107 FedRAMP rule layer use Python
+# (jsonschema + hand-ported rules). Useful, but our OWN validation
+# of our OWN output is a closed loop. NIST publishes a canonical
+# OSCAL CLI tool (https://github.com/usnistgov/oscal-cli) — a Java
+# reference implementation. Running our labeled OSCAL fixtures through
+# THAT tool is a second-opinion gate: if NIST's own validator accepts
+# our output, that's the strongest external conformance signal short
+# of the GSA fedramp-automation Saxon pipeline.
+#
+# Why strict (gates merges) at v0.1.110:
+# - The labeled fixtures are byte-stable (deterministic generators +
+#   pinned timestamps). A flake in oscal-cli output would surface as
+#   a real regression, not noise.
+# - The principle "quality scaffolding before market expansion" applies:
+#   a strict gate that surfaces incompatibility is more valuable than
+#   a soft one that hides it.
+# - If oscal-cli's accepted-OSCAL-version differs from our pinned 1.0.4
+#   in a future release, we'll see the failure and pin oscal-cli's
+#   version explicitly (the install URL below already pins to a known-
+#   good release).
+#
+# Cost: ~30 seconds per run (Java install + tool download + 2 validate
+# calls). Cached aggressively via setup-java's cache + pinned tarball URL.
+
+on:
+  pull_request:
+    paths:
+      - "evals/fixtures/csp-starter-cfn/oscal/**"
+      - "src/efterlev/primitives/generate/generate_poam_oscal.py"
+      - "src/efterlev/primitives/generate/generate_component_definition_oscal.py"
+      - "scripts/regenerate_oscal_*.py"
+      - ".github/workflows/oscal-cli-conformance.yml"
+  push:
+    branches: [main]
+    paths:
+      - "evals/fixtures/csp-starter-cfn/oscal/**"
+      - "src/efterlev/primitives/generate/generate_poam_oscal.py"
+      - "src/efterlev/primitives/generate/generate_component_definition_oscal.py"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: NIST oscal-cli validate (POA&M + CD)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      # Pinned to NIST oscal-cli v1.0.3 (latest stable on Maven Central as
+      # of 2026-05-14). NIST distributes via Maven Central, NOT GitHub
+      # release assets. Bump when newer versions ship at:
+      # https://repo1.maven.org/maven2/gov/nist/secauto/oscal/tools/oscal-cli/cli-core/
+      OSCAL_CLI_VERSION: "1.0.3"
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Java 17 (Temurin)
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Download + extract NIST oscal-cli from Maven Central
+        run: |
+          set -euo pipefail
+          ver="${OSCAL_CLI_VERSION}"
+          url="https://repo1.maven.org/maven2/gov/nist/secauto/oscal/tools/oscal-cli/cli-core/${ver}/cli-core-${ver}-oscal-cli.zip"
+          echo "downloading $url"
+          curl -fsSL -o oscal-cli.zip "$url"
+          unzip -q oscal-cli.zip -d oscal-cli-dist
+          # Find the launcher (Maven Central layout: bin/oscal-cli).
+          launcher=$(find oscal-cli-dist -type f -name oscal-cli -not -name "*.bat" | head -1)
+          if [ -z "$launcher" ]; then
+            echo "oscal-cli launcher not found in extracted archive" >&2
+            find oscal-cli-dist -type f >&2
+            exit 1
+          fi
+          chmod +x "$launcher"
+          echo "$(dirname "$(realpath "$launcher")")" >> "$GITHUB_PATH"
+
+      - name: Verify oscal-cli is callable
+        run: oscal-cli --version || oscal-cli help
+
+      - name: Validate labeled POA&M fixture
+        run: |
+          set -euo pipefail
+          oscal-cli poam validate \
+            evals/fixtures/csp-starter-cfn/oscal/labeled-poam-v0.1.106.json
+
+      - name: Validate labeled Component-Definition fixture
+        run: |
+          set -euo pipefail
+          oscal-cli component-definition validate \
+            evals/fixtures/csp-starter-cfn/oscal/labeled-component-definition-v0.1.108.json

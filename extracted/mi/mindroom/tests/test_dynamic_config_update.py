@@ -1,0 +1,614 @@
+"""Test dynamic config updates for scheduling with new agents."""
+
+from __future__ import annotations
+
+import tempfile
+from pathlib import Path
+from typing import TYPE_CHECKING
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+import pytest_asyncio
+
+from mindroom.bot import AgentBot
+from mindroom.bot_runtime_view import BotRuntimeState
+from mindroom.config.main import Config
+from mindroom.constants import ROUTER_AGENT_NAME, resolve_runtime_paths
+from mindroom.matrix.client import PermanentMatrixStartupError
+from mindroom.matrix.identity import MatrixID
+from mindroom.orchestrator import _MultiAgentOrchestrator
+from mindroom.scheduling import CronSchedule, ScheduledWorkflow, _parse_workflow_schedule
+from tests.conftest import make_event_cache_mock, make_event_cache_write_coordinator_mock, orchestrator_runtime_paths
+from tests.identity_helpers import persist_entity_accounts
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Callable
+
+
+def _mock_agent_bot(config: Config, *, enable_streaming: bool = True) -> MagicMock:
+    """Build a bot-shaped mock with the runtime state expected by config reloads."""
+    bot = MagicMock(spec=AgentBot)
+    bot.config = config
+    bot.enable_streaming = enable_streaming
+    bot.running = True
+    bot._runtime_view = BotRuntimeState(
+        client=None,
+        config=config,
+        runtime_paths=orchestrator_runtime_paths(Path(tempfile.mkdtemp())),
+        enable_streaming=enable_streaming,
+        orchestrator=None,
+        event_cache=make_event_cache_mock(),
+        event_cache_write_coordinator=make_event_cache_write_coordinator_mock(),
+    )
+    return bot
+
+
+@pytest_asyncio.fixture
+async def orchestrator_factory(
+    tmp_path: Path,
+) -> AsyncIterator[Callable[[], _MultiAgentOrchestrator]]:
+    """Create orchestrators that are always stopped during test teardown."""
+    orchestrators: list[_MultiAgentOrchestrator] = []
+
+    def create() -> _MultiAgentOrchestrator:
+        orchestrator = _MultiAgentOrchestrator(runtime_paths=orchestrator_runtime_paths(tmp_path))
+        orchestrators.append(orchestrator)
+        return orchestrator
+
+    try:
+        yield create
+    finally:
+        for orchestrator in reversed(orchestrators):
+            await orchestrator.stop()
+
+
+class TestDynamicConfigUpdate:
+    """Test that dynamic config updates propagate to all existing bots."""
+
+    @pytest.mark.asyncio
+    async def test_config_update_propagates_to_existing_bots(
+        self,
+        orchestrator_factory: Callable[[], _MultiAgentOrchestrator],
+    ) -> None:
+        """Test that when config is updated, all existing bots get the new config."""
+        # Create initial config with just one agent
+        initial_config = Config(
+            agents={
+                "general": {
+                    "display_name": "GeneralAgent",
+                    "role": "General assistant",
+                    "model": "default",
+                    "rooms": ["lobby"],
+                },
+            },
+            models={"default": {"provider": "test", "id": "test-model"}},
+        )
+
+        # Create orchestrator and set initial config
+        orchestrator = orchestrator_factory()
+        orchestrator.config = initial_config
+
+        # Create a mock bot for the general agent
+        mock_bot = _mock_agent_bot(initial_config)
+        mock_bot.running = True
+        orchestrator.agent_bots["general"] = mock_bot
+
+        # Create updated config with a new agent
+        updated_config = Config(
+            agents={
+                "general": {
+                    "display_name": "GeneralAgent",
+                    "role": "General assistant",
+                    "model": "default",
+                    "rooms": ["lobby"],
+                },
+                "callagent": {
+                    "display_name": "CallAgent",
+                    "role": "Call assistant",
+                    "model": "default",
+                    "rooms": ["lobby"],
+                },
+            },
+            models={"default": {"provider": "test", "id": "test-model"}},
+        )
+        persist_entity_accounts(initial_config, orchestrator.runtime_paths)
+        persist_entity_accounts(updated_config, orchestrator.runtime_paths)
+
+        # Mock the explicit runtime-bound config loader used by update_config().
+        with patch("mindroom.orchestrator.load_config", return_value=updated_config):  # noqa: SIM117
+            # Mock the bot creation and setup methods to avoid actual Matrix operations
+            with (
+                patch("mindroom.orchestrator.create_bot_for_entity") as mock_create_bot,
+                patch("mindroom.orchestration.config_updates._identify_entities_to_restart") as mock_identify,
+                patch.object(orchestrator, "_setup_rooms_and_memberships"),
+            ):
+                mock_identify.return_value = set()  # No entities need restarting
+
+                # Create a mock for the new bot
+                new_bot_mock = _mock_agent_bot(updated_config)
+                new_bot_mock.start.return_value = None
+                new_bot_mock.sync_forever.return_value = None
+                mock_create_bot.return_value = new_bot_mock
+
+                # Call update_config
+                updated = await orchestrator.update_config()
+
+                # Verify the update happened
+                assert updated is True
+                assert orchestrator.config == updated_config
+
+                # Most importantly: verify that the existing bot got the new config
+                assert mock_bot.config == updated_config
+
+                # Verify that the new agent was added
+                assert "callagent" in orchestrator.agent_bots
+                assert orchestrator.agent_bots["callagent"].config == updated_config
+
+    @pytest.mark.asyncio
+    async def test_plugin_change_restarts_existing_bots(
+        self,
+        orchestrator_factory: Callable[[], _MultiAgentOrchestrator],
+    ) -> None:
+        """Plugin entry changes should restart existing bots instead of only swapping hook registries."""
+        initial_config = Config(
+            agents={
+                "general": {
+                    "display_name": "GeneralAgent",
+                    "role": "General assistant",
+                    "model": "default",
+                    "rooms": ["lobby"],
+                },
+            },
+            models={"default": {"provider": "test", "id": "test-model"}},
+            plugins=["./plugins/tool-policy-v1"],
+        )
+        updated_config = Config(
+            agents={
+                "general": {
+                    "display_name": "GeneralAgent",
+                    "role": "General assistant",
+                    "model": "default",
+                    "rooms": ["lobby"],
+                },
+            },
+            models={"default": {"provider": "test", "id": "test-model"}},
+            plugins=["./plugins/tool-policy-v2"],
+        )
+
+        orchestrator = orchestrator_factory()
+        orchestrator.config = initial_config
+        persist_entity_accounts(initial_config, orchestrator.runtime_paths)
+        persist_entity_accounts(updated_config, orchestrator.runtime_paths)
+
+        general_bot = _mock_agent_bot(initial_config)
+        general_bot._set_presence_with_model_info = AsyncMock()
+        router_bot = _mock_agent_bot(initial_config)
+        router_bot._set_presence_with_model_info = AsyncMock()
+        orchestrator.agent_bots = {
+            "general": general_bot,
+            ROUTER_AGENT_NAME: router_bot,
+        }
+
+        with (
+            patch("mindroom.orchestrator.load_config", return_value=updated_config),
+            patch("mindroom.orchestrator.load_plugins", return_value=[]),
+            patch.object(
+                orchestrator,
+                "_restart_changed_entities",
+                new=AsyncMock(return_value=(set(), [], [])),
+            ) as mock_restart,
+            patch.object(orchestrator, "_reconcile_post_update_rooms", new=AsyncMock()),
+            patch.object(orchestrator, "_sync_runtime_support_services", new=AsyncMock()),
+            patch.object(orchestrator, "_emit_config_reloaded", new=AsyncMock()),
+        ):
+            updated = await orchestrator.update_config()
+
+        assert updated is True
+        assert mock_restart.await_args.args[0].entities_to_restart == {"general", ROUTER_AGENT_NAME}
+        assert general_bot.config == initial_config
+        assert router_bot.config == initial_config
+        general_bot._set_presence_with_model_info.assert_not_awaited()
+        router_bot._set_presence_with_model_info.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_scheduling_with_dynamically_added_agent(self, tmp_path: Path) -> None:
+        """Test that scheduling commands work correctly with dynamically added agents."""
+        # Update config to add callagent
+        updated_config = Config(
+            agents={
+                "email_assistant": {
+                    "display_name": "EmailAssistant",
+                    "role": "Email assistant",
+                    "model": "default",
+                    "rooms": ["lobby"],
+                },
+                "callagent": {
+                    "display_name": "CallAgent",
+                    "role": "Call assistant",
+                    "model": "default",
+                    "rooms": ["lobby"],
+                },
+            },
+            models={"default": {"provider": "test", "id": "test-model"}},
+        )
+
+        # Test that parse_workflow_schedule correctly recognizes the new agent
+        request = "whenever i get an email with title urgent, notify @callagent to send me a text"
+        runtime_paths = resolve_runtime_paths(
+            config_path=tmp_path / "config.yaml",
+            storage_path=tmp_path / "mindroom_data",
+            process_env={},
+        )
+        persist_entity_accounts(updated_config, runtime_paths)
+
+        # Mock the AI model to return a proper workflow
+        with patch("mindroom.model_loading.get_model_instance") as mock_get_model:
+            mock_agent = MagicMock()
+            mock_response = MagicMock()
+
+            # Create a mock workflow that references both agents
+            mock_workflow = ScheduledWorkflow(
+                schedule_type="cron",
+                cron_schedule=CronSchedule(minute="*/2", hour="*", day="*", month="*", weekday="*"),
+                message="@email_assistant Check for emails with 'urgent' in the title. If found, @callagent notify the user by sending a text.",
+                description="Monitor for urgent emails and send text notification",
+            )
+            mock_response.content = mock_workflow
+
+            # Make the arun method async
+            async def async_arun(*args, **kwargs) -> MagicMock:  # noqa: ARG001, ANN002, ANN003
+                return mock_response
+
+            mock_agent.arun = async_arun
+
+            # Create a mock model that returns our mock agent
+            mock_model = MagicMock()
+            mock_get_model.return_value = mock_model
+
+            with patch("mindroom.scheduling.Agent") as mock_agent_class:
+                mock_agent_class.return_value = mock_agent
+
+                # Parse with the updated config
+                result = await _parse_workflow_schedule(
+                    request,
+                    updated_config,
+                    runtime_paths,
+                    available_responders=[
+                        MatrixID(username="email_assistant", domain="localhost"),
+                        MatrixID(username="callagent", domain="localhost"),
+                    ],
+                )
+
+                # Verify the workflow was parsed correctly and includes both agents
+                assert hasattr(result, "message")
+                assert "@email_assistant" in result.message
+                assert "@callagent" in result.message
+                assert result.description == "Monitor for urgent emails and send text notification"
+
+    @pytest.mark.asyncio
+    async def test_defaults_streaming_toggle_updates_existing_bots_without_restart(
+        self,
+        orchestrator_factory: Callable[[], _MultiAgentOrchestrator],
+    ) -> None:
+        """Changing defaults.enable_streaming should update existing bots on config reload."""
+        initial_config = Config(
+            agents={
+                "general": {
+                    "display_name": "GeneralAgent",
+                    "role": "General assistant",
+                    "model": "default",
+                    "rooms": ["lobby"],
+                },
+            },
+            models={"default": {"provider": "test", "id": "test-model"}},
+            defaults={"enable_streaming": True},
+        )
+        updated_config = Config(
+            agents={
+                "general": {
+                    "display_name": "GeneralAgent",
+                    "role": "General assistant",
+                    "model": "default",
+                    "rooms": ["lobby"],
+                },
+            },
+            models={"default": {"provider": "test", "id": "test-model"}},
+            defaults={"enable_streaming": False},
+        )
+
+        orchestrator = orchestrator_factory()
+        orchestrator.config = initial_config
+
+        mock_bot = _mock_agent_bot(initial_config)
+        orchestrator.agent_bots["general"] = mock_bot
+        router_bot = _mock_agent_bot(initial_config)
+        orchestrator.agent_bots[ROUTER_AGENT_NAME] = router_bot
+
+        with (
+            patch("mindroom.orchestrator.load_config", return_value=updated_config),
+            patch("mindroom.orchestration.config_updates._identify_entities_to_restart", return_value=set()),
+        ):
+            updated = await orchestrator.update_config()
+
+        # No entities restarted, but existing bots still receive new defaults.
+        assert updated is False
+        assert mock_bot.config == updated_config
+        assert mock_bot.enable_streaming is False
+        assert router_bot.config == updated_config
+        assert router_bot.enable_streaming is False
+
+    @pytest.mark.asyncio
+    async def test_thread_summary_threshold_defaults_update_existing_bots_without_restart(
+        self,
+        orchestrator_factory: Callable[[], _MultiAgentOrchestrator],
+    ) -> None:
+        """Changing thread summary defaults should update existing bots on config reload."""
+        initial_config = Config(
+            agents={
+                "general": {
+                    "display_name": "GeneralAgent",
+                    "role": "General assistant",
+                    "model": "default",
+                    "rooms": ["lobby"],
+                },
+            },
+            models={"default": {"provider": "test", "id": "test-model"}},
+            defaults={
+                "thread_summary_first_threshold": 5,
+                "thread_summary_subsequent_interval": 10,
+            },
+        )
+        updated_config = Config(
+            agents={
+                "general": {
+                    "display_name": "GeneralAgent",
+                    "role": "General assistant",
+                    "model": "default",
+                    "rooms": ["lobby"],
+                },
+            },
+            models={"default": {"provider": "test", "id": "test-model"}},
+            defaults={
+                "thread_summary_first_threshold": 1,
+                "thread_summary_subsequent_interval": 3,
+            },
+        )
+
+        orchestrator = orchestrator_factory()
+        orchestrator.config = initial_config
+
+        mock_bot = _mock_agent_bot(initial_config)
+        orchestrator.agent_bots["general"] = mock_bot
+        router_bot = _mock_agent_bot(initial_config)
+        orchestrator.agent_bots[ROUTER_AGENT_NAME] = router_bot
+
+        with (
+            patch("mindroom.orchestrator.load_config", return_value=updated_config),
+            patch("mindroom.orchestration.config_updates._identify_entities_to_restart", return_value=set()),
+        ):
+            updated = await orchestrator.update_config()
+
+        assert updated is False
+        assert mock_bot.config == updated_config
+        assert mock_bot.config.defaults.thread_summary_first_threshold == 1
+        assert mock_bot.config.defaults.thread_summary_subsequent_interval == 3
+        assert router_bot.config == updated_config
+        assert router_bot.config.defaults.thread_summary_first_threshold == 1
+        assert router_bot.config.defaults.thread_summary_subsequent_interval == 3
+
+    @pytest.mark.asyncio
+    async def test_matrix_room_access_change_reconciles_rooms_without_restarts(
+        self,
+        orchestrator_factory: Callable[[], _MultiAgentOrchestrator],
+    ) -> None:
+        """Changing matrix_room_access should trigger room/invitation reconciliation on config reload."""
+        initial_config = Config(
+            agents={
+                "general": {
+                    "display_name": "GeneralAgent",
+                    "role": "General assistant",
+                    "model": "default",
+                    "rooms": ["lobby"],
+                },
+            },
+            models={"default": {"provider": "test", "id": "test-model"}},
+            matrix_room_access={"mode": "single_user_private"},
+        )
+        updated_config = Config(
+            agents={
+                "general": {
+                    "display_name": "GeneralAgent",
+                    "role": "General assistant",
+                    "model": "default",
+                    "rooms": ["lobby"],
+                },
+            },
+            models={"default": {"provider": "test", "id": "test-model"}},
+            matrix_room_access={
+                "mode": "multi_user",
+                "reconcile_existing_rooms": True,
+            },
+        )
+
+        orchestrator = orchestrator_factory()
+        orchestrator.config = initial_config
+
+        general_bot = _mock_agent_bot(initial_config)
+        orchestrator.agent_bots["general"] = general_bot
+        router_bot = _mock_agent_bot(initial_config)
+        orchestrator.agent_bots[ROUTER_AGENT_NAME] = router_bot
+
+        with (
+            patch("mindroom.orchestrator.load_config", return_value=updated_config),
+            patch("mindroom.orchestration.config_updates._identify_entities_to_restart", return_value=set()),
+            patch.object(orchestrator, "_setup_rooms_and_memberships", new=AsyncMock()) as mock_setup,
+        ):
+            updated = await orchestrator.update_config()
+
+        assert updated is True
+        assert general_bot.config == updated_config
+        assert router_bot.config == updated_config
+        mock_setup.assert_awaited_once_with([])
+
+    @pytest.mark.asyncio
+    async def test_authorization_change_reconciles_invitations_without_restarts(
+        self,
+        orchestrator_factory: Callable[[], _MultiAgentOrchestrator],
+    ) -> None:
+        """Changing authorization should trigger room/invitation reconciliation on config reload."""
+        initial_config = Config(
+            agents={
+                "general": {
+                    "display_name": "GeneralAgent",
+                    "role": "General assistant",
+                    "model": "default",
+                    "rooms": ["lobby"],
+                },
+            },
+            models={"default": {"provider": "test", "id": "test-model"}},
+            authorization={"global_users": []},
+        )
+        updated_config = Config(
+            agents={
+                "general": {
+                    "display_name": "GeneralAgent",
+                    "role": "General assistant",
+                    "model": "default",
+                    "rooms": ["lobby"],
+                },
+            },
+            models={"default": {"provider": "test", "id": "test-model"}},
+            authorization={"global_users": ["@alice:example.com"]},
+        )
+
+        orchestrator = orchestrator_factory()
+        orchestrator.config = initial_config
+
+        general_bot = _mock_agent_bot(initial_config)
+        orchestrator.agent_bots["general"] = general_bot
+        router_bot = _mock_agent_bot(initial_config)
+        orchestrator.agent_bots[ROUTER_AGENT_NAME] = router_bot
+
+        with (
+            patch("mindroom.orchestrator.load_config", return_value=updated_config),
+            patch("mindroom.orchestration.config_updates._identify_entities_to_restart", return_value=set()),
+            patch.object(orchestrator, "_setup_rooms_and_memberships", new=AsyncMock()) as mock_setup,
+        ):
+            updated = await orchestrator.update_config()
+
+        assert updated is True
+        assert general_bot.config == updated_config
+        assert router_bot.config == updated_config
+        mock_setup.assert_awaited_once_with([])
+
+    @pytest.mark.asyncio
+    async def test_mindroom_user_display_name_change_updates_user_account(
+        self,
+        orchestrator_factory: Callable[[], _MultiAgentOrchestrator],
+    ) -> None:
+        """Changing mindroom_user.display_name should refresh the internal user account."""
+        initial_config = Config(
+            agents={
+                "general": {
+                    "display_name": "GeneralAgent",
+                    "role": "General assistant",
+                    "model": "default",
+                    "rooms": ["lobby"],
+                },
+            },
+            models={"default": {"provider": "test", "id": "test-model"}},
+        )
+        updated_config = Config(
+            agents={
+                "general": {
+                    "display_name": "GeneralAgent",
+                    "role": "General assistant",
+                    "model": "default",
+                    "rooms": ["lobby"],
+                },
+            },
+            models={"default": {"provider": "test", "id": "test-model"}},
+            mindroom_user={"username": "mindroom_user", "display_name": "Alice Internal"},
+        )
+
+        orchestrator = orchestrator_factory()
+        orchestrator.config = initial_config
+        persist_entity_accounts(updated_config, orchestrator.runtime_paths)
+        mock_bot = _mock_agent_bot(initial_config)
+        mock_bot._set_presence_with_model_info = AsyncMock()
+        orchestrator.agent_bots["general"] = mock_bot
+        router_bot = _mock_agent_bot(initial_config)
+        router_bot._set_presence_with_model_info = AsyncMock()
+        orchestrator.agent_bots[ROUTER_AGENT_NAME] = router_bot
+
+        with (
+            patch("mindroom.orchestrator.load_config", return_value=updated_config),
+            patch("mindroom.orchestration.config_updates._identify_entities_to_restart", return_value=set()),
+            patch.object(orchestrator, "_ensure_user_account", new=AsyncMock()) as mock_ensure_user,
+            patch.object(orchestrator, "_setup_rooms_and_memberships", new=AsyncMock()) as mock_setup,
+        ):
+            updated = await orchestrator.update_config()
+
+        assert updated is True
+        assert orchestrator.config == updated_config
+        assert router_bot.config == updated_config
+        mock_ensure_user.assert_awaited_once_with(updated_config)
+        mock_setup.assert_awaited_once_with([])
+
+    @pytest.mark.asyncio
+    async def test_mindroom_user_username_change_is_rejected_without_partial_update(
+        self,
+        orchestrator_factory: Callable[[], _MultiAgentOrchestrator],
+    ) -> None:
+        """Reject changing mindroom_user.username and keep the current runtime config."""
+        initial_config = Config(
+            agents={
+                "general": {
+                    "display_name": "GeneralAgent",
+                    "role": "General assistant",
+                    "model": "default",
+                    "rooms": ["lobby"],
+                },
+            },
+            models={"default": {"provider": "test", "id": "test-model"}},
+        )
+        updated_config = Config(
+            agents={
+                "general": {
+                    "display_name": "GeneralAgent",
+                    "role": "General assistant",
+                    "model": "default",
+                    "rooms": ["lobby"],
+                },
+            },
+            models={"default": {"provider": "test", "id": "test-model"}},
+            mindroom_user={"username": "alice_internal", "display_name": "Alice Internal"},
+        )
+
+        orchestrator = orchestrator_factory()
+        orchestrator.config = initial_config
+        mock_bot = _mock_agent_bot(initial_config)
+        mock_bot._set_presence_with_model_info = AsyncMock()
+        orchestrator.agent_bots["general"] = mock_bot
+        router_bot = _mock_agent_bot(initial_config)
+        router_bot._set_presence_with_model_info = AsyncMock()
+        orchestrator.agent_bots[ROUTER_AGENT_NAME] = router_bot
+
+        with (
+            patch("mindroom.orchestrator.load_config", return_value=updated_config),
+            patch("mindroom.orchestration.config_updates._identify_entities_to_restart", return_value=set()),
+            patch.object(
+                orchestrator,
+                "_ensure_user_account",
+                new=AsyncMock(side_effect=PermanentMatrixStartupError("mindroom_user.username cannot be changed")),
+            ) as mock_ensure_user,
+            patch.object(orchestrator, "_setup_rooms_and_memberships", new=AsyncMock()) as mock_setup,
+            pytest.raises(PermanentMatrixStartupError, match="cannot be changed"),
+        ):
+            await orchestrator.update_config()
+
+        assert orchestrator.config == initial_config
+        assert mock_bot.config == initial_config
+        assert router_bot.config == initial_config
+        mock_ensure_user.assert_awaited_once_with(updated_config)
+        mock_setup.assert_not_awaited()

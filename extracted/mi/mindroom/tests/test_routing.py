@@ -1,0 +1,802 @@
+"""Tests for AI routing functionality."""
+
+from __future__ import annotations
+
+import importlib
+import importlib.util
+import tempfile
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, cast
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
+import mindroom.routing
+import mindroom.thread_utils
+from mindroom.agents import describe_agent
+from mindroom.bot import AgentBot
+from mindroom.config.agent import AgentConfig
+from mindroom.config.main import Config
+from mindroom.config.models import ModelConfig, RouterConfig
+from mindroom.entity_resolution import entity_identity_registry, mindroom_user_id
+from mindroom.matrix.identity import MatrixID
+from mindroom.matrix.users import AgentMatrixUser
+from tests.conftest import (
+    TEST_ACCESS_TOKEN,
+    TEST_PASSWORD,
+    bind_runtime_paths,
+    make_visible_message,
+    runtime_paths_for,
+    test_runtime_paths,
+)
+from tests.identity_helpers import persist_entity_accounts
+
+if TYPE_CHECKING:
+    from mindroom.matrix.client import ResolvedVisibleMessage
+
+
+def _runtime_bound_config(config: Config, runtime_root: Path | None = None) -> Config:
+    """Return a runtime-bound config for routing tests."""
+    runtime_paths = test_runtime_paths(runtime_root or Path(tempfile.mkdtemp()))
+    bound_config = bind_runtime_paths(config, runtime_paths)
+    persist_entity_accounts(bound_config, runtime_paths)
+    return bound_config
+
+
+async def suggest_responder_for_message(
+    message: str,
+    agents: list[MatrixID],
+    config: Config,
+    thread_history: list[ResolvedVisibleMessage] | None = None,
+) -> str | None:
+    """Run routing with the test config's bound runtime context."""
+    return await mindroom.routing.suggest_responder_for_message(
+        message,
+        agents,
+        config,
+        runtime_paths_for(config),
+        thread_history,
+    )
+
+
+def check_agent_mentioned(
+    event_source: dict,
+    agent_id: MatrixID | None,
+    config: Config,
+) -> tuple[list[MatrixID], bool, bool]:
+    """Check mentions with the test config's bound runtime context."""
+    return mindroom.thread_utils.check_agent_mentioned(event_source, agent_id, config, runtime_paths_for(config))
+
+
+def _message(
+    sender: str,
+    body: str | None = None,
+    *,
+    content: dict[str, object] | None = None,
+) -> ResolvedVisibleMessage:
+    resolved_content = dict(content or {})
+    resolved_body = body or ""
+    if resolved_body:
+        resolved_content.setdefault("body", resolved_body)
+    return make_visible_message(
+        sender=sender,
+        body=resolved_body,
+        content=resolved_content,
+    )
+
+
+def _has_any_agent_mentions_in_thread(thread_history: list[ResolvedVisibleMessage], config: Config) -> bool:
+    """Check thread mentions with the test config's bound runtime context."""
+    return bool(
+        mindroom.thread_utils.get_all_mentioned_agents_in_thread(thread_history, config, runtime_paths_for(config)),
+    )
+
+
+def has_multiple_non_agent_users_in_thread(thread_history: list[ResolvedVisibleMessage], config: Config) -> bool:
+    """Check multi-human thread participation with the test config's bound runtime context."""
+    return mindroom.thread_utils.has_multiple_non_agent_users_in_thread(
+        thread_history,
+        config,
+        runtime_paths_for(config),
+    )
+
+
+def entity_name_for_sender(sender_id: str, config: Config) -> str | None:
+    """Extract configured agent names with the test config's bound runtime context."""
+    return entity_identity_registry(config, runtime_paths_for(config)).current_entity_name_for_user_id(sender_id)
+
+
+def _agent_bot(*args: object, **kwargs: object) -> AgentBot:
+    """Construct an agent bot with the explicit runtime bound to the test config."""
+    config = kwargs["config"]
+    assert isinstance(config, Config)
+    kwargs["runtime_paths"] = runtime_paths_for(config)
+    return AgentBot(*args, **kwargs)
+
+
+def _agent_description_config() -> Config:
+    """Build a deterministic config for agent description tests."""
+    return _runtime_bound_config(
+        Config(
+            agents={
+                "calculator": AgentConfig(
+                    display_name="Calculator",
+                    role="Solve mathematical problems",
+                    tools=["calculator"],
+                    instructions=["Use the calculator tools"],
+                    rooms=[],
+                ),
+                "general": AgentConfig(
+                    display_name="General",
+                    role="general-purpose assistant",
+                    instructions=["Always provide a clear and helpful answer."],
+                    rooms=[],
+                ),
+            },
+            router=RouterConfig(model="default"),
+        ),
+    )
+
+
+def test_teams_public_seam_exports_status_helpers() -> None:
+    """The declared teams seam should export the fallback status helpers it exposes elsewhere."""
+    teams_module = importlib.import_module("mindroom.teams")
+
+    assert "is_cancelled_run_output" in teams_module.__all__
+    assert "is_errored_run_output" in teams_module.__all__
+
+
+def test_flattened_seams_keep_public_exports_at_the_behavior_layer() -> None:
+    """Curated seam modules should not freeze low-level runtime or prompt-plumbing helpers as public API."""
+    hidden_attrs = {
+        "mindroom.agents": (
+            "create_state_storage",
+            "get_agent_runtime_state_dbs",
+            "build_agent_tool_init_context",
+        ),
+        "mindroom.ai": (
+            "attach_media_to_run_input",
+            "copy_run_input",
+            "cleanup_queued_notice_state",
+            "cached_agent_run",
+            "append_inline_media_fallback_to_run_input",
+            "get_model_instance",
+            "install_queued_message_notice_hook",
+            "queued_message_signal_context",
+            "scrub_queued_notice_session_context",
+        ),
+        "mindroom.teams": ("PreparedMaterializedTeamExecution",),
+    }
+    for module_name, attrs in hidden_attrs.items():
+        module = importlib.import_module(module_name)
+        for attr in attrs:
+            with pytest.raises(AttributeError):
+                getattr(module, attr)
+            assert attr not in getattr(module, "__all__", ())
+
+    model_loading_module = importlib.import_module("mindroom.model_loading")
+    assert callable(model_loading_module.get_model_instance)
+
+
+def test_flattened_seams_reject_legacy_delegation_signature_shims() -> None:
+    """The flattened delegation seam should reject the removed visiting shim at runtime."""
+    config = Config(
+        agents={
+            "alpha": AgentConfig(
+                display_name="Alpha",
+                rooms=[],
+            ),
+        },
+    )
+    agent_policy_module = importlib.import_module("mindroom.agent_policy")
+    agent_policy_get_closure = cast("Any", agent_policy_module.get_agent_delegation_closure)
+    config_get_closure = cast("Any", config.get_agent_delegation_closure)
+
+    with pytest.raises(TypeError, match="visiting"):
+        agent_policy_get_closure("alpha", {}, visiting=set())
+
+    with pytest.raises(TypeError, match="visiting"):
+        config_get_closure("alpha", visiting=set())
+
+
+class TestAIRouting:
+    """Tests for AI routing in multi-agent threads."""
+
+    @pytest.mark.asyncio
+    async def test_suggest_responder_for_message_basic(self) -> None:
+        """Test basic agent suggestion functionality."""
+        # Create config with the agents we're testing
+        config = _runtime_bound_config(
+            Config(
+                agents={
+                    "calculator": AgentConfig(display_name="Calculator", rooms=[]),
+                    "general": AgentConfig(display_name="General", rooms=[]),
+                },
+                router=RouterConfig(model="default"),
+            ),
+        )
+
+        with patch("mindroom.model_loading.get_model_instance"):
+            # Mock the Agent and response
+            mock_agent = AsyncMock()
+            mock_response = MagicMock()
+            mock_response.content = {
+                "entity_name": "calculator",
+                "reasoning": "User is asking about math calculation",
+            }
+            mock_agent.arun.return_value = mock_response
+
+            with patch("mindroom.routing.Agent", return_value=mock_agent):
+                # Create MatrixID objects for agents
+                agents = [
+                    MatrixID(username="mindroom_calculator", domain="localhost"),
+                    MatrixID(username="mindroom_general", domain="localhost"),
+                ]
+                result = await suggest_responder_for_message("What is 2 + 2?", agents, config)
+
+                assert result == "calculator"
+                assert "calculator" in mock_agent.arun.call_args[0][0]
+                assert "general" in mock_agent.arun.call_args[0][0]
+
+    @pytest.mark.asyncio
+    async def test_suggest_responder_uses_router_prompt_override(self) -> None:
+        """Router selection should use the configured prompt template override."""
+        config = _runtime_bound_config(
+            Config(
+                agents={
+                    "calculator": AgentConfig(display_name="Calculator", rooms=[]),
+                    "general": AgentConfig(display_name="General", rooms=[]),
+                },
+                router=RouterConfig(model="default"),
+                prompts={
+                    "ROUTER_AGENT_SELECTION_PROMPT_TEMPLATE": (
+                        "CUSTOM ROUTER\nAgents:\n{agents_info}\nMessage={message}\n"
+                    ),
+                },
+            ),
+        )
+
+        with patch("mindroom.model_loading.get_model_instance"):
+            mock_agent = AsyncMock()
+            mock_response = MagicMock()
+            mock_response.content = {"entity_name": "general", "reasoning": "Custom route"}
+            mock_agent.arun.return_value = mock_response
+
+            with patch("mindroom.routing.Agent", return_value=mock_agent):
+                agents = [
+                    MatrixID(username="mindroom_calculator", domain="localhost"),
+                    MatrixID(username="mindroom_general", domain="localhost"),
+                ]
+                result = await suggest_responder_for_message("Hello", agents, config)
+
+        assert result == "general"
+        assert mock_agent.arun.call_args.args[0].startswith("CUSTOM ROUTER")
+        assert "Message=Hello" in mock_agent.arun.call_args.args[0]
+
+    @pytest.mark.asyncio
+    async def test_suggest_responder_with_thread_context(self) -> None:
+        """Test agent suggestion with thread history."""
+        # Create config with the agents we're testing
+        config = _runtime_bound_config(
+            Config(
+                agents={
+                    "calculator": AgentConfig(display_name="Calculator", rooms=[]),
+                    "finance": AgentConfig(display_name="Finance", rooms=[]),
+                    "general": AgentConfig(display_name="General", rooms=[]),
+                },
+                router=RouterConfig(model="default"),
+            ),
+        )
+        thread_context = [
+            _message("@user:localhost", "I need help with my taxes"),
+            _message("@mindroom_finance:localhost", "I can help with that"),
+        ]
+
+        with patch("mindroom.model_loading.get_model_instance"):
+            mock_agent = AsyncMock()
+            mock_response = MagicMock()
+            mock_response.content = {
+                "entity_name": "finance",
+                "reasoning": "Continuing financial discussion",
+            }
+            mock_agent.arun.return_value = mock_response
+
+            with patch("mindroom.routing.Agent", return_value=mock_agent):
+                # Create MatrixID objects for agents
+                agents = [
+                    MatrixID(username="mindroom_calculator", domain="localhost"),
+                    MatrixID(username="mindroom_finance", domain="localhost"),
+                    MatrixID(username="mindroom_general", domain="localhost"),
+                ]
+                result = await suggest_responder_for_message(
+                    "How do I calculate deductions?",
+                    agents,
+                    config,
+                    thread_context,
+                )
+
+                assert result == "finance"
+                # Check that context was included in prompt
+                prompt = mock_agent.arun.call_args[0][0]
+                assert "taxes" in prompt
+                assert "Previous messages:" in prompt
+
+    @pytest.mark.asyncio
+    async def test_suggest_responder_unavailable_returns_none(self) -> None:
+        """Test that suggesting unavailable agent returns None."""
+        # Create config with the agents we're testing
+        config = _runtime_bound_config(
+            Config(
+                agents={
+                    "calculator": AgentConfig(display_name="Calculator", rooms=[]),
+                    "general": AgentConfig(display_name="General", rooms=[]),
+                },
+                router=RouterConfig(model="default"),
+            ),
+        )
+
+        with patch("mindroom.model_loading.get_model_instance"):
+            mock_agent = AsyncMock()
+            mock_response = MagicMock()
+            # AI suggests an agent not in available list
+            mock_response.content = {
+                "entity_name": "code",  # Not available
+                "reasoning": "User asking about programming",
+            }
+            mock_agent.arun.return_value = mock_response
+
+            with patch("mindroom.routing.Agent", return_value=mock_agent):
+                # Create MatrixID objects for agents
+                agents = [
+                    MatrixID(username="mindroom_calculator", domain="localhost"),
+                    MatrixID(username="mindroom_general", domain="localhost"),
+                ]  # code not available
+                result = await suggest_responder_for_message(
+                    "How do I write a Python function?",
+                    agents,
+                    config,
+                )
+                # Should return None when agent is not available
+                assert result is None
+
+    @pytest.mark.asyncio
+    async def test_suggest_responder_error_handling(self) -> None:
+        """Test error handling in agent suggestion."""
+        # Create config with the agents we're testing
+        config = _runtime_bound_config(
+            Config(
+                agents={
+                    "general": AgentConfig(display_name="General", rooms=[]),
+                },
+                router=RouterConfig(model="default"),
+            ),
+        )
+
+        with patch("mindroom.model_loading.get_model_instance") as mock_model:
+            mock_model.side_effect = Exception("Model error")
+
+            agents = [MatrixID(username="mindroom_general", domain="localhost")]
+            result = await suggest_responder_for_message("Test message", agents, config)
+
+            assert result is None
+
+    @pytest.mark.asyncio
+    async def test_only_router_agent_routes(self, tmp_path: Path) -> None:
+        """Test that only the router agent handles routing."""
+        # Create general agent (not router)
+        agent = AgentMatrixUser(
+            agent_name="general",
+            user_id="@mindroom_general:localhost",
+            display_name="GeneralAgent",
+            password=TEST_PASSWORD,
+            access_token=TEST_ACCESS_TOKEN,
+        )
+
+        config = _runtime_bound_config(Config(router=RouterConfig(model="default")))
+
+        bot = _agent_bot(agent, tmp_path, config=config)
+
+        mock_room = MagicMock()
+        mock_room.users = MagicMock()
+        mock_room.users.keys.return_value = [
+            "@mindroom_calculator:localhost",
+            "@mindroom_general:localhost",
+            "@user:localhost",
+        ]
+
+        mock_event = MagicMock()
+        mock_event.body = "Test message"
+
+        with patch("mindroom.turn_controller.suggest_responder_for_message") as mock_suggest:
+            # Should raise AssertionError since general is not the router agent
+            with pytest.raises(AssertionError):
+                await bot._turn_controller._execute_router_relay(
+                    mock_room,
+                    mock_event,
+                    [],
+                    None,
+                    requester_user_id="@user:localhost",
+                )
+
+            # Should not call routing since it failed the assertion
+            mock_suggest.assert_not_called()
+
+
+class TestThreadUtils:
+    """Test thread utility functions."""
+
+    def setup_method(self) -> None:
+        """Set up test config."""
+        self.config = _runtime_bound_config(
+            Config(
+                agents={
+                    "calculator": AgentConfig(display_name="Calculator", rooms=["#test:example.org"]),
+                    "general": AgentConfig(display_name="General", rooms=["#test:example.org"]),
+                },
+                teams={},
+                room_models={},
+                models={"default": ModelConfig(provider="ollama", id="test-model")},
+                mindroom_user={"username": "mindroom_user", "display_name": "MindRoomUser"},
+            ),
+        )
+
+    def test_has_any_agent_mentions_in_thread_with_mentions(self) -> None:
+        """Test detecting agent mentions in thread."""
+        thread_history = [
+            _message("@user:example.org", "Hello", content={}),
+            _message(
+                "@user:example.org",
+                "@calculator help me",
+                content={"m.mentions": {"user_ids": ["@mindroom_calculator:localhost"]}},
+            ),
+        ]
+
+        assert _has_any_agent_mentions_in_thread(thread_history, self.config) is True
+
+    def test_has_any_agent_mentions_in_thread_no_mentions(self) -> None:
+        """Test thread with no agent mentions."""
+        thread_history = [
+            _message("@user:example.org", "Hello", content={}),
+            _message("@mindroom_calculator:localhost", "Hi there!", content={}),
+        ]
+
+        assert _has_any_agent_mentions_in_thread(thread_history, self.config) is False
+
+    def test_has_any_agent_mentions_in_thread_user_mentions(self) -> None:
+        """Test thread with only user mentions (not agents)."""
+        thread_history = [
+            _message(
+                "@user:example.org",
+                "@friend check this out",
+                content={"m.mentions": {"user_ids": ["@friend:example.org"]}},
+            ),
+        ]
+
+        assert _has_any_agent_mentions_in_thread(thread_history, self.config) is False
+
+    def test_entity_name_rejects_unconfigured(self) -> None:
+        """Test that unconfigured agents are not recognized."""
+        # This should return None because "fake_agent" is not in config.yaml
+        assert entity_name_for_sender("@mindroom_fake_agent:localhost", self.config) is None
+
+        # But real agents should work
+        assert entity_name_for_sender("@mindroom_calculator:localhost", self.config) == "calculator"
+
+        # Regular users should still be rejected
+        assert (
+            entity_name_for_sender(mindroom_user_id(self.config, runtime_paths_for(self.config)), self.config) is None
+        )
+        assert entity_name_for_sender("@regular_user:localhost", self.config) is None
+
+    def test_has_multiple_non_agent_users_in_thread_true(self) -> None:
+        """Detect more than one non-agent user posting in a thread."""
+        history = [
+            _message("@alice:localhost", "hello"),
+            _message("@bob:localhost", "hi"),
+        ]
+        assert has_multiple_non_agent_users_in_thread(history, self.config) is True
+
+    def test_has_multiple_non_agent_users_in_thread_false(self) -> None:
+        """Do not trigger when only one non-agent user has posted."""
+        history = [
+            _message("@alice:localhost", "hello"),
+            _message("@mindroom_calculator:localhost", "result"),
+        ]
+        assert has_multiple_non_agent_users_in_thread(history, self.config) is False
+
+    def test_has_multiple_non_agent_users_in_thread_ignores_agents(self) -> None:
+        """Agent senders should not count toward the non-agent tally."""
+        history = [
+            _message("@alice:localhost", "help"),
+            _message("@mindroom_calculator:localhost", "sure"),
+            _message("@mindroom_general:localhost", "me too"),
+        ]
+        assert has_multiple_non_agent_users_in_thread(history, self.config) is False
+
+    def test_check_agent_mentioned_detects_non_agent_mentions(self) -> None:
+        """Tagging a non-agent user sets has_non_agent_mentions."""
+        event_source = {
+            "content": {
+                "m.mentions": {"user_ids": ["@bob:localhost"]},
+            },
+        }
+        agent_id = MatrixID.from_username("mindroom_calculator", "localhost")
+        _, am_i_mentioned, has_non_agent = check_agent_mentioned(event_source, agent_id, self.config)
+        assert am_i_mentioned is False
+        assert has_non_agent is True
+
+    def test_check_agent_mentioned_no_non_agent_mentions(self) -> None:
+        """Tagging only agents does not set has_non_agent_mentions."""
+        event_source = {
+            "content": {
+                "m.mentions": {"user_ids": ["@mindroom_calculator:localhost"]},
+            },
+        }
+        agent_id = MatrixID.from_username("mindroom_calculator", "localhost")
+        _, am_i_mentioned, has_non_agent = check_agent_mentioned(event_source, agent_id, self.config)
+        assert am_i_mentioned is True
+        assert has_non_agent is False
+
+    def test_bot_accounts_excluded_from_multi_human_detection(self) -> None:
+        """Bot accounts listed in config should not count as non-agent users."""
+        config = _runtime_bound_config(
+            Config(
+                agents={
+                    "calculator": AgentConfig(display_name="Calculator", rooms=["#test:example.org"]),
+                    "general": AgentConfig(display_name="General", rooms=["#test:example.org"]),
+                },
+                models={"default": ModelConfig(provider="ollama", id="test-model")},
+                bot_accounts=["@telegram:localhost"],
+            ),
+        )
+        history = [
+            _message("@alice:localhost", "hello"),
+            _message("@telegram:localhost", "relayed message"),
+        ]
+        assert has_multiple_non_agent_users_in_thread(history, config) is False
+
+    def test_bot_accounts_not_excluded_when_unlisted(self) -> None:
+        """Without bot_accounts config, bridge bots count as non-agent users."""
+        history = [
+            _message("@alice:localhost", "hello"),
+            _message("@telegram:localhost", "relayed message"),
+        ]
+        assert has_multiple_non_agent_users_in_thread(history, self.config) is True
+
+    def test_check_agent_mentioned_bot_account_not_flagged_as_non_agent(self) -> None:
+        """Mentioning a bot_account should not set has_non_agent_mentions."""
+        config = _runtime_bound_config(
+            Config(
+                agents={
+                    "calculator": AgentConfig(display_name="Calculator", rooms=["#test:example.org"]),
+                },
+                models={"default": ModelConfig(provider="ollama", id="test-model")},
+                bot_accounts=["@telegram:localhost"],
+            ),
+        )
+        event_source = {
+            "content": {
+                "m.mentions": {"user_ids": ["@telegram:localhost"]},
+            },
+        }
+        agent_id = MatrixID.from_username("mindroom_calculator", "localhost")
+        _, _, has_non_agent = check_agent_mentioned(event_source, agent_id, config)
+        assert has_non_agent is False
+
+    def test_check_agent_mentioned_mixed_bot_and_human_mentions(self) -> None:
+        """Mentioning both a bot_account and a human should still flag non-agent."""
+        config = _runtime_bound_config(
+            Config(
+                agents={
+                    "calculator": AgentConfig(display_name="Calculator", rooms=["#test:example.org"]),
+                },
+                models={"default": ModelConfig(provider="ollama", id="test-model")},
+                bot_accounts=["@telegram:localhost"],
+            ),
+        )
+        event_source = {
+            "content": {
+                "m.mentions": {"user_ids": ["@telegram:localhost", "@bob:localhost"]},
+            },
+        }
+        agent_id = MatrixID.from_username("mindroom_calculator", "localhost")
+        _, _, has_non_agent = check_agent_mentioned(event_source, agent_id, config)
+        assert has_non_agent is True
+
+
+class TestBridgeMentionFallback:
+    """Tests for detecting mentions from bridged messages (HTML pills fallback)."""
+
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
+        self.config = _runtime_bound_config(
+            Config(
+                agents={
+                    "calculator": AgentConfig(display_name="Calculator", rooms=["#test:example.org"]),
+                    "general": AgentConfig(display_name="General", rooms=["#test:example.org"]),
+                },
+                models={"default": ModelConfig(provider="ollama", id="test-model")},
+            ),
+        )
+
+    def test_html_pill_agent_mention(self) -> None:
+        """Bridge HTML pill mentioning an agent is detected."""
+        event_source = {
+            "content": {
+                "body": "@mindroom_calculator do the math",
+                "formatted_body": '<a href="https://matrix.to/#/@mindroom_calculator:localhost">@mindroom_calculator</a> do the math',
+            },
+        }
+        agent_id = MatrixID.from_username("mindroom_calculator", "localhost")
+        mentioned_agents, am_i_mentioned, _ = check_agent_mentioned(event_source, agent_id, self.config)
+        assert am_i_mentioned is True
+        assert len(mentioned_agents) == 1
+        assert mentioned_agents[0].full_id == "@mindroom_calculator:localhost"
+
+    def test_body_only_alias_mention_uses_persisted_current_id(self) -> None:
+        """Raw configured aliases in visible bodies resolve to persisted entity IDs."""
+        runtime_paths = runtime_paths_for(self.config)
+        persist_entity_accounts(self.config, runtime_paths, usernames={"general": "actual_general_live"})
+        agent_id = entity_identity_registry(self.config, runtime_paths).current_id("general")
+        event_source = {
+            "content": {
+                "body": "@general can you help?",
+            },
+        }
+
+        mentioned_agents, am_i_mentioned, has_non_agent = check_agent_mentioned(event_source, agent_id, self.config)
+
+        assert am_i_mentioned is True
+        assert has_non_agent is False
+        assert [agent.full_id for agent in mentioned_agents] == ["@actual_general_live:localhost"]
+
+    def test_body_only_generated_localpart_does_not_resolve_after_username_drift(self) -> None:
+        """Stale generated localparts are not inbound aliases after persisted username drift."""
+        runtime_paths = runtime_paths_for(self.config)
+        persist_entity_accounts(self.config, runtime_paths, usernames={"general": "actual_general_live"})
+        agent_id = entity_identity_registry(self.config, runtime_paths).current_id("general")
+        event_source = {
+            "content": {
+                "body": "@mindroom_general can you help?",
+            },
+        }
+
+        mentioned_agents, am_i_mentioned, has_non_agent = check_agent_mentioned(event_source, agent_id, self.config)
+
+        assert mentioned_agents == []
+        assert am_i_mentioned is False
+        assert has_non_agent is False
+
+    def test_html_pill_non_agent_mention(self) -> None:
+        """Bridge HTML pill mentioning a non-agent sets has_non_agent_mentions."""
+        event_source = {
+            "content": {
+                "body": "@alice hey",
+                "formatted_body": '<a href="https://matrix.to/#/@alice:localhost">@alice</a> hey',
+            },
+        }
+        agent_id = MatrixID.from_username("mindroom_calculator", "localhost")
+        _, am_i_mentioned, has_non_agent = check_agent_mentioned(event_source, agent_id, self.config)
+        assert am_i_mentioned is False
+        assert has_non_agent is True
+
+    def test_m_mentions_takes_precedence_over_pills(self) -> None:
+        """When m.mentions is present, formatted_body pills are not parsed."""
+        event_source = {
+            "content": {
+                "m.mentions": {"user_ids": ["@mindroom_general:localhost"]},
+                "formatted_body": '<a href="https://matrix.to/#/@mindroom_calculator:localhost">@mindroom_calculator</a>',
+            },
+        }
+        agent_id = MatrixID.from_username("mindroom_calculator", "localhost")
+        mentioned_agents, am_i_mentioned, _ = check_agent_mentioned(event_source, agent_id, self.config)
+        # m.mentions wins — only general is mentioned, not calculator
+        assert am_i_mentioned is False
+        assert len(mentioned_agents) == 1
+        assert mentioned_agents[0].full_id == "@mindroom_general:localhost"
+
+    def test_html_pill_in_thread_history(self) -> None:
+        """Bridge pills in thread history are detected by has_any_agent_mentions_in_thread."""
+        thread_history = [
+            _message(
+                "@alice:localhost",
+                content={
+                    "body": "@mindroom_calculator compute",
+                    "formatted_body": '<a href="https://matrix.to/#/@mindroom_calculator:localhost">@mindroom_calculator</a> compute',
+                },
+            ),
+        ]
+        assert _has_any_agent_mentions_in_thread(thread_history, self.config) is True
+
+    def test_no_pills_no_mentions(self) -> None:
+        """No m.mentions and no pills means no mentions detected."""
+        event_source = {
+            "content": {
+                "body": "just a normal message",
+            },
+        }
+        agent_id = MatrixID.from_username("mindroom_calculator", "localhost")
+        mentioned_agents, am_i_mentioned, has_non_agent = check_agent_mentioned(event_source, agent_id, self.config)
+        assert mentioned_agents == []
+        assert am_i_mentioned is False
+        assert has_non_agent is False
+
+    def test_multiple_pills(self) -> None:
+        """Multiple HTML pills in one message are all detected."""
+        event_source = {
+            "content": {
+                "formatted_body": (
+                    '<a href="https://matrix.to/#/@mindroom_calculator:localhost">calc</a> and '
+                    '<a href="https://matrix.to/#/@mindroom_general:localhost">general</a>'
+                ),
+            },
+        }
+        agent_id = MatrixID.from_username("mindroom_calculator", "localhost")
+        mentioned_agents, am_i_mentioned, _ = check_agent_mentioned(event_source, agent_id, self.config)
+        assert am_i_mentioned is True
+        assert len(mentioned_agents) == 2
+
+    def test_single_quote_pills(self) -> None:
+        """Mautrix bridges use single-quoted href attributes."""
+        event_source = {
+            "content": {
+                "formatted_body": "<a href='https://matrix.to/#/@mindroom_calculator:localhost'>@mindroom_calculator</a> compute",
+            },
+        }
+        agent_id = MatrixID.from_username("mindroom_calculator", "localhost")
+        mentioned_agents, am_i_mentioned, _ = check_agent_mentioned(event_source, agent_id, self.config)
+        assert am_i_mentioned is True
+        assert len(mentioned_agents) == 1
+
+
+class TestAgentDescription:
+    """Test agent description functionality."""
+
+    def test_describe_agent_with_tools(self) -> None:
+        """Test describing an agent with tools."""
+        config = _agent_description_config()
+        description = describe_agent("calculator", config)
+
+        assert "calculator" in description
+        assert "Solve mathematical problems" in description
+        assert "Tools: calculator" in description
+        assert "Use the calculator tools" in description
+
+    def test_describe_agent_without_tools(self) -> None:
+        """Test describing an agent without tools."""
+        config = _agent_description_config()
+        config.defaults.tools = []
+        description = describe_agent("general", config)
+
+        assert "general" in description
+        assert "general-purpose assistant" in description
+        assert "Tools:" not in description  # No tools section
+        assert "Always provide a clear" in description
+
+    def test_describe_agent_includes_default_tools(self) -> None:
+        """Agent descriptions include defaults.tools when agent has no local tools."""
+        config = _agent_description_config()
+        config.defaults.tools = ["scheduler"]
+        config.agents["general"].tools = []
+
+        description = describe_agent("general", config)
+
+        assert "Tools: scheduler" in description
+
+    def test_describe_agent_can_opt_out_of_default_tools(self) -> None:
+        """Agent descriptions omit defaults.tools when include_default_tools is false."""
+        config = _agent_description_config()
+        config.defaults.tools = ["scheduler"]
+        config.agents["general"].tools = []
+        config.agents["general"].include_default_tools = False
+
+        description = describe_agent("general", config)
+
+        assert "Tools:" not in description
+
+    def test_describe_unknown_agent(self) -> None:
+        """Test describing an unknown agent."""
+        config = _agent_description_config()
+        description = describe_agent("nonexistent", config)
+
+        assert description == "nonexistent: Unknown agent or team"

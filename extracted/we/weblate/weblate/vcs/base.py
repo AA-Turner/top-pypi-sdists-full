@@ -474,15 +474,15 @@ class Repository:
         if not fullcmd:
             args = [cls._cmd, *list(args)]
         text_cmd = " ".join(args)
-        try:
-            # These are mutually exclusive, gevent actually checks
-            # for their presence, not a avalue
-            kwargs: SubprocessArgs = {}
-            if stdin is None:
-                kwargs["stdin"] = subprocess.PIPE
-            else:
-                kwargs["input"] = stdin
+        # These are mutually exclusive, gevent actually checks
+        # for their presence, not a value.
+        kwargs: SubprocessArgs = {}
+        if stdin is None:
+            kwargs["stdin"] = subprocess.PIPE
+        else:
+            kwargs["input"] = stdin
 
+        try:
             process = subprocess.run(
                 args=args,
                 cwd=cwd,
@@ -495,6 +495,12 @@ class Repository:
                 timeout=3600,
                 **kwargs,
             )
+        except OSError as error:
+            if cwd is None or error.filename != cwd:
+                raise
+            raise RepositoryCommandError(
+                error.errno or 1, cls.sanitize_error_message(str(error))
+            ) from error
         except subprocess.TimeoutExpired as error:
             stdout = (
                 error.stdout.decode()

@@ -89,6 +89,10 @@ class LoadingWidget(SpinnerMixin, Static):
         self.transition_progress = 0
         self._status_widget: Static | None = None
         self.hint_widget: Static | None = None
+        # 2026-05-31: previously only set in compose(); _update_animation
+        # was called from set_status() before compose ran, raising
+        # AttributeError that killed the TUI (operator session 2026-05-29).
+        self._indicator_widget: Static | None = None
         self.start_time: float | None = None
         self._last_elapsed: int = -1
         self._paused_total: float = 0.0

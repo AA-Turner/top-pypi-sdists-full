@@ -1,0 +1,69 @@
+[build-system]
+requires = [
+    'setuptools>=77',
+    'setuptools-scm[toml]>=8',
+    "xtrack==0.104.2",
+    "xfields==0.25.18",
+    "xcoll==0.10.1",
+    "xobjects==0.6.3",
+    "xdeps==0.10.17",
+    "xpart==0.23.12",
+    "numpy",
+]
+build-backend = 'setuptools.build_meta'
+
+[project]
+name = "xsuite"
+authors = [
+    {name = "Riccardo De Maria"},
+    {name = "Giovanni Iadarola"},
+    {name = "Szymon Łopaciuk"},
+    {name = "et al."},
+]
+description = "Integrated suite for particle accelerator simulations."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+dependencies = [
+    "xtrack==0.104.2",
+    "xfields==0.25.18",
+    "xcoll==0.10.1",
+    "xobjects==0.6.3",
+    "xdeps==0.10.17",
+    "xpart==0.23.12",
+]
+dynamic = ["version"]
+
+[project.urls]
+Download = "https://pypi.python.org/pypi/xsuite"
+"Bug Tracker" = "https://github.com/xsuite/xsuite/issues"
+Documentation = 'https://xsuite.readthedocs.io/'
+"Source Code" = "https://github.com/xsuite/xsuite"
+
+[project.scripts]
+xsuite-prebuild = "xsuite.cli:main"
+
+[project.optional-dependencies]
+notebooks = ['jupyter', 'ipympl', 'xplt']
+full_env = ['cpymad', 'nafflib', 'pytest', 'pytest-mock', 'jupyter', 'ipympl', 'xplt', 'ipython']
+
+[tool.setuptools_scm]
+# empty for default configuration
+
+# MANIFEST.in dictates which non-Python files are included in the sdist, and
+# there we implicitly exclude the prebuilt kernels.
+# As for the wheel (binary distribution), the prebuild kernels are created with
+# a custom build_ext command in setup.py, and are not subject to filtering by
+# `package-data` or `exclude-package-data`, so they will all be included.
+[tool.setuptools]
+packages = ["xsuite", "xsuite.lib"]
+
+[tool.cibuildwheel]
+skip = [
+    # i686 is not needed or supported
+    "*i686",
+    # We don't need musl libc support
+    "*musllinux*",
+]
+build-verbosity = 1

@@ -361,6 +361,16 @@ class SAGEAgent:
                     f"Context compacted to preserve memory. {self.compactor.get_status(self.engine._messages)}"
                 )
 
+        # ── Wiring SAGE run_hooks (T4, T8, T11, T12) on_pre_turn ────────
+        from sage.core.run_hooks import on_pre_turn, on_post_turn
+        available_models = [m.id for m in self.router.list_all_models()] if self.router else []
+        pre_ctx = on_pre_turn(
+            user_prompt=user_msg,
+            cwd=self.cwd,
+            cfg=self.cfg,
+            available_models=available_models
+        )
+
         resume_context = _build_resume_context_from_memory(self.cwd, user_msg)
         followup_context = _build_followup_context_from_recent_analysis(self.cwd, user_msg)
         
@@ -378,7 +388,7 @@ class SAGEAgent:
             mem_block = f"## USER GLOBAL MEMORY (Across all threads)\n{global_memory}"
             
         supplemental_context = "\n\n".join(
-            context for context in (mem_block, resume_context, followup_context) if context
+            context for context in (mem_block, resume_context, followup_context, pre_ctx.rag_context) if context
         )
 
         if system_prompt:
@@ -424,6 +434,7 @@ class SAGEAgent:
                 _sys.stderr.flush()
 
         try:
+            start_time = time.time()
             if not show_thinking:
                 provider_name = self.model_id.split(":", 1)[0] if ":" in self.model_id else ""
                 timeout_seconds = _get_single_turn_agent_timeout(provider_name)
@@ -438,7 +449,18 @@ class SAGEAgent:
                     timeout_seconds=timeout_seconds,
                     timeout_message=f"No response from model within {timeout_seconds:.0f} seconds",
                 )
+                duration_s = time.time() - start_time
                 if response:
+                    # ── Wiring SAGE run_hooks: Turn End (on_post_turn) ──────
+                    on_post_turn(
+                        user_prompt=user_msg,
+                        output=response,
+                        cfg=self.cfg,
+                        success=True,
+                        validator_signals=[],
+                        files_written=0,
+                        duration_s=duration_s,
+                    )
                     if save_history:
                         self.engine.add_assistant(response)
                         _add_to_conversation_memory(self.cwd, "assistant", response)
@@ -464,6 +486,7 @@ class SAGEAgent:
                 model_id=self.model_id if not self.minimal_output else "",
                 return_rejection_info=True,
             )
+            duration_s = time.time() - start_time
 
             if isinstance(result, tuple):
                 response, was_rejected, rejection_reason = result
@@ -478,6 +501,16 @@ class SAGEAgent:
                 return None
 
             if response:
+                # ── Wiring SAGE run_hooks: Turn End (on_post_turn) ──────
+                on_post_turn(
+                    user_prompt=user_msg,
+                    output=response,
+                    cfg=self.cfg,
+                    success=True,
+                    validator_signals=[],
+                    files_written=0,
+                    duration_s=duration_s,
+                )
                 if save_history:
                     self.engine.add_assistant(response)
                     _add_to_conversation_memory(self.cwd, "assistant", response)

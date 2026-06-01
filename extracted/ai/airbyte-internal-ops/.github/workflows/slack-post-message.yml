@@ -1,0 +1,64 @@
+name: Post Slack Channel Message
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel_id:
+        description: >-
+          Slack channel ID to post the message to (e.g. C0AH48172M6).
+        required: true
+        type: string
+      blocks_json:
+        description: >-
+          JSON-serialised array of Block Kit blocks. Built on the agent
+          side — this workflow simply delivers them to Slack.
+        required: true
+        type: string
+      fallback_text:
+        description: >-
+          Plain-text fallback shown in notifications and clients that
+          cannot render blocks.
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      channel_id:
+        description: "Slack channel ID to post to."
+        required: true
+        type: string
+      blocks_json:
+        description: "JSON array of Block Kit blocks."
+        required: true
+        type: string
+      fallback_text:
+        description: "Plain-text fallback for notifications."
+        required: true
+        type: string
+    secrets:
+      SLACK_HYDRA_BOT_TOKEN:
+        required: false
+      SLACK_BOT_TOKEN_HITL:
+        required: false
+      SLACK_BOT_TOKEN_AIRBYTE_TEAM:
+        required: false
+
+jobs:
+  post-message:
+    name: Post to Slack
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post message to Slack
+        uses: slackapi/slack-github-action@v2
+        with:
+          method: chat.postMessage
+          token: ${{ secrets.SLACK_HYDRA_BOT_TOKEN || secrets.SLACK_BOT_TOKEN_HITL || secrets.SLACK_BOT_TOKEN_AIRBYTE_TEAM }}
+          errors: true
+          payload: |
+            channel: ${{ toJSON(inputs.channel_id) }}
+            text: ${{ toJSON(inputs.fallback_text) }}
+            blocks: ${{ inputs.blocks_json }}
+            unfurl_links: false
+            unfurl_media: false

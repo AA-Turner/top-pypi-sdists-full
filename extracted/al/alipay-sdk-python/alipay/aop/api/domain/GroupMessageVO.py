@@ -1,0 +1,192 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+import json
+
+from alipay.aop.api.constant.ParamConstants import *
+from alipay.aop.api.domain.CouponMsgVO import CouponMsgVO
+from alipay.aop.api.domain.GoodsMsgVO import GoodsMsgVO
+from alipay.aop.api.domain.ImageMsgVO import ImageMsgVO
+from alipay.aop.api.domain.ImageTextMsgVO import ImageTextMsgVO
+from alipay.aop.api.domain.LinkMsgVO import LinkMsgVO
+from alipay.aop.api.domain.RedPacketMsgVO import RedPacketMsgVO
+from alipay.aop.api.domain.TextMsgVO import TextMsgVO
+from alipay.aop.api.domain.TinyAppMsgVO import TinyAppMsgVO
+
+
+class GroupMessageVO(object):
+
+    def __init__(self):
+        self._coupon_msg_content = None
+        self._goods_msg_content = None
+        self._image_msg_content = None
+        self._image_text_msg_content = None
+        self._link_msg_content = None
+        self._msg_type = None
+        self._red_packet_msg_content = None
+        self._text_msg_content = None
+        self._tiny_app_msg_content = None
+
+    @property
+    def coupon_msg_content(self):
+        return self._coupon_msg_content
+
+    @coupon_msg_content.setter
+    def coupon_msg_content(self, value):
+        if isinstance(value, CouponMsgVO):
+            self._coupon_msg_content = value
+        else:
+            self._coupon_msg_content = CouponMsgVO.from_alipay_dict(value)
+    @property
+    def goods_msg_content(self):
+        return self._goods_msg_content
+
+    @goods_msg_content.setter
+    def goods_msg_content(self, value):
+        if isinstance(value, GoodsMsgVO):
+            self._goods_msg_content = value
+        else:
+            self._goods_msg_content = GoodsMsgVO.from_alipay_dict(value)
+    @property
+    def image_msg_content(self):
+        return self._image_msg_content
+
+    @image_msg_content.setter
+    def image_msg_content(self, value):
+        if isinstance(value, ImageMsgVO):
+            self._image_msg_content = value
+        else:
+            self._image_msg_content = ImageMsgVO.from_alipay_dict(value)
+    @property
+    def image_text_msg_content(self):
+        return self._image_text_msg_content
+
+    @image_text_msg_content.setter
+    def image_text_msg_content(self, value):
+        if isinstance(value, ImageTextMsgVO):
+            self._image_text_msg_content = value
+        else:
+            self._image_text_msg_content = ImageTextMsgVO.from_alipay_dict(value)
+    @property
+    def link_msg_content(self):
+        return self._link_msg_content
+
+    @link_msg_content.setter
+    def link_msg_content(self, value):
+        if isinstance(value, LinkMsgVO):
+            self._link_msg_content = value
+        else:
+            self._link_msg_content = LinkMsgVO.from_alipay_dict(value)
+    @property
+    def msg_type(self):
+        return self._msg_type
+
+    @msg_type.setter
+    def msg_type(self, value):
+        self._msg_type = value
+    @property
+    def red_packet_msg_content(self):
+        return self._red_packet_msg_content
+
+    @red_packet_msg_content.setter
+    def red_packet_msg_content(self, value):
+        if isinstance(value, RedPacketMsgVO):
+            self._red_packet_msg_content = value
+        else:
+            self._red_packet_msg_content = RedPacketMsgVO.from_alipay_dict(value)
+    @property
+    def text_msg_content(self):
+        return self._text_msg_content
+
+    @text_msg_content.setter
+    def text_msg_content(self, value):
+        if isinstance(value, TextMsgVO):
+            self._text_msg_content = value
+        else:
+            self._text_msg_content = TextMsgVO.from_alipay_dict(value)
+    @property
+    def tiny_app_msg_content(self):
+        return self._tiny_app_msg_content
+
+    @tiny_app_msg_content.setter
+    def tiny_app_msg_content(self, value):
+        if isinstance(value, TinyAppMsgVO):
+            self._tiny_app_msg_content = value
+        else:
+            self._tiny_app_msg_content = TinyAppMsgVO.from_alipay_dict(value)
+
+
+    def to_alipay_dict(self):
+        params = dict()
+        if self.coupon_msg_content:
+            if hasattr(self.coupon_msg_content, 'to_alipay_dict'):
+                params['coupon_msg_content'] = self.coupon_msg_content.to_alipay_dict()
+            else:
+                params['coupon_msg_content'] = self.coupon_msg_content
+        if self.goods_msg_content:
+            if hasattr(self.goods_msg_content, 'to_alipay_dict'):
+                params['goods_msg_content'] = self.goods_msg_content.to_alipay_dict()
+            else:
+                params['goods_msg_content'] = self.goods_msg_content
+        if self.image_msg_content:
+            if hasattr(self.image_msg_content, 'to_alipay_dict'):
+                params['image_msg_content'] = self.image_msg_content.to_alipay_dict()
+            else:
+                params['image_msg_content'] = self.image_msg_content
+        if self.image_text_msg_content:
+            if hasattr(self.image_text_msg_content, 'to_alipay_dict'):
+                params['image_text_msg_content'] = self.image_text_msg_content.to_alipay_dict()
+            else:
+                params['image_text_msg_content'] = self.image_text_msg_content
+        if self.link_msg_content:
+            if hasattr(self.link_msg_content, 'to_alipay_dict'):
+                params['link_msg_content'] = self.link_msg_content.to_alipay_dict()
+            else:
+                params['link_msg_content'] = self.link_msg_content
+        if self.msg_type:
+            if hasattr(self.msg_type, 'to_alipay_dict'):
+                params['msg_type'] = self.msg_type.to_alipay_dict()
+            else:
+                params['msg_type'] = self.msg_type
+        if self.red_packet_msg_content:
+            if hasattr(self.red_packet_msg_content, 'to_alipay_dict'):
+                params['red_packet_msg_content'] = self.red_packet_msg_content.to_alipay_dict()
+            else:
+                params['red_packet_msg_content'] = self.red_packet_msg_content
+        if self.text_msg_content:
+            if hasattr(self.text_msg_content, 'to_alipay_dict'):
+                params['text_msg_content'] = self.text_msg_content.to_alipay_dict()
+            else:
+                params['text_msg_content'] = self.text_msg_content
+        if self.tiny_app_msg_content:
+            if hasattr(self.tiny_app_msg_content, 'to_alipay_dict'):
+                params['tiny_app_msg_content'] = self.tiny_app_msg_content.to_alipay_dict()
+            else:
+                params['tiny_app_msg_content'] = self.tiny_app_msg_content
+        return params
+
+    @staticmethod
+    def from_alipay_dict(d):
+        if not d:
+            return None
+        o = GroupMessageVO()
+        if 'coupon_msg_content' in d:
+            o.coupon_msg_content = d['coupon_msg_content']
+        if 'goods_msg_content' in d:
+            o.goods_msg_content = d['goods_msg_content']
+        if 'image_msg_content' in d:
+            o.image_msg_content = d['image_msg_content']
+        if 'image_text_msg_content' in d:
+            o.image_text_msg_content = d['image_text_msg_content']
+        if 'link_msg_content' in d:
+            o.link_msg_content = d['link_msg_content']
+        if 'msg_type' in d:
+            o.msg_type = d['msg_type']
+        if 'red_packet_msg_content' in d:
+            o.red_packet_msg_content = d['red_packet_msg_content']
+        if 'text_msg_content' in d:
+            o.text_msg_content = d['text_msg_content']
+        if 'tiny_app_msg_content' in d:
+            o.tiny_app_msg_content = d['tiny_app_msg_content']
+        return o
+
+

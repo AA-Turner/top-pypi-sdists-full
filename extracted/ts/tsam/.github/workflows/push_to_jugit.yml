@@ -1,0 +1,17 @@
+name: Mirror to JuGit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - develop
+      - master
+
+jobs:
+  mirror:
+    name: Push ${{ github.ref_name }} to JuGit
+    uses: FZJ-IEK3-VSA/.github/.github/workflows/sync_jugit.yml@v1
+    with:
+      jugit_repo_path: iek-3/shared-code/tsam
+    secrets:
+      JUGIT_ACCESS_TOKEN: ${{ secrets.JUGIT_ACCESS_TOKEN }}

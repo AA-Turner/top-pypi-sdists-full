@@ -1,0 +1,665 @@
+"""
+routes/skills.py — Skills fidelity telemetry endpoints (GH #687).
+
+Tracks how OpenClaw skills are used across the 3 fidelity levels:
+  - Header: always loaded in system context (~3-4 lines from SKILL.md)
+  - Body:   fetched on-demand when agent finds skill relevant (remainder of SKILL.md)
+  - Linked Files: additional files under the skill directory, fetched when acting
+
+Exposes:
+  GET /api/skills       — list all installed skills with fidelity stats
+  GET /api/skills/<name> — detail for one skill (usage over last 7d)
+
+Blueprints: bp_skills
+"""
+
+import json
+import os
+import time
+from datetime import datetime, timezone
+
+from flask import Blueprint, jsonify
+
+bp_skills = Blueprint("skills", __name__)
+
+# Subdirectory names that count as linked-file directories
+_LINKED_DIRS = frozenset({"scripts", "references", "assets"})
+
+
+# ── DuckDB Tier-1 fast path (issue #1364) ────────────────────────────────────
+
+
+def _try_local_store_read_tool_calls(*, since_ts: float):
+    """Tier-1 DuckDB fast-path for /api/skills fidelity counts.
+
+    Replaces ``_scan_fidelity_events``'s 7d × N-session JSONL walk with
+    a single SQL pull from the ``events`` table. Returns a list of
+    ``{ts, session_id, file_path}`` rows on success — the caller does
+    the per-skill bucketing in-process (it already has the skill-paths
+    map in memory; no point round-tripping it to the daemon).
+
+    Returns ``None`` on any miss (daemon down + direct open failed,
+    method not allowlisted, etc.) so the caller falls through to the
+    legacy JSONL scanner unchanged.
+
+    ``since_ts`` is a Unix timestamp; we project it to ISO-8601 (the
+    on-the-wire shape the events table indexes on).
+    """
+    since_iso = datetime.fromtimestamp(since_ts, tz=timezone.utc).isoformat()
+    rows = None
+    try:
+        from routes.local_query import local_store_via_daemon
+        rows = local_store_via_daemon(
+            "query_recent_read_tool_calls",
+            since=since_iso,
+            limit=50_000,
+        )
+    except Exception:
+        rows = None
+    if rows is None:
+        # Single-process fallback (tests + dev mode have no daemon).
+        try:
+            from clawmetry import local_store
+            store = local_store.get_store(read_only=True)
+            rows = store.query_recent_read_tool_calls(
+                since=since_iso,
+                limit=50_000,
+            )
+        except Exception:
+            return None
+    if not isinstance(rows, list):
+        return None
+    return rows
+
+
+def _bucket_read_calls_per_skill(rows, skill_dirs_map):
+    """Bucket ``query_recent_read_tool_calls`` rows into the per-skill
+    fidelity stats shape ``_scan_fidelity_events`` produces.
+
+    Counts a Read targeting ``<skill_dir>/SKILL.md`` as a body fetch and
+    a Read under ``<skill_dir>/{scripts,references,assets}/...`` as a
+    linked-file read — same matching rules as the legacy JSONL scanner,
+    case-insensitive + slash-normalised so Windows paths still hit.
+    """
+    stats = {
+        name: {
+            "body_fetch_count_7d":       0,
+            "linked_file_read_count_7d": 0,
+            "last_used_ts":              0.0,
+        }
+        for name in skill_dirs_map
+    }
+
+    skill_md_lower: dict = {}
+    linked_prefix_lower: dict = {}
+    for skill_name, skill_dir in skill_dirs_map.items():
+        sm_path = os.path.join(skill_dir, "SKILL.md")
+        skill_md_lower[sm_path.lower().replace("\\", "/")] = skill_name
+        for ldir in _LINKED_DIRS:
+            ldir_path = os.path.join(skill_dir, ldir)
+            linked_prefix_lower[ldir_path.lower().replace("\\", "/")] = skill_name
+
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        fp = row.get("file_path") or ""
+        if not isinstance(fp, str) or not fp:
+            continue
+        ts_raw = row.get("ts") or ""
+        ev_ts = _ts_to_epoch(ts_raw)
+
+        fp_lower = fp.lower().replace("\\", "/")
+
+        for sm_norm, skill_name in skill_md_lower.items():
+            if fp_lower.endswith(sm_norm) or sm_norm in fp_lower:
+                stats[skill_name]["body_fetch_count_7d"] += 1
+                if ev_ts > stats[skill_name]["last_used_ts"]:
+                    stats[skill_name]["last_used_ts"] = ev_ts
+
+        for lp_norm, skill_name in linked_prefix_lower.items():
+            if lp_norm in fp_lower:
+                stats[skill_name]["linked_file_read_count_7d"] += 1
+                if ev_ts > stats[skill_name]["last_used_ts"]:
+                    stats[skill_name]["last_used_ts"] = ev_ts
+
+    return stats
+
+
+def _ts_to_epoch(ts_raw: str) -> float:
+    """Best-effort ISO-8601 → Unix epoch. Returns 0.0 on parse fail."""
+    if not ts_raw or not isinstance(ts_raw, str):
+        return 0.0
+    s = ts_raw.replace("Z", "+00:00") if ts_raw.endswith("Z") else ts_raw
+    try:
+        return datetime.fromisoformat(s).timestamp()
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _get_skills_dirs():
+    """Return ALL skills directories that exist on disk.
+
+    OpenClaw v3 splits installed skills across two locations:
+      - ``<workspace>/skills`` and ``~/.openclaw/skills`` for user-installed
+        skills (the legacy ``_get_skills_dir`` path)
+      - ``~/.openclaw/plugin-skills`` for plugin-bundled skills (e.g.
+        ``browser-automation``) that the gateway symlinks in from the
+        OpenClaw node_modules install
+
+    The previous helper returned a single path and stopped at the first
+    candidate that existed, so plugin-skills were invisible to the Skills
+    tab on any host that didn't ALSO create ``~/.openclaw/skills``. This
+    helper enumerates every candidate that exists; callers walk the union.
+    """
+    import dashboard as _d
+
+    workspace = _d.WORKSPACE or ""
+    candidates = [
+        os.path.join(workspace, "skills") if workspace else None,
+        os.path.expanduser("~/.openclaw/skills"),
+        os.path.expanduser("~/.openclaw/plugin-skills"),
+        os.path.expanduser("~/.clawdbot/skills"),
+    ]
+    out = []
+    seen = set()
+    for c in candidates:
+        if not c:
+            continue
+        rp = os.path.realpath(c)
+        if rp in seen:
+            continue
+        if os.path.isdir(c):
+            out.append(c)
+            seen.add(rp)
+    return out
+
+
+def _get_skills_dir():
+    """Back-compat shim: first existing skills directory, or best guess."""
+    dirs = _get_skills_dirs()
+    if dirs:
+        return dirs[0]
+    return os.path.expanduser("~/.openclaw/skills")
+
+
+def _find_skill_dir(skill_name):
+    """Locate ``skill_name`` across every candidate skills directory.
+
+    Returns the absolute skill directory path or ``None`` if the skill
+    isn't installed in any candidate.
+    """
+    for base in _get_skills_dirs():
+        candidate = os.path.join(base, skill_name)
+        if os.path.isdir(candidate) and os.path.isfile(
+            os.path.join(candidate, "SKILL.md")
+        ):
+            return candidate
+    return None
+
+
+def _parse_skill_md(skill_md_path):
+    """Parse a SKILL.md file and return (header_text, description).
+
+    The frontmatter block is between the first pair of ``---`` lines.
+    ``header_text`` is the frontmatter + the first few lines of body
+    (the "header" that the agent always loads), which we approximate as
+    everything up to and including the closing ``---`` line plus the first
+    non-blank body line.
+    """
+    try:
+        with open(skill_md_path, "r", errors="replace") as fh:
+            content = fh.read()
+    except OSError:
+        return "", ""
+
+    lines = content.splitlines()
+    description = ""
+    frontmatter_end = -1
+
+    if lines and lines[0].strip() == "---":
+        for i, line in enumerate(lines[1:], start=1):
+            if line.strip() == "---":
+                frontmatter_end = i
+                break
+            if line.startswith("description:"):
+                description = line[len("description:"):].strip()
+
+    # Header text: frontmatter block (lines 0..frontmatter_end inclusive)
+    # plus first non-blank line of body — this is what OpenClaw keeps in context.
+    if frontmatter_end >= 0:
+        header_lines = lines[: frontmatter_end + 1]
+        # Append first non-blank body line as well
+        for bline in lines[frontmatter_end + 1:]:
+            if bline.strip():
+                header_lines.append(bline)
+                break
+        header_text = "\n".join(header_lines)
+    else:
+        # No frontmatter — treat first 4 lines as header
+        header_text = "\n".join(lines[:4])
+
+    return header_text, description
+
+
+def _scan_fidelity_events(sessions_dir, skill_dirs_map, cutoff_ts):
+    """Scan session transcripts and return fidelity event counts per skill.
+
+    ``skill_dirs_map`` maps skill_name -> skill_dir_path (absolute).
+    ``cutoff_ts``  is a Unix timestamp; only events in files modified after
+    this are counted for the 7d window.
+
+    Returns:
+        dict skill_name -> {
+            "body_fetch_count_7d": int,
+            "linked_file_read_count_7d": int,
+            "last_used_ts": float,
+        }
+    """
+    stats = {
+        name: {"body_fetch_count_7d": 0, "linked_file_read_count_7d": 0, "last_used_ts": 0.0}
+        for name in skill_dirs_map
+    }
+
+    if not sessions_dir or not os.path.isdir(sessions_dir):
+        return stats
+
+    # Build lookup structures for fast matching
+    # skill_md_paths: set of lowercased absolute paths to SKILL.md files
+    skill_md_lower = {}  # lowercased path -> skill_name
+    linked_prefix_lower = {}  # lowercased dir prefix -> skill_name
+
+    for skill_name, skill_dir in skill_dirs_map.items():
+        skill_md_path = os.path.join(skill_dir, "SKILL.md")
+        skill_md_lower[skill_md_path.lower()] = skill_name
+        for ldir in _LINKED_DIRS:
+            ldir_path = os.path.join(skill_dir, ldir)
+            linked_prefix_lower[ldir_path.lower()] = skill_name
+
+    try:
+        session_files = [
+            f for f in os.listdir(sessions_dir)
+            if f.endswith(".jsonl") and ".deleted." not in f and ".reset." not in f
+        ]
+    except OSError:
+        return stats
+
+    for fname in session_files:
+        fpath = os.path.join(sessions_dir, fname)
+        try:
+            file_mtime = os.path.getmtime(fpath)
+        except OSError:
+            continue
+        # Only scan files touched in the 7d window
+        if file_mtime < cutoff_ts:
+            continue
+
+        try:
+            with open(fpath, "r", errors="replace") as fh:
+                for raw in fh:
+                    raw = raw.strip()
+                    if not raw:
+                        continue
+                    try:
+                        ev = json.loads(raw)
+                    except Exception:
+                        continue
+
+                    if ev.get("type") != "message":
+                        continue
+                    msg = ev.get("message", {}) or {}
+                    role = msg.get("role", "")
+
+                    if role != "assistant":
+                        continue
+
+                    content = msg.get("content") or []
+                    if not isinstance(content, list):
+                        continue
+
+                    for blk in content:
+                        if not isinstance(blk, dict):
+                            continue
+                        if blk.get("type") not in ("toolCall", "tool_use"):
+                            continue
+                        tool_name = (blk.get("name") or "").lower()
+                        if tool_name not in ("read", "readfile", "read_file"):
+                            continue
+
+                        # Extract file path argument
+                        args = blk.get("arguments") or blk.get("input") or {}
+                        if isinstance(args, str):
+                            try:
+                                args = json.loads(args)
+                            except Exception:
+                                args = {}
+                        if not isinstance(args, dict):
+                            continue
+
+                        file_path_arg = (
+                            args.get("file_path")
+                            or args.get("path")
+                            or args.get("filename")
+                            or ""
+                        )
+                        if not file_path_arg:
+                            continue
+
+                        fp_lower = file_path_arg.lower().replace("\\", "/")
+
+                        # Check body-fetch: Read on SKILL.md itself
+                        for sm_lower, skill_name in skill_md_lower.items():
+                            sm_norm = sm_lower.replace("\\", "/")
+                            if fp_lower.endswith(sm_norm) or sm_norm in fp_lower:
+                                stats[skill_name]["body_fetch_count_7d"] += 1
+                                if file_mtime > stats[skill_name]["last_used_ts"]:
+                                    stats[skill_name]["last_used_ts"] = file_mtime
+
+                        # Check linked-file read: Read on a file under scripts|refs|assets
+                        for lp_lower, skill_name in linked_prefix_lower.items():
+                            lp_norm = lp_lower.replace("\\", "/")
+                            if lp_norm in fp_lower:
+                                stats[skill_name]["linked_file_read_count_7d"] += 1
+                                if file_mtime > stats[skill_name]["last_used_ts"]:
+                                    stats[skill_name]["last_used_ts"] = file_mtime
+        except Exception:
+            continue
+
+    return stats
+
+
+def compute_skills_payload():
+    """Plain (no-Flask) skills list + summary.
+
+    Single source of truth shared by the ``/api/skills`` route AND the cloud
+    snapshot builder (``sync._build_skills``), so cloud renders the same shape
+    the local dashboard does. Reads the filesystem + DuckDB; never raises out
+    of the route (callers wrap).
+
+    Returns:
+        {
+          "skills": [ { name, description, header_tokens, has_body,
+                        has_linked_files, body_fetch_count_7d,
+                        linked_file_read_count_7d, last_used_ts, status } ],
+          "summary": { total_installed, dead_count, stuck_count,
+                       total_header_tokens, wasted_header_tokens }
+        }
+    """
+    import dashboard as _d
+
+    empty_summary = {
+        "total_installed": 0,
+        "dead_count": 0,
+        "stuck_count": 0,
+        "total_header_tokens": 0,
+        "wasted_header_tokens": 0,
+    }
+
+    skills_dirs = _get_skills_dirs()
+    if not skills_dirs:
+        return {"skills": [], "summary": empty_summary}
+
+    # Discover installed skills across every candidate directory. First
+    # match wins on name collisions so the user-installed copy in
+    # ``skills/`` shadows a plugin-skill with the same name (parity with
+    # how the gateway resolves skill imports).
+    skill_dirs_map = {}  # name -> absolute path
+    for base in skills_dirs:
+        try:
+            entries = os.listdir(base)
+        except OSError:
+            continue
+        for entry in sorted(entries):
+            if entry in skill_dirs_map:
+                continue
+            entry_path = os.path.join(base, entry)
+            if not os.path.isdir(entry_path):
+                continue
+            skill_md = os.path.join(entry_path, "SKILL.md")
+            if os.path.isfile(skill_md):
+                skill_dirs_map[entry] = entry_path
+
+    if not skill_dirs_map:
+        return {"skills": [], "summary": empty_summary}
+
+    now_ts = time.time()
+    cutoff_7d = now_ts - 7 * 86400
+    cutoff_30d = now_ts - 30 * 86400
+
+    # Scan session transcripts for fidelity events.
+    #
+    # Fast path: pull recent Read tool-call rows from DuckDB and bucket
+    # them in-process. Falls through to the legacy JSONL walker if the
+    # local store isn't enabled / has no rows / the daemon isn't
+    # reachable — same shape, same numbers, just faster (avoids a
+    # 50-200+ JSONL re-walk on every render).
+    fidelity_stats = None
+    try:
+        from clawmetry.config import is_local_store_read_enabled
+        if is_local_store_read_enabled():
+            rows = _try_local_store_read_tool_calls(since_ts=cutoff_7d)
+            if rows is not None:
+                fidelity_stats = _bucket_read_calls_per_skill(rows, skill_dirs_map)
+    except Exception:
+        fidelity_stats = None
+
+    if fidelity_stats is None:
+        sessions_dir = _d.SESSIONS_DIR or os.path.expanduser("~/.openclaw/agents/main/sessions")
+        fidelity_stats = _scan_fidelity_events(sessions_dir, skill_dirs_map, cutoff_7d)
+
+    skills_out = []
+    total_header_tokens = 0
+    dead_count = 0
+    stuck_count = 0
+    wasted_header_tokens = 0
+
+    for skill_name, skill_dir in skill_dirs_map.items():
+        skill_md_path = os.path.join(skill_dir, "SKILL.md")
+        header_text, description = _parse_skill_md(skill_md_path)
+
+        # header_tokens: rough estimate (characters // 4)
+        header_tokens = max(1, len(header_text) // 4)
+
+        # has_body: SKILL.md exists and has content beyond frontmatter
+        has_body = os.path.isfile(skill_md_path)
+
+        # has_linked_files: any of scripts|references|assets subdirs exist
+        has_linked_files = any(
+            os.path.isdir(os.path.join(skill_dir, ldir)) for ldir in _LINKED_DIRS
+        )
+
+        fev = fidelity_stats.get(skill_name, {
+            "body_fetch_count_7d": 0,
+            "linked_file_read_count_7d": 0,
+            "last_used_ts": 0.0,
+        })
+        body_fetch_count_7d = fev["body_fetch_count_7d"]
+        linked_file_read_count_7d = fev["linked_file_read_count_7d"]
+        last_used_ts = fev["last_used_ts"] or None
+
+        # Determine install age from skill_md mtime
+        try:
+            install_ts = os.path.getmtime(skill_md_path)
+        except OSError:
+            install_ts = now_ts
+
+        skill_age_days = (now_ts - install_ts) / 86400
+
+        # Status rules:
+        # dead   — body_fetch_count_7d==0 AND skill installed >30d
+        # unused — has_body AND body_fetch_count_7d==0 AND installed >7d (but <=30d)
+        # stuck  — has_linked_files AND linked_file_read_count_7d==0 AND body_fetch_count_7d>0
+        # healthy — otherwise
+        if body_fetch_count_7d == 0 and skill_age_days > 30:
+            status = "dead"
+            dead_count += 1
+            wasted_header_tokens += header_tokens
+        elif has_body and body_fetch_count_7d == 0 and skill_age_days > 7:
+            status = "unused"
+        elif has_linked_files and linked_file_read_count_7d == 0 and body_fetch_count_7d > 0:
+            status = "stuck"
+            stuck_count += 1
+        else:
+            status = "healthy"
+
+        total_header_tokens += header_tokens
+
+        skills_out.append({
+            "name": skill_name,
+            "description": description,
+            "header_tokens": header_tokens,
+            "has_body": has_body,
+            "has_linked_files": has_linked_files,
+            "body_fetch_count_7d": body_fetch_count_7d,
+            "linked_file_read_count_7d": linked_file_read_count_7d,
+            "last_used_ts": last_used_ts,
+            "status": status,
+        })
+
+    # Sort: dead first, then stuck, unused, healthy; within each group by name
+    _status_order = {"dead": 0, "stuck": 1, "unused": 2, "healthy": 3}
+    skills_out.sort(key=lambda s: (_status_order.get(s["status"], 9), s["name"]))
+
+    summary = {
+        "total_installed": len(skills_out),
+        "dead_count": dead_count,
+        "stuck_count": stuck_count,
+        "total_header_tokens": total_header_tokens,
+        "wasted_header_tokens": wasted_header_tokens,
+    }
+
+    return {"skills": skills_out, "summary": summary}
+
+
+@bp_skills.route("/api/skills")
+def api_skills():
+    """List all installed skills with fidelity stats."""
+    return jsonify(compute_skills_payload())
+
+
+@bp_skills.route("/api/skills/<skill_name>")
+def api_skill_detail(skill_name):
+    """Detail for one skill — usage over last 7 days.
+
+    Returns the same fields as the list entry plus ``skill_dir`` path.
+    404 if skill not found.
+    """
+    import dashboard as _d
+
+    skill_dir = _find_skill_dir(skill_name)
+    if not skill_dir:
+        return jsonify({"error": "skill not found"}), 404
+    skill_md_path = os.path.join(skill_dir, "SKILL.md")
+
+    now_ts = time.time()
+    cutoff_7d = now_ts - 7 * 86400
+
+    header_text, description = _parse_skill_md(skill_md_path)
+    header_tokens = max(1, len(header_text) // 4)
+    has_body = True
+    has_linked_files = any(
+        os.path.isdir(os.path.join(skill_dir, ldir)) for ldir in _LINKED_DIRS
+    )
+
+    skill_dirs_map = {skill_name: skill_dir}
+    fidelity_stats = None
+    try:
+        from clawmetry.config import is_local_store_read_enabled
+        if is_local_store_read_enabled():
+            rows = _try_local_store_read_tool_calls(since_ts=cutoff_7d)
+            if rows is not None:
+                fidelity_stats = _bucket_read_calls_per_skill(rows, skill_dirs_map)
+    except Exception:
+        fidelity_stats = None
+
+    if fidelity_stats is None:
+        sessions_dir = _d.SESSIONS_DIR or os.path.expanduser("~/.openclaw/agents/main/sessions")
+        fidelity_stats = _scan_fidelity_events(sessions_dir, skill_dirs_map, cutoff_7d)
+    fev = fidelity_stats.get(skill_name, {
+        "body_fetch_count_7d": 0,
+        "linked_file_read_count_7d": 0,
+        "last_used_ts": 0.0,
+    })
+
+    body_fetch_count_7d = fev["body_fetch_count_7d"]
+    linked_file_read_count_7d = fev["linked_file_read_count_7d"]
+    last_used_ts = fev["last_used_ts"] or None
+
+    try:
+        install_ts = os.path.getmtime(skill_md_path)
+    except OSError:
+        install_ts = now_ts
+
+    skill_age_days = (now_ts - install_ts) / 86400
+
+    if body_fetch_count_7d == 0 and skill_age_days > 30:
+        status = "dead"
+    elif has_body and body_fetch_count_7d == 0 and skill_age_days > 7:
+        status = "unused"
+    elif has_linked_files and linked_file_read_count_7d == 0 and body_fetch_count_7d > 0:
+        status = "stuck"
+    else:
+        status = "healthy"
+
+    # Build file tree for browser
+    file_tree = []
+    for root, dirs, files in os.walk(skill_dir):
+        rel = os.path.relpath(root, skill_dir)
+        depth = 0 if rel == "." else rel.count(os.sep) + 1
+        for fname in sorted(files):
+            fpath = os.path.join(root, fname)
+            frel = os.path.relpath(fpath, skill_dir)
+            try:
+                fsize = os.path.getsize(fpath)
+            except OSError:
+                fsize = 0
+            file_tree.append({"path": frel, "size": fsize, "depth": depth})
+
+    return jsonify({
+        "name": skill_name,
+        "description": description,
+        "skill_dir": skill_dir,
+        "header_tokens": header_tokens,
+        "has_body": has_body,
+        "has_linked_files": has_linked_files,
+        "body_fetch_count_7d": body_fetch_count_7d,
+        "linked_file_read_count_7d": linked_file_read_count_7d,
+        "last_used_ts": last_used_ts,
+        "status": status,
+        "files": file_tree,
+    })
+
+
+@bp_skills.route("/api/skills/<skill_name>/file")
+def api_skill_file(skill_name):
+    """Return the content of a file within a skill directory."""
+    from flask import request
+    skill_dir = _find_skill_dir(skill_name)
+    if not skill_dir:
+        return jsonify({"error": "skill not found"}), 404
+
+    file_path = request.args.get("path", "SKILL.md")
+    # Security: prevent directory traversal
+    full_path = os.path.normpath(os.path.join(skill_dir, file_path))
+    if not full_path.startswith(os.path.normpath(skill_dir)):
+        return jsonify({"error": "invalid path"}), 400
+
+    if not os.path.isfile(full_path):
+        return jsonify({"error": "file not found"}), 404
+
+    try:
+        with open(full_path, "r", errors="replace") as f:
+            content = f.read(100_000)  # cap at 100KB
+    except OSError as e:
+        return jsonify({"error": str(e)}), 500
+
+    ext = os.path.splitext(file_path)[1].lower()
+    lang = {"py": "python", "sh": "bash", "js": "javascript", "ts": "typescript",
+            "json": "json", "yaml": "yaml", "yml": "yaml", "md": "markdown",
+            "toml": "toml"}.get(ext.lstrip("."), "text")
+
+    return jsonify({
+        "path": file_path,
+        "content": content,
+        "language": lang,
+        "size": len(content),
+    })

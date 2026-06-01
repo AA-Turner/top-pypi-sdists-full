@@ -1,0 +1,93 @@
+[package]
+name = "blazen-audio-music"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Music + sound-effect generation backends for Blazen (MusicGen, AudioGen, Stable Audio)"
+
+[dependencies]
+async-trait.workspace = true
+blazen-audio = { workspace = true }
+blazen-audio-codec = { version = "0.6.1", path = "../blazen-audio-codec", optional = true }
+blazen-audio-core = { workspace = true, optional = true }
+candle-core = { workspace = true, optional = true }
+candle-nn = { workspace = true, optional = true }
+candle-transformers = { workspace = true, optional = true }
+futures-core.workspace = true
+futures-util.workspace = true
+hf-hub = { workspace = true, features = ["ureq"], optional = true }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokenizers = { workspace = true, optional = true }
+tokio = { version = "1", default-features = false, features = ["sync", "rt", "macros"] }
+tokio-stream = { version = "0.1.18", default-features = false, features = ["sync"] }
+tracing.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+default = []
+# MusicGen text-to-music backend. Pulls in the candle inference stack,
+# tokenizers (for the T5 prompt encoder), hf-hub for weight downloads,
+# and blazen-audio-codec/encodec for the EnCodec audio decoder.
+musicgen = [
+    "dep:candle-core",
+    "dep:candle-nn",
+    "dep:candle-transformers",
+    "dep:hf-hub",
+    "dep:tokenizers",
+    "dep:blazen-audio-codec",
+    "blazen-audio-codec/encodec",
+]
+# Meta AudioGen text-to-SFX backend (`facebook/audiogen-medium`). Reuses
+# the entire MusicGen autoregressive pipeline (T5 encoder + decoder LM +
+# delay-pattern + CFG sampler + EnCodec decoder) with AudioGen-specific
+# config values (16 kHz EnCodec, 1.5B-param decoder). Implemented as a
+# feature alias that activates the same dependency set as `musicgen` --
+# the AudioGen backend module is gated separately on `audiogen` so a
+# pure `musicgen` build doesn't compile in the AudioGen wrapper.
+audiogen = ["musicgen"]
+# AudioLDM2 text-to-audio latent-diffusion backend (Wave H.1 scaffolding
+# only -- the real UNet 2D denoiser + DDIM sampler + T5 / FLAN-T5
+# encoder + mel-spectrogram VAE + HiFi-GAN vocoder land in Wave H.2).
+# Currently empty because the placeholder modules don't reference any
+# external crates yet; real dependency wiring lands with Wave H.2.
+audioldm = []
+# Stability AI Stable Audio Open native candle port (Oobleck VAE + DiT +
+# T5 conditioner + DPM-Solver++ / distilled samplers). Pulls in the same
+# candle inference stack as `musicgen` (candle-core, candle-nn,
+# candle-transformers, tokenizers, hf-hub) but does NOT depend on
+# blazen-audio-codec — Stable Audio uses its own Oobleck autoencoder
+# rather than EnCodec. With this feature OFF, `StableAudioBackend` still
+# exists but every entry point surfaces `MusicError::NotYetImplemented`
+# with a message pointing at this flag.
+stable-audio = [
+    "dep:candle-core",
+    "dep:candle-nn",
+    "dep:candle-transformers",
+    "dep:hf-hub",
+    "dep:tokenizers",
+    "dep:blazen-audio-core",
+]
+# Live, network-dependent tests that pull real weights from Hugging Face.
+# Gated separately so `cargo test --features musicgen` stays hermetic.
+live-models = []
+# CUDA acceleration. Implies `musicgen`.
+cuda = [
+    "musicgen",
+    "candle-core/cuda",
+    "candle-nn/cuda",
+    "candle-transformers/cuda",
+    "blazen-audio-codec/cuda",
+]
+# Apple Metal acceleration. Implies `musicgen`.
+metal = ["musicgen", "blazen-audio-codec/metal"]
+
+[dev-dependencies]
+candle-core.workspace = true
+serde_json.workspace = true

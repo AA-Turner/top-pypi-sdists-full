@@ -1,0 +1,40 @@
+[build-system]
+requires = ["flit"]
+build-backend = "flit.buildapi"
+
+[tool.flit.metadata]
+module = "modulegraph2"
+author = "Ronald Oussoren"
+author-email = "ronaldoussoren@mac.com"
+home-page = "https://modulegraph2.readthedocs.io/"
+description-file = "ReadMe.rst"
+requires = [
+    "typing_extensions",
+    "objectgraph >= 1.0.5",
+]
+requires-python = ">=3.10"
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Build Tools",
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Free Threading :: 3 - Stable",
+
+]
+license = "MIT"
+
+[tool.flit.metadata.urls]
+"Documentation" = "https://modulegraph2.readthedocs.io/"
+"Source Code" = "https://github.com/ronaldoussoren/modulegraph2/"
+"Issue Tracker" = "https://github.com/ronaldoussoren/modulegraph2/issues"
+"Supporting" = "https://blog.ronaldoussoren.net/support/"

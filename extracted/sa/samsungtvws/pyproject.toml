@@ -1,0 +1,147 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=77.0"]
+
+[project]
+name = "samsungtvws"
+version = "3.0.5"
+license = "LGPL-3.0"
+description = "Samsung Smart TV WS API wrapper"
+readme = "README.md"
+authors = [{ name = "Xchwarze" }]
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+]
+dependencies = [
+    "websocket-client>=0.57.0",
+    "requests>=2.21.0",
+    "yarl>=1.9",
+]
+
+[project.urls]
+"Source code" = "https://github.com/xchwarze/samsung-tv-ws-api"
+
+[project.optional-dependencies]
+async = [
+    "aiohttp>=3.8.1",
+    "websockets>=13",
+    'async_timeout>=4.0.3; python_version < "3.11"',
+]
+encrypted = [
+    "cryptography>=35.0.0",
+    "py3rijndael>=0.3.3",
+]
+cli = [
+    "typer>=0.20",
+    "wakeonlan>=3.0.0",
+]
+dev = [
+    "mypy>=1.13",
+    "pre-commit>=3.5",
+    "pytest>=8.3.3",
+    "pytest-asyncio>=0.24",
+    "aioresponses>=0.7.7",
+]
+
+[project.scripts]
+samsungtv = "samsungtvws.cli:cli"
+
+[tool.setuptools.packages.find]
+include = ["samsungtvws*"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+
+[tool.ruff.lint]
+ignore = [
+    "E501",
+]
+select = [
+    "B",
+    "B9",
+    "C",
+    "E",
+    "F",
+    "I", # isort
+    "UP", # pyupgrade
+    "W",
+]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+known-first-party = [
+    "samsungtvws",
+    "tests",
+]
+forced-separate = [
+    "tests",
+]
+combine-as-imports = true
+
+[tool.ruff.lint.mccabe]
+max-complexity = 18
+
+[tool.mypy]
+python_version = "3.9"
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+no_implicit_reexport = true
+pretty = true
+show_column_numbers = true
+show_error_codes = true
+show_error_context = true
+strict_equality = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unreachable = true
+warn_unused_configs = true
+warn_unused_ignores = true
+exclude = [
+    '^assets',
+    '^example',
+    '^setup',
+    '^tests'
+]
+
+[[tool.mypy.overrides]]
+module = [
+    'py3rijndael.*',
+    'websocket.*',
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    'samsungtvws.art.*',
+    'samsungtvws.shortcuts',
+]
+disallow_untyped_calls = false
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = [
+    'samsungtvws.remote',
+]
+disallow_untyped_calls = false
+
+[[tool.mypy.overrides]]
+module = [
+  "samsungtvws.cli.*",
+  "typer.*",
+  "wakeonlan.*",
+]
+ignore_missing_imports = true
+disallow_untyped_decorators = false
+disallow_subclassing_any = false
+disallow_untyped_calls = false
+disallow_untyped_defs = false

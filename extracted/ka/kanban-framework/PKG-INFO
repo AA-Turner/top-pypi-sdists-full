@@ -1,0 +1,15 @@
+Metadata-Version: 2.4
+Name: kanban-framework
+Version: 0.96.6
+Summary: Kanban multi-agent orchestration framework for Claude Code
+Requires-Python: >=3.10
+Requires-Dist: jieba>=0.42
+Requires-Dist: chromadb>=1.0
+Requires-Dist: fastembed>=0.4
+Requires-Dist: numpy
+Requires-Dist: code-review-graph>=0.1.0
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Provides-Extra: code-index
+Requires-Dist: code-review-graph>=0.1.0; extra == "code-index"

@@ -1,0 +1,29 @@
+Metadata-Version: 2.1
+Name: pmlb
+Version: 1.0.1.post3
+Summary: A Python wrapper for the Penn Machine Learning Benchmark data repository.
+Home-page: https://github.com/EpistasisLab/penn-ml-benchmarks
+Author: Randal S. Olson, William La Cava, Trang Le, Weixuan Fu
+Author-email: rso@randalolson.com, lacava@upenn.edu, ttle@pennmedicine.upenn.edu, weixuanf@pennmedicine.upenn.edu
+License: License :: OSI Approved :: MIT License
+Description: 
+        A Python wrapper for the Penn Machine Learning Benchmark data repository.
+        
+        Contact
+        =============
+        If you have any questions or comments about the Penn Machine Learning Benchmark, please feel free to contact us via e-mail: rso@randalolson.com
+        
+        This project is hosted at https://github.com/EpistasisLab/penn-ml-benchmarks
+        
+Keywords: data mining,benchmark,machine learning,data analysis,data sets,data science,wrapper
+Platform: UNKNOWN
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Topic :: Utilities
+Provides-Extra: dev

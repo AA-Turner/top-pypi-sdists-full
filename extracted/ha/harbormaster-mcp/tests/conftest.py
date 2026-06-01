@@ -1,0 +1,106 @@
+"""Shared pytest setup. Inserts src/ on sys.path so imports work without install."""
+from __future__ import annotations
+
+import os
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+# v11.0.0a1: redirect the persistent network log to a tmp file BEFORE any
+# test imports `harbormaster.ui.network_log`. The module-level singleton
+# is constructed at import time; setting the env var afterwards would
+# leak writes into `~/.harbormaster/network_log.db`. Done at module top
+# (not in a fixture) precisely because fixtures run too late.
+_NETWORK_LOG_TMPDIR = tempfile.mkdtemp(prefix="hm-tests-network-log-")
+os.environ["HARBORMASTER_NETWORK_LOG_DB"] = str(
+    Path(_NETWORK_LOG_TMPDIR) / "network_log.db"
+)
+
+# v11.0.0a2: same isolation for the memory-revisions DB.
+_MEMORY_REVISIONS_TMPDIR = tempfile.mkdtemp(prefix="hm-tests-memory-revisions-")
+os.environ["HARBORMASTER_MEMORY_REVISIONS_DB"] = str(
+    Path(_MEMORY_REVISIONS_TMPDIR) / "memory_revisions.db"
+)
+
+# v21.0.0a8: redirect the cross-process projects cache + dispatcher
+# metrics DB to per-test-run tmp dirs. Without this redirect the new
+# persistence layer leaks state into the developer's real
+# ``~/.harbormaster/`` and across consecutive test invocations — e.g.
+# test A's project listing gets served to test B.
+_PROJECTS_CACHE_TMPDIR = tempfile.mkdtemp(prefix="hm-tests-projects-cache-")
+os.environ["HARBORMASTER_PROJECTS_CACHE"] = str(
+    Path(_PROJECTS_CACHE_TMPDIR) / "projects_cache.json"
+)
+_DISPATCHER_METRICS_TMPDIR = tempfile.mkdtemp(prefix="hm-tests-dispatcher-metrics-")
+os.environ["HARBORMASTER_DISPATCHER_METRICS_DB"] = str(
+    Path(_DISPATCHER_METRICS_TMPDIR) / "dispatcher_metrics.db"
+)
+
+# v21.0.5: redirect the user-hidden state file to a per-test-run tmp
+# path so test toggles never leak into ``~/.harbormaster/user_hidden.json``.
+_USER_HIDDEN_TMPDIR = tempfile.mkdtemp(prefix="hm-tests-user-hidden-")
+os.environ["HARBORMASTER_USER_HIDDEN_FILE"] = str(
+    Path(_USER_HIDDEN_TMPDIR) / "user_hidden.json"
+)
+
+
+# v16.0.0a1: autouse fixture promoting the ad-hoc reset pattern from
+# tests/ui/test_network_event_filtering.py up to session-wide. The
+# singleton ``network_log`` shares its ``mcp_calls`` table across tests
+# unless explicitly truncated; before v16 this footgun was rediscovered
+# every time a new test surface touched the network log (latest case
+# in v15.0.0a4 N-way reembed call counters). Truncating at function
+# scope keeps per-test counts deterministic without forcing every test
+# file to wire up its own reset.
+import contextlib  # noqa: E402
+from collections.abc import Iterator  # noqa: E402
+
+import pytest  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _reset_network_log() -> Iterator[None]:
+    """Truncate the ``network_log`` singleton's ``mcp_calls`` table
+    around every test. Lazy import so the optional UI extra isn't
+    required for non-UI test runs.
+    """
+    try:
+        from harbormaster.ui import network_log as _nl
+    except Exception:
+        yield
+        return
+    with _nl.network_log._lock:  # type: ignore[attr-defined]
+        _nl.network_log._conn.execute("DELETE FROM mcp_calls")  # type: ignore[attr-defined]
+        _nl.network_log._conn.commit()  # type: ignore[attr-defined]
+    yield
+    with _nl.network_log._lock:  # type: ignore[attr-defined]
+        _nl.network_log._conn.execute("DELETE FROM mcp_calls")  # type: ignore[attr-defined]
+        _nl.network_log._conn.commit()  # type: ignore[attr-defined]
+
+
+@pytest.fixture(autouse=True)
+def _reset_v21_persistent_caches() -> Iterator[None]:
+    """v21.0.0a8: clear the cross-process projects cache file + reset
+    the dispatcher-metrics-store singleton between tests. Without this
+    each test inherits the previous test's project listing / counters
+    via the shared on-disk state.
+    """
+    cache_file = Path(os.environ.get("HARBORMASTER_PROJECTS_CACHE", ""))
+    if cache_file:
+        with contextlib.suppress(FileNotFoundError):
+            cache_file.unlink()
+        # Also drop the sidecar lock file so a stale flock doesn't
+        # outlive its writer.
+        lock = cache_file.with_suffix(cache_file.suffix + ".lock")
+        with contextlib.suppress(FileNotFoundError):
+            lock.unlink()
+    # Force the metrics-store singleton to re-resolve on next access.
+    try:
+        from harbormaster.dispatcher_metrics_store import set_metrics_store
+        set_metrics_store(None)
+    except Exception:
+        pass
+    yield

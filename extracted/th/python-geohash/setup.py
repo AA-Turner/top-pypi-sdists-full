@@ -1,18 +1,11 @@
-try:
-	from setuptools import setup, Extension
-except ImportError:
-	from distutils.core import setup, Extension
+from setuptools import setup
+from setuptools_rust import Binding, RustExtension
 
-# requiring C++ here for Windows support.
-c1=Extension('_geohash',
-	sources=['src/geohash.cpp',],
-	define_macros = [('PYTHON_MODULE',1),])
-
-setup(name='python-geohash',
-	version='0.8.5',
-	description='Fast, accurate python geohashing library',
-	author='Hiroaki Kawai',
-	url='http://code.google.com/p/python-geohash/',
-	py_modules=['geohash','quadtree','jpgrid','jpiarea'],
-	ext_modules = [c1]
+setup(
+	# Source builds stay interpreter-specific; wheel builds request cp38-abi3 below.
+	rust_extensions=[
+		RustExtension('_geohash', 'Cargo.toml', binding=Binding.PyO3, py_limited_api="auto")
+	],
+	options={"bdist_wheel": {"py_limited_api": "cp38"}},
+	zip_safe=False,
 )

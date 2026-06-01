@@ -1,0 +1,1841 @@
+import asyncio
+import weakref
+import binascii
+import logging
+import os
+import socket
+from http import HTTPStatus
+from base64 import b64encode, b64decode
+from hashlib import sha1
+
+from multidict import CIMultiDict
+
+cimport cython
+from cpython.bytes cimport PyBytes_AS_STRING, PyBytes_FromStringAndSize
+from cpython.bytearray cimport PyByteArray_AS_STRING, PyByteArray_GET_SIZE
+from cpython.memoryview cimport PyMemoryView_FromMemory
+from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
+from cpython.buffer cimport PyBUF_WRITE, PyBUF_READ, PyBUF_SIMPLE, PyObject_GetBuffer, PyBuffer_Release
+from cpython.unicode cimport PyUnicode_FromStringAndSize, PyUnicode_DecodeASCII, PyUnicode_AsUTF8String
+from cpython.pythread cimport PyThread_get_thread_ident
+
+from libc.string cimport memmove, memcpy
+from libc.stdlib cimport rand
+
+from .common import (PICOWS_DEBUG_LL, WSUpgradeRequest, WSUpgradeResponse,
+                     WSUpgradeResponseWithListener,
+                     WSHandshakeError, WSInvalidMessageError, WSInvalidStatusError,
+                     WSInvalidHeaderError, WSInvalidUpgradeError,
+                     WSProtocolError, add_extra_headers)
+
+
+cdef:
+    # When picows would like to disconnect peer (due to protocol violation or other failures), CLOSE frame is sent first.
+    # Then disconnect is scheduled with a small delay. Otherwise, some old asyncio versions do not transmit CLOSE frame,
+    # despite promising to do so.
+    object _DISCONNECT_AFTER_ERROR_DELAY = 0.01
+    set _ALLOWED_CLOSE_CODES = {int(i) for i in WSCloseCode}
+    bytes _WS_KEY = b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+    object _DEBUG_LL = PICOWS_DEBUG_LL
+
+
+class _NotImplemented(Exception):
+    """Internal exception used by picows to indicate the default implementation
+    of some WSListener methods. Not really an error, picows will handle it
+    internally and continue as usual.
+    """
+    pass
+
+
+# "unlikely" works only for gcc, but still nice to have
+# https://github.com/cython/cython/issues/7667
+cdef extern from *:
+    cdef bint unlikely(bint val) noexcept
+    cdef bint likely(bint val) noexcept
+
+
+cdef extern from "compat.h" nogil:
+    uint32_t ntohl(uint32_t)
+    uint32_t htonl(uint32_t)
+    uint16_t ntohs(uint16_t)
+    uint16_t htons(uint16_t)
+
+    uint64_t be64toh(uint64_t)
+    uint64_t htobe64(uint64_t)
+
+    cdef ssize_t PICOWS_SOCKET_ERROR
+    double picows_get_monotonic_time()
+    ssize_t send(int sockfd, const void* buf, size_t len, int flags)
+
+    ctypedef size_t(*apply_mask_fn)(uint8_t*, size_t, size_t, uint32_t, uint8_t*)
+
+    size_t rotate_right(uint32_t value, size_t num_bytes)
+    size_t mask_misaligned_bytes_at_front(uint8_t* input, size_t input_len, uint32_t mask, size_t alignment, uint8_t** output)
+    size_t apply_mask_4(uint8_t* input, size_t input_len, size_t start_pos, uint32_t mask, uint8_t* output)
+    size_t apply_mask_1(uint8_t* input, size_t input_len, size_t start_pos, uint32_t mask, uint8_t* output)
+    const char* get_apply_mask_fast_impl_name()
+    apply_mask_fn get_apply_mask_fast_fn()
+    size_t get_apply_mask_fast_alignment()
+
+
+cdef:
+    apply_mask_fn apply_mask_fast = get_apply_mask_fast_fn()
+    size_t apply_mask_fast_alignment = get_apply_mask_fast_alignment()
+
+
+cdef uint8_t* _mask_payload(uint8_t* input, size_t input_len, uint32_t mask, uint8_t* output) noexcept:
+    # In case when input != output, output may not have the same alignment as input.
+    # If so output will be shifted forward first, before actual masking begins.
+    # Returns shifted output pointer
+    cdef uint8_t* shifted_output = output
+    cdef size_t curr_pos = mask_misaligned_bytes_at_front(input, input_len, mask, apply_mask_fast_alignment, &shifted_output)
+    cdef size_t rotated_mask = rotate_right(mask, curr_pos)
+
+    if curr_pos < input_len:
+        curr_pos = apply_mask_fast(input, input_len, curr_pos, rotated_mask, shifted_output)
+
+    if curr_pos < input_len:
+        curr_pos = apply_mask_4(input, input_len, curr_pos, rotated_mask, shifted_output)
+
+    if curr_pos < input_len:
+        apply_mask_1(input, input_len, curr_pos, rotated_mask, shifted_output)
+
+    return shifted_output
+
+
+cdef _unpack_buffer(object buffer, char** ptr_out, Py_ssize_t* size_out):
+    cdef Py_buffer pybuf
+
+    if buffer is not None:
+        PyObject_GetBuffer(buffer, &pybuf, PyBUF_SIMPLE)
+        ptr_out[0] = <char *> pybuf.buf
+        size_out[0] = pybuf.len
+        # We can already release because we still keep the reference to the message
+        PyBuffer_Release(&pybuf)
+    else:
+        ptr_out[0] = NULL
+        size_out[0] = 0
+
+
+cdef _is_aiofn_transport(transport):
+    try:
+        import aiofastnet
+        return isinstance(transport, aiofastnet.Transport)
+    except:
+        return False
+
+
+cdef class WSCloseInfo:
+    pass
+
+
+cdef class WSCloseHandshake:
+    pass
+
+
+@cython.no_gc
+@cython.freelist(64)
+cdef class WSFrame:
+    """
+    Received websocket frame.
+
+    .. DANGER::
+        Only use WSFrame object during :any:`WSListener.on_ws_frame` callback. WSFrame objects are essentially just
+        pointers to the underlying receiving buffer. After :any:`WSListener.on_ws_frame` has completed the buffer
+        will be reused for the new incoming data.
+
+    In order to actually copy payload use one of the `get_*` methods.
+    """
+
+    cpdef bytes get_payload_as_bytes(self):
+        """
+        :return: a new bytes object with a copy of frame payload.
+        
+        This method does not cache results. Payload is copied and a new bytes object is created every time this method is called.
+        """
+        return PyBytes_FromStringAndSize(self.payload_ptr, self.payload_size)
+
+    cpdef str get_payload_as_utf8_text(self):
+        """
+        :return: a new str object with a copy of frame payload.
+        
+        This method will throw if payload does not contain valid UTF8 text.
+        
+        This method does not cache results. Payload is copied and a new str object is created every time this method is called.
+        """
+        return PyUnicode_FromStringAndSize(self.payload_ptr, self.payload_size)
+
+    cpdef str get_payload_as_ascii_text(self):
+        """
+        :return: a new str object with a copy of frame payload.
+        
+        This method will throw if payload does not contain valid ASCII 7 text.
+        
+        This method does not cache results. Payload is copied and a new str object is created every time this method is called.
+        """
+        return PyUnicode_DecodeASCII(self.payload_ptr, <Py_ssize_t>self.payload_size, NULL)
+
+    cpdef object get_payload_as_memoryview(self):
+        """
+        :return: continous memoryview to a parser buffer with payload.
+        
+        .. DANGER::
+            Returned memoryview does NOT own the underlying memory. 
+            The content will be invalidated after :any:`WSListener.on_ws_frame` has completed.
+            Please process payload or copy it as soon as possible.
+        """
+        return PyMemoryView_FromMemory(self.payload_ptr, <Py_ssize_t>self.payload_size, PyBUF_READ)
+
+    cpdef WSCloseCode get_close_code(self):
+        """
+        :return: :any:`WSCloseCode` 
+        
+        This method is only valid for WSMsgType.CLOSE frames.        
+        """
+
+        assert self.msg_type == WSMsgType.CLOSE, "get_close_code can be called only for CLOSE frames"
+
+        if self.payload_size < 2:
+            return WSCloseCode.NO_INFO
+        else:
+            return <WSCloseCode>ntohs((<uint16_t *>self.payload_ptr)[0])
+
+    cpdef bytes get_close_message(self):
+        """
+        :return: a new bytes object with a close message. If there is no close message then returns None. 
+        
+        This method is only valid for WSMsgType.CLOSE frames.
+        """
+
+        assert self.msg_type == WSMsgType.CLOSE, "get_close_message can be called only for CLOSE frames"
+
+        if self.payload_size <= 2:
+            return None
+        else:
+            return PyBytes_FromStringAndSize(self.payload_ptr + 2, <Py_ssize_t>self.payload_size - 2)
+
+    cpdef str get_close_reason(self):
+        """
+        :return: a new str object with a close reason. If there is no close reason then returns None. 
+
+        This method is only valid for WSMsgType.CLOSE frames.
+        """
+
+        assert self.msg_type == WSMsgType.CLOSE, "get_close_message can be called only for CLOSE frames"
+
+        if self.payload_size <= 2:
+            return None
+        else:
+            return PyUnicode_FromStringAndSize(self.payload_ptr + 2,
+                                               <Py_ssize_t> self.payload_size - 2)
+
+    def __str__(self):
+        return (f"WSFrame({WSMsgType(self.msg_type).name}, fin={True if self.fin else False}, "
+                f"rsv1={True if self.rsv1 else False}, "
+                f"rsv2={True if self.rsv2 else False}, "
+                f"rsv3={True if self.rsv3 else False}, "
+                f"last_in_buffer={True if self.last_in_buffer else False}, "
+                f"payload_sz={self.payload_size}, tail_sz={self.tail_size})")
+
+
+cpdef WSFrame _make_test_ws_frame(WSMsgType msg_type, bytes payload, bint fin, bint rsv1):
+    cdef WSFrame self = <WSFrame>WSFrame.__new__(WSFrame)
+    self._payload_obj = payload
+    self.payload_ptr = PyBytes_AS_STRING(payload)
+    self.payload_size = len(payload)
+    self.tail_size = 0
+    self.msg_type = msg_type
+    self.fin = fin
+    self.rsv1 = rsv1
+    self.rsv2 = False
+    self.rsv3 = False
+    self.last_in_buffer = True
+    return self
+
+
+cdef class MemoryBuffer:
+    def __init__(self, Py_ssize_t initial_capacity):
+        self.size = 0
+        self.capacity = initial_capacity
+        self.data = <char*>PyMem_Malloc(self.capacity)
+        if self.data == NULL:
+            raise MemoryError("cannot allocate memory for picows")
+
+    def __dealloc__(self):
+        if self.data != NULL:
+            PyMem_Free(self.data)
+
+    cdef _reserve(self, Py_ssize_t target_size):
+        cdef Py_ssize_t new_capacity = 256 * (target_size / 256 + 2)
+        cdef char* data = <char*>PyMem_Realloc(self.data, new_capacity)
+        if data == NULL:
+            raise MemoryError("cannot allocate memory for picows")
+        self.data = data
+        self.capacity = new_capacity
+
+    cdef resize(self, Py_ssize_t new_size):
+        if new_size > self.capacity:
+            self._reserve(new_size)
+        self.size = new_size
+
+
+cdef class WSListener:
+    """
+    Base class for user handlers.
+
+    All `on_ws_*` methods receive `transport` as a first argument for convenience. It is guaranteed that passed
+    `transport` object is always the same for the same connection.
+    """
+
+    cpdef on_ws_connected(self, WSTransport transport):
+        """        
+        Called after websocket handshake is complete and websocket is ready to send and receive frames.
+        Initiate disconnect if exception is thrown by user handler.
+        
+        * client side: the exception will be transferred to and reraised by :any:`wait_disconnected`.
+        * server side: the exception will be 'swallowed' by the library and logged at the ERROR level.
+
+        :param transport: :any:`WSTransport` object      
+        """
+        pass
+
+    cpdef on_ws_frame(self, WSTransport transport, WSFrame frame):
+        """
+        Called when a new frame is received.
+        
+        Initiate disconnect if exception is thrown by user handler and
+        `disconnect_on_exception` was set to True in :any:`ws_connect` 
+        or :any:`ws_create_server`.
+        In such case:
+         
+        * client side: the exception will be transferred to and reraised by :any:`wait_disconnected`.
+        * server side: the exception will be 'swallowed' by the library and logged at the ERROR level.
+         
+        .. DANGER::
+            WSFrame is essentially just a pointer to a chunk of memory in the receiving buffer. It does not own 
+            the memory. Do NOT cache or store WSFrame object for later processing because the data may be invalidated
+            after :any:`WSListener.on_ws_frame` is complete.
+            Process the payload immediately or just copy it with one of `WSFrame.get_*` methods.            
+
+        :param transport: :any:`WSTransport` object
+        :param frame: :any:`WSFrame` object            
+        """
+        pass
+
+    cpdef on_ws_disconnected(self, WSTransport transport):
+        """
+        Called when websocket has been disconnected.
+
+        :param transport: :any:`WSTransport`        
+        """
+        pass
+
+    cpdef send_user_specific_ping(self, WSTransport transport):
+        """
+        Called when the auto-ping logic wants to send a ping to a remote peer.
+        
+        User can override this method to send something else instead of 
+        the standard PING frame.
+        
+        Default implementation:
+        
+        .. code:: python
+        
+            def send_user_specific_ping(self, transport: picows.WSTransport)
+                return transport.send_ping()
+
+        :param transport: :any:`WSTransport`
+        """
+        transport.send_ping()
+
+    cpdef is_user_specific_pong(self, WSFrame frame):
+        """        
+        Called before :any:`WSListener.on_ws_frame` if auto ping is enabled and pong is expected. 
+        
+        User can override this method to indicate that the received frame is a 
+        valid response to a previously sent user specific ping message.
+        
+        The default implementation just do:
+        
+        .. code:: python
+        
+            def is_user_specific_pong(self, frame: picows.WSFrame)
+                return frame.msg_type == WSMsgType.PONG
+        
+        :return: Returns True if the frame is a response to a previously send ping. In such case the frame will be  *consumed* by the protocol, i.e :any:`WSListener.on_ws_frame` will not be called for this frame.         
+        """
+        return frame.msg_type == WSMsgType.PONG
+
+    cpdef pause_writing(self):
+        """
+        Called when the underlying transport’s buffer goes over the high watermark.
+        This is a purely informative callback. You can ignore it and just keep writing.
+        The data will be queued and eventually send anyway.
+        """
+        raise _NotImplemented()
+
+    cpdef resume_writing(self):
+        """
+        Called when the underlying transport’s buffer drains below the low watermark.
+        """
+        raise _NotImplemented()
+
+
+cdef class WSTransport:
+    def __init__(self, bint is_client_side, underlying_transport, logger, loop):
+        self.underlying_transport = underlying_transport
+        self.request = None
+        self.response = None
+        self.close_handshake = None
+        self.is_client_side = is_client_side
+        self.is_secure = underlying_transport.get_extra_info('ssl_object') is not None
+        self.is_close_frame_sent = False
+        self.is_disconnected = False
+        self.auto_ping_expect_pong = False
+        self.pong_received_at_future = None
+        self.listener_proxy = None
+        self.disconnected_future = loop.create_future()
+        self._loop = loop
+        self._logger = logger
+        self._write_buffer = MemoryBuffer(1024)
+        self._thread_id = PyThread_get_thread_ident()
+        self._socket = underlying_transport.get_extra_info('socket').fileno()
+        self._is_aiofn_transport = _is_aiofn_transport(underlying_transport)
+        self._log_debug_enabled = self._logger.isEnabledFor(_DEBUG_LL)
+
+    cdef _check_thread(self, meth):
+        cdef unsigned long curr_thread_id = PyThread_get_thread_ident()
+        if self._thread_id != curr_thread_id:
+            raise RuntimeError(
+                f"WSTransport.{meth} called from a wrong thread: "
+                f"transport thread id={self._thread_id}, "
+                f"curr thread_id={curr_thread_id}"
+            )
+
+    cdef Py_ssize_t _get_header_size(self, Py_ssize_t msg_size) noexcept:
+        cdef Py_ssize_t sz = 4 if self.is_client_side else 0
+
+        if msg_size < 126:
+            sz += 2
+        elif msg_size < (1 << 16):
+            sz += 4
+        else:
+            sz += 10
+
+        return sz
+
+    cdef uint32_t _prepare_header(self, uint8_t* header_ptr,
+                                  WSMsgType msg_type,
+                                  Py_ssize_t msg_size,
+                                  bint fin, bint rsv1, bint rsv2, bint rsv3) noexcept:
+        # Return mask or 0 for server side
+
+        cdef:
+            uint8_t first_byte = <uint8_t>msg_type
+            uint8_t second_byte = 0x80 if self.is_client_side else 0
+            uint32_t mask = 0
+
+        if fin:
+            first_byte |= 0x80
+        if rsv1:
+            first_byte |= 0x40
+        if rsv2:
+            first_byte |= 0x20
+        if rsv3:
+            first_byte |= 0x10
+
+        header_ptr[0] = first_byte
+
+        if msg_size < 126:
+            header_ptr[1] = second_byte | <uint8_t>msg_size
+            header_ptr += 2
+        elif msg_size < (1 << 16):
+            header_ptr[1] = second_byte | 126
+            header_ptr += 2
+            extended_payload_length_16 = htons(<uint16_t>msg_size)
+            (<uint16_t*>header_ptr)[0] = extended_payload_length_16
+            header_ptr += 2
+        else:
+            header_ptr[1] = second_byte | 127
+            header_ptr += 2
+            extended_payload_length_64 = htobe64(<uint64_t>msg_size)
+            (<uint64_t*>header_ptr)[0] = extended_payload_length_64
+            header_ptr += 8
+
+        if self.is_client_side:
+            mask = <uint32_t>rand()
+            (<uint32_t*>header_ptr)[0] = mask
+            header_ptr += 4
+
+        return mask
+
+    cdef _send_buffer(self, WSMsgType msg_type,
+                      char* msg_ptr, Py_ssize_t msg_size,
+                      bint fin, bint rsv1, bint rsv2, bint rsv3):
+        if unlikely(self.is_close_frame_sent or self.is_disconnected):
+            self._logger.debug("Ignore attempt to send a message after WSMsgType.CLOSE has already been sent")
+            return
+
+        cdef:
+            Py_ssize_t header_size = self._get_header_size(msg_size)
+            char* header_ptr = msg_ptr - header_size
+            uint32_t mask = self._prepare_header(<uint8_t*>header_ptr, msg_type, msg_size, fin, rsv1, rsv2, rsv3)
+
+        if mask != 0:
+            _mask_payload(<uint8_t*>msg_ptr, msg_size, mask, <uint8_t*>msg_ptr)
+
+        self._fast_write(<char*>header_ptr, header_size + msg_size)
+
+    cdef _send(self, WSMsgType msg_type, message, bint fin, bint rsv1, bint rsv2, bint rsv3):
+        if unlikely(self.is_close_frame_sent or self.is_disconnected):
+            self._logger.debug("Ignore attempt to send a message after WSMsgType.CLOSE has already been sent")
+            return
+
+        if isinstance(message, str):
+            message = PyUnicode_AsUTF8String(message)
+
+        cdef:
+            char* msg_ptr
+            Py_ssize_t msg_size
+
+        _unpack_buffer(message, &msg_ptr, &msg_size)
+
+        cdef:
+            Py_ssize_t header_size = self._get_header_size(msg_size)
+            uint8_t header_ptr
+            uint32_t mask
+            uint8_t* masked_msg_ptr
+
+        self._write_buffer.resize(header_size)
+        mask = self._prepare_header(<uint8_t *>self._write_buffer.data, msg_type,
+                                  msg_size, fin, rsv1, rsv2, rsv3)
+
+        if msg_size == 0:
+            self._fast_write(self._write_buffer.data, header_size)
+        elif not self.is_client_side:
+            # Optimization for server side, writelines is generally somewhat
+            # slower, and has to be cautious around user types, do extra
+            # checking before attempting to send anything.
+            # Copy everything into our buffer and write.
+            if msg_size <= 8192:
+                self._write_buffer.resize(header_size + msg_size)
+                memcpy(self._write_buffer.data + header_size, msg_ptr, msg_size)
+                self._fast_write(self._write_buffer.data, header_size + msg_size)
+            else:
+                self._write_buffer.resize(header_size)
+                self._prepare_header(<uint8_t *> self._write_buffer.data,
+                                     msg_type,
+                                     msg_size, fin, rsv1, rsv2, rsv3)
+                header = PyMemoryView_FromMemory(
+                    self._write_buffer.data, header_size, PyBUF_READ
+                )
+                if self._is_aiofn_transport:
+                    self.underlying_transport.writelines_nocheck([header, message])
+                else:
+                    self.underlying_transport.writelines([header, message])
+        else:
+            # For client side always mask and copy
+            self._write_buffer.resize(header_size + msg_size + 64)
+            masked_msg_ptr = _mask_payload(
+                <uint8_t*>msg_ptr, msg_size,
+                mask,
+                <uint8_t*>self._write_buffer.data + header_size
+            )
+            # We have to re-locate header in case when _mask_payload had to
+            # copy into a shifted position
+            memmove(masked_msg_ptr - header_size, self._write_buffer.data, header_size)
+            self._fast_write(
+                <char*>(masked_msg_ptr - header_size), header_size + msg_size
+            )
+
+    cdef send_reuse_external_buffer(self, WSMsgType msg_type,
+                                    char* msg_ptr, Py_ssize_t msg_size,
+                                    bint fin=True, bint rsv1=False, bint rsv2=False, bint rsv3=False):
+        self._check_thread("send_reuse_external_buffer")
+
+        if msg_type == WSMsgType.CLOSE:
+            raise ValueError("attempt to send CLOSE frame using send_reuse_external_buffer, use send_close instead")
+
+        self._send_buffer(msg_type, msg_ptr, msg_size, fin, rsv1, rsv2, rsv3)
+
+    cpdef send_reuse_external_bytearray(self, WSMsgType msg_type,
+                                        bytearray buffer,
+                                        Py_ssize_t msg_offset,
+                                        bint fin=True, bint rsv1=False, bint rsv2=False, bint rsv3=False):
+        """
+        Send a frame over websocket with a message as its payload. 
+        This function does not copy message to prepare websocket frames. 
+        It reuses bytearray's memory to write websocket frame header at the front.
+        
+        :param msg_type: :any:`WSMsgType` enum value, except CLOSE. Use send_close to send close frames. 
+        :param msg_offset: specifies where message begins in the bytearray. 
+            Must be at least 14 to let picows to write websocket frame header in front of the message.
+        :param buffer: bytearray that contains message and some extra space (at least 14 bytes) in the beginning.
+            The len of the message is determined as `len(buffer) - msg_offset`         
+        :param fin: fin bit in websocket frame.
+            Indicate that the frame is the last one in the message.
+        :param rsv1: first reserved bit in websocket frame. 
+            Some protocol extensions use it to indicate that payload is compressed.
+        :param rsv2: second reserved bit in websocket frame.
+            Protocol extensions can use this flag.
+        :param rsv3: third reserved bit in websocket frame.
+            Protocol extensions can use this flag.
+        """
+        if buffer is None:
+            raise ValueError("None is passed instead of buffer to send_reuse_external_bytearray")
+
+        if msg_offset < 14:
+            raise ValueError("buffer must have at least 14 bytes available before message starts, check msg_offset parameter")
+
+        if msg_type == WSMsgType.CLOSE:
+            raise ValueError("attempt to send CLOSE frame using send_reuse_external_bytearray, use send_close instead")
+
+        self._check_thread("send_reuse_external_bytearray")
+
+        cdef:
+            char* buffer_ptr = PyByteArray_AS_STRING(buffer)
+            Py_ssize_t buffer_size = PyByteArray_GET_SIZE(buffer)
+
+        if buffer_size < msg_offset:
+            raise ValueError("msg_offset points beyond buffer end, msg_offset > len(buffer)")
+
+        cdef:
+            char* msg_ptr = buffer_ptr + msg_offset
+            Py_ssize_t msg_size = buffer_size - msg_offset
+
+        self._send_buffer(msg_type, msg_ptr, msg_size, fin, rsv1, rsv2, rsv3)
+
+    cpdef send(self, WSMsgType msg_type, message, bint fin=True, bint rsv1=False, bint rsv2=False, bint rsv3=False):
+        """
+        Send a frame over websocket with a message as its payload.
+
+        Please note that this function has to copy the whole message into
+        library's write buffer in order to be able to prepend websocket
+        frame header and apply mask to the whole message. If you want to avoid
+        copying please use :any:`WSTransport.send_reuse_external_bytearray` or
+        :any:`WSTransport.send_reuse_external_buffer`.
+
+        :param msg_type: :any:`WSMsgType` enum value\n
+        :param message: an optional bytes-like object
+        :param fin: fin bit in websocket frame.
+            Indicate that the frame is the last one in the message.
+        :param rsv1: first reserved bit in websocket frame.
+            Some protocol extensions use it to indicate that payload
+            is compressed.
+        :param rsv2: second reserved bit in websocket frame.
+            Protocol extensions can use this flag.
+        :param rsv3: third reserved bit in websocket frame.
+            Protocol extensions can use this flag.
+        """
+        self._check_thread("send")
+        self._send(msg_type, message, fin, rsv1, rsv2, rsv3)
+
+    cpdef send_ping(self, message=None):
+        """
+        Send a PING control frame with an optional message.
+        
+        :param message: an optional bytes-like object
+        """
+        self._check_thread("send_ping")
+        self._send(WSMsgType.PING, message, True, False, False, False)
+
+    cpdef send_pong(self, message=None):
+        """
+        Send a PONG control frame with an optional message.
+
+        :param message: an optional bytes-like object
+        """
+        self._check_thread("send_pong")
+        self._send(WSMsgType.PONG, message, True, False, False, False)
+
+    cpdef send_close(self, WSCloseCode close_code=WSCloseCode.NO_INFO, close_message=None):
+        """
+        Send a CLOSE control frame with an optional message.
+        This method doesn't disconnect the underlying transport.
+        Does nothing if the underlying transport is already disconnected.        
+        
+        :param close_code: :any:`WSCloseCode` value                
+        :param close_message: an optional bytes-like object        
+        """
+        self._check_thread("send_close")
+
+        if isinstance(close_message, str):
+            close_message = PyUnicode_AsUTF8String(close_message)
+
+        cdef:
+            char* close_msg_ptr
+            Py_ssize_t close_msg_length
+
+        _unpack_buffer(close_message, &close_msg_ptr, &close_msg_length)
+
+        cdef:
+            bytes msg = PyBytes_FromStringAndSize(NULL, close_msg_length + 2)
+            char* msg_ptr = PyBytes_AS_STRING(msg)
+            str reason = PyUnicode_FromStringAndSize(close_msg_ptr, close_msg_length)
+
+        (<uint16_t*>msg_ptr)[0] = htons(<uint16_t>close_code)
+        memcpy(msg_ptr + 2, close_msg_ptr, close_msg_length)
+
+        self._send(WSMsgType.CLOSE, msg, True, False, False, False)
+
+        if not self.is_close_frame_sent:
+            self.is_close_frame_sent = True
+
+            if self.close_handshake is None:
+                self.close_handshake = <WSCloseHandshake>WSCloseHandshake.__new__(WSCloseHandshake)
+                self.close_handshake.recv = None
+                self.close_handshake.sent = None
+                self.close_handshake.recv_then_sent = False
+
+            self.close_handshake.sent = <WSCloseInfo>WSCloseInfo.__new__(WSCloseInfo)
+            self.close_handshake.sent.code = close_code
+            self.close_handshake.sent.reason = reason
+
+    cpdef disconnect(self, bint graceful=True):
+        """
+        Close the underlying transport.
+
+        It is safe to call this method multiple times. 
+        It does nothing if the transport is already closed.
+
+        :param graceful: If True then send any remaining outgoing data in the buffer before closing the socket. This may potentially significantly delay on_ws_disconnected event since OS may wait for TCP_ACK for the data that was previously sent and until OS ack timeout fires up the socket will remain in connected state.           
+        """
+        self._check_thread("disconnect")
+
+        if graceful:
+            self.underlying_transport.close()
+        else:
+            self.underlying_transport.abort()
+
+    async def wait_disconnected(self):
+        """
+        Wait until websocket is fully disconnected.
+
+        Completion means:
+
+        * the underlying transport is closed
+        * :any:`WSListener.on_ws_disconnected` callback has finished
+
+        Exception behavior:
+
+        * client side: if disconnect was initiated because user callback raised,
+          the original exception is transferred here and re-raised by this
+          coroutine when awaited.
+        * client side: websocket/protocol failures may also be re-raised here
+          (for example :any:`WSProtocolError`).
+        * server side: always completes normally (no per-client exception
+          propagation via this coroutine).
+
+        This coroutine internally shields the wait future, so cancelling the
+        waiter does not cancel internal disconnect bookkeeping.
+
+        """
+        self._check_thread("wait_disconnected")
+
+        await asyncio.shield(self.disconnected_future)
+
+    async def measure_roundtrip_time(self, int rounds) -> list[float]:
+        """
+        Coroutine that measures roundtrip time by running ping-pong.
+
+        :param rounds: how many ping-pong rounds to do
+        :return: list of measured roundtrip times
+        """
+
+        self._check_thread("measure_roundtrip_time")
+
+        cdef double ping_at
+        cdef double pong_at
+        cdef int i
+        cdef list results = []
+        cdef object shield = asyncio.shield
+        cdef object create_future = self._loop.create_future
+
+        # If auto-ping is enabled and currently waiting for pong then
+        # wait until we receive it and only then proceed with our own pings
+        if self.auto_ping_expect_pong:
+            self.pong_received_at_future = create_future()
+            await shield(self.pong_received_at_future)
+
+        for i in range(rounds):
+            self.listener_proxy.send_user_specific_ping(self)
+            self.pong_received_at_future = create_future()
+            ping_at = picows_get_monotonic_time()
+            pong_at = await shield(self.pong_received_at_future)
+            results.append(pong_at - ping_at)
+
+        return results
+
+    cpdef notify_user_specific_pong_received(self):
+        """
+        Notify the auto-ping loop that a user-specific pong message 
+        has been received.
+        
+        This method is useful when determining whether a frame contains a 
+        user-specific pong is too expensive for is_user_specific_pong 
+        (for example, it may require full JSON parsing). 
+        In such cases, :any:`WSListener.is_user_specific_pong` should always 
+        return `False`, and the logic in :any:`WSListener.on_ws_frame` should 
+        call :any:`WSTransport.notify_user_specific_pong_received`.
+        
+        It is safe to call this method even if auto-ping is disabled or 
+        the auto-ping loop doesn’t expect pong messages. 
+        In such cases, the method simply does nothing.
+        """
+        self._check_thread("notify_user_specific_pong_received")
+
+        self.auto_ping_expect_pong = False
+
+        if self.pong_received_at_future is not None:
+            self.pong_received_at_future.set_result(picows_get_monotonic_time())
+            self.pong_received_at_future = None
+
+            if self._log_debug_enabled:
+                self._logger.log(_DEBUG_LL,
+                                 "notify_user_specific_pong_received() for PONG(measure_roundtrip_time), reset expect_pong")
+        else:
+            if self._log_debug_enabled:
+                self._logger.log(_DEBUG_LL,
+                                 "notify_user_specific_pong_received() for PONG(idle timeout), reset expect_pong")
+
+    cdef _send_http_handshake(self, bytes ws_path, bytes host_port, bytes websocket_key_b64, object extra_headers):
+
+        request = WSUpgradeRequest()
+        request.method = b"GET"
+        request.path = ws_path
+        request.version = b"HTTP/1.1"
+        request.headers = CIMultiDict([
+            ("Host", host_port.decode()),
+            ("Upgrade", "websocket"),
+            ("Connection", "Upgrade"),
+            ("Sec-WebSocket-Version", "13"),
+            ("Sec-WebSocket-Key", websocket_key_b64.decode()),
+        ])
+        add_extra_headers(request.headers, extra_headers)
+
+        headers = "\r\n".join(f"{k}: {v}" for k, v in request.headers.items()).encode()
+
+        initial_handshake = (b"%b %b %b\r\n"
+                             b"%b\r\n"
+                             b"\r\n" % (request.method, request.path, request.version, headers))
+
+        if self._log_debug_enabled:
+            self._logger.log(_DEBUG_LL, "Send upgrade request: %s", initial_handshake)
+        self.request = request
+        self.underlying_transport.write(initial_handshake)
+
+    cdef _send_http_handshake_response(self, response, bytes accept_val):
+        if accept_val is not None:
+            response.headers["Sec-WebSocket-Accept"] = accept_val.decode()
+
+        cdef bytearray response_bytes = response.to_bytes()
+
+        if self._log_debug_enabled:
+            self._logger.log(_DEBUG_LL, "Send upgrade response: %s", response_bytes)
+        self.response = response
+        self.underlying_transport.write(response_bytes)
+
+    cdef _fast_write(self, char* ptr, Py_ssize_t sz):
+        if self._is_aiofn_transport:
+            # aiofastnet guarantees that the data will be copied if it can't be
+            # sent immediately, we can safely use non-owning memory view to our
+            # buffer
+            self.underlying_transport.write_nocheck(
+                PyMemoryView_FromMemory(ptr, sz, PyBUF_READ))
+            return
+
+        if self.is_secure:
+            self.underlying_transport.write(PyBytes_FromStringAndSize(ptr, sz))
+            return
+
+        if <Py_ssize_t>self.underlying_transport.get_write_buffer_size() > 0:
+            self.underlying_transport.write(PyBytes_FromStringAndSize(ptr, sz))
+            return
+
+        # Try to send data using system send. Pass copied data to asyncio if we
+        # get EAGAIN.
+
+        cdef Py_ssize_t bytes_written = send(self._socket, ptr, <size_t>sz, 0)
+
+        if bytes_written == sz:
+            return
+        elif bytes_written >= 0:
+            self.underlying_transport.write(PyBytes_FromStringAndSize(<char*> ptr + bytes_written, sz - bytes_written))
+            return
+
+        # In case any errors we ask asyncio to try sending again.
+        # Asyncio will try and based on error code may report 'disconnected' event.
+        self.underlying_transport.write(PyBytes_FromStringAndSize(<char *> ptr, sz))
+
+
+# uvloop and asyncio use different checks to detect BufferedProtocol
+#
+# uvloop looks at the presence of get_buffer attribute and check that
+# user type is not derived from asyncio.Protocol.
+#
+# asyncio expects user protocol to actually derive from asyncio.BufferedProtocol.
+# Unfortunately Cython extension types are not allowed to derive pure python types as a first base
+# Therefore there is a trick where we derive from the dummy Cython type and
+# asyncio.BufferedProtocol as a second base.
+
+# On Windows asyncio is using ProactorEventLoop, it doesn't genuinely use BufferedProtocol.
+# Instead, it always reads data into its own buffer first and if user passed BufferedProtocol,
+# copy data into user provided buffer.
+
+# If you are doing a client I recommend to try WindowsSelectorEventLoopPolicy,
+# to avoid extra copying:
+#
+# if sys.platform == "win32":
+#     asyncio.set_event_loop_policy(
+#         asyncio.WindowsSelectorEventLoopPolicy()
+#     )
+
+
+cdef class WSProtocolBase:
+    pass
+
+
+cdef class WSProtocol(WSProtocolBase, asyncio.BufferedProtocol):
+    cdef:
+        readonly WSTransport transport
+        readonly WSListener listener
+
+        object _listener_factory
+        bytes _host_port
+        bytes _ws_path
+        object _logger                          #: Logger
+        bint _log_debug_enabled
+        bint is_client_side
+        bint _disconnect_on_exception
+        object _disconnect_exception            #: Optional[Exception]
+
+        object _loop
+
+        object _handshake_timeout
+        object _handshake_timeout_handle
+        object _handshake_complete_future
+        Py_ssize_t _upgrade_request_max_size
+
+        bytes _websocket_key_b64
+        Py_ssize_t _max_frame_size
+
+        bint _enable_auto_pong
+        bint _enable_auto_ping
+        object _auto_ping_idle_timeout
+        object _auto_ping_reply_timeout
+        WSAutoPingStrategy _auto_ping_strategy
+        object _auto_ping_loop_task
+        double _last_data_time
+
+        object _extra_headers
+
+        # The following are the parts of an unfinished frame
+        # Once the frame is finished WSFrame is created and returned
+        WSParserState _state
+        MemoryBuffer _read_buffer
+        Py_ssize_t _f_new_data_start_pos
+        Py_ssize_t _f_curr_state_start_pos
+        Py_ssize_t _f_curr_frame_start_pos
+        Py_ssize_t _f_payload_length
+        Py_ssize_t _f_payload_start_pos
+        WSMsgType _f_msg_type
+        uint32_t _f_mask
+        uint8_t _f_fin
+        uint8_t _f_rsv1
+        uint8_t _f_rsv2
+        uint8_t _f_rsv3
+        uint8_t _f_has_mask
+        uint8_t _f_payload_length_flag
+
+    def __init__(self,
+                 str host_port,
+                 str ws_path,
+                 bint is_client_side,
+                 ws_listener_factory,
+                 logger,
+                 bint disconnect_on_exception,
+                 websocket_handshake_timeout,
+                 enable_auto_ping, auto_ping_idle_timeout, auto_ping_reply_timeout,
+                 auto_ping_strategy,
+                 enable_auto_pong,
+                 max_frame_size,
+                 extra_headers,
+                 read_buffer_init_size):
+        self.transport = None
+        self.listener = None
+
+        self._listener_factory = ws_listener_factory
+        self._host_port = host_port.encode() if host_port is not None else None
+        self._ws_path = ws_path.encode() if ws_path else b"/"
+        self._logger = logger
+        self._log_debug_enabled = self._logger.isEnabledFor(_DEBUG_LL)
+        self.is_client_side = is_client_side
+        self._disconnect_on_exception = disconnect_on_exception
+        self._disconnect_exception = None
+
+        self._loop = asyncio.get_running_loop()
+
+        self._handshake_timeout = websocket_handshake_timeout
+        self._handshake_timeout_handle = None
+        self._handshake_complete_future = self._loop.create_future()
+        self._upgrade_request_max_size = 16 * 1024
+
+        self._websocket_key_b64 = b64encode(os.urandom(16))
+        self._max_frame_size = max_frame_size
+
+        self._enable_auto_pong = enable_auto_pong
+        self._enable_auto_ping = enable_auto_ping
+        self._auto_ping_idle_timeout = auto_ping_idle_timeout
+        self._auto_ping_reply_timeout = auto_ping_reply_timeout
+        self._auto_ping_strategy = auto_ping_strategy
+        self._auto_ping_loop_task = None
+        self._last_data_time = 0
+
+        if self._enable_auto_ping:
+            assert self._auto_ping_reply_timeout <= self._auto_ping_idle_timeout, \
+                "auto_ping_reply_timeout can't be bigger than auto_ping_idle_timeout"
+
+        self._extra_headers = extra_headers
+
+        self._state = WSParserState.WAIT_UPGRADE_RESPONSE
+        self._read_buffer = MemoryBuffer(max(<Py_ssize_t>read_buffer_init_size, 2048))
+        self._read_buffer.size = self._read_buffer.capacity - 256 # Leave space for simd parsers
+        self._f_new_data_start_pos = 0
+        self._f_curr_state_start_pos = 0
+        self._f_curr_frame_start_pos = 0
+        self._f_payload_length = 0
+        self._f_payload_start_pos = 0
+        self._f_msg_type = WSMsgType.CLOSE
+        self._f_mask = 0
+        self._f_fin = 0
+        self._f_rsv1 = 0
+        self._f_rsv2 = 0
+        self._f_rsv3 = 0
+        self._f_has_mask = 0
+        self._f_payload_length_flag = 0
+
+    def connection_made(self, transport):
+        sock = transport.get_extra_info('socket')
+        peername = transport.get_extra_info('peername')
+        sockname = transport.get_extra_info('sockname')
+
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        if hasattr(socket, "TCP_QUICKACK"):
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_QUICKACK, 1)
+
+        # self._logger.getLogger adds child logger to the global loggers dict.
+        # These child loggers never get deleted after connections are lost
+        # Therefore do not use getLogger, create and setup child loggers manually
+        if isinstance(self._logger, logging.Logger):
+            child_logger = logging.Logger(f"{self._logger.name}.{sock.fileno()}", logging.NOTSET)
+            child_logger.parent = self._logger
+            child_logger.propagate = True
+            self._logger = child_logger
+
+        quickack = sock.getsockopt(socket.IPPROTO_TCP, socket.TCP_QUICKACK) if hasattr(socket, "TCP_QUICKACK") else False
+
+        mask_impl_name = get_apply_mask_fast_impl_name().decode('ascii')
+        if self.is_client_side:
+            self._logger.info("WS connection established: %s -> %s, recvbuf=%d, sendbuf=%d, quickack=%d, nodelay=%d, mask_impl=%s",
+                              sockname, peername,
+                              sock.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF),
+                              sock.getsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF),
+                              quickack,
+                              sock.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY),
+                              mask_impl_name)
+        else:
+            self._logger.info("New connection accepted: %s <- %s, recvbuf=%d, sendbuf=%d, quickack=%d, nodelay=%d, mask_impl=%s",
+                              sockname, peername,
+                              sock.getsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF),
+                              sock.getsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF),
+                              quickack,
+                              sock.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY),
+                              mask_impl_name)
+
+
+        self.transport = WSTransport(self.is_client_side, transport, self._logger, self._loop)
+
+        if self.is_client_side:
+            self.transport._send_http_handshake(self._ws_path, self._host_port, self._websocket_key_b64, self._extra_headers)
+            if self._handshake_timeout is not None:
+                self._handshake_timeout_handle = self._loop.call_later(
+                    self._handshake_timeout, self._handshake_timeout_callback)
+        else:
+            if self._handshake_timeout is not None:
+                self._handshake_timeout_handle = self._loop.call_later(
+                    self._handshake_timeout, self._handshake_timeout_callback)
+
+    def connection_lost(self, exc):
+        self.transport.is_disconnected = True
+
+        self._logger.info("Disconnected")
+
+        if self._handshake_complete_future.done():
+            if self._handshake_complete_future.exception() is None:
+                self._invoke_on_ws_disconnected()
+        else:
+            self._handshake_complete_future.set_result(None)
+
+        if self._handshake_timeout_handle is not None:
+            self._handshake_timeout_handle.cancel()
+
+        if self._auto_ping_loop_task is not None and not self._auto_ping_loop_task.done():
+            self._auto_ping_loop_task.cancel()
+
+        if self.transport.pong_received_at_future is not None:
+            self.transport.pong_received_at_future.set_exception(ConnectionResetError())
+            self.transport.pong_received_at_future = None
+
+        if not self.transport.disconnected_future.done():
+            # The server side does not allow to await on a particular client or retrieve its disconnect exception.
+            # Do not set exception on future to avoid warnings about unconsumed exception from asyncio.
+            if self._disconnect_exception is None or not self.is_client_side:
+                self.transport.disconnected_future.set_result(None)
+            else:
+                self.transport.disconnected_future.set_exception(self._disconnect_exception)
+
+    def eof_received(self) -> bool:
+        if self._log_debug_enabled:
+            self._logger.log(_DEBUG_LL, "EOF marker received")
+        # Returning False here means that the transport should close itself
+        return False
+
+    def pause_writing(self):
+        if self.listener is not None:
+            try:
+                self.listener.pause_writing()
+            except _NotImplemented:
+                self._logger.warning("Protocol writing pause requested, crossed writing buffer high-watermark")
+
+    def resume_writing(self):
+        if self.listener is not None:
+            try:
+                self.listener.resume_writing()
+            except _NotImplemented:
+                self._logger.warning("Protocol writing resume requested, crossed writing buffer low-watermark")
+
+    def is_buffered_protocol(self):
+        return True
+
+    # def data_received(self, data):
+    #     cdef:
+    #         char* ptr
+    #         Py_ssize_t sz
+    #
+    #     _unpack_buffer(data, &ptr, &sz)
+    #
+    #     if self._read_buffer.size - self._f_new_data_start_pos < sz:
+    #         self._read_buffer.resize(self._f_new_data_start_pos + sz)
+    #
+    #     memcpy(self._read_buffer.data + self._f_new_data_start_pos, ptr, sz)
+    #     self._f_new_data_start_pos += sz
+    #
+    #     self._process_new_data()
+
+    def get_buffer(self, Py_ssize_t size_hint):
+        # size_hint is un-reliable, uvloop provides a fixed value of 65536
+        # and asyncio just always pass -1
+        # Therefore, ignore it and just implement exponential buffer grow
+        # after reading data when buffer utilization hits a thresholds.
+
+        if unlikely(self._log_debug_enabled):
+            self._logger.log(_DEBUG_LL, "get_buffer(%d), provide=%d, total=%d, cap=%d",
+                             size_hint,
+                             self._read_buffer.size - self._f_new_data_start_pos,
+                             self._read_buffer.size,
+                             self._read_buffer.capacity)
+
+        return PyMemoryView_FromMemory(
+            self._read_buffer.data + self._f_new_data_start_pos,
+            self._read_buffer.size - self._f_new_data_start_pos,
+            PyBUF_WRITE)
+
+    def buffer_updated(self, Py_ssize_t nbytes):
+        if unlikely(self._log_debug_enabled):
+            self._logger.log(_DEBUG_LL, "buffer_updated(%d), write_pos %d -> %d", nbytes,
+                             self._f_new_data_start_pos, self._f_new_data_start_pos + nbytes)
+
+        self._f_new_data_start_pos += nbytes
+        self._maybe_grow_read_buffer()
+        self._process_new_data()
+
+    async def wait_until_handshake_complete(self):
+        await asyncio.shield(self._handshake_complete_future)
+
+    cdef inline _maybe_grow_read_buffer(self):
+        cdef Py_ssize_t utilization = 100*self._f_new_data_start_pos / self._read_buffer.size
+        if utilization > 90 or self._read_buffer.size - self._f_new_data_start_pos <= 256:
+            # Double buffer size
+            self._read_buffer.resize(self._read_buffer.size * 2)
+
+    cdef inline _process_new_data(self):
+        if self._state == WSParserState.WAIT_UPGRADE_RESPONSE:
+            if not self._negotiate():
+                return
+
+        self._last_data_time = picows_get_monotonic_time()
+
+        cdef WSFrame frame = self._get_next_frame()
+        if frame is None:
+            return
+
+        # Parsing next frame may cause WSProtocolError.
+        # In such case we do not deliver current frame to user.
+        # Instead, the logic will send CLOSE and close connection.
+        # I don't know if it is a bug or a feature.
+        # Will re-visit this when somebody complain.
+
+        cdef WSFrame next_frame = self._get_next_frame()
+        if next_frame is None:
+            frame.last_in_buffer = 1
+            self._invoke_on_ws_frame(frame)
+            self._shrink_buffer()
+            return
+        else:
+            self._invoke_on_ws_frame(frame)
+
+        while next_frame is not None:
+            frame = next_frame
+            next_frame = self._get_next_frame()
+            if next_frame is None:
+                frame.last_in_buffer = 1
+            self._invoke_on_ws_frame(frame)
+
+        self._shrink_buffer()
+
+    cdef inline _negotiate(self):
+        response = None
+
+        if self.is_client_side:
+            try:
+                response = self._try_read_and_process_upgrade_response()
+                if self._state == WSParserState.WAIT_UPGRADE_RESPONSE:
+                    # Upgrade response hasn't fully arrived yet
+                    return False
+                try:
+                    self.listener = self._listener_factory(self.transport.request, response)
+                except TypeError as ex:
+                    try:
+                        self.listener = self._listener_factory()
+                    except TypeError:
+                        raise ex
+                self.transport.listener_proxy = weakref.proxy(self.listener)
+                self.transport.response = response
+                self._listener_factory = None
+            except Exception as ex:
+                self.transport.disconnect()
+                self._handshake_complete_future.set_exception(ex)
+                return False
+        else:
+            try:
+                upgrade_request, accept_val = self._try_read_upgrade_request()
+            except RuntimeError as ex:
+                response = WSUpgradeResponse.create_error_response(
+                    HTTPStatus.BAD_REQUEST, str(ex).encode())
+
+                self.transport._send_http_handshake_response(response, None)
+                self.transport.disconnect()
+                return False
+
+            if accept_val is None:
+                # Upgrade request hasn't fully arrived yet
+                return False
+
+            listener_factory = self._listener_factory
+            self._listener_factory = None
+            try:
+                self.transport.request = upgrade_request
+                listener_or_response_with_listener = listener_factory(upgrade_request)
+                if isinstance(listener_or_response_with_listener, WSUpgradeResponseWithListener):
+                    self.listener = listener_or_response_with_listener.listener
+                    response = listener_or_response_with_listener.response
+                elif isinstance(listener_or_response_with_listener, WSListener):
+                    self.listener = listener_or_response_with_listener
+                    response = WSUpgradeResponse.create_101_response()
+                elif listener_or_response_with_listener is None:
+                    self.listener = None
+                    response = WSUpgradeResponse.create_error_response(
+                        HTTPStatus.NOT_FOUND, b"404 Not Found"
+                    )
+                else:
+                    raise TypeError("user listener_factory returned wrong listener type")
+
+                if self.listener is not None:
+                    self.transport.listener_proxy = weakref.proxy(self.listener)
+            except Exception as ex:
+                response = WSUpgradeResponse.create_error_response(
+                    HTTPStatus.INTERNAL_SERVER_ERROR, str(ex).encode())
+                self.transport._send_http_handshake_response(response, None)
+                self.transport.disconnect()
+                return False
+
+            if response.status != HTTPStatus.SWITCHING_PROTOCOLS:
+                self.transport._send_http_handshake_response(response, None)
+                self.transport.disconnect()
+                return False
+            else:
+                self.transport._send_http_handshake_response(response, accept_val)
+
+        if self._handshake_timeout_handle is not None:
+            self._handshake_timeout_handle.cancel()
+            self._handshake_timeout_handle = None
+        self._handshake_complete_future.set_result(None)
+        self._invoke_on_ws_connected()
+        self._last_data_time = picows_get_monotonic_time()
+        if self._enable_auto_ping:
+            self._auto_ping_loop_task = self._loop.create_task(self._auto_ping_loop())
+        return True
+
+    async def _auto_ping_loop(self):
+        cdef double now
+        cdef double prev_last_data_time
+        cdef double idle_delay
+        cdef object sleep = asyncio.sleep
+        try:
+            if unlikely(self._log_debug_enabled):
+                self._logger.log(_DEBUG_LL, "Auto-ping loop started with idle_timeout=%s, reply_timeout=%s",
+                                 self._auto_ping_idle_timeout, self._auto_ping_reply_timeout)
+
+            while True:
+                if self._auto_ping_strategy == WSAutoPingStrategy.PING_WHEN_IDLE:
+                    now = picows_get_monotonic_time()
+                    idle_delay = self._last_data_time + <double>self._auto_ping_idle_timeout - now
+                    prev_last_data_time = self._last_data_time
+                    await sleep(idle_delay)
+
+                    if self._last_data_time > prev_last_data_time:
+                        continue
+
+                    if unlikely(self._log_debug_enabled):
+                        self._logger.log(_DEBUG_LL, "Send PING because no new data over the last %s seconds", self._auto_ping_idle_timeout)
+                else:
+                    await sleep(self._auto_ping_idle_timeout)
+
+                    if unlikely(self._log_debug_enabled):
+                        self._logger.log(_DEBUG_LL, "Send periodic PING")
+
+                if self.transport.pong_received_at_future is not None:
+                    # measure_roundtrip_time is currently doing it's own ping-pongs
+                    # set _last_data_time to now and sleep
+                    self._last_data_time = picows_get_monotonic_time()
+                    if self._log_debug_enabled:
+                        self._logger.log(_DEBUG_LL, "Hold back PING sending, because measure_roundtrip_time is in progress")
+
+                    continue
+
+                self.listener.send_user_specific_ping(self.transport)
+
+                self.transport.auto_ping_expect_pong = True
+                await sleep(self._auto_ping_reply_timeout)
+                if self.transport.auto_ping_expect_pong:
+                    # Pong hasn't arrived within specified interval
+                    self._logger.info(
+                        "Initiating disconnect because no PONG was received within %s seconds",
+                        self._auto_ping_reply_timeout)
+
+                    self.transport.send_close(WSCloseCode.GOING_AWAY, f"peer has not replied to ping/heartbeat request within {self._auto_ping_reply_timeout} second(s)")
+                    # Give a chance for the transport to send close message
+                    # But don't wait for any tcp confirmation, use abort()
+                    # because normal disconnect may hang until OS TCP/IP timeout
+                    # for ACK is fired.
+                    self._loop.call_later(_DISCONNECT_AFTER_ERROR_DELAY, self.transport.underlying_transport.abort)
+                    break
+        except asyncio.CancelledError:
+            if unlikely(self._log_debug_enabled):
+                self._logger.log(_DEBUG_LL, "Auto-ping loop cancelled")
+        except:
+            self._logger.exception("Auto-ping loop failed, disconnect websocket")
+            self.transport.send_close(WSCloseCode.INTERNAL_ERROR, "an exception occurred in auto-ping loop")
+            self._loop.call_later(_DISCONNECT_AFTER_ERROR_DELAY, self.transport.disconnect)
+
+    cdef inline tuple _try_read_upgrade_request(self):
+        cdef bytes data = PyBytes_FromStringAndSize(self._read_buffer.data, self._f_new_data_start_pos)
+        cdef list request = <list>data.split(b"\r\n\r\n", 1)
+        if len(request) < 2:
+            if len(data) >= self._upgrade_request_max_size:
+                self.transport.disconnect()
+                self._logger.info("Disconnect because upgrade request violated max_size threshold: %d", 16*1024)
+
+            return None, None
+
+        cdef bytes raw_headers = <bytes>request[0]
+        if len(raw_headers) >= self._upgrade_request_max_size:
+            self.transport.disconnect()
+            self._logger.info("Disconnect because upgrade request violated max_size threshold: %d", 16*1024)
+            return None, None
+
+        if unlikely(self._log_debug_enabled):
+            self._logger.log(_DEBUG_LL, "New data: %s", data)
+
+        cdef list lines = <list>raw_headers.split(b"\r\n")
+        cdef bytes response_status_line = <bytes>lines[0]
+
+        cdef object headers = CIMultiDict()
+        cdef list parts
+        cdef bytes line, name, value
+        cdef str name_str
+        cdef Py_ssize_t idx
+        for idx in range(1, len(lines)):
+            line = <bytes>lines[idx]
+            parts = <list>line.split(b":", 1)
+            if len(parts) != 2:
+                raise RuntimeError(f"Mailformed header in upgrade request: {raw_headers}")
+            name, value = <bytes>parts[0], <bytes>parts[1]
+            headers.add((<bytes>name.strip()).decode(), (<bytes>value.strip()).decode())
+
+        if "websocket" != headers.get("upgrade"):
+            raise RuntimeError(f"No WebSocket UPGRADE header: {raw_headers}\n Can 'Upgrade' only to 'websocket'")
+
+        if "connection" not in headers:
+            raise RuntimeError(f"No CONNECTION upgrade header: {raw_headers}\n")
+
+        if "upgrade" != headers["connection"].lower():
+            raise RuntimeError(f"CONNECTION header value is not 'upgrade' : {raw_headers}\n")
+
+        version = headers.get("sec-websocket-version")
+        if headers.get("sec-websocket-version") not in ("13", "8", "7"):
+            raise RuntimeError(f"Upgrade requested to unsupported websocket version: {version}")
+
+        cdef str key = <str>headers.get("sec-websocket-key")
+        try:
+            if not key or len(b64decode(key)) != 16:
+                raise RuntimeError(f"Handshake error, invalid key: {key!r}")
+        except binascii.Error:
+            raise RuntimeError(f"Handshake error, invalid key: {key!r}") from None
+
+        cdef bytes accept_val = b64encode(sha1(<bytes>key.encode() + _WS_KEY).digest())
+
+        cdef list status_line_parts = response_status_line.split(b" ")
+        upgrade_request = WSUpgradeRequest()
+        upgrade_request.method = <bytes>status_line_parts[0]
+        upgrade_request.path = <bytes>status_line_parts[1]
+        upgrade_request.version = <bytes>status_line_parts[2]
+        upgrade_request.headers = headers
+
+        memmove(self._read_buffer.data, self._read_buffer.data + len(raw_headers) + 4, self._read_buffer.size - len(raw_headers) - 4)
+
+        cdef bytes tail = request[1]
+        self._f_new_data_start_pos = len(tail)
+        self._state = WSParserState.READ_HEADER
+
+        return upgrade_request, accept_val
+
+    cdef inline object _try_read_and_process_upgrade_response(self):
+        cdef bytes data = PyBytes_FromStringAndSize(self._read_buffer.data, self._f_new_data_start_pos)
+        cdef list data_parts = <list>data.split(b"\r\n\r\n", 1)
+        if len(data_parts) < 2:
+            return None
+
+        cdef bytes raw_headers, tail
+        raw_headers, tail = <bytes>data_parts[0], <bytes>data_parts[1]
+
+        cdef list lines = <list>raw_headers.split(b"\r\n")
+        cdef bytes response_status_line = <bytes>lines[0]
+        cdef str response_status_line_str
+        cdef bytes status_code
+        cdef bytes line, name, value
+        cdef str transfer_encoding
+        cdef object connection_value
+        cdef object upgrade_value
+        cdef object r_key
+        cdef Py_ssize_t content_length
+
+        try:
+            response_status_line_str = response_status_line.decode().lower()
+        except UnicodeDecodeError:
+            raise WSInvalidMessageError(
+                "cannot upgrade, invalid HTTP status line in upgrade response",
+                raw_headers,
+                tail,
+            ) from None
+
+        # check handshake
+        if not response_status_line_str.startswith("http/1.1 " ):
+            raise WSInvalidMessageError(
+                f"cannot upgrade, unknown protocol (expected HTTP/1.1) in upgrade response: {response_status_line_str}",
+                raw_headers,
+                tail,
+            )
+
+        response = WSUpgradeResponse()
+        try:
+            response.version, status_code, status_phrase = response_status_line.split(b" ", 2)
+            response.status = HTTPStatus(int(status_code.decode()))
+        except (ValueError, UnicodeDecodeError):
+            raise WSInvalidMessageError(
+                f"cannot upgrade, invalid HTTP status line in upgrade response: {response_status_line!r}",
+                raw_headers,
+                tail,
+            ) from None
+
+        response.headers = CIMultiDict()
+        response.body = None
+        for idx in range(1, len(lines)):
+            line = <bytes>lines[idx]
+            try:
+                name, value = <list>line.split(b":", 1)
+                response.headers.add((<bytes>name.strip()).decode(), (<bytes>value.strip()).decode())
+            except (ValueError, UnicodeDecodeError):
+                raise WSInvalidMessageError(
+                    f"cannot upgrade, malformed header in upgrade response: {line!r}",
+                    raw_headers,
+                    tail,
+                    response,
+                ) from None
+
+        if response.status != HTTPStatus.SWITCHING_PROTOCOLS:
+            raise WSInvalidStatusError(
+                f"expected upgrade response with status 101 Switching Protocols, but received {response.status}",
+                raw_headers,
+                tail,
+                response,
+            )
+
+        transfer_encoding = response.headers.get("transfer-encoding")
+        if transfer_encoding == "chunked":
+            raise WSInvalidHeaderError(
+                "101 response cannot have Transfer-Encoding but it has",
+                "Transfer-Encoding",
+                transfer_encoding,
+                raw_headers,
+                tail,
+                response,
+            )
+
+        try:
+            content_length = int(response.headers.get("content-length", "0"))
+        except ValueError:
+            raise WSInvalidHeaderError(
+                "101 response has invalid Content-Length header",
+                "Content-Length",
+                response.headers.get("content-length"),
+                raw_headers,
+                tail,
+                response,
+            ) from None
+
+        if content_length != 0:
+            raise WSInvalidHeaderError(
+                "101 response has non-zero Content-Length, but it can't have body",
+                "Content-Length",
+                response.headers.get("content-length"),
+                raw_headers,
+                tail,
+                response,
+            )
+
+        upgrade_value = response.headers.get("upgrade")
+        upgrade_value = upgrade_value if upgrade_value is None else upgrade_value.lower()
+        if upgrade_value != "websocket":
+            raise WSInvalidUpgradeError(
+                "cannot upgrade, invalid upgrade header",
+                "Upgrade",
+                response.headers.get("upgrade"),
+                raw_headers,
+                tail,
+                response,
+            )
+
+        connection_value = response.headers.get("connection")
+        connection_value = connection_value if connection_value is None else connection_value.lower()
+        if connection_value != "upgrade":
+            raise WSInvalidUpgradeError(
+                "cannot upgrade, invalid connection header",
+                "Connection",
+                response.headers.get("connection"),
+                raw_headers,
+                tail,
+                response,
+            )
+
+        r_key = response.headers.get("sec-websocket-accept")
+        match = b64encode(sha1(self._websocket_key_b64 + _WS_KEY).digest()).decode()
+        if r_key != match:
+            raise WSInvalidHeaderError(
+                "cannot upgrade, invalid sec-websocket-accept response",
+                "Sec-WebSocket-Accept",
+                response.headers.get("sec-websocket-accept"),
+                raw_headers,
+                tail,
+                response,
+            )
+
+        memmove(self._read_buffer.data, self._read_buffer.data + len(raw_headers) + 4, self._read_buffer.size - len(raw_headers) - 4)
+        self._f_new_data_start_pos = len(tail)
+        self._state = WSParserState.READ_HEADER
+        if unlikely(self._log_debug_enabled):
+            self._logger.log(_DEBUG_LL, "WS handshake done, switch to upgraded state")
+
+        return response
+
+    cdef inline WSFrame _get_next_frame(self):
+        try:
+            return self._get_next_frame_impl()
+        except WSProtocolError as ex:
+            self._logger.error("WS parser error: %s, initiate disconnect", ex.args)
+            self._disconnect_exception = ex
+            self.transport.send_close(ex.args[0], ex.args[1])
+            self._loop.call_later(_DISCONNECT_AFTER_ERROR_DELAY, self.transport.disconnect)
+        except BaseException as ex:
+            self._logger.exception("WS parser failure, initiate disconnect")
+            self._disconnect_exception = ex
+            self.transport.send_close(WSCloseCode.PROTOCOL_ERROR)
+            self._loop.call_later(_DISCONNECT_AFTER_ERROR_DELAY, self.transport.disconnect)
+
+    cdef inline WSFrame _get_next_frame_impl(self): #  -> Optional[WSFrame]
+        """Return the next frame from the socket."""
+        cdef:
+            uint8_t first_byte
+            uint8_t second_byte
+            WSFrame frame
+            WSCloseInfo recv
+
+        if self._state == WSParserState.READ_HEADER:
+            if self._f_new_data_start_pos - self._f_curr_state_start_pos < 2:
+                return None
+
+            first_byte = <uint8_t>self._read_buffer.data[self._f_curr_state_start_pos]
+            second_byte = <uint8_t>self._read_buffer.data[self._f_curr_state_start_pos + 1]
+
+            self._f_fin = (first_byte >> 7) & 1
+            self._f_rsv1 = (first_byte >> 6) & 1
+            self._f_rsv2 = (first_byte >> 5) & 1
+            self._f_rsv3 = (first_byte >> 4) & 1
+            self._f_msg_type = <WSMsgType>(first_byte & 0xF)
+            if self._f_msg_type not in (
+                    WSMsgType.TEXT,
+                    WSMsgType.BINARY,
+                    WSMsgType.PING,
+                    WSMsgType.PONG,
+                    WSMsgType.CLOSE,
+                    WSMsgType.CONTINUATION):
+                raise WSProtocolError(
+                    WSCloseCode.PROTOCOL_ERROR,
+                    f"Received frame with invalid opcode={self._f_msg_type:#x}",
+                )
+
+            if self._f_msg_type > 0x7 and not self._f_fin:
+                raise WSProtocolError(
+                    WSCloseCode.PROTOCOL_ERROR,
+                    "Received fragmented control frame",
+                )
+
+            self._f_has_mask = (second_byte >> 7) & 1
+            if self.is_client_side and self._f_has_mask:
+                raise WSProtocolError(
+                    WSCloseCode.PROTOCOL_ERROR,
+                    "Received masked frame from server, RFC 6455 section 5.1 forbids this",
+                )
+            elif not self.is_client_side and not self._f_has_mask:
+                raise WSProtocolError(
+                    WSCloseCode.PROTOCOL_ERROR,
+                    "Received un-masked frame from client, RFC 6455 section 5.1 forbids this",
+                )
+
+            self._f_payload_length_flag = second_byte & 0x7F
+
+            if (self._f_msg_type in (WSMsgType.PING, WSMsgType.PONG, WSMsgType.CLOSE)
+                    and self._f_payload_length_flag > 125):
+                raise WSProtocolError(
+                    WSCloseCode.PROTOCOL_ERROR,
+                    f"Received control frame with payload size > 125 bytes, opcode={self._f_msg_type:#x}",
+                )
+
+            self._f_curr_state_start_pos += 2
+            self._state = WSParserState.READ_PAYLOAD_LENGTH
+
+        # read payload length
+        if self._state == WSParserState.READ_PAYLOAD_LENGTH:
+            if self._f_payload_length_flag == 126:
+                if self._f_new_data_start_pos - self._f_curr_state_start_pos < 2:
+                    return None
+                self._f_payload_length = ntohs((<uint16_t*>&self._read_buffer.data[self._f_curr_state_start_pos])[0])
+                self._f_curr_state_start_pos += 2
+            elif self._f_payload_length_flag > 126:
+                if self._f_new_data_start_pos - self._f_curr_state_start_pos < 8:
+                    return None
+                self._f_payload_length = be64toh((<uint64_t*>&self._read_buffer.data[self._f_curr_state_start_pos])[0])
+                self._f_curr_state_start_pos += 8
+            else:
+                self._f_payload_length = self._f_payload_length_flag
+
+            if self._f_has_mask:
+                self._state = WSParserState.READ_PAYLOAD_MASK
+            else:
+                self._f_payload_start_pos = self._f_curr_state_start_pos
+                self._state = WSParserState.READ_PAYLOAD
+
+            if (self._f_payload_length > self._max_frame_size and
+                    self._f_msg_type not in (WSMsgType.PING, WSMsgType.PONG, WSMsgType.CLOSE)):
+                raise WSProtocolError(
+                    WSCloseCode.MESSAGE_TOO_BIG,
+                    f"Received frame with payload size exceeding max allowed size, "
+                    f"{self._f_payload_length} > {self._max_frame_size}")
+
+        # read payload mask
+        if self._state == WSParserState.READ_PAYLOAD_MASK:
+            if self._f_new_data_start_pos - self._f_curr_state_start_pos < 4:
+                return None
+
+            self._f_mask = (<uint32_t*>&self._read_buffer.data[self._f_curr_state_start_pos])[0]
+            self._f_curr_state_start_pos += 4
+            self._f_payload_start_pos = self._f_curr_state_start_pos
+            self._state = WSParserState.READ_PAYLOAD
+
+        if self._state == WSParserState.READ_PAYLOAD:
+            # Check if we have not yet received the whole payload
+            if self._f_new_data_start_pos - self._f_payload_start_pos < self._f_payload_length:
+                return None
+
+            if self._f_has_mask:
+                _mask_payload(<uint8_t*>self._read_buffer.data + self._f_payload_start_pos,
+                              self._f_payload_length,
+                              self._f_mask,
+                              <uint8_t*>self._read_buffer.data + self._f_payload_start_pos
+                              )
+
+            frame = <WSFrame>WSFrame.__new__(WSFrame)
+            frame._payload_obj = None
+            frame.payload_ptr = self._read_buffer.data + self._f_payload_start_pos
+            frame.payload_size = self._f_payload_length
+            frame.tail_size = self._f_new_data_start_pos - (self._f_curr_state_start_pos + self._f_payload_length)
+            frame.msg_type = self._f_msg_type
+            frame.fin = self._f_fin
+            frame.rsv1 = self._f_rsv1
+            frame.rsv2 = self._f_rsv2
+            frame.rsv3 = self._f_rsv3
+            frame.last_in_buffer = 0
+
+            self._f_curr_state_start_pos += self._f_payload_length
+            self._f_curr_frame_start_pos = self._f_curr_state_start_pos
+            self._state = WSParserState.READ_HEADER
+
+            if unlikely(frame.msg_type == WSMsgType.CLOSE):
+                close_code = frame.get_close_code()
+                if close_code < 3000 and close_code not in _ALLOWED_CLOSE_CODES:
+                    raise WSProtocolError(WSCloseCode.PROTOCOL_ERROR,
+                                         f"Received CLOSE with invalid close code: {frame.get_close_code()}")
+
+                if frame.payload_size == 1:
+                    raise WSProtocolError(WSCloseCode.PROTOCOL_ERROR,
+                                         f"Received CLOSE with invalid close code size: {frame.fin} {frame.msg_type} {frame.get_payload_as_bytes()}")
+
+                recv = <WSCloseInfo>WSCloseInfo.__new__(WSCloseInfo)
+                recv.code = close_code
+                try:
+                    recv.reason = frame.get_close_reason()
+                except UnicodeDecodeError:
+                    raise WSProtocolError(WSCloseCode.INVALID_TEXT,
+                                          f"Received CLOSE with invalid UTF-8 reason")
+
+                if self.transport.close_handshake is None:
+                    self.transport.close_handshake = <WSCloseHandshake>WSCloseHandshake.__new__(WSCloseHandshake)
+                    self.transport.close_handshake.recv = recv
+                    self.transport.close_handshake.sent = None
+                    self.transport.close_handshake.recv_then_sent = True
+                elif self.transport.close_handshake.recv is None:
+                    self.transport.close_handshake.recv = recv
+                else:
+                    raise WSProtocolError(WSCloseCode.PROTOCOL_ERROR,
+                                          f"Received CLOSE for the second time: {frame.get_close_code()}")
+
+            return frame
+
+        assert False, "we should never reach this state"
+
+    cdef inline _invoke_on_ws_connected(self):
+        cdef:
+            WSCloseCode code
+            str reason
+
+        try:
+            self.listener.on_ws_connected(self.transport)
+        except Exception as exc:
+            if isinstance(exc, WSProtocolError):
+                code = exc.code
+                reason = exc.args[1]
+            else:
+                code = WSCloseCode.INTERNAL_ERROR
+                reason = ""
+            if self.is_client_side:
+                self._logger.warning("Initiate disconnect because of exception from WSListener.on_ws_connected: %s", str(exc))
+                self._disconnect_exception = exc
+            else:
+                self._logger.error("Initiate disconnect because of exception from WSListener.on_ws_connected: %s", str(exc))
+            self.transport.send_close(code, reason)
+            self._loop.call_later(_DISCONNECT_AFTER_ERROR_DELAY, self.transport.disconnect)
+
+    cdef inline _invoke_on_ws_frame(self, WSFrame frame):
+        try:
+            if unlikely(self._enable_auto_pong and frame.msg_type == WSMsgType.PING):
+                payload = frame.get_payload_as_bytes()
+                self.transport.send_pong(payload)
+                if self._log_debug_enabled:
+                    self._logger.log(_DEBUG_LL, "PING(%s) frame received, replied with PONG", payload)
+                return
+
+            if unlikely(self._enable_auto_ping and self.transport.auto_ping_expect_pong or self.transport.pong_received_at_future is not None):
+                if self.listener.is_user_specific_pong(frame):
+                    self.transport.auto_ping_expect_pong = False
+                    if self.transport.pong_received_at_future is not None:
+                        self.transport.pong_received_at_future.set_result(picows_get_monotonic_time())
+                        self.transport.pong_received_at_future = None
+                        if self._log_debug_enabled:
+                            self._logger.log(_DEBUG_LL, "Received PONG for the previously sent PING(measure_roundtrip_time), reset expect_pong flag")
+                    else:
+                        if self._log_debug_enabled:
+                            self._logger.log(_DEBUG_LL, "Received PONG for the previously sent PING(idle timeout), reset expect_pong flag")
+
+                    return
+
+            self.listener.on_ws_frame(self.transport, frame)
+        except WSProtocolError as exc:
+            self._logger.error("on_ws_frame raised WSProtocolError: %s, send CLOSE and initiate disconnect", exc.args)
+            self._disconnect_exception = exc
+            self.transport.send_close(exc.code, exc.args[1])
+            self._loop.call_later(_DISCONNECT_AFTER_ERROR_DELAY, self.transport.disconnect)
+        except Exception as exc:
+            if self._disconnect_on_exception:
+                if self.is_client_side:
+                    if self._disconnect_exception is None:
+                        self._disconnect_exception = exc
+                        self._logger.warning("Initiate disconnect because of exception from WSListener.on_ws_frame: %s", str(exc))
+                    else:
+                        self._logger.exception("Secondary exception from user's WSListener.on_ws_frame")
+                else:
+                    self._logger.exception("Initiate disconnect because of exception from WSListener.on_ws_frame")
+
+                self.transport.send_close(WSCloseCode.INTERNAL_ERROR)
+                self._loop.call_later(_DISCONNECT_AFTER_ERROR_DELAY, self.transport.disconnect)
+            else:
+                self._logger.exception("Unhandled exception from user's WSListener.on_ws_frame")
+
+    cdef inline _invoke_on_ws_disconnected(self):
+        try:
+            self.listener.on_ws_disconnected(self.transport)
+        except Exception as exc:
+            if self.is_client_side:
+                if self._disconnect_exception is None:
+                    self._disconnect_exception = exc
+                    self._logger.warning("Exception from WSListener.on_ws_disconnected: %s", str(exc))
+                else:
+                    self._logger.error("Exception from WSListener.on_ws_disconnected: %s", str(exc))
+            else:
+                self._logger.exception("Unhandled exception from user's WSListener.on_ws_disconnected")
+
+    cdef inline _shrink_buffer(self):
+        if self._f_curr_frame_start_pos > 0:
+            memmove(self._read_buffer.data,
+                    self._read_buffer.data + self._f_curr_frame_start_pos,
+                    self._f_new_data_start_pos - self._f_curr_frame_start_pos)
+
+            self._f_new_data_start_pos -= self._f_curr_frame_start_pos
+            self._f_curr_state_start_pos -= self._f_curr_frame_start_pos
+            self._f_payload_start_pos -= self._f_curr_frame_start_pos
+            self._f_curr_frame_start_pos = 0
+
+    def _handshake_timeout_callback(self):
+        self._logger.info("Handshake timeout, the client hasn't requested upgrade within required time, close connection")
+        if not self._handshake_complete_future.done():
+            self._handshake_complete_future.set_exception(asyncio.TimeoutError("websocket handshake timeout"))
+        self.transport.disconnect()

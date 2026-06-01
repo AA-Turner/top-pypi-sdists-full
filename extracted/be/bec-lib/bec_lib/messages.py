@@ -1,0 +1,2089 @@
+# pylint: disable=too-many-lines
+from __future__ import annotations
+
+import getpass
+import time
+import uuid
+import warnings
+from copy import deepcopy
+from enum import Enum, auto
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as importlib_version
+from typing import Annotated, Any, ClassVar, Literal, Mapping, Self, TypedDict, Union
+from uuid import uuid4
+
+import numpy as np
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+
+from bec_lib.metadata_schema import get_metadata_schema_for_scan
+
+
+class ProcedureWorkerStatus(Enum):
+    RUNNING = auto()
+    IDLE = auto()
+    FINISHED = auto()
+    DEAD = auto()  # worker lost communication with the container
+    NONE = auto()  # worker doesn't exist in manager, caught during creation and cleanup
+
+
+class BECStatus(Enum):
+    """BEC status enum"""
+
+    RUNNING = 2
+    BUSY = 1
+    IDLE = 0
+    ERROR = -1
+
+
+class BECMessage(BaseModel):
+    """Base Model class for BEC Messages
+
+    Args:
+        msg_type (str): ClassVar for the message type, subclasses should override this.
+        metadata (dict, optional): Optional dictionary with metadata for the BECMessage
+
+    """
+
+    msg_type: ClassVar[str]
+    metadata: dict = Field(default_factory=dict)
+
+    @field_validator("metadata")
+    @classmethod
+    def check_metadata(cls, v):
+        """Validate the metadata, return empty dict if None
+
+        Args:
+            v (dict, None): Metadata dictionary
+        """
+        return v or {}
+
+    @property
+    def content(self):
+        """Return the content of the message"""
+        content = self.__dict__.copy()
+        content.pop("metadata", None)
+        return content
+
+    def __eq__(self, other):
+        if not isinstance(other, BECMessage):
+            # don't attempt to compare against unrelated types
+            return False
+
+        try:
+            np.testing.assert_equal(self.model_dump(), other.model_dump())
+        except AssertionError:
+            return False
+
+        return self.msg_type == other.msg_type and self.metadata == other.metadata
+
+    def loads(self):
+        warnings.warn(
+            "BECMessage.loads() is deprecated and should not be used anymore. When calling Connector methods, it can be omitted. When a message needs to be deserialized call the appropriate function from bec_lib.serialization",
+            FutureWarning,
+        )
+        return self
+
+    def dumps(self):
+        warnings.warn(
+            "BECMessage.dumps() is deprecated and should not be used anymore. When calling Connector methods, it can be omitted. When a message needs to be serialized call the appropriate function from bec_lib.serialization",
+            FutureWarning,
+        )
+        return self
+
+    def __hash__(self) -> int:
+        return self.model_dump_json().__hash__()
+
+
+class BundleMessage(BECMessage):
+    """Message type to send a bundle of BECMessages.
+
+    Used to bundle together various messages, i.e. used to emit data in the scan bundler.
+
+    Args:
+        messages (list): List of BECMessage objects that are bundled together
+        metadata (dict, optional): Additional metadata to describe the scan
+
+    Examples:
+        >>> BundleMessage(messages=[ScanQueueMessage(...), ScanStatusMessage(...)], metadata = {...})
+
+    """
+
+    msg_type: ClassVar[str] = "bundle_message"
+    messages: list = Field(default_factory=list[BECMessage])
+
+    def append(self, msg: BECMessage):
+        """Append a new BECMessage to the bundle"""
+        if not isinstance(msg, BECMessage):
+            raise AttributeError(f"Cannot append message of type {msg.__class__.__name__}")
+        # pylint: disable=no-member
+        self.messages.append(msg)
+
+    def __len__(self):
+        return len(self.messages)
+
+    def __iter__(self):
+        # pylint: disable=not-an-iterable
+        yield from self.messages
+
+
+class ScanQueueMessage(BECMessage):
+    """Message type for sending scan requests to the scan queue
+
+    Sent by the API server / user to the scan_queue topic. It will be consumed by the scan server.
+        Args:
+            scan_type (str): one of the registered scan types; either rpc calls or scan types defined in the scan server
+            parameter (dict): required parameters for the given scan_stype
+            queue (str): either "primary" or "interception"
+            allow_restart (bool): Whether the server is allowed to restart the scan if needed. If False, only a ScanRestartMessage will be sent.
+            metadata (dict, optional): additional metadata to describe the scan
+        Examples:
+            >>> ScanQueueMessage(scan_type="dscan", parameter={"motor1": "samx", "from_m1:": -5, "to_m1": 5, "steps_m1": 10, "motor2": "samy", "from_m2": -5, "to_m2": 5, "steps_m2": 10, "exp_time": 0.1})
+    """
+
+    msg_type: ClassVar[str] = "scan_queue_message"
+    scan_type: str
+    parameter: dict
+    queue: str = Field(default="primary")
+    allow_restart: bool = Field(
+        default=True,
+        description="Whether the server is allowed to restart the scan if needed. If False, only a ScanRestartMessage will be sent.",
+    )
+
+    @model_validator(mode="after")
+    def _validate_metadata(self) -> Self:
+        """Make sure the metadata conforms to the registered schema, but
+        leave it as a dict"""
+        schema = get_metadata_schema_for_scan(self.scan_type)
+        try:
+            schema.model_validate(self.metadata.get("user_metadata", {}))
+        except ValidationError as e:
+            raise ValueError(
+                f"Scan metadata {self.metadata} does not conform to registered schema {schema}. \n Errors: {str(e)}"
+            ) from e
+        return self
+
+
+class ScanQueueHistoryMessage(BECMessage):
+    """Sent after removal from the active queue. Contains information about the scan.
+
+    Called by the ScanWorker after processing the QueueInstructionItem. It can be checked by any service.
+
+    Args:
+        status (str): Current scan status
+        queue_id (str): Unique queue ID
+        info (QueueInfoEntry): Information about the scan in the queue
+        queue (str): Defaults to "primary" queue. Information about the queue the scan was in.
+        metadata (dict, optional): Additional metadata to describe the scan
+
+    Examples:
+        >>> ScanQueueHistoryMessage(status="open", queue_id="1234", info={"positions": {"samx": 0.5, "samy": 0.5}})
+    """
+
+    msg_type: ClassVar[str] = "queue_history"
+    status: str
+    queue_id: str
+    info: QueueInfoEntry
+    queue: str = Field(default="primary")
+
+
+class ScanStatusMessage(BECMessage):
+    """Message type for sending scan status updates.
+
+    Args:
+        scan_id (str): Unique scan ID
+        status (Literal["open", "paused", "aborted", "halted", "closed", "user_completed"]) : Current scan status
+        reason (Literal["user", "alarm"] | None = None): Reason for the status change, if applicable
+        scan_number (int, optional): Scan number
+        session_id (str, optional): Session ID
+        num_points (int, optional): Number of points in the scan. Only relevant if the number of points is determined by BEC.
+        scan_name (str, optional): Name of the scan, e.g. 'line_scan'
+        scan_type (Literal["step", "fly"], optional): Type of scan
+        dataset_number (int, optional): Dataset number
+        scan_report_devices (list[str], optional): List of devices that are part of the scan report
+        user_metadata (dict, optional): User metadata
+        readout_priority (dict[Literal["monitored", "baseline", "async", "continuous", "on_request"], list[str]], optional): Readout priority
+        scan_parameters (dict[Literal["exp_time", "frames_per_trigger", "settling_time", "readout_time"] | str, Any], optional): Scan parameters such as exposure time, frames per trigger, settling time, readout time
+        request_inputs (dict[Literal["arg_bundle", "inputs", "kwargs"], Any], optional): Scan input
+        info (dict): Dictionary containing additional information about the scan
+        timestamp (float, optional): Timestamp of the message. Defaults to time.time()
+
+    Examples:
+        >>> ScanStatusMessage(scan_id="1234", status="open", info={"positions": {"samx": 0.5, "samy": 0.5}})
+    """
+
+    msg_type: ClassVar[str] = "scan_status"
+    scan_id: str | None
+    status: Literal["open", "paused", "aborted", "halted", "closed", "user_completed"]
+    reason: Literal["user", "alarm"] | None = None
+    scan_number: int | None = None
+    session_id: str | None = None
+    num_points: int | None = Field(
+        default=None,
+        description="Number of points in the scan. Only relevant if the number of points is determined by BEC.",
+    )
+    num_monitored_readouts: int | None = Field(
+        default=0, description="Number of monitored readouts in the scan."
+    )
+    scan_name: str | None = Field(default=None, description="Name of the scan, e.g. 'line_scan'")
+    scan_type: Literal["step", "fly"] | None = Field(default=None, description="Type of scan")
+    dataset_number: int | None = None
+    scan_report_devices: list[str] | None = None
+    user_metadata: dict | None = None
+    readout_priority: (
+        dict[Literal["monitored", "baseline", "async", "continuous", "on_request"], list[str]]
+        | None
+    ) = None
+    scan_parameters: dict[
+        Literal["exp_time", "frames_per_trigger", "settling_time", "readout_time"] | str, Any
+    ] = Field(default_factory=dict)
+    request_inputs: dict[Literal["arg_bundle", "inputs", "kwargs"], Any] = Field(
+        default_factory=dict
+    )
+    info: dict
+    timestamp: float = Field(default_factory=time.time)
+
+    def __str__(self):
+        content = deepcopy(self.__dict__)
+        if content["info"].get("positions"):
+            content["info"]["positions"] = "..."
+        return f"{self.__class__.__name__}({content, self.metadata}))"
+
+
+class ScanRestartMessage(BECMessage):
+    """
+    Message type that informs about a scan restart.
+
+    Args:
+        original_scan_id (str): Unique ID of the original scan
+        original_request_id (str): Request ID of the original scan
+        new_request_id (str): Request ID of the restarted scan
+
+    """
+
+    msg_type: ClassVar[str] = "scan_restart"
+    original_scan_id: str
+    scan_msg: ScanQueueMessage
+
+
+class ScanQueueModificationMessage(BECMessage):
+    """Message type for sending scan queue modifications
+
+    Args:
+        scan_id (str): Unique scan ID
+        action (str): One of the actions defined in ACTIONS:
+                "pause",
+                "deferred_pause",
+                "continue",
+                "abort",
+                "clear",
+                "restart",
+                "halt",
+                "resume",
+                "lock",
+                "release_lock",
+                "user_completed"
+        parameter (dict): Additional parameters for the action
+        queue (str): Defaults to "primary" queue. The name of the queue that receives the modification.
+        metadata (dict, optional): Additional metadata to describe and identify the scan.
+
+    Examples:
+        >>> ScanQueueModificationMessage(scan_id=scan_id, action="abort", parameter={})
+    """
+
+    msg_type: ClassVar[str] = "scan_queue_modification"
+    scan_id: str | list[str] | None | list[None]
+    action: Literal[
+        "pause",
+        "deferred_pause",
+        "continue",
+        "abort",
+        "clear",
+        "restart",
+        "halt",
+        "resume",
+        "lock",
+        "release_lock",
+        "user_completed",
+    ]
+    parameter: dict
+    queue: str = Field(default="primary")
+
+
+class ScanQueueOrderMessage(BECMessage):
+    """Message type for sending scan queue order modifications
+
+    Args:
+        scan_id (str): Unique scan ID
+        action (str): One of the actions defined in ACTIONS: ("move_up", "move_down", "move_top", "move_bottom", "move_to")
+        queue (str): Defaults to "primary" queue. The name of the queue that receives the modification.
+        metadata (dict, optional): Additional metadata to describe and identify the scan.
+
+    Examples:
+        >>> ScanQueueOrderMessage(scan_id=scan_id, action="move_up")
+    """
+
+    msg_type: ClassVar[str] = "scan_queue_order"
+    scan_id: str
+    action: Literal["move_up", "move_down", "move_top", "move_bottom", "move_to"]
+    queue: str = Field(default="primary")
+    target_position: int | None = None
+
+
+class RequestBlock(BaseModel):
+    """
+    Model for a request block within a scan queue entry. It represents a single request in the scan queue, e.g. a single scan or rpc call.
+
+    Args:
+        msg (ScanQueueMessage): The original scan queue message containing the request details
+        RID (str): Request ID associated with the request
+        readout_priority (dict[Literal["monitored", "baseline", "async", "continuous", "on_request"], list[str]]): Readout priority for the request
+        is_scan (bool): True if the request is a scan, False if it is an rpc call
+        scan_number (int | None): Scan number if applicable
+        scan_id (str | None): Scan ID if applicable
+        report_instructions (list[dict] | None): List of report instructions for the scan, if any
+
+    """
+
+    msg: ScanQueueMessage
+    RID: str
+    readout_priority: dict[
+        Literal["monitored", "baseline", "async", "continuous", "on_request"], list[str]
+    ]
+    is_scan: bool
+    scan_number: int | None
+    scan_id: str | None
+    report_instructions: list[dict] | None = None
+
+
+class QueueInfoEntry(BaseModel):
+    """
+    Model for scan queue information entries. It represents a single queue element within a scan queue but
+    may contain multiple request blocks.
+
+    Args:
+        queue_id (str): Unique queue ID
+        scan_id (list[str | None]): List of scan IDs for each request block
+        is_scan (list[bool]): List indicating whether each request block is a scan
+        request_blocks (list[RequestBlock]): List of RequestBlock objects representing the requests in the queue entry
+        scan_number (list[int | None]): List of scan numbers for each request block
+        status (str): Current status of the queue entry
+        active_request_block (RequestBlock | None): The currently active request block, if any
+    """
+
+    queue_id: str
+    scan_id: list[str | None]
+    is_scan: list[bool]
+    request_blocks: list[RequestBlock]
+    scan_number: list[int | None]
+    status: str
+    active_request_block: RequestBlock | None = None
+
+
+class ScanQueueLock(BaseModel):
+    """
+    Model for scan queue locks. It represents a lock that can be applied
+    to a scan queue to prevent certain actions. Locks can be used to lock the
+    scan queue for various reasons.
+
+    """
+
+    reason: str
+    identifier: str
+
+
+class ScanQueueStatus(BaseModel):
+    """
+    Model for scan queue status information.
+    It represents the status of a single queue, e.g. "primary" or "interception".
+    If the queue is locked, the locks field contains the list of locks applied to the queue.
+
+
+    Args:
+        info (list[QueueInfoEntry]): List of QueueInfoEntry objects representing the current queue status
+        status (Literal["PAUSED", "RUNNING", "LOCKED"]): Current status of the scan queue
+        locks (list[ScanQueueLock], optional): List of ScanQueueLock objects representing the locks applied to the queue
+    """
+
+    info: list[QueueInfoEntry]
+    status: Literal["PAUSED", "RUNNING", "LOCKED"]
+    locks: list[ScanQueueLock] = Field(default_factory=list)
+
+
+class ScanQueueStatusMessage(BECMessage):
+    """Message type for sending scan queue status updates
+
+    Args:
+        queue (dict): Dictionary containing the current queue status. Must contain a "primary" key.
+        metadata (dict, optional): Additional metadata to describe and identify the ScanQueueStatus.
+
+    Examples:
+        >>> ScanQueueStatusMessage(queue={"primary": {}}, metadata={"RID": "1234"})
+    """
+
+    msg_type: ClassVar[str] = "scan_queue_status"
+    queue: dict[str, ScanQueueStatus]
+
+    @field_validator("queue")
+    @classmethod
+    def check_queue(cls, v):
+        """Validate the queue"""
+        if "primary" not in v:
+            raise ValueError(f"Invalid queue {v}. Must contain a 'primary' key")
+        return v
+
+
+class ClientInfoMessage(BECMessage):
+    """Message type for sending information to the client
+    Args:
+        message (str): message to the client
+        show_asap (bool, optional): True if the message should be shown immediately. Defaults to True
+        # Note: The option show_asap = True/False is temporary disabled until a decision is made on how to handle it. TODO #286
+        RID (str, optional): Request ID forwarded from the service, if available will be used to filter on the client site. Defaults to None.
+        source (str, Literal[
+            "bec_ipython_client",
+            "scan_server",
+            "device_server",
+            "scan_bundler",
+            "file_writer",
+            "scihub",
+            "dap",
+            None]
+            : Source of the message. Defaults to None.
+        scope (str, optional): Scope of the message; Defaults to None. One can follow
+                               a pattern to filter afterwards for specific client info; e.g. "scan", "rotation"
+        severity (int, optional): severity level of the message (0: INFO, 1: WARNING, 2: ERROR); Defaults to 0
+        expire (float, optional): Time in seconds after which the message expires and should not be shown anymore.
+                                  Defaults to 60 seconds. Set it to 0 to never expire the message.
+    """
+
+    msg_type: ClassVar[str] = "client_info"
+    message: str
+    show_asap: bool = Field(default=True)
+    RID: str | None = Field(default=None)
+    source: Literal[
+        "bec_ipython_client",
+        "scan_server",
+        "device_server",
+        "scan_bundler",
+        "file_writer",
+        "scihub",
+        "dap",
+        None,
+    ] = Field(default=None)
+    scope: str | None = Field(default=None)
+    severity: int = Field(
+        default=0
+    )  # TODO add enum for severity levels INFO = 0, WARNING = 1, ERROR = 2
+    expire: float = Field(
+        default=60.0,
+        description="Time in seconds after which the message expires and should not be shown "
+        "anymore. Defaults to 60 seconds. Set it to 0 to never expire the message.",
+    )
+
+
+class RequestResponseMessage(BECMessage):
+    """Message type for sending back decisions on the acceptance of requests
+
+    Args:
+        accepted (bool): True if the request was accepted
+        message (str, dict, optional): String or dictionary describing the decision, e.g. "Invalid request"
+        metadata (dict, optional): Additional metadata, defaults to None.
+
+    Examples:
+        >>> RequestResponseMessage(accepted=True, message="Request accepted")
+    """
+
+    msg_type: ClassVar[str] = "request_response"
+    accepted: bool
+    message: str | dict | None = Field(default=None)
+
+
+class DeviceInstructionMessage(BECMessage):
+    """Message type for sending device instructions to the device server
+
+    Args:
+        device (str, list[str], None): Device name, list of device names or None
+        action (Literal[ "rpc",
+                        "set",
+                        "read",
+                        "kickoff",
+                        "complete",
+                        "trigger",
+                        "stage",
+                        "unstage",
+                        "pre_scan",
+                        "wait",
+                        "scan_report_instruction",
+                        "open_scan",
+                        "baseline_reading",
+                        "close_scan",
+                        "open_scan_def",
+                        "close_scan_def",
+                        "publish_data_as_read",
+                        "close_scan_group",
+                        ]) : Device action, note rpc calls can run any method of the device. The function name needs to be specified in parameters['func']
+        parameter (dict): Parameters required for the device action
+        metadata (dict, optional): Metadata to describe the conditions of the device instruction
+
+    Examples:
+        >>> DeviceInstructionMessage(device="samx", action="stage", parameter={})
+    """
+
+    msg_type: ClassVar[str] = "device_instruction"
+    device: str | list[str] | None
+    action: Literal[
+        "rpc",
+        "set",
+        "read",
+        "kickoff",
+        "complete",
+        "trigger",
+        "stage",
+        "unstage",
+        "pre_scan",
+        "wait",
+        "scan_report_instruction",
+        "open_scan",
+        "baseline_reading",
+        "close_scan",
+        "open_scan_def",
+        "close_scan_def",
+        "publish_data_as_read",
+        "close_scan_group",
+    ]
+    parameter: dict
+
+
+class ErrorInfo(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    error_message: str
+    compact_error_message: str | None
+    exception_type: str
+    device: str | list[str] | None = None
+
+
+class DeviceInstructionResponse(BECMessage):
+    msg_type: ClassVar[str] = "device_instruction_response"
+    device: str | list[str] | None
+    status: Literal["completed", "running", "error"]
+    error_info: ErrorInfo | None = None
+    instruction: DeviceInstructionMessage
+    instruction_id: str
+    result_is_status: bool | None = None
+    result: Any | None = None
+
+    @model_validator(mode="after")
+    def _ensure_error_info_if_error(self):
+        if self.status == "error" and self.error_info is None:
+            raise ValueError("Must supply error info for an error message!")
+        return self
+
+
+class DeviceMessage(BECMessage):
+    """Message type for sending device readings from the device server
+
+    Args:
+        signals (dict): Dictionary containing the device signals and their values
+        metadata (dict, optional): Metadata to describe the conditions of the device reading
+
+    Examples:
+        >>> BECMessage.DeviceMessage(signals={'samx': {'value': 14.999033949016491, 'timestamp': 1686385306.0265112}, 'samx_setpoint': {'value': 15.0, 'timestamp': 1686385306.016806}, 'samx_motor_is_moving': {'value': 0, 'timestamp': 1686385306.026888}}}, metadata={'stream': 'primary', 'DIID': 353, 'RID': 'd3471acc-309d-43b7-8ff8-f986c3fdecf1', 'point_id': 49, 'scan_id': '8e234698-358e-402d-a272-73e168a72f66', 'queue_id': '7a232746-6c90-44f5-81f5-74ab0ea22d4a'})
+    """
+
+    msg_type: ClassVar[str] = "device_message"
+    signals: dict[str, dict[Literal["value", "timestamp"], Any]]
+
+    @field_validator("metadata")
+    @classmethod
+    def check_metadata(cls, v):
+        """Validate the metadata, return empty dict if None
+
+        Args:
+            v (dict, None): Metadata dictionary
+        """
+        if not v:
+            return {}
+        if "async_update" in v:
+            DeviceAsyncUpdate.model_validate(v["async_update"])
+        return v
+
+
+class DeviceAsyncUpdate(BaseModel):
+    """Model for validating async update metadata sent with device data.
+
+    The async update metadata controls how data is aggregated into datasets during a scan:
+    - add: Appends data to the existing dataset along the first axis
+    - add_slice: Appends a slice of data at a specific index (max 2D datasets)
+    - replace: Replaces the existing dataset (written after scan completion)
+
+    Args:
+        type (Literal["add", "add_slice", "replace"]): Type of async update operation
+        max_shape (list[int | None], optional): Maximum shape of the dataset. Required for 'add' and 'add_slice' types.
+                                                 Use None for unlimited dimensions. E.g., [None] for 1D unlimited.
+                                                 None values must only appear at the beginning (e.g., [None, 1024] is valid, [1024, None] is not).
+                                                 When all dimensions are None, maximum is 2 dimensions (e.g., [None, None] is valid, [None, None, None] is not).
+                                                 For 'add_slice' type, max_shape cannot exceed two dimensions.
+        index (int, optional): Row index for 'add_slice' operations. Required only for 'add_slice' type.
+
+    Examples:
+        >>> DeviceAsyncUpdate(type="add", max_shape=[None])
+        >>> DeviceAsyncUpdate(type="add", max_shape=[None, 1024, 1024])
+        >>> DeviceAsyncUpdate(type="add_slice", max_shape=[None, 1024], index=5)
+        >>> DeviceAsyncUpdate(type="replace")
+    """
+
+    type: Literal["add", "add_slice", "replace"]
+    max_shape: list[int | None] | None = None
+    index: int | None = None
+
+    @model_validator(mode="after")
+    def validate_async_update(self) -> Self:
+        """Validate that required fields are present based on update type and constraints"""
+        if self.type in ["add", "add_slice"]:
+            if self.max_shape is None or len(self.max_shape) == 0:
+                raise ValueError(
+                    f"max_shape is required and cannot be empty for async update type '{self.type}'"
+                )
+
+        # Validate that None values only appear at the beginning of max_shape
+        # i.e., once a non-None value is found, no None values can appear after it
+        if self.max_shape is not None:
+            non_none_found = False
+            for i, dim in enumerate(self.max_shape):
+                if dim is not None:
+                    if not isinstance(dim, int) or dim <= 0:
+                        raise ValueError(
+                            f"Invalid max_shape {self.max_shape}: all non-None dimensions must be positive integers. "
+                            f"Found {dim} at index {i}."
+                        )
+                    non_none_found = True
+                elif non_none_found:
+                    raise ValueError(
+                        f"Invalid max_shape {self.max_shape}: None values must only appear at the beginning. "
+                        f"Found None at index {i} after non-None value."
+                    )
+
+            # If all dimensions are None, maximum is 2 dimensions
+            if all(dim is None for dim in self.max_shape):
+                if len(self.max_shape) > 2:
+                    raise ValueError(
+                        f"Invalid max_shape {self.max_shape}: when all dimensions are None, "
+                        f"maximum number of dimensions is 2, got {len(self.max_shape)}"
+                    )
+
+        if self.type == "add_slice":
+            if self.index is None:
+                raise ValueError("index is required for async update type 'add_slice'")
+            if not isinstance(self.index, int) or (self.index < -1):
+                raise ValueError(
+                    f"index must be an integer >= -1 for async update type 'add_slice', got {self.index}"
+                )
+            if self.max_shape is not None and len(self.max_shape) > 2:
+                raise ValueError(
+                    f"max_shape for async update type 'add_slice' cannot exceed two dimensions, got {len(self.max_shape)} dimensions"
+                )
+        return self
+
+
+class DeviceRPCMessage(BECMessage):
+    """Message type for sending device RPC return values from the device server
+
+    Args:
+        device (str): Device name.
+        return_val (Any): Return value of the RPC call.
+        out (str or dict): Output of the RPC call.
+        success (bool, optional): True if the RPC call was successful. Defaults to True.
+        metadata (dict, optional): Additional metadata.
+
+    """
+
+    msg_type: ClassVar[str] = "device_rpc_message"
+    device: str
+    return_val: Any
+    out: str | dict | ErrorInfo
+    success: bool = Field(default=True)
+
+
+class DeviceStatusMessage(BECMessage):
+    """Message type for sending device status updates from the device server
+
+    Args:
+        device (str): Device name.
+        status (int): Device status.
+        metadata (dict, optional): Additional metadata.
+
+    """
+
+    msg_type: ClassVar[str] = "device_status_message"
+    device: str
+    status: int
+
+
+class DeviceReqStatusMessage(BECMessage):
+    """Message type for sending device request status updates from the device server
+
+    Args:
+        device (str): Device name.
+        success (bool): True if the request was successful.
+        request_id (str): Request ID.
+        metadata (dict, optional): Additional metadata.
+
+    """
+
+    msg_type: ClassVar[str] = "device_req_status_message"
+    device: str
+    success: bool
+    request_id: str
+
+
+class DeviceInfoMessage(BECMessage):
+    """Message type for sending device info updates from the device server
+
+    Args:
+        device (str): Device name.
+        info (dict): Device info as a dictionary.
+        metadata (dict, optional): Additional metadata.
+
+    """
+
+    msg_type: ClassVar[str] = "device_info_message"
+    device: str
+    info: dict
+
+
+class DeviceMonitor2DMessage(BECMessage):
+    """Message type for sending device monitor updates from the device server.
+
+    The message is send from the device_server to monitor data coming from larger detector.
+
+    Args:
+        device (str): Device name.
+        data (np.ndarray): Numpy array data from the monitor
+        metadata (dict, optional): Additional metadata.
+
+    """
+
+    msg_type: ClassVar[str] = "device_monitor2d_message"
+    device: str
+    data: np.ndarray
+    timestamp: float = Field(default_factory=time.time)
+
+    metadata: dict | None = Field(default_factory=dict)
+
+    # Needed for pydantic to accept numpy arrays
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    @field_validator("data")
+    @classmethod
+    def check_data(cls, v: np.ndarray):
+        """Validate the entry in data. Has to be a 2D numpy array
+
+        Args:
+            v (np.ndarray): data array
+        """
+        if not isinstance(v, np.ndarray):
+            raise ValueError(f"Invalid array type: {type(v)}. Must be a numpy array.")
+        if v.ndim == 2:
+            return v
+        if v.ndim == 3 and v.shape[2] == 3:
+            return v
+        raise ValueError(
+            f"Invalid dimension {v.ndim} for numpy array. Must be a 2D array or 3D array for rgb v.shape[2]=3."
+        )
+
+
+class DeviceMonitor1DMessage(BECMessage):
+    """Message type for sending device monitor updates from the device server.
+
+    The message is send from the device_server to monitor data coming from larger detector.
+
+    Args:
+        device (str): Device name.
+        data (np.ndarray): Numpy array data from the monitor
+        metadata (dict, optional): Additional metadata.
+
+    """
+
+    msg_type: ClassVar[str] = "device_monitor1d_message"
+    device: str
+    data: np.ndarray
+    timestamp: float = Field(default_factory=time.time)
+
+    metadata: dict | None = Field(default_factory=dict)
+
+    # Needed for pydantic to accept numpy arrays
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    @field_validator("data")
+    @classmethod
+    def check_data(cls, v: np.ndarray):
+        """Validate the entry in data. Has to be a 2D numpy array
+
+        Args:
+            v (np.ndarray): data array
+        """
+        if not isinstance(v, np.ndarray):
+            raise ValueError(f"Invalid array type: {type(v)}. Must be a numpy array.")
+        if v.ndim == 1:
+            return v
+        raise ValueError(f"Invalid dimension {v.ndim} for numpy array. Must be a 1D array.")
+
+
+class DevicePreviewMessage(BECMessage):
+    """
+    Message type for sending device preview updates from the device server.
+    The message is sent from the device_server to monitor data streams, usually at
+    a reduced rate compared to the full data stream.
+
+    Args:
+        device (str): Device name.
+        signal (str): Signal name, e.g. "image", "data", "preview".
+        data (np.ndarray): Numpy array data from the preview.
+        timestamp (float, optional): Timestamp of the message. Defaults to time.time().
+        metadata (dict, optional): Additional metadata.
+    """
+
+    msg_type: ClassVar[str] = "device_preview_message"
+    device: str
+    signal: str
+    data: np.ndarray
+    timestamp: float = Field(default_factory=time.time)
+    # Needed for pydantic to accept numpy arrays
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+
+class DeviceUserROIMessage(BECMessage):
+    """
+    Message type for sending device user ROI updates to and from the device server.
+
+    Args:
+        device (str): Device name.
+        signal (str): Signal name associated with the ROI.
+        roi_type (str): Type of the ROI, e.g., 'rectangle', 'circle', 'polygon'.
+        roi (dict): Dictionary containing the ROI information, e.g., {"x": 100, "y": 200, "width": 50, "height": 50}.
+        metadata (dict, optional): Additional metadata.
+    """
+
+    msg_type: ClassVar[str] = "device_user_roi_message"
+    device: str
+    signal: str
+    roi_type: str = Field(description="Type of the ROI, e.g. 'rectangle', 'circle', 'polygon'")
+    roi: dict = Field(
+        description="Dictionary containing the ROI information, e.g. {'x': 100, 'y': 200, 'width': 50, 'height': 50}"
+    )
+    timestamp: float = Field(default_factory=time.time)
+
+
+class ScanMessage(BECMessage):
+    """Message type for sending scan segment data from the scan bundler
+
+    Args:
+        point_id (int): Point ID from the scan segment.
+        scan_id (str): Scan ID.
+        data (dict): Scan segment data.
+        metadata (dict, optional): Additional metadata.
+
+    """
+
+    msg_type: ClassVar[str] = "scan_message"
+    point_id: int
+    scan_id: str
+    data: dict
+
+
+class ScanHistoryMessage(BECMessage):
+    """Message type for sending scan history data from the file writer
+
+    Args:
+        scan_id (str): Scan ID.
+        scan_number (int): Scan number.
+        dataset_number (int): Dataset number.
+        file_path (str): Path to the file.
+        exit_status (Literal["closed", "aborted", "halted", "user_completed"]): Exit status of the scan.
+        reason (Literal["user", "alarm"] | None, optional): Reason for the exit status, if applicable.
+        start_time (float): Start time of the scan.
+        end_time (float): End time of the scan.
+        scan_name (str): Name of the scan.
+        num_points (int): Number of points in the scan.
+        num_monitored_readouts (int): Number of monitored readouts in the scan.
+        request_inputs (dict, optional): Inputs for the scan request, if available.
+        stored_data_info (dict[str, dict[str, _StoredDataInfo]], optional): Information about the stored data for each device in the scan.
+        metadata (dict, optional): Additional metadata.
+
+    """
+
+    msg_type: ClassVar[str] = "scan_history_message"
+    scan_id: str
+    scan_number: int
+    dataset_number: int
+    file_path: str
+    exit_status: Literal["closed", "aborted", "halted", "user_completed"]
+    reason: Literal["user", "alarm"] | None = None
+    start_time: float
+    end_time: float
+    scan_name: str
+    num_points: int | None = None
+    num_monitored_readouts: int | None = None
+    request_inputs: dict | None = None
+    stored_data_info: dict[str, dict[str, _StoredDataInfo]] | None = None
+
+
+class _StoredDataInfo(BaseModel):
+    """Internal class to store data info for each device in the scan history message
+
+    Args:
+        shape (tuple): Shape of the data for the device.
+        dtype (str, optional): Data type of the data for the device. Defaults to None.
+    """
+
+    shape: tuple[int, ...] = Field(default_factory=tuple)
+    dtype: str | None = None
+
+
+class ScanBaselineMessage(BECMessage):
+    """Message type for sending scan baseline data from the scan bundler
+
+    Args:
+        scan_id (str): Scan ID.
+        data (dict): Scan baseline data.
+        metadata (dict, optional): Additional metadata.
+
+    """
+
+    msg_type: ClassVar[str] = "scan_baseline_message"
+    scan_id: str
+    data: dict
+
+
+ConfigAction = Literal["add", "set", "update", "reload", "remove", "reset", "cancel"]
+
+
+class DeviceConfigMessage(BECMessage):
+    """Message type for sending device config updates
+
+    Args:
+        action (Literal['add', 'set', 'update', 'reload', 'reset', 'remove', 'cancel']) : Update of the device config.
+        config (dict, or None): Device config (add, set, update) or None (reload, reset).
+        metadata (dict, optional): Additional metadata.
+
+    """
+
+    msg_type: ClassVar[str] = "device_config_message"
+    action: ConfigAction | None = Field(default=None, validate_default=True)
+    config: dict | None = Field(default=None)
+
+    @model_validator(mode="after")
+    def check_config(self) -> Self:
+        """Validate the config"""
+        if self.action in ["add", "set", "update"] and not self.config:
+            raise ValueError(f"Invalid config {self.config}. Must be a dictionary")
+        return self
+
+
+class DeviceInitializationProgressMessage(BECMessage):
+    """Message type for sending device initialization progress updates
+
+    Args:
+        device (str): Device name.
+        finished (bool): True if the initialization is finished.
+        success (bool): True if the initialization was successful.
+        index (int): Current progress index.
+        total (int): Total number of steps for initialization.
+        metadata (dict, optional): Additional metadata.
+
+    """
+
+    msg_type: ClassVar[str] = "device_initialization_progress_message"
+    device: str
+    finished: bool
+    success: bool
+    index: int
+    total: int
+
+
+class LogMessage(BECMessage):
+    """Log message
+
+    Args:
+        log_type (Literal["trace", "debug", "info", "success", "warning", "error", "critical", "console_log", "console_log_error"]) : Log type.
+        log_msg (dict or str): Log message.
+        metadata (dict, optional): Additional metadata.
+
+    """
+
+    msg_type: ClassVar[str] = "log_message"
+    log_type: Literal[
+        "trace",
+        "debug",
+        "info",
+        "success",
+        "warning",
+        "error",
+        "critical",
+        "console_log",
+        "console_log_error",
+    ]
+    log_msg: dict | str
+
+
+class AlarmMessage(BECMessage):
+    """Alarm message
+
+    Args:
+        severity (Alarms, Literal[0,1,2]): Severity level (0-2). ALARMS.WARNING = 0, ALARMS.MINOR = 1, ALARMS.MAJOR = 2
+        info (ErrorInfo): Error information.
+        metadata (dict, optional): Additional metadata.
+
+    """
+
+    msg_type: ClassVar[str] = "alarm_message"
+    severity: int  # TODO change once enums moved to a separate class
+    info: ErrorInfo
+
+
+class ServiceVersions(BaseModel):
+    _versions: ClassVar[Self | None] = None
+
+    bec_lib: str
+    bec_server: str
+    bec_ipython_client: str
+    bec_widgets: str
+    ophyd_devices: str
+
+    @classmethod
+    def _get_version_numbers(cls):
+        if cls._versions:
+            return cls._versions
+
+        def _get_safe_version(package: str) -> str:
+            try:
+                return importlib_version(package)
+            except PackageNotFoundError:
+                return "Not found"
+
+        cls._versions = cls.model_validate(
+            {
+                pkg: _get_safe_version(pkg)
+                for pkg in [
+                    "bec_lib",
+                    "bec_server",
+                    "bec_ipython_client",
+                    "bec_widgets",
+                    "ophyd_devices",
+                ]
+            }
+        )
+        return cls._versions
+
+
+class ServiceInfo(BaseModel):
+    user: str
+    hostname: str
+    timestamp: float = Field(default_factory=time.time)
+    versions: ServiceVersions = Field(default_factory=ServiceVersions._get_version_numbers)
+
+
+class StatusMessage(BECMessage):
+    """Status message
+
+    Args:
+        name (str): Name of the status.
+        status (BECStatus): Value of the BECStatus enum (RUNNING = 2,  BUSY = 1, IDLE = 0, ERROR = -1).
+        info (ServiceInfo | dict): Status info.
+        metadata (dict, optional): Additional metadata.
+
+    """
+
+    msg_type: ClassVar[str] = "status_message"
+    name: str
+    status: BECStatus
+    info: ServiceInfo | dict
+
+
+class FileMessage(BECMessage):
+    """File message to inform about the status of a file writing operation
+
+    Args:
+        file_path (str): Path to the file.
+        done (bool): True if the file writing operation is done.
+        successful (bool): True if the file writing operation was successful.
+        device_name (str): Name of the device. If is_master_file is True, device_name is optional.
+        is_master_file (bool, optional): True if the file is a master file. Defaults to False.
+        file_type (str, optional): Type of the file. Defaults to "h5".
+        hinted_h5_entries (dict[str, str], optional): Dictionary with hinted h5 entries. Defaults to None.
+                    This allows the file writer to automatically create external links within the master.h5 file
+                    written by BEC under the entry for the specified device. The dictionary should contain the
+                    sub-entries and to where these should link in the external h5 file (file_path).
+                    Example for device_name='eiger', and dict('data' : '/entry/data/data'), the location
+                    '/entry/collection/devices/eiger/data' within the master file will link to '/entry/data/data'
+                    of the external file.
+        metadata (dict, optional): Additional metadata. Defaults to None.
+
+    """
+
+    msg_type: ClassVar[str] = "file_message"
+
+    file_path: str
+    done: bool
+    successful: bool
+    is_master_file: bool = Field(default=False)
+    device_name: str | list[str] | None = Field(default=None)
+    file_type: str = "h5"
+    hinted_h5_entries: dict[str, str] | None = None
+
+
+class FileContentMessage(BECMessage):
+    """File content message to inform about the content of a file
+
+    Args:
+        file_path (str): Path to the file.
+        data (str): Content of the file.
+        scan_info (dict): Scan information.
+        metadata (dict, optional): Status metadata. Defaults to None.
+
+    """
+
+    msg_type: ClassVar[str] = "file_content_message"
+    file_path: str
+    data: dict
+    scan_info: dict
+
+
+class VariableMessage(BECMessage):
+    """Message to inform about a global variable
+
+    Args:
+        value (Any): Variable value, can be of any type.
+        metadata (dict, optional): Additional metadata.
+
+    """
+
+    msg_type: ClassVar[str] = "var_message"
+    value: Any
+
+
+class ObserverMessage(BECMessage):
+    """Message for observer updates
+
+    Args:
+        observer (list[dict]): List of observer descriptions (dictionaries).
+        metadata (dict, optional): Additional metadata.
+
+    """
+
+    msg_type: ClassVar[str] = "observer_message"
+    observer: list[dict]
+
+
+class ServiceMetricMessage(BECMessage):
+    """Message for service metrics
+
+    Args:
+        name (str): Name of the service.
+        metrics (dict): Dictionary with service metrics.
+        metadata (dict, optional): Additional metadata.
+
+    """
+
+    msg_type: ClassVar[str] = "service_metric_message"
+    name: str
+    metrics: dict
+
+
+class _StrDynamicMetricValue(BaseModel):
+    value: str
+    possible_values: list[str]
+    type_name: Literal["str"] = "str"
+
+    @model_validator(mode="after")
+    def _validate(self) -> Self:
+        if self.value not in self.possible_values:
+            raise ValueError(
+                f"Invalid string metric: value '{self.value}' not in possible values: '{self.possible_values}'. Provide the possible values for string metrics."
+            )
+        if len(set(self.possible_values)) != len(self.possible_values):
+            raise ValueError(f"Duplicates in possible values: {self.possible_values}")
+        return self
+
+
+class _IntDynamicMetricValue(BaseModel):
+    value: int
+    type_name: Literal["int"] = "int"
+
+
+class _FloatDynamicMetricValue(BaseModel):
+    value: float
+    type_name: Literal["float"] = "float"
+
+
+class _BoolDynamicMetricValue(BaseModel):
+    value: bool
+    type_name: Literal["bool"] = "bool"
+
+
+DynamicMetricValue = Annotated[
+    _StrDynamicMetricValue
+    | _IntDynamicMetricValue
+    | _FloatDynamicMetricValue
+    | _BoolDynamicMetricValue,
+    Field(discriminator="type_name"),
+]
+
+
+class StringMetricDict(TypedDict):
+    value: str
+    possible_values: list[str]
+
+
+DynamicMetricDict = Mapping[str, StringMetricDict | int | float | bool]
+
+
+class DynamicMetricMessage(BECMessage):
+    """Message for propagating metrics to the log ingestor.
+
+    Args:
+        metrics (dict[str, str|int|float|bool]): Mapping of name to metric value"""
+
+    msg_type: ClassVar[str] = "dynamic_metric_message"
+    metrics: dict[str, DynamicMetricValue]
+    timestamp: float = Field(default_factory=time.time)
+
+    @classmethod
+    def from_dict(cls, metrics: DynamicMetricDict, separator: str = "-"):
+        def _fmt(value):
+            if isinstance(value, dict):
+                return {"type_name": "str", **value}
+            return {"value": value, "type_name": type(value).__name__}
+
+        return cls.model_validate(
+            {
+                # Metric names are concatenated with the group in the ingestor
+                "metrics": {separator + k: _fmt(v) for k, v in metrics.items()}
+            }
+        )
+
+
+class ProcessedDataMessage(BECMessage):
+    """Message for processed data
+
+    Args:
+        data (dict, list[dict]): Dictionary with processed data or list of dictionaries with processed data.
+        metadata (dict, optional): Metadata. Defaults to None.
+    """
+
+    msg_type: ClassVar[str] = "processed_data_message"
+    data: dict | list[dict]
+
+
+class DAPConfigMessage(BECMessage):
+    """Message for DAP configuration
+
+    Args:
+        config (dict): DAP configuration dictionary
+        metadata (dict, optional): Metadata. Defaults to None.
+    """
+
+    msg_type: ClassVar[str] = "dap_config_message"
+    config: dict
+
+
+class DAPRequestMessage(BECMessage):
+    """Message for DAP requests
+
+    Args:
+        dap_cls (str): DAP class name
+        dap_type (Literal["continuous", "on_demand"]) : Different types of DAP modes
+        config (dict): DAP configuration
+        metadata (dict, optional): Metadata. Defaults to None.
+    """
+
+    msg_type: ClassVar[str] = "dap_request_message"
+    dap_cls: str
+    dap_type: Literal["continuous", "on_demand"]
+    config: dict
+
+
+class DAPResponseMessage(BECMessage):
+    """Message for DAP responses
+
+    Args:
+        success (bool): True if the request was successful
+        data (tuple, optional): DAP data (tuple of data (dict) and metadata). Defaults to ({} , None).
+        error (str, optional): DAP error. Defaults to None.
+        dap_request (BECMessage, None): DAP request. Defaults to None.
+        metadata (dict, optional): Metadata. Defaults to None.
+    """
+
+    msg_type: ClassVar[str] = "dap_response_message"
+    success: bool
+    data: tuple | None = Field(default_factory=lambda: ({}, None))
+    error: str | None = None
+    dap_request: BECMessage | None = Field(default=None)
+
+
+class AvailableResourceMessage(BECMessage):
+    """Message for available resources such as scans, data processing plugins etc
+
+    Args:
+        resource (dict, list[dict], BECMessage, list[BECMessage]): Resource description
+        metadata (dict, optional): Metadata. Defaults to None.
+    """
+
+    msg_type: ClassVar[str] = "available_resource_message"
+    resource: dict | list[dict] | BaseModel | list[BaseModel]
+
+
+class ProgressMessage(BECMessage):
+    """Message for communicating the progress of a long running task
+
+    Args:
+        value (float): Current progress value
+        max_value (float): Maximum progress value
+        done (bool): True if the task is done
+        metadata (dict, optional): Metadata. Defaults to None.
+    """
+
+    msg_type: ClassVar[str] = "progress_message"
+    value: float
+    max_value: float
+    done: bool
+
+
+class GUIConfigMessage(BECMessage):
+    """Message for GUI configuration
+
+    Args:
+        config (dict): GUI configuration, check widgets for more details
+        metadata (dict, optional): Metadata. Defaults to None.
+    """
+
+    msg_type: ClassVar[str] = "gui_config_message"
+    config: dict
+
+
+class GUIDataMessage(BECMessage):
+    """Message for GUI data, i.e. update for DAP processes or scans
+
+    Args:
+        data (dict): GUI data
+        metadata (dict, optional): Metadata. Defaults to None.
+    """
+
+    msg_type: ClassVar[str] = "gui_data_message"
+    data: dict
+
+
+class GUIInstructionMessage(BECMessage):
+    """Message for GUI instructions
+
+    Args:
+        action (str): Instruction to be executed by the GUI
+        metadata (dict, optional): Metadata. Defaults to None.
+    """
+
+    msg_type: ClassVar[str] = "gui_instruction_message"
+    action: str
+    parameter: dict
+
+
+class GUIAutoUpdateConfigMessage(BECMessage):
+    """Message for Auto Update configuration
+
+    Args:
+        selected_device (str): the selected device for plotting
+        metadata (dict, optional): Metadata. Defaults to None.
+    """
+
+    msg_type: ClassVar[str] = "gui_auto_update_config_message"
+    selected_device: str
+
+
+class GUIRegistryStateMessage(BECMessage):
+    """Message for GUI registry state. The dictionary contains the state of the GUI registry.
+
+    Args:
+        state (dict[str, dict[Literal["gui_id", "name", "widget_class", "config", "__rpc__", "container_proxy"], str | bool | dict | None]): GUI registry state
+        metadata (dict, optional): Metadata. Defaults to None.
+    """
+
+    msg_type: ClassVar[str] = "gui_registry_state_message"
+    state: dict[
+        str,
+        dict[
+            Literal[
+                "gui_id",
+                "name",
+                "object_name",
+                "widget_class",
+                "config",
+                "__rpc__",
+                "container_proxy",
+                "skip_rpc_namespace",
+            ],
+            str | bool | dict | None,
+        ],
+    ]
+
+
+class ServiceResponseMessage(BECMessage):
+    """Message for service responses
+
+    Args:
+        response (dict): Service response
+        metadata (dict, optional): Metadata. Defaults to None.
+    """
+
+    msg_type: ClassVar[str] = "service_response_message"
+    response: dict
+
+
+class CredentialsMessage(BECMessage):
+    """Message for credentials
+
+    Args:
+        credentials (dict): Credentials
+        metadata (dict, optional): Metadata. Defaults to None.
+    """
+
+    msg_type: ClassVar[str] = "credentials_message"
+    credentials: dict
+
+
+class RawMessage(BECMessage):
+    """Message for raw data that was not encoded as a BECMessage.
+    The data dictionary is simply the raw data loaded using json.loads
+
+    Args:
+        data (Any): Raw data
+        metadata (dict, optional): Metadata. Defaults to None.
+    """
+
+    msg_type: ClassVar[str] = "raw_message"
+    data: Any
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+
+class ServiceRequestMessage(BECMessage):
+    """Message for service requests
+
+    Args:
+        action (Literal["restart", "reload_scans"]): Action to be executed by the service
+        metadata (dict, optional): Metadata. Defaults to None.
+    """
+
+    msg_type: ClassVar[str] = "service_request_message"
+    action: Literal["restart", "reload_scans"]
+
+
+class ProcedureRequestMessage(BECMessage):
+    """Message type for sending procedure requests to the server
+
+    Sent by the API server / user to the procedure_request topic. It will be consumed by the procedure manager.
+        Args:
+            identifier (str): name of the procedure registered with the server
+            queue (str | none): a key for the procedure queue
+    """
+
+    msg_type: ClassVar[str] = "procedure_request_message"
+    identifier: str
+    args_kwargs: tuple[tuple[Any, ...], dict[str, Any]] | None = None
+    queue: str | None = None
+    execution_id: str = Field(default_factory=lambda: str(uuid4()))
+
+
+class ProcedureQNotifMessage(BECMessage):
+    """Message type for notifying watchers of changes to queues, mainly meant for GUI to consume"""
+
+    msg_type: ClassVar[str] = "procedure_queue_notif_message"
+    queue_name: str
+    queue_type: Literal["execution", "unhandled"]
+
+
+class ProcedureStatusUpdate(BECMessage):
+    """Message type for notifying watchers of changes to procedure executions, mainly meant for status helper to consume"""
+
+    msg_type: ClassVar[str] = "procedure_execution_status_update"
+    execution_id: str
+    action: Literal["Started", "Aborted", "Finished"]
+    error: str | None = None
+
+
+class ProcedureExecutionMessage(BECMessage):
+    """Message type for sending procedure execution instructions to the scheduler
+
+    Sent by the  user to the procedure_request topic. It will be consumed by the scan server.
+        Args:
+            identifier (str): name of the procedure registered with the server
+            queue (str): the procedure queue this execution belongs to
+            args_kwargs (tuple[tuple[Any, ...], dict[str, Any]]): arguments for the procedure function
+            execution_id: a unique ID assigned by the procedure manager
+            env (dict[str,str]): for out of process workers, environment variables to pass in
+    """
+
+    msg_type: ClassVar[str] = "procedure_execution_message"
+    identifier: str
+    queue: str
+    args_kwargs: tuple[tuple[Any, ...], dict[str, Any]] = (), {}
+    execution_id: str
+    env: dict[str, str] | None = None
+
+
+class ProcedureAbortMessage(BECMessage):
+    """Message type to request aborting a procedure or procedure queue
+
+    One and only one of the args should be supplied.
+        Args:
+            queue (str | None): the procedure queue to abort
+            execution_id (str | None): the procedure execution to abort
+            abort_all (bool | None): abort all procedures if true
+    """
+
+    msg_type: ClassVar[str] = "procedure_abort_message"
+    queue: str | None = None
+    execution_id: str | None = None
+    abort_all: bool | None = None
+
+    @model_validator(mode="after")
+    def mutually_exclusive(self) -> Self:
+        if (self.queue, self.execution_id, self.abort_all).count(None) != 2:
+            raise ValueError(
+                "Please only supply one argument! Supplied: \n"
+                f"    {self.queue=}, {self.execution_id=}, {self.abort_all=}"
+            )
+        return self
+
+
+class ProcedureClearUnhandledMessage(ProcedureAbortMessage):
+    """Message type to request clearing an unhandled procedure or procedure queue
+
+    One and only one of the args should be supplied.
+        Args:
+            queue (str | None): the unhandled procedure queue to clear
+            execution_id (str | None): the unhandled procedure queue to clear
+            abort_all (bool | None): clear all procedures if true
+    """
+
+    msg_type: ClassVar[str] = "procedure_clear_unhandled_message"
+
+
+class ProcedureWorkerStatusMessage(BECMessage):
+    """Message type for sending procedure worker status updates
+
+    Args:
+        worker_queue (str): Worker queue ID
+        status (str): Worker status
+        current_execution_id (str | None): ID of the current job, only allowed for RUNNING
+    """
+
+    msg_type: ClassVar[str] = "procedure_worker_status_message"
+    worker_queue: str
+    status: ProcedureWorkerStatus
+    current_execution_id: str | None = None
+
+    @model_validator(mode="after")
+    def check_id(self) -> Self:
+        if self.current_execution_id is not None and self.status != ProcedureWorkerStatus.RUNNING:
+            raise ValueError("Adding an execution ID is only valid for the RUNNING status")
+        if self.current_execution_id is None and self.status == ProcedureWorkerStatus.RUNNING:
+            raise ValueError("Adding an execution ID is mandatory for the RUNNING status")
+        return self
+
+
+class LoginInfoMessage(BECMessage):
+    """
+    Message for public login information
+
+    Args:
+        host (str): Hostname
+        deployment (str): Deployment id
+    """
+
+    msg_type: ClassVar[str] = "login_info_message"
+    host: str
+    deployment: str
+    available_accounts: list[str]
+    atlas_login: bool
+
+
+class ACLAccountsMessage(BECMessage):
+    """
+    Message for ACL accounts
+
+    Args:
+        accounts (dict): ACL accounts
+    """
+
+    msg_type: ClassVar[str] = "acl_accounts_message"
+    accounts: dict[
+        str, dict[Literal["categories", "keys", "channels", "commands", "profile"], list[str] | str]
+    ]
+
+
+class RealmInfoMessage(BECMessage):
+    """
+    Message for realm information
+    Args:
+        realm_id (str): Realm ID
+        deployments (list[DeploymentInfoMessage]): List of deployment information messages
+        name (str): Realm name
+        xname (str): Realm xname
+        managers (list[str]): List of realm managers
+    """
+
+    msg_type: ClassVar[str] = "realm_info_message"
+
+    realm_id: str
+    deployments: list[DeploymentInfoMessage]
+    name: str
+    xname: str
+    managers: list[str]
+
+
+class ExperimentInfoMessage(BECMessage):
+    """
+    Message for experiment information
+
+    Args:
+        realm_id (str): Realm ID
+        proposal (str): Proposal ID
+        title (str): Proposal title
+        firstname (str): First name of the principal investigator
+        lastname (str): Last name of the principal investigator
+        email (str): Email of the principal investigator
+        account (str): User account
+        pi_firstname (str): First name of the principal investigator
+        pi_lastname (str): Last name of the principal investigator
+        pi_email (str): Email of the principal investigator
+        pi_account (str): Account of the principal investigator
+        eaccount (str): Experiment account
+        pgroup (str): Proposal group
+        abstract (str): Proposal abstract
+        schedule (list[dict] | None): Proposal schedule
+        proposal_submitted (str | None): Proposal submission date
+        proposal_expire (str | None): Proposal expiration date
+        proposal_status (str | None): Proposal status
+        delta_last_schedule (int | None): Delta last schedule
+        mainproposal (str | None): Main proposal ID
+    """
+
+    msg_type: ClassVar[str] = "experiment_info_message"
+
+    realm_id: str
+    proposal: str
+    title: str
+    firstname: str
+    lastname: str
+    email: str
+    account: str
+    pi_firstname: str
+    pi_lastname: str
+    pi_email: str
+    pi_account: str
+    eaccount: str
+    pgroup: str
+    abstract: str
+    schedule: list[dict] | None = None
+    proposal_submitted: str | None = None
+    proposal_expire: str | None = None
+    proposal_status: str | None = None
+    delta_last_schedule: int | None = None
+    mainproposal: str | None = None
+
+
+class MessagingService(BaseModel):
+    id: str
+    scope: str
+    enabled: bool
+    name: str | None = None
+    service_type: str = Field(
+        ..., description="Type of the messaging service, e.g. 'signal', 'teams', 'scilog'"
+    )
+
+
+class SignalServiceInfo(MessagingService):
+    service_type: Literal["signal"] = "signal"
+    group_id: str | None = None
+    group_link: str | None = None
+
+
+class SciLogServiceInfo(MessagingService):
+    service_type: Literal["scilog"] = "scilog"
+    logbook_id: str
+
+
+class TeamsServiceInfo(MessagingService):
+    service_type: Literal["teams"] = "teams"
+    workflow_webhook_url: str
+
+
+class MessagingServiceScopeConfig(BaseModel):
+    enabled: bool
+    default: str | list[str] | None = None
+
+
+class MessagingConfig(BaseModel):
+    signal: MessagingServiceScopeConfig
+    teams: MessagingServiceScopeConfig
+    scilog: MessagingServiceScopeConfig
+
+
+AvailableMessagingServices = Annotated[
+    Union[SignalServiceInfo, SciLogServiceInfo, TeamsServiceInfo],
+    Field(discriminator="service_type"),
+]
+
+
+class AvailableMessagingServicesMessage(BECMessage):
+    """
+    Message for available messaging services, combining the information about deployment and session
+    messaging services. This message is sent by the server to the client to inform about the available messaging services
+
+    Args:
+    config (MessagingConfig): Messaging services configuration for the deployment and session
+    deployment_services (list[AvailableMessagingServices]): List of available messaging services for the deployment
+    session_services (list[AvailableMessagingServices]): List of available messaging services for the session
+    """
+
+    msg_type: ClassVar[str] = "available_messaging_services_message"
+    config: MessagingConfig
+    deployment_services: list[AvailableMessagingServices] = Field(default_factory=list)
+    session_services: list[AvailableMessagingServices] = Field(default_factory=list)
+
+
+class SessionInfoMessage(BECMessage):
+    """
+    Message for session information
+
+    Args:
+        name (str): Session name
+        experiment (ExperimentInfoMessage | None): Experiment information for the session
+        messaging_services (list[AvailableMessagingServices]): List of available messaging services for the session
+    """
+
+    msg_type: ClassVar[str] = "session_info_message"
+    name: str
+    experiment: ExperimentInfoMessage | None = None
+    messaging_services: list[AvailableMessagingServices] = Field(default_factory=list)
+
+
+class DeploymentInfoMessage(BECMessage):
+    """
+    Message for deployment information
+
+    Args:
+        name (str): Deployment name
+        deployment_id (str): Deployment ID
+        active_session (SessionInfoMessage | None): Active session information for the deployment
+        messaging_config (MessagingConfig): Messaging services configuration for the deployment
+        messaging_services (list[AvailableMessagingServices]): List of available messaging services for the deployment
+    """
+
+    msg_type: ClassVar[str] = "deployment_info_message"
+    deployment_id: str
+    name: str
+    active_session: SessionInfoMessage | None = None
+    messaging_config: MessagingConfig
+    messaging_services: list[AvailableMessagingServices] = Field(default_factory=list)
+
+
+class EndpointInfoMessage(BECMessage):
+    """
+    Message for endpoint information
+
+    Args:
+        endpoint (str): Endpoint URL
+        metadata (dict, optional): Additional metadata.
+    """
+
+    msg_type: ClassVar[str] = "endpoint_info_message"
+    endpoint: str
+    metadata: dict | None = Field(default_factory=dict)
+
+
+class ScriptExecutionInfoMessage(BECMessage):
+    """
+    Message for script execution
+
+    Args:
+        script_id (str): Unique identifier for the script
+        status (Literal["running", "completed", "failed", "aborted"]): Execution status
+        current_lines (list[int], optional): Current line numbers being executed. Defaults to None.
+        traceback (str, optional): Traceback information. Defaults to None.
+    """
+
+    msg_type: ClassVar[str] = "script_execution_message"
+    script_id: str
+    status: Literal["running", "completed", "failed", "aborted"]
+    current_lines: list[int] | None = None
+    traceback: str | None = None
+
+
+class MacroUpdateMessage(BECMessage):
+    """
+    Message for macro updates
+
+    Args:
+    """
+
+    msg_type: ClassVar[str] = "macro_update_message"
+    update_type: Literal["add", "remove", "reload", "reload_all"]
+    macro_name: str | None = None
+    file_path: str | None = None
+
+    metadata: dict | None = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def check_macro(self) -> Self:
+        """Validate the macro update message"""
+        if self.update_type in ["add", "remove", "reload"] and not self.macro_name:
+            raise ValueError("macro_name must be provided for add, remove and reload actions")
+        if self.update_type == "add" and not self.file_path:
+            raise ValueError("file_path must be provided for add actions")
+        return self
+
+
+class MessagingServiceTextContent(BaseModel):
+    """
+    Text content for messaging services
+
+    Args:
+        content (str): Text content
+    """
+
+    content: str
+
+
+class MessagingServiceFileContent(BaseModel):
+    """
+    File content for messaging services
+
+    Args:
+        filename (str): Name of the file
+        mime_type (str): MIME type of the file
+        data (bytes): File data
+        width (int | str | None): Width for displaying the file, if applicable. Defaults to None.
+        height (int | str | None): Height for displaying the file, if applicable. Defaults to None.
+    """
+
+    filename: str
+    mime_type: str
+    data: bytes
+    width: int | str | None = None
+    height: int | str | None = None
+
+
+class MessagingServiceTagsContent(BaseModel):
+    """
+    Tags content for messaging services
+
+    Args:
+        tags (list[str]): List of tags
+    """
+
+    tags: list[str]
+
+
+class MessagingServiceStickerContent(BaseModel):
+    """
+    Sticker content for messaging services
+
+    Args:
+        sticker_id (str): Sticker ID
+    """
+
+    sticker_id: str
+
+
+class MessagingServiceGiphyContent(BaseModel):
+    """
+    Giphy content for messaging services
+
+    Args:
+        giphy_url (str): Giphy URL
+    """
+
+    giphy_url: str
+
+
+MessagingServiceContent = Union[
+    MessagingServiceTextContent,
+    MessagingServiceFileContent,
+    MessagingServiceTagsContent,
+    MessagingServiceStickerContent,
+    MessagingServiceGiphyContent,
+]
+
+
+class MessagingServiceMessage(BECMessage):
+    """
+    Message for communicating with messaging services such as Signal, Teams or SciLog
+
+    Args:
+        service_name (Literal["signal", "teams", "scilog"]): Name of the messaging service
+        message (list[MessagingServiceContent]): Message content
+        scope (str | list[str]): Scope or recipient to send the message to
+        metadata (dict, optional): Additional metadata. Defaults to None.
+    """
+
+    msg_type: ClassVar[str] = "messaging_service_message"
+    service_name: Literal["signal", "teams", "scilog"]
+    message: list[MessagingServiceContent]
+    scope: str | list[str] | None = None
+    metadata: dict | None = Field(default_factory=dict)
+
+
+class FeedbackMessage(BECMessage):
+    """
+    Message for user feedback
+
+    Args:
+        feedback (str): User feedback
+        rating (int): User rating (1-5)
+        feedback_type (Literal["bug_report", "feature_request", "general_feedback"]): Type of feedback. Defaults to "general_feedback"
+        contact (str | None): User contact information, if they want to be contacted regarding their feedback
+        realm_id (str | None): Realm ID, if applicable
+        deployment_id (str | None): Deployment ID, if applicable
+        experiment_id (str | None): Experiment ID, if applicable
+        username (str): Username of the user providing feedback. Filled in automatically on the client side
+        versions (ServiceVersions): Version information for the services used when providing feedback. Filled in automatically on the client side
+        timestamp (float): Timestamp of when the feedback was provided
+        metadata (dict, optional): Additional metadata. Defaults to None.
+    """
+
+    msg_type: ClassVar[str] = "feedback_message"
+
+    feedback: str
+
+    rating: int = Field(ge=1, le=5)
+    feedback_type: Literal["bug_report", "feature_request", "general_feedback"] = "general_feedback"
+    contact: str | None = None
+    realm_id: str | None = None
+    deployment_id: str | None = None
+    experiment_id: str | None = None
+    username: str = Field(default_factory=getpass.getuser)
+    versions: ServiceVersions = Field(default_factory=ServiceVersions._get_version_numbers)
+    timestamp: float = Field(default_factory=time.time)
+
+
+class GameScoreMessage(BECMessage):
+    """
+    Message for game scores
+
+    Args:
+        game_name (str): Name of the game
+        player_name (str): Name of the player (self-reported)
+        level (str | int | None): Game level, if applicable
+        score (float | int): Player's score
+        beamline_id (str | None): Beamline name. Filled in automatically on the server side
+        experiment_id (str | None): Experiment ID. Filled in automatically on the server side
+        timestamp (float): Timestamp of when the score was submitted. Filled in automatically
+    """
+
+    msg_type: ClassVar[str] = "game_score_message"
+
+    game_name: str
+    player_name: str
+    score: float | int
+    level: str | int | None = None
+    beamline_id: str | None = None
+    experiment_id: str | None = None
+    timestamp: float = Field(default_factory=time.time)
+
+
+class GameLeaderboardMessage(BECMessage):
+    """
+    Message for game leaderboard updates
+
+    Args:
+        game_name (str): Name of the game
+        leaderboard (list[GameScoreMessage]): List of game scores for the leaderboard
+    """
+
+    msg_type: ClassVar[str] = "game_leaderboard_message"
+    game_name: str
+    leaderboard: list[GameScoreMessage]
+
+
+class BeamlineStateMessage(BECMessage):
+    """
+    Message for beamline state updates
+
+    Args:
+        name (str): Name of the beamline state
+        status (Literal["valid", "invalid", "warning", "unknown"]): Status of the beamline state
+        label (str): Description of the beamline state
+    """
+
+    msg_type: ClassVar[str] = "beamline_state_message"
+    name: str
+    status: Literal["valid", "invalid", "warning", "unknown"]
+    label: str
+    timestamp: float = Field(default_factory=time.time)
+
+
+class BeamlineStateConfig(BaseModel):
+    """
+    Entry for beamline state update
+
+    Args:
+        name (str): Name of the beamline state
+        title (str): Title of the beamline state
+        state_type (str): Type of the beamline state
+        parameters (dict, optional): Additional parameters for the state
+    """
+
+    name: str
+    title: str
+    state_type: str
+    parameters: dict = Field(default_factory=dict)
+
+
+class AvailableBeamlineStatesMessage(BECMessage):
+    """
+    Message for updating beamline states
+
+    Args:
+        states (list[BeamlineStateConfig]): List of beamline state update entries
+    """
+
+    msg_type: ClassVar[str] = "beamline_state_update_message"
+    states: list[BeamlineStateConfig]
+
+
+class ActorStartRequestMessage(BECMessage):
+    """Specify an actor class by module and name, to be instantiated and started by the actor
+    manager."""
+
+    msg_type: ClassVar[str] = "actor_start_request"
+
+    actor_module: str
+    actor_class_name: str
+
+
+class ActorStopRequestMessage(BECMessage):
+    """Specify an actor to be stopped by the actor manager. By default, the id of a running actor
+    will be its class as a fully qualified path, since there should be only one of each type of
+    actor at any time."""
+
+    msg_type: ClassVar[str] = "actor_stop_request"
+
+    actor_id: str
+
+
+class ActorExecutionMessage(BECMessage):
+    """Message type for internal use to track running actors."""
+
+    msg_type: ClassVar[str] = "actor_execution"
+
+    queue: str
+    execution_id: str
+    env: dict[str, str] | None
+
+
+class ActorStopMessage(BECMessage):
+    """Message for internal use to signal a running actor to stop execution."""
+
+    msg_type: ClassVar[str] = "actor_stop"
+
+    execution_id: str

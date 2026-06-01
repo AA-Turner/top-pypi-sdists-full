@@ -193,6 +193,15 @@ class OpenAIAdapter(APIAdapter):
         # Enable thinking for models that support it (Gemma 4)
         if thinking and thinking not in ("off", ""):
             payload["chat_template_kwargs"] = {"enable_thinking": True}
+        # 2026-05-31: TRIED explicitly setting enable_thinking=False when
+        # adaptive selector returns "off". REVERTED — observed in operator
+        # session 2026-05-31 14:54: it caused the model to emit a flood of
+        # malformed tool calls (bash({}) with empty args) for 5+ minutes,
+        # presumably because Gemma 4's tool-call training was conditioned
+        # on having a thinking block before the JSON. Leaving the key
+        # absent (and accepting the template's default enable_thinking=True)
+        # is safer for tool reliability; the latency cost is real but the
+        # malformed-call thrash is worse.
         # NOTE: thinking budget (max thinking tokens) is a llamacpp SERVER startup
         # flag (--reasoning-budget N / LLAMA_ARG_THINK_BUDGET), not an API parameter.
         # The Gemma4 jinja template does not expose a thinking_budget variable, so

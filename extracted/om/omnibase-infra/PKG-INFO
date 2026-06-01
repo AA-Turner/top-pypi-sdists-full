@@ -1,0 +1,210 @@
+Metadata-Version: 2.4
+Name: omnibase_infra
+Version: 0.36.1
+Summary: ONEX Infrastructure - Service integration and database infrastructure tools
+Author-email: "OmniNode.ai" <contact@omninode.ai>
+License: MIT
+License-File: LICENSE
+Requires-Python: >=3.12
+Requires-Dist: a2a-sdk<1.1.0,>=0.3.4
+Requires-Dist: aiofiles<26.0.0,>=23.2.1
+Requires-Dist: aiohttp<4.0.0,>=3.9.0
+Requires-Dist: aiokafka<0.15.0,>=0.11.0
+Requires-Dist: asyncpg<0.32.0,>=0.29.0
+Requires-Dist: circuitbreaker<3.0.0,>=2.0.0
+Requires-Dist: click<9.0.0,>=8.1.0
+Requires-Dist: confluent-kafka<3.0.0,>=2.12.0
+Requires-Dist: cryptography<49.0.0,>=46.0.3
+Requires-Dist: dependency-injector<5.0.0,>=4.48.1
+Requires-Dist: fastapi<0.137.0,>=0.120.1
+Requires-Dist: grpcio<2.0.0,>=1.62.0
+Requires-Dist: httpx<0.29.0,>=0.28.1
+Requires-Dist: infisicalsdk<2.0.0,>=1.0.15
+Requires-Dist: jinja2<4.0.0,>=3.1.6
+Requires-Dist: jsonschema<5.0.0,>=4.20.0
+Requires-Dist: mcp<2.0.0,>=1.25.0
+Requires-Dist: neo4j<7.0.0,>=5.15.0
+Requires-Dist: omnibase-core<0.42.0,>=0.41.0
+Requires-Dist: omnibase-spi<0.22.0,>=0.21.0
+Requires-Dist: opentelemetry-api<2.0.0,>=1.27.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.27.0
+Requires-Dist: opentelemetry-instrumentation-aiohttp-client<0.64,>=0.48b0
+Requires-Dist: opentelemetry-instrumentation-asyncpg<0.64,>=0.48b0
+Requires-Dist: opentelemetry-instrumentation-fastapi<0.64,>=0.48b0
+Requires-Dist: opentelemetry-instrumentation-kafka-python<0.64,>=0.48b0
+Requires-Dist: opentelemetry-instrumentation-redis<0.64,>=0.48b0
+Requires-Dist: opentelemetry-instrumentation<0.64,>=0.48b0
+Requires-Dist: opentelemetry-sdk<2.0.0,>=1.27.0
+Requires-Dist: prometheus-client<0.26.0,>=0.19.0
+Requires-Dist: psycopg2-binary<3.0.0,>=2.9.10
+Requires-Dist: pydantic-settings<3.0.0,>=2.2.1
+Requires-Dist: pydantic<3.0.0,>=2.11.7
+Requires-Dist: pyjwt>=2.12.0
+Requires-Dist: pyyaml<7.0.0,>=6.0.2
+Requires-Dist: qdrant-client<2.0.0,>=1.16.0
+Requires-Dist: redis<8.0.0,>=6.0.0
+Requires-Dist: rich<16.0.0,>=13.7.0
+Requires-Dist: sigstore<5.0.0,>=4.0.0
+Requires-Dist: slowapi<0.2.0,>=0.1.9
+Requires-Dist: sqlparse<0.6.0,>=0.4.4
+Requires-Dist: structlog<26.0.0,>=23.2.0
+Requires-Dist: tenacity<10.0.0,>=9.0.0
+Requires-Dist: textual<9.0.0,>=0.89.0
+Requires-Dist: uvicorn<0.50.0,>=0.32.0
+Requires-Dist: watchdog>=4.0.0
+Description-Content-Type: text/markdown
+
+# omnibase_infra
+
+Production infrastructure runtime for ONEX (OmniNode eXecution).
+
+[![CI](https://github.com/OmniNode-ai/omnibase_infra/actions/workflows/test.yml/badge.svg)](https://github.com/OmniNode-ai/omnibase_infra/actions/workflows/test.yml)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+`omnibase_infra` owns the infrastructure implementation layer for ONEX:
+runtime hosting, Kafka event transport, contract-driven handler loading,
+registration workflows, Infisical-backed configuration, operational runbooks,
+and infrastructure nodes that perform external I/O.
+
+It depends on `omnibase_core` for shared models and validation primitives, and
+on `omnibase_spi` for protocol boundaries. Core must not import this package.
+
+## What This Repo Owns
+
+| Area | Current source |
+|------|----------------|
+| Runtime host process and service kernel | `src/omnibase_infra/runtime/` |
+| Kafka event bus and DLQ support | `src/omnibase_infra/event_bus/`, [event bus guide](docs/architecture/EVENT_BUS_INTEGRATION_GUIDE.md) |
+| Contract-driven handler discovery | `src/omnibase_infra/runtime/handler_plugin_loader.py`, [handler architecture](docs/architecture/HANDLER_PROTOCOL_DRIVEN_ARCHITECTURE.md) |
+| Registration orchestration and storage effects | `src/omnibase_infra/nodes/node_registration_*`, [registration workflow](docs/architecture/REGISTRATION_WORKFLOW.md) |
+| Infrastructure handlers for DB, HTTP, Consul, Infisical, Kafka, LLM, graph, vector, and filesystem integrations | `src/omnibase_infra/handlers/`, [handler guide](docs/guides/HANDLER_AUTHORING_GUIDE.md) |
+| Infisical config discovery and prefetch | `src/omnibase_infra/runtime/config_discovery/`, [config discovery](docs/architecture/CONFIG_DISCOVERY.md) |
+| Operational scripts and CLIs | `scripts/`, [operations index](docs/operations/README.md) |
+
+## Start Here
+
+| Need | Document |
+|------|----------|
+| Understand the repo boundary | [Documentation index](docs/index.md) |
+| Run locally | [Quick start](docs/getting-started/quickstart.md) |
+| Understand the architecture | [Architecture overview](docs/architecture/overview.md) |
+| Work on nodes | [Current node architecture](docs/architecture/CURRENT_NODE_ARCHITECTURE.md) |
+| Work on contracts | [Contract reference](docs/reference/contracts.md) |
+| Operate Kafka/DLQ/runtime services | [Operations index](docs/operations/README.md) |
+| Validate changes | [Validation framework](docs/validation/README.md) |
+
+## Install
+
+Library or CLI use:
+
+```bash
+uv add omnibase-infra
+```
+
+Repository development:
+
+```bash
+git clone https://github.com/OmniNode-ai/omnibase_infra.git
+cd omnibase_infra
+uv sync
+```
+
+The packaged distribution includes the Python package and console scripts. The
+repo-local `scripts/` directory is for development, operational bootstrap, and
+CI support, and requires a clone.
+
+## Common Commands
+
+### Local infrastructure lifecycle
+
+The repo ships a top-level `Makefile` with user-facing infra entrypoints
+(OMN-10377). All Docker/Compose/Keycloak orchestration lives here, never in
+the public `omnibase` shell.
+
+```bash
+# Start core infra bundle (postgres, redpanda, valkey, infisical)
+make up
+
+# Add Keycloak (auth bundle) on top of core
+make up-auth
+
+# Reconcile Keycloak clients from desired-clients.json
+make seed-keycloak
+
+# Seed Infisical from ONEX contracts (writes with --execute)
+make seed-infisical
+
+# Show running containers
+make status
+
+# Stop the core bundle ONLY (auth/runtime stay running)
+make down
+
+# Stop the auth bundle (keycloak)
+make down-auth
+
+# Stop everything (runtime + auth + core, in safe teardown order)
+make down-all
+
+# List all targets
+make help
+```
+
+`make` targets detect a missing/stopped Docker daemon and emit an actionable
+error before doing anything destructive. They also detect a missing
+`~/.omnibase/.env` and point at remediation rather than failing with a stack
+trace. See [`docs/getting-started/full-platform.md`](docs/getting-started/full-platform.md)
+for the full first-time bootstrap sequence.
+
+### Development and testing
+
+```bash
+# Run unit tests
+uv run pytest tests/unit
+
+# Run the infra validation suite
+uv run python scripts/validate.py all --verbose
+
+# Run markdown link validation
+uv run python scripts/validation/validate_markdown_links.py
+
+# Start the runtime CLI entrypoint
+uv run onex-runtime
+
+# Inspect operational status
+uv run onex-status
+```
+
+Some operational flows require Docker, Kafka/Redpanda, PostgreSQL, Valkey, and
+Infisical. See [full platform setup](docs/getting-started/full-platform.md) and
+[Infisical secrets guide](docs/guides/INFISICAL_SECRETS_GUIDE.md).
+
+## Runtime Shape
+
+ONEX infra uses four node archetypes:
+
+| Archetype | Role |
+|-----------|------|
+| `ORCHESTRATOR` | Coordinates workflows and publishes events |
+| `REDUCER` | Owns pure FSM state transitions and emits intents |
+| `COMPUTE` | Performs deterministic transformations with no side effects |
+| `EFFECT` | Performs external I/O through infrastructure handlers |
+
+Node behavior is declared in `contract.yaml`. Node classes are intentionally
+thin; runtime behavior comes from contracts, handlers, registries, and the
+runtime host.
+
+## Documentation Policy
+
+Current runtime, architecture, operations, and reference guidance belongs in
+this repository. Historical plans, one-off verification reports, and design
+investigations are not primary docs and are preserved outside this public docs
+tree when they still need retention.
+
+Definition-of-done evidence for documentation refresh work is tracked in the
+change-control evidence system, not in this repository.
+
+## License
+
+[MIT](LICENSE)

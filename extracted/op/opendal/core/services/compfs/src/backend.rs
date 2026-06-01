@@ -128,6 +128,7 @@ impl Access for CompfsBackend {
     type Writer = CompfsWriter;
     type Lister = Option<CompfsLister>;
     type Deleter = oio::OneShotDeleter<CompfsDeleter>;
+    type Copier = ();
 
     fn info(&self) -> Arc<AccessorInfo> {
         self.core.info.clone()
@@ -171,7 +172,13 @@ impl Access for CompfsBackend {
         ))
     }
 
-    async fn copy(&self, from: &str, to: &str, _: OpCopy) -> Result<RpCopy> {
+    async fn copy(
+        &self,
+        from: &str,
+        to: &str,
+        _: OpCopy,
+        _opts: OpCopier,
+    ) -> Result<(RpCopy, Self::Copier)> {
         let from = self.core.prepare_path(from);
         let to = self.core.prepare_path(to);
 
@@ -195,7 +202,7 @@ impl Access for CompfsBackend {
             })
             .await?;
 
-        Ok(RpCopy::default())
+        Ok((RpCopy::default(), ()))
     }
 
     async fn rename(&self, from: &str, to: &str, _: OpRename) -> Result<RpRename> {
@@ -219,11 +226,17 @@ impl Access for CompfsBackend {
 
         let file = self
             .core
-            .exec(|| async move { compio::fs::OpenOptions::new().read(true).open(&path).await })
+            .exec(|| async move {
+                let file = compio::fs::OpenOptions::new()
+                    .read(true)
+                    .open(&path)
+                    .await?;
+                Ok(file)
+            })
             .await?;
 
         let r = CompfsReader::new(self.core.clone(), file, op.range());
-        Ok((RpRead::new(), r))
+        Ok((RpRead::default(), r))
     }
 
     async fn write(&self, path: &str, args: OpWrite) -> Result<(RpWrite, Self::Writer)> {

@@ -1,0 +1,187 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "harbormaster-mcp"
+dynamic = ["version"]
+description = "Multi-project MCP router + operator dashboard for Claude Code, Codex, Cursor. Ask any local or SSH-reachable project a question without `cd` — the project's subagent loads its own CLAUDE.md and Serena memories and answers. Ships with a live web console: KPI strip, inter-project network graph, trace waterfall, memory editor, multi-axis budgets. Part of the FleetQ ecosystem."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+authors = [
+    { name = "FleetQ", email = "harbormaster@fleetq.net" },
+]
+keywords = [
+    "mcp", "mcp-server", "model-context-protocol",
+    "claude", "claude-code", "claude-desktop", "anthropic",
+    "codex", "cursor", "aider",
+    "ai-agents", "agent-orchestration", "subagent", "subagent-orchestration",
+    "multi-project", "developer-tools", "operator-console",
+    "fleetq", "fleetq-bridge",
+    "ssh-fan-out", "remote-execution",
+    "observability", "dashboard", "trace-waterfall",
+    "claude-md", "serena", "memory-editor",
+    "router", "agent-router", "ai", "python",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Framework :: FastAPI",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Distributed Computing",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Utilities",
+    "Environment :: Web Environment",
+    "Environment :: Console",
+    "Operating System :: OS Independent",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Typing :: Typed",
+]
+dependencies = [
+    "mcp>=1.2.0",
+    "pydantic>=2.5",
+]
+
+[project.optional-dependencies]
+ui = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "jinja2>=3.1",
+    "bleach>=6.1",
+    # v11.0.0a3: server-side markdown rendering for the memory viewer
+    # + live preview pane. Output is post-processed through bleach.
+    "markdown-it-py>=3.0",
+    "sse-starlette>=2.0",
+]
+fleetq = [
+    "httpx>=0.27",
+    # Pusher / Reverb client for the Bridge reverse-channel subscription
+    # (private-daemon.<team_id> on FleetQ's Reverb server). Used by
+    # harbormaster.fleetq.relay.BridgeRelay.
+    # v21.0.1: upper-bound pin — pysher 1.0.9+ has a Thread.__init__
+    # regression ('host' kwarg) that crashes the Reverb subscriber on
+    # startup. Stay on 1.0.8 until upstream ships a fix.
+    "pysher==1.0.8",
+]
+history = [
+    # sqlite-vec ships a SQLite extension and Python loader. Used by the
+    # v1.2 Q&A history store for cosine-similarity recall over question
+    # embeddings.
+    "sqlite-vec>=0.1.6",
+    # fastembed runs BAAI/bge-small-en-v1.5 locally (~50MB ONNX model,
+    # downloaded on first encode call). Default embedding backend; the
+    # store falls back to FTS5 / bm25 when the [history] extra is absent
+    # or [history].embedding_backend is set to "fts5".
+    "fastembed>=0.3",
+    # Pin onnxruntime below 1.26.0 — that release shipped without the
+    # cp312 macOS arm64 wheel (1.25.x and 1.26.x cp311/cp313 are fine).
+    # This pin can be removed once onnxruntime 1.26.1+ restores the
+    # missing wheel. Tracked upstream: https://github.com/microsoft/onnxruntime/issues
+    "onnxruntime<1.26",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=4.1",
+    "pytest-httpserver>=1.1",
+    "ruff>=0.4",
+    "mypy>=1.8",
+    "hypothesis>=6.100",
+    # v16.0.0a2: pre-commit ships in the dev extra so
+    # `uv sync --extra dev` is the single bootstrap command.
+    # Operators still need to run `pre-commit install` once at clone
+    # time (or `bash scripts/post_sync_install_hooks.sh`).
+    "pre-commit>=3",
+    # UI + fleetq + history extras pulled in for the test suite — keeps
+    # a single `uv sync --extra dev` command working for contributors
+    # who don't want to enumerate every optional extra.
+    "fastapi>=0.110",
+    "jinja2>=3.1",
+    "bleach>=6.1",
+    "markdown-it-py>=3.0",
+    "httpx>=0.27",
+    # v21.0.1: see comment on [fleetq] extra above — pin 1.0.8.
+    "pysher==1.0.8",
+    "sqlite-vec>=0.1.6",
+    "fastembed>=0.3",
+    "onnxruntime<1.26",
+    # v13.0.0a1: Pillow drives the screenshot-diff harness's pixel
+    # comparison (ImageChops.difference). Used by the unit tests in
+    # tests/ui/_screenshot_diff/ which run in the regular -m '' pass.
+    "Pillow>=10.0",
+]
+[project.scripts]
+harbormaster-mcp = "harbormaster.__main__:main"
+harbormaster-ui = "harbormaster.ui.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/FleetQ/harbormaster"
+Repository = "https://github.com/FleetQ/harbormaster"
+Issues = "https://github.com/FleetQ/harbormaster/issues"
+Documentation = "https://github.com/FleetQ/harbormaster/tree/main/docs"
+
+[tool.hatch.version]
+# Single source of truth for the package version. Hatchling reads __version__
+# from this file at build time; runtime imports also read from the same place.
+path = "src/harbormaster/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/harbormaster"]
+# v9.0.0a1: hatchling auto-includes every file under `packages`
+# (not just .py) so the vendored Tailwind v4 stylesheet under
+# src/harbormaster/ui/static/ ships with the wheel automatically.
+# A previously-attempted `force-include` here caused duplicate-name
+# zip entries — relying on the default include is the correct path.
+
+[tool.hatch.build.targets.wheel.hooks.custom]
+# v9.0.0a1: compile Tailwind v4 CSS at wheel-build time. The hook
+# (build_tailwind_css.py at repo root) runs `npx @tailwindcss/cli`
+# against src/harbormaster/ui/static/tailwind.input.css, writing
+# the minified output to src/harbormaster/ui/static/tailwind.css.
+# Falls back to the committed file when Node is absent.
+path = "build_tailwind_css.py"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]  # let formatter handle line length
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src/harbormaster"]
+
+[[tool.mypy.overrides]]
+module = "pysher"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "bleach"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "fastembed"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "sqlite_vec"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+addopts = "-v"

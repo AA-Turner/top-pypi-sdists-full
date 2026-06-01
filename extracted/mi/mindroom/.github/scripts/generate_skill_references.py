@@ -1,0 +1,323 @@
+"""Generate reference files for the bundled mindroom-docs skill."""
+
+from __future__ import annotations
+
+import hashlib
+import posixpath
+import re
+import shutil
+import subprocess
+import tempfile
+import tomllib
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DOCS_DIR = REPO_ROOT / "docs"
+ZENSICAL_CONFIG = REPO_ROOT / "zensical.toml"
+SKILL_DIR = REPO_ROOT / "skills" / "mindroom-docs"
+REFERENCES_DIR = SKILL_DIR / "references"
+CACHE_PATH = REPO_ROOT / ".cache" / "mindroom-docs-skill-references.sha256"
+_MARKDOWN_LINK_TARGET_PATTERN = re.compile(r"(!?\[[^\]\n]+\]\()([^)]+)(\))")
+_FENCE_PATTERN = re.compile(r"^\s*([`~]{3,})")
+
+
+@dataclass(frozen=True)
+class NavPage:
+    """Structured docs page entry extracted from zensical.toml navigation."""
+
+    title: str
+    source_path: str
+    built_path: str
+
+
+def _source_to_built_path(source_path: str) -> str:
+    source = Path(source_path)
+    parent = source.parent.as_posix()
+    if source.name in {"index.md", "README.md"}:
+        return "index.md" if parent == "." else f"{parent}/index.md"
+
+    stem = source.stem
+    return f"{stem}/index.md" if parent == "." else f"{parent}/{stem}/index.md"
+
+
+def _collect_nav_pages(items: list[Any], pages: list[NavPage]) -> None:
+    for item in items:
+        assert isinstance(item, dict), "Expected each project.nav entry to be a table in zensical.toml"
+        for title, value in item.items():
+            if isinstance(value, str):
+                pages.append(
+                    NavPage(
+                        title=str(title),
+                        source_path=value,
+                        built_path=_source_to_built_path(value),
+                    ),
+                )
+                continue
+            assert isinstance(value, list), f"Expected nested nav list for {title!r} in zensical.toml"
+            _collect_nav_pages(value, pages)
+
+
+def _load_project_and_nav() -> tuple[dict[str, Any], list[NavPage]]:
+    parsed = tomllib.loads(ZENSICAL_CONFIG.read_text(encoding="utf-8"))
+    project = parsed.get("project", {})
+    assert isinstance(project, dict), "Expected [project] table in zensical.toml"
+    nav = project.get("nav", [])
+    assert isinstance(nav, list), "Expected project.nav to be a list in zensical.toml"
+
+    pages: list[NavPage] = []
+    _collect_nav_pages(nav, pages)
+    return project, pages
+
+
+def _digest_paths(paths: list[Path]) -> str:
+    digest = hashlib.sha256()
+    for path in paths:
+        relative_path = path.relative_to(REPO_ROOT).as_posix()
+        digest.update(relative_path.encode())
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def _cache_key() -> str:
+    inputs = sorted([Path(__file__).resolve(), ZENSICAL_CONFIG, *DOCS_DIR.rglob("*.md")])
+    references = sorted(path for path in REFERENCES_DIR.rglob("*") if path.is_file()) if REFERENCES_DIR.exists() else []
+    return f"{_digest_paths(inputs)}\n{_digest_paths(references)}"
+
+
+def _mkdocs_config(project: dict[str, Any], nav_pages: list[NavPage], site_dir: Path) -> dict[str, Any]:
+    site_name = str(project.get("site_name", "MindRoom"))
+    site_description = str(project.get("site_description", "MindRoom documentation"))
+    site_url = str(project.get("site_url", "https://docs.mindroom.chat/"))
+    nav = project.get("nav", [])
+    assert isinstance(nav, list), "Expected project.nav to be a list in zensical.toml"
+
+    return {
+        "site_name": site_name,
+        "site_description": site_description,
+        "site_url": site_url,
+        "docs_dir": str(DOCS_DIR),
+        "site_dir": str(site_dir),
+        "nav": nav,
+        "plugins": [
+            "search",
+            {
+                "llmstxt": {
+                    "sections": {
+                        "MindRoom Docs": [page.source_path for page in nav_pages],
+                    },
+                },
+            },
+        ],
+    }
+
+
+def _run_mkdocs_build(config: dict[str, Any], temp_dir: Path) -> Path:
+    config_path = temp_dir / "mkdocs.llms.yml"
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+
+    subprocess.run(
+        [
+            "uvx",
+            "--with",
+            "mkdocs",
+            "--with",
+            "mkdocs-llmstxt",
+            "mkdocs",
+            "build",
+            "-f",
+            str(config_path),
+        ],
+        cwd=REPO_ROOT,
+        check=True,
+    )
+
+    return Path(config["site_dir"]).resolve()
+
+
+def _clear_reference_dir() -> None:
+    REFERENCES_DIR.mkdir(parents=True, exist_ok=True)
+    for path in REFERENCES_DIR.iterdir():
+        if path.is_file():
+            path.unlink()
+        elif path.is_dir():
+            shutil.rmtree(path)
+
+
+def _copy_main_outputs(site_dir: Path, project: dict[str, Any], nav_pages: list[NavPage]) -> None:
+    llms_index = site_dir / "llms.txt"
+    assert llms_index.exists(), f"Expected generated file: {llms_index}"
+    site_url = str(project.get("site_url", "https://docs.mindroom.chat/"))
+    normalized_llms_index = _normalize_published_doc_urls(
+        llms_index.read_text(encoding="utf-8"),
+        site_url=site_url,
+    )
+    (REFERENCES_DIR / "llms.txt").write_text(normalized_llms_index, encoding="utf-8")
+
+    (REFERENCES_DIR / "llms-full.txt").write_text(_source_full_reference(project, nav_pages), encoding="utf-8")
+
+
+def _strip_frontmatter(text: str) -> str:
+    if not text.startswith("---\n"):
+        return text
+
+    _, separator, rest = text[4:].partition("\n---\n")
+    return rest if separator else text
+
+
+def _site_url() -> str:
+    project, _nav_pages = _load_project_and_nav()
+    return str(project.get("site_url", "https://docs.mindroom.chat/"))
+
+
+def _normalize_published_doc_urls(text: str, *, site_url: str) -> str:
+    published_base_url = re.escape(site_url.rstrip("/") + "/")
+    return re.sub(
+        rf"({published_base_url})([^)\s#]*?)index\.md",
+        lambda match: f"{match.group(1)}{match.group(2)}",
+        text,
+    )
+
+
+def _resolve_source_link(source_path: str, target: str, site_url: str) -> str | None:
+    if (
+        "://" in target
+        or target.startswith(("#", "mailto:", "tel:", "matrix:", "urn:"))
+        or not target.split("#", 1)[0].endswith(".md")
+    ):
+        return None
+
+    target_path, separator, fragment = target.partition("#")
+    source_parent = Path(source_path).parent.as_posix()
+    resolved_source_path = posixpath.normpath(posixpath.join(source_parent, target_path))
+    if resolved_source_path.startswith("../") or resolved_source_path == "..":
+        return None
+    if not (DOCS_DIR / resolved_source_path).exists():
+        return None
+
+    public_path = _source_to_public_path(resolved_source_path)
+    resolved_url = f"{site_url.rstrip('/')}/{public_path}"
+    return f"{resolved_url}{separator}{fragment}" if separator else resolved_url
+
+
+def _source_to_public_path(source_path: str) -> str:
+    source = Path(source_path)
+    if source.name in {"index.md", "README.md"}:
+        parent = source.parent.as_posix()
+        return "" if parent == "." else f"{parent}/"
+    return f"{source.with_suffix('').as_posix()}/"
+
+
+def _rewrite_source_links(text: str, source_path: str, site_url: str) -> str:
+    lines: list[str] = []
+    active_fence: str | None = None
+
+    def replace_match(match: re.Match[str]) -> str:
+        resolved_target = _resolve_source_link(source_path, match.group(2), site_url)
+        if resolved_target is None:
+            return match.group(0)
+        return f"{match.group(1)}{resolved_target}{match.group(3)}"
+
+    for line in text.splitlines(keepends=True):
+        if fence_match := _FENCE_PATTERN.match(line):
+            fence = fence_match.group(1)
+            if active_fence is None:
+                active_fence = fence
+            elif fence[0] == active_fence[0] and len(fence) >= len(active_fence):
+                active_fence = None
+            lines.append(line)
+            continue
+        if active_fence is not None:
+            lines.append(line)
+            continue
+        lines.append(_MARKDOWN_LINK_TARGET_PATTERN.sub(replace_match, line))
+
+    return "".join(lines)
+
+
+def _source_page_reference(page: NavPage, *, site_url: str | None = None) -> str:
+    source_path = DOCS_DIR / page.source_path
+    assert source_path.exists(), f"Expected docs source page: {source_path}"
+    source_text = _strip_frontmatter(source_path.read_text(encoding="utf-8")).strip() + "\n"
+    return _rewrite_source_links(source_text, page.source_path, site_url or _site_url())
+
+
+def _source_full_reference(project: dict[str, Any], nav_pages: list[NavPage]) -> str:
+    site_name = str(project.get("site_name", "MindRoom"))
+    site_description = str(project.get("site_description", "MindRoom documentation"))
+    site_url = str(project.get("site_url", "https://docs.mindroom.chat/"))
+    sections = [f"# {site_name}", "", f"> {site_description}", "", "# MindRoom Docs"]
+    sections.extend(_source_page_reference(page, site_url=site_url).strip() for page in nav_pages)
+    return "\n\n".join(section for section in sections if section) + "\n"
+
+
+def _flatten_page_references(site_dir: Path, nav_pages: list[NavPage], project: dict[str, Any]) -> dict[str, str]:
+    site_url = str(project.get("site_url", "https://docs.mindroom.chat/"))
+    built_to_reference: dict[str, str] = {}
+    for page in nav_pages:
+        generated = site_dir / page.built_path
+        assert generated.exists(), f"Expected generated page: {generated}"
+        reference_name = f"page__{page.built_path.replace('/', '__')}"
+        (REFERENCES_DIR / reference_name).write_text(_source_page_reference(page, site_url=site_url), encoding="utf-8")
+        built_to_reference[page.built_path] = reference_name
+    return built_to_reference
+
+
+def _write_reference_index(nav_pages: list[NavPage], built_to_reference: dict[str, str]) -> None:
+    lines = [
+        "# MindRoom Docs Reference Index",
+        "",
+        "Generated from `docs/` via `.github/scripts/generate_skill_references.py`.",
+        "",
+        "## Primary references",
+        "",
+        "- `llms.txt`: compact documentation index.",
+        "- `llms-full.txt`: full merged documentation corpus.",
+        "",
+        "## Page references",
+        "",
+        "| Title | Source page | Built markdown | Reference file |",
+        "| --- | --- | --- | --- |",
+    ]
+
+    for page in nav_pages:
+        reference_name = built_to_reference.get(page.built_path)
+        assert reference_name is not None, f"Missing built page for nav source {page.source_path!r}"
+        lines.append(
+            f"| {page.title} | `{page.source_path}` | `{page.built_path}` | `{reference_name}` |",
+        )
+
+    (REFERENCES_DIR / "reference-index.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def main() -> None:
+    """Build and sync generated docs references into the mindroom-docs skill."""
+    if CACHE_PATH.exists() and CACHE_PATH.read_text(encoding="utf-8") == _cache_key():
+        print(f"Generated references already up to date in {REFERENCES_DIR}")
+        return
+
+    project, nav_pages = _load_project_and_nav()
+    assert nav_pages, "No docs pages found in zensical.toml navigation"
+    with tempfile.TemporaryDirectory(prefix="mindroom-docs-skill-") as tmp:
+        tmp_dir = Path(tmp)
+        site_dir = tmp_dir / "site"
+        config = _mkdocs_config(project, nav_pages, site_dir)
+        generated_site_dir = _run_mkdocs_build(config, tmp_dir)
+
+        _clear_reference_dir()
+        _copy_main_outputs(generated_site_dir, project, nav_pages)
+        built_to_reference = _flatten_page_references(generated_site_dir, nav_pages, project)
+        _write_reference_index(nav_pages, built_to_reference)
+
+    CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CACHE_PATH.write_text(_cache_key(), encoding="utf-8")
+    print(f"Generated {len(list(REFERENCES_DIR.glob('*')))} files in {REFERENCES_DIR}")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,743 @@
+from __future__ import annotations
+
+"""HTTP surface for the lazy distillation pipeline.
+
+Four endpoints, each scoped to the authenticated user:
+
+  GET  /api/distillation/status            — overall pipeline state
+  GET  /api/projects/{id}/freshness        — per-project freshness/lag
+  POST /api/distillation/run-now           — request an immediate worker tick
+  GET  /api/budget/usage                   — external LLM monthly spend
+
+The status endpoints surface the four observability dimensions the user
+needs to trust the lazy model (count, lag, classification, freshness)
+plus the local/external split when overflow has been routed.
+"""
+
+from datetime import date, datetime, timezone
+from typing import Any
+
+import orjson
+from sqlalchemy import func, select
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
+
+from piloci.config import get_settings
+from piloci.curator import distillation_worker as _worker_mod
+from piloci.curator import weekly_digest_worker as _digest_mod
+from piloci.curator.budget import month_total_usd, remaining_budget_usd
+from piloci.curator.scheduler import (
+    parse_idle_window,
+    read_cpu_temp_celsius,
+    read_load_average_1min,
+)
+from piloci.db.models import ExternalLLMUsage, RawSession, UserPreferences, WeeklyDigest
+from piloci.db.session import async_session
+
+
+def _json(payload: Any, status: int = 200) -> JSONResponse:
+    return JSONResponse(payload, status_code=status)
+
+
+def _require_user(request: Request) -> dict[str, Any] | None:
+    user = getattr(request.state, "user", None)
+    if user is None:
+        return None
+    return user
+
+
+def _uid(user: dict[str, Any]) -> str:
+    raw = user.get("user_id") or user.get("id")
+    return str(raw) if raw else ""
+
+
+def _next_idle_window(now: datetime, spec: str | None) -> datetime | None:
+    """Return the next datetime the idle window will start, or None when unset.
+
+    Used by the status endpoint so the UI can show "next aggressive run at HH:MM".
+    Naive about timezones — uses local clock for parsing, matches scheduler.
+    """
+    if not spec:
+        return None
+    window = parse_idle_window(spec)
+    if window is None:
+        return None
+    today = now.date()
+    candidate = datetime.combine(today, window.start)
+    if candidate <= now.replace(tzinfo=None):
+        candidate = datetime.combine(today.replace(day=today.day), window.start)
+        # If today's start time has already passed, push to tomorrow.
+        from datetime import timedelta
+
+        candidate = candidate + timedelta(days=1)
+    return candidate
+
+
+# ---------------------------------------------------------------------------
+# GET /api/distillation/status
+# ---------------------------------------------------------------------------
+
+
+async def route_distillation_status(request: Request) -> Response:
+    """Aggregate distillation pipeline state for the authenticated user.
+
+    Extended in v0.3.39 with the metrics needed to answer "how is the worker
+    doing right now?" without tailing logs: rolling throughput (1h, 24h),
+    sustained-backlog age (how long has pending been ≥ overflow threshold?),
+    and the distribution of what's actually being extracted (memory
+    categories, instinct domains). The frontend renders all of this on the
+    dashboard; the telegram bot reads the same shape on demand.
+    """
+    user = _require_user(request)
+    if user is None:
+        return _json({"error": "unauthorized"}, 401)
+    user_id = _uid(user)
+
+    settings = get_settings()
+    now = datetime.now(timezone.utc)
+
+    from datetime import timedelta
+
+    one_hour_ago = now - timedelta(hours=1)
+    one_day_ago = now - timedelta(days=1)
+    thirty_days_ago = now - timedelta(days=30)
+
+    async with async_session() as db:
+        # State counts in one round-trip.
+        rows = (
+            await db.execute(
+                select(
+                    RawSession.distillation_state,
+                    func.count().label("n"),
+                )
+                .where(RawSession.user_id == user_id)
+                .group_by(RawSession.distillation_state)
+            )
+        ).all()
+        by_state = {r.distillation_state: int(r.n) for r in rows}
+
+        oldest_pending = (
+            await db.execute(
+                select(func.min(RawSession.created_at))
+                .where(RawSession.user_id == user_id)
+                .where(RawSession.distillation_state == "pending")
+            )
+        ).scalar()
+
+        last_distilled = (
+            await db.execute(
+                select(func.max(RawSession.processed_at))
+                .where(RawSession.user_id == user_id)
+                .where(RawSession.distillation_state == "distilled")
+            )
+        ).scalar()
+
+        path_rows = (
+            await db.execute(
+                select(
+                    RawSession.processing_path,
+                    func.count().label("n"),
+                )
+                .where(RawSession.user_id == user_id)
+                .where(RawSession.distillation_state == "distilled")
+                .where(RawSession.processed_at >= thirty_days_ago)
+                .group_by(RawSession.processing_path)
+            )
+        ).all()
+        path_split = {(r.processing_path or "unknown"): int(r.n) for r in path_rows}
+
+        # ---- throughput windows (1h, 24h) ------------------------------------
+        # Counts + totals for memories/instincts extracted. Lets the user see
+        # "29 sessions in the last hour, 312 memories, 184 instincts" instead
+        # of guessing from the static 'distilled' tally that never resets.
+        throughput_1h_row = (
+            await db.execute(
+                select(
+                    func.count().label("sessions"),
+                    func.coalesce(func.sum(RawSession.memories_extracted), 0).label("memories"),
+                    func.coalesce(func.sum(RawSession.instincts_extracted), 0).label("instincts"),
+                )
+                .where(RawSession.user_id == user_id)
+                .where(RawSession.distillation_state == "distilled")
+                .where(RawSession.processed_at >= one_hour_ago)
+            )
+        ).first()
+        throughput_24h_row = (
+            await db.execute(
+                select(
+                    func.count().label("sessions"),
+                    func.coalesce(func.sum(RawSession.memories_extracted), 0).label("memories"),
+                    func.coalesce(func.sum(RawSession.instincts_extracted), 0).label("instincts"),
+                )
+                .where(RawSession.user_id == user_id)
+                .where(RawSession.distillation_state == "distilled")
+                .where(RawSession.processed_at >= one_day_ago)
+            )
+        ).first()
+
+        # ---- sustained busy minutes -----------------------------------------
+        # How long has the user been waiting on backlog drain? Approximation:
+        # for the *oldest* row still pending, how many minutes ago did the row
+        # land. Same as lag_seconds in minutes; kept as a separate field so the
+        # telegram bot can answer "어제부터 밀려있나?" naturally.
+        sustained_busy_minutes: float | None = None
+        if oldest_pending is not None:
+            oldest_aware = (
+                oldest_pending
+                if oldest_pending.tzinfo
+                else oldest_pending.replace(tzinfo=timezone.utc)
+            )
+            sustained_busy_minutes = (now - oldest_aware).total_seconds() / 60.0
+
+        # NOTE: category/domain distributions live in LanceDB (memory metadata
+        # JSON, instinct typed column), not in raw_sessions. Aggregating from
+        # this hot endpoint would force a full vector-table scan; instead the
+        # dedicated /api/metrics/distribution endpoint below caches them on a
+        # 60s window.
+
+    pending = by_state.get("pending", 0)
+    lag_seconds: float | None = None
+    if oldest_pending is not None:
+        oldest_aware = (
+            oldest_pending if oldest_pending.tzinfo else oldest_pending.replace(tzinfo=timezone.utc)
+        )
+        lag_seconds = (now - oldest_aware).total_seconds()
+
+    next_idle_at = _next_idle_window(now.replace(tzinfo=None), settings.distillation_idle_window)
+
+    # ETA: only meaningful when there's actual recent throughput to project
+    # forward. Returns None instead of `infinity` when the worker is idle.
+    eta_minutes: float | None = None
+    rate_per_hour = int(throughput_1h_row.sessions) if throughput_1h_row else 0
+    if pending > 0 and rate_per_hour > 0:
+        eta_minutes = (pending / rate_per_hour) * 60.0
+
+    return _json(
+        {
+            "counts": {
+                "pending": pending,
+                "distilled": by_state.get("distilled", 0),
+                "filtered": by_state.get("filtered", 0),
+                "failed": by_state.get("failed", 0),
+                "archived": by_state.get("archived", 0),
+            },
+            "lag": {
+                "oldest_pending_at": oldest_pending.isoformat() if oldest_pending else None,
+                "seconds_behind": lag_seconds,
+                "sustained_busy_minutes": sustained_busy_minutes,
+            },
+            "throughput": {
+                "last_1h": {
+                    "sessions": int(throughput_1h_row.sessions) if throughput_1h_row else 0,
+                    "memories": int(throughput_1h_row.memories) if throughput_1h_row else 0,
+                    "instincts": int(throughput_1h_row.instincts) if throughput_1h_row else 0,
+                },
+                "last_24h": {
+                    "sessions": int(throughput_24h_row.sessions) if throughput_24h_row else 0,
+                    "memories": int(throughput_24h_row.memories) if throughput_24h_row else 0,
+                    "instincts": int(throughput_24h_row.instincts) if throughput_24h_row else 0,
+                },
+                "eta_drain_minutes": eta_minutes,
+            },
+            "last_distilled_at": last_distilled.isoformat() if last_distilled else None,
+            "processing_path_30d": path_split,
+            "thresholds": {
+                "max_pending_backlog": settings.distillation_max_pending_backlog,
+                "overflow_threshold": settings.distillation_overflow_threshold,
+                "temp_ceiling_c": settings.distillation_temp_ceiling_c,
+                "load_ceiling_1m": settings.distillation_load_ceiling_1m,
+            },
+            "current": {
+                "cpu_temp_c": read_cpu_temp_celsius(),
+                "load_avg_1m": read_load_average_1min(),
+            },
+            "schedule": {
+                "idle_window": settings.distillation_idle_window,
+                "next_idle_at": next_idle_at.isoformat() if next_idle_at else None,
+            },
+            "enabled": settings.distillation_enabled,
+        }
+    )
+
+
+# ---------------------------------------------------------------------------
+# GET /api/projects/{id}/freshness
+# ---------------------------------------------------------------------------
+
+
+async def route_project_freshness(request: Request) -> Response:
+    """Per-project distillation freshness. Drives the project-card badge.
+
+    Cheap: three small COUNT/MAX queries on indexed columns. Project ownership
+    isn't double-checked here — the (user_id, project_id) filter prevents
+    cross-tenant reads even if the path parameter is forged.
+    """
+    user = _require_user(request)
+    if user is None:
+        return _json({"error": "unauthorized"}, 401)
+    user_id = _uid(user)
+    project_id = request.path_params.get("id")
+    if not project_id:
+        return _json({"error": "project id required"}, 400)
+
+    now = datetime.now(timezone.utc)
+    async with async_session() as db:
+        pending_count = (
+            await db.execute(
+                select(func.count())
+                .select_from(RawSession)
+                .where(RawSession.user_id == user_id)
+                .where(RawSession.project_id == project_id)
+                .where(RawSession.distillation_state == "pending")
+            )
+        ).scalar() or 0
+
+        last_distilled = (
+            await db.execute(
+                select(func.max(RawSession.processed_at))
+                .where(RawSession.user_id == user_id)
+                .where(RawSession.project_id == project_id)
+                .where(RawSession.distillation_state == "distilled")
+            )
+        ).scalar()
+
+        oldest_pending = (
+            await db.execute(
+                select(func.min(RawSession.created_at))
+                .where(RawSession.user_id == user_id)
+                .where(RawSession.project_id == project_id)
+                .where(RawSession.distillation_state == "pending")
+            )
+        ).scalar()
+
+    oldest_age_sec: float | None = None
+    if oldest_pending is not None:
+        oldest_aware = (
+            oldest_pending if oldest_pending.tzinfo else oldest_pending.replace(tzinfo=timezone.utc)
+        )
+        oldest_age_sec = (now - oldest_aware).total_seconds()
+
+    return _json(
+        {
+            "project_id": project_id,
+            "pending_count": int(pending_count),
+            "last_distilled_at": last_distilled.isoformat() if last_distilled else None,
+            "oldest_pending_age_seconds": oldest_age_sec,
+        }
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /api/distillation/run-now
+# ---------------------------------------------------------------------------
+
+
+async def route_run_now(request: Request) -> Response:
+    """Wake the worker for an immediate scheduler poll.
+
+    Doesn't bypass temperature/load gates — those still apply. What it does
+    is short-circuit the worker's sleep so the next decision happens within
+    seconds instead of waiting out the configured poll interval. Useful when
+    a user just configured an external provider and wants the backlog drained
+    via the overflow path right away.
+    """
+    user = _require_user(request)
+    if user is None:
+        return _json({"error": "unauthorized"}, 401)
+
+    woken = _worker_mod.request_wake()
+    return _json(
+        {
+            "woken": woken,
+            "note": (
+                "Worker polled. Scheduler gates (temp/load/idle window) still apply — "
+                "if held, the worker will hold."
+            ),
+        },
+        202,
+    )
+
+
+# ---------------------------------------------------------------------------
+# GET /api/budget/usage
+# ---------------------------------------------------------------------------
+
+
+async def route_budget_usage(request: Request) -> Response:
+    """Monthly external LLM spend — total, remaining, per-provider breakdown."""
+    user = _require_user(request)
+    if user is None:
+        return _json({"error": "unauthorized"}, 401)
+    user_id = _uid(user)
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    async with async_session() as db:
+        spent = await month_total_usd(db, user_id, now=now)
+        remaining = await remaining_budget_usd(db, user_id, now=now)
+
+        per_provider = (
+            await db.execute(
+                select(
+                    ExternalLLMUsage.provider_label,
+                    func.count().label("calls"),
+                    func.coalesce(func.sum(ExternalLLMUsage.tokens_in), 0).label("tokens_in"),
+                    func.coalesce(func.sum(ExternalLLMUsage.tokens_out), 0).label("tokens_out"),
+                    func.coalesce(func.sum(ExternalLLMUsage.estimated_cost_usd), 0.0).label(
+                        "cost_usd"
+                    ),
+                )
+                .where(ExternalLLMUsage.user_id == user_id)
+                .where(ExternalLLMUsage.created_at >= month_start)
+                .group_by(ExternalLLMUsage.provider_label)
+            )
+        ).all()
+
+    settings = get_settings()
+    return _json(
+        {
+            "month_start_utc": month_start.isoformat(),
+            "spent_usd": spent,
+            "remaining_usd": remaining,
+            "cap_usd": settings.distillation_default_budget_monthly_usd,
+            "by_provider": [
+                {
+                    "provider": r.provider_label,
+                    "calls": int(r.calls),
+                    "tokens_in": int(r.tokens_in),
+                    "tokens_out": int(r.tokens_out),
+                    "cost_usd": float(r.cost_usd),
+                }
+                for r in per_provider
+            ],
+        }
+    )
+
+
+# ---------------------------------------------------------------------------
+# GET / PATCH /api/preferences — distillation-related user preferences
+# ---------------------------------------------------------------------------
+
+
+_ALLOWED_PREF_FIELDS: dict[str, type] = {
+    "distillation_idle_window": str,
+    "distillation_temp_ceiling_c": float,
+    "distillation_load_ceiling_1m": float,
+    "distillation_overflow_threshold": int,
+    "external_budget_monthly_usd": float,
+}
+
+
+def _serialize_prefs(prefs: UserPreferences | None) -> dict[str, Any]:
+    if prefs is None:
+        return {k: None for k in _ALLOWED_PREF_FIELDS}
+    return {k: getattr(prefs, k) for k in _ALLOWED_PREF_FIELDS}
+
+
+async def route_get_preferences(request: Request) -> Response:
+    """Read the authenticated user's distillation preferences.
+
+    Returns NULL for any field the user hasn't set — those inherit the
+    server-wide default from Settings at scheduler-poll time.
+    """
+    user = _require_user(request)
+    if user is None:
+        return _json({"error": "unauthorized"}, 401)
+    user_id = _uid(user)
+
+    async with async_session() as db:
+        prefs = (
+            await db.execute(select(UserPreferences).where(UserPreferences.user_id == user_id))
+        ).scalar_one_or_none()
+
+    return _json(_serialize_prefs(prefs))
+
+
+async def route_patch_preferences(request: Request) -> Response:
+    """Partial update of distillation prefs. NULL clears a field.
+
+    Whitelisted fields only — anything else in the body is rejected so a
+    typo can't accidentally write to an unrelated column. Type coercion is
+    intentionally strict: invalid values 400 instead of being silently dropped.
+    """
+    user = _require_user(request)
+    if user is None:
+        return _json({"error": "unauthorized"}, 401)
+    user_id = _uid(user)
+
+    try:
+        body = orjson.loads(await request.body())
+    except Exception:
+        return _json({"error": "invalid JSON"}, 400)
+    if not isinstance(body, dict):
+        return _json({"error": "body must be an object"}, 400)
+
+    coerced: dict[str, Any] = {}
+    for key, value in body.items():
+        if key not in _ALLOWED_PREF_FIELDS:
+            return _json({"error": f"unknown field: {key}"}, 400)
+        if value is None:
+            coerced[key] = None
+            continue
+        expected = _ALLOWED_PREF_FIELDS[key]
+        try:
+            coerced[key] = expected(value)
+        except (TypeError, ValueError):
+            return _json({"error": f"field {key} must be {expected.__name__}"}, 400)
+
+    # Light sanity bounds. Out-of-range values would silently break the
+    # scheduler later (e.g. negative thresholds), so reject early.
+    if "distillation_temp_ceiling_c" in coerced:
+        v = coerced["distillation_temp_ceiling_c"]
+        if v is not None and not (0 < v < 100):
+            return _json({"error": "temp_ceiling_c must be between 0 and 100"}, 400)
+    if "distillation_load_ceiling_1m" in coerced:
+        v = coerced["distillation_load_ceiling_1m"]
+        if v is not None and not (0 < v < 64):
+            return _json({"error": "load_ceiling_1m must be between 0 and 64"}, 400)
+    if "distillation_overflow_threshold" in coerced:
+        v = coerced["distillation_overflow_threshold"]
+        if v is not None and v < 0:
+            return _json({"error": "overflow_threshold must be ≥ 0"}, 400)
+    if "external_budget_monthly_usd" in coerced:
+        v = coerced["external_budget_monthly_usd"]
+        if v is not None and v < 0:
+            return _json({"error": "monthly budget must be ≥ 0"}, 400)
+    if "distillation_idle_window" in coerced:
+        v = coerced["distillation_idle_window"]
+        if v is not None and parse_idle_window(v) is None:
+            return _json({"error": "idle_window must be HH:MM-HH:MM"}, 400)
+
+    now = datetime.now(timezone.utc)
+    async with async_session() as db:
+        prefs = (
+            await db.execute(select(UserPreferences).where(UserPreferences.user_id == user_id))
+        ).scalar_one_or_none()
+        if prefs is None:
+            prefs = UserPreferences(user_id=user_id, updated_at=now)
+            db.add(prefs)
+        for key, value in coerced.items():
+            setattr(prefs, key, value)
+        prefs.updated_at = now
+        await db.commit()
+        await db.refresh(prefs)
+
+    return _json(_serialize_prefs(prefs))
+
+
+# ---------------------------------------------------------------------------
+# GET / POST /api/digests/weekly — private weekly retrospective
+# ---------------------------------------------------------------------------
+
+
+def _parse_week_query(raw: str | None) -> date | None:
+    """Parse ``?week=YYYY-MM-DD`` → Monday of the requested week.
+
+    Any weekday snaps to that week's Monday so the caller can pass a casual
+    date without knowing the convention.
+    """
+    if not raw:
+        return None
+    try:
+        parsed = date.fromisoformat(raw)
+    except ValueError:
+        return None
+    from datetime import timedelta
+
+    return parsed - timedelta(days=parsed.weekday())
+
+
+def _serialize_digest(row: WeeklyDigest) -> dict[str, Any]:
+    try:
+        stats = orjson.loads(row.stats_json)
+    except (orjson.JSONDecodeError, ValueError):
+        stats = {}
+    return {
+        "digest_id": row.digest_id,
+        "week_start": row.week_start.isoformat(),
+        "summary": row.summary_text,
+        "stats": stats,
+        "generated_at": row.generated_at.isoformat(),
+    }
+
+
+async def route_weekly_digest_get(request: Request) -> Response:
+    """Return the requested user's weekly digest.
+
+    With ``?week=YYYY-MM-DD`` returns that week's row (404 if absent).
+    Without it, returns the most recent existing digest. The handler is
+    strictly user-scoped — never serves another user's row even if asked.
+    """
+    user = _require_user(request)
+    if user is None:
+        return _json({"error": "unauthorized"}, 401)
+    user_id = _uid(user)
+
+    week_arg = request.query_params.get("week")
+    requested_week = _parse_week_query(week_arg) if week_arg else None
+    if week_arg and requested_week is None:
+        return _json({"error": "week must be YYYY-MM-DD"}, 400)
+
+    async with async_session() as db:
+        stmt = select(WeeklyDigest).where(WeeklyDigest.user_id == user_id)
+        if requested_week is not None:
+            stmt = stmt.where(WeeklyDigest.week_start == requested_week)
+        stmt = stmt.order_by(WeeklyDigest.week_start.desc()).limit(1)
+        row = (await db.execute(stmt)).scalar_one_or_none()
+
+    if row is None:
+        return _json({"digest": None}, 404 if requested_week is not None else 200)
+    return _json({"digest": _serialize_digest(row)})
+
+
+async def route_weekly_digest_regenerate(request: Request) -> Response:
+    """Force-regenerate the previous completed week's digest for the caller.
+
+    Heavy: runs the Gemma round-trip inline. Should be rate-limited at the
+    routes table. Returns 202 with the freshly-written body on success.
+    """
+    user = _require_user(request)
+    if user is None:
+        return _json({"error": "unauthorized"}, 401)
+    user_id = _uid(user)
+
+    week_arg = request.query_params.get("week")
+    requested_week = _parse_week_query(week_arg) if week_arg else None
+    if week_arg and requested_week is None:
+        return _json({"error": "week must be YYYY-MM-DD"}, 400)
+    target_week = requested_week or _digest_mod.previous_week_start(
+        datetime.now(timezone.utc).date()
+    )
+
+    settings = get_settings()
+    memory_store = request.app.state.store
+    instincts_store = request.app.state.instincts_store
+    if memory_store is None or instincts_store is None:
+        return _json({"error": "stores unavailable"}, 503)
+    try:
+        wrote = await _digest_mod.generate_for_user(
+            user_id,
+            target_week,
+            settings,
+            memory_store,
+            instincts_store,
+            force=True,
+        )
+    except Exception:
+        import logging
+
+        logging.getLogger(__name__).exception("weekly digest regenerate failed")
+        return _json({"error": "regenerate failed"}, 500)
+
+    if not wrote:
+        return _json({"digest": None, "note": "no activity that week"}, 200)
+
+    async with async_session() as db:
+        row = (
+            await db.execute(
+                select(WeeklyDigest)
+                .where(WeeklyDigest.user_id == user_id)
+                .where(WeeklyDigest.week_start == target_week)
+            )
+        ).scalar_one_or_none()
+    if row is None:
+        return _json({"error": "digest missing after write"}, 500)
+    return _json({"digest": _serialize_digest(row)}, 202)
+
+
+# ---------------------------------------------------------------------------
+# GET /api/raw-sessions — recent session inspector
+# ---------------------------------------------------------------------------
+
+
+_VALID_STATES = frozenset({"pending", "distilled", "filtered", "failed", "archived"})
+_DEFAULT_LIMIT = 20
+_MAX_LIMIT = 100
+
+
+def _serialize_session_row(row: RawSession, project_name: str | None) -> dict[str, Any]:
+    """Compact list-shape row. Excludes transcript_json (huge) — fetched via
+    /api/raw-sessions/{id} when the user clicks in."""
+    return {
+        "ingest_id": row.ingest_id,
+        "project_id": row.project_id,
+        "project_name": project_name,
+        "client": row.client,
+        "state": row.distillation_state,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+        "processed_at": row.processed_at.isoformat() if row.processed_at else None,
+        "memories_extracted": int(row.memories_extracted or 0),
+        "instincts_extracted": int(row.instincts_extracted or 0),
+        "processing_path": row.processing_path,
+        "attempt_count": int(row.attempt_count or 0),
+        "error": row.error,
+        "filter_reason": row.filter_reason,
+    }
+
+
+async def route_raw_sessions_list(request: Request) -> Response:
+    """Recent raw sessions filtered by ``?state=`` for the dashboard inspector.
+
+    Defaults to all states (excluding pending which the existing backlog card
+    already covers). Hard cap at 100 rows so a misbehaving client can't dump
+    the whole history. Project name is joined in so the UI doesn't need a
+    second round-trip.
+    """
+    user = _require_user(request)
+    if user is None:
+        return _json({"error": "unauthorized"}, 401)
+    user_id = _uid(user)
+
+    state_raw = request.query_params.get("state")
+    state: str | None = None
+    if state_raw:
+        if state_raw not in _VALID_STATES:
+            return _json(
+                {"error": f"state must be one of {sorted(_VALID_STATES)}"},
+                400,
+            )
+        state = state_raw
+
+    limit_raw = request.query_params.get("limit")
+    try:
+        limit = int(limit_raw) if limit_raw else _DEFAULT_LIMIT
+    except ValueError:
+        return _json({"error": "limit must be an integer"}, 400)
+    limit = max(1, min(limit, _MAX_LIMIT))
+
+    from piloci.db.models import Project
+
+    async with async_session() as db:
+        stmt = (
+            select(RawSession)
+            .where(RawSession.user_id == user_id)
+            .order_by(
+                # processed_at when known (terminal states), else created_at
+                # — descending so the latest activity surfaces first.
+                func.coalesce(RawSession.processed_at, RawSession.created_at).desc()
+            )
+            .limit(limit)
+        )
+        if state is not None:
+            stmt = stmt.where(RawSession.distillation_state == state)
+        rows = list((await db.execute(stmt)).scalars().all())
+
+        # One-shot project name join.
+        project_ids = {r.project_id for r in rows if r.project_id}
+        name_by_id: dict[str, str] = {}
+        if project_ids:
+            name_rows = (
+                await db.execute(
+                    select(Project.id, Project.name).where(Project.id.in_(project_ids))
+                )
+            ).all()
+            name_by_id = {r[0]: r[1] for r in name_rows}
+
+    return _json(
+        {
+            "state": state or "any",
+            "sessions": [
+                _serialize_session_row(r, name_by_id.get(r.project_id or "")) for r in rows
+            ],
+        }
+    )

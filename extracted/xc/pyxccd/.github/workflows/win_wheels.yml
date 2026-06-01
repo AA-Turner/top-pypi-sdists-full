@@ -1,0 +1,145 @@
+name: Build Winows Wheels
+
+on:
+  workflow_call:
+    inputs:
+      scm_version:
+        type: string
+        required: true
+  workflow_dispatch:
+
+jobs:
+  generate_windows_cibw_list: # output: cibw-list
+    uses: ./.github/workflows/generate_cibw.yml
+    with:
+      platform: windows
+
+  build_windows_wheels:
+    name: Build ${{ matrix.cibw-only }} wheel
+    needs: generate_windows_cibw_list
+    strategy:
+      matrix:
+        os: [windows-latest]
+        cibw-only: ${{fromJson(needs.generate_windows_cibw_list.outputs.cibw-list)}}
+
+    defaults:
+      run: # 
+        shell: ${{ matrix.os == 'windows-latest' && 'msys2 {0}' || 'bash' }} 
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    # - run: git config --global core.autocrlf input # https://github.com/msys2/setup-msys2/tree/v2/?tab=readme-ov-file#known-problems avoid dirty repo
+    #   shell: cmd
+    - name: Checkout source
+      uses: actions/checkout@v6
+      with:
+        fetch-depth: 0 # fetch all history for accurate version calculation
+    - name: Set up MSYS2
+      if: ${{ runner.os == 'Windows' }}
+      uses: msys2/setup-msys2@v2
+      with:
+        release: false
+        msystem: ucrt64
+        install: git make mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-gcc-fortran mingw-w64-ucrt-x86_64-gcc-libgfortran mingw-w64-ucrt-x86_64-gsl mingw-w64-ucrt-x86_64-zlib
+
+    - name: Set up Python
+      id: setup-python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.11'
+        update-environment: false
+
+    - name: replace '\' to '/' in python path, only effective on windows 
+      id: replace-path
+      run: echo "py_path=$(echo "${{ steps.setup-python.outputs.python-path }}" | sed 's/\\/\//g')" >> $GITHUB_OUTPUT
+
+    - name: install cibuildwheel # cannot use pypa/cibuildwheel because we need to use msys2
+      run: |
+        ${{ steps.replace-path.outputs.py_path }} -m pip install cibuildwheel setuptools_scm
+    
+    - name: check git status
+      run: |
+        git status
+        ${{ steps.replace-path.outputs.py_path }} -m setuptools_scm
+
+    - name: Build binary wheels
+      run: |
+        echo "using python at: ${{ steps.replace-path.outputs.py_path }}"
+        ${{ steps.replace-path.outputs.py_path }} -m cibuildwheel --only ${{ matrix.cibw-only }}
+      # env: # whether to test the wheels after building
+      #   CIBW_TEST_SKIP: "*"
+
+    - name: Show built files
+      run: ls -la wheelhouse
+
+    - name: Combine coverage and upload
+      uses: ./.github/actions/coverage_codecov
+      with:
+        gather-path: wheelhouse
+
+    - uses: actions/upload-artifact@v7
+      with:
+        name: wheels-${{ matrix.cibw-only }}
+        path: ./wheelhouse/*.whl
+
+  test_windows_wheels:
+    ##
+    # Download the previously build binary wheels from the
+    # build_windows_wheels step, and test them in an independent
+    # environment. (without MSYS2)
+    ##
+    name: Test Wheel ${{ matrix.cibw-only }} with extras ${{ matrix.install-extras }}
+    runs-on: ${{ matrix.os }}
+    needs:
+      - generate_windows_cibw_list
+      - build_windows_wheels
+    strategy:
+      matrix: 
+        cibw-only: ${{ fromJson(needs.generate_windows_cibw_list.outputs.cibw-list) }}
+        install-extras: ["tests,optional,headless","tests-strict,runtime-strict,headless-strict"] # 
+        os: [windows-latest]
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v6
+
+    - name: Extract python version from cibw-only
+      id: extract-python-version
+      shell: bash
+      run: |
+        echo cp-version=$(echo "${{ matrix.cibw-only }}" | sed -En 's/^(cp[0-9]{2,3}).*/\1/p') >> $GITHUB_OUTPUT
+        echo python-version=$(echo "${{ matrix.cibw-only }}" | sed -n 's/^cp\([0-9]\)\([0-9]\{1,2\}\).*/\1.\2/p' ) >> $GITHUB_OUTPUT
+
+    - name: Setup Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ steps.extract-python-version.outputs.python-version }}
+    - uses: actions/download-artifact@v8
+      name: Download wheels
+      with:
+        name: wheels-${{ matrix.cibw-only }}
+        path: wheelhouse
+
+    - name: Display structure of downloaded files, output unique filename
+      id: show-wheel-files
+      shell: bash
+      run: |
+        ls -R wheelhouse
+        WHEEL_FPATH=$(ls wheelhouse/pyxccd-${{inputs.scm_version}}-${{steps.extract-python-version.outputs.cp-version}}*.whl) 
+        echo "wheel_fpath=$WHEEL_FPATH"
+        echo wheel_fpath="$WHEEL_FPATH" >> $GITHUB_OUTPUT
+
+    - name: Install wheel ${{ matrix.cibw-only }} with extras ${{ matrix.install-extras }}
+      shell: powershell
+      env:
+        INSTALL_EXTRAS: ${{ matrix.install-extras }}
+      run: pip install --prefer-binary "${{ steps.show-wheel-files.outputs.wheel_fpath }}[$($env:INSTALL_EXTRAS)]" -f wheelhouse # there should be only one wheel in the wheelhouse directory
+
+    - name: Test wheel ${{ matrix.cibw-only }} with extras ${{ matrix.install-extras }}
+      shell: powershell
+      run: |
+        $modDpath = python -c "import pyxccd, os; print(os.path.dirname(pyxccd.__file__))"
+        python -m pytest --verbose -p pytester -p no:doctest --xdoctest --cov-config pyproject.toml --cov-report term --cov="pyxccd" "$modDpath" tests
+      
+    - name: Combine coverage and upload
+      uses: ./.github/actions/coverage_codecov

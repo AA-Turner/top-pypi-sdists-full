@@ -1,0 +1,79 @@
+name: Bump Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Semver type of the new version"
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - alpha
+          - beta
+          - rc
+          - dev
+          - post
+          - stable
+
+permissions:
+  contents: read
+
+jobs:
+  bump-version:
+    environment: publish
+    runs-on: ubuntu-latest
+    if: github.actor == 'Wirg'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: ./.github/workflows/actions/install_dependencies
+
+      - name: bump version
+        run: uv version --bump ${{ github.event.inputs.version }}
+
+      - name: export release-data
+        id: release-data
+        run: |
+          export RELEASE="v$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          echo "version=${RELEASE}" >> $GITHUB_OUTPUT
+          echo "branch=release/${RELEASE}" >> $GITHUB_OUTPUT
+
+      - name: Create release app token
+        id: release-app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Create Pull Request "[Release] ${{ steps.release-data.outputs.version }} => main"
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        id: create-pull-request
+        with:
+          # PR
+          title: "[Release] ${{ steps.release-data.outputs.version }} => main"
+          reviewers: Wirg
+          labels: release
+          branch: ${{ steps.release-data.outputs.branch }}
+          base: main
+          delete-branch: true
+
+          # Commit
+          commit-message: "bump: version ${{ steps.release-data.outputs.version }}"
+          add-paths: |
+            ./pyproject.toml
+            ./uv.lock
+
+          # Auth
+          token: ${{ steps.release-app-token.outputs.token }}
+
+      - name: Auto-merge Pull Request
+        uses: peter-evans/enable-pull-request-automerge@a660677d5469627102a1c1e11409dd063606628d # v3.0.0
+        with:
+          token: ${{ steps.release-app-token.outputs.token }}
+          pull-request-number: ${{ steps.create-pull-request.outputs.pull-request-number }}
+          merge-method: rebase

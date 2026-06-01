@@ -1,0 +1,464 @@
+#
+# Pyserini: Reproducible IR research with sparse and dense representations
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+from collections.abc import Iterator
+from contextlib import contextmanager
+import hashlib
+import importlib
+import logging
+import os
+import re
+import shutil
+import tarfile
+import urllib.request
+from urllib.error import HTTPError, URLError
+
+import pandas as pd
+from tqdm import tqdm
+
+from pyserini.encoded_corpus_info import CORPUS_INFO
+from pyserini.encoded_query_info import QUERY_INFO
+from pyserini.evaluate_script_info import EVALUATION_INFO
+from pyserini.prebuilt_index_info import TF_INDEX_INFO, IMPACT_INDEX_INFO, \
+    LUCENE_HNSW_INDEX_INFO, LUCENE_FLAT_INDEX_INFO, FAISS_INDEX_INFO
+
+logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def temporary_env(**env_vars: str | None) -> Iterator[None]:
+    previous_values = {key: os.environ.get(key) for key in env_vars}
+
+    for key, value in env_vars.items():
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
+
+    try:
+        yield
+    finally:
+        for key, previous_value in previous_values.items():
+            if previous_value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = previous_value
+
+
+def _archive_name_to_index_name(archive_name):
+    return re.sub(r'''\.tar(\.gz)?(\?.*)?$''', '', archive_name)
+
+
+def _download_archive_name(url, local_filename):
+    if local_filename:
+        return local_filename
+    return re.sub('\\?dl=1$', '', url.split('/')[-1])
+
+
+def resolve_device(device: str, backend: str = 'torch') -> str:
+    normalized = (device or 'cpu').strip().lower()
+    if normalized == 'cpu':
+        return 'cpu'
+
+    if normalized == 'cuda':
+        gpu_id = 0
+    elif re.fullmatch(r'cuda:\d+', normalized):
+        gpu_id = int(normalized.split(':', 1)[1])
+    else:
+        logger.warning("Invalid device '%s' for backend '%s', falling back to cpu.", device, backend)
+        return 'cpu'
+
+    if backend == 'torch':
+        try:
+            torch = importlib.import_module('torch')
+        except ImportError:
+            logger.warning("PyTorch is not installed; falling back to cpu.")
+            return 'cpu'
+
+        if not torch.cuda.is_available():
+            logger.warning("CUDA is not available in PyTorch; falling back to cpu.")
+            return 'cpu'
+
+        num_gpus = torch.cuda.device_count()
+    elif backend == 'faiss':
+        try:
+            faiss = importlib.import_module('faiss')
+        except ImportError:
+            logger.warning("FAISS is not installed; falling back to cpu.")
+            return 'cpu'
+
+        if not hasattr(faiss, 'get_num_gpus'):
+            logger.warning("Installed faiss package does not expose GPU support; falling back to cpu.")
+            return 'cpu'
+
+        try:
+            num_gpus = faiss.get_num_gpus()
+        except Exception as e:
+            logger.warning("Unable to query FAISS GPU devices (%s); falling back to cpu.", e)
+            return 'cpu'
+    else:
+        raise ValueError(f"Unknown backend '{backend}', expected one of: torch, faiss.")
+
+    if num_gpus < 1:
+        logger.warning("No GPUs available for backend '%s'; falling back to cpu.", backend)
+        return 'cpu'
+
+    if gpu_id < 0 or gpu_id >= num_gpus:
+        logger.warning(
+            "Requested GPU %s is not available for backend '%s' (detected %s); falling back to cpu.",
+            gpu_id,
+            backend,
+            num_gpus,
+        )
+        return 'cpu'
+
+    return f'cuda:{gpu_id}'
+
+
+# https://gist.github.com/leimao/37ff6e990b3226c2c9670a2cd1e4a6f5
+class TqdmUpTo(tqdm):
+    def update_to(self, b=1, bsize=1, tsize=None):
+        """
+        b  : int, optional
+            Number of blocks transferred so far [default: 1].
+        bsize  : int, optional
+            Size of each block (in tqdm units) [default: 1].
+        tsize  : int, optional
+            Total size (in tqdm units). If [default: None] remains unchanged.
+        """
+        if tsize is not None:
+            self.total = tsize
+        self.update(b * bsize - self.n)  # will also set self.n = b * bsize
+
+
+# For large files, we need to compute MD5 block by block. See:
+# https://stackoverflow.com/questions/1131220/get-md5-hash-of-big-files-in-python
+def compute_md5(file, block_size=2**20):
+    m = hashlib.md5()
+    with open(file, 'rb') as f:
+        while True:
+            buf = f.read(block_size)
+            if not buf:
+                break
+            m.update(buf)
+    return m.hexdigest()
+
+
+def compare_trec_strings_with_tolerance(trec_strings1, trec_strings2, tolerance=1e-4):
+    """
+    Compare two lists of TREC strings with tolerance for floating-point precision differences.
+    
+    Args:
+        trec_strings1: List of TREC format strings (format: qid Q0 docid rank score runtag)
+        trec_strings2: List of TREC format strings (format: qid Q0 docid rank score runtag)
+        tolerance: Tolerance for floating-point score comparison (default: 1e-4)
+    
+    Returns:
+        bool: True if the lists match within tolerance, False otherwise
+    """
+    if len(trec_strings1) != len(trec_strings2):
+        return False
+    # Compare each TREC string between the two lists
+    for str1, str2 in zip(trec_strings1, trec_strings2):
+        str1 = str1.strip()
+        str2 = str2.strip()
+        if str1 != str2:
+            parts1 = str1.split()
+            parts2 = str2.split()
+            if len(parts1) != len(parts2):
+                return False
+            # TREC format: parts[0]=qid, parts[1]=Q0, parts[2]=docid, parts[3]=rank, parts[4]=score, parts[5]=runtag
+            if (parts1[0] == parts2[0] and parts1[1] == parts2[1] and parts1[2] == parts2[2] and parts1[3] == parts2[3] and parts1[5] == parts2[5]):
+                try:
+                    score1 = float(parts1[4])
+                    score2 = float(parts2[4])
+                    diff = abs(score1 - score2)
+                    if diff > tolerance:
+                        return False
+                except ValueError:
+                    return False
+            else:
+                return False
+    return True
+
+
+def compare_trec_files_with_tolerance(file1_path, file2_path, tolerance=1e-4):
+    """
+    Compare two TREC files with tolerance for floating-point precision differences.
+    
+    Args:
+        file1_path: Path to first TREC format file
+        file2_path: Path to second TREC format file
+        tolerance: Tolerance for floating-point score comparison (default: 1e-4)
+    
+    Returns:
+        bool: True if the files match within tolerance, False otherwise
+    """
+    try:
+        with open(file1_path, 'r') as f1, open(file2_path, 'r') as f2:
+            lines1 = [line.strip() for line in f1.readlines()]
+            lines2 = [line.strip() for line in f2.readlines()]
+    except FileNotFoundError:
+        return False
+    return compare_trec_strings_with_tolerance(lines1, lines2, tolerance)
+
+
+def download_url(url, save_dir, local_filename=None, md5=None, force=False, verbose=True, expected_size=None):
+    # If caller does not specify local filename, figure it out from the download URL:
+    if not local_filename:
+        filename = url.split('/')[-1]
+        filename = re.sub('\\?dl=1$', '', filename)  # Remove the Dropbox 'force download' parameter
+    else:
+        # Otherwise, use the specified local_filename:
+        filename = local_filename
+
+    destination_path = os.path.join(save_dir, filename)
+
+    if verbose:
+        print(f'Downloading {url} to {destination_path}...')
+
+    # Check to see if file already exists, if so, simply return (quietly) unless force=True, in which case we remove
+    # destination file and download fresh copy.
+    if os.path.exists(destination_path):
+        if verbose:
+            print(f'{destination_path} already exists!')
+        if not force:
+            if verbose:
+                print(f'Skipping download.')
+            return destination_path
+        if verbose:
+            print(f'force=True, removing {destination_path}; fetching fresh copy...')
+        os.remove(destination_path)
+
+    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+
+    # Note: urlretrieve doesn't directly support headers.
+    try:
+        with TqdmUpTo(unit='B', unit_scale=True, unit_divisor=1024, miniters=1, desc=filename) as t:
+            with urllib.request.urlopen(req) as response:
+                # Get file size from headers if available
+                file_size = int(response.headers.get('Content-Length', -1))
+                t.total = file_size
+
+                with open(destination_path, 'wb') as f:
+                    while True:
+                        chunk = response.read(4096)  # 4KB chunks
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        t.update(len(chunk))
+    except HTTPError as e:
+        print(f'HTTP Error {e.code}: {e.reason}')
+
+    # Don't do the size check if the size is -1 or None.
+    if expected_size != -1 and expected_size is not None:
+        actual_size = os.path.getsize(destination_path)
+        assert actual_size == expected_size, (
+            f'{destination_path} does not match expected file size! Expecting {expected_size} bytes, got {actual_size} bytes.'
+        )
+
+    if md5:
+        md5_computed = compute_md5(destination_path)
+        assert md5_computed == md5, f'{destination_path} does not match checksum! Expecting {md5} got {md5_computed}.'
+
+    return destination_path
+
+
+def get_cache_home():
+    custom_dir = os.environ.get('PYSERINI_CACHE')
+    if custom_dir is not None and custom_dir != '':
+        return custom_dir
+    return os.path.expanduser(os.path.join(f'~{os.path.sep}.cache', "pyserini"))
+
+def download_and_unpack_index(url, index_directory='indexes', local_filename=False, md5=None,
+                              force=False, verbose=True, prebuilt=False, expected_size=None):
+    archive_name = _download_archive_name(url, local_filename)
+    index_name = _archive_name_to_index_name(archive_name)
+
+    if prebuilt:
+        index_directory = os.path.join(get_cache_home(), index_directory)
+        index_path = os.path.join(index_directory, f'{index_name}.{md5}')
+
+        if not os.path.exists(index_directory):
+            os.makedirs(index_directory)
+
+        local_tarball = os.path.join(index_directory, archive_name)
+        # If there's a local tarball, it's likely corrupted, because we remove the local tarball on success (below).
+        # So, we want to remove.
+        if os.path.exists(local_tarball):
+            os.remove(local_tarball)
+    else:
+        local_tarball = os.path.join(index_directory, archive_name)
+        index_path = os.path.join(index_directory, f'{index_name}')
+
+    # Check to see if index already exists, if so, simply return (quietly) unless force=True, in which case we remove
+    # index and download fresh copy.
+    if os.path.exists(index_path):
+        if not force:
+            if verbose:
+                print(f'{index_path} already exists, skipping download.')
+            return index_path
+        if verbose:
+            print(f'{index_path} already exists, but force=True, removing {index_path} and fetching fresh copy...')
+        shutil.rmtree(index_path)
+
+    print(f'Downloading index at {url}...')
+    local_tarball = download_url(url, index_directory, local_filename=local_filename, verbose=False, md5=md5, expected_size=expected_size)
+
+    if verbose:
+        print(f'Extracting {local_tarball} into {index_path}...')
+    tarball = tarfile.open(local_tarball)
+    dirs_in_tarball = [member.name for member in tarball if member.isdir()]
+    assert len(dirs_in_tarball), f"Detect multiple members ({', '.join(dirs_in_tarball)}) under the tarball {local_tarball}."
+    tarball.extractall(index_directory)
+    tarball.close()
+    os.remove(local_tarball)
+
+    if prebuilt:
+        dir_in_tarball = dirs_in_tarball[0]
+        if dir_in_tarball != index_name:
+            logger.info(f"Renaming {index_directory}/{dir_in_tarball} into {index_directory}/{index_name}.")
+            index_name = dir_in_tarball
+        os.rename(os.path.join(index_directory, f'{index_name}'), index_path)
+
+    return index_path
+
+
+def check_downloaded(index_name):
+    if index_name in TF_INDEX_INFO:
+        target_index = TF_INDEX_INFO[index_name]
+    elif index_name in IMPACT_INDEX_INFO:
+        target_index = IMPACT_INDEX_INFO[index_name]
+    elif index_name in LUCENE_HNSW_INDEX_INFO:
+        target_index = LUCENE_HNSW_INDEX_INFO[index_name]
+    elif index_name in LUCENE_FLAT_INDEX_INFO:
+        target_index = LUCENE_FLAT_INDEX_INFO[index_name]
+    else:
+        target_index = FAISS_INDEX_INFO[index_name]
+    index_url = target_index['urls'][0]
+    index_md5 = target_index['md5']
+    archive_name = target_index['filename'] if 'filename' in target_index else _download_archive_name(index_url, None)
+    index_name = _archive_name_to_index_name(archive_name)
+    index_directory = os.path.join(get_cache_home(), 'indexes')
+    index_path = os.path.join(index_directory, f'{index_name}.{index_md5}')
+
+    return os.path.exists(index_path)
+
+
+def get_sparse_indexes_info():
+    df = pd.DataFrame.from_dict({**TF_INDEX_INFO, **IMPACT_INDEX_INFO})
+    for index in df.keys():
+        df[index]['downloaded'] = check_downloaded(index)
+
+    with pd.option_context('display.max_rows', None, 'display.max_columns',
+                           None, 'display.max_colwidth', None, 'display.colheader_justify', 'left'):
+        print(df)
+
+
+def get_impact_indexes_info():
+    df = pd.DataFrame.from_dict(IMPACT_INDEX_INFO)
+    for index in df.keys():
+        df[index]['downloaded'] = check_downloaded(index)
+
+    with pd.option_context('display.max_rows', None, 'display.max_columns',
+                           None, 'display.max_colwidth', None, 'display.colheader_justify', 'left'):
+        print(df)
+
+
+def get_dense_indexes_info():
+    df = pd.DataFrame.from_dict(FAISS_INDEX_INFO)
+    for index in df.keys():
+        df[index]['downloaded'] = check_downloaded(index)
+
+    with pd.option_context('display.max_rows', None, 'display.max_columns',
+                           None, 'display.max_colwidth', None, 'display.colheader_justify', 'left'):
+        print(df)
+
+
+def download_prebuilt_index(index_name, force=False, verbose=True, mirror=None):
+    if (index_name not in TF_INDEX_INFO and
+            index_name not in IMPACT_INDEX_INFO and
+            index_name not in LUCENE_HNSW_INDEX_INFO and
+            index_name not in LUCENE_FLAT_INDEX_INFO and
+            index_name not in FAISS_INDEX_INFO):
+        raise ValueError(f'Unrecognized index name {index_name}')
+
+    if index_name in TF_INDEX_INFO:
+        target_index = TF_INDEX_INFO[index_name]
+    elif index_name in IMPACT_INDEX_INFO:
+        target_index = IMPACT_INDEX_INFO[index_name]
+    elif index_name in LUCENE_HNSW_INDEX_INFO:
+        target_index = LUCENE_HNSW_INDEX_INFO[index_name]
+    elif index_name in LUCENE_FLAT_INDEX_INFO:
+        target_index = LUCENE_FLAT_INDEX_INFO[index_name]
+    else:
+        target_index = FAISS_INDEX_INFO[index_name]
+
+    expected_size = target_index.get('size', None)
+    index_md5 = target_index['md5']
+    for url in target_index['urls']:
+        local_filename = target_index['filename'] if 'filename' in target_index else None
+        try:
+            return download_and_unpack_index(url, local_filename=local_filename, prebuilt=True,
+                                             md5=index_md5, verbose=verbose, expected_size=expected_size)
+        except (HTTPError, URLError) as e:
+            print(f'Unable to download prebuilt index at {url}, trying next URL...')
+    raise ValueError(f'Unable to download prebuilt index at any known URLs.')
+
+
+def download_encoded_queries(query_name, force=False, verbose=True, mirror=None):
+    if query_name not in QUERY_INFO:
+        raise ValueError(f'Unrecognized query name {query_name}')
+    query_md5 = QUERY_INFO[query_name]['md5']
+    for url in QUERY_INFO[query_name]['urls']:
+        try:
+            return download_and_unpack_index(url, index_directory='queries', prebuilt=True, md5=query_md5)
+        except (HTTPError, URLError) as e:
+            print(f'Unable to download encoded query at {url}, trying next URL...')
+    raise ValueError(f'Unable to download encoded query at any known URLs.')
+
+
+def download_encoded_corpus(corpus_name, force=False, verbose=True, mirror=None):
+    if corpus_name not in CORPUS_INFO:
+        raise ValueError(f'Unrecognized corpus name {corpus_name}')
+    corpus_md5 = CORPUS_INFO[corpus_name]['md5']
+    for url in CORPUS_INFO[corpus_name]['urls']:
+        local_filename = CORPUS_INFO[corpus_name]['filename'] if 'filename' in CORPUS_INFO[corpus_name] else None
+        try:
+            return download_and_unpack_index(url, local_filename=local_filename, index_directory='corpus', prebuilt=True, md5=corpus_md5)
+        except (HTTPError, URLError) as e:
+            print(f'Unable to download encoded corpus at {url}, trying next URL...')
+    raise ValueError(f'Unable to download encoded corpus at any known URLs.')
+
+
+def download_evaluation_script(evaluation_name, force=False, verbose=True, mirror=None):
+    if evaluation_name not in EVALUATION_INFO:
+        raise ValueError(f'Unrecognized evaluation name {evaluation_name}')
+    for url in EVALUATION_INFO[evaluation_name]['urls']:
+        try:
+            save_dir = os.path.join(get_cache_home(), 'eval')
+            if not os.path.exists(save_dir):
+                os.makedirs(save_dir)
+            return download_url(url, save_dir=save_dir)
+        except HTTPError:
+            print(f'Unable to download evaluation script at {url}, trying next URL...')
+    raise ValueError(f'Unable to download evaluation script at any known URLs.')
+
+
+def get_sparse_index(index_name):
+    if index_name not in FAISS_INDEX_INFO:
+        raise ValueError(f'Unrecognized index name {index_name}')
+    return FAISS_INDEX_INFO[index_name]["texts"]

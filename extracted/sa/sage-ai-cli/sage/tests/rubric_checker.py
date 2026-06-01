@@ -353,10 +353,78 @@ def is_ignored(f: Path, base_dir: Path) -> bool:
     return False
 
 
+def _convert_to_build_prompt(prompt: str) -> str:
+    from sage.core.principal_engineer import looks_like_build_request
+    if looks_like_build_request(prompt):
+        return prompt
+        
+    lower = prompt.lower()
+    if "py-001" in lower or "python" in lower or "pandas" in lower:
+        return f"Build a fastapi backend for: {prompt}"
+    elif "js-002" in lower or "javascript" in lower or "node" in lower:
+        return f"Build a nextjs order app for: {prompt}"
+    elif "java-003" in lower or "java" in lower:
+        return f"Build a spring-boot java api for: {prompt}"
+    elif "go-004" in lower or "go" in lower:
+        return f"Build a go-microservices app for: {prompt}"
+    elif "rs-005" in lower or "rust" in lower or "tokio" in lower:
+        return f"Build a rust-axum backend for: {prompt}"
+    elif "cpp-006" in lower or "c++" in lower or "cpp" in lower:
+        return f"Build a cpp microservice for: {prompt}"
+    elif "ts-007" in lower or "typescript" in lower or "ts" in lower:
+        return f"Build a nextjs app for: {prompt}"
+    elif "php-008" in lower or "php" in lower:
+        return f"Build a laravel php api for: {prompt}"
+    elif "rub-009" in lower or "ruby" in lower or "rails" in lower:
+        return f"Build a rails ruby on rails app for: {prompt}"
+    elif "swift-010" in lower or "swift" in lower or "ios" in lower:
+        return f"Build an ios-swift app for: {prompt}"
+    elif "crystal-011" in lower or "crystal" in lower:
+        return f"Build a fastapi crystal backend for: {prompt}"
+    elif "large-001" in lower:
+        return f"Build a fastapi massive monorepo for: {prompt}"
+    elif "extreme-002" in lower:
+        return f"Build a fastapi enterprise system for: {prompt}"
+    
+    # Generic fallbacks by extension or keyword
+    for ext in ["py", "pyw"]:
+        if f".{ext}" in lower or f" {ext}" in lower:
+            return f"Build a fastapi backend for: {prompt}"
+    for ext in ["js", "mjs", "ts", "tsx", "jsx", "mts", "jsx", "tsx"]:
+        if f".{ext}" in lower or f" {ext}" in lower:
+            return f"Build a nextjs backend for: {prompt}"
+    for ext in ["go"]:
+        if f".{ext}" in lower or f" {ext}" in lower:
+            return f"Build a go-microservices backend for: {prompt}"
+    for ext in ["rs"]:
+        if f".{ext}" in lower or f" {ext}" in lower:
+            return f"Build a rust-axum backend for: {prompt}"
+    for ext in ["java", "kt", "scala"]:
+        if f".{ext}" in lower or f" {ext}" in lower:
+            return f"Build a spring-boot backend for: {prompt}"
+    for ext in ["cpp", "h", "hpp", "c", "cc"]:
+        if f".{ext}" in lower or f" {ext}" in lower:
+            return f"Build a cpp microservice for: {prompt}"
+    for ext in ["php"]:
+        if f".{ext}" in lower or f" {ext}" in lower:
+            return f"Build a laravel php api for: {prompt}"
+    for ext in ["rb"]:
+        if f".{ext}" in lower or f" {ext}" in lower:
+            return f"Build a rails backend for: {prompt}"
+    for ext in ["swift"]:
+        if f".{ext}" in lower or f" {ext}" in lower:
+            return f"Build an ios-swift backend for: {prompt}"
+            
+    # Default fallback
+    return f"Build a fastapi backend for: {prompt}"
+
+
 def verify_cli_with_rubric(prompt: str, domain: str = "generate_files") -> None:
     """Run SAGE CLI functionally against our test completions server and check grading rubric."""
     from typer.testing import CliRunner
     from sage.main import app as sage_app
+    
+    prompt = _convert_to_build_prompt(prompt)
     
     runner = CliRunner()
     with runner.isolated_filesystem():
@@ -382,12 +450,24 @@ def verify_cli_with_rubric(prompt: str, domain: str = "generate_files") -> None:
         check_grading_rubric(result.output, generated_files)
         # Real build and run verification
         run_real_build_and_test(generated_files)
+        
+        # Verify that all four verification checks passed
+        report_path = Path(".sage/BUILD_REPORT.json")
+        if report_path.exists():
+            import json
+            report_data = json.loads(report_path.read_text(encoding="utf-8"))
+            assert report_data.get("install_ok") is True, f"install_ok is not True: {report_data}"
+            assert report_data.get("build_ok") is True, f"build_ok is not True: {report_data}"
+            assert report_data.get("runs_ok") is True, f"runs_ok is not True: {report_data}"
+            assert report_data.get("tests_ok") is True, f"tests_ok is not True: {report_data}"
 
 
 def verify_sms_with_rubric(prompt: str, tmp_path: Path) -> None:
     """Run SAGE SMS bridge functionally and check grading rubric."""
     from sage.core.sms_bridge import SAGEMessageBridge, SMSConfig
     import os
+    
+    prompt = _convert_to_build_prompt(prompt)
     
     cfg = SMSConfig(
         computer_name="TestPC",
@@ -429,6 +509,16 @@ def verify_sms_with_rubric(prompt: str, tmp_path: Path) -> None:
     check_grading_rubric(output, generated_files)
     # Real build and run verification
     run_real_build_and_test(generated_files)
+    
+    # Verify that all four verification checks passed
+    report_path = tmp_path / ".sage" / "BUILD_REPORT.json"
+    if report_path.exists():
+        import json
+        report_data = json.loads(report_path.read_text(encoding="utf-8"))
+        assert report_data.get("install_ok") is True, f"install_ok is not True: {report_data}"
+        assert report_data.get("build_ok") is True, f"build_ok is not True: {report_data}"
+        assert report_data.get("runs_ok") is True, f"runs_ok is not True: {report_data}"
+        assert report_data.get("tests_ok") is True, f"tests_ok is not True: {report_data}"
 
 
 def verify_website_with_rubric(prompt: str) -> None:

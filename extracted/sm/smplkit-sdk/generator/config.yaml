@@ -1,0 +1,7 @@
+project_name_override: "smplkit-generated-client"
+package_name_override: "app"
+literal_enums: true
+meta_type: "none"
+post_hooks:
+  - "ruff check . --fix-only"
+  - "ruff format ."

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "schemathesis"
-version = "4.20.3"
+version = "4.21.0"
 description = "Adaptive API testing for OpenAPI and GraphQL"
 keywords = ["pytest", "hypothesis", "openapi", "graphql", "testing", "fuzzing", "adaptive"]
 authors = [{ name = "Dmitry Dygalo", email = "dmitry@dygalo.dev" }]
@@ -33,10 +33,10 @@ classifiers = [
 ]
 dependencies = [
   "click>=8.0,<9",
-  "harfile>=0.4.0,<1.0",
+  "harfile>=0.5.0,<1.0",
   "httpx>=0.22.0,<1.0",
   "hypothesis>=6.108.0,<7",
-  "hypothesis_graphql>=0.12.0,<1",
+  "hypothesis_graphql>=0.13.0,<1",
   "hypothesis_jsonschema>=0.23.1,<0.24",
   "jsonschema_rs>=0.46.4",
   "junit-xml>=1.9,<2.0",

@@ -1,0 +1,25 @@
+from .coordinator import TailscaleConfigEntry as TailscaleConfigEntry
+from .entity import TailscaleEntity as TailscaleEntity
+from collections.abc import Callable as Callable
+from dataclasses import dataclass
+from datetime import datetime
+from homeassistant.components.sensor import SensorDeviceClass as SensorDeviceClass, SensorEntity as SensorEntity, SensorEntityDescription as SensorEntityDescription
+from homeassistant.const import EntityCategory as EntityCategory
+from homeassistant.core import HomeAssistant as HomeAssistant
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback as AddConfigEntryEntitiesCallback
+from tailscale import Device as TailscaleDevice
+
+PARALLEL_UPDATES: int
+
+@dataclass(frozen=True, kw_only=True)
+class TailscaleSensorEntityDescription(SensorEntityDescription):
+    value_fn: Callable[[TailscaleDevice], datetime | str | None]
+
+SENSORS: tuple[TailscaleSensorEntityDescription, ...]
+
+async def async_setup_entry(hass: HomeAssistant, entry: TailscaleConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback) -> None: ...
+
+class TailscaleSensorEntity(TailscaleEntity, SensorEntity):
+    entity_description: TailscaleSensorEntityDescription
+    @property
+    def native_value(self) -> datetime | str | None: ...

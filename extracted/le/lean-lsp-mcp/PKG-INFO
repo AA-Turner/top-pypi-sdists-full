@@ -1,0 +1,442 @@
+Metadata-Version: 2.4
+Name: lean-lsp-mcp
+Version: 0.26.2
+Summary: Lean Theorem Prover MCP
+Author-email: Oliver Dressler <hey@oli.show>
+License-Expression: MIT
+Project-URL: Repository, https://github.com/oOo0oOo/lean-lsp-mcp
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: leanclient==0.10.0
+Requires-Dist: mcp[cli]==1.27.0
+Requires-Dist: orjson>=3.11.1
+Requires-Dist: certifi>=2024.0.0
+Provides-Extra: yaml
+Requires-Dist: PyYAML>=6.0; extra == "yaml"
+Provides-Extra: lint
+Requires-Dist: ruff>=0.2.0; extra == "lint"
+Provides-Extra: dev
+Requires-Dist: ruff>=0.2.0; extra == "dev"
+Requires-Dist: pytest>=8.3; extra == "dev"
+Requires-Dist: anyio>=4.12.1; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23; extra == "dev"
+Requires-Dist: pytest-timeout>=2.3; extra == "dev"
+Dynamic: license-file
+
+<h1 align="center">
+  lean-lsp-mcp
+</h1>
+
+<h3 align="center">Lean Theorem Prover MCP</h3>
+
+<p align="center">
+  <a href="https://pypi.org/project/lean-lsp-mcp/">
+    <img src="https://img.shields.io/pypi/v/lean-lsp-mcp.svg" alt="PyPI version" />
+  </a>
+  <a href="">
+    <img src="https://img.shields.io/github/last-commit/oOo0oOo/lean-lsp-mcp" alt="last update" />
+  </a>
+  <a href="https://github.com/oOo0oOo/lean-lsp-mcp/blob/master/LICENSE">
+    <img src="https://img.shields.io/github/license/oOo0oOo/lean-lsp-mcp.svg" alt="license" />
+  </a>
+</p>
+
+MCP server that allows agentic interaction with the [Lean theorem prover](https://lean-lang.org/) via the [Language Server Protocol](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/) using [leanclient](https://github.com/oOo0oOo/leanclient). This server provides a range of tools for LLM agents to understand, analyze and interact with Lean projects.
+
+## Key Features
+
+* **Rich Lean Interaction**: Access diagnostics, goal states, term information, hover documentation and more.
+* **External Search Tools**: Use `LeanSearch`, `Loogle`, `Lean Finder`, `Lean Hammer` and `Lean State Search` to find relevant theorems and definitions.
+* **Easy Setup**: Simple configuration for various clients, including VSCode, Cursor and Claude Code.
+
+## Setup
+
+### Overview
+
+1. Install [uv](https://docs.astral.sh/uv/getting-started/installation/), a Python package manager.
+2. Make sure your Lean project builds quickly by running `lake build` manually.
+3. Configure your IDE/Setup
+4. (Optional, highly recommended) Install [ripgrep](https://github.com/BurntSushi/ripgrep?tab=readme-ov-file#installation) (`rg`) for local search and source scanning (`lean_verify` warnings).
+
+### 1. Install uv
+
+[Install uv](https://docs.astral.sh/uv/getting-started/installation/) for your system. On Linux/MacOS: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+
+### 2. Run `lake build`
+
+`lean-lsp-mcp` will run `lake serve` in the project root to use the language server (for most tools). Some clients (e.g. Cursor) might timeout during this process. Therefore, it is recommended to run `lake build` manually before starting the MCP. This ensures a faster build time and avoids timeouts.
+
+### 3. Configure your IDE/Setup
+
+<details>
+<summary><b>VSCode (Click to expand)</b></summary>
+One-click config setup:
+
+[![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=lean-lsp&config=%7B%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22lean-lsp-mcp%22%5D%7D)
+
+[![Install in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install_Server-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=lean-lsp&config=%7B%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22lean-lsp-mcp%22%5D%7D&quality=insiders)
+
+OR using the setup wizard:
+
+Ctrl+Shift+P > "MCP: Add Server..." > "Command (stdio)" > "uvx lean-lsp-mcp" > "lean-lsp" (or any name you like) > Global or Workspace
+
+OR manually adding config by opening `mcp.json` with: 
+
+Ctrl+Shift+P > "MCP: Open User Configuration"
+
+and adding the following
+
+```jsonc
+{
+    "servers": {
+        "lean-lsp": {
+            "type": "stdio",
+            "command": "uvx",
+            "args": [
+                "lean-lsp-mcp"
+            ]
+        }
+    }
+}
+```
+
+If you installed VSCode on Windows and are using WSL2 as your development environment, you may need to use this config instead:
+
+```jsonc
+{
+    "servers": {
+        "lean-lsp": {
+            "type": "stdio",
+            "command": "wsl.exe",
+            "args": [
+                "uvx",
+                "lean-lsp-mcp"
+            ]
+        }
+    }
+}
+```
+If that doesn't work, you can try cloning this repository and replace `"lean-lsp-mcp"` with `"/path/to/cloned/lean-lsp-mcp"`.
+
+</details>
+
+<details>
+<summary><b>Cursor (Click to expand)</b></summary>
+1. Open MCP Settings (File > Preferences > Cursor Settings > MCP)
+
+2. "+ Add a new global MCP Server" > ("Create File")
+
+3. Paste the server config into `mcp.json` file:
+
+```jsonc
+{
+    "mcpServers": {
+        "lean-lsp": {
+            "command": "uvx",
+            "args": ["lean-lsp-mcp"]
+        }
+    }
+}
+```
+</details>
+
+<details>
+<summary><b>Claude Code (Click to expand)</b></summary>
+Run one of these commands in the root directory of your Lean project (where `lakefile.toml` is located):
+
+```bash
+# Local-scoped MCP server
+claude mcp add lean-lsp uvx lean-lsp-mcp
+
+# OR project-scoped MCP server
+# (creates or updates a .mcp.json file in the current directory)
+claude mcp add lean-lsp -s project uvx lean-lsp-mcp
+```
+
+You can find more details about MCP server configuration for Claude Code [here](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/tutorials#configure-mcp-servers).
+</details>
+
+<details>
+<summary><b>Mistral Vibe (Click to expand)</b></summary>
+(These instructions cover Mac/Linux.)
+
+1. Edit `~/.vibe/config.toml`.
+
+2. Paste the following into the file (e.g. at the end):
+```toml
+[[mcp_servers]]
+name = "lean-lsp"
+transport = "stdio"
+command = "uvx"
+args = ["lean-lsp-mcp"]
+tool_timeout_sec = 600
+```
+If there are no existing MCP servers, you may have to remove `mcp_servers = []`.
+</details>
+
+### 4. Install ripgrep (optional but recommended)
+
+For the local search tool `lean_local_search`, install [ripgrep](https://github.com/BurntSushi/ripgrep?tab=readme-ov-file#installation) (`rg`) and make sure it is available in your PATH.
+
+### 5. Install the Lean 4 skill (optional but recommended)
+
+With any agentic coding platform such as Claude Code or Codex, you can install the [Agentic Coding Skill: Lean 4 Theorem Proving](https://github.com/cameronfreer/lean4-skills/). This skill provides additional prompts and templates for interacting with Lean 4 projects, including guidance on using `lean-lsp-mcp`.
+
+## MCP Tools
+
+### List of available tools
+
+See [Tools documentation](docs/tools.md) for the full list of available tools.
+
+### Disabling Tools
+
+Many clients allow the user to disable specific tools manually (e.g. lean_build).
+
+**VSCode**: Click on the Wrench/Screwdriver icon in the chat.
+
+**Cursor**: In "Cursor Settings" > "MCP" click on the name of a tool to disable it (strikethrough).
+
+You can also disable tools at server startup:
+
+- `LEAN_MCP_DISABLED_TOOLS`: Comma-separated tool names (for example `lean_run_code,lean_build`).
+- `LEAN_MCP_INSTRUCTIONS`: Replacement server instructions string.
+- `LEAN_MCP_TOOL_DESCRIPTIONS`: JSON object to override tool descriptions.
+
+Example:
+
+```bash
+export LEAN_MCP_DISABLED_TOOLS="lean_run_code,lean_build"
+export LEAN_MCP_INSTRUCTIONS="Prefer lean_local_search before remote search tools."
+export LEAN_MCP_TOOL_DESCRIPTIONS='{"lean_goal":"Primary proof-state inspection tool."}'
+```
+
+## MCP Configuration
+
+This MCP server works out-of-the-box without any configuration. However, a few optional settings are available.
+
+### Environment Variables
+
+- `LEAN_LOG_LEVEL`: Log level for the server. Options are "INFO", "WARNING", "ERROR", "NONE". Defaults to "INFO".
+- `LEAN_LOG_FILE_CONFIG`: Config file path for logging, with priority over `LEAN_LOG_LEVEL`. If not set, logs are printed to stdout.
+- `LEAN_PROJECT_PATH`: Path to your Lean project root. A valid Lean project root must contain `lean-toolchain` and either `lakefile.lean` or `lakefile.toml`. Relative `file_path` arguments resolve against this root. This variable is required for `streamable-http` and `sse`.
+- `LEAN_MCP_DISABLED_TOOLS`: Comma-separated list of tool names to remove from MCP tool listing.
+- `LEAN_MCP_INSTRUCTIONS`: Replacement server instructions string.
+- `LEAN_MCP_TOOL_DESCRIPTIONS`: JSON object mapping tool names to replacement descriptions.
+- `LEAN_REPL`: Set to `true`, `1`, or `yes` to enable fast REPL-based `lean_multi_attempt` for line-based attempts (~5x faster, see [REPL Setup](#repl-setup)).
+- `LEAN_REPL_PATH`: Path to the `repl` binary. Auto-detected from `.lake/packages/repl/` if not set.
+- `LEAN_REPL_TIMEOUT`: Per-command timeout in seconds (default: 60).
+- `LEAN_REPL_MEM_MB`: Max memory per REPL in MB (default: 8192). Only enforced on Linux/macOS.
+- `LEAN_LSP_MCP_TOKEN`: Secret token for bearer authentication when using `streamable-http` or `sse` transport. If set, bearer auth is required for every request.
+- `LEAN_BUILD_CONCURRENCY`: Build concurrency mode for `lean_build`. Options: `allow` (default), `cancel`, `share`.
+- `LEAN_STATE_SEARCH_URL`: URL for a self-hosted [premise-search.com](https://premise-search.com) instance.
+- `LEAN_HAMMER_URL`: URL for a self-hosted [Lean Hammer Premise Search](https://github.com/hanwenzhu/lean-premise-server) instance.
+- `LEAN_LOOGLE_LOCAL`: Set to `true`, `1`, or `yes` to enable local loogle (see [Local Loogle](#local-loogle) section).
+- `LEAN_LOOGLE_CACHE_DIR`: Override the cache directory for local loogle (default: `~/.cache/lean-lsp-mcp/loogle`).
+- `LOOGLE_URL`: URL for a self-hosted Loogle instance (default: `https://loogle.lean-lang.org`).
+- `LOOGLE_HEADERS`: JSON object of extra HTTP headers for Loogle requests (e.g. `'{"X-API-Key": "..."}'`).
+
+You can also often set these environment variables in your MCP client configuration:
+<details>
+<summary><b>VSCode mcp.json Example</b></summary>
+
+```jsonc
+{
+    "servers": {
+        "lean-lsp": {
+            "type": "stdio",
+            "command": "uvx",
+            "args": [
+                "lean-lsp-mcp"
+            ],
+            "env": {
+                "LEAN_PROJECT_PATH": "/path/to/your/lean/project",
+                "LEAN_LOG_LEVEL": "NONE"
+            }
+        }
+    }
+}
+```
+</details>
+
+### Transport Methods
+
+The Lean LSP MCP server supports the following transport methods:
+
+- `stdio`: Standard input/output (default)
+- `streamable-http`: HTTP streaming
+- `sse`: Server-sent events (MCP legacy, use `streamable-http` if possible)
+
+`stdio` supports project inference and switching as you move between Lean projects. `streamable-http` and `sse` are single-project deployments: they require `LEAN_PROJECT_PATH` at startup and reject tool-driven project switching.
+
+You can specify the transport method using the `--transport` argument when running the server. For `sse` and `streamable-http` you can also optionally specify the host and port:
+
+```bash
+uvx lean-lsp-mcp --transport stdio # Default transport
+uvx lean-lsp-mcp --transport streamable-http # Available at http://127.0.0.1:8000/mcp
+uvx lean-lsp-mcp --transport sse --host localhost --port 12345 # Available at http://localhost:12345/sse
+uvx lean-lsp-mcp --version # Print the installed version
+```
+
+### Bearer Token Authentication
+
+Transport via `streamable-http` and `sse` supports bearer token authentication. This allows publicly accessible MCP servers to restrict access to authorized clients.
+
+Set the `LEAN_LSP_MCP_TOKEN` environment variable (or see section 3 for setting env variables in MCP config) to a secret token before starting the server. If this variable is set, requests without a matching `Authorization: Bearer ...` header are rejected before tool dispatch.
+
+Example Linux/MacOS setup:
+
+```bash
+export LEAN_LSP_MCP_TOKEN="your_secret_token"
+uvx lean-lsp-mcp --transport streamable-http
+```
+
+Clients should then include the token in the `Authorization` header.
+
+### REPL Setup
+
+Enable fast REPL-based `lean_multi_attempt` for line-based attempts (~5x faster). Uses [leanprover-community/repl](https://github.com/leanprover-community/repl) tactic mode. Exact `column`-based attempts still use the LSP path.
+
+**1. Add REPL to your Lean project's `lakefile.toml`:**
+
+```toml
+[[require]]
+name = "repl"
+git = "https://github.com/leanprover-community/repl"
+rev = "v4.25.0"  # Match your Lean version
+```
+
+**2. Build it:**
+
+```bash
+lake build repl
+```
+
+**3. Enable via CLI or environment variable:**
+
+```bash
+uvx lean-lsp-mcp --repl
+
+# Or via environment variable
+export LEAN_REPL=true
+```
+
+The REPL binary is auto-detected from `.lake/packages/repl/`. Falls back to LSP if not found.
+
+### Path Policy
+
+File-based tools only operate on files inside the active Lean project, resolved `.lake/packages/*` dependencies, and the Lean stdlib source tree. Returned file paths are sanitized to avoid leaking host absolute paths:
+
+- Project files are returned relative to the project root, for example `src/MyFile.lean`.
+- Dependency files are returned under `.lake/packages/<package>/...`.
+- Stdlib files are returned under `.lean-stdlib/...`.
+
+Symlink escapes outside those roots are rejected.
+
+### Local Loogle
+
+Run loogle locally to avoid the remote API's rate limit (3 req/30s). First run takes ~5-10 minutes to build; subsequent runs start in seconds.
+
+```bash
+# Enable via CLI
+uvx lean-lsp-mcp --loogle-local
+
+# Or via environment variable
+export LEAN_LOOGLE_LOCAL=true
+```
+
+**Requirements:** `git`, `lake` ([elan](https://github.com/leanprover/elan)), ~2GB disk space.
+
+**Note:** Local loogle is currently only supported on Unix systems (Linux/macOS). Windows users should use WSL or the remote API.
+
+Falls back to remote API if local loogle fails.
+
+## Notes on MCP Security
+
+There are many valid security concerns with the Model Context Protocol (MCP) in general!
+
+This MCP server is meant as a research tool and is currently in beta.
+While it does not handle any sensitive data such as passwords or API keys, it still includes various security risks:
+- Access to your local file system.
+- Powerful local build and analysis capabilities.
+- External network access for remote search tools unless disabled by the operator.
+
+Please be aware of these risks. Feel free to audit the code and report security issues!
+
+### Containerized setup (recommended for stricter isolation)
+
+Build image:
+
+```bash
+docker build -t lean-lsp-mcp:containerized .
+```
+
+Run with a mounted project root (read-only source + writable Lake cache):
+
+```bash
+docker run --rm -i \
+  -v "$PWD":/workspace:ro \
+  -v lean-lsp-mcp-lake-cache:/workspace/.lake \
+  lean-lsp-mcp:containerized
+```
+
+The included Docker image defaults to:
+
+- `LEAN_PROJECT_PATH=/workspace`
+- `LEAN_MCP_DISABLED_TOOLS=lean_run_code`
+
+Notes:
+
+- `LEAN_MCP_DISABLED_TOOLS` is a startup default and can be overridden by `docker run -e`.
+- Using `--network none` can break tools that require network access (`leansearch`, `loogle`, `leanfinder`, `state_search`, `hammer_premise`) and dependency downloads.
+- The entrypoint exits immediately if `LEAN_PROJECT_PATH` does not exist.
+
+For more information, you can use [Awesome MCP Security](https://github.com/Puliczek/awesome-mcp-security) as a starting point.
+
+## Development
+
+### MCP Inspector
+
+```bash
+npx @modelcontextprotocol/inspector uvx --with-editable path/to/lean-lsp-mcp python -m lean_lsp_mcp.server
+```
+
+### Run Tests
+
+```bash
+uv sync --all-extras
+uv run pytest tests
+```
+
+## Publications and Formalization Projects using lean-lsp-mcp
+
+- Ax-Prover: A Deep Reasoning Agentic Framework for Theorem Proving in Mathematics and Quantum Physics [arxiv](https://arxiv.org/abs/2510.12787)
+- Numina-Lean-Agent: An Open and General Agentic Reasoning System for Formal Mathematics [arxiv](https://arxiv.org/abs/2601.14027) [github](https://github.com/project-numina/numina-lean-agent)
+- MerLean: An Agentic Framework for Autoformalization in Quantum Computation [arxiv](https://arxiv.org/pdf/2602.16554)
+- M2F: Automated Formalization of Mathematical Literature at Scale [arxiv](https://arxiv.org/pdf/2602.17016)
+- A Group-Theoretic Approach to Shannon Capacity of Graphs and a Limit Theorem from Lattice Packings [github](https://github.com/jzuiddam/GroupTheoreticShannonCapacity/)
+
+## Talks
+
+lean-lsp-mcp: Tools for agentic interaction with Lean (Lean Together 2026) [youtube](https://www.youtube.com/watch?v=uttbYaTaF-E)
+
+## Related Projects
+
+- [LeanTool](https://github.com/GasStationManager/LeanTool)
+- [LeanExplore MCP](https://www.leanexplore.com/docs/mcp)
+
+## License & Citation
+
+**MIT** licensed. See [LICENSE](LICENSE) for more information.
+
+Citing this repository is highly appreciated but not required by the license.
+
+```bibtex
+@software{lean-lsp-mcp,
+  author = {Oliver Dressler},
+  title = {{Lean LSP MCP: Tools for agentic interaction with the Lean theorem prover}},
+  url = {https://github.com/oOo0oOo/lean-lsp-mcp},
+  month = {3},
+  year = {2025}
+}
+```

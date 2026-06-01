@@ -1,3 +1,0 @@
-"""
-The scripts main functions.
-"""

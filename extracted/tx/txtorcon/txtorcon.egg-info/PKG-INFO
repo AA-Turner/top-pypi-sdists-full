@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: txtorcon
-Version: 24.8.0
+Version: 26.6.0
 Summary:      Twisted-based Tor controller client, with state-tracking and     configuration abstractions.     https://txtorcon.readthedocs.org     https://github.com/meejah/txtorcon 
 Home-page: https://github.com/meejah/txtorcon
 Author: meejah

@@ -1,0 +1,149 @@
+name: wheels_faster
+
+on:
+  schedule: # Run nightly except Fridays, when the more extensive wheel runs
+    - cron: "0 5 * * 0-4,6"
+  workflow_dispatch:
+
+jobs:
+  build_wheels:
+    name: Build wheel for cp${{ matrix.cibw_python }}-${{ matrix.platform_id }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Have to specify python version twice so that the same python is used to build and test
+          # Need to quote decimal versions as string to avoid the "Norway problem"
+
+          # Windows 64-bit
+          - os: windows-latest
+            python: '3.13'
+            cibw_python: 313
+            platform_id: win_amd64
+
+          # Linux 64-bit
+          - os: ubuntu-latest
+            python: '3.13'
+            cibw_python: 313
+            platform_id: manylinux_x86_64
+
+          # macOS on Intel 64-bit
+          - os: macos-15-intel
+            python: '3.13'
+            cibw_python: 313
+            arch: x86_64
+            platform_id: macosx_x86_64
+
+          # macOS on Apple M1 64-bit, supported for Python 3.10 and later
+          - os: macos-14
+            python: '3.13'
+            cibw_python: 313
+            arch: arm64
+            platform_id: macosx_arm64
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-python@v5
+        name: Install Python host for cibuildwheel
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Set up MSVC x64
+        if: matrix.platform_id == 'win_amd64'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install cibuildwheel
+        run: python -m pip install cibuildwheel==2.19.2 setuptools toml
+
+      - name: Get package name and version (Linux / Mac)
+        if: ${{ ! startsWith(matrix.os, 'windows-') }}
+        run: |
+          echo "PACKAGE_NAME=$( python -c "import toml; print(toml.load('pyproject.toml')['project']['name'])" )" >> $GITHUB_ENV
+          echo "PACKAGE_VERSION=$( python -c "import toml; print(toml.load('pyproject.toml')['project']['version'])" )" >> $GITHUB_ENV
+
+      # Some shells require "-Encoding utf8" to append to GITHUB_ENV
+      # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions?tool=powershell#environment-files
+      - name: Get package name and version (Windows)
+        if: startsWith(matrix.os, 'windows-')
+        run: |
+          echo "PACKAGE_NAME=$( python -c "import toml; print(toml.load('pyproject.toml')['project']['name'])" )" | Out-File -FilePath $env:GITHUB_ENV ` -Append
+          echo "PACKAGE_VERSION=$( python -c "import toml; print(toml.load('pyproject.toml')['project']['version'])" )" | Out-File -FilePath $env:GITHUB_ENV ` -Append
+
+      - name: Determine macOS version
+        if: startsWith(matrix.os, 'macos-')
+        run: |
+          macos_version=$(sw_vers -productVersion | awk -F '.' '{print $1".0"}')
+          echo "MACOSX_DEPLOYMENT_TARGET=${macos_version}" >> $GITHUB_ENV
+          echo -n "clang version : "
+          clang --version
+          echo -n "xcode version : "
+          xcode-select -p
+          echo -n "cmake version : "
+          cmake --version
+          echo -n "env : "
+          env
+
+      - name: Build wheels
+        env:
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux2014
+          CIBW_MANYLINUX_I686_IMAGE: manylinux2014
+          CIBW_BUILD: cp${{ matrix.cibw_python }}-${{ matrix.platform_id }}
+          CIBW_TEST_SKIP: "cp*" # We will test during install and test step
+
+          # Include latest Python beta
+          CIBW_PRERELEASE_PYTHONS: True
+
+          CIBW_BEFORE_ALL_LINUX: |
+            echo "Installing system dependencies with yum"
+            yum install -y gcc-c++ libpng-devel libpng
+            python -m pip install cmake ninja setuptools SimpleITK==2.4.1 nibabel
+
+          CIBW_BEFORE_ALL_WINDOWS: |
+            python -m pip install cmake ninja setuptools SimpleITK nibabel
+
+          CIBW_ARCHS_MACOS: ${{ matrix.arch }}
+
+          CIBW_ENVIRONMENT_MACOS: |
+            CMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} CMAKE_PREFIX_PATH=/usr/local
+
+          CIBW_BEFORE_ALL_MACOS: |
+            python -m pip install cmake ninja setuptools SimpleITK nibabel
+            brew update
+            if ! brew list libpng &>/dev/null; then
+                HOMEBREW_NO_AUTO_UPDATE=1 brew install libpng
+            fi
+
+        run: python -m cibuildwheel --output-dir wheelhouse/cp${{ matrix.cibw_python }}-${{matrix.platform_id }}
+
+      - name: Install and test (Linux / Mac)
+        if: ${{ ! startsWith(matrix.os, 'windows-') }}
+        run: |
+          python -m pip install wheelhouse/cp${{ matrix.cibw_python }}-${{matrix.platform_id }}/*.whl
+          tests/run_tests.sh
+
+      - name: Install and test (Windows)
+        if: startsWith(matrix.os, 'windows-')
+        shell: cmd
+        run: |
+          python -m pip install --find-links=./wheelhouse/cp${{ matrix.cibw_python }}-${{ matrix.platform_id }} antspyx
+          bash tests/run_tests.sh
+
+      - name: Upload debug artifacts on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-${{ env.PACKAGE_NAME }}-${{ env.PACKAGE_VERSION }}-cp${{ matrix.cibw_python }}-${{ matrix.platform_id }}
+          path: |
+            wheelhouse/**
+            ./**/*.log
+            ./**/CMakeCache.txt
+          if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PACKAGE_NAME }}-${{ env.PACKAGE_VERSION }}-cp${{ matrix.cibw_python }}-${{ matrix.platform_id }}
+          path: ./wheelhouse/cp${{ matrix.cibw_python }}-${{ matrix.platform_id }}/*.whl

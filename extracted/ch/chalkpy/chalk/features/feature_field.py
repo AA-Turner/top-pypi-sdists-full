@@ -1059,7 +1059,11 @@ class Feature(Generic[_TPrim, _TRich]):
     def window_stem(self) -> str:
         if not self.is_windowed_pseudofeature:
             return self.name
-        return self.name[: -len(self._window_duration_suffix())]
+        # Versioned windowed pseudo-features carry an "@N" suffix after the
+        # duration (e.g. "count__86400__@2"). Strip it first so the duration
+        # suffix is always at the end, giving the same stem as the v1 feature.
+        name = self.name.split("@")[0] if "@" in self.name else self.name
+        return name[: -len(self._window_duration_suffix())]
 
     @property
     def window_alias_name(self) -> frozenset[str]:

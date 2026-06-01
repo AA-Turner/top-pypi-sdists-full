@@ -1,0 +1,33 @@
+# Edit bigswitch-config.yaml file. Change BCF controller IP and the credentials.
+
+resource_registry:
+  OS::TripleO::ControllerExtraConfigPre: /usr/share/openstack-tripleo-heat-templates/puppet/extraconfig/pre_deploy/controller/neutron-ml2-bigswitch.yaml
+  OS::TripleO::ComputeExtraConfigPre: /usr/share/openstack-tripleo-heat-templates/puppet/extraconfig/pre_deploy/compute/neutron-ml2-bigswitch.yaml
+  OS::TripleO::Services::NeutronBigswitchAgent: /usr/share/openstack-tripleo-heat-templates/puppet/services/neutron-bigswitch-agent.yaml
+  OS::TripleO::Services::ComputeNeutronOvsAgent: OS::Heat::None
+  OS::TripleO::Services::NeutronL3Agent: OS::Heat::None
+
+parameter_defaults:
+  ControllerExtraConfig:
+    neutron::agents::bigswitch::lldp_enabled: true
+    neutron::agents::bigswitch::agent_enabled: false
+    neutron::agents::dhcp::enable_force_metadata: true
+    neutron::agents::dhcp::enable_isolated_metadata: true
+    neutron::agents::dhcp::enable_metadata_network: false
+    neutron::server::l3_ha: false
+  NeutronMechanismDrivers: openvswitch,bsn_ml2
+  NeutronFirewallDriver: iptables_hybrid
+  NeutronServicePlugins: bsn_l3,bsn_service_plugin,qos,trunk
+  KeystoneNotificationDriver: messaging
+
+  NovaComputeExtraConfig:
+    neutron::agents::bigswitch::lldp_enabled: false
+    neutron::agents::bigswitch::agent_enabled: true
+
+  NeutronBigswitchRestproxyServers: <Update-this-value>
+  NeutronBigswitchRestproxyServerAuth: <Update-this-value>
+  NeutronBigswitchRestproxyAutoSyncOnFailure: True
+  NeutronBigswitchRestproxyConsistencyInterval: 10
+  NeutronBigswitchRestproxyNeutronId: <Update-this-value> # <<< Name used to prefix the tenant/project name on BCF.
+  NeutronBigswitchRestproxyServerSsl: True
+  NeutronBigswitchRestproxySslCertDirectory: /var/lib/neutron

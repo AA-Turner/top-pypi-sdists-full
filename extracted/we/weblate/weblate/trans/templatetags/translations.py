@@ -57,6 +57,7 @@ from weblate.utils.stats import (
 )
 from weblate.utils.templatetags.icons import icon
 from weblate.utils.views import SORT_CHOICES
+from weblate.workspaces.models import Workspace
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable
@@ -721,7 +722,9 @@ def documentation_icon(
 @register.simple_tag(takes_context=True)
 def form_field_doc_link(context: Context, form: forms.Form, field: forms.Field) -> str:
     if isinstance(form, FieldDocsMixin) and (field_doc := form.get_field_doc(field)):
-        return render_documentation_icon(get_doc_url(*field_doc, user=context["user"]))
+        return render_documentation_icon(
+            get_doc_url(*field_doc, user=context.get("user"))
+        )
     return ""
 
 
@@ -1016,7 +1019,7 @@ def active_link(context: Context, slug):
 
 
 def _needs_agreement(component, user: User) -> bool:
-    if not component.agreement:
+    if not component.effective_agreement:
         return False
     return not ContributorAgreement.objects.has_agreed(user, component)
 
@@ -1115,10 +1118,10 @@ def component_alerts(
             None,
         )
 
-    if component.all_active_alerts:
+    if component.all_problem_alerts:
         yield (
             "state/alert.svg",
-            gettext("Fix this component to clear its alerts."),
+            gettext("Fix this component to clear its diagnostics."),
             f"{component.get_absolute_url()}#alerts",
         )
 
@@ -1137,7 +1140,7 @@ def project_alerts(project: Project) -> Iterable[tuple[str, StrOrPromise, str | 
     if project.has_alerts:
         yield (
             "state/alert.svg",
-            gettext("Some of the components within this project have alerts."),
+            gettext("Some of the components within this project have diagnostics."),
             None,
         )
 
@@ -1269,11 +1272,15 @@ def indicate_alerts(
     )
 
     license_badge = ""
-    if component and component.license and component.license != "proprietary":
+    if (
+        component
+        and component.effective_license
+        and component.effective_license != "proprietary"
+    ):
         license_badge = format_html(
             ' <span title="{}" class="license badge">{}</span>',
             component.get_license_display(),
-            component.license,
+            component.effective_license,
         )
 
     return format_html("{}{}", icons, license_badge)
@@ -1442,14 +1449,18 @@ def get_breadcrumbs(  # noqa: C901
             )
         yield with_url(path_object.name)
     elif isinstance(path_object, Project):
+        workspace = path_object.workspace
+        if workspace is not None:
+            yield with_url(workspace.name, workspace.get_absolute_url())
+        yield with_url(path_object.name)
+    elif isinstance(path_object, Workspace):
         yield with_url(path_object.name)
     elif isinstance(path_object, Language):
         yield with_url(gettext("Languages"), url=reverse("languages"))
         yield with_url(path_object)
     elif isinstance(path_object, ProjectLanguage):
-        yield (
-            path_object.project.get_absolute_url(),
-            path_object.project.name,
+        yield from get_breadcrumbs(
+            path_object.project, flags=flags, only_names=only_names
         )
         yield with_url(path_object.language)
     elif isinstance(path_object, CategoryLanguage):

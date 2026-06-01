@@ -1,5 +1,0 @@
----
-other:
-  - |
-    We are dropping mesos for the lack of support/test
-    and no usage from the community.

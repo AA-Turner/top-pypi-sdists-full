@@ -1,0 +1,12 @@
+# override the following containers to include BSN changes to the containers
+# REGISTRY_IP is the IP configured as local_ip in undercloud.conf
+
+parameter_defaults:
+  DockerNeutronApiImage: <REGISTRY_IP>:8787/bigswitch/rhosp13-openstack-neutron-server-bigswitch:13.0-8
+  DockerNeutronConfigImage: <REGISTRY_IP>:8787/bigswitch/rhosp13-openstack-neutron-server-bigswitch:13.0-8
+  DockerHorizonImage: <REGISTRY_IP>:8787/bigswitch/rhosp13-openstack-horizon-bigswitch:13.0-5
+  DockerHorizonConfigImage: <REGISTRY_IP>:8787/bigswitch/rhosp13-openstack-horizon-bigswitch:13.0-5
+# uncomment for PV mode
+#  DockerNeutronBigswitchAgentImage: <REGISTRY_IP>:8787/bigswitch/rhosp13-openstack-neutron-server-bigswitch:13.0-8
+#  DockerNovaComputeImage: <REGISTRY_IP>:8787/bigswitch/rhosp13-openstack-nova-compute-bigswitch:13.0-3
+#  DockerNovaLibvirtConfigImage: <REGISTRY_IP>:8787/bigswitch/rhosp13-openstack-nova-compute-bigswitch:13.0-3

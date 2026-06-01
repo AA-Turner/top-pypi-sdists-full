@@ -1,0 +1,122 @@
+name: 'Setup Python and uv'
+description: 'Common setup for Python projects with uv: install Python, uv, restore cache, and install dependencies'
+author: 'OmniNode'
+inputs:
+  python-version:
+    description: 'Python version to install'
+    required: false
+    default: '3.12'
+  uv-version:
+    description: 'uv version to install'
+    required: false
+    default: '0.6.14'
+  cache-version:
+    description: 'Cache version suffix for busting stale caches'
+    required: false
+    default: '0.6.0'
+  cache-key-prefix:
+    description: 'Custom prefix for the cache key (e.g., uv-boundary, uv-handshake)'
+    required: false
+    default: 'uv'
+  lock-file-path:
+    description: 'Path to uv.lock for cache key hashing (glob pattern)'
+    required: false
+    default: '**/uv.lock'
+  install-args:
+    description: 'Extra arguments passed to uv sync (e.g., --frozen)'
+    required: false
+    default: '--reinstall-package omnibase-core --reinstall-package omnibase-spi'
+  working-directory:
+    description: 'Working directory for uv sync (useful when the repo is checked out into a subdirectory)'
+    required: false
+    default: '.'
+  skip-install:
+    description: 'Set to "true" to skip the uv sync step (useful for multi-repo setups that install manually)'
+    required: false
+    default: 'false'
+  cache-enabled:
+    description: 'Set to "false" to skip uv cache restore/save for short timeout-sensitive jobs'
+    required: false
+    default: 'true'
+  sync-attempts:
+    description: 'Maximum uv sync attempts before failing'
+    required: false
+    default: '3'
+  sync-retry-delay-seconds:
+    description: 'Base delay in seconds between uv sync retries'
+    required: false
+    default: '10'
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        version: ${{ inputs.uv-version }}
+        enable-cache: ${{ inputs.cache-enabled != 'false' }}
+    - name: Load cached uv
+      if: inputs.cache-enabled != 'false'
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/uv
+        key: ${{ inputs.cache-key-prefix }}-${{ runner.os }}-${{ inputs.python-version }}-${{ hashFiles(inputs.lock-file-path) }}-${{ inputs.cache-version }}
+        restore-keys: |
+          ${{ inputs.cache-key-prefix }}-${{ runner.os }}-${{ inputs.python-version }}-${{ inputs.cache-version }}-
+    - name: Install dependencies
+      if: inputs.skip-install != 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        CACHE_ENABLED: ${{ inputs.cache-enabled }}
+        INSTALL_ARGS: ${{ inputs.install-args }}
+        UV_SYNC_ATTEMPTS: ${{ inputs.sync-attempts }}
+        UV_SYNC_RETRY_DELAY_SECONDS: ${{ inputs.sync-retry-delay-seconds }}
+      run: |
+        export UV_HTTP_TIMEOUT="${UV_HTTP_TIMEOUT:-600}"
+        git config --global http.version HTTP/1.1
+        read -r -a install_args <<< "$INSTALL_ARGS"
+        sync_attempts="${UV_SYNC_ATTEMPTS}"
+        retry_delay_seconds="${UV_SYNC_RETRY_DELAY_SECONDS}"
+
+        if ! [[ "$sync_attempts" =~ ^[1-9][0-9]*$ ]]; then
+          echo "::error::sync-attempts must be a positive integer (got: ${sync_attempts})"
+          exit 2
+        fi
+
+        if ! [[ "$retry_delay_seconds" =~ ^[0-9]+$ ]]; then
+          echo "::error::sync-retry-delay-seconds must be a non-negative integer (got: ${retry_delay_seconds})"
+          exit 2
+        fi
+
+        echo "uv version: $(uv --version)"
+        echo "uv sync attempts: ${sync_attempts}"
+        echo "uv sync retry delay seconds: ${retry_delay_seconds}"
+        echo "UV_HTTP_TIMEOUT=${UV_HTTP_TIMEOUT:-<unset>}"
+        echo "UV_CONCURRENT_DOWNLOADS=${UV_CONCURRENT_DOWNLOADS:-<unset>}"
+        echo "UV_CONCURRENT_BUILDS=${UV_CONCURRENT_BUILDS:-<unset>}"
+        echo "UV_NO_CACHE=${UV_NO_CACHE:-<unset>}"
+
+        sync_cmd=(uv sync)
+        if [ "$CACHE_ENABLED" = "false" ]; then
+          sync_cmd+=(--no-cache)
+        fi
+
+        sync_cmd+=("${install_args[@]}")
+
+        attempt=1
+        until "${sync_cmd[@]}"; do
+          status=$?
+          if [ "$attempt" -ge "$sync_attempts" ]; then
+            echo "::error::uv sync failed after ${attempt} attempt(s)"
+            exit "$status"
+          fi
+
+          sleep_seconds=$((retry_delay_seconds * attempt))
+          echo "::warning::uv sync attempt ${attempt}/${sync_attempts} failed with exit ${status}; retrying in ${sleep_seconds}s"
+          sleep "$sleep_seconds"
+          attempt=$((attempt + 1))
+        done

@@ -20,9 +20,9 @@ from schemathesis.core.jsonschema.bundler import (
 from schemathesis.core.jsonschema.keywords import ALL_KEYWORDS
 from schemathesis.core.jsonschema.types import JsonSchema, get_type
 
-# Support lookahead/lookbehind assertions common in ECMA-262 patterns,
-# with a large size limit to handle schemas with large quantifiers (e.g., {1,51200})
-FANCY_REGEX_OPTIONS = jsonschema_rs.FancyRegexOptions(size_limit=1_000_000_000)
+# Support ECMA-262 lookahead/lookbehind. The limit fits legit large quantifiers but fast-fails
+# degenerate ones (e.g. `{0,10000000}` from a huge `maxLength`) instead of burning seconds + ~1GB.
+FANCY_REGEX_OPTIONS = jsonschema_rs.FancyRegexOptions(size_limit=150_000_000)
 
 
 def _is_valid_uuid(value: object) -> bool:
@@ -139,6 +139,9 @@ VALIDATED_FORMATS_BY_DRAFT: dict[type[jsonschema_rs.Validator], frozenset[str]] 
 # Negative-property recursion in the coverage phase builds a validator per sub-schema per call;
 # without this LRU, the same schema shape recompiles thousands of times on schemas like k8s Pods.
 validator_cache: BoundedCache = BoundedCache(maxsize=1024)
+# Builds fail deterministically but slowly (fancy-regex compiles giant quantifiers before
+# rejecting them); cache the failure so the same schema isn't recompiled on every call.
+_validator_failure_cache: BoundedCache = BoundedCache(maxsize=1024)
 # Entries pin the schemas whose `id()` is part of the cache key so GC can't reuse the id.
 _seeded_validator_cache: BoundedCache = BoundedCache(maxsize=1024)
 
@@ -160,7 +163,15 @@ def make_validator(schema: JsonSchema, validator_cls: type) -> jsonschema_rs.Val
         cached = validator_cache.get(cache_key)
         if cached is not MISSING:
             return cached
-    validator = _build_validator(schema, validator_cls)
+        failure = _validator_failure_cache.get(cache_key)
+        if failure is not MISSING:
+            raise failure.with_traceback(None)
+    try:
+        validator = _build_validator(schema, validator_cls)
+    except jsonschema_rs.ValidationError as exc:
+        if cache_key is not None:
+            _validator_failure_cache[cache_key] = exc
+        raise
     if cache_key is not None:
         validator_cache[cache_key] = validator
     return validator

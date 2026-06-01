@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dvc-studio-client
-Version: 0.22.0
+Version: 0.23.0
 Summary: Small library to post data from DVC/DVCLive to Iterative Studio 
 Author-email: Iterative <support@dvc.org>
 License-Expression: Apache-2.0
@@ -27,14 +27,14 @@ Requires-Dist: mkdocs-material<10,>=9.3.1; extra == "docs"
 Requires-Dist: mkdocs-section-index<1,>=0.3.6; extra == "docs"
 Requires-Dist: mkdocstrings-python<2,>=1.6.3; extra == "docs"
 Provides-Extra: tests
-Requires-Dist: pytest<9,>=7; extra == "tests"
+Requires-Dist: pytest<10,>=7; extra == "tests"
 Requires-Dist: pytest-cov>=4.1.0; extra == "tests"
 Requires-Dist: pytest-sugar; extra == "tests"
 Requires-Dist: pytest-mock; extra == "tests"
 Provides-Extra: dev
 Requires-Dist: dvc-studio-client[docs,tests]; extra == "dev"
 Requires-Dist: types-requests; extra == "dev"
-Requires-Dist: mypy==1.17.0; extra == "dev"
+Requires-Dist: mypy==1.19.0; extra == "dev"
 Dynamic: license-file
 
 dvc-studio-client
@@ -113,6 +113,6 @@ please `file an issue`_ along with a detailed description.
 .. github-only
 .. _Contributor Guide: CONTRIBUTING.rst
 .. _DVC Studio: https://dvc.org/doc/studio
-.. _get_download_uris: https://docs.iterative.ai/dvc-studio-client/reference/dvc_studio_client/model_registry/
-.. _post_live_metrics: https://docs.iterative.ai/dvc-studio-client/reference/dvc_studio_client/post_live_metrics/
-.. _get_access_token: https://docs.iterative.ai/dvc-studio-client/reference/dvc_studio_client/auth/
+.. _get_download_uris: https://treeverse.github.io/dvc-studio-client/reference/dvc_studio_client/model_registry/
+.. _post_live_metrics: https://treeverse.github.io/dvc-studio-client/reference/dvc_studio_client/post_live_metrics/
+.. _get_access_token: https://treeverse.github.io/dvc-studio-client/reference/dvc_studio_client/auth/

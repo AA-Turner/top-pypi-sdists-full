@@ -1,0 +1,20653 @@
+r'''
+# Amazon Bedrock Construct Library
+
+<!--BEGIN STABILITY BANNER-->---
+
+
+![cdk-constructs: Experimental](https://img.shields.io/badge/cdk--constructs-experimental-important.svg?style=for-the-badge)
+
+> The APIs of higher level constructs in this module are experimental and under active development.
+> They are subject to non-backward compatible changes or removal in any future version. These are
+> not subject to the [Semantic Versioning](https://semver.org/) model and breaking changes will be
+> announced in the release notes. This means that while you may use them, you may need to update
+> your source code when upgrading to a newer version of this package.
+
+---
+<!--END STABILITY BANNER-->
+
+| **Language**                                                                                   | **Package**                             |
+| :--------------------------------------------------------------------------------------------- | --------------------------------------- |
+| ![Typescript Logo](https://docs.aws.amazon.com/cdk/api/latest/img/typescript32.png) TypeScript | `@aws-cdk/aws-bedrock-alpha` |
+
+[Amazon Bedrock](https://aws.amazon.com/bedrock/) is a fully managed service that offers a choice of high-performing foundation models (FMs) from leading AI companies and Amazon through a single API, along with a broad set of capabilities you need to build generative AI applications with security, privacy, and responsible AI.
+
+This construct library facilitates the deployment of Bedrock Agents, enabling you to create sophisticated AI applications that can interact with your systems and data sources.
+
+## Table of contents
+
+* [Agents](#agents)
+
+  * [Create an Agent](#create-an-agent)
+  * [Action groups](#action-groups)
+  * [Prepare the Agent](#prepare-the-agent)
+  * [Prompt Override Configuration](#prompt-override-configuration)
+  * [Memory Configuration](#memory-configuration)
+  * [Agent Collaboration](#agent-collaboration)
+  * [Custom Orchestration](#custom-orchestration)
+  * [Agent Alias](#agent-alias)
+* [Guardrails](#guardrails)
+
+  * [Guardrail Properties](#guardrail-properties)
+  * [Filter Types](#filter-types)
+
+    * [Content Filters](#content-filters)
+    * [Denied Topics](#denied-topics)
+    * [Word Filters](#word-filters)
+    * [PII Filters](#pii-filters)
+    * [Regex Filters](#regex-filters)
+    * [Contextual Grounding Filters](#contextual-grounding-filters)
+  * [Guardrail Methods](#guardrail-methods)
+  * [Guardrail Permissions](#guardrail-permissions)
+  * [Guardrail Metrics](#guardrail-metrics)
+  * [Importing Guardrails](#importing-guardrails)
+  * [Guardrail Versioning](#guardrail-versioning)
+* [Prompts](#prompts)
+
+  * [Prompt Variants](#prompt-variants)
+  * [Basic Text Prompt](#basic-text-prompt)
+  * [Chat Prompt](#chat-prompt)
+  * [Agent Prompt](#agent-prompt)
+  * [Prompt Properties](#prompt-properties)
+  * [Prompt Version](#prompt-version)
+  * [Import Methods](#import-methods)
+* [Inference Profiles](#inference-profiles)
+
+  * [Using Inference Profiles](#using-inference-profiles)
+  * [Types of Inference Profiles](#types-of-inference-profiles)
+  * [Prompt Routers](#prompt-routers)
+  * [Inference Profile Permissions](#inference-profile-permissions)
+  * [Inference Profiles Import Methods](#inference-profiles-import-methods)
+
+## Agents
+
+Amazon Bedrock Agents allow generative AI applications to automate complex, multistep tasks by seamlessly integrating with your company's systems, APIs, and data sources. It uses the reasoning of foundation models (FMs), APIs, and data to break down user requests, gather relevant information, and efficiently complete tasks.
+
+### Create an Agent
+
+Building an agent is straightforward and fast.
+The following example creates an Agent with a simple instruction and default prompts:
+
+```python
+agent = bedrock.Agent(self, "Agent",
+    foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_HAIKU_V1_0,
+    instruction="You are a helpful and friendly agent that answers questions about literature."
+)
+```
+
+You can also create an agent with a guardrail:
+
+```python
+# Create a guardrail to filter inappropriate content
+guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+    guardrail_name="my-BedrockGuardrails",
+    description="Legal ethical guardrails."
+)
+
+guardrail.add_content_filter(
+    type=bedrock.ContentFilterType.SEXUAL,
+    input_strength=bedrock.ContentFilterStrength.HIGH,
+    output_strength=bedrock.ContentFilterStrength.MEDIUM
+)
+
+# Create an agent with the guardrail
+agent_with_guardrail = bedrock.Agent(self, "AgentWithGuardrail",
+    foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_HAIKU_V1_0,
+    instruction="You are a helpful and friendly agent that answers questions about literature.",
+    guardrail=guardrail
+)
+```
+
+### Agent Properties
+
+The Bedrock Agent class supports the following properties.
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| name | string | No | The name of the agent. Defaults to a name generated by CDK |
+| instruction | string | Yes | The instruction used by the agent that determines how it will perform its task. Must have a minimum of 40 characters |
+| foundationModel | IBedrockInvokable | Yes | The foundation model used for orchestration by the agent |
+| existingRole | iam.IRole | No | The existing IAM Role for the agent to use. Must have a trust policy allowing Bedrock service to assume the role. Defaults to a new created role |
+| shouldPrepareAgent | boolean | No | Specifies whether to automatically update the `DRAFT` version of the agent after making changes. Defaults to false |
+| idleSessionTTL | Duration | No | How long sessions should be kept open for the agent. Session expires if no conversation occurs during this time. Defaults to 1 hour |
+| kmsKey | kms.IKey | No | The KMS key of the agent if custom encryption is configured. Defaults to AWS managed key |
+| description | string | No | A description of the agent. Defaults to no description |
+| actionGroups | AgentActionGroup[] | No | The Action Groups associated with the agent |
+| guardrail | IGuardrail | No | The guardrail that will be associated with the agent. Defaults to no guardrail |
+| memory | Memory | No | The type and configuration of the memory to maintain context across multiple sessions and recall past interactions. Defaults to no memory |
+| promptOverrideConfiguration | PromptOverrideConfiguration | No | Overrides some prompt templates in different parts of an agent sequence configuration |
+| userInputEnabled | boolean | No | Select whether the agent can prompt additional information from the user when it lacks enough information. Defaults to false |
+| codeInterpreterEnabled | boolean | No | Select whether the agent can generate, run, and troubleshoot code when trying to complete a task. Defaults to false |
+| forceDelete | boolean | No | Whether to delete the resource even if it's in use. Defaults to true |
+| agentCollaboration | AgentCollaboration | No | Configuration for agent collaboration settings, including type and collaborators. This property allows you to define how the agent collaborates with other agents and what collaborators it can work with. Defaults to no agent collaboration configuration |
+| customOrchestrationExecutor | CustomOrchestrationExecutor | No | The Lambda function to use for custom orchestration. If provided, orchestrationType is set to CUSTOM_ORCHESTRATION. If not provided, orchestrationType defaults to DEFAULT. Defaults to default orchestration |
+
+### Action Groups
+
+An action group defines functions your agent can call. The functions are Lambda functions. The action group uses an OpenAPI schema to tell the agent what your functions do and how to call them.
+
+#### Action Group Properties
+
+The AgentActionGroup class supports the following properties.
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| name | string | No | The name of the action group. Defaults to a name generated in the format 'action_group_quick_start_UUID' |
+| description | string | No | A description of the action group |
+| apiSchema | ApiSchema | No | The OpenAPI schema that defines the functions in the action group |
+| executor | ActionGroupExecutor | No | The Lambda function that executes the actions in the group |
+| enabled | boolean | No | Whether the action group is enabled. Defaults to true |
+| forceDelete | boolean | No | Whether to delete the resource even if it's in use. Defaults to false |
+| functionSchema | FunctionSchema | No | Defines functions that each define parameters that the agent needs to invoke from the user |
+| parentActionGroupSignature | ParentActionGroupSignature | No | The AWS Defined signature for enabling certain capabilities in your agent |
+
+There are three ways to provide an API schema for your action group:
+
+From a local asset file (requires binding to scope):
+
+```python
+action_group_function = lambda_.Function(self, "ActionGroupFunction",
+    runtime=lambda_.Runtime.PYTHON_3_12,
+    handler="index.handler",
+    code=lambda_.Code.from_asset(path.join(__dirname, "../lambda/action-group"))
+)
+
+# When using ApiSchema.fromLocalAsset, you must bind the schema to a scope
+schema = bedrock.ApiSchema.from_local_asset(path.join(__dirname, "action-group.yaml"))
+schema.bind(self)
+
+action_group = bedrock.AgentActionGroup(
+    name="query-library",
+    description="Use these functions to get information about the books in the library.",
+    executor=bedrock.ActionGroupExecutor.from_lambda(action_group_function),
+    enabled=True,
+    api_schema=schema
+)
+
+agent = bedrock.Agent(self, "Agent",
+    foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_HAIKU_V1_0,
+    instruction="You are a helpful and friendly agent that answers questions about literature."
+)
+
+agent.add_action_group(action_group)
+```
+
+From an inline OpenAPI schema:
+
+```python
+inline_schema = bedrock.ApiSchema.from_inline("""
+    openapi: 3.0.3
+    info:
+      title: Library API
+      version: 1.0.0
+    paths:
+      /search:
+        get:
+          summary: Search for books
+          operationId: searchBooks
+          parameters:
+            - name: query
+              in: query
+              required: true
+              schema:
+                type: string
+    """)
+
+action_group_function = lambda_.Function(self, "ActionGroupFunction",
+    runtime=lambda_.Runtime.PYTHON_3_12,
+    handler="index.handler",
+    code=lambda_.Code.from_asset(path.join(__dirname, "../lambda/action-group"))
+)
+
+action_group = bedrock.AgentActionGroup(
+    name="query-library",
+    description="Use these functions to get information about the books in the library.",
+    executor=bedrock.ActionGroupExecutor.from_lambda(action_group_function),
+    enabled=True,
+    api_schema=inline_schema
+)
+
+agent = bedrock.Agent(self, "Agent",
+    foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_HAIKU_V1_0,
+    instruction="You are a helpful and friendly agent that answers questions about literature."
+)
+
+agent.add_action_group(action_group)
+```
+
+From an existing S3 file:
+
+```python
+bucket = s3.Bucket.from_bucket_name(self, "ExistingBucket", "my-schema-bucket")
+s3_schema = bedrock.ApiSchema.from_s3_file(bucket, "schemas/action-group.yaml")
+
+action_group_function = lambda_.Function(self, "ActionGroupFunction",
+    runtime=lambda_.Runtime.PYTHON_3_12,
+    handler="index.handler",
+    code=lambda_.Code.from_asset(path.join(__dirname, "../lambda/action-group"))
+)
+
+action_group = bedrock.AgentActionGroup(
+    name="query-library",
+    description="Use these functions to get information about the books in the library.",
+    executor=bedrock.ActionGroupExecutor.from_lambda(action_group_function),
+    enabled=True,
+    api_schema=s3_schema
+)
+
+agent = bedrock.Agent(self, "Agent",
+    foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_HAIKU_V1_0,
+    instruction="You are a helpful and friendly agent that answers questions about literature."
+)
+
+agent.add_action_group(action_group)
+```
+
+### Using FunctionSchema with Action Groups
+
+As an alternative to using OpenAPI schemas, you can define functions directly using the `FunctionSchema` class. This approach provides a more structured way to define the functions that your agent can call.
+
+```python
+action_group_function = lambda_.Function(self, "ActionGroupFunction",
+    runtime=lambda_.Runtime.PYTHON_3_12,
+    handler="index.handler",
+    code=lambda_.Code.from_asset(path.join(__dirname, "../lambda/action-group"))
+)
+
+# Define a function schema with parameters
+function_schema = bedrock.FunctionSchema(
+    functions=[bedrock.FunctionProps(
+        name="searchBooks",
+        description="Search for books in the library catalog",
+        parameters={
+            "query": bedrock.FunctionParameterProps(
+                type=bedrock.ParameterType.STRING,
+                required=True,
+                description="The search query string"
+            ),
+            "maxResults": bedrock.FunctionParameterProps(
+                type=bedrock.ParameterType.INTEGER,
+                required=False,
+                description="Maximum number of results to return"
+            ),
+            "includeOutOfPrint": bedrock.FunctionParameterProps(
+                type=bedrock.ParameterType.BOOLEAN,
+                required=False,
+                description="Whether to include out-of-print books"
+            )
+        },
+        require_confirmation=bedrock.RequireConfirmation.DISABLED
+    ), bedrock.FunctionProps(
+        name="getBookDetails",
+        description="Get detailed information about a specific book",
+        parameters={
+            "bookId": bedrock.FunctionParameterProps(
+                type=bedrock.ParameterType.STRING,
+                required=True,
+                description="The unique identifier of the book"
+            )
+        },
+        require_confirmation=bedrock.RequireConfirmation.ENABLED
+    )
+    ]
+)
+
+# Create an action group using the function schema
+action_group = bedrock.AgentActionGroup(
+    name="library-functions",
+    description="Functions for interacting with the library catalog",
+    executor=bedrock.ActionGroupExecutor.from_lambda(action_group_function),
+    function_schema=function_schema,
+    enabled=True
+)
+
+agent = bedrock.Agent(self, "Agent",
+    foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_HAIKU_V1_0,
+    instruction="You are a helpful and friendly agent that answers questions about literature.",
+    action_groups=[action_group]
+)
+```
+
+The `FunctionSchema` approach offers several advantages:
+
+* Type-safe definition of functions and parameters
+* Built-in validation of parameter names, descriptions, and other properties
+* Clear structure that maps directly to the AWS Bedrock API
+* Support for parameter types including string, number, integer, boolean, array, and object
+* Option to require user confirmation before executing specific functions
+
+If you chose to load your schema file from S3, the construct will provide the necessary permissions to your agent's execution role to access the schema file from the specific bucket. Similar to performing the operation through the console, the agent execution role will get a permission like:
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "AmazonBedrockAgentS3PolicyProd",
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject"
+            ],
+            "Resource": [
+                "arn:aws:s3:::<BUCKET_NAME>/<OBJECT_KEY>"
+            ],
+            "Condition": {
+                "StringEquals": {
+                    "aws:ResourceAccount": "ACCOUNT_NUMBER"
+                }
+            }
+        }
+    ]
+}
+```
+
+```python
+# create a bucket containing the input schema
+schema_bucket = s3.Bucket(self, "SchemaBucket",
+    enforce_sSL=True,
+    versioned=True,
+    public_read_access=False,
+    block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
+    encryption=s3.BucketEncryption.S3_MANAGED,
+    removal_policy=RemovalPolicy.DESTROY,
+    auto_delete_objects=True
+)
+
+# deploy the local schema file to S3
+deployement = aws_s3_deployment.BucketDeployment(self, "DeployWebsite",
+    sources=[aws_s3_deployment.Source.asset(path.join(__dirname, "../inputschema"))],
+    destination_bucket=schema_bucket,
+    destination_key_prefix="inputschema"
+)
+
+# create the agent
+agent = bedrock.Agent(self, "Agent",
+    foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V1_0,
+    instruction="You are a helpful and friendly agent that answers questions about literature.",
+    user_input_enabled=True,
+    should_prepare_agent=True
+)
+
+# create a lambda function
+action_group_function = lambda_.Function(self, "ActionGroupFunction",
+    runtime=lambda_.Runtime.PYTHON_3_12,
+    handler="index.handler",
+    code=lambda_.Code.from_asset(path.join(__dirname, "../lambda/action-group"))
+)
+
+# create an action group and read the schema file from S3
+action_group = bedrock.AgentActionGroup(
+    name="query-library",
+    description="Use these functions to get information about the books in the library.",
+    executor=bedrock.ActionGroupExecutor.from_lambda(action_group_function),
+    enabled=True,
+    api_schema=bedrock.ApiSchema.from_s3_file(schema_bucket, "inputschema/action-group.yaml")
+)
+
+# add the action group to the agent
+agent.add_action_group(action_group)
+
+# add dependency for the agent on the s3 deployment
+agent.node.add_dependency(deployement)
+```
+
+### Prepare the Agent
+
+The `Agent` constructs take an optional parameter `shouldPrepareAgent` to indicate that the Agent should be prepared after any updates to an agent or action group. This may increase the time to create and update those resources. By default, this value is false.
+
+#### Prepare Agent Properties
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| shouldPrepareAgent | boolean | No | Whether to automatically update the DRAFT version of the agent after making changes. Defaults to false |
+
+Creating an agent alias will not prepare the agent, so if you create an alias using the `AgentAlias` resource then you should set `shouldPrepareAgent` to ***true***.
+
+### Prompt Override Configuration
+
+Bedrock Agents allows you to customize the prompts and LLM configuration for different steps in the agent sequence. The implementation provides type-safe configurations for each step type, ensuring correct usage at compile time.
+
+#### Prompt Override Configuration Properties
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| steps | PromptStepConfiguration[] | Yes | Array of step configurations for different parts of the agent sequence |
+| parser | lambda.IFunction | No | Lambda function for custom parsing of agent responses |
+
+#### Prompt Step Configuration Properties
+
+Each step in the `steps` array supports the following properties:
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| stepType | AgentStepType | Yes | The type of step being configured (PRE_PROCESSING, ORCHESTRATION, POST_PROCESSING, ROUTING_CLASSIFIER, MEMORY_SUMMARIZATION, KNOWLEDGE_BASE_RESPONSE_GENERATION) |
+| stepEnabled | boolean | No | Whether this step is enabled. Defaults to true |
+| customPromptTemplate | string | No | Custom prompt template to use for this step |
+| inferenceConfig | InferenceConfiguration | No | Configuration for model inference parameters |
+| foundationModel | BedrockFoundationModel | No | Alternative foundation model to use for this step (only valid for ROUTING_CLASSIFIER step) |
+| useCustomParser | boolean | No | Whether to use a custom parser for this step. Requires parser to be provided in PromptOverrideConfiguration |
+
+#### Inference Configuration Properties
+
+When providing `inferenceConfig`, the following properties are supported:
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| temperature | number | No | Controls randomness in the model's output (0.0-1.0) |
+| topP | number | No | Controls diversity via nucleus sampling (0.0-1.0) |
+| topK | number | No | Controls diversity by limiting the cumulative probability |
+| maximumLength | number | No | Maximum length of generated text |
+| stopSequences | string[] | No | Sequences where the model should stop generating |
+
+The following steps can be configured:
+
+* PRE_PROCESSING: Prepares the user input for orchestration
+* ORCHESTRATION: Main step that determines the agent's actions
+* POST_PROCESSING: Refines the agent's response
+* ROUTING_CLASSIFIER: Classifies and routes requests to appropriate collaborators
+* MEMORY_SUMMARIZATION: Summarizes conversation history for memory retention
+* KNOWLEDGE_BASE_RESPONSE_GENERATION: Generates responses using knowledge base content
+
+Example with pre-processing configuration:
+
+```python
+agent = bedrock.Agent(self, "Agent",
+    foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1,
+    instruction="You are a helpful assistant.",
+    prompt_override_configuration=bedrock.PromptOverrideConfiguration.from_steps([
+        step_type=bedrock.AgentStepType.PRE_PROCESSING,
+        step_enabled=True,
+        custom_prompt_template="Your custom prompt template here",
+        inference_config=bedrock.InferenceConfiguration(
+            temperature=0,
+            top_p=1,
+            top_k=250,
+            maximum_length=1,
+            stop_sequences=["\n\nHuman:"]
+        )
+
+    ])
+)
+```
+
+Example with routing classifier and foundation model:
+
+```python
+agent = bedrock.Agent(self, "Agent",
+    foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1,
+    instruction="You are a helpful assistant.",
+    prompt_override_configuration=bedrock.PromptOverrideConfiguration.from_steps([
+        step_type=bedrock.AgentStepType.ROUTING_CLASSIFIER,
+        step_enabled=True,
+        custom_prompt_template="Your routing template here",
+        foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_V2
+
+    ])
+)
+```
+
+Using a custom Lambda parser:
+
+```python
+parser_function = lambda_.Function(self, "ParserFunction",
+    runtime=lambda_.Runtime.PYTHON_3_10,
+    handler="index.handler",
+    code=lambda_.Code.from_asset("lambda")
+)
+
+agent = bedrock.Agent(self, "Agent",
+    foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1,
+    instruction="You are a helpful assistant.",
+    prompt_override_configuration=bedrock.PromptOverrideConfiguration.with_custom_parser(
+        parser=parser_function,
+        pre_processing_step=bedrock.PromptPreProcessingConfigCustomParser(
+            step_type=bedrock.AgentStepType.PRE_PROCESSING,
+            use_custom_parser=True
+        )
+    )
+)
+```
+
+Foundation models can only be specified for the ROUTING_CLASSIFIER step.
+
+### Memory Configuration
+
+Agents can maintain context across multiple sessions and recall past interactions using memory. This feature is useful for creating a more coherent conversational experience.
+
+#### Memory Configuration Properties
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| maxRecentSessions | number | No | Maximum number of recent session summaries to retain |
+| memoryDuration | Duration | No | How long to retain session summaries |
+
+Example:
+
+```python
+agent = bedrock.Agent(self, "MyAgent",
+    agent_name="MyAgent",
+    instruction="Your instruction here",
+    foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1,
+    memory=Memory.session_summary(
+        max_recent_sessions=10,  # Keep the last 10 session summaries
+        memory_duration=Duration.days(20)
+    )
+)
+```
+
+### Agent Collaboration
+
+Agent Collaboration enables multiple Bedrock Agents to work together on complex tasks. This feature allows agents to specialize in different areas and collaborate to provide more comprehensive responses to user queries.
+
+#### Agent Collaboration Properties
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| type | AgentCollaboratorType | Yes | Type of collaboration (SUPERVISOR or PEER) |
+| collaborators | AgentCollaborator[] | Yes | List of agent collaborators |
+
+#### Agent Collaborator Properties
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| agentAlias | AgentAlias | Yes | The agent alias to collaborate with |
+| collaborationInstruction | string | Yes | Instructions for how to collaborate with this agent |
+| collaboratorName | string | Yes | Name of the collaborator |
+| relayConversationHistory | boolean | No | Whether to relay conversation history to the collaborator. Defaults to false |
+
+Example:
+
+```python
+# Create a specialized agent
+customer_support_agent = bedrock.Agent(self, "CustomerSupportAgent",
+    instruction="You specialize in answering customer support questions.",
+    foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1
+)
+
+# Create an agent alias
+customer_support_alias = bedrock.AgentAlias(self, "CustomerSupportAlias",
+    agent=customer_support_agent,
+    agent_alias_name="production"
+)
+
+# Create a main agent that collaborates with the specialized agent
+main_agent = bedrock.Agent(self, "MainAgent",
+    instruction="You route specialized questions to other agents.",
+    foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1,
+    agent_collaboration={
+        "type": bedrock.AgentCollaboratorType.SUPERVISOR,
+        "collaborators": [
+            bedrock.AgentCollaborator(
+                agent_alias=customer_support_alias,
+                collaboration_instruction="Route customer support questions to this agent.",
+                collaborator_name="CustomerSupport",
+                relay_conversation_history=True
+            )
+        ]
+    }
+)
+```
+
+### Custom Orchestration
+
+Custom Orchestration allows you to override the default agent orchestration flow with your own Lambda function. This enables more control over how the agent processes user inputs and invokes action groups.
+
+When you provide a customOrchestrationExecutor, the agent's orchestrationType is automatically set to CUSTOM_ORCHESTRATION. If no customOrchestrationExecutor is provided, the orchestrationType defaults to DEFAULT, using Amazon Bedrock's built-in orchestration.
+
+#### Custom Orchestration Properties
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| function | lambda.IFunction | Yes | The Lambda function that implements the custom orchestration logic |
+
+Example:
+
+```python
+orchestration_function = lambda_.Function(self, "OrchestrationFunction",
+    runtime=lambda_.Runtime.PYTHON_3_10,
+    handler="index.handler",
+    code=lambda_.Code.from_asset("lambda/orchestration")
+)
+
+agent = bedrock.Agent(self, "CustomOrchestrationAgent",
+    instruction="You are a helpful assistant with custom orchestration logic.",
+    foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1,
+    custom_orchestration_executor=bedrock.CustomOrchestrationExecutor.from_lambda(orchestration_function)
+)
+```
+
+### Agent Alias
+
+After you have sufficiently iterated on your working draft and are satisfied with the behavior of your agent, you can set it up for deployment and integration into your application by creating aliases.
+
+To deploy your agent, you need to create an alias. During alias creation, Amazon Bedrock automatically creates a version of your agent. The alias points to this newly created version. You can point the alias to a previously created version if necessary. You then configure your application to make API calls to that alias.
+
+By default, the Agent resource creates a test alias named 'AgentTestAlias' that points to the 'DRAFT' version. This test alias is accessible via the `testAlias` property of the agent. You can also create additional aliases for different environments using the AgentAlias construct.
+
+#### Agent Alias Properties
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| agent | Agent | Yes | The agent to create an alias for |
+| agentAliasName | string | No | The name of the agent alias. Defaults to a name generated by CDK |
+| description | string | No | A description of the agent alias. Defaults to no description |
+| routingConfiguration | AgentAliasRoutingConfiguration | No | Configuration for routing traffic between agent versions |
+| agentVersion | string | No | The version of the agent to use. If not specified, a new version is created |
+
+When redeploying an agent with changes, you must ensure the agent version is updated to avoid deployment failures with "agent already exists" errors. The recommended way to handle this is to include the `lastUpdated` property in the agent's description, which automatically updates whenever the agent is modified. This ensures a new version is created on each deployment.
+
+Example:
+
+```python
+agent = bedrock.Agent(self, "Agent",
+    foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_HAIKU_V1_0,
+    instruction="You are a helpful and friendly agent that answers questions about literature."
+)
+
+agent_alias = bedrock.AgentAlias(self, "myAlias",
+    agent_alias_name="production",
+    agent=agent,
+    description=f"Production version of my agent. Created at {agent.lastUpdated}"
+)
+```
+
+## Guardrails
+
+Amazon Bedrock's Guardrails feature enables you to implement robust governance and control mechanisms for your generative AI applications, ensuring alignment with your specific use cases and responsible AI policies. Guardrails empowers you to create multiple tailored policy configurations, each designed to address the unique requirements and constraints of different use cases. These policy configurations can then be seamlessly applied across multiple foundation models (FMs) and Agents, ensuring a consistent user experience and standardizing safety, security, and privacy controls throughout your generative AI ecosystem.
+
+With Guardrails, you can define and enforce granular, customizable policies to precisely govern the behavior of your generative AI applications. You can configure the following policies in a guardrail to avoid undesirable and harmful content and remove sensitive information for privacy protection.
+
+Content filters – Adjust filter strengths to block input prompts or model responses containing harmful content.
+Denied topics – Define a set of topics that are undesirable in the context of your application. These topics will be blocked if detected in user queries or model responses.
+Word filters – Configure filters to block undesirable words, phrases, and profanity. Such words can include offensive terms, competitor names etc.
+Sensitive information filters – Block or mask sensitive information such as personally identifiable information (PII) or custom regex in user inputs and model responses.
+You can create a Guardrail with a minimum blockedInputMessaging, blockedOutputsMessaging and default content filter policy.
+
+### Basic Guardrail Creation
+
+#### TypeScript
+
+```python
+guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+    guardrail_name="my-BedrockGuardrails",
+    description="Legal ethical guardrails."
+)
+```
+
+### Guardrail Properties
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| guardrailName | string | Yes | The name of the guardrail |
+| description | string | No | The description of the guardrail |
+| blockedInputMessaging | string | No | The message to return when the guardrail blocks a prompt. Default: "Sorry, your query violates our usage policy." |
+| blockedOutputsMessaging | string | No | The message to return when the guardrail blocks a model response. Default: "Sorry, I am unable to answer your question because of our usage policy." |
+| kmsKey | IKey | No | A custom KMS key to use for encrypting data. Default: Your data is encrypted by default with a key that AWS owns and manages for you. |
+| crossRegionConfig | GuardrailCrossRegionConfigProperty | No | The cross-region configuration for the guardrail. This enables cross-region inference for enhanced language support and filtering capabilities. Default: No cross-region configuration |
+| contentFilters | ContentFilter[] | No | The content filters to apply to the guardrail |
+| contentFiltersTierConfig | TierConfig | No | The tier configuration to apply to content filters. Default: TierConfig.CLASSIC |
+| deniedTopics | Topic[] | No | Up to 30 denied topics to block user inputs or model responses associated with the topic |
+| topicsTierConfig | TierConfig | No | The tier configuration to apply to topic filters. Default: TierConfig.CLASSIC |
+| wordFilters | string[] | No | The word filters to apply to the guardrail |
+| managedWordListFilters | ManagedWordFilterType[] | No | The managed word filters to apply to the guardrail |
+| piiFilters | PIIFilter[] | No | The PII filters to apply to the guardrail |
+| regexFilters | RegexFilter[] | No | The regular expression (regex) filters to apply to the guardrail |
+| contextualGroundingFilters | ContextualGroundingFilter[] | No | The contextual grounding filters to apply to the guardrail |
+
+### Filter Types
+
+#### Content Filters
+
+Content filters allow you to block input prompts or model responses containing harmful content. You can adjust the filter strength and configure separate actions for input and output.
+
+##### Content Filter Configuration
+
+```python
+guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+    guardrail_name="my-BedrockGuardrails",
+    # Configure tier for content filters (optional)
+    content_filters_tier_config=bedrock.TierConfig.STANDARD
+)
+
+guardrail.add_content_filter(
+    type=bedrock.ContentFilterType.SEXUAL,
+    input_strength=bedrock.ContentFilterStrength.HIGH,
+    output_strength=bedrock.ContentFilterStrength.MEDIUM,
+    # props below are optional
+    input_action=bedrock.GuardrailAction.BLOCK,
+    input_enabled=True,
+    output_action=bedrock.GuardrailAction.NONE,
+    output_enabled=True,
+    input_modalities=[bedrock.ModalityType.TEXT, bedrock.ModalityType.IMAGE],
+    output_modalities=[bedrock.ModalityType.TEXT]
+)
+```
+
+Available content filter types:
+
+* `SEXUAL`: Describes input prompts and model responses that indicates sexual interest, activity, or arousal
+* `VIOLENCE`: Describes input prompts and model responses that includes glorification of or threats to inflict physical pain
+* `HATE`: Describes input prompts and model responses that discriminate, criticize, insult, denounce, or dehumanize a person or group
+* `INSULTS`: Describes input prompts and model responses that includes demeaning, humiliating, mocking, insulting, or belittling language
+* `MISCONDUCT`: Describes input prompts and model responses that seeks or provides information about engaging in misconduct activity
+* `PROMPT_ATTACK`: Enable to detect and block user inputs attempting to override system instructions
+
+Available content filter strengths:
+
+* `NONE`: No filtering
+* `LOW`: Light filtering
+* `MEDIUM`: Moderate filtering
+* `HIGH`: Strict filtering
+
+Available guardrail actions:
+
+* `BLOCK`: Blocks the content from being processed
+* `ANONYMIZE`: Masks the content with an identifier tag
+* `NONE`: Takes no action
+
+> Warning: the ANONYMIZE action is not available in all configurations. Please refer to the documentation of each filter to see which ones
+> support
+
+Available modality types:
+
+* `TEXT`: Text modality for content filters
+* `IMAGE`: Image modality for content filters
+
+#### Tier Configuration
+
+Guardrails support tier configurations that determine the level of language support and robustness for content and topic filters. You can configure separate tier settings for content filters and topic filters.
+
+##### Tier Configuration Options
+
+```python
+guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+    guardrail_name="my-BedrockGuardrails",
+    # Configure tier for content filters
+    content_filters_tier_config=bedrock.TierConfig.STANDARD,
+    # Configure tier for topic filters
+    topics_tier_config=bedrock.TierConfig.CLASSIC
+)
+```
+
+Available tier configurations:
+
+* `CLASSIC`: Provides established guardrails functionality supporting English, French, and Spanish languages
+* `STANDARD`: Provides a more robust solution than the CLASSIC tier and has more comprehensive language support. This tier requires that your guardrail use cross-Region inference
+
+> Note: The STANDARD tier provides enhanced language support and more comprehensive filtering capabilities, but requires cross-Region inference to be enabled for your guardrail.
+
+#### Cross-Region Configuration
+
+You can configure a system-defined guardrail profile to use with your guardrail. Guardrail profiles define the destination AWS Regions where guardrail inference requests can be automatically routed. Using guardrail profiles helps maintain guardrail performance and reliability when demand increases.
+
+##### Cross-Region Configuration Properties
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| guardrailProfileArn | string | Yes | The ARN of the system-defined guardrail profile that defines the destination AWS Regions where guardrail inference requests can be automatically routed |
+
+##### Cross-Region Configuration Example
+
+```python
+guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+    guardrail_name="my-BedrockGuardrails",
+    description="Guardrail with cross-region configuration for enhanced language support",
+    cross_region_config=bedrock.GuardrailCrossRegionConfigProperty(
+        guardrail_profile_arn="arn:aws:bedrock:us-east-1:123456789012:guardrail-profile/my-profile"
+    ),
+    # Use STANDARD tier for enhanced capabilities
+    content_filters_tier_config=bedrock.TierConfig.STANDARD,
+    topics_tier_config=bedrock.TierConfig.STANDARD
+)
+```
+
+> Note: Cross-region configuration is required when using the STANDARD tier for content and topic filters. It helps maintain guardrail performance and reliability when demand increases by automatically routing inference requests to appropriate regions.
+
+You will need to provide the necessary permissions for cross region: https://docs.aws.amazon.com/bedrock/latest/userguide/guardrail-profiles-permissions.html .
+
+#### Denied Topics
+
+Denied topics allow you to define a set of topics that are undesirable in the context of your application. These topics will be blocked if detected in user queries or model responses. You can configure separate actions for input and output.
+
+##### Denied Topic Configuration
+
+```python
+guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+    guardrail_name="my-BedrockGuardrails",
+    # Configure tier for topic filters (optional)
+    topics_tier_config=bedrock.TierConfig.STANDARD
+)
+
+# Use a predefined topic
+guardrail.add_denied_topic_filter(bedrock.Topic.FINANCIAL_ADVICE)
+
+# Create a custom topic with input/output actions
+guardrail.add_denied_topic_filter(
+    bedrock.Topic.custom(
+        name="Legal_Advice",
+        definition="Offering guidance or suggestions on legal matters, legal actions, interpretation of laws, or legal rights and responsibilities.",
+        examples=["Can I sue someone for this?", "What are my legal rights in this situation?", "Is this action against the law?", "What should I do to file a legal complaint?", "Can you explain this law to me?"
+        ],
+        # props below are optional
+        input_action=bedrock.GuardrailAction.BLOCK,
+        input_enabled=True,
+        output_action=bedrock.GuardrailAction.NONE,
+        output_enabled=True
+    ))
+```
+
+#### Word Filters
+
+Word filters allow you to block specific words, phrases, or profanity in user inputs and model responses. You can configure separate actions for input and output.
+
+##### Word Filter Configuration
+
+```python
+guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+    guardrail_name="my-BedrockGuardrails"
+)
+
+# Add managed word list with input/output actions
+guardrail.add_managed_word_list_filter(
+    type=bedrock.ManagedWordFilterType.PROFANITY,
+    input_action=bedrock.GuardrailAction.BLOCK,
+    input_enabled=True,
+    output_action=bedrock.GuardrailAction.NONE,
+    output_enabled=True
+)
+
+# Add individual words
+guardrail.add_word_filter(text="drugs")
+guardrail.add_word_filter(text="competitor")
+
+# Add words from a file
+guardrail.add_word_filter_from_file("./scripts/wordsPolicy.csv")
+```
+
+#### PII Filters
+
+PII filters allow you to detect and handle personally identifiable information in user inputs and model responses. You can configure separate actions for input and output.
+
+The PII types are organized into enum-like classes for better type safety and transpilation compatibility:
+
+* **GeneralPIIType**: General PII types like addresses, emails, names, phone numbers
+* **FinancePIIType**: Financial information like credit card numbers, PINs, SWIFT codes
+* **InformationTechnologyPIIType**: IT-related data like URLs, IP addresses, AWS keys
+* **USASpecificPIIType**: US-specific identifiers like SSNs, passport numbers
+* **CanadaSpecificPIIType**: Canada-specific identifiers like health numbers, SINs
+* **UKSpecificPIIType**: UK-specific identifiers like NHS numbers, NI numbers
+
+##### PII Filter Configuration
+
+```python
+guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+    guardrail_name="my-BedrockGuardrails"
+)
+
+# Add PII filter for addresses with input/output actions
+guardrail.add_pIIFilter(
+    type=bedrock.GeneralPIIType.ADDRESS,
+    action=bedrock.GuardrailAction.BLOCK,
+    # below props are optional
+    input_action=bedrock.GuardrailAction.BLOCK,
+    input_enabled=True,
+    output_action=bedrock.GuardrailAction.ANONYMIZE,
+    output_enabled=True
+)
+
+# Add PII filter for credit card numbers with input/output actions
+guardrail.add_pIIFilter(
+    type=bedrock.FinancePIIType.CREDIT_DEBIT_CARD_NUMBER,
+    action=bedrock.GuardrailAction.BLOCK,
+    # below props are optional
+    input_action=bedrock.GuardrailAction.BLOCK,
+    input_enabled=True,
+    output_action=bedrock.GuardrailAction.ANONYMIZE,
+    output_enabled=True
+)
+
+# Add PII filter for email addresses
+guardrail.add_pIIFilter(
+    type=bedrock.GeneralPIIType.EMAIL,
+    action=bedrock.GuardrailAction.ANONYMIZE
+)
+
+# Add PII filter for US Social Security Numbers
+guardrail.add_pIIFilter(
+    type=bedrock.USASpecificPIIType.US_SOCIAL_SECURITY_NUMBER,
+    action=bedrock.GuardrailAction.BLOCK
+)
+
+# Add PII filter for IP addresses
+guardrail.add_pIIFilter(
+    type=bedrock.InformationTechnologyPIIType.IP_ADDRESS,
+    action=bedrock.GuardrailAction.ANONYMIZE
+)
+```
+
+##### Available PII Types
+
+**GeneralPIIType:**
+
+* `ADDRESS`: Physical addresses
+* `AGE`: Individual's age
+* `DRIVER_ID`: Driver's license numbers
+* `EMAIL`: Email addresses
+* `LICENSE_PLATE`: Vehicle license plates
+* `NAME`: Individual names
+* `PASSWORD`: Passwords
+* `PHONE`: Phone numbers
+* `USERNAME`: User account names
+* `VEHICLE_IDENTIFICATION_NUMBER`: Vehicle VINs
+
+**FinancePIIType:**
+
+* `CREDIT_DEBIT_CARD_CVV`: Card verification codes
+* `CREDIT_DEBIT_CARD_EXPIRY`: Card expiration dates
+* `CREDIT_DEBIT_CARD_NUMBER`: Credit/debit card numbers
+* `PIN`: Personal identification numbers
+* `SWIFT_CODE`: Bank SWIFT codes
+* `INTERNATIONAL_BANK_ACCOUNT_NUMBER`: IBAN numbers
+
+**InformationTechnologyPIIType:**
+
+* `URL`: Web addresses
+* `IP_ADDRESS`: IPv4 addresses
+* `MAC_ADDRESS`: Network interface MAC addresses
+* `AWS_ACCESS_KEY`: AWS access key IDs
+* `AWS_SECRET_KEY`: AWS secret access keys
+
+**USASpecificPIIType:**
+
+* `US_BANK_ACCOUNT_NUMBER`: US bank account numbers
+* `US_BANK_ROUTING_NUMBER`: US bank routing numbers
+* `US_INDIVIDUAL_TAX_IDENTIFICATION_NUMBER`: US ITINs
+* `US_PASSPORT_NUMBER`: US passport numbers
+* `US_SOCIAL_SECURITY_NUMBER`: US Social Security Numbers
+
+**CanadaSpecificPIIType:**
+
+* `CA_HEALTH_NUMBER`: Canadian Health Service Numbers
+* `CA_SOCIAL_INSURANCE_NUMBER`: Canadian Social Insurance Numbers
+
+**UKSpecificPIIType:**
+
+* `UK_NATIONAL_HEALTH_SERVICE_NUMBER`: UK NHS numbers
+* `UK_NATIONAL_INSURANCE_NUMBER`: UK National Insurance numbers
+* `UK_UNIQUE_TAXPAYER_REFERENCE_NUMBER`: UK UTR numbers
+
+#### Regex Filters
+
+Regex filters allow you to detect and handle custom patterns in user inputs and model responses. You can configure separate actions for input and output.
+
+##### Regex Filter Configuration
+
+```python
+guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+    guardrail_name="my-BedrockGuardrails"
+)
+# Add regex filter with input/output actions
+guardrail.add_regex_filter(
+    name="TestRegexFilter",
+    pattern="test-pattern",
+    action=bedrock.GuardrailAction.ANONYMIZE,
+    # below props are optional
+    description="This is a test regex filter",
+    input_action=bedrock.GuardrailAction.BLOCK,
+    input_enabled=True,
+    output_action=bedrock.GuardrailAction.ANONYMIZE,
+    output_enabled=True
+)
+```
+
+#### Contextual Grounding Filters
+
+Contextual grounding filters allow you to ensure that model responses are factually correct and relevant to the user's query. You can configure the action and enable/disable the filter.
+
+##### Contextual Grounding Filter Configuration
+
+```python
+guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+    guardrail_name="my-BedrockGuardrails"
+)
+# Add contextual grounding filter with action and enabled flag
+guardrail.add_contextual_grounding_filter(
+    type=bedrock.ContextualGroundingFilterType.GROUNDING,
+    threshold=0.8,
+    # the properties below are optional
+    action=bedrock.GuardrailAction.BLOCK,
+    enabled=True
+)
+```
+
+### Guardrail Methods
+
+| Method | Description |
+|--------|-------------|
+| `addContentFilter()` | Adds a content filter to the guardrail |
+| `addDeniedTopicFilter()` | Adds a denied topic filter to the guardrail |
+| `addWordFilter()` | Adds a word filter to the guardrail |
+| `addManagedWordListFilter()` | Adds a managed word list filter to the guardrail |
+| `addWordFilterFromFile()` | Adds word filters from a file to the guardrail |
+| `addPIIFilter()` | Adds a PII filter to the guardrail |
+| `addRegexFilter()` | Adds a regex filter to the guardrail |
+| `addContextualGroundingFilter()` | Adds a contextual grounding filter to the guardrail |
+| `createVersion()` | Creates a new version of the guardrail |
+
+### Guardrail Permissions
+
+Guardrails provide methods to grant permissions to other resources that need to interact with the guardrail.
+
+#### Permission Methods
+
+| Method | Description | Parameters |
+|--------|-------------|------------|
+| `grant(grantee, ...actions)` | Grants the given principal identity permissions to perform actions on this guardrail | `grantee`: The principal to grant permissions to<br>`actions`: The actions to grant (e.g., `bedrock:GetGuardrail`, `bedrock:ListGuardrails`) |
+| `grantApply(grantee)` | Grants the given identity permissions to apply the guardrail | `grantee`: The principal to grant permissions to |
+
+#### Permission Examples
+
+```python
+guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+    guardrail_name="my-BedrockGuardrails"
+)
+
+lambda_function = lambda_.Function(self, "testLambda",
+    runtime=lambda_.Runtime.PYTHON_3_12,
+    handler="index.handler",
+    code=lambda_.Code.from_asset(path.join(__dirname, "../lambda/my-code"))
+)
+
+# Grant specific permissions to a Lambda function
+guardrail.grant(lambda_function, "bedrock:GetGuardrail", "bedrock:ListGuardrails")
+
+# Grant permissions to apply the guardrail
+guardrail.grant_apply(lambda_function)
+```
+
+### Guardrail Metrics
+
+Amazon Bedrock provides metrics for your guardrails, allowing you to monitor their effectiveness and usage. These metrics are available in CloudWatch and can be used to create dashboards and alarms.
+
+#### Metrics Examples
+
+```python
+import aws_cdk.aws_cloudwatch as cloudwatch
+
+
+guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+    guardrail_name="my-BedrockGuardrails"
+)
+# Get a specific metric for this guardrail
+invocations_metric = guardrail.metric_invocations(
+    statistic="Sum",
+    period=Duration.minutes(5)
+)
+
+# Create a CloudWatch alarm for high invocation latency
+cloudwatch.Alarm(self, "HighLatencyAlarm",
+    metric=guardrail.metric_invocation_latency(),
+    threshold=1000,  # 1 second
+    evaluation_periods=3
+)
+
+# Get metrics for all guardrails
+all_invocations_metric = bedrock.Guardrail.metric_all_invocations()
+```
+
+### Importing Guardrails
+
+You can import existing guardrails using the `fromGuardrailAttributes` or `fromCfnGuardrail` methods.
+
+#### Import Configuration
+
+```python
+# stack: Stack
+
+cmk = kms.Key(self, "cmk")
+# Import an existing guardrail by ARN
+imported_guardrail = bedrock.Guardrail.from_guardrail_attributes(stack, "TestGuardrail",
+    guardrail_arn="arn:aws:bedrock:us-east-1:123456789012:guardrail/oygh3o8g7rtl",
+    guardrail_version="1",  # optional
+    kms_key=cmk
+)
+```
+
+```python
+import aws_cdk.aws_bedrock as bedrockl1
+
+# Import a guardrail created through the L1 CDK CfnGuardrail construct
+l1guardrail = bedrockl1.CfnGuardrail(self, "MyCfnGuardrail",
+    blocked_input_messaging="blockedInputMessaging",
+    blocked_outputs_messaging="blockedOutputsMessaging",
+    name="namemycfnguardrails",
+    word_policy_config=bedrockl1.CfnGuardrail.WordPolicyConfigProperty(
+        words_config=[bedrockl1.CfnGuardrail.WordConfigProperty(
+            text="drugs"
+        )
+        ]
+    )
+)
+
+imported_guardrail = bedrock.Guardrail.from_cfn_guardrail(l1guardrail)
+```
+
+### Guardrail Versioning
+
+Guardrails support versioning, allowing you to track changes and maintain multiple versions of your guardrail configurations.
+
+#### Version Configuration
+
+```python
+guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+    guardrail_name="my-BedrockGuardrails"
+)
+# Create a new version of the guardrail
+guardrail.create_version("testversion")
+```
+
+## Prompts
+
+Amazon Bedrock provides the ability to create and save prompts using Prompt management so that you can save time by applying the same prompt to different workflows. You can include variables in the prompt so that you can adjust the prompt for different use case.
+
+The `Prompt` resource allows you to create a new prompt.
+
+### Prompt Variants
+
+Prompt variants in the context of Amazon Bedrock refer to alternative configurations of a prompt, including its message or the model and inference configurations used. Prompt variants are the building blocks of prompts - you must create at least one prompt variant to create a prompt. Prompt variants allow you to create different versions of a prompt, test them, and save the variant that works best for your use case.
+
+There are three types of prompt variants:
+
+* **Basic Text Prompt**: Simple text-based prompts for straightforward interactions
+* **Chat variant**: Conversational prompts that support system messages, user/assistant message history, and tools
+* **Agent variant**: Prompts designed to work with Bedrock Agents
+
+### Basic Text Prompt
+
+Text prompts are the simplest form of prompts, consisting of plain text instructions with optional variables. They are ideal for straightforward tasks like summarization, content generation, or question answering where you need a direct text-based interaction with the model.
+
+```python
+cmk = kms.Key(self, "cmk")
+claude_model = bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_SONNET_V1_0
+
+variant1 = bedrock.PromptVariant.text(
+    variant_name="variant1",
+    model=claude_model,
+    prompt_variables=["topic"],
+    prompt_text="This is my first text prompt. Please summarize our conversation on: {{topic}}.",
+    inference_configuration=bedrock.PromptInferenceConfiguration.text(
+        temperature=1,
+        top_p=0.999,
+        max_tokens=2000
+    )
+)
+
+prompt1 = bedrock.Prompt(self, "prompt1",
+    prompt_name="prompt1",
+    description="my first prompt",
+    default_variant=variant1,
+    variants=[variant1],
+    kms_key=cmk
+)
+```
+
+### Chat Prompt
+
+Use this template type when the model supports the Converse API or the Anthropic Claude Messages API. This allows you to include a System prompt and previous User messages and Assistant messages for context.
+
+```python
+cmk = kms.Key(self, "cmk")
+
+variant_chat = bedrock.PromptVariant.chat(
+    variant_name="variant1",
+    model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V1_0,
+    messages=[
+        bedrock.ChatMessage.user("From now on, you speak Japanese!"),
+        bedrock.ChatMessage.assistant("Konnichiwa!"),
+        bedrock.ChatMessage.user("From now on, you speak {{language}}!")
+    ],
+    system="You are a helpful assistant that only speaks the language you`re told.",
+    prompt_variables=["language"],
+    tool_configuration=bedrock.ToolConfiguration(
+        tool_choice=bedrock.ToolChoice.AUTO,
+        tools=[
+            bedrock.Tool.function(
+                name="top_song",
+                description="Get the most popular song played on a radio station.",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "sign": {
+                            "type": "string",
+                            "description": "The call sign for the radio station for which you want the most popular song. Example calls signs are WZPZ and WKR."
+                        }
+                    },
+                    "required": ["sign"]
+                }
+            )
+        ]
+    )
+)
+
+bedrock.Prompt(self, "prompt1",
+    prompt_name="prompt-chat",
+    description="my first chat prompt",
+    default_variant=variant_chat,
+    variants=[variant_chat],
+    kms_key=cmk
+)
+```
+
+### Agent Prompt
+
+Agent prompts are designed to work with Bedrock Agents, allowing you to create prompts that can be used by agents to perform specific tasks. Agent prompts use text prompts as their foundation and can reference agent aliases and include custom instructions for how the agent should behave.
+
+```python
+cmk = kms.Key(self, "cmk")
+
+# Assuming you have an existing agent and alias
+agent = bedrock.Agent.from_agent_attributes(self, "ImportedAgent",
+    agent_arn="arn:aws:bedrock:region:account:agent/agent-id",
+    role_arn="arn:aws:iam::account:role/agent-role"
+)
+
+agent_alias = bedrock.AgentAlias.from_attributes(self, "ImportedAlias",
+    alias_id="alias-id",
+    alias_name="my-alias",
+    agent_version="1",
+    agent=agent
+)
+
+agent_variant = bedrock.PromptVariant.agent(
+    variant_name="agent-variant",
+    model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V1_0,
+    agent_alias=agent_alias,
+    prompt_text="Use the agent to help with: {{task}}. Please be thorough and provide detailed explanations.",
+    prompt_variables=["task"]
+)
+
+bedrock.Prompt(self, "agentPrompt",
+    prompt_name="agent-prompt",
+    description="Prompt for agent interactions",
+    default_variant=agent_variant,
+    variants=[agent_variant],
+    kms_key=cmk
+)
+```
+
+### Prompt Properties
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| promptName | string | Yes | The name of the prompt |
+| description | string | No | A description of the prompt |
+| defaultVariant | PromptVariant | Yes | The default variant to use for the prompt |
+| variants | PromptVariant[] | No | Additional variants for the prompt |
+| kmsKey | kms.IKey | No | The KMS key to use for encrypting the prompt. Defaults to AWS managed key |
+| tags | Record<string, string> | No | Tags to apply to the prompt |
+
+### Prompt Version
+
+A prompt version is a snapshot of a prompt at a specific point in time that you create when you are satisfied with a set of configurations. Versions allow you to deploy your prompt and easily switch between different configurations for your prompt and update your application with the most appropriate version for your use-case.
+
+You can create a Prompt version by using the PromptVersion class or by using the .createVersion(..) on a Prompt object. It is recommended to use the .createVersion(..) method. It uses a hash based mechanism to update the version whenever a certain configuration property changes.
+
+```python
+cmk = kms.Key(self, "cmk")
+claude_model = bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_SONNET_V1_0
+
+variant1 = bedrock.PromptVariant.text(
+    variant_name="variant1",
+    model=claude_model,
+    prompt_variables=["topic"],
+    prompt_text="This is my first text prompt. Please summarize our conversation on: {{topic}}.",
+    inference_configuration=bedrock.PromptInferenceConfiguration.text(
+        temperature=1,
+        top_p=0.999,
+        max_tokens=2000
+    )
+)
+
+prompt1 = bedrock.Prompt(self, "prompt1",
+    prompt_name="prompt1",
+    description="my first prompt",
+    default_variant=variant1,
+    variants=[variant1],
+    kms_key=cmk
+)
+
+prompt_version = bedrock.PromptVersion(self, "MyPromptVersion",
+    prompt=prompt1,
+    description="my first version"
+)
+# or alternatively:
+# const promptVersion = prompt1.createVersion('my first version');
+version_string = prompt_version.version
+```
+
+### Import Methods
+
+You can use the `fromPromptAttributes` method to import an existing Bedrock Prompt into your CDK application.
+
+```python
+# Import an existing prompt by ARN
+imported_prompt = bedrock.Prompt.from_prompt_attributes(self, "ImportedPrompt",
+    prompt_arn="arn:aws:bedrock:region:account:prompt/prompt-id",
+    kms_key=kms.Key.from_key_arn(self, "ImportedKey", "arn:aws:kms:region:account:key/key-id"),  # optional
+    prompt_version="1"
+)
+```
+
+## Inference Profiles
+
+Amazon Bedrock Inference Profiles provide a way to manage and optimize inference configurations for your foundation models. They allow you to define reusable configurations that can be applied across different prompts and agents.
+
+### Using Inference Profiles
+
+Inference profiles can be used with prompts and agents to maintain consistent inference configurations across your application.
+
+#### With Agents
+
+```python
+# Create a cross-region inference profile
+cross_region_profile = bedrock.CrossRegionInferenceProfile.from_config(
+    geo_region=bedrock.CrossRegionInferenceProfileRegion.US,
+    model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V1_0
+)
+
+# Use the cross-region profile with an agent
+agent = bedrock.Agent(self, "Agent",
+    foundation_model=cross_region_profile,
+    instruction="You are a helpful and friendly agent that answers questions about agriculture."
+)
+```
+
+#### With Prompts
+
+```python
+# Create a prompt router for intelligent model selection
+prompt_router = bedrock.PromptRouter.from_default_id(bedrock.DefaultPromptRouterIdentifier.ANTHROPIC_CLAUDE_V1, "us-east-1")
+
+# Use the prompt router with a prompt variant
+variant = bedrock.PromptVariant.text(
+    variant_name="variant1",
+    prompt_text="What is the capital of France?",
+    model=prompt_router
+)
+
+bedrock.Prompt(self, "Prompt",
+    prompt_name="prompt-router-test",
+    variants=[variant]
+)
+```
+
+### Types of Inference Profiles
+
+Amazon Bedrock offers two types of inference profiles:
+
+#### Application Inference Profiles
+
+Application inference profiles are user-defined profiles that help you track costs and model usage. They can be created for a single region or for multiple regions using a cross-region inference profile.
+
+##### Single Region Application Profile
+
+```python
+# Create an application inference profile for one Region
+app_profile = bedrock.ApplicationInferenceProfile(self, "MyApplicationProfile",
+    application_inference_profile_name="claude-3-sonnet-v1",
+    model_source=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_SONNET_V1_0,
+    description="Application profile for cost tracking",
+    tags={
+        "Environment": "Production"
+    }
+)
+```
+
+##### Multi-Region Application Profile
+
+```python
+# Create a cross-region inference profile
+cross_region_profile = bedrock.CrossRegionInferenceProfile.from_config(
+    geo_region=bedrock.CrossRegionInferenceProfileRegion.US,
+    model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V2_0
+)
+
+# Create an application inference profile across regions
+app_profile = bedrock.ApplicationInferenceProfile(self, "MyMultiRegionProfile",
+    application_inference_profile_name="claude-35-sonnet-v2-multi-region",
+    model_source=cross_region_profile,
+    description="Multi-region application profile for cost tracking"
+)
+```
+
+#### System Defined Inference Profiles
+
+Cross-region inference enables you to seamlessly manage unplanned traffic bursts by utilizing compute across different AWS Regions. With cross-region inference, you can distribute traffic across multiple AWS Regions, enabling higher throughput and enhanced resilience during periods of peak demands.
+
+Before using a CrossRegionInferenceProfile, ensure that you have access to the models and regions defined in the inference profiles. For instance, if you use the system defined inference profile "us.anthropic.claude-3-5-sonnet-20241022-v2:0", inference requests will be routed to US East (Virginia) us-east-1, US East (Ohio) us-east-2 and US West (Oregon) us-west-2. Thus, you need to have model access enabled in those regions for the model anthropic.claude-3-5-sonnet-20241022-v2:0.
+
+##### System Defined Profile Configuration
+
+```python
+cross_region_profile = bedrock.CrossRegionInferenceProfile.from_config(
+    geo_region=bedrock.CrossRegionInferenceProfileRegion.US,
+    model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V2_0
+)
+```
+
+### Prompt Routers
+
+Amazon Bedrock intelligent prompt routing provides a single serverless endpoint for efficiently routing requests between different foundational models within the same model family. It can help you optimize for response quality and cost. They offer a comprehensive solution for managing multiple AI models through a single serverless endpoint, simplifying the process for you. Intelligent prompt routing predicts the performance of each model for each request, and dynamically routes each request to the model that it predicts is most likely to give the desired response at the lowest cost.
+
+#### Default and Custom Prompt Routers
+
+```python
+# Use a default prompt router
+variant = bedrock.PromptVariant.text(
+    variant_name="variant1",
+    prompt_text="What is the capital of France?",
+    model=bedrock.PromptRouter.from_default_id(bedrock.DefaultPromptRouterIdentifier.ANTHROPIC_CLAUDE_V1, "us-east-1")
+)
+
+bedrock.Prompt(self, "Prompt",
+    prompt_name="prompt-router-test",
+    variants=[variant]
+)
+```
+
+### Inference Profile Permissions
+
+Use the `grantProfileUsage` method to grant appropriate permissions to resources that need to use the inference profile.
+
+#### Granting Profile Usage Permissions
+
+```python
+# Create an application inference profile
+profile = bedrock.ApplicationInferenceProfile(self, "MyProfile",
+    application_inference_profile_name="my-profile",
+    model_source=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_SONNET_4_5_V1_0
+)
+
+# Create a Lambda function
+lambda_function = lambda_.Function(self, "MyFunction",
+    runtime=lambda_.Runtime.PYTHON_3_11,
+    handler="index.handler",
+    code=lambda_.Code.from_inline("def handler(event, context): return \"Hello\"")
+)
+
+# Grant the Lambda function permission to use the inference profile
+profile.grant_profile_usage(lambda_function)
+
+# Use a system defined inference profile
+cross_region_profile = bedrock.CrossRegionInferenceProfile.from_config(
+    geo_region=bedrock.CrossRegionInferenceProfileRegion.US,
+    model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_SONNET_4_5_V1_0
+)
+
+# Grant permissions to use the cross-region inference profile
+cross_region_profile.grant_profile_usage(lambda_function)
+```
+
+The `grantProfileUsage` method adds the necessary IAM permissions to the resource, allowing it to use the inference profile. This includes permissions to call `bedrock:GetInferenceProfile` and `bedrock:ListInferenceProfiles` actions on the inference profile resource.
+
+### Inference Profiles Import Methods
+
+You can import existing application inference profiles using the following methods:
+
+```python
+# Import an inference profile through attributes
+imported_profile = bedrock.ApplicationInferenceProfile.from_application_inference_profile_attributes(self, "ImportedProfile",
+    inference_profile_arn="arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/my-profile-id",
+    inference_profile_identifier="my-profile-id"
+)
+```
+
+You can also import an application inference profile from an existing L1 CloudFormation construct:
+
+```python
+# Create or reference an existing L1 CfnApplicationInferenceProfile
+cfn_profile = aws_bedrock_cfn.CfnApplicationInferenceProfile(self, "CfnProfile",
+    inference_profile_name="my-cfn-profile",
+    model_source=aws_bedrock_cfn.CfnApplicationInferenceProfile.InferenceProfileModelSourceProperty(
+        copy_from=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V1_0.invokable_arn
+    ),
+    description="Profile created via L1 construct"
+)
+
+# Import the L1 construct as an L2 ApplicationInferenceProfile
+imported_from_cfn = bedrock.ApplicationInferenceProfile.from_cfn_application_inference_profile(cfn_profile)
+
+# Grant permissions to use the imported profile
+lambda_function = lambda_.Function(self, "MyFunction",
+    runtime=lambda_.Runtime.PYTHON_3_11,
+    handler="index.handler",
+    code=lambda_.Code.from_inline("def handler(event, context): return \"Hello\"")
+)
+
+imported_from_cfn.grant_profile_usage(lambda_function)
+```
+'''
+from pkgutil import extend_path
+__path__ = extend_path(__path__, __name__)
+
+import abc
+import builtins
+import datetime
+import enum
+import typing
+
+import jsii
+import publication
+import typing_extensions
+
+import typeguard
+from importlib.metadata import version as _metadata_package_version
+TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+
+def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
+    if TYPEGUARD_MAJOR_VERSION <= 2:
+        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
+    else:
+        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
+           pass
+        else:
+            if TYPEGUARD_MAJOR_VERSION == 3:
+                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
+                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
+            else:
+                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
+
+from ._jsii import *
+
+import aws_cdk as _aws_cdk_ceddda9d
+import aws_cdk.aws_bedrock as _aws_cdk_aws_bedrock_ceddda9d
+import aws_cdk.aws_cloudwatch as _aws_cdk_aws_cloudwatch_ceddda9d
+import aws_cdk.aws_events as _aws_cdk_aws_events_ceddda9d
+import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
+import aws_cdk.aws_kms as _aws_cdk_aws_kms_ceddda9d
+import aws_cdk.aws_lambda as _aws_cdk_aws_lambda_ceddda9d
+import aws_cdk.aws_s3 as _aws_cdk_aws_s3_ceddda9d
+import aws_cdk.aws_s3_assets as _aws_cdk_aws_s3_assets_ceddda9d
+import aws_cdk.interfaces.aws_kms as _aws_cdk_interfaces_aws_kms_ceddda9d
+import aws_cdk.interfaces.aws_s3 as _aws_cdk_interfaces_aws_s3_ceddda9d
+import constructs as _constructs_77d1e7e8
+
+
+class ActionGroupExecutor(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.ActionGroupExecutor",
+):
+    '''(experimental) Defines how fulfillment of the action group is handled after the necessary information has been elicited from the user.
+
+    Valid executors are:
+
+    - Lambda function
+    - Return Control
+
+    :see: https://docs.aws.amazon.com/bedrock/latest/userguide/action-handle.html
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        bucket = s3.Bucket.from_bucket_name(self, "ExistingBucket", "my-schema-bucket")
+        s3_schema = bedrock.ApiSchema.from_s3_file(bucket, "schemas/action-group.yaml")
+        
+        action_group_function = lambda_.Function(self, "ActionGroupFunction",
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            handler="index.handler",
+            code=lambda_.Code.from_asset(path.join(__dirname, "../lambda/action-group"))
+        )
+        
+        action_group = bedrock.AgentActionGroup(
+            name="query-library",
+            description="Use these functions to get information about the books in the library.",
+            executor=bedrock.ActionGroupExecutor.from_lambda(action_group_function),
+            enabled=True,
+            api_schema=s3_schema
+        )
+        
+        agent = bedrock.Agent(self, "Agent",
+            foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_HAIKU_V1_0,
+            instruction="You are a helpful and friendly agent that answers questions about literature."
+        )
+        
+        agent.add_action_group(action_group)
+    '''
+
+    @jsii.member(jsii_name="fromLambda")
+    @builtins.classmethod
+    def from_lambda(
+        cls,
+        lambda_function: "_aws_cdk_aws_lambda_ceddda9d.IFunction",
+    ) -> "ActionGroupExecutor":
+        '''(experimental) Defines an action group with a Lambda function containing the business logic.
+
+        :param lambda_function: - Lambda function to be called by the action group.
+
+        :see: https://docs.aws.amazon.com/bedrock/latest/userguide/agents-lambda.html
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b3f8715f9bf580f1336c3ef0001b564cd5377a641554f928ee8a9337f101d4ea)
+            check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
+        return typing.cast("ActionGroupExecutor", jsii.sinvoke(cls, "fromLambda", [lambda_function]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="RETURN_CONTROL")
+    def RETURN_CONTROL(cls) -> "ActionGroupExecutor":
+        '''(experimental) Returns the action group invocation results directly in the InvokeAgent response.
+
+        The information and parameters can be sent to your own systems to yield results.
+
+        :see: https://docs.aws.amazon.com/bedrock/latest/userguide/agents-returncontrol.html
+        :stability: experimental
+        '''
+        return typing.cast("ActionGroupExecutor", jsii.sget(cls, "RETURN_CONTROL"))
+
+    @builtins.property
+    @jsii.member(jsii_name="customControl")
+    def custom_control(self) -> typing.Optional["CustomControl"]:
+        '''(experimental) The custom control type for the action group executor.
+
+        Currently only supports 'RETURN_CONTROL' which returns results directly in the InvokeAgent response.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["CustomControl"], jsii.get(self, "customControl"))
+
+    @builtins.property
+    @jsii.member(jsii_name="lambdaFunction")
+    def lambda_function(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IFunction"]:
+        '''(experimental) The Lambda function that will be called by the action group.
+
+        Contains the business logic for handling the action group's invocation.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IFunction"], jsii.get(self, "lambdaFunction"))
+
+
+class AgentActionGroup(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.AgentActionGroup",
+):
+    '''(experimental) ****************************************************************************                        DEF - Action Group Class ***************************************************************************.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        bucket = s3.Bucket.from_bucket_name(self, "ExistingBucket", "my-schema-bucket")
+        s3_schema = bedrock.ApiSchema.from_s3_file(bucket, "schemas/action-group.yaml")
+        
+        action_group_function = lambda_.Function(self, "ActionGroupFunction",
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            handler="index.handler",
+            code=lambda_.Code.from_asset(path.join(__dirname, "../lambda/action-group"))
+        )
+        
+        action_group = bedrock.AgentActionGroup(
+            name="query-library",
+            description="Use these functions to get information about the books in the library.",
+            executor=bedrock.ActionGroupExecutor.from_lambda(action_group_function),
+            enabled=True,
+            api_schema=s3_schema
+        )
+        
+        agent = bedrock.Agent(self, "Agent",
+            foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_HAIKU_V1_0,
+            instruction="You are a helpful and friendly agent that answers questions about literature."
+        )
+        
+        agent.add_action_group(action_group)
+    '''
+
+    def __init__(
+        self,
+        *,
+        api_schema: typing.Optional["ApiSchema"] = None,
+        description: typing.Optional[builtins.str] = None,
+        enabled: typing.Optional[builtins.bool] = None,
+        executor: typing.Optional["ActionGroupExecutor"] = None,
+        force_delete: typing.Optional[builtins.bool] = None,
+        function_schema: typing.Optional["FunctionSchema"] = None,
+        name: typing.Optional[builtins.str] = None,
+        parent_action_group_signature: typing.Optional["ParentActionGroupSignature"] = None,
+    ) -> None:
+        '''
+        :param api_schema: (experimental) The API Schema defining the functions available to the agent. Default: undefined - No API Schema is provided
+        :param description: (experimental) A description of the action group. Default: undefined - No description is provided
+        :param enabled: (experimental) Specifies whether the action group is available for the agent to invoke or not when sending an InvokeAgent request. Default: true - The action group is enabled
+        :param executor: (experimental) The action group executor that implements the API functions. Default: undefined - No executor is provided
+        :param force_delete: (experimental) Specifies whether to delete the resource even if it's in use. Default: false - The resource will not be deleted if it's in use
+        :param function_schema: (experimental) Defines functions that each define parameters that the agent needs to invoke from the user. NO L2 yet as this doesn't make much sense IMHO. Default: undefined - No function schema is provided
+        :param name: (experimental) The name of the action group. Default: - A unique name is generated in the format 'action_group_quick_start_UUID'
+        :param parent_action_group_signature: (experimental) The AWS Defined signature for enabling certain capabilities in your agent. When this property is specified, you must leave the description, apiSchema, and actionGroupExecutor fields blank for this action group. Default: undefined - No parent action group signature is provided
+
+        :stability: experimental
+        '''
+        props = AgentActionGroupProps(
+            api_schema=api_schema,
+            description=description,
+            enabled=enabled,
+            executor=executor,
+            force_delete=force_delete,
+            function_schema=function_schema,
+            name=name,
+            parent_action_group_signature=parent_action_group_signature,
+        )
+
+        jsii.create(self.__class__, self, [props])
+
+    @jsii.member(jsii_name="codeInterpreter")
+    @builtins.classmethod
+    def code_interpreter(cls, enabled: builtins.bool) -> "AgentActionGroup":
+        '''(experimental) Defines an action group that allows your agent to request the user for additional information when trying to complete a task.
+
+        :param enabled: Specifies whether the action group is available for the agent.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f216a3b9945ded433d1397b46354d778b44544b12c7e1444f18f26697b23c949)
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+        return typing.cast("AgentActionGroup", jsii.sinvoke(cls, "codeInterpreter", [enabled]))
+
+    @jsii.member(jsii_name="userInput")
+    @builtins.classmethod
+    def user_input(cls, enabled: builtins.bool) -> "AgentActionGroup":
+        '''(experimental) Defines an action group that allows your agent to request the user for additional information when trying to complete a task.
+
+        :param enabled: Specifies whether the action group is available for the agent.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c7e35cbb8b23de7b78171edfc3dfea96900c1650cd60b84a3b3daafe40b03e1e)
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+        return typing.cast("AgentActionGroup", jsii.sinvoke(cls, "userInput", [enabled]))
+
+    @builtins.property
+    @jsii.member(jsii_name="enabled")
+    def enabled(self) -> builtins.bool:
+        '''(experimental) Whether this action group is available for the agent to invoke or not.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.bool, jsii.get(self, "enabled"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''(experimental) The name of the action group.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @builtins.property
+    @jsii.member(jsii_name="apiSchema")
+    def api_schema(self) -> typing.Optional["ApiSchema"]:
+        '''(experimental) The api schema for this action group (if defined).
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["ApiSchema"], jsii.get(self, "apiSchema"))
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) A description of the action group.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @builtins.property
+    @jsii.member(jsii_name="executor")
+    def executor(self) -> typing.Optional["ActionGroupExecutor"]:
+        '''(experimental) The action group executor for this action group (if defined).
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["ActionGroupExecutor"], jsii.get(self, "executor"))
+
+    @builtins.property
+    @jsii.member(jsii_name="forceDelete")
+    def force_delete(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to delete the resource even if it's in use.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.bool], jsii.get(self, "forceDelete"))
+
+    @builtins.property
+    @jsii.member(jsii_name="functionSchema")
+    def function_schema(self) -> typing.Optional["FunctionSchema"]:
+        '''(experimental) The function schema for this action group (if defined).
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["FunctionSchema"], jsii.get(self, "functionSchema"))
+
+    @builtins.property
+    @jsii.member(jsii_name="parentActionGroupSignature")
+    def parent_action_group_signature(
+        self,
+    ) -> typing.Optional["ParentActionGroupSignature"]:
+        '''(experimental) The AWS Defined signature (if defined).
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["ParentActionGroupSignature"], jsii.get(self, "parentActionGroupSignature"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.AgentActionGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "api_schema": "apiSchema",
+        "description": "description",
+        "enabled": "enabled",
+        "executor": "executor",
+        "force_delete": "forceDelete",
+        "function_schema": "functionSchema",
+        "name": "name",
+        "parent_action_group_signature": "parentActionGroupSignature",
+    },
+)
+class AgentActionGroupProps:
+    def __init__(
+        self,
+        *,
+        api_schema: typing.Optional["ApiSchema"] = None,
+        description: typing.Optional[builtins.str] = None,
+        enabled: typing.Optional[builtins.bool] = None,
+        executor: typing.Optional["ActionGroupExecutor"] = None,
+        force_delete: typing.Optional[builtins.bool] = None,
+        function_schema: typing.Optional["FunctionSchema"] = None,
+        name: typing.Optional[builtins.str] = None,
+        parent_action_group_signature: typing.Optional["ParentActionGroupSignature"] = None,
+    ) -> None:
+        '''(experimental) ****************************************************************************                        PROPS - Action Group Class ***************************************************************************.
+
+        :param api_schema: (experimental) The API Schema defining the functions available to the agent. Default: undefined - No API Schema is provided
+        :param description: (experimental) A description of the action group. Default: undefined - No description is provided
+        :param enabled: (experimental) Specifies whether the action group is available for the agent to invoke or not when sending an InvokeAgent request. Default: true - The action group is enabled
+        :param executor: (experimental) The action group executor that implements the API functions. Default: undefined - No executor is provided
+        :param force_delete: (experimental) Specifies whether to delete the resource even if it's in use. Default: false - The resource will not be deleted if it's in use
+        :param function_schema: (experimental) Defines functions that each define parameters that the agent needs to invoke from the user. NO L2 yet as this doesn't make much sense IMHO. Default: undefined - No function schema is provided
+        :param name: (experimental) The name of the action group. Default: - A unique name is generated in the format 'action_group_quick_start_UUID'
+        :param parent_action_group_signature: (experimental) The AWS Defined signature for enabling certain capabilities in your agent. When this property is specified, you must leave the description, apiSchema, and actionGroupExecutor fields blank for this action group. Default: undefined - No parent action group signature is provided
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            bucket = s3.Bucket.from_bucket_name(self, "ExistingBucket", "my-schema-bucket")
+            s3_schema = bedrock.ApiSchema.from_s3_file(bucket, "schemas/action-group.yaml")
+            
+            action_group_function = lambda_.Function(self, "ActionGroupFunction",
+                runtime=lambda_.Runtime.PYTHON_3_12,
+                handler="index.handler",
+                code=lambda_.Code.from_asset(path.join(__dirname, "../lambda/action-group"))
+            )
+            
+            action_group = bedrock.AgentActionGroup(
+                name="query-library",
+                description="Use these functions to get information about the books in the library.",
+                executor=bedrock.ActionGroupExecutor.from_lambda(action_group_function),
+                enabled=True,
+                api_schema=s3_schema
+            )
+            
+            agent = bedrock.Agent(self, "Agent",
+                foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_HAIKU_V1_0,
+                instruction="You are a helpful and friendly agent that answers questions about literature."
+            )
+            
+            agent.add_action_group(action_group)
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__96565235b78a53a99b9a5b0de1f6e1cb436217f7023225486fb3b6b0402c16b1)
+            check_type(argname="argument api_schema", value=api_schema, expected_type=type_hints["api_schema"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument executor", value=executor, expected_type=type_hints["executor"])
+            check_type(argname="argument force_delete", value=force_delete, expected_type=type_hints["force_delete"])
+            check_type(argname="argument function_schema", value=function_schema, expected_type=type_hints["function_schema"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument parent_action_group_signature", value=parent_action_group_signature, expected_type=type_hints["parent_action_group_signature"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if api_schema is not None:
+            self._values["api_schema"] = api_schema
+        if description is not None:
+            self._values["description"] = description
+        if enabled is not None:
+            self._values["enabled"] = enabled
+        if executor is not None:
+            self._values["executor"] = executor
+        if force_delete is not None:
+            self._values["force_delete"] = force_delete
+        if function_schema is not None:
+            self._values["function_schema"] = function_schema
+        if name is not None:
+            self._values["name"] = name
+        if parent_action_group_signature is not None:
+            self._values["parent_action_group_signature"] = parent_action_group_signature
+
+    @builtins.property
+    def api_schema(self) -> typing.Optional["ApiSchema"]:
+        '''(experimental) The API Schema defining the functions available to the agent.
+
+        :default: undefined - No API Schema is provided
+
+        :stability: experimental
+        '''
+        result = self._values.get("api_schema")
+        return typing.cast(typing.Optional["ApiSchema"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) A description of the action group.
+
+        :default: undefined - No description is provided
+
+        :stability: experimental
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Specifies whether the action group is available for the agent to invoke or not when sending an InvokeAgent request.
+
+        :default: true - The action group is enabled
+
+        :stability: experimental
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def executor(self) -> typing.Optional["ActionGroupExecutor"]:
+        '''(experimental) The action group executor that implements the API functions.
+
+        :default: undefined - No executor is provided
+
+        :stability: experimental
+        '''
+        result = self._values.get("executor")
+        return typing.cast(typing.Optional["ActionGroupExecutor"], result)
+
+    @builtins.property
+    def force_delete(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Specifies whether to delete the resource even if it's in use.
+
+        :default: false - The resource will not be deleted if it's in use
+
+        :stability: experimental
+        '''
+        result = self._values.get("force_delete")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def function_schema(self) -> typing.Optional["FunctionSchema"]:
+        '''(experimental) Defines functions that each define parameters that the agent needs to invoke from the user.
+
+        NO L2 yet as this doesn't make much sense IMHO.
+
+        :default: undefined - No function schema is provided
+
+        :stability: experimental
+        '''
+        result = self._values.get("function_schema")
+        return typing.cast(typing.Optional["FunctionSchema"], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The name of the action group.
+
+        :default: - A unique name is generated in the format 'action_group_quick_start_UUID'
+
+        :stability: experimental
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def parent_action_group_signature(
+        self,
+    ) -> typing.Optional["ParentActionGroupSignature"]:
+        '''(experimental) The AWS Defined signature for enabling certain capabilities in your agent.
+
+        When this property is specified, you must leave the description, apiSchema,
+        and actionGroupExecutor fields blank for this action group.
+
+        :default: undefined - No parent action group signature is provided
+
+        :stability: experimental
+        '''
+        result = self._values.get("parent_action_group_signature")
+        return typing.cast(typing.Optional["ParentActionGroupSignature"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AgentActionGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.AgentAliasAttributes",
+    jsii_struct_bases=[],
+    name_mapping={
+        "agent": "agent",
+        "agent_version": "agentVersion",
+        "alias_id": "aliasId",
+        "alias_name": "aliasName",
+    },
+)
+class AgentAliasAttributes:
+    def __init__(
+        self,
+        *,
+        agent: "IAgent",
+        agent_version: builtins.str,
+        alias_id: builtins.str,
+        alias_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Attributes needed to create an import.
+
+        :param agent: (experimental) The underlying agent for this alias.
+        :param agent_version: (experimental) The agent version for this alias.
+        :param alias_id: (experimental) The Id of the agent alias.
+        :param alias_name: (experimental) The name of the agent alias. Default: undefined - No alias name is provided
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            cmk = kms.Key(self, "cmk")
+            
+            # Assuming you have an existing agent and alias
+            agent = bedrock.Agent.from_agent_attributes(self, "ImportedAgent",
+                agent_arn="arn:aws:bedrock:region:account:agent/agent-id",
+                role_arn="arn:aws:iam::account:role/agent-role"
+            )
+            
+            agent_alias = bedrock.AgentAlias.from_attributes(self, "ImportedAlias",
+                alias_id="alias-id",
+                alias_name="my-alias",
+                agent_version="1",
+                agent=agent
+            )
+            
+            agent_variant = bedrock.PromptVariant.agent(
+                variant_name="agent-variant",
+                model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V1_0,
+                agent_alias=agent_alias,
+                prompt_text="Use the agent to help with: {{task}}. Please be thorough and provide detailed explanations.",
+                prompt_variables=["task"]
+            )
+            
+            bedrock.Prompt(self, "agentPrompt",
+                prompt_name="agent-prompt",
+                description="Prompt for agent interactions",
+                default_variant=agent_variant,
+                variants=[agent_variant],
+                kms_key=cmk
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2cf3ee27a5cffdeb97ea680716346f7407718c3709c2070bc5cfe5846adf5e53)
+            check_type(argname="argument agent", value=agent, expected_type=type_hints["agent"])
+            check_type(argname="argument agent_version", value=agent_version, expected_type=type_hints["agent_version"])
+            check_type(argname="argument alias_id", value=alias_id, expected_type=type_hints["alias_id"])
+            check_type(argname="argument alias_name", value=alias_name, expected_type=type_hints["alias_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "agent": agent,
+            "agent_version": agent_version,
+            "alias_id": alias_id,
+        }
+        if alias_name is not None:
+            self._values["alias_name"] = alias_name
+
+    @builtins.property
+    def agent(self) -> "IAgent":
+        '''(experimental) The underlying agent for this alias.
+
+        :stability: experimental
+        '''
+        result = self._values.get("agent")
+        assert result is not None, "Required property 'agent' is missing"
+        return typing.cast("IAgent", result)
+
+    @builtins.property
+    def agent_version(self) -> builtins.str:
+        '''(experimental) The agent version for this alias.
+
+        :stability: experimental
+        '''
+        result = self._values.get("agent_version")
+        assert result is not None, "Required property 'agent_version' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def alias_id(self) -> builtins.str:
+        '''(experimental) The Id of the agent alias.
+
+        :stability: experimental
+        '''
+        result = self._values.get("alias_id")
+        assert result is not None, "Required property 'alias_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def alias_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The name of the agent alias.
+
+        :default: undefined - No alias name is provided
+
+        :stability: experimental
+        '''
+        result = self._values.get("alias_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AgentAliasAttributes(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.AgentAliasProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "agent": "agent",
+        "agent_alias_name": "agentAliasName",
+        "agent_version": "agentVersion",
+        "description": "description",
+    },
+)
+class AgentAliasProps:
+    def __init__(
+        self,
+        *,
+        agent: "IAgent",
+        agent_alias_name: typing.Optional[builtins.str] = None,
+        agent_version: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Properties for creating a CDK-Managed Agent Alias.
+
+        :param agent: (experimental) The agent associated to this alias.
+        :param agent_alias_name: (experimental) The name for the agent alias. This will be used as the physical name of the agent alias. Default: "latest"
+        :param agent_version: (experimental) The version of the agent to associate with the agent alias. Default: - Creates a new version of the agent.
+        :param description: (experimental) Description for the agent alias. Default: undefined - No description is provided
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            # Create a specialized agent
+            customer_support_agent = bedrock.Agent(self, "CustomerSupportAgent",
+                instruction="You specialize in answering customer support questions.",
+                foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1
+            )
+            
+            # Create an agent alias
+            customer_support_alias = bedrock.AgentAlias(self, "CustomerSupportAlias",
+                agent=customer_support_agent,
+                agent_alias_name="production"
+            )
+            
+            # Create a main agent that collaborates with the specialized agent
+            main_agent = bedrock.Agent(self, "MainAgent",
+                instruction="You route specialized questions to other agents.",
+                foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1,
+                agent_collaboration={
+                    "type": bedrock.AgentCollaboratorType.SUPERVISOR,
+                    "collaborators": [
+                        bedrock.AgentCollaborator(
+                            agent_alias=customer_support_alias,
+                            collaboration_instruction="Route customer support questions to this agent.",
+                            collaborator_name="CustomerSupport",
+                            relay_conversation_history=True
+                        )
+                    ]
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__223e58e52a6c762628fbd5894a3746df0edc021abe283a3fa5fae709b84c6e2b)
+            check_type(argname="argument agent", value=agent, expected_type=type_hints["agent"])
+            check_type(argname="argument agent_alias_name", value=agent_alias_name, expected_type=type_hints["agent_alias_name"])
+            check_type(argname="argument agent_version", value=agent_version, expected_type=type_hints["agent_version"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "agent": agent,
+        }
+        if agent_alias_name is not None:
+            self._values["agent_alias_name"] = agent_alias_name
+        if agent_version is not None:
+            self._values["agent_version"] = agent_version
+        if description is not None:
+            self._values["description"] = description
+
+    @builtins.property
+    def agent(self) -> "IAgent":
+        '''(experimental) The agent associated to this alias.
+
+        :stability: experimental
+        '''
+        result = self._values.get("agent")
+        assert result is not None, "Required property 'agent' is missing"
+        return typing.cast("IAgent", result)
+
+    @builtins.property
+    def agent_alias_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The name for the agent alias.
+
+        This will be used as the physical name of the agent alias.
+
+        :default: "latest"
+
+        :stability: experimental
+        '''
+        result = self._values.get("agent_alias_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def agent_version(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The version of the agent to associate with the agent alias.
+
+        :default: - Creates a new version of the agent.
+
+        :stability: experimental
+        '''
+        result = self._values.get("agent_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Description for the agent alias.
+
+        :default: undefined - No description is provided
+
+        :stability: experimental
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AgentAliasProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.AgentAttributes",
+    jsii_struct_bases=[],
+    name_mapping={
+        "agent_arn": "agentArn",
+        "role_arn": "roleArn",
+        "agent_version": "agentVersion",
+        "kms_key_arn": "kmsKeyArn",
+        "last_updated": "lastUpdated",
+    },
+)
+class AgentAttributes:
+    def __init__(
+        self,
+        *,
+        agent_arn: builtins.str,
+        role_arn: builtins.str,
+        agent_version: typing.Optional[builtins.str] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
+        last_updated: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Attributes for specifying an imported Bedrock Agent.
+
+        :param agent_arn: (experimental) The ARN of the agent.
+        :param role_arn: (experimental) The ARN of the IAM role associated to the agent.
+        :param agent_version: (experimental) The agent version. If no explicit versions have been created, leave this empty to use the DRAFT version. Otherwise, use the version number (e.g. 1). Default: 'DRAFT'
+        :param kms_key_arn: (experimental) Optional KMS encryption key associated with this agent. Default: undefined - An AWS managed key is used
+        :param last_updated: (experimental) When this agent was last updated. Default: undefined - No last updated timestamp is provided
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            cmk = kms.Key(self, "cmk")
+            
+            # Assuming you have an existing agent and alias
+            agent = bedrock.Agent.from_agent_attributes(self, "ImportedAgent",
+                agent_arn="arn:aws:bedrock:region:account:agent/agent-id",
+                role_arn="arn:aws:iam::account:role/agent-role"
+            )
+            
+            agent_alias = bedrock.AgentAlias.from_attributes(self, "ImportedAlias",
+                alias_id="alias-id",
+                alias_name="my-alias",
+                agent_version="1",
+                agent=agent
+            )
+            
+            agent_variant = bedrock.PromptVariant.agent(
+                variant_name="agent-variant",
+                model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V1_0,
+                agent_alias=agent_alias,
+                prompt_text="Use the agent to help with: {{task}}. Please be thorough and provide detailed explanations.",
+                prompt_variables=["task"]
+            )
+            
+            bedrock.Prompt(self, "agentPrompt",
+                prompt_name="agent-prompt",
+                description="Prompt for agent interactions",
+                default_variant=agent_variant,
+                variants=[agent_variant],
+                kms_key=cmk
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ec4361e61c0d3b4b62f635521602d37a1a496b4cd051caa617df76fefcfb8daa)
+            check_type(argname="argument agent_arn", value=agent_arn, expected_type=type_hints["agent_arn"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument agent_version", value=agent_version, expected_type=type_hints["agent_version"])
+            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            check_type(argname="argument last_updated", value=last_updated, expected_type=type_hints["last_updated"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "agent_arn": agent_arn,
+            "role_arn": role_arn,
+        }
+        if agent_version is not None:
+            self._values["agent_version"] = agent_version
+        if kms_key_arn is not None:
+            self._values["kms_key_arn"] = kms_key_arn
+        if last_updated is not None:
+            self._values["last_updated"] = last_updated
+
+    @builtins.property
+    def agent_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the agent.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        result = self._values.get("agent_arn")
+        assert result is not None, "Required property 'agent_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the IAM role associated to the agent.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def agent_version(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The agent version.
+
+        If no explicit versions have been created,
+        leave this empty to use the DRAFT version. Otherwise, use the
+        version number (e.g. 1).
+
+        :default: 'DRAFT'
+
+        :stability: experimental
+        '''
+        result = self._values.get("agent_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Optional KMS encryption key associated with this agent.
+
+        :default: undefined - An AWS managed key is used
+
+        :stability: experimental
+        '''
+        result = self._values.get("kms_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def last_updated(self) -> typing.Optional[builtins.str]:
+        '''(experimental) When this agent was last updated.
+
+        :default: undefined - No last updated timestamp is provided
+
+        :stability: experimental
+        '''
+        result = self._values.get("last_updated")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AgentAttributes(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class AgentCollaboration(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.AgentCollaboration",
+):
+    '''(experimental) Class to manage agent collaboration configuration.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        # Create a specialized agent
+        customer_support_agent = bedrock.Agent(self, "CustomerSupportAgent",
+            instruction="You specialize in answering customer support questions.",
+            foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1
+        )
+        
+        # Create an agent alias
+        customer_support_alias = bedrock.AgentAlias(self, "CustomerSupportAlias",
+            agent=customer_support_agent,
+            agent_alias_name="production"
+        )
+        
+        # Create a main agent that collaborates with the specialized agent
+        main_agent = bedrock.Agent(self, "MainAgent",
+            instruction="You route specialized questions to other agents.",
+            foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1,
+            agent_collaboration={
+                "type": bedrock.AgentCollaboratorType.SUPERVISOR,
+                "collaborators": [
+                    bedrock.AgentCollaborator(
+                        agent_alias=customer_support_alias,
+                        collaboration_instruction="Route customer support questions to this agent.",
+                        collaborator_name="CustomerSupport",
+                        relay_conversation_history=True
+                    )
+                ]
+            }
+        )
+    '''
+
+    def __init__(
+        self,
+        *,
+        collaborators: typing.Sequence["AgentCollaborator"],
+        type: "AgentCollaboratorType",
+    ) -> None:
+        '''
+        :param collaborators: (experimental) Collaborators that this agent will work with.
+        :param type: (experimental) The collaboration type for the agent.
+
+        :stability: experimental
+        '''
+        config = AgentCollaborationConfig(collaborators=collaborators, type=type)
+
+        jsii.create(self.__class__, self, [config])
+
+    @builtins.property
+    @jsii.member(jsii_name="collaborators")
+    def collaborators(self) -> typing.List["AgentCollaborator"]:
+        '''(experimental) Collaborators that this agent will work with.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List["AgentCollaborator"], jsii.get(self, "collaborators"))
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> "AgentCollaboratorType":
+        '''(experimental) The collaboration type for the agent.
+
+        :stability: experimental
+        '''
+        return typing.cast("AgentCollaboratorType", jsii.get(self, "type"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.AgentCollaborationConfig",
+    jsii_struct_bases=[],
+    name_mapping={"collaborators": "collaborators", "type": "type"},
+)
+class AgentCollaborationConfig:
+    def __init__(
+        self,
+        *,
+        collaborators: typing.Sequence["AgentCollaborator"],
+        type: "AgentCollaboratorType",
+    ) -> None:
+        '''(experimental) Configuration for agent collaboration settings.
+
+        :param collaborators: (experimental) Collaborators that this agent will work with.
+        :param type: (experimental) The collaboration type for the agent.
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_alpha as bedrock_alpha
+            
+            # agent_collaborator: bedrock_alpha.AgentCollaborator
+            
+            agent_collaboration_config = bedrock_alpha.AgentCollaborationConfig(
+                collaborators=[agent_collaborator],
+                type=bedrock_alpha.AgentCollaboratorType.SUPERVISOR
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8a9907acc35e0edfd5ff2b73fc849757eb706524befb93fa2d2644edefa77814)
+            check_type(argname="argument collaborators", value=collaborators, expected_type=type_hints["collaborators"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "collaborators": collaborators,
+            "type": type,
+        }
+
+    @builtins.property
+    def collaborators(self) -> typing.List["AgentCollaborator"]:
+        '''(experimental) Collaborators that this agent will work with.
+
+        :stability: experimental
+        '''
+        result = self._values.get("collaborators")
+        assert result is not None, "Required property 'collaborators' is missing"
+        return typing.cast(typing.List["AgentCollaborator"], result)
+
+    @builtins.property
+    def type(self) -> "AgentCollaboratorType":
+        '''(experimental) The collaboration type for the agent.
+
+        :stability: experimental
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast("AgentCollaboratorType", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AgentCollaborationConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class AgentCollaborator(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.AgentCollaborator",
+):
+    '''(experimental) ****************************************************************************                        Agent Collaborator Class ***************************************************************************.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        # Create a specialized agent
+        customer_support_agent = bedrock.Agent(self, "CustomerSupportAgent",
+            instruction="You specialize in answering customer support questions.",
+            foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1
+        )
+        
+        # Create an agent alias
+        customer_support_alias = bedrock.AgentAlias(self, "CustomerSupportAlias",
+            agent=customer_support_agent,
+            agent_alias_name="production"
+        )
+        
+        # Create a main agent that collaborates with the specialized agent
+        main_agent = bedrock.Agent(self, "MainAgent",
+            instruction="You route specialized questions to other agents.",
+            foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1,
+            agent_collaboration={
+                "type": bedrock.AgentCollaboratorType.SUPERVISOR,
+                "collaborators": [
+                    bedrock.AgentCollaborator(
+                        agent_alias=customer_support_alias,
+                        collaboration_instruction="Route customer support questions to this agent.",
+                        collaborator_name="CustomerSupport",
+                        relay_conversation_history=True
+                    )
+                ]
+            }
+        )
+    '''
+
+    def __init__(
+        self,
+        *,
+        agent_alias: "IAgentAlias",
+        collaboration_instruction: builtins.str,
+        collaborator_name: builtins.str,
+        relay_conversation_history: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''
+        :param agent_alias: (experimental) Descriptor for the collaborating agent. This cannot be the TSTALIASID (``agent.testAlias``).
+        :param collaboration_instruction: (experimental) Instructions on how this agent should collaborate with the main agent.
+        :param collaborator_name: (experimental) A friendly name for the collaborator.
+        :param relay_conversation_history: (experimental) Whether to relay conversation history to this collaborator. Default: - undefined (uses service default)
+
+        :stability: experimental
+        '''
+        props = AgentCollaboratorProps(
+            agent_alias=agent_alias,
+            collaboration_instruction=collaboration_instruction,
+            collaborator_name=collaborator_name,
+            relay_conversation_history=relay_conversation_history,
+        )
+
+        jsii.create(self.__class__, self, [props])
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants the given identity permissions to collaborate with the agent [disable-awslint:no-grants].
+
+        :param grantee: The principal to grant permissions to.
+
+        :return: The Grant object
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e5dcc21bf3943fccd3a13e28a26304d667dc4ab7c6a95e6ba7b947029e97b6f3)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee]))
+
+    @builtins.property
+    @jsii.member(jsii_name="agentAlias")
+    def agent_alias(self) -> "IAgentAlias":
+        '''(experimental) The agent alias that this collaborator represents.
+
+        This is the agent that will be called upon for collaboration.
+
+        :stability: experimental
+        '''
+        return typing.cast("IAgentAlias", jsii.get(self, "agentAlias"))
+
+    @builtins.property
+    @jsii.member(jsii_name="collaborationInstruction")
+    def collaboration_instruction(self) -> builtins.str:
+        '''(experimental) Instructions on how this agent should collaborate with the main agent.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "collaborationInstruction"))
+
+    @builtins.property
+    @jsii.member(jsii_name="collaboratorName")
+    def collaborator_name(self) -> builtins.str:
+        '''(experimental) A friendly name for the collaborator.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "collaboratorName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="relayConversationHistory")
+    def relay_conversation_history(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to relay conversation history to this collaborator.
+
+        :default: - undefined (uses service default)
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.bool], jsii.get(self, "relayConversationHistory"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.AgentCollaboratorProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "agent_alias": "agentAlias",
+        "collaboration_instruction": "collaborationInstruction",
+        "collaborator_name": "collaboratorName",
+        "relay_conversation_history": "relayConversationHistory",
+    },
+)
+class AgentCollaboratorProps:
+    def __init__(
+        self,
+        *,
+        agent_alias: "IAgentAlias",
+        collaboration_instruction: builtins.str,
+        collaborator_name: builtins.str,
+        relay_conversation_history: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) ****************************************************************************                   PROPS - Agent Collaborator Class ***************************************************************************.
+
+        :param agent_alias: (experimental) Descriptor for the collaborating agent. This cannot be the TSTALIASID (``agent.testAlias``).
+        :param collaboration_instruction: (experimental) Instructions on how this agent should collaborate with the main agent.
+        :param collaborator_name: (experimental) A friendly name for the collaborator.
+        :param relay_conversation_history: (experimental) Whether to relay conversation history to this collaborator. Default: - undefined (uses service default)
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            # Create a specialized agent
+            customer_support_agent = bedrock.Agent(self, "CustomerSupportAgent",
+                instruction="You specialize in answering customer support questions.",
+                foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1
+            )
+            
+            # Create an agent alias
+            customer_support_alias = bedrock.AgentAlias(self, "CustomerSupportAlias",
+                agent=customer_support_agent,
+                agent_alias_name="production"
+            )
+            
+            # Create a main agent that collaborates with the specialized agent
+            main_agent = bedrock.Agent(self, "MainAgent",
+                instruction="You route specialized questions to other agents.",
+                foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1,
+                agent_collaboration={
+                    "type": bedrock.AgentCollaboratorType.SUPERVISOR,
+                    "collaborators": [
+                        bedrock.AgentCollaborator(
+                            agent_alias=customer_support_alias,
+                            collaboration_instruction="Route customer support questions to this agent.",
+                            collaborator_name="CustomerSupport",
+                            relay_conversation_history=True
+                        )
+                    ]
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__38cb6ea0e190b8eef95b7964639213d5273c82e36cad360e5f54a538ea1015a1)
+            check_type(argname="argument agent_alias", value=agent_alias, expected_type=type_hints["agent_alias"])
+            check_type(argname="argument collaboration_instruction", value=collaboration_instruction, expected_type=type_hints["collaboration_instruction"])
+            check_type(argname="argument collaborator_name", value=collaborator_name, expected_type=type_hints["collaborator_name"])
+            check_type(argname="argument relay_conversation_history", value=relay_conversation_history, expected_type=type_hints["relay_conversation_history"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "agent_alias": agent_alias,
+            "collaboration_instruction": collaboration_instruction,
+            "collaborator_name": collaborator_name,
+        }
+        if relay_conversation_history is not None:
+            self._values["relay_conversation_history"] = relay_conversation_history
+
+    @builtins.property
+    def agent_alias(self) -> "IAgentAlias":
+        '''(experimental) Descriptor for the collaborating agent.
+
+        This cannot be the TSTALIASID (``agent.testAlias``).
+
+        :stability: experimental
+        '''
+        result = self._values.get("agent_alias")
+        assert result is not None, "Required property 'agent_alias' is missing"
+        return typing.cast("IAgentAlias", result)
+
+    @builtins.property
+    def collaboration_instruction(self) -> builtins.str:
+        '''(experimental) Instructions on how this agent should collaborate with the main agent.
+
+        :stability: experimental
+        '''
+        result = self._values.get("collaboration_instruction")
+        assert result is not None, "Required property 'collaboration_instruction' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def collaborator_name(self) -> builtins.str:
+        '''(experimental) A friendly name for the collaborator.
+
+        :stability: experimental
+        '''
+        result = self._values.get("collaborator_name")
+        assert result is not None, "Required property 'collaborator_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def relay_conversation_history(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to relay conversation history to this collaborator.
+
+        :default: - undefined (uses service default)
+
+        :stability: experimental
+        '''
+        result = self._values.get("relay_conversation_history")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AgentCollaboratorProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="@aws-cdk/aws-bedrock-alpha.AgentCollaboratorType")
+class AgentCollaboratorType(enum.Enum):
+    '''(experimental) Enum for collaborator's relay conversation history types.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        # Create a specialized agent
+        customer_support_agent = bedrock.Agent(self, "CustomerSupportAgent",
+            instruction="You specialize in answering customer support questions.",
+            foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1
+        )
+        
+        # Create an agent alias
+        customer_support_alias = bedrock.AgentAlias(self, "CustomerSupportAlias",
+            agent=customer_support_agent,
+            agent_alias_name="production"
+        )
+        
+        # Create a main agent that collaborates with the specialized agent
+        main_agent = bedrock.Agent(self, "MainAgent",
+            instruction="You route specialized questions to other agents.",
+            foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1,
+            agent_collaboration={
+                "type": bedrock.AgentCollaboratorType.SUPERVISOR,
+                "collaborators": [
+                    bedrock.AgentCollaborator(
+                        agent_alias=customer_support_alias,
+                        collaboration_instruction="Route customer support questions to this agent.",
+                        collaborator_name="CustomerSupport",
+                        relay_conversation_history=True
+                    )
+                ]
+            }
+        )
+    '''
+
+    SUPERVISOR = "SUPERVISOR"
+    '''(experimental) Supervisor agent.
+
+    :stability: experimental
+    '''
+    DISABLED = "DISABLED"
+    '''(experimental) Disabling collaboration.
+
+    :stability: experimental
+    '''
+    SUPERVISOR_ROUTER = "SUPERVISOR_ROUTER"
+    '''(experimental) Supervisor router.
+
+    :stability: experimental
+    '''
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.AgentGenAiResourceProps",
+    jsii_struct_bases=[],
+    name_mapping={"agent_alias": "agentAlias"},
+)
+class AgentGenAiResourceProps:
+    def __init__(self, *, agent_alias: "IAgentAlias") -> None:
+        '''(experimental) Properties for creating an agent GenAI resource configuration.
+
+        :param agent_alias: (experimental) The agent alias to use for the GenAI resource.
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_alpha as bedrock_alpha
+            
+            # agent_alias: bedrock_alpha.AgentAlias
+            
+            agent_gen_ai_resource_props = bedrock_alpha.AgentGenAiResourceProps(
+                agent_alias=agent_alias
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__33bcde888a455b9531f35f38f12e7c13c3f7670348fd29ef4e818ebfdb3ccaf2)
+            check_type(argname="argument agent_alias", value=agent_alias, expected_type=type_hints["agent_alias"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "agent_alias": agent_alias,
+        }
+
+    @builtins.property
+    def agent_alias(self) -> "IAgentAlias":
+        '''(experimental) The agent alias to use for the GenAI resource.
+
+        :stability: experimental
+        '''
+        result = self._values.get("agent_alias")
+        assert result is not None, "Required property 'agent_alias' is missing"
+        return typing.cast("IAgentAlias", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AgentGenAiResourceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.AgentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "foundation_model": "foundationModel",
+        "instruction": "instruction",
+        "action_groups": "actionGroups",
+        "agent_collaboration": "agentCollaboration",
+        "agent_name": "agentName",
+        "code_interpreter_enabled": "codeInterpreterEnabled",
+        "custom_orchestration_executor": "customOrchestrationExecutor",
+        "description": "description",
+        "existing_role": "existingRole",
+        "force_delete": "forceDelete",
+        "guardrail": "guardrail",
+        "idle_session_ttl": "idleSessionTTL",
+        "kms_key": "kmsKey",
+        "memory": "memory",
+        "prompt_override_configuration": "promptOverrideConfiguration",
+        "should_prepare_agent": "shouldPrepareAgent",
+        "user_input_enabled": "userInputEnabled",
+    },
+)
+class AgentProps:
+    def __init__(
+        self,
+        *,
+        foundation_model: "IBedrockInvokable",
+        instruction: builtins.str,
+        action_groups: typing.Optional[typing.Sequence["AgentActionGroup"]] = None,
+        agent_collaboration: typing.Optional["AgentCollaboration"] = None,
+        agent_name: typing.Optional[builtins.str] = None,
+        code_interpreter_enabled: typing.Optional[builtins.bool] = None,
+        custom_orchestration_executor: typing.Optional["CustomOrchestrationExecutor"] = None,
+        description: typing.Optional[builtins.str] = None,
+        existing_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        force_delete: typing.Optional[builtins.bool] = None,
+        guardrail: typing.Optional["IGuardrail"] = None,
+        idle_session_ttl: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        kms_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        memory: typing.Optional["Memory"] = None,
+        prompt_override_configuration: typing.Optional["PromptOverrideConfiguration"] = None,
+        should_prepare_agent: typing.Optional[builtins.bool] = None,
+        user_input_enabled: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Properties for creating a CDK managed Bedrock Agent.
+
+        TODO: Knowledge bases configuration will be added in a future update
+        TODO: Inference profile configuration will be added in a future update
+
+        :param foundation_model: (experimental) The foundation model used for orchestration by the agent.
+        :param instruction: (experimental) The instruction used by the agent. This determines how the agent will perform his task. This instruction must have a minimum of 40 characters.
+        :param action_groups: (experimental) The Action Groups associated with the agent. Default: - Only default action groups (UserInput and CodeInterpreter) are added
+        :param agent_collaboration: (experimental) Configuration for agent collaboration settings, including AgentCollaboratorType and AgentCollaborators. This property allows you to define how the agent collaborates with other agents and what collaborators it can work with. Default: - No agent collaboration configuration.
+        :param agent_name: (experimental) The name of the agent. This will be used as the physical name of the agent. Default: - A name is generated by CDK. Supported pattern : ^([0-9a-zA-Z][_-]?){1,100}$
+        :param code_interpreter_enabled: (experimental) Select whether the agent can generate, run, and troubleshoot code when trying to complete a task. Default: false
+        :param custom_orchestration_executor: (experimental) The Lambda function to use for custom orchestration. If provided, custom orchestration will be used. If not provided, default orchestration will be used. Default: - Default orchestration
+        :param description: (experimental) A description of the agent. Default: - No description is provided.
+        :param existing_role: (experimental) An existing IAM Role to associate with this agent. Use this property when you want to reuse an existing IAM role rather than create a new one. The role must have a trust policy that allows the Bedrock service to assume it. Default: - A new role is created for you.
+        :param force_delete: (experimental) Whether to delete the resource even if it's in use. Default: false
+        :param guardrail: (experimental) The guardrail that will be associated with the agent. Default: - No guardrail is provided.
+        :param idle_session_ttl: (experimental) How long sessions should be kept open for the agent. If no conversation occurs during this time, the session expires and Amazon Bedrock deletes any data provided before the timeout. Default: - 10 minutes
+        :param kms_key: (experimental) The KMS key of the agent if custom encryption is configured. Default: - An AWS managed key is used.
+        :param memory: (experimental) The type and configuration of the memory to maintain context across multiple sessions and recall past interactions. This can be useful for maintaining continuity in multi-turn conversations and recalling user preferences or past interactions. Default: - No memory will be used. Agents will retain context from the current session only.
+        :param prompt_override_configuration: (experimental) Overrides some prompt templates in different parts of an agent sequence configuration. Default: - No overrides are provided.
+        :param should_prepare_agent: (experimental) Specifies whether to automatically update the ``DRAFT`` version of the agent after making changes to the agent. The ``DRAFT`` version can be continually iterated upon during internal development. Default: false
+        :param user_input_enabled: (experimental) Select whether the agent can prompt additional information from the user when it does not have enough information to respond to an utterance. Default: false
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            parser_function = lambda_.Function(self, "ParserFunction",
+                runtime=lambda_.Runtime.PYTHON_3_10,
+                handler="index.handler",
+                code=lambda_.Code.from_asset("lambda")
+            )
+            
+            agent = bedrock.Agent(self, "Agent",
+                foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1,
+                instruction="You are a helpful assistant.",
+                prompt_override_configuration=bedrock.PromptOverrideConfiguration.with_custom_parser(
+                    parser=parser_function,
+                    pre_processing_step=bedrock.PromptPreProcessingConfigCustomParser(
+                        step_type=bedrock.AgentStepType.PRE_PROCESSING,
+                        use_custom_parser=True
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1e71f5eada4b0acb202729bade487b2adb4e2e2b8fd4546f4cb3bcbc8f3d8cc1)
+            check_type(argname="argument foundation_model", value=foundation_model, expected_type=type_hints["foundation_model"])
+            check_type(argname="argument instruction", value=instruction, expected_type=type_hints["instruction"])
+            check_type(argname="argument action_groups", value=action_groups, expected_type=type_hints["action_groups"])
+            check_type(argname="argument agent_collaboration", value=agent_collaboration, expected_type=type_hints["agent_collaboration"])
+            check_type(argname="argument agent_name", value=agent_name, expected_type=type_hints["agent_name"])
+            check_type(argname="argument code_interpreter_enabled", value=code_interpreter_enabled, expected_type=type_hints["code_interpreter_enabled"])
+            check_type(argname="argument custom_orchestration_executor", value=custom_orchestration_executor, expected_type=type_hints["custom_orchestration_executor"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument existing_role", value=existing_role, expected_type=type_hints["existing_role"])
+            check_type(argname="argument force_delete", value=force_delete, expected_type=type_hints["force_delete"])
+            check_type(argname="argument guardrail", value=guardrail, expected_type=type_hints["guardrail"])
+            check_type(argname="argument idle_session_ttl", value=idle_session_ttl, expected_type=type_hints["idle_session_ttl"])
+            check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
+            check_type(argname="argument memory", value=memory, expected_type=type_hints["memory"])
+            check_type(argname="argument prompt_override_configuration", value=prompt_override_configuration, expected_type=type_hints["prompt_override_configuration"])
+            check_type(argname="argument should_prepare_agent", value=should_prepare_agent, expected_type=type_hints["should_prepare_agent"])
+            check_type(argname="argument user_input_enabled", value=user_input_enabled, expected_type=type_hints["user_input_enabled"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "foundation_model": foundation_model,
+            "instruction": instruction,
+        }
+        if action_groups is not None:
+            self._values["action_groups"] = action_groups
+        if agent_collaboration is not None:
+            self._values["agent_collaboration"] = agent_collaboration
+        if agent_name is not None:
+            self._values["agent_name"] = agent_name
+        if code_interpreter_enabled is not None:
+            self._values["code_interpreter_enabled"] = code_interpreter_enabled
+        if custom_orchestration_executor is not None:
+            self._values["custom_orchestration_executor"] = custom_orchestration_executor
+        if description is not None:
+            self._values["description"] = description
+        if existing_role is not None:
+            self._values["existing_role"] = existing_role
+        if force_delete is not None:
+            self._values["force_delete"] = force_delete
+        if guardrail is not None:
+            self._values["guardrail"] = guardrail
+        if idle_session_ttl is not None:
+            self._values["idle_session_ttl"] = idle_session_ttl
+        if kms_key is not None:
+            self._values["kms_key"] = kms_key
+        if memory is not None:
+            self._values["memory"] = memory
+        if prompt_override_configuration is not None:
+            self._values["prompt_override_configuration"] = prompt_override_configuration
+        if should_prepare_agent is not None:
+            self._values["should_prepare_agent"] = should_prepare_agent
+        if user_input_enabled is not None:
+            self._values["user_input_enabled"] = user_input_enabled
+
+    @builtins.property
+    def foundation_model(self) -> "IBedrockInvokable":
+        '''(experimental) The foundation model used for orchestration by the agent.
+
+        :stability: experimental
+        '''
+        result = self._values.get("foundation_model")
+        assert result is not None, "Required property 'foundation_model' is missing"
+        return typing.cast("IBedrockInvokable", result)
+
+    @builtins.property
+    def instruction(self) -> builtins.str:
+        '''(experimental) The instruction used by the agent.
+
+        This determines how the agent will perform his task.
+        This instruction must have a minimum of 40 characters.
+
+        :stability: experimental
+        '''
+        result = self._values.get("instruction")
+        assert result is not None, "Required property 'instruction' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def action_groups(self) -> typing.Optional[typing.List["AgentActionGroup"]]:
+        '''(experimental) The Action Groups associated with the agent.
+
+        :default: - Only default action groups (UserInput and CodeInterpreter) are added
+
+        :stability: experimental
+        '''
+        result = self._values.get("action_groups")
+        return typing.cast(typing.Optional[typing.List["AgentActionGroup"]], result)
+
+    @builtins.property
+    def agent_collaboration(self) -> typing.Optional["AgentCollaboration"]:
+        '''(experimental) Configuration for agent collaboration settings, including AgentCollaboratorType and AgentCollaborators.
+
+        This property allows you to define how the agent collaborates with other agents
+        and what collaborators it can work with.
+
+        :default: - No agent collaboration configuration.
+
+        :stability: experimental
+        '''
+        result = self._values.get("agent_collaboration")
+        return typing.cast(typing.Optional["AgentCollaboration"], result)
+
+    @builtins.property
+    def agent_name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The name of the agent.
+
+        This will be used as the physical name of the agent.
+
+        :default:
+
+        - A name is generated by CDK.
+        Supported pattern : ^([0-9a-zA-Z][_-]?){1,100}$
+
+        :stability: experimental
+        '''
+        result = self._values.get("agent_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def code_interpreter_enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Select whether the agent can generate, run, and troubleshoot code when trying to complete a task.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("code_interpreter_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def custom_orchestration_executor(
+        self,
+    ) -> typing.Optional["CustomOrchestrationExecutor"]:
+        '''(experimental) The Lambda function to use for custom orchestration.
+
+        If provided, custom orchestration will be used.
+        If not provided, default orchestration will be used.
+
+        :default: - Default orchestration
+
+        :stability: experimental
+        '''
+        result = self._values.get("custom_orchestration_executor")
+        return typing.cast(typing.Optional["CustomOrchestrationExecutor"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) A description of the agent.
+
+        :default: - No description is provided.
+
+        :stability: experimental
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def existing_role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
+        '''(experimental) An existing IAM Role to associate with this agent.
+
+        Use this property when you want to reuse an existing IAM role rather than create a new one.
+        The role must have a trust policy that allows the Bedrock service to assume it.
+
+        :default: - A new role is created for you.
+
+        :stability: experimental
+        '''
+        result = self._values.get("existing_role")
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
+
+    @builtins.property
+    def force_delete(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to delete the resource even if it's in use.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("force_delete")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def guardrail(self) -> typing.Optional["IGuardrail"]:
+        '''(experimental) The guardrail that will be associated with the agent.
+
+        :default: - No guardrail is provided.
+
+        :stability: experimental
+        '''
+        result = self._values.get("guardrail")
+        return typing.cast(typing.Optional["IGuardrail"], result)
+
+    @builtins.property
+    def idle_session_ttl(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
+        '''(experimental) How long sessions should be kept open for the agent.
+
+        If no conversation occurs
+        during this time, the session expires and Amazon Bedrock deletes any data
+        provided before the timeout.
+
+        :default: - 10 minutes
+
+        :stability: experimental
+        '''
+        result = self._values.get("idle_session_ttl")
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
+
+    @builtins.property
+    def kms_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) The KMS key of the agent if custom encryption is configured.
+
+        :default: - An AWS managed key is used.
+
+        :stability: experimental
+        '''
+        result = self._values.get("kms_key")
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], result)
+
+    @builtins.property
+    def memory(self) -> typing.Optional["Memory"]:
+        '''(experimental) The type and configuration of the memory to maintain context across multiple sessions and recall past interactions.
+
+        This can be useful for maintaining continuity in multi-turn conversations and recalling user preferences
+        or past interactions.
+
+        :default: - No memory will be used. Agents will retain context from the current session only.
+
+        :see: https://docs.aws.amazon.com/bedrock/latest/userguide/agents-memory.html
+        :stability: experimental
+        '''
+        result = self._values.get("memory")
+        return typing.cast(typing.Optional["Memory"], result)
+
+    @builtins.property
+    def prompt_override_configuration(
+        self,
+    ) -> typing.Optional["PromptOverrideConfiguration"]:
+        '''(experimental) Overrides some prompt templates in different parts of an agent sequence configuration.
+
+        :default: - No overrides are provided.
+
+        :stability: experimental
+        '''
+        result = self._values.get("prompt_override_configuration")
+        return typing.cast(typing.Optional["PromptOverrideConfiguration"], result)
+
+    @builtins.property
+    def should_prepare_agent(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Specifies whether to automatically update the ``DRAFT`` version of the agent after making changes to the agent.
+
+        The ``DRAFT`` version can be continually iterated
+        upon during internal development.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("should_prepare_agent")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def user_input_enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Select whether the agent can prompt additional information from the user when it does not have enough information to respond to an utterance.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("user_input_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AgentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="@aws-cdk/aws-bedrock-alpha.AgentStepType")
+class AgentStepType(enum.Enum):
+    '''(experimental) The step in the agent sequence that this prompt configuration applies to.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        agent = bedrock.Agent(self, "Agent",
+            foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1,
+            instruction="You are a helpful assistant.",
+            prompt_override_configuration=bedrock.PromptOverrideConfiguration.from_steps([
+                step_type=bedrock.AgentStepType.ROUTING_CLASSIFIER,
+                step_enabled=True,
+                custom_prompt_template="Your routing template here",
+                foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_V2
+        
+            ])
+        )
+    '''
+
+    PRE_PROCESSING = "PRE_PROCESSING"
+    '''(experimental) Pre-processing step that prepares the user input for orchestration.
+
+    :stability: experimental
+    '''
+    ORCHESTRATION = "ORCHESTRATION"
+    '''(experimental) Main orchestration step that determines the agent's actions.
+
+    :stability: experimental
+    '''
+    POST_PROCESSING = "POST_PROCESSING"
+    '''(experimental) Post-processing step that refines the agent's response.
+
+    :stability: experimental
+    '''
+    ROUTING_CLASSIFIER = "ROUTING_CLASSIFIER"
+    '''(experimental) Step that classifies and routes requests to appropriate collaborators.
+
+    :stability: experimental
+    '''
+    MEMORY_SUMMARIZATION = "MEMORY_SUMMARIZATION"
+    '''(experimental) Step that summarizes conversation history for memory retention.
+
+    :stability: experimental
+    '''
+    KNOWLEDGE_BASE_RESPONSE_GENERATION = "KNOWLEDGE_BASE_RESPONSE_GENERATION"
+    '''(experimental) Step that generates responses using knowledge base content.
+
+    :stability: experimental
+    '''
+
+
+class ApiSchema(
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.ApiSchema",
+):
+    '''(experimental) Represents the concept of an API Schema for a Bedrock Agent Action Group.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        bucket = s3.Bucket.from_bucket_name(self, "ExistingBucket", "my-schema-bucket")
+        s3_schema = bedrock.ApiSchema.from_s3_file(bucket, "schemas/action-group.yaml")
+        
+        action_group_function = lambda_.Function(self, "ActionGroupFunction",
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            handler="index.handler",
+            code=lambda_.Code.from_asset(path.join(__dirname, "../lambda/action-group"))
+        )
+        
+        action_group = bedrock.AgentActionGroup(
+            name="query-library",
+            description="Use these functions to get information about the books in the library.",
+            executor=bedrock.ActionGroupExecutor.from_lambda(action_group_function),
+            enabled=True,
+            api_schema=s3_schema
+        )
+        
+        agent = bedrock.Agent(self, "Agent",
+            foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_HAIKU_V1_0,
+            instruction="You are a helpful and friendly agent that answers questions about literature."
+        )
+        
+        agent.add_action_group(action_group)
+    '''
+
+    def __init__(
+        self,
+        s3_file: typing.Optional[typing.Union["_aws_cdk_aws_s3_ceddda9d.Location", typing.Dict[builtins.str, typing.Any]]] = None,
+        inline_schema: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param s3_file: -
+        :param inline_schema: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fef98095a98b1c3218daff037e79d43c41de797ec47d848bf1caa44f27c10abf)
+            check_type(argname="argument s3_file", value=s3_file, expected_type=type_hints["s3_file"])
+            check_type(argname="argument inline_schema", value=inline_schema, expected_type=type_hints["inline_schema"])
+        jsii.create(self.__class__, self, [s3_file, inline_schema])
+
+    @jsii.member(jsii_name="fromInline")
+    @builtins.classmethod
+    def from_inline(cls, schema: builtins.str) -> "InlineApiSchema":
+        '''(experimental) Creates an API Schema from an inline string.
+
+        :param schema: - the JSON or YAML payload defining the OpenAPI schema for the action group.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ea650d724bddc459b33660757cb186cf804ba8ff34e5149c2ba116012bac3d13)
+            check_type(argname="argument schema", value=schema, expected_type=type_hints["schema"])
+        return typing.cast("InlineApiSchema", jsii.sinvoke(cls, "fromInline", [schema]))
+
+    @jsii.member(jsii_name="fromLocalAsset")
+    @builtins.classmethod
+    def from_local_asset(cls, path: builtins.str) -> "AssetApiSchema":
+        '''(experimental) Creates an API Schema from a local file.
+
+        :param path: - the path to the local file containing the OpenAPI schema for the action group.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1ef4f4f3b1ccc0ba1ca114b89046ebec72d8562e37d54d5ce5a48fb13bdb98e5)
+            check_type(argname="argument path", value=path, expected_type=type_hints["path"])
+        return typing.cast("AssetApiSchema", jsii.sinvoke(cls, "fromLocalAsset", [path]))
+
+    @jsii.member(jsii_name="fromS3File")
+    @builtins.classmethod
+    def from_s3_file(
+        cls,
+        bucket: "_aws_cdk_interfaces_aws_s3_ceddda9d.IBucketRef",
+        object_key: builtins.str,
+    ) -> "S3ApiSchema":
+        '''(experimental) Creates an API Schema from an S3 File.
+
+        :param bucket: - the bucket containing the local file containing the OpenAPI schema for the action group.
+        :param object_key: - object key in the bucket.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__882387202413f33bb2e0f658215337e89d82d8bab90973056398f7bc7f939f52)
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+            check_type(argname="argument object_key", value=object_key, expected_type=type_hints["object_key"])
+        return typing.cast("S3ApiSchema", jsii.sinvoke(cls, "fromS3File", [bucket, object_key]))
+
+    @builtins.property
+    @jsii.member(jsii_name="inlineSchema")
+    def inline_schema(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The inline OpenAPI schema definition as a string, if using an inline schema.
+
+        Can be in JSON or YAML format.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "inlineSchema"))
+
+    @builtins.property
+    @jsii.member(jsii_name="s3File")
+    def s3_file(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.Location"]:
+        '''(experimental) The S3 location of the API schema file, if using an S3-based schema.
+
+        Contains the bucket name and object key information.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.Location"], jsii.get(self, "s3File"))
+
+
+class _ApiSchemaProxy(ApiSchema):
+    pass
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, ApiSchema).__jsii_proxy_class__ = lambda : _ApiSchemaProxy
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.ApplicationInferenceProfileAttributes",
+    jsii_struct_bases=[],
+    name_mapping={
+        "inference_profile_arn": "inferenceProfileArn",
+        "inference_profile_identifier": "inferenceProfileIdentifier",
+    },
+)
+class ApplicationInferenceProfileAttributes:
+    def __init__(
+        self,
+        *,
+        inference_profile_arn: builtins.str,
+        inference_profile_identifier: builtins.str,
+    ) -> None:
+        '''(experimental) Attributes for specifying an imported Application Inference Profile.
+
+        :param inference_profile_arn: (experimental) The ARN of the application inference profile.
+        :param inference_profile_identifier: (experimental) The ID or Amazon Resource Name (ARN) of the inference profile. This can be either the profile ID or the full ARN.
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            # Import an inference profile through attributes
+            imported_profile = bedrock.ApplicationInferenceProfile.from_application_inference_profile_attributes(self, "ImportedProfile",
+                inference_profile_arn="arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/my-profile-id",
+                inference_profile_identifier="my-profile-id"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__76e0a26e725dfaec34abb9a24f9dbb705db1ad5628dcbb66f7928377b31d4c7e)
+            check_type(argname="argument inference_profile_arn", value=inference_profile_arn, expected_type=type_hints["inference_profile_arn"])
+            check_type(argname="argument inference_profile_identifier", value=inference_profile_identifier, expected_type=type_hints["inference_profile_identifier"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "inference_profile_arn": inference_profile_arn,
+            "inference_profile_identifier": inference_profile_identifier,
+        }
+
+    @builtins.property
+    def inference_profile_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the application inference profile.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        result = self._values.get("inference_profile_arn")
+        assert result is not None, "Required property 'inference_profile_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def inference_profile_identifier(self) -> builtins.str:
+        '''(experimental) The ID or Amazon Resource Name (ARN) of the inference profile.
+
+        This can be either the profile ID or the full ARN.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        result = self._values.get("inference_profile_identifier")
+        assert result is not None, "Required property 'inference_profile_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApplicationInferenceProfileAttributes(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.ApplicationInferenceProfileProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_inference_profile_name": "applicationInferenceProfileName",
+        "model_source": "modelSource",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class ApplicationInferenceProfileProps:
+    def __init__(
+        self,
+        *,
+        application_inference_profile_name: builtins.str,
+        model_source: "IBedrockInvokable",
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''(experimental) Properties for creating an Application Inference Profile.
+
+        :param application_inference_profile_name: (experimental) The name of the application inference profile. This name will be used to identify the inference profile in the AWS console and APIs. - Required: Yes - Maximum length: 64 characters - Pattern: ``^([0-9a-zA-Z:.][ _-]?)+$``
+        :param model_source: (experimental) The model source for this inference profile. To create an application inference profile for one Region, specify a foundation model. Usage and costs for requests made to that Region with that model will be tracked. To create an application inference profile for multiple Regions, specify a cross region (system-defined) inference profile. The inference profile will route requests to the Regions defined in the cross region (system-defined) inference profile that you choose. Usage and costs for requests made to the Regions in the inference profile will be tracked.
+        :param description: (experimental) Description of the inference profile. Provides additional context about the purpose and usage of this inference profile. - Maximum length: 200 characters when provided - Pattern: ``^([0-9a-zA-Z:.][ _-]?)+$`` Default: - No description is provided
+        :param tags: (experimental) A list of tags associated with the inference profile. Tags help you organize and categorize your AWS resources. Default: - No tags are applied
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            # Create a cross-region inference profile
+            cross_region_profile = bedrock.CrossRegionInferenceProfile.from_config(
+                geo_region=bedrock.CrossRegionInferenceProfileRegion.US,
+                model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V2_0
+            )
+            
+            # Create an application inference profile across regions
+            app_profile = bedrock.ApplicationInferenceProfile(self, "MyMultiRegionProfile",
+                application_inference_profile_name="claude-35-sonnet-v2-multi-region",
+                model_source=cross_region_profile,
+                description="Multi-region application profile for cost tracking"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__810069fb413e0865d1bc4f071e4e80a59497c694c81a5012ce44cde4a3aaa6fb)
+            check_type(argname="argument application_inference_profile_name", value=application_inference_profile_name, expected_type=type_hints["application_inference_profile_name"])
+            check_type(argname="argument model_source", value=model_source, expected_type=type_hints["model_source"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_inference_profile_name": application_inference_profile_name,
+            "model_source": model_source,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def application_inference_profile_name(self) -> builtins.str:
+        '''(experimental) The name of the application inference profile.
+
+        This name will be used to identify the inference profile in the AWS console and APIs.
+
+        - Required:  Yes
+        - Maximum length: 64 characters
+        - Pattern: ``^([0-9a-zA-Z:.][ _-]?)+$``
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-applicationinferenceprofile.html#cfn-bedrock-applicationinferenceprofile-inferenceprofilename
+        :stability: experimental
+        '''
+        result = self._values.get("application_inference_profile_name")
+        assert result is not None, "Required property 'application_inference_profile_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def model_source(self) -> "IBedrockInvokable":
+        '''(experimental) The model source for this inference profile.
+
+        To create an application inference profile for one Region, specify a foundation model.
+        Usage and costs for requests made to that Region with that model will be tracked.
+
+        To create an application inference profile for multiple Regions,
+        specify a cross region (system-defined) inference profile.
+        The inference profile will route requests to the Regions defined in
+        the cross region (system-defined) inference profile that you choose.
+        Usage and costs for requests made to the Regions in the inference profile will be tracked.
+
+        :stability: experimental
+        '''
+        result = self._values.get("model_source")
+        assert result is not None, "Required property 'model_source' is missing"
+        return typing.cast("IBedrockInvokable", result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Description of the inference profile. Provides additional context about the purpose and usage of this inference profile.
+
+        - Maximum length: 200 characters when provided
+        - Pattern: ``^([0-9a-zA-Z:.][ _-]?)+$``
+
+        :default: - No description is provided
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-applicationinferenceprofile.html#cfn-bedrock-applicationinferenceprofile-description
+        :stability: experimental
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) A list of tags associated with the inference profile.
+
+        Tags help you organize and categorize your AWS resources.
+
+        :default: - No tags are applied
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApplicationInferenceProfileProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class AssetApiSchema(
+    ApiSchema,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.AssetApiSchema",
+):
+    '''(experimental) API Schema from a local asset.
+
+    The asset is uploaded to an S3 staging bucket, then moved to its final location
+    by CloudFormation during deployment.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        action_group_function = lambda_.Function(self, "ActionGroupFunction",
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            handler="index.handler",
+            code=lambda_.Code.from_asset(path.join(__dirname, "../lambda/action-group"))
+        )
+        
+        # When using ApiSchema.fromLocalAsset, you must bind the schema to a scope
+        schema = bedrock.ApiSchema.from_local_asset(path.join(__dirname, "action-group.yaml"))
+        schema.bind(self)
+        
+        action_group = bedrock.AgentActionGroup(
+            name="query-library",
+            description="Use these functions to get information about the books in the library.",
+            executor=bedrock.ActionGroupExecutor.from_lambda(action_group_function),
+            enabled=True,
+            api_schema=schema
+        )
+        
+        agent = bedrock.Agent(self, "Agent",
+            foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_HAIKU_V1_0,
+            instruction="You are a helpful and friendly agent that answers questions about literature."
+        )
+        
+        agent.add_action_group(action_group)
+    '''
+
+    def __init__(
+        self,
+        path: builtins.str,
+        *,
+        deploy_time: typing.Optional[builtins.bool] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        readers: typing.Optional[typing.Sequence["_aws_cdk_aws_iam_ceddda9d.IGrantable"]] = None,
+        source_kms_key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
+        asset_hash: typing.Optional[builtins.str] = None,
+        asset_hash_type: typing.Optional["_aws_cdk_ceddda9d.AssetHashType"] = None,
+        bundling: typing.Optional[typing.Union["_aws_cdk_ceddda9d.BundlingOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+        follow_symlinks: typing.Optional["_aws_cdk_ceddda9d.SymlinkFollowMode"] = None,
+        ignore_mode: typing.Optional["_aws_cdk_ceddda9d.IgnoreMode"] = None,
+    ) -> None:
+        '''
+        :param path: -
+        :param deploy_time: Whether or not the asset needs to exist beyond deployment time; i.e. are copied over to a different location and not needed afterwards. Setting this property to true has an impact on the lifecycle of the asset, because we will assume that it is safe to delete after the CloudFormation deployment succeeds. For example, Lambda Function assets are copied over to Lambda during deployment. Therefore, it is not necessary to store the asset in S3, so we consider those deployTime assets. Default: false
+        :param display_name: A display name for this asset. If supplied, the display name will be used in locations where the asset identifier is printed, like in the CLI progress information. If the same asset is added multiple times, the display name of the first occurrence is used. The default is the construct path of the Asset construct, with respect to the enclosing stack. If the asset is produced by a construct helper function (such as ``lambda.Code.fromAsset()``), this will look like ``MyFunction/Code``. We use the stack-relative construct path so that in the common case where you have multiple stacks with the same asset, we won't show something like ``/MyBetaStack/MyFunction/Code`` when you are actually deploying to production. Default: - Stack-relative construct path
+        :param readers: A list of principals that should be able to read this asset from S3. You can use ``asset.grantRead(principal)`` to grant read permissions later. Default: - No principals that can read file asset.
+        :param source_kms_key: The ARN of the KMS key used to encrypt the handler code. Default: - the default server-side encryption with Amazon S3 managed keys(SSE-S3) key will be used.
+        :param asset_hash: Specify a custom hash for this asset. If ``assetHashType`` is set it must be set to ``AssetHashType.CUSTOM``. For consistency, this custom hash will be SHA256 hashed and encoded as hex. The resulting hash will be the asset hash. NOTE: the hash is used in order to identify a specific revision of the asset, and used for optimizing and caching deployment activities related to this asset such as packaging, uploading to Amazon S3, etc. If you chose to customize the hash, you will need to make sure it is updated every time the asset changes, or otherwise it is possible that some deployments will not be invalidated. Default: - based on ``assetHashType``
+        :param asset_hash_type: Specifies the type of hash to calculate for this asset. If ``assetHash`` is configured, this option must be ``undefined`` or ``AssetHashType.CUSTOM``. Default: - the default is ``AssetHashType.SOURCE``, but if ``assetHash`` is explicitly specified this value defaults to ``AssetHashType.CUSTOM``.
+        :param bundling: Bundle the asset by executing a command in a Docker container or a custom bundling provider. The asset path will be mounted at ``/asset-input``. The Docker container is responsible for putting content at ``/asset-output``. The content at ``/asset-output`` will be zipped and used as the final asset. Default: - uploaded as-is to S3 if the asset is a regular file or a .zip file, archived into a .zip file and uploaded to S3 otherwise
+        :param exclude: File paths matching the patterns will be excluded. See ``ignoreMode`` to set the matching behavior. Has no effect on Assets bundled using the ``bundling`` property. Default: - nothing is excluded
+        :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
+        :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aee3c625b88d3cf9715cbd94ca9cf4c640ffe4007031b066fcea7749d1fd3b20)
+            check_type(argname="argument path", value=path, expected_type=type_hints["path"])
+        options = _aws_cdk_aws_s3_assets_ceddda9d.AssetOptions(
+            deploy_time=deploy_time,
+            display_name=display_name,
+            readers=readers,
+            source_kms_key=source_kms_key,
+            asset_hash=asset_hash,
+            asset_hash_type=asset_hash_type,
+            bundling=bundling,
+            exclude=exclude,
+            follow_symlinks=follow_symlinks,
+            ignore_mode=ignore_mode,
+        )
+
+        jsii.create(self.__class__, self, [path, options])
+
+    @jsii.member(jsii_name="bind")
+    def bind(self, scope: "_constructs_77d1e7e8.Construct") -> None:
+        '''(experimental) Binds this API schema to a construct scope.
+
+        This method initializes the S3 asset if it hasn't been initialized yet.
+        Must be called before rendering the schema as CFN properties.
+
+        :param scope: - The construct scope to bind to.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e42433d3c2e0a249ee91a1f011a13449ed0bdad079ab434f1317b403ad25b8e7)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+        return typing.cast(None, jsii.invoke(self, "bind", [scope]))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.BedrockFoundationModelProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "legacy": "legacy",
+        "optimized_for_agents": "optimizedForAgents",
+        "supported_vector_type": "supportedVectorType",
+        "supports_agents": "supportsAgents",
+        "supports_cross_region": "supportsCrossRegion",
+        "supports_knowledge_base": "supportsKnowledgeBase",
+        "vector_dimensions": "vectorDimensions",
+    },
+)
+class BedrockFoundationModelProps:
+    def __init__(
+        self,
+        *,
+        legacy: typing.Optional[builtins.bool] = None,
+        optimized_for_agents: typing.Optional[builtins.bool] = None,
+        supported_vector_type: typing.Optional[typing.Sequence["VectorType"]] = None,
+        supports_agents: typing.Optional[builtins.bool] = None,
+        supports_cross_region: typing.Optional[builtins.bool] = None,
+        supports_knowledge_base: typing.Optional[builtins.bool] = None,
+        vector_dimensions: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''(experimental) Properties for configuring a Bedrock Foundation Model.
+
+        These properties define the model's capabilities and supported features.
+
+        :param legacy: (experimental) https://docs.aws.amazon.com/bedrock/latest/userguide/model-lifecycle.html A version is marked Legacy when there is a more recent version which provides superior performance. Amazon Bedrock sets an EOL date for Legacy versions. Default: - false
+        :param optimized_for_agents: (experimental) Currently, some of the offered models are optimized with prompts/parsers fine-tuned for integrating with the agents architecture. When true, the model has been specifically optimized for agent interactions. Default: - false
+        :param supported_vector_type: (experimental) Embeddings models have different supported vector types. Defines whether the model supports floating-point or binary vectors. Default: - undefined
+        :param supports_agents: (experimental) Bedrock Agents can use this model. When true, the model can be used with Bedrock Agents for automated task execution. Default: - false
+        :param supports_cross_region: (experimental) Can be used with a Cross-Region Inference Profile. When true, the model supports inference across different AWS regions. Default: - false
+        :param supports_knowledge_base: (experimental) Bedrock Knowledge Base can use this model. When true, the model can be used for knowledge base operations. Default: - false
+        :param vector_dimensions: (experimental) Embedding models have different vector dimensions. Only applicable for embedding models. Defines the dimensionality of the vector embeddings. Default: - undefined
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_alpha as bedrock_alpha
+            
+            bedrock_foundation_model_props = bedrock_alpha.BedrockFoundationModelProps(
+                legacy=False,
+                optimized_for_agents=False,
+                supported_vector_type=[bedrock_alpha.VectorType.FLOATING_POINT],
+                supports_agents=False,
+                supports_cross_region=False,
+                supports_knowledge_base=False,
+                vector_dimensions=123
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9871e1b6209dedd6005dcce72b65ee8c40c6a25156e22de4c732060c640acf67)
+            check_type(argname="argument legacy", value=legacy, expected_type=type_hints["legacy"])
+            check_type(argname="argument optimized_for_agents", value=optimized_for_agents, expected_type=type_hints["optimized_for_agents"])
+            check_type(argname="argument supported_vector_type", value=supported_vector_type, expected_type=type_hints["supported_vector_type"])
+            check_type(argname="argument supports_agents", value=supports_agents, expected_type=type_hints["supports_agents"])
+            check_type(argname="argument supports_cross_region", value=supports_cross_region, expected_type=type_hints["supports_cross_region"])
+            check_type(argname="argument supports_knowledge_base", value=supports_knowledge_base, expected_type=type_hints["supports_knowledge_base"])
+            check_type(argname="argument vector_dimensions", value=vector_dimensions, expected_type=type_hints["vector_dimensions"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if legacy is not None:
+            self._values["legacy"] = legacy
+        if optimized_for_agents is not None:
+            self._values["optimized_for_agents"] = optimized_for_agents
+        if supported_vector_type is not None:
+            self._values["supported_vector_type"] = supported_vector_type
+        if supports_agents is not None:
+            self._values["supports_agents"] = supports_agents
+        if supports_cross_region is not None:
+            self._values["supports_cross_region"] = supports_cross_region
+        if supports_knowledge_base is not None:
+            self._values["supports_knowledge_base"] = supports_knowledge_base
+        if vector_dimensions is not None:
+            self._values["vector_dimensions"] = vector_dimensions
+
+    @builtins.property
+    def legacy(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) https://docs.aws.amazon.com/bedrock/latest/userguide/model-lifecycle.html A version is marked Legacy when there is a more recent version which provides superior performance. Amazon Bedrock sets an EOL date for Legacy versions.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("legacy")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def optimized_for_agents(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Currently, some of the offered models are optimized with prompts/parsers fine-tuned for integrating with the agents architecture.
+
+        When true, the model has been specifically optimized for agent interactions.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("optimized_for_agents")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def supported_vector_type(self) -> typing.Optional[typing.List["VectorType"]]:
+        '''(experimental) Embeddings models have different supported vector types.
+
+        Defines whether the model supports floating-point or binary vectors.
+
+        :default: - undefined
+
+        :stability: experimental
+        '''
+        result = self._values.get("supported_vector_type")
+        return typing.cast(typing.Optional[typing.List["VectorType"]], result)
+
+    @builtins.property
+    def supports_agents(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Bedrock Agents can use this model.
+
+        When true, the model can be used with Bedrock Agents for automated task execution.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("supports_agents")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def supports_cross_region(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Can be used with a Cross-Region Inference Profile.
+
+        When true, the model supports inference across different AWS regions.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("supports_cross_region")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def supports_knowledge_base(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Bedrock Knowledge Base can use this model.
+
+        When true, the model can be used for knowledge base operations.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("supports_knowledge_base")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def vector_dimensions(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) Embedding models have different vector dimensions.
+
+        Only applicable for embedding models. Defines the dimensionality of the vector embeddings.
+
+        :default: - undefined
+
+        :stability: experimental
+        '''
+        result = self._values.get("vector_dimensions")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BedrockFoundationModelProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class ChatMessage(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.ChatMessage",
+):
+    '''(experimental) Represents a message in a chat conversation.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        cmk = kms.Key(self, "cmk")
+        
+        variant_chat = bedrock.PromptVariant.chat(
+            variant_name="variant1",
+            model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V1_0,
+            messages=[
+                bedrock.ChatMessage.user("From now on, you speak Japanese!"),
+                bedrock.ChatMessage.assistant("Konnichiwa!"),
+                bedrock.ChatMessage.user("From now on, you speak {{language}}!")
+            ],
+            system="You are a helpful assistant that only speaks the language you`re told.",
+            prompt_variables=["language"],
+            tool_configuration=bedrock.ToolConfiguration(
+                tool_choice=bedrock.ToolChoice.AUTO,
+                tools=[
+                    bedrock.Tool.function(
+                        name="top_song",
+                        description="Get the most popular song played on a radio station.",
+                        input_schema={
+                            "type": "object",
+                            "properties": {
+                                "sign": {
+                                    "type": "string",
+                                    "description": "The call sign for the radio station for which you want the most popular song. Example calls signs are WZPZ and WKR."
+                                }
+                            },
+                            "required": ["sign"]
+                        }
+                    )
+                ]
+            )
+        )
+        
+        bedrock.Prompt(self, "prompt1",
+            prompt_name="prompt-chat",
+            description="my first chat prompt",
+            default_variant=variant_chat,
+            variants=[variant_chat],
+            kms_key=cmk
+        )
+    '''
+
+    def __init__(self, role: "ChatMessageRole", text: builtins.str) -> None:
+        '''
+        :param role: -
+        :param text: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__69926d4c72afa6eb67b4372eb231b05022c986c807207c2ca08a862641fc1228)
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+            check_type(argname="argument text", value=text, expected_type=type_hints["text"])
+        jsii.create(self.__class__, self, [role, text])
+
+    @jsii.member(jsii_name="assistant")
+    @builtins.classmethod
+    def assistant(cls, text: builtins.str) -> "ChatMessage":
+        '''(experimental) Creates an assistant message.
+
+        :param text: - The text content of the assistant message.
+
+        :return: A ChatMessage instance representing an assistant message
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cfba172ab223d8d947414c2e6237817df150f4b81d03d66f5a55e7b6f72dca92)
+            check_type(argname="argument text", value=text, expected_type=type_hints["text"])
+        return typing.cast("ChatMessage", jsii.sinvoke(cls, "assistant", [text]))
+
+    @jsii.member(jsii_name="user")
+    @builtins.classmethod
+    def user(cls, text: builtins.str) -> "ChatMessage":
+        '''(experimental) Creates a user message.
+
+        :param text: - The text content of the user message.
+
+        :return: A ChatMessage instance representing a user message
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9962ea2fe07172e88bf2a3a245c970a1aa16b150b0e7663a0ad70d39cab6a665)
+            check_type(argname="argument text", value=text, expected_type=type_hints["text"])
+        return typing.cast("ChatMessage", jsii.sinvoke(cls, "user", [text]))
+
+    @builtins.property
+    @jsii.member(jsii_name="role")
+    def role(self) -> "ChatMessageRole":
+        '''(experimental) The role of the message sender.
+
+        :stability: experimental
+        '''
+        return typing.cast("ChatMessageRole", jsii.get(self, "role"))
+
+    @builtins.property
+    @jsii.member(jsii_name="text")
+    def text(self) -> builtins.str:
+        '''(experimental) The text content of the message.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "text"))
+
+
+@jsii.enum(jsii_type="@aws-cdk/aws-bedrock-alpha.ChatMessageRole")
+class ChatMessageRole(enum.Enum):
+    '''(experimental) The role of a message in a chat conversation.
+
+    :stability: experimental
+    '''
+
+    USER = "USER"
+    '''(experimental) This role represents the human user in the conversation.
+
+    Inputs from the
+    user guide the conversation and prompt responses from the assistant.
+
+    :stability: experimental
+    '''
+    ASSISTANT = "ASSISTANT"
+    '''(experimental) This is the role of the model itself, responding to user inputs based on the context set by the system.
+
+    :stability: experimental
+    '''
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.ChatTemplateConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "messages": "messages",
+        "input_variables": "inputVariables",
+        "system": "system",
+        "tool_configuration": "toolConfiguration",
+    },
+)
+class ChatTemplateConfigurationProps:
+    def __init__(
+        self,
+        *,
+        messages: typing.Sequence["ChatMessage"],
+        input_variables: typing.Optional[typing.Sequence[builtins.str]] = None,
+        system: typing.Optional[builtins.str] = None,
+        tool_configuration: typing.Optional[typing.Union["ToolConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''(experimental) Properties for creating a chat template configuration.
+
+        :param messages: (experimental) The messages in the chat template.
+        :param input_variables: (experimental) The input variables for the template. Default: - No input variables
+        :param system: (experimental) The system message for the chat template. Default: - No system message
+        :param tool_configuration: (experimental) The tool configuration for the chat template. Default: - No tool configuration
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_alpha as bedrock_alpha
+            
+            # chat_message: bedrock_alpha.ChatMessage
+            # tool: bedrock_alpha.Tool
+            # tool_choice: bedrock_alpha.ToolChoice
+            
+            chat_template_configuration_props = bedrock_alpha.ChatTemplateConfigurationProps(
+                messages=[chat_message],
+            
+                # the properties below are optional
+                input_variables=["inputVariables"],
+                system="system",
+                tool_configuration=bedrock_alpha.ToolConfiguration(
+                    tool_choice=tool_choice,
+                    tools=[tool]
+                )
+            )
+        '''
+        if isinstance(tool_configuration, dict):
+            tool_configuration = ToolConfiguration(**tool_configuration)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__13df5cea477f33c5ec15daf2643457ae61e75630602804bd588d737bade36a12)
+            check_type(argname="argument messages", value=messages, expected_type=type_hints["messages"])
+            check_type(argname="argument input_variables", value=input_variables, expected_type=type_hints["input_variables"])
+            check_type(argname="argument system", value=system, expected_type=type_hints["system"])
+            check_type(argname="argument tool_configuration", value=tool_configuration, expected_type=type_hints["tool_configuration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "messages": messages,
+        }
+        if input_variables is not None:
+            self._values["input_variables"] = input_variables
+        if system is not None:
+            self._values["system"] = system
+        if tool_configuration is not None:
+            self._values["tool_configuration"] = tool_configuration
+
+    @builtins.property
+    def messages(self) -> typing.List["ChatMessage"]:
+        '''(experimental) The messages in the chat template.
+
+        :stability: experimental
+        '''
+        result = self._values.get("messages")
+        assert result is not None, "Required property 'messages' is missing"
+        return typing.cast(typing.List["ChatMessage"], result)
+
+    @builtins.property
+    def input_variables(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) The input variables for the template.
+
+        :default: - No input variables
+
+        :stability: experimental
+        '''
+        result = self._values.get("input_variables")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def system(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The system message for the chat template.
+
+        :default: - No system message
+
+        :stability: experimental
+        '''
+        result = self._values.get("system")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tool_configuration(self) -> typing.Optional["ToolConfiguration"]:
+        '''(experimental) The tool configuration for the chat template.
+
+        :default: - No tool configuration
+
+        :stability: experimental
+        '''
+        result = self._values.get("tool_configuration")
+        return typing.cast(typing.Optional["ToolConfiguration"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ChatTemplateConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.CommonPromptVariantProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "model": "model",
+        "variant_name": "variantName",
+        "prompt_variables": "promptVariables",
+    },
+)
+class CommonPromptVariantProps:
+    def __init__(
+        self,
+        *,
+        model: "IBedrockInvokable",
+        variant_name: builtins.str,
+        prompt_variables: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''(experimental) Common properties for all prompt variants.
+
+        :param model: (experimental) The model which is used to run the prompt. The model could be a foundation model, a custom model, or a provisioned model.
+        :param variant_name: (experimental) The name of the prompt variant.
+        :param prompt_variables: (experimental) The variables in the prompt template that can be filled in at runtime. Default: - No variables defined.
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_alpha as bedrock_alpha
+            
+            # bedrock_invokable: bedrock_alpha.IBedrockInvokable
+            
+            common_prompt_variant_props = bedrock_alpha.CommonPromptVariantProps(
+                model=bedrock_invokable,
+                variant_name="variantName",
+            
+                # the properties below are optional
+                prompt_variables=["promptVariables"]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d5c1966c59dd84fee806a6f6b9ed1086393c0f932d389f23b26cd3a1311804dd)
+            check_type(argname="argument model", value=model, expected_type=type_hints["model"])
+            check_type(argname="argument variant_name", value=variant_name, expected_type=type_hints["variant_name"])
+            check_type(argname="argument prompt_variables", value=prompt_variables, expected_type=type_hints["prompt_variables"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "model": model,
+            "variant_name": variant_name,
+        }
+        if prompt_variables is not None:
+            self._values["prompt_variables"] = prompt_variables
+
+    @builtins.property
+    def model(self) -> "IBedrockInvokable":
+        '''(experimental) The model which is used to run the prompt.
+
+        The model could be a foundation
+        model, a custom model, or a provisioned model.
+
+        :stability: experimental
+        '''
+        result = self._values.get("model")
+        assert result is not None, "Required property 'model' is missing"
+        return typing.cast("IBedrockInvokable", result)
+
+    @builtins.property
+    def variant_name(self) -> builtins.str:
+        '''(experimental) The name of the prompt variant.
+
+        :stability: experimental
+        '''
+        result = self._values.get("variant_name")
+        assert result is not None, "Required property 'variant_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def prompt_variables(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) The variables in the prompt template that can be filled in at runtime.
+
+        :default: - No variables defined.
+
+        :stability: experimental
+        '''
+        result = self._values.get("prompt_variables")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CommonPromptVariantProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.ContentFilter",
+    jsii_struct_bases=[],
+    name_mapping={
+        "input_strength": "inputStrength",
+        "output_strength": "outputStrength",
+        "type": "type",
+        "input_action": "inputAction",
+        "input_enabled": "inputEnabled",
+        "input_modalities": "inputModalities",
+        "output_action": "outputAction",
+        "output_enabled": "outputEnabled",
+        "output_modalities": "outputModalities",
+    },
+)
+class ContentFilter:
+    def __init__(
+        self,
+        *,
+        input_strength: "ContentFilterStrength",
+        output_strength: "ContentFilterStrength",
+        type: "ContentFilterType",
+        input_action: typing.Optional["GuardrailAction"] = None,
+        input_enabled: typing.Optional[builtins.bool] = None,
+        input_modalities: typing.Optional[typing.Sequence["ModalityType"]] = None,
+        output_action: typing.Optional["GuardrailAction"] = None,
+        output_enabled: typing.Optional[builtins.bool] = None,
+        output_modalities: typing.Optional[typing.Sequence["ModalityType"]] = None,
+    ) -> None:
+        '''(experimental) Interface to declare a content filter.
+
+        :param input_strength: (experimental) The strength of the content filter to apply to prompts / user input.
+        :param output_strength: (experimental) The strength of the content filter to apply to model responses.
+        :param type: (experimental) The type of harmful category that the content filter is applied to.
+        :param input_action: (experimental) The action to take when content is detected in the input. Default: GuardrailAction.BLOCK
+        :param input_enabled: (experimental) Whether the content filter is enabled for input. Default: true
+        :param input_modalities: (experimental) The input modalities to apply the content filter to. Default: undefined - Applies to text modality
+        :param output_action: (experimental) The action to take when content is detected in the output. Default: GuardrailAction.BLOCK
+        :param output_enabled: (experimental) Whether the content filter is enabled for output. Default: true
+        :param output_modalities: (experimental) The output modalities to apply the content filter to. Default: undefined - Applies to text modality
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            # Create a guardrail to filter inappropriate content
+            guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+                guardrail_name="my-BedrockGuardrails",
+                description="Legal ethical guardrails."
+            )
+            
+            guardrail.add_content_filter(
+                type=bedrock.ContentFilterType.SEXUAL,
+                input_strength=bedrock.ContentFilterStrength.HIGH,
+                output_strength=bedrock.ContentFilterStrength.MEDIUM
+            )
+            
+            # Create an agent with the guardrail
+            agent_with_guardrail = bedrock.Agent(self, "AgentWithGuardrail",
+                foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_HAIKU_V1_0,
+                instruction="You are a helpful and friendly agent that answers questions about literature.",
+                guardrail=guardrail
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__21467c345b1f90d2308981e3bf6521f4ebbc70404310b69e5393e88c0db166a8)
+            check_type(argname="argument input_strength", value=input_strength, expected_type=type_hints["input_strength"])
+            check_type(argname="argument output_strength", value=output_strength, expected_type=type_hints["output_strength"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument input_action", value=input_action, expected_type=type_hints["input_action"])
+            check_type(argname="argument input_enabled", value=input_enabled, expected_type=type_hints["input_enabled"])
+            check_type(argname="argument input_modalities", value=input_modalities, expected_type=type_hints["input_modalities"])
+            check_type(argname="argument output_action", value=output_action, expected_type=type_hints["output_action"])
+            check_type(argname="argument output_enabled", value=output_enabled, expected_type=type_hints["output_enabled"])
+            check_type(argname="argument output_modalities", value=output_modalities, expected_type=type_hints["output_modalities"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "input_strength": input_strength,
+            "output_strength": output_strength,
+            "type": type,
+        }
+        if input_action is not None:
+            self._values["input_action"] = input_action
+        if input_enabled is not None:
+            self._values["input_enabled"] = input_enabled
+        if input_modalities is not None:
+            self._values["input_modalities"] = input_modalities
+        if output_action is not None:
+            self._values["output_action"] = output_action
+        if output_enabled is not None:
+            self._values["output_enabled"] = output_enabled
+        if output_modalities is not None:
+            self._values["output_modalities"] = output_modalities
+
+    @builtins.property
+    def input_strength(self) -> "ContentFilterStrength":
+        '''(experimental) The strength of the content filter to apply to prompts / user input.
+
+        :stability: experimental
+        '''
+        result = self._values.get("input_strength")
+        assert result is not None, "Required property 'input_strength' is missing"
+        return typing.cast("ContentFilterStrength", result)
+
+    @builtins.property
+    def output_strength(self) -> "ContentFilterStrength":
+        '''(experimental) The strength of the content filter to apply to model responses.
+
+        :stability: experimental
+        '''
+        result = self._values.get("output_strength")
+        assert result is not None, "Required property 'output_strength' is missing"
+        return typing.cast("ContentFilterStrength", result)
+
+    @builtins.property
+    def type(self) -> "ContentFilterType":
+        '''(experimental) The type of harmful category that the content filter is applied to.
+
+        :stability: experimental
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast("ContentFilterType", result)
+
+    @builtins.property
+    def input_action(self) -> typing.Optional["GuardrailAction"]:
+        '''(experimental) The action to take when content is detected in the input.
+
+        :default: GuardrailAction.BLOCK
+
+        :stability: experimental
+        '''
+        result = self._values.get("input_action")
+        return typing.cast(typing.Optional["GuardrailAction"], result)
+
+    @builtins.property
+    def input_enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether the content filter is enabled for input.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("input_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def input_modalities(self) -> typing.Optional[typing.List["ModalityType"]]:
+        '''(experimental) The input modalities to apply the content filter to.
+
+        :default: undefined - Applies to text modality
+
+        :stability: experimental
+        '''
+        result = self._values.get("input_modalities")
+        return typing.cast(typing.Optional[typing.List["ModalityType"]], result)
+
+    @builtins.property
+    def output_action(self) -> typing.Optional["GuardrailAction"]:
+        '''(experimental) The action to take when content is detected in the output.
+
+        :default: GuardrailAction.BLOCK
+
+        :stability: experimental
+        '''
+        result = self._values.get("output_action")
+        return typing.cast(typing.Optional["GuardrailAction"], result)
+
+    @builtins.property
+    def output_enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether the content filter is enabled for output.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("output_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def output_modalities(self) -> typing.Optional[typing.List["ModalityType"]]:
+        '''(experimental) The output modalities to apply the content filter to.
+
+        :default: undefined - Applies to text modality
+
+        :stability: experimental
+        '''
+        result = self._values.get("output_modalities")
+        return typing.cast(typing.Optional[typing.List["ModalityType"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ContentFilter(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="@aws-cdk/aws-bedrock-alpha.ContentFilterStrength")
+class ContentFilterStrength(enum.Enum):
+    '''(experimental) The strength of the content filter.
+
+    As you increase the filter strength,
+    the likelihood of filtering harmful content increases and the probability
+    of seeing harmful content in your application reduces.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        # Create a guardrail to filter inappropriate content
+        guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+            guardrail_name="my-BedrockGuardrails",
+            description="Legal ethical guardrails."
+        )
+        
+        guardrail.add_content_filter(
+            type=bedrock.ContentFilterType.SEXUAL,
+            input_strength=bedrock.ContentFilterStrength.HIGH,
+            output_strength=bedrock.ContentFilterStrength.MEDIUM
+        )
+        
+        # Create an agent with the guardrail
+        agent_with_guardrail = bedrock.Agent(self, "AgentWithGuardrail",
+            foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_HAIKU_V1_0,
+            instruction="You are a helpful and friendly agent that answers questions about literature.",
+            guardrail=guardrail
+        )
+    '''
+
+    NONE = "NONE"
+    '''(experimental) No content filtering applied.
+
+    :stability: experimental
+    '''
+    LOW = "LOW"
+    '''(experimental) Low strength content filtering - minimal filtering of harmful content.
+
+    :stability: experimental
+    '''
+    MEDIUM = "MEDIUM"
+    '''(experimental) Medium strength content filtering - balanced filtering of harmful content.
+
+    :stability: experimental
+    '''
+    HIGH = "HIGH"
+    '''(experimental) High strength content filtering - aggressive filtering of harmful content.
+
+    :stability: experimental
+    '''
+
+
+@jsii.enum(jsii_type="@aws-cdk/aws-bedrock-alpha.ContentFilterType")
+class ContentFilterType(enum.Enum):
+    '''(experimental) The type of harmful category usable in a content filter.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        # Create a guardrail to filter inappropriate content
+        guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+            guardrail_name="my-BedrockGuardrails",
+            description="Legal ethical guardrails."
+        )
+        
+        guardrail.add_content_filter(
+            type=bedrock.ContentFilterType.SEXUAL,
+            input_strength=bedrock.ContentFilterStrength.HIGH,
+            output_strength=bedrock.ContentFilterStrength.MEDIUM
+        )
+        
+        # Create an agent with the guardrail
+        agent_with_guardrail = bedrock.Agent(self, "AgentWithGuardrail",
+            foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_HAIKU_V1_0,
+            instruction="You are a helpful and friendly agent that answers questions about literature.",
+            guardrail=guardrail
+        )
+    '''
+
+    SEXUAL = "SEXUAL"
+    '''(experimental) Describes input prompts and model responses that indicates sexual interest, activity, or arousal using direct or indirect references to body parts, physical traits, or sex.
+
+    :stability: experimental
+    '''
+    VIOLENCE = "VIOLENCE"
+    '''(experimental) Describes input prompts and model responses that includes glorification of or threats to inflict physical pain, hurt, or injury toward a person, group or thing.
+
+    :stability: experimental
+    '''
+    HATE = "HATE"
+    '''(experimental) Describes input prompts and model responses that discriminate, criticize, insult, denounce, or dehumanize a person or group on the basis of an identity (such as race, ethnicity, gender, religion, sexual orientation, ability, and national origin).
+
+    :stability: experimental
+    '''
+    INSULTS = "INSULTS"
+    '''(experimental) Describes input prompts and model responses that includes demeaning, humiliating, mocking, insulting, or belittling language.
+
+    This type of language is also labeled
+    as bullying.
+
+    :stability: experimental
+    '''
+    MISCONDUCT = "MISCONDUCT"
+    '''(experimental) Describes input prompts and model responses that seeks or provides information about engaging in misconduct activity, or harming, defrauding, or taking advantage of a person, group or institution.
+
+    :stability: experimental
+    '''
+    PROMPT_ATTACK = "PROMPT_ATTACK"
+    '''(experimental) Enable to detect and block user inputs attempting to override system instructions.
+
+    To avoid misclassifying system prompts as a prompt attack and ensure that the filters
+    are selectively applied to user inputs, use input tagging.
+
+    :stability: experimental
+    '''
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.ContextualGroundingFilter",
+    jsii_struct_bases=[],
+    name_mapping={
+        "threshold": "threshold",
+        "type": "type",
+        "action": "action",
+        "enabled": "enabled",
+    },
+)
+class ContextualGroundingFilter:
+    def __init__(
+        self,
+        *,
+        threshold: jsii.Number,
+        type: "ContextualGroundingFilterType",
+        action: typing.Optional["GuardrailAction"] = None,
+        enabled: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Interface to define a Contextual Grounding Filter.
+
+        :param threshold: (experimental) The threshold for the contextual grounding filter. - ``0`` (blocks nothing) - ``0.99`` (blocks almost everything)
+        :param type: (experimental) The type of contextual grounding filter.
+        :param action: (experimental) The action to take when contextual grounding is detected. Default: GuardrailAction.BLOCK
+        :param enabled: (experimental) Whether the contextual grounding filter is enabled. Default: true
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+                guardrail_name="my-BedrockGuardrails"
+            )
+            # Add contextual grounding filter with action and enabled flag
+            guardrail.add_contextual_grounding_filter(
+                type=bedrock.ContextualGroundingFilterType.GROUNDING,
+                threshold=0.8,
+                # the properties below are optional
+                action=bedrock.GuardrailAction.BLOCK,
+                enabled=True
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__acb2ec7f1c0805242859a3b876b9d882033c3ed6bf8d3bdca028b8e9e3f91ff4)
+            check_type(argname="argument threshold", value=threshold, expected_type=type_hints["threshold"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument action", value=action, expected_type=type_hints["action"])
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "threshold": threshold,
+            "type": type,
+        }
+        if action is not None:
+            self._values["action"] = action
+        if enabled is not None:
+            self._values["enabled"] = enabled
+
+    @builtins.property
+    def threshold(self) -> jsii.Number:
+        '''(experimental) The threshold for the contextual grounding filter.
+
+        - ``0`` (blocks nothing)
+        - ``0.99`` (blocks almost everything)
+
+        :stability: experimental
+        '''
+        result = self._values.get("threshold")
+        assert result is not None, "Required property 'threshold' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def type(self) -> "ContextualGroundingFilterType":
+        '''(experimental) The type of contextual grounding filter.
+
+        :stability: experimental
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast("ContextualGroundingFilterType", result)
+
+    @builtins.property
+    def action(self) -> typing.Optional["GuardrailAction"]:
+        '''(experimental) The action to take when contextual grounding is detected.
+
+        :default: GuardrailAction.BLOCK
+
+        :stability: experimental
+        '''
+        result = self._values.get("action")
+        return typing.cast(typing.Optional["GuardrailAction"], result)
+
+    @builtins.property
+    def enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether the contextual grounding filter is enabled.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ContextualGroundingFilter(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="@aws-cdk/aws-bedrock-alpha.ContextualGroundingFilterType")
+class ContextualGroundingFilterType(enum.Enum):
+    '''(experimental) The type of contextual grounding filter.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+            guardrail_name="my-BedrockGuardrails"
+        )
+        # Add contextual grounding filter with action and enabled flag
+        guardrail.add_contextual_grounding_filter(
+            type=bedrock.ContextualGroundingFilterType.GROUNDING,
+            threshold=0.8,
+            # the properties below are optional
+            action=bedrock.GuardrailAction.BLOCK,
+            enabled=True
+        )
+    '''
+
+    GROUNDING = "GROUNDING"
+    '''(experimental) Grounding score represents the confidence that the model response is factually correct and grounded in the source.
+
+    If the model response has a lower score than
+    the defined threshold, the response will be blocked and the configured blocked
+    message will be returned to the user. A higher threshold level blocks more responses.
+
+    :stability: experimental
+    '''
+    RELEVANCE = "RELEVANCE"
+    '''(experimental) Relevance score represents the confidence that the model response is relevant to the user's query.
+
+    If the model response has a lower score than the defined
+    threshold, the response will be blocked and the configured blocked message will
+    be returned to the user. A higher threshold level blocks more responses.
+
+    :stability: experimental
+    '''
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.CrossRegionInferenceProfileProps",
+    jsii_struct_bases=[],
+    name_mapping={"geo_region": "geoRegion", "model": "model"},
+)
+class CrossRegionInferenceProfileProps:
+    def __init__(
+        self,
+        *,
+        geo_region: "CrossRegionInferenceProfileRegion",
+        model: "BedrockFoundationModel",
+    ) -> None:
+        '''(experimental) Properties for creating a Cross-Region Inference Profile.
+
+        :param geo_region: (experimental) The geographic region where the traffic is going to be distributed. Routing factors in user traffic, demand and utilization of resources.
+        :param model: (experimental) A foundation model supporting cross-region inference. The model must have cross-region support enabled.
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            # Create a cross-region inference profile
+            cross_region_profile = bedrock.CrossRegionInferenceProfile.from_config(
+                geo_region=bedrock.CrossRegionInferenceProfileRegion.US,
+                model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V2_0
+            )
+            
+            # Create an application inference profile across regions
+            app_profile = bedrock.ApplicationInferenceProfile(self, "MyMultiRegionProfile",
+                application_inference_profile_name="claude-35-sonnet-v2-multi-region",
+                model_source=cross_region_profile,
+                description="Multi-region application profile for cost tracking"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c3aad6016aa72f7f91a877c52ec9c860dd8b442b1aaee38aa485432923186a0f)
+            check_type(argname="argument geo_region", value=geo_region, expected_type=type_hints["geo_region"])
+            check_type(argname="argument model", value=model, expected_type=type_hints["model"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "geo_region": geo_region,
+            "model": model,
+        }
+
+    @builtins.property
+    def geo_region(self) -> "CrossRegionInferenceProfileRegion":
+        '''(experimental) The geographic region where the traffic is going to be distributed.
+
+        Routing
+        factors in user traffic, demand and utilization of resources.
+
+        :stability: experimental
+        '''
+        result = self._values.get("geo_region")
+        assert result is not None, "Required property 'geo_region' is missing"
+        return typing.cast("CrossRegionInferenceProfileRegion", result)
+
+    @builtins.property
+    def model(self) -> "BedrockFoundationModel":
+        '''(experimental) A foundation model supporting cross-region inference.
+
+        The model must have cross-region support enabled.
+
+        :see: https://docs.aws.amazon.com/bedrock/latest/userguide/cross-region-inference-support.html
+        :stability: experimental
+        '''
+        result = self._values.get("model")
+        assert result is not None, "Required property 'model' is missing"
+        return typing.cast("BedrockFoundationModel", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CrossRegionInferenceProfileProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="@aws-cdk/aws-bedrock-alpha.CrossRegionInferenceProfileRegion")
+class CrossRegionInferenceProfileRegion(enum.Enum):
+    '''(experimental) Geographic regions supported for cross-region inference profiles.
+
+    These regions help distribute traffic across multiple AWS regions for better
+    throughput and resilience during peak demands.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        # Create a cross-region inference profile
+        cross_region_profile = bedrock.CrossRegionInferenceProfile.from_config(
+            geo_region=bedrock.CrossRegionInferenceProfileRegion.US,
+            model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V2_0
+        )
+        
+        # Create an application inference profile across regions
+        app_profile = bedrock.ApplicationInferenceProfile(self, "MyMultiRegionProfile",
+            application_inference_profile_name="claude-35-sonnet-v2-multi-region",
+            model_source=cross_region_profile,
+            description="Multi-region application profile for cost tracking"
+        )
+    '''
+
+    GLOBAL = "GLOBAL"
+    '''(experimental) Global cross-region Inference Identifier.
+
+    Routes requests to any supported commercial AWS Region.
+
+    :stability: experimental
+    '''
+    EU = "EU"
+    '''(experimental) Cross-region Inference Identifier for the European area.
+
+    According to the model chosen, this might include:
+
+    - Frankfurt (``eu-central-1``)
+    - Ireland (``eu-west-1``)
+    - Paris (``eu-west-3``)
+    - London (``eu-west-2``)
+    - Stockholm (``eu-north-1``)
+    - Milan (``eu-south-1``)
+    - Spain (``eu-south-2``)
+    - Zurich (``eu-central-2``)
+
+    :stability: experimental
+    '''
+    US = "US"
+    '''(experimental) Cross-region Inference Identifier for the United States area.
+
+    According to the model chosen, this might include:
+
+    - N. Virginia (``us-east-1``)
+    - Ohio (``us-east-2``)
+    - Oregon (``us-west-2``)
+
+    :stability: experimental
+    '''
+    US_GOV = "US_GOV"
+    '''(experimental) Cross-region Inference Identifier for the US GovCloud area.
+
+    According to the model chosen, this might include:
+
+    - GovCloud US-East (``us-gov-east-1``)
+    - GovCloud US-West (``us-gov-west-1``)
+
+    :stability: experimental
+    '''
+    APAC = "APAC"
+    '''(experimental) Cross-region Inference Identifier for the Asia-Pacific area.
+
+    According to the model chosen, this might include:
+
+    - Tokyo (``ap-northeast-1``)
+    - Seoul (``ap-northeast-2``)
+    - Osaka (``ap-northeast-3``)
+    - Mumbai (``ap-south-1``)
+    - Hyderabad (``ap-south-2``)
+    - Singapore (``ap-southeast-1``)
+    - Sydney (``ap-southeast-2``)
+    - Jakarta (``ap-southeast-3``)
+    - Melbourne (``ap-southeast-4``)
+    - Malaysia (``ap-southeast-5``)
+    - Thailand (``ap-southeast-7``)
+    - Taipei (``ap-east-2``)
+    - Middle East (UAE) (``me-central-1``)
+
+    :stability: experimental
+    '''
+    JP = "JP"
+    '''(experimental) Cross-region Inference Identifier for the Japan area.
+
+    According to the model chosen, this might include:
+
+    - Tokyo (``ap-northeast-1``)
+    - Osaka (``ap-northeast-3``)
+
+    :stability: experimental
+    '''
+    AU = "AU"
+    '''(experimental) Cross-region Inference Identifier for the Australia area.
+
+    According to the model chosen, this might include:
+
+    - Sydney (``ap-southeast-2``)
+    - Melbourne (``ap-southeast-4``)
+
+    :stability: experimental
+    '''
+
+
+@jsii.enum(jsii_type="@aws-cdk/aws-bedrock-alpha.CustomControl")
+class CustomControl(enum.Enum):
+    '''(experimental) The type of custom control for the action group executor.
+
+    :stability: experimental
+    '''
+
+    RETURN_CONTROL = "RETURN_CONTROL"
+    '''(experimental) Returns the action group invocation results directly in the InvokeAgent response.
+
+    :stability: experimental
+    '''
+
+
+class CustomOrchestrationExecutor(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.CustomOrchestrationExecutor",
+):
+    '''(experimental) Contains details about the Lambda function containing the orchestration logic carried out upon invoking the custom orchestration.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        orchestration_function = lambda_.Function(self, "OrchestrationFunction",
+            runtime=lambda_.Runtime.PYTHON_3_10,
+            handler="index.handler",
+            code=lambda_.Code.from_asset("lambda/orchestration")
+        )
+        
+        agent = bedrock.Agent(self, "CustomOrchestrationAgent",
+            instruction="You are a helpful assistant with custom orchestration logic.",
+            foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1,
+            custom_orchestration_executor=bedrock.CustomOrchestrationExecutor.from_lambda(orchestration_function)
+        )
+    '''
+
+    @jsii.member(jsii_name="fromLambda")
+    @builtins.classmethod
+    def from_lambda(
+        cls,
+        lambda_function: "_aws_cdk_aws_lambda_ceddda9d.IFunction",
+    ) -> "CustomOrchestrationExecutor":
+        '''(experimental) Defines an orchestration executor with a Lambda function containing the business logic.
+
+        :param lambda_function: - Lambda function to be called by the orchestration.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9581a8fe03e677bcf39692a4a671ac83b906583168b1efeb85160cd87ace6e24)
+            check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
+        return typing.cast("CustomOrchestrationExecutor", jsii.sinvoke(cls, "fromLambda", [lambda_function]))
+
+    @builtins.property
+    @jsii.member(jsii_name="lambdaFunction")
+    def lambda_function(self) -> "_aws_cdk_aws_lambda_ceddda9d.IFunction":
+        '''(experimental) The Lambda function that contains the custom orchestration logic.
+
+        This function is called when the agent needs to make decisions about action execution.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_aws_lambda_ceddda9d.IFunction", jsii.get(self, "lambdaFunction"))
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> "OrchestrationType":
+        '''(experimental) The type of orchestration this executor performs.
+
+        :stability: experimental
+        '''
+        return typing.cast("OrchestrationType", jsii.get(self, "type"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.CustomParserProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "knowledge_base_response_generation_step": "knowledgeBaseResponseGenerationStep",
+        "memory_summarization_step": "memorySummarizationStep",
+        "orchestration_step": "orchestrationStep",
+        "parser": "parser",
+        "post_processing_step": "postProcessingStep",
+        "pre_processing_step": "preProcessingStep",
+        "routing_classifier_step": "routingClassifierStep",
+    },
+)
+class CustomParserProps:
+    def __init__(
+        self,
+        *,
+        knowledge_base_response_generation_step: typing.Optional[typing.Union["PromptKnowledgeBaseResponseGenerationConfigCustomParser", typing.Dict[builtins.str, typing.Any]]] = None,
+        memory_summarization_step: typing.Optional[typing.Union["PromptMemorySummarizationConfigCustomParser", typing.Dict[builtins.str, typing.Any]]] = None,
+        orchestration_step: typing.Optional[typing.Union["PromptOrchestrationConfigCustomParser", typing.Dict[builtins.str, typing.Any]]] = None,
+        parser: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IFunction"] = None,
+        post_processing_step: typing.Optional[typing.Union["PromptPostProcessingConfigCustomParser", typing.Dict[builtins.str, typing.Any]]] = None,
+        pre_processing_step: typing.Optional[typing.Union["PromptPreProcessingConfigCustomParser", typing.Dict[builtins.str, typing.Any]]] = None,
+        routing_classifier_step: typing.Optional[typing.Union["PromptRoutingClassifierConfigCustomParser", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''(experimental) Properties for configuring a custom Lambda parser for prompt overrides.
+
+        :param knowledge_base_response_generation_step: (experimental) Configuration for the knowledge base response generation step. Default: undefined - No knowledge base response generation configuration
+        :param memory_summarization_step: (experimental) Configuration for the memory summarization step. Default: undefined - No memory summarization configuration
+        :param orchestration_step: (experimental) Configuration for the orchestration step. Default: undefined - No orchestration configuration
+        :param parser: (experimental) Lambda function to use as custom parser. Default: undefined - No custom parser is used
+        :param post_processing_step: (experimental) Configuration for the post-processing step. Default: undefined - No post-processing configuration
+        :param pre_processing_step: (experimental) Configuration for the pre-processing step. Default: undefined - No pre-processing configuration
+        :param routing_classifier_step: (experimental) Configuration for the routing classifier step. Default: undefined - No routing classifier configuration
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            parser_function = lambda_.Function(self, "ParserFunction",
+                runtime=lambda_.Runtime.PYTHON_3_10,
+                handler="index.handler",
+                code=lambda_.Code.from_asset("lambda")
+            )
+            
+            agent = bedrock.Agent(self, "Agent",
+                foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1,
+                instruction="You are a helpful assistant.",
+                prompt_override_configuration=bedrock.PromptOverrideConfiguration.with_custom_parser(
+                    parser=parser_function,
+                    pre_processing_step=bedrock.PromptPreProcessingConfigCustomParser(
+                        step_type=bedrock.AgentStepType.PRE_PROCESSING,
+                        use_custom_parser=True
+                    )
+                )
+            )
+        '''
+        if isinstance(knowledge_base_response_generation_step, dict):
+            knowledge_base_response_generation_step = PromptKnowledgeBaseResponseGenerationConfigCustomParser(**knowledge_base_response_generation_step)
+        if isinstance(memory_summarization_step, dict):
+            memory_summarization_step = PromptMemorySummarizationConfigCustomParser(**memory_summarization_step)
+        if isinstance(orchestration_step, dict):
+            orchestration_step = PromptOrchestrationConfigCustomParser(**orchestration_step)
+        if isinstance(post_processing_step, dict):
+            post_processing_step = PromptPostProcessingConfigCustomParser(**post_processing_step)
+        if isinstance(pre_processing_step, dict):
+            pre_processing_step = PromptPreProcessingConfigCustomParser(**pre_processing_step)
+        if isinstance(routing_classifier_step, dict):
+            routing_classifier_step = PromptRoutingClassifierConfigCustomParser(**routing_classifier_step)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5e9247125ea57043b0c8014036fd32415bac33f25230256cde57ebee738d550b)
+            check_type(argname="argument knowledge_base_response_generation_step", value=knowledge_base_response_generation_step, expected_type=type_hints["knowledge_base_response_generation_step"])
+            check_type(argname="argument memory_summarization_step", value=memory_summarization_step, expected_type=type_hints["memory_summarization_step"])
+            check_type(argname="argument orchestration_step", value=orchestration_step, expected_type=type_hints["orchestration_step"])
+            check_type(argname="argument parser", value=parser, expected_type=type_hints["parser"])
+            check_type(argname="argument post_processing_step", value=post_processing_step, expected_type=type_hints["post_processing_step"])
+            check_type(argname="argument pre_processing_step", value=pre_processing_step, expected_type=type_hints["pre_processing_step"])
+            check_type(argname="argument routing_classifier_step", value=routing_classifier_step, expected_type=type_hints["routing_classifier_step"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if knowledge_base_response_generation_step is not None:
+            self._values["knowledge_base_response_generation_step"] = knowledge_base_response_generation_step
+        if memory_summarization_step is not None:
+            self._values["memory_summarization_step"] = memory_summarization_step
+        if orchestration_step is not None:
+            self._values["orchestration_step"] = orchestration_step
+        if parser is not None:
+            self._values["parser"] = parser
+        if post_processing_step is not None:
+            self._values["post_processing_step"] = post_processing_step
+        if pre_processing_step is not None:
+            self._values["pre_processing_step"] = pre_processing_step
+        if routing_classifier_step is not None:
+            self._values["routing_classifier_step"] = routing_classifier_step
+
+    @builtins.property
+    def knowledge_base_response_generation_step(
+        self,
+    ) -> typing.Optional["PromptKnowledgeBaseResponseGenerationConfigCustomParser"]:
+        '''(experimental) Configuration for the knowledge base response generation step.
+
+        :default: undefined - No knowledge base response generation configuration
+
+        :stability: experimental
+        '''
+        result = self._values.get("knowledge_base_response_generation_step")
+        return typing.cast(typing.Optional["PromptKnowledgeBaseResponseGenerationConfigCustomParser"], result)
+
+    @builtins.property
+    def memory_summarization_step(
+        self,
+    ) -> typing.Optional["PromptMemorySummarizationConfigCustomParser"]:
+        '''(experimental) Configuration for the memory summarization step.
+
+        :default: undefined - No memory summarization configuration
+
+        :stability: experimental
+        '''
+        result = self._values.get("memory_summarization_step")
+        return typing.cast(typing.Optional["PromptMemorySummarizationConfigCustomParser"], result)
+
+    @builtins.property
+    def orchestration_step(
+        self,
+    ) -> typing.Optional["PromptOrchestrationConfigCustomParser"]:
+        '''(experimental) Configuration for the orchestration step.
+
+        :default: undefined - No orchestration configuration
+
+        :stability: experimental
+        '''
+        result = self._values.get("orchestration_step")
+        return typing.cast(typing.Optional["PromptOrchestrationConfigCustomParser"], result)
+
+    @builtins.property
+    def parser(self) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IFunction"]:
+        '''(experimental) Lambda function to use as custom parser.
+
+        :default: undefined - No custom parser is used
+
+        :stability: experimental
+        '''
+        result = self._values.get("parser")
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IFunction"], result)
+
+    @builtins.property
+    def post_processing_step(
+        self,
+    ) -> typing.Optional["PromptPostProcessingConfigCustomParser"]:
+        '''(experimental) Configuration for the post-processing step.
+
+        :default: undefined - No post-processing configuration
+
+        :stability: experimental
+        '''
+        result = self._values.get("post_processing_step")
+        return typing.cast(typing.Optional["PromptPostProcessingConfigCustomParser"], result)
+
+    @builtins.property
+    def pre_processing_step(
+        self,
+    ) -> typing.Optional["PromptPreProcessingConfigCustomParser"]:
+        '''(experimental) Configuration for the pre-processing step.
+
+        :default: undefined - No pre-processing configuration
+
+        :stability: experimental
+        '''
+        result = self._values.get("pre_processing_step")
+        return typing.cast(typing.Optional["PromptPreProcessingConfigCustomParser"], result)
+
+    @builtins.property
+    def routing_classifier_step(
+        self,
+    ) -> typing.Optional["PromptRoutingClassifierConfigCustomParser"]:
+        '''(experimental) Configuration for the routing classifier step.
+
+        :default: undefined - No routing classifier configuration
+
+        :stability: experimental
+        '''
+        result = self._values.get("routing_classifier_step")
+        return typing.cast(typing.Optional["PromptRoutingClassifierConfigCustomParser"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CustomParserProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.CustomTopicProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "definition": "definition",
+        "examples": "examples",
+        "name": "name",
+        "input_action": "inputAction",
+        "input_enabled": "inputEnabled",
+        "output_action": "outputAction",
+        "output_enabled": "outputEnabled",
+    },
+)
+class CustomTopicProps:
+    def __init__(
+        self,
+        *,
+        definition: builtins.str,
+        examples: typing.Sequence[builtins.str],
+        name: builtins.str,
+        input_action: typing.Optional["GuardrailAction"] = None,
+        input_enabled: typing.Optional[builtins.bool] = None,
+        output_action: typing.Optional["GuardrailAction"] = None,
+        output_enabled: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Interface for creating a custom Topic.
+
+        :param definition: (experimental) Provide a clear definition to detect and block user inputs and FM responses that fall into this topic. Avoid starting with "don't".
+        :param examples: (experimental) Representative phrases that refer to the topic. These phrases can represent a user input or a model response. Add between 1 and 100 phrases, up to 100 characters each.
+        :param name: (experimental) The name of the topic to deny.
+        :param input_action: (experimental) The action to take when a topic is detected in the input. Default: GuardrailAction.BLOCK
+        :param input_enabled: (experimental) Whether the topic filter is enabled for input. Default: true
+        :param output_action: (experimental) The action to take when a topic is detected in the output. Default: GuardrailAction.BLOCK
+        :param output_enabled: (experimental) Whether the topic filter is enabled for output. Default: true
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+                guardrail_name="my-BedrockGuardrails",
+                # Configure tier for topic filters (optional)
+                topics_tier_config=bedrock.TierConfig.STANDARD
+            )
+            
+            # Use a predefined topic
+            guardrail.add_denied_topic_filter(bedrock.Topic.FINANCIAL_ADVICE)
+            
+            # Create a custom topic with input/output actions
+            guardrail.add_denied_topic_filter(
+                bedrock.Topic.custom(
+                    name="Legal_Advice",
+                    definition="Offering guidance or suggestions on legal matters, legal actions, interpretation of laws, or legal rights and responsibilities.",
+                    examples=["Can I sue someone for this?", "What are my legal rights in this situation?", "Is this action against the law?", "What should I do to file a legal complaint?", "Can you explain this law to me?"
+                    ],
+                    # props below are optional
+                    input_action=bedrock.GuardrailAction.BLOCK,
+                    input_enabled=True,
+                    output_action=bedrock.GuardrailAction.NONE,
+                    output_enabled=True
+                ))
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__beed11d4471f17479492fcdf7dff3800d890e1a0ba2217447c6c8fefc0cb523e)
+            check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
+            check_type(argname="argument examples", value=examples, expected_type=type_hints["examples"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument input_action", value=input_action, expected_type=type_hints["input_action"])
+            check_type(argname="argument input_enabled", value=input_enabled, expected_type=type_hints["input_enabled"])
+            check_type(argname="argument output_action", value=output_action, expected_type=type_hints["output_action"])
+            check_type(argname="argument output_enabled", value=output_enabled, expected_type=type_hints["output_enabled"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "definition": definition,
+            "examples": examples,
+            "name": name,
+        }
+        if input_action is not None:
+            self._values["input_action"] = input_action
+        if input_enabled is not None:
+            self._values["input_enabled"] = input_enabled
+        if output_action is not None:
+            self._values["output_action"] = output_action
+        if output_enabled is not None:
+            self._values["output_enabled"] = output_enabled
+
+    @builtins.property
+    def definition(self) -> builtins.str:
+        '''(experimental) Provide a clear definition to detect and block user inputs and FM responses that fall into this topic.
+
+        Avoid starting with "don't".
+
+        :stability: experimental
+
+        Example::
+
+            """Investment advice refers to inquiries, guidance, or recommendations
+            regarding the management or allocation of funds or assets with the goal of
+            generating returns or achieving specific financial objectives."""
+        '''
+        result = self._values.get("definition")
+        assert result is not None, "Required property 'definition' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def examples(self) -> typing.List[builtins.str]:
+        '''(experimental) Representative phrases that refer to the topic.
+
+        These phrases can represent
+        a user input or a model response. Add between 1 and 100 phrases, up to 100 characters
+        each.
+
+        :stability: experimental
+
+        Example::
+
+            "Where should I invest my money?"
+        '''
+        result = self._values.get("examples")
+        assert result is not None, "Required property 'examples' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''(experimental) The name of the topic to deny.
+
+        :stability: experimental
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def input_action(self) -> typing.Optional["GuardrailAction"]:
+        '''(experimental) The action to take when a topic is detected in the input.
+
+        :default: GuardrailAction.BLOCK
+
+        :stability: experimental
+        '''
+        result = self._values.get("input_action")
+        return typing.cast(typing.Optional["GuardrailAction"], result)
+
+    @builtins.property
+    def input_enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether the topic filter is enabled for input.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("input_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def output_action(self) -> typing.Optional["GuardrailAction"]:
+        '''(experimental) The action to take when a topic is detected in the output.
+
+        :default: GuardrailAction.BLOCK
+
+        :stability: experimental
+        '''
+        result = self._values.get("output_action")
+        return typing.cast(typing.Optional["GuardrailAction"], result)
+
+    @builtins.property
+    def output_enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether the topic filter is enabled for output.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("output_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CustomTopicProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DefaultPromptRouterIdentifier(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.DefaultPromptRouterIdentifier",
+):
+    '''(experimental) Represents identifiers for default prompt routers in Bedrock.
+
+    These are pre-configured routers provided by AWS that route between
+    different models in the same family for optimal performance and cost.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        # Create a prompt router for intelligent model selection
+        prompt_router = bedrock.PromptRouter.from_default_id(bedrock.DefaultPromptRouterIdentifier.ANTHROPIC_CLAUDE_V1, "us-east-1")
+        
+        # Use the prompt router with a prompt variant
+        variant = bedrock.PromptVariant.text(
+            variant_name="variant1",
+            prompt_text="What is the capital of France?",
+            model=prompt_router
+        )
+        
+        bedrock.Prompt(self, "Prompt",
+            prompt_name="prompt-router-test",
+            variants=[variant]
+        )
+    '''
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_V1")
+    def ANTHROPIC_CLAUDE_V1(cls) -> "DefaultPromptRouterIdentifier":
+        '''(experimental) Anthropic Claude V1 router configuration.
+
+        Routes between Claude Haiku and Claude 3.5 Sonnet models for optimal
+        balance between performance and cost.
+
+        :stability: experimental
+        '''
+        return typing.cast("DefaultPromptRouterIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_3_1")
+    def META_LLAMA_3_1(cls) -> "DefaultPromptRouterIdentifier":
+        '''(experimental) Meta Llama 3.1 router configuration. Routes between different sizes of Llama 3.1 models (8B and 70B) for optimal performance based on request complexity.
+
+        :stability: experimental
+        '''
+        return typing.cast("DefaultPromptRouterIdentifier", jsii.sget(cls, "META_LLAMA_3_1"))
+
+    @builtins.property
+    @jsii.member(jsii_name="promptRouterId")
+    def prompt_router_id(self) -> builtins.str:
+        '''(experimental) The unique identifier for this prompt router.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "promptRouterId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="routingModels")
+    def routing_models(self) -> typing.List["BedrockFoundationModel"]:
+        '''(experimental) The foundation models that this router can route between.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List["BedrockFoundationModel"], jsii.get(self, "routingModels"))
+
+
+class Function(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.Function",
+):
+    '''(experimental) Represents a function in a function schema.
+
+    :stability: experimental
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk.aws_bedrock_alpha as bedrock_alpha
+        
+        function_ = bedrock_alpha.Function(
+            description="description",
+            name="name",
+        
+            # the properties below are optional
+            parameters={
+                "parameters_key": bedrock_alpha.FunctionParameterProps(
+                    type=bedrock_alpha.ParameterType.STRING,
+        
+                    # the properties below are optional
+                    description="description",
+                    required=False
+                )
+            },
+            require_confirmation=bedrock_alpha.RequireConfirmation.ENABLED
+        )
+    '''
+
+    def __init__(
+        self,
+        *,
+        description: builtins.str,
+        name: builtins.str,
+        parameters: typing.Optional[typing.Mapping[builtins.str, typing.Union["FunctionParameterProps", typing.Dict[builtins.str, typing.Any]]]] = None,
+        require_confirmation: typing.Optional["RequireConfirmation"] = None,
+    ) -> None:
+        '''
+        :param description: (experimental) Description of the function.
+        :param name: (experimental) The name of the function.
+        :param parameters: (experimental) Parameters for the function as a record of parameter name to parameter properties. Default: {}
+        :param require_confirmation: (experimental) Whether to require confirmation before executing the function. Default: RequireConfirmation.DISABLED
+
+        :stability: experimental
+        '''
+        props = FunctionProps(
+            description=description,
+            name=name,
+            parameters=parameters,
+            require_confirmation=require_confirmation,
+        )
+
+        jsii.create(self.__class__, self, [props])
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> builtins.str:
+        '''(experimental) Description of the function.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "description"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''(experimental) The name of the function.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @builtins.property
+    @jsii.member(jsii_name="parameters")
+    def parameters(self) -> typing.Mapping[builtins.str, "FunctionParameter"]:
+        '''(experimental) Parameters for the function.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Mapping[builtins.str, "FunctionParameter"], jsii.get(self, "parameters"))
+
+    @builtins.property
+    @jsii.member(jsii_name="requireConfirmation")
+    def require_confirmation(self) -> "RequireConfirmation":
+        '''(experimental) Whether to require confirmation before executing the function.
+
+        :stability: experimental
+        '''
+        return typing.cast("RequireConfirmation", jsii.get(self, "requireConfirmation"))
+
+
+class FunctionParameter(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.FunctionParameter",
+):
+    '''(experimental) Represents a function parameter in a function schema.
+
+    :stability: experimental
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk.aws_bedrock_alpha as bedrock_alpha
+        
+        function_parameter = bedrock_alpha.FunctionParameter(
+            type=bedrock_alpha.ParameterType.STRING,
+        
+            # the properties below are optional
+            description="description",
+            required=False
+        )
+    '''
+
+    def __init__(
+        self,
+        *,
+        type: "ParameterType",
+        description: typing.Optional[builtins.str] = None,
+        required: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''
+        :param type: (experimental) The type of the parameter.
+        :param description: (experimental) Description of the parameter. Default: undefined no description will be present
+        :param required: (experimental) Whether the parameter is required. Default: true
+
+        :stability: experimental
+        '''
+        props = FunctionParameterProps(
+            type=type, description=description, required=required
+        )
+
+        jsii.create(self.__class__, self, [props])
+
+    @builtins.property
+    @jsii.member(jsii_name="required")
+    def required(self) -> builtins.bool:
+        '''(experimental) Whether the parameter is required.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.bool, jsii.get(self, "required"))
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> "ParameterType":
+        '''(experimental) The type of the parameter.
+
+        :stability: experimental
+        '''
+        return typing.cast("ParameterType", jsii.get(self, "type"))
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Description of the parameter.
+
+        :default: undefined no description will be present
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.FunctionParameterProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "type": "type",
+        "description": "description",
+        "required": "required",
+    },
+)
+class FunctionParameterProps:
+    def __init__(
+        self,
+        *,
+        type: "ParameterType",
+        description: typing.Optional[builtins.str] = None,
+        required: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Properties for a function parameter.
+
+        :param type: (experimental) The type of the parameter.
+        :param description: (experimental) Description of the parameter. Default: undefined no description will be present
+        :param required: (experimental) Whether the parameter is required. Default: true
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            action_group_function = lambda_.Function(self, "ActionGroupFunction",
+                runtime=lambda_.Runtime.PYTHON_3_12,
+                handler="index.handler",
+                code=lambda_.Code.from_asset(path.join(__dirname, "../lambda/action-group"))
+            )
+            
+            # Define a function schema with parameters
+            function_schema = bedrock.FunctionSchema(
+                functions=[bedrock.FunctionProps(
+                    name="searchBooks",
+                    description="Search for books in the library catalog",
+                    parameters={
+                        "query": bedrock.FunctionParameterProps(
+                            type=bedrock.ParameterType.STRING,
+                            required=True,
+                            description="The search query string"
+                        ),
+                        "maxResults": bedrock.FunctionParameterProps(
+                            type=bedrock.ParameterType.INTEGER,
+                            required=False,
+                            description="Maximum number of results to return"
+                        ),
+                        "includeOutOfPrint": bedrock.FunctionParameterProps(
+                            type=bedrock.ParameterType.BOOLEAN,
+                            required=False,
+                            description="Whether to include out-of-print books"
+                        )
+                    },
+                    require_confirmation=bedrock.RequireConfirmation.DISABLED
+                ), bedrock.FunctionProps(
+                    name="getBookDetails",
+                    description="Get detailed information about a specific book",
+                    parameters={
+                        "bookId": bedrock.FunctionParameterProps(
+                            type=bedrock.ParameterType.STRING,
+                            required=True,
+                            description="The unique identifier of the book"
+                        )
+                    },
+                    require_confirmation=bedrock.RequireConfirmation.ENABLED
+                )
+                ]
+            )
+            
+            # Create an action group using the function schema
+            action_group = bedrock.AgentActionGroup(
+                name="library-functions",
+                description="Functions for interacting with the library catalog",
+                executor=bedrock.ActionGroupExecutor.from_lambda(action_group_function),
+                function_schema=function_schema,
+                enabled=True
+            )
+            
+            agent = bedrock.Agent(self, "Agent",
+                foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_HAIKU_V1_0,
+                instruction="You are a helpful and friendly agent that answers questions about literature.",
+                action_groups=[action_group]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__afff183f47ab9cba063848fa5cc915f6deaad94e1aaeca1688be3a79be4bf746)
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument required", value=required, expected_type=type_hints["required"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "type": type,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if required is not None:
+            self._values["required"] = required
+
+    @builtins.property
+    def type(self) -> "ParameterType":
+        '''(experimental) The type of the parameter.
+
+        :stability: experimental
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast("ParameterType", result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Description of the parameter.
+
+        :default: undefined no description will be present
+
+        :stability: experimental
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def required(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether the parameter is required.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("required")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FunctionParameterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.FunctionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "description": "description",
+        "name": "name",
+        "parameters": "parameters",
+        "require_confirmation": "requireConfirmation",
+    },
+)
+class FunctionProps:
+    def __init__(
+        self,
+        *,
+        description: builtins.str,
+        name: builtins.str,
+        parameters: typing.Optional[typing.Mapping[builtins.str, typing.Union["FunctionParameterProps", typing.Dict[builtins.str, typing.Any]]]] = None,
+        require_confirmation: typing.Optional["RequireConfirmation"] = None,
+    ) -> None:
+        '''(experimental) Properties for a function in a function schema.
+
+        :param description: (experimental) Description of the function.
+        :param name: (experimental) The name of the function.
+        :param parameters: (experimental) Parameters for the function as a record of parameter name to parameter properties. Default: {}
+        :param require_confirmation: (experimental) Whether to require confirmation before executing the function. Default: RequireConfirmation.DISABLED
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_alpha as bedrock_alpha
+            
+            function_props = bedrock_alpha.FunctionProps(
+                description="description",
+                name="name",
+            
+                # the properties below are optional
+                parameters={
+                    "parameters_key": bedrock_alpha.FunctionParameterProps(
+                        type=bedrock_alpha.ParameterType.STRING,
+            
+                        # the properties below are optional
+                        description="description",
+                        required=False
+                    )
+                },
+                require_confirmation=bedrock_alpha.RequireConfirmation.ENABLED
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d6a1e6361e2edbbe58148c14c19a168946ef6213e0d123499089a4f3e48f6a0d)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
+            check_type(argname="argument require_confirmation", value=require_confirmation, expected_type=type_hints["require_confirmation"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "description": description,
+            "name": name,
+        }
+        if parameters is not None:
+            self._values["parameters"] = parameters
+        if require_confirmation is not None:
+            self._values["require_confirmation"] = require_confirmation
+
+    @builtins.property
+    def description(self) -> builtins.str:
+        '''(experimental) Description of the function.
+
+        :stability: experimental
+        '''
+        result = self._values.get("description")
+        assert result is not None, "Required property 'description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''(experimental) The name of the function.
+
+        :stability: experimental
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def parameters(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, "FunctionParameterProps"]]:
+        '''(experimental) Parameters for the function as a record of parameter name to parameter properties.
+
+        :default: {}
+
+        :stability: experimental
+        '''
+        result = self._values.get("parameters")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "FunctionParameterProps"]], result)
+
+    @builtins.property
+    def require_confirmation(self) -> typing.Optional["RequireConfirmation"]:
+        '''(experimental) Whether to require confirmation before executing the function.
+
+        :default: RequireConfirmation.DISABLED
+
+        :stability: experimental
+        '''
+        result = self._values.get("require_confirmation")
+        return typing.cast(typing.Optional["RequireConfirmation"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FunctionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class FunctionSchema(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.FunctionSchema",
+):
+    '''(experimental) Represents a function schema for a Bedrock Agent Action Group.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        action_group_function = lambda_.Function(self, "ActionGroupFunction",
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            handler="index.handler",
+            code=lambda_.Code.from_asset(path.join(__dirname, "../lambda/action-group"))
+        )
+        
+        # Define a function schema with parameters
+        function_schema = bedrock.FunctionSchema(
+            functions=[bedrock.FunctionProps(
+                name="searchBooks",
+                description="Search for books in the library catalog",
+                parameters={
+                    "query": bedrock.FunctionParameterProps(
+                        type=bedrock.ParameterType.STRING,
+                        required=True,
+                        description="The search query string"
+                    ),
+                    "maxResults": bedrock.FunctionParameterProps(
+                        type=bedrock.ParameterType.INTEGER,
+                        required=False,
+                        description="Maximum number of results to return"
+                    ),
+                    "includeOutOfPrint": bedrock.FunctionParameterProps(
+                        type=bedrock.ParameterType.BOOLEAN,
+                        required=False,
+                        description="Whether to include out-of-print books"
+                    )
+                },
+                require_confirmation=bedrock.RequireConfirmation.DISABLED
+            ), bedrock.FunctionProps(
+                name="getBookDetails",
+                description="Get detailed information about a specific book",
+                parameters={
+                    "bookId": bedrock.FunctionParameterProps(
+                        type=bedrock.ParameterType.STRING,
+                        required=True,
+                        description="The unique identifier of the book"
+                    )
+                },
+                require_confirmation=bedrock.RequireConfirmation.ENABLED
+            )
+            ]
+        )
+        
+        # Create an action group using the function schema
+        action_group = bedrock.AgentActionGroup(
+            name="library-functions",
+            description="Functions for interacting with the library catalog",
+            executor=bedrock.ActionGroupExecutor.from_lambda(action_group_function),
+            function_schema=function_schema,
+            enabled=True
+        )
+        
+        agent = bedrock.Agent(self, "Agent",
+            foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_HAIKU_V1_0,
+            instruction="You are a helpful and friendly agent that answers questions about literature.",
+            action_groups=[action_group]
+        )
+    '''
+
+    def __init__(
+        self,
+        *,
+        functions: typing.Sequence[typing.Union["FunctionProps", typing.Dict[builtins.str, typing.Any]]],
+    ) -> None:
+        '''
+        :param functions: (experimental) Functions defined in the schema.
+
+        :stability: experimental
+        '''
+        props = FunctionSchemaProps(functions=functions)
+
+        jsii.create(self.__class__, self, [props])
+
+    @builtins.property
+    @jsii.member(jsii_name="functions")
+    def functions(self) -> typing.List["Function"]:
+        '''(experimental) The functions defined in the schema.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List["Function"], jsii.get(self, "functions"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.FunctionSchemaProps",
+    jsii_struct_bases=[],
+    name_mapping={"functions": "functions"},
+)
+class FunctionSchemaProps:
+    def __init__(
+        self,
+        *,
+        functions: typing.Sequence[typing.Union["FunctionProps", typing.Dict[builtins.str, typing.Any]]],
+    ) -> None:
+        '''(experimental) Properties for a function schema.
+
+        :param functions: (experimental) Functions defined in the schema.
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            action_group_function = lambda_.Function(self, "ActionGroupFunction",
+                runtime=lambda_.Runtime.PYTHON_3_12,
+                handler="index.handler",
+                code=lambda_.Code.from_asset(path.join(__dirname, "../lambda/action-group"))
+            )
+            
+            # Define a function schema with parameters
+            function_schema = bedrock.FunctionSchema(
+                functions=[bedrock.FunctionProps(
+                    name="searchBooks",
+                    description="Search for books in the library catalog",
+                    parameters={
+                        "query": bedrock.FunctionParameterProps(
+                            type=bedrock.ParameterType.STRING,
+                            required=True,
+                            description="The search query string"
+                        ),
+                        "maxResults": bedrock.FunctionParameterProps(
+                            type=bedrock.ParameterType.INTEGER,
+                            required=False,
+                            description="Maximum number of results to return"
+                        ),
+                        "includeOutOfPrint": bedrock.FunctionParameterProps(
+                            type=bedrock.ParameterType.BOOLEAN,
+                            required=False,
+                            description="Whether to include out-of-print books"
+                        )
+                    },
+                    require_confirmation=bedrock.RequireConfirmation.DISABLED
+                ), bedrock.FunctionProps(
+                    name="getBookDetails",
+                    description="Get detailed information about a specific book",
+                    parameters={
+                        "bookId": bedrock.FunctionParameterProps(
+                            type=bedrock.ParameterType.STRING,
+                            required=True,
+                            description="The unique identifier of the book"
+                        )
+                    },
+                    require_confirmation=bedrock.RequireConfirmation.ENABLED
+                )
+                ]
+            )
+            
+            # Create an action group using the function schema
+            action_group = bedrock.AgentActionGroup(
+                name="library-functions",
+                description="Functions for interacting with the library catalog",
+                executor=bedrock.ActionGroupExecutor.from_lambda(action_group_function),
+                function_schema=function_schema,
+                enabled=True
+            )
+            
+            agent = bedrock.Agent(self, "Agent",
+                foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_HAIKU_V1_0,
+                instruction="You are a helpful and friendly agent that answers questions about literature.",
+                action_groups=[action_group]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__64dfdaad570b5bc4904b9d9f356eb416095866cc4cca0546c2bb37dbb844e916)
+            check_type(argname="argument functions", value=functions, expected_type=type_hints["functions"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "functions": functions,
+        }
+
+    @builtins.property
+    def functions(self) -> typing.List["FunctionProps"]:
+        '''(experimental) Functions defined in the schema.
+
+        :stability: experimental
+        '''
+        result = self._values.get("functions")
+        assert result is not None, "Required property 'functions' is missing"
+        return typing.cast(typing.List["FunctionProps"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FunctionSchemaProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.FunctionToolProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "description": "description",
+        "input_schema": "inputSchema",
+        "name": "name",
+    },
+)
+class FunctionToolProps:
+    def __init__(
+        self,
+        *,
+        description: builtins.str,
+        input_schema: typing.Any,
+        name: builtins.str,
+    ) -> None:
+        '''(experimental) Properties for creating a function tool.
+
+        :param description: (experimental) A description of what the function does.
+        :param input_schema: (experimental) The input schema for the function parameters.
+        :param name: (experimental) The name of the function.
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            cmk = kms.Key(self, "cmk")
+            
+            variant_chat = bedrock.PromptVariant.chat(
+                variant_name="variant1",
+                model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V1_0,
+                messages=[
+                    bedrock.ChatMessage.user("From now on, you speak Japanese!"),
+                    bedrock.ChatMessage.assistant("Konnichiwa!"),
+                    bedrock.ChatMessage.user("From now on, you speak {{language}}!")
+                ],
+                system="You are a helpful assistant that only speaks the language you`re told.",
+                prompt_variables=["language"],
+                tool_configuration=bedrock.ToolConfiguration(
+                    tool_choice=bedrock.ToolChoice.AUTO,
+                    tools=[
+                        bedrock.Tool.function(
+                            name="top_song",
+                            description="Get the most popular song played on a radio station.",
+                            input_schema={
+                                "type": "object",
+                                "properties": {
+                                    "sign": {
+                                        "type": "string",
+                                        "description": "The call sign for the radio station for which you want the most popular song. Example calls signs are WZPZ and WKR."
+                                    }
+                                },
+                                "required": ["sign"]
+                            }
+                        )
+                    ]
+                )
+            )
+            
+            bedrock.Prompt(self, "prompt1",
+                prompt_name="prompt-chat",
+                description="my first chat prompt",
+                default_variant=variant_chat,
+                variants=[variant_chat],
+                kms_key=cmk
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6b7085110ea801ef9ae204ede9e1d507ec3d4b73d3bf7e52b8ff251bf268dd08)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument input_schema", value=input_schema, expected_type=type_hints["input_schema"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "description": description,
+            "input_schema": input_schema,
+            "name": name,
+        }
+
+    @builtins.property
+    def description(self) -> builtins.str:
+        '''(experimental) A description of what the function does.
+
+        :stability: experimental
+        '''
+        result = self._values.get("description")
+        assert result is not None, "Required property 'description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def input_schema(self) -> typing.Any:
+        '''(experimental) The input schema for the function parameters.
+
+        :stability: experimental
+        '''
+        result = self._values.get("input_schema")
+        assert result is not None, "Required property 'input_schema' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''(experimental) The name of the function.
+
+        :stability: experimental
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "FunctionToolProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="@aws-cdk/aws-bedrock-alpha.GuardrailAction")
+class GuardrailAction(enum.Enum):
+    '''(experimental) Guardrail action when a sensitive entity is detected.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+            guardrail_name="my-BedrockGuardrails",
+            # Configure tier for topic filters (optional)
+            topics_tier_config=bedrock.TierConfig.STANDARD
+        )
+        
+        # Use a predefined topic
+        guardrail.add_denied_topic_filter(bedrock.Topic.FINANCIAL_ADVICE)
+        
+        # Create a custom topic with input/output actions
+        guardrail.add_denied_topic_filter(
+            bedrock.Topic.custom(
+                name="Legal_Advice",
+                definition="Offering guidance or suggestions on legal matters, legal actions, interpretation of laws, or legal rights and responsibilities.",
+                examples=["Can I sue someone for this?", "What are my legal rights in this situation?", "Is this action against the law?", "What should I do to file a legal complaint?", "Can you explain this law to me?"
+                ],
+                # props below are optional
+                input_action=bedrock.GuardrailAction.BLOCK,
+                input_enabled=True,
+                output_action=bedrock.GuardrailAction.NONE,
+                output_enabled=True
+            ))
+    '''
+
+    BLOCK = "BLOCK"
+    '''(experimental) If sensitive information is detected in the prompt or response, the guardrail blocks all the content and returns a message that you configure.
+
+    :stability: experimental
+    '''
+    ANONYMIZE = "ANONYMIZE"
+    '''(experimental) If sensitive information is detected in the model response, the guardrail masks it with an identifier, the sensitive information is masked and replaced with identifier tags (for example: [NAME-1], [NAME-2], [EMAIL-1], etc.).
+
+    :stability: experimental
+    '''
+    NONE = "NONE"
+    '''(experimental) Do not take any action.
+
+    :stability: experimental
+    '''
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.GuardrailAttributes",
+    jsii_struct_bases=[],
+    name_mapping={
+        "guardrail_arn": "guardrailArn",
+        "guardrail_version": "guardrailVersion",
+        "kms_key": "kmsKey",
+    },
+)
+class GuardrailAttributes:
+    def __init__(
+        self,
+        *,
+        guardrail_arn: builtins.str,
+        guardrail_version: typing.Optional[builtins.str] = None,
+        kms_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+    ) -> None:
+        '''(experimental) ****************************************************************************                     ATTRS FOR IMPORTED CONSTRUCT ***************************************************************************.
+
+        :param guardrail_arn: (experimental) The ARN of the guardrail. At least one of guardrailArn or guardrailId must be defined in order to initialize a guardrail ref.
+        :param guardrail_version: (experimental) The version of the guardrail. Default: "DRAFT"
+        :param kms_key: (experimental) The KMS key of the guardrail if custom encryption is configured. Default: undefined - Means data is encrypted by default with a AWS-managed key
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            # stack: Stack
+            
+            cmk = kms.Key(self, "cmk")
+            # Import an existing guardrail by ARN
+            imported_guardrail = bedrock.Guardrail.from_guardrail_attributes(stack, "TestGuardrail",
+                guardrail_arn="arn:aws:bedrock:us-east-1:123456789012:guardrail/oygh3o8g7rtl",
+                guardrail_version="1",  # optional
+                kms_key=cmk
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__443b07ac479ccb99a117fa9b47b1c7ef1d39f39c60d2240301632b277220ee69)
+            check_type(argname="argument guardrail_arn", value=guardrail_arn, expected_type=type_hints["guardrail_arn"])
+            check_type(argname="argument guardrail_version", value=guardrail_version, expected_type=type_hints["guardrail_version"])
+            check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "guardrail_arn": guardrail_arn,
+        }
+        if guardrail_version is not None:
+            self._values["guardrail_version"] = guardrail_version
+        if kms_key is not None:
+            self._values["kms_key"] = kms_key
+
+    @builtins.property
+    def guardrail_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the guardrail.
+
+        At least one of guardrailArn or guardrailId must be
+        defined in order to initialize a guardrail ref.
+
+        :stability: experimental
+        '''
+        result = self._values.get("guardrail_arn")
+        assert result is not None, "Required property 'guardrail_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def guardrail_version(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The version of the guardrail.
+
+        :default: "DRAFT"
+
+        :stability: experimental
+        '''
+        result = self._values.get("guardrail_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) The KMS key of the guardrail if custom encryption is configured.
+
+        :default: undefined - Means data is encrypted by default with a AWS-managed key
+
+        :stability: experimental
+        '''
+        result = self._values.get("kms_key")
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GuardrailAttributes(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.GuardrailCrossRegionConfigProperty",
+    jsii_struct_bases=[],
+    name_mapping={"guardrail_profile_arn": "guardrailProfileArn"},
+)
+class GuardrailCrossRegionConfigProperty:
+    def __init__(self, *, guardrail_profile_arn: builtins.str) -> None:
+        '''(experimental) GuardrailCrossRegionConfigProperty.
+
+        :param guardrail_profile_arn: (experimental) The arn of thesystem-defined guardrail profile that you're using with your guardrail. Guardrail profiles define the destination AWS Regions where guardrail inference requests can be automatically routed. Using guardrail profiles helps maintain guardrail performance and reliability when demand increases. Default: - No cross-region configuration
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+                guardrail_name="my-BedrockGuardrails",
+                description="Guardrail with cross-region configuration for enhanced language support",
+                cross_region_config=bedrock.GuardrailCrossRegionConfigProperty(
+                    guardrail_profile_arn="arn:aws:bedrock:us-east-1:123456789012:guardrail-profile/my-profile"
+                ),
+                # Use STANDARD tier for enhanced capabilities
+                content_filters_tier_config=bedrock.TierConfig.STANDARD,
+                topics_tier_config=bedrock.TierConfig.STANDARD
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__86537e134053437104c276125d87105036299eb706678090c020ed8c1fce3614)
+            check_type(argname="argument guardrail_profile_arn", value=guardrail_profile_arn, expected_type=type_hints["guardrail_profile_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "guardrail_profile_arn": guardrail_profile_arn,
+        }
+
+    @builtins.property
+    def guardrail_profile_arn(self) -> builtins.str:
+        '''(experimental) The arn of thesystem-defined guardrail profile that you're using with your guardrail.
+
+        Guardrail profiles define the destination AWS Regions where guardrail inference requests can be automatically routed.
+        Using guardrail profiles helps maintain guardrail performance and reliability when demand increases.
+
+        :default: - No cross-region configuration
+
+        :stability: experimental
+        '''
+        result = self._values.get("guardrail_profile_arn")
+        assert result is not None, "Required property 'guardrail_profile_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GuardrailCrossRegionConfigProperty(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.GuardrailProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "guardrail_name": "guardrailName",
+        "blocked_input_messaging": "blockedInputMessaging",
+        "blocked_outputs_messaging": "blockedOutputsMessaging",
+        "content_filters": "contentFilters",
+        "content_filters_tier_config": "contentFiltersTierConfig",
+        "contextual_grounding_filters": "contextualGroundingFilters",
+        "cross_region_config": "crossRegionConfig",
+        "denied_topics": "deniedTopics",
+        "description": "description",
+        "kms_key": "kmsKey",
+        "managed_word_list_filters": "managedWordListFilters",
+        "pii_filters": "piiFilters",
+        "regex_filters": "regexFilters",
+        "topics_tier_config": "topicsTierConfig",
+        "word_filters": "wordFilters",
+    },
+)
+class GuardrailProps:
+    def __init__(
+        self,
+        *,
+        guardrail_name: builtins.str,
+        blocked_input_messaging: typing.Optional[builtins.str] = None,
+        blocked_outputs_messaging: typing.Optional[builtins.str] = None,
+        content_filters: typing.Optional[typing.Sequence[typing.Union["ContentFilter", typing.Dict[builtins.str, typing.Any]]]] = None,
+        content_filters_tier_config: typing.Optional["TierConfig"] = None,
+        contextual_grounding_filters: typing.Optional[typing.Sequence[typing.Union["ContextualGroundingFilter", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cross_region_config: typing.Optional[typing.Union["GuardrailCrossRegionConfigProperty", typing.Dict[builtins.str, typing.Any]]] = None,
+        denied_topics: typing.Optional[typing.Sequence["Topic"]] = None,
+        description: typing.Optional[builtins.str] = None,
+        kms_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        managed_word_list_filters: typing.Optional[typing.Sequence[typing.Union["ManagedWordFilter", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pii_filters: typing.Optional[typing.Sequence[typing.Union["PIIFilter", typing.Dict[builtins.str, typing.Any]]]] = None,
+        regex_filters: typing.Optional[typing.Sequence[typing.Union["RegexFilter", typing.Dict[builtins.str, typing.Any]]]] = None,
+        topics_tier_config: typing.Optional["TierConfig"] = None,
+        word_filters: typing.Optional[typing.Sequence[typing.Union["WordFilter", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''(experimental) Properties for creating a Guardrail.
+
+        :param guardrail_name: (experimental) The name of the guardrail. This will be used as the physical name of the guardrail.
+        :param blocked_input_messaging: (experimental) The message to return when the guardrail blocks a prompt. Must be between 1 and 500 characters. Default: "Sorry, your query violates our usage policy."
+        :param blocked_outputs_messaging: (experimental) The message to return when the guardrail blocks a model response. Must be between 1 and 500 characters. Default: "Sorry, I am unable to answer your question because of our usage policy."
+        :param content_filters: (experimental) The content filters to apply to the guardrail. Default: []
+        :param content_filters_tier_config: (experimental) The tier configuration to apply to the guardrail. Default: filters.TierConfig.CLASSIC
+        :param contextual_grounding_filters: (experimental) The contextual grounding filters to apply to the guardrail. Default: []
+        :param cross_region_config: (experimental) The cross-region configuration for the guardrail. This is optional and when provided, it should be of type GuardrailCrossRegionConfigProperty. Default: - No cross-region configuration
+        :param denied_topics: (experimental) A list of policies related to topics that the guardrail should deny. Default: []
+        :param description: (experimental) The description of the guardrail. Default: - No description
+        :param kms_key: (experimental) A custom KMS key to use for encrypting data. Default: - Data is encrypted by default with a key that AWS owns and manages for you
+        :param managed_word_list_filters: (experimental) The managed word filters to apply to the guardrail. Default: []
+        :param pii_filters: (experimental) The PII filters to apply to the guardrail. Default: []
+        :param regex_filters: (experimental) The regular expression (regex) filters to apply to the guardrail. Default: []
+        :param topics_tier_config: (experimental) The tier configuration to apply to the guardrail. Default: filters.TierConfig.CLASSIC
+        :param word_filters: (experimental) The word filters to apply to the guardrail. Default: []
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+                guardrail_name="my-BedrockGuardrails"
+            )
+            # Add regex filter with input/output actions
+            guardrail.add_regex_filter(
+                name="TestRegexFilter",
+                pattern="test-pattern",
+                action=bedrock.GuardrailAction.ANONYMIZE,
+                # below props are optional
+                description="This is a test regex filter",
+                input_action=bedrock.GuardrailAction.BLOCK,
+                input_enabled=True,
+                output_action=bedrock.GuardrailAction.ANONYMIZE,
+                output_enabled=True
+            )
+        '''
+        if isinstance(cross_region_config, dict):
+            cross_region_config = GuardrailCrossRegionConfigProperty(**cross_region_config)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e08b0d4db3b9c9f5f0cb1dec2d26ccaa28b79f14c4ed9061807181c90fdd4473)
+            check_type(argname="argument guardrail_name", value=guardrail_name, expected_type=type_hints["guardrail_name"])
+            check_type(argname="argument blocked_input_messaging", value=blocked_input_messaging, expected_type=type_hints["blocked_input_messaging"])
+            check_type(argname="argument blocked_outputs_messaging", value=blocked_outputs_messaging, expected_type=type_hints["blocked_outputs_messaging"])
+            check_type(argname="argument content_filters", value=content_filters, expected_type=type_hints["content_filters"])
+            check_type(argname="argument content_filters_tier_config", value=content_filters_tier_config, expected_type=type_hints["content_filters_tier_config"])
+            check_type(argname="argument contextual_grounding_filters", value=contextual_grounding_filters, expected_type=type_hints["contextual_grounding_filters"])
+            check_type(argname="argument cross_region_config", value=cross_region_config, expected_type=type_hints["cross_region_config"])
+            check_type(argname="argument denied_topics", value=denied_topics, expected_type=type_hints["denied_topics"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
+            check_type(argname="argument managed_word_list_filters", value=managed_word_list_filters, expected_type=type_hints["managed_word_list_filters"])
+            check_type(argname="argument pii_filters", value=pii_filters, expected_type=type_hints["pii_filters"])
+            check_type(argname="argument regex_filters", value=regex_filters, expected_type=type_hints["regex_filters"])
+            check_type(argname="argument topics_tier_config", value=topics_tier_config, expected_type=type_hints["topics_tier_config"])
+            check_type(argname="argument word_filters", value=word_filters, expected_type=type_hints["word_filters"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "guardrail_name": guardrail_name,
+        }
+        if blocked_input_messaging is not None:
+            self._values["blocked_input_messaging"] = blocked_input_messaging
+        if blocked_outputs_messaging is not None:
+            self._values["blocked_outputs_messaging"] = blocked_outputs_messaging
+        if content_filters is not None:
+            self._values["content_filters"] = content_filters
+        if content_filters_tier_config is not None:
+            self._values["content_filters_tier_config"] = content_filters_tier_config
+        if contextual_grounding_filters is not None:
+            self._values["contextual_grounding_filters"] = contextual_grounding_filters
+        if cross_region_config is not None:
+            self._values["cross_region_config"] = cross_region_config
+        if denied_topics is not None:
+            self._values["denied_topics"] = denied_topics
+        if description is not None:
+            self._values["description"] = description
+        if kms_key is not None:
+            self._values["kms_key"] = kms_key
+        if managed_word_list_filters is not None:
+            self._values["managed_word_list_filters"] = managed_word_list_filters
+        if pii_filters is not None:
+            self._values["pii_filters"] = pii_filters
+        if regex_filters is not None:
+            self._values["regex_filters"] = regex_filters
+        if topics_tier_config is not None:
+            self._values["topics_tier_config"] = topics_tier_config
+        if word_filters is not None:
+            self._values["word_filters"] = word_filters
+
+    @builtins.property
+    def guardrail_name(self) -> builtins.str:
+        '''(experimental) The name of the guardrail.
+
+        This will be used as the physical name of the guardrail.
+
+        :stability: experimental
+        '''
+        result = self._values.get("guardrail_name")
+        assert result is not None, "Required property 'guardrail_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def blocked_input_messaging(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The message to return when the guardrail blocks a prompt.
+
+        Must be between 1 and 500 characters.
+
+        :default: "Sorry, your query violates our usage policy."
+
+        :stability: experimental
+        '''
+        result = self._values.get("blocked_input_messaging")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def blocked_outputs_messaging(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The message to return when the guardrail blocks a model response.
+
+        Must be between 1 and 500 characters.
+
+        :default: "Sorry, I am unable to answer your question because of our usage policy."
+
+        :stability: experimental
+        '''
+        result = self._values.get("blocked_outputs_messaging")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def content_filters(self) -> typing.Optional[typing.List["ContentFilter"]]:
+        '''(experimental) The content filters to apply to the guardrail.
+
+        :default: []
+
+        :stability: experimental
+        '''
+        result = self._values.get("content_filters")
+        return typing.cast(typing.Optional[typing.List["ContentFilter"]], result)
+
+    @builtins.property
+    def content_filters_tier_config(self) -> typing.Optional["TierConfig"]:
+        '''(experimental) The tier configuration to apply to the guardrail.
+
+        :default: filters.TierConfig.CLASSIC
+
+        :stability: experimental
+        '''
+        result = self._values.get("content_filters_tier_config")
+        return typing.cast(typing.Optional["TierConfig"], result)
+
+    @builtins.property
+    def contextual_grounding_filters(
+        self,
+    ) -> typing.Optional[typing.List["ContextualGroundingFilter"]]:
+        '''(experimental) The contextual grounding filters to apply to the guardrail.
+
+        :default: []
+
+        :stability: experimental
+        '''
+        result = self._values.get("contextual_grounding_filters")
+        return typing.cast(typing.Optional[typing.List["ContextualGroundingFilter"]], result)
+
+    @builtins.property
+    def cross_region_config(
+        self,
+    ) -> typing.Optional["GuardrailCrossRegionConfigProperty"]:
+        '''(experimental) The cross-region configuration for the guardrail.
+
+        This is optional and when provided, it should be of type GuardrailCrossRegionConfigProperty.
+
+        :default: - No cross-region configuration
+
+        :stability: experimental
+        '''
+        result = self._values.get("cross_region_config")
+        return typing.cast(typing.Optional["GuardrailCrossRegionConfigProperty"], result)
+
+    @builtins.property
+    def denied_topics(self) -> typing.Optional[typing.List["Topic"]]:
+        '''(experimental) A list of policies related to topics that the guardrail should deny.
+
+        :default: []
+
+        :stability: experimental
+        '''
+        result = self._values.get("denied_topics")
+        return typing.cast(typing.Optional[typing.List["Topic"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The description of the guardrail.
+
+        :default: - No description
+
+        :stability: experimental
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) A custom KMS key to use for encrypting data.
+
+        :default: - Data is encrypted by default with a key that AWS owns and manages for you
+
+        :stability: experimental
+        '''
+        result = self._values.get("kms_key")
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], result)
+
+    @builtins.property
+    def managed_word_list_filters(
+        self,
+    ) -> typing.Optional[typing.List["ManagedWordFilter"]]:
+        '''(experimental) The managed word filters to apply to the guardrail.
+
+        :default: []
+
+        :stability: experimental
+        '''
+        result = self._values.get("managed_word_list_filters")
+        return typing.cast(typing.Optional[typing.List["ManagedWordFilter"]], result)
+
+    @builtins.property
+    def pii_filters(self) -> typing.Optional[typing.List["PIIFilter"]]:
+        '''(experimental) The PII filters to apply to the guardrail.
+
+        :default: []
+
+        :stability: experimental
+        '''
+        result = self._values.get("pii_filters")
+        return typing.cast(typing.Optional[typing.List["PIIFilter"]], result)
+
+    @builtins.property
+    def regex_filters(self) -> typing.Optional[typing.List["RegexFilter"]]:
+        '''(experimental) The regular expression (regex) filters to apply to the guardrail.
+
+        :default: []
+
+        :stability: experimental
+        '''
+        result = self._values.get("regex_filters")
+        return typing.cast(typing.Optional[typing.List["RegexFilter"]], result)
+
+    @builtins.property
+    def topics_tier_config(self) -> typing.Optional["TierConfig"]:
+        '''(experimental) The tier configuration to apply to the guardrail.
+
+        :default: filters.TierConfig.CLASSIC
+
+        :stability: experimental
+        '''
+        result = self._values.get("topics_tier_config")
+        return typing.cast(typing.Optional["TierConfig"], result)
+
+    @builtins.property
+    def word_filters(self) -> typing.Optional[typing.List["WordFilter"]]:
+        '''(experimental) The word filters to apply to the guardrail.
+
+        :default: []
+
+        :stability: experimental
+        '''
+        result = self._values.get("word_filters")
+        return typing.cast(typing.Optional[typing.List["WordFilter"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GuardrailProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="@aws-cdk/aws-bedrock-alpha.IAgent")
+class IAgent(
+    _aws_cdk_ceddda9d.IResource,
+    _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Represents an Agent, either created with CDK or imported.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="agentArn")
+    def agent_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the agent.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="agentId")
+    def agent_id(self) -> builtins.str:
+        '''(experimental) The ID of the Agent.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="role")
+    def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
+        '''(experimental) The IAM role associated to the agent.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKey")
+    def kms_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) Optional KMS encryption key associated with this agent.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="lastUpdated")
+    def last_updated(self) -> typing.Optional[builtins.str]:
+        '''(experimental) When this agent was last updated.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantInvoke")
+    def grant_invoke(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant invoke permissions on this agent to an IAM principal.
+
+        Note: This grant will only work when the grantee is in the same AWS account
+        where the agent is defined. Cross-account invocation is not supported.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricCount")
+    def metric_count(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the CloudWatch metric for agent count.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="onEvent")
+    def on_event(
+        self,
+        id: builtins.str,
+        *,
+        target: typing.Optional["_aws_cdk_aws_events_ceddda9d.IRuleTarget"] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
+        description: typing.Optional[builtins.str] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
+        rule_name: typing.Optional[builtins.str] = None,
+    ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
+        '''(experimental) Defines a CloudWatch event rule triggered by agent events.
+
+        :param id: -
+        :param target: The target to register for the event. Default: - No target is added to the rule. Use ``addTarget()`` to add a target.
+        :param cross_stack_scope: The scope to use if the source of the rule and its target are in different Stacks (but in the same account & region). This helps dealing with cycles that often arise in these situations. Default: - none (the main scope will be used, even for cross-stack Events)
+        :param description: A description of the rule's purpose. Default: - No description
+        :param event_pattern: Additional restrictions for the event to route to the specified target. The method that generates the rule probably imposes some type of event filtering. The filtering implied by what you pass here is added on top of that filtering. Default: - No additional filtering based on an event pattern.
+        :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAgentProxy(
+    jsii.proxy_for(_aws_cdk_ceddda9d.IResource), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_aws_iam_ceddda9d.IGrantable), # type: ignore[misc]
+):
+    '''(experimental) Represents an Agent, either created with CDK or imported.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "@aws-cdk/aws-bedrock-alpha.IAgent"
+
+    @builtins.property
+    @jsii.member(jsii_name="agentArn")
+    def agent_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the agent.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "agentArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="agentId")
+    def agent_id(self) -> builtins.str:
+        '''(experimental) The ID of the Agent.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "agentId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="role")
+    def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
+        '''(experimental) The IAM role associated to the agent.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", jsii.get(self, "role"))
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKey")
+    def kms_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) Optional KMS encryption key associated with this agent.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], jsii.get(self, "kmsKey"))
+
+    @builtins.property
+    @jsii.member(jsii_name="lastUpdated")
+    def last_updated(self) -> typing.Optional[builtins.str]:
+        '''(experimental) When this agent was last updated.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "lastUpdated"))
+
+    @jsii.member(jsii_name="grantInvoke")
+    def grant_invoke(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant invoke permissions on this agent to an IAM principal.
+
+        Note: This grant will only work when the grantee is in the same AWS account
+        where the agent is defined. Cross-account invocation is not supported.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f618bd28d205f12fe18f577c6cf06cfa5419cd5eba307a62054fe15003721240)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantInvoke", [grantee]))
+
+    @jsii.member(jsii_name="metricCount")
+    def metric_count(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the CloudWatch metric for agent count.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricCount", [props]))
+
+    @jsii.member(jsii_name="onEvent")
+    def on_event(
+        self,
+        id: builtins.str,
+        *,
+        target: typing.Optional["_aws_cdk_aws_events_ceddda9d.IRuleTarget"] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
+        description: typing.Optional[builtins.str] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
+        rule_name: typing.Optional[builtins.str] = None,
+    ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
+        '''(experimental) Defines a CloudWatch event rule triggered by agent events.
+
+        :param id: -
+        :param target: The target to register for the event. Default: - No target is added to the rule. Use ``addTarget()`` to add a target.
+        :param cross_stack_scope: The scope to use if the source of the rule and its target are in different Stacks (but in the same account & region). This helps dealing with cycles that often arise in these situations. Default: - none (the main scope will be used, even for cross-stack Events)
+        :param description: A description of the rule's purpose. Default: - No description
+        :param event_pattern: Additional restrictions for the event to route to the specified target. The method that generates the rule probably imposes some type of event filtering. The filtering implied by what you pass here is added on top of that filtering. Default: - No additional filtering based on an event pattern.
+        :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__36b2c150112fc98f8b2c8eebfbc62fdd6f55ded880e47bf4dffbba187d0bf1c4)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        options = _aws_cdk_aws_events_ceddda9d.OnEventOptions(
+            target=target,
+            cross_stack_scope=cross_stack_scope,
+            description=description,
+            event_pattern=event_pattern,
+            rule_name=rule_name,
+        )
+
+        return typing.cast("_aws_cdk_aws_events_ceddda9d.Rule", jsii.invoke(self, "onEvent", [id, options]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAgent).__jsii_proxy_class__ = lambda : _IAgentProxy
+
+
+@jsii.interface(jsii_type="@aws-cdk/aws-bedrock-alpha.IAgentAlias")
+class IAgentAlias(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
+    '''(experimental) Represents an Agent Alias, either created with CDK or imported.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="agent")
+    def agent(self) -> "IAgent":
+        '''(experimental) The underlying agent for this alias.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="aliasArn")
+    def alias_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the agent alias.
+
+        :stability: experimental
+        :attributes: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="aliasId")
+    def alias_id(self) -> builtins.str:
+        '''(experimental) The unique identifier of the agent alias.
+
+        :stability: experimental
+        :attributes: true
+        '''
+        ...
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant the given principal identity permissions to perform actions on this agent alias.
+
+        :param grantee: -
+        :param actions: -
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantGet")
+    def grant_get(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant the given identity permissions to get the agent alias.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantInvoke")
+    def grant_invoke(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant the given identity permissions to invoke the agent alias.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="onCloudTrailEvent")
+    def on_cloud_trail_event(
+        self,
+        id: builtins.str,
+        *,
+        target: typing.Optional["_aws_cdk_aws_events_ceddda9d.IRuleTarget"] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
+        description: typing.Optional[builtins.str] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
+        rule_name: typing.Optional[builtins.str] = None,
+    ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
+        '''(experimental) Define an EventBridge rule that triggers when something happens to this agent alias.
+
+        Requires that there exists at least one CloudTrail Trail in your account
+        that captures the event. This method will not create the Trail.
+
+        :param id: The id of the rule.
+        :param target: The target to register for the event. Default: - No target is added to the rule. Use ``addTarget()`` to add a target.
+        :param cross_stack_scope: The scope to use if the source of the rule and its target are in different Stacks (but in the same account & region). This helps dealing with cycles that often arise in these situations. Default: - none (the main scope will be used, even for cross-stack Events)
+        :param description: A description of the rule's purpose. Default: - No description
+        :param event_pattern: Additional restrictions for the event to route to the specified target. The method that generates the rule probably imposes some type of event filtering. The filtering implied by what you pass here is added on top of that filtering. Default: - No additional filtering based on an event pattern.
+        :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAgentAliasProxy(
+    jsii.proxy_for(_aws_cdk_ceddda9d.IResource), # type: ignore[misc]
+):
+    '''(experimental) Represents an Agent Alias, either created with CDK or imported.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "@aws-cdk/aws-bedrock-alpha.IAgentAlias"
+
+    @builtins.property
+    @jsii.member(jsii_name="agent")
+    def agent(self) -> "IAgent":
+        '''(experimental) The underlying agent for this alias.
+
+        :stability: experimental
+        '''
+        return typing.cast("IAgent", jsii.get(self, "agent"))
+
+    @builtins.property
+    @jsii.member(jsii_name="aliasArn")
+    def alias_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the agent alias.
+
+        :stability: experimental
+        :attributes: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "aliasArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="aliasId")
+    def alias_id(self) -> builtins.str:
+        '''(experimental) The unique identifier of the agent alias.
+
+        :stability: experimental
+        :attributes: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "aliasId"))
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant the given principal identity permissions to perform actions on this agent alias.
+
+        :param grantee: -
+        :param actions: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f4cca4a424332ea1f29775bfb3a1ac6db0f5368e9dfae8d1adb7fe67e042a6af)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
+
+    @jsii.member(jsii_name="grantGet")
+    def grant_get(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant the given identity permissions to get the agent alias.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4f3e1ad5ab734c71be4df5c8ad8732b4f05f16f371b0379a039c7c2d3b7dec8a)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantGet", [grantee]))
+
+    @jsii.member(jsii_name="grantInvoke")
+    def grant_invoke(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant the given identity permissions to invoke the agent alias.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c205eff6a91ceb0127ca10998bf86f4e152274ba9eceea415fa6e71f802904bb)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantInvoke", [grantee]))
+
+    @jsii.member(jsii_name="onCloudTrailEvent")
+    def on_cloud_trail_event(
+        self,
+        id: builtins.str,
+        *,
+        target: typing.Optional["_aws_cdk_aws_events_ceddda9d.IRuleTarget"] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
+        description: typing.Optional[builtins.str] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
+        rule_name: typing.Optional[builtins.str] = None,
+    ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
+        '''(experimental) Define an EventBridge rule that triggers when something happens to this agent alias.
+
+        Requires that there exists at least one CloudTrail Trail in your account
+        that captures the event. This method will not create the Trail.
+
+        :param id: The id of the rule.
+        :param target: The target to register for the event. Default: - No target is added to the rule. Use ``addTarget()`` to add a target.
+        :param cross_stack_scope: The scope to use if the source of the rule and its target are in different Stacks (but in the same account & region). This helps dealing with cycles that often arise in these situations. Default: - none (the main scope will be used, even for cross-stack Events)
+        :param description: A description of the rule's purpose. Default: - No description
+        :param event_pattern: Additional restrictions for the event to route to the specified target. The method that generates the rule probably imposes some type of event filtering. The filtering implied by what you pass here is added on top of that filtering. Default: - No additional filtering based on an event pattern.
+        :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ad4bacfc955253cfea89b4d09ebbbf2ccae8ba53fb98679bb4f2f96718f4477c)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        options = _aws_cdk_aws_events_ceddda9d.OnEventOptions(
+            target=target,
+            cross_stack_scope=cross_stack_scope,
+            description=description,
+            event_pattern=event_pattern,
+            rule_name=rule_name,
+        )
+
+        return typing.cast("_aws_cdk_aws_events_ceddda9d.Rule", jsii.invoke(self, "onCloudTrailEvent", [id, options]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAgentAlias).__jsii_proxy_class__ = lambda : _IAgentAliasProxy
+
+
+@jsii.interface(jsii_type="@aws-cdk/aws-bedrock-alpha.IBedrockInvokable")
+class IBedrockInvokable(typing_extensions.Protocol):
+    '''(experimental) Represents an Amazon Bedrock abstraction on which you can run the ``Invoke`` API.
+
+    This can be a Foundational Model,
+    a Custom Model, or an Inference Profile.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="invokableArn")
+    def invokable_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the Bedrock invokable abstraction.
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantInvoke")
+    def grant_invoke(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Gives the appropriate policies to invoke and use the invokable abstraction.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBedrockInvokableProxy:
+    '''(experimental) Represents an Amazon Bedrock abstraction on which you can run the ``Invoke`` API.
+
+    This can be a Foundational Model,
+    a Custom Model, or an Inference Profile.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "@aws-cdk/aws-bedrock-alpha.IBedrockInvokable"
+
+    @builtins.property
+    @jsii.member(jsii_name="invokableArn")
+    def invokable_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the Bedrock invokable abstraction.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "invokableArn"))
+
+    @jsii.member(jsii_name="grantInvoke")
+    def grant_invoke(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Gives the appropriate policies to invoke and use the invokable abstraction.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aeff941da61743d78967d00b93f8c3e1baf285b4d10bc9d78579d8de4c9e8a77)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantInvoke", [grantee]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBedrockInvokable).__jsii_proxy_class__ = lambda : _IBedrockInvokableProxy
+
+
+@jsii.interface(jsii_type="@aws-cdk/aws-bedrock-alpha.IGuardrail")
+class IGuardrail(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
+    '''(experimental) Represents a Guardrail, either created with CDK or imported.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="guardrailArn")
+    def guardrail_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the guardrail.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="guardrailId")
+    def guardrail_id(self) -> builtins.str:
+        '''(experimental) The ID of the guardrail.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="guardrailVersion")
+    def guardrail_version(self) -> builtins.str:
+        '''(experimental) The version of the guardrail.
+
+        If no explicit version is created,
+        this will default to "DRAFT"
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKey")
+    def kms_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) Optional KMS encryption key associated with this guardrail.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="lastUpdated")
+    def last_updated(self) -> typing.Optional[builtins.str]:
+        '''(experimental) When this guardrail was last updated.
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant the given principal identity permissions to perform actions on this guardrail.
+
+        :param grantee: -
+        :param actions: -
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantApply")
+    def grant_apply(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant the given identity permissions to apply the guardrail.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="metric")
+    def metric(
+        self,
+        metric_name: builtins.str,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the given named metric for this guardrail.
+
+        :param metric_name: -
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricInvocationClientErrors")
+    def metric_invocation_client_errors(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the invocation client errors metric for this guardrail.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricInvocationLatency")
+    def metric_invocation_latency(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the invocation latency metric for this guardrail.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricInvocations")
+    def metric_invocations(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the invocations metric for this guardrail.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricInvocationServerErrors")
+    def metric_invocation_server_errors(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the invocation server errors metric for this guardrail.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricInvocationsIntervened")
+    def metric_invocations_intervened(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the invocations intervened metric for this guardrail.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricInvocationThrottles")
+    def metric_invocation_throttles(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the invocation throttles metric for this guardrail.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="metricTextUnitCount")
+    def metric_text_unit_count(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the text unit count metric for this guardrail.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IGuardrailProxy(
+    jsii.proxy_for(_aws_cdk_ceddda9d.IResource), # type: ignore[misc]
+):
+    '''(experimental) Represents a Guardrail, either created with CDK or imported.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "@aws-cdk/aws-bedrock-alpha.IGuardrail"
+
+    @builtins.property
+    @jsii.member(jsii_name="guardrailArn")
+    def guardrail_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the guardrail.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "guardrailArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="guardrailId")
+    def guardrail_id(self) -> builtins.str:
+        '''(experimental) The ID of the guardrail.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "guardrailId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="guardrailVersion")
+    def guardrail_version(self) -> builtins.str:
+        '''(experimental) The version of the guardrail.
+
+        If no explicit version is created,
+        this will default to "DRAFT"
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "guardrailVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKey")
+    def kms_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) Optional KMS encryption key associated with this guardrail.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], jsii.get(self, "kmsKey"))
+
+    @builtins.property
+    @jsii.member(jsii_name="lastUpdated")
+    def last_updated(self) -> typing.Optional[builtins.str]:
+        '''(experimental) When this guardrail was last updated.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "lastUpdated"))
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant the given principal identity permissions to perform actions on this guardrail.
+
+        :param grantee: -
+        :param actions: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__250f9ca816d2b6d16388bd03db7cd93a7f40623473d31ca8e97ddbe470fd285c)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
+
+    @jsii.member(jsii_name="grantApply")
+    def grant_apply(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant the given identity permissions to apply the guardrail.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__62abcf64ad0ab789ac6a912c77de318dd484b4fa8b9fb15b20edc4d2e6e4fb02)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantApply", [grantee]))
+
+    @jsii.member(jsii_name="metric")
+    def metric(
+        self,
+        metric_name: builtins.str,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the given named metric for this guardrail.
+
+        :param metric_name: -
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a7540f7e59149363a835819cc327ebe6b68d729fae169758f3530fe8ed70519a)
+            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metric", [metric_name, props]))
+
+    @jsii.member(jsii_name="metricInvocationClientErrors")
+    def metric_invocation_client_errors(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the invocation client errors metric for this guardrail.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricInvocationClientErrors", [props]))
+
+    @jsii.member(jsii_name="metricInvocationLatency")
+    def metric_invocation_latency(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the invocation latency metric for this guardrail.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricInvocationLatency", [props]))
+
+    @jsii.member(jsii_name="metricInvocations")
+    def metric_invocations(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the invocations metric for this guardrail.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricInvocations", [props]))
+
+    @jsii.member(jsii_name="metricInvocationServerErrors")
+    def metric_invocation_server_errors(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the invocation server errors metric for this guardrail.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricInvocationServerErrors", [props]))
+
+    @jsii.member(jsii_name="metricInvocationsIntervened")
+    def metric_invocations_intervened(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the invocations intervened metric for this guardrail.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricInvocationsIntervened", [props]))
+
+    @jsii.member(jsii_name="metricInvocationThrottles")
+    def metric_invocation_throttles(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the invocation throttles metric for this guardrail.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricInvocationThrottles", [props]))
+
+    @jsii.member(jsii_name="metricTextUnitCount")
+    def metric_text_unit_count(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the text unit count metric for this guardrail.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricTextUnitCount", [props]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IGuardrail).__jsii_proxy_class__ = lambda : _IGuardrailProxy
+
+
+@jsii.interface(jsii_type="@aws-cdk/aws-bedrock-alpha.IInferenceProfile")
+class IInferenceProfile(typing_extensions.Protocol):
+    '''(experimental) Represents an Inference Profile, either created with CDK or imported.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="inferenceProfileArn")
+    def inference_profile_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the inference profile.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="inferenceProfileId")
+    def inference_profile_id(self) -> builtins.str:
+        '''(experimental) The unique identifier of the inference profile.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> "InferenceProfileType":
+        '''(experimental) The type of inference profile.
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantProfileUsage")
+    def grant_profile_usage(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants appropriate permissions to use the inference profile.
+
+        Each profile type requires different permissions based on its usage pattern.
+
+        :param grantee: - The IAM principal to grant permissions to.
+
+        :return: An IAM Grant object representing the granted permissions
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IInferenceProfileProxy:
+    '''(experimental) Represents an Inference Profile, either created with CDK or imported.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "@aws-cdk/aws-bedrock-alpha.IInferenceProfile"
+
+    @builtins.property
+    @jsii.member(jsii_name="inferenceProfileArn")
+    def inference_profile_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the inference profile.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "inferenceProfileArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="inferenceProfileId")
+    def inference_profile_id(self) -> builtins.str:
+        '''(experimental) The unique identifier of the inference profile.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "inferenceProfileId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> "InferenceProfileType":
+        '''(experimental) The type of inference profile.
+
+        :stability: experimental
+        '''
+        return typing.cast("InferenceProfileType", jsii.get(self, "type"))
+
+    @jsii.member(jsii_name="grantProfileUsage")
+    def grant_profile_usage(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants appropriate permissions to use the inference profile.
+
+        Each profile type requires different permissions based on its usage pattern.
+
+        :param grantee: - The IAM principal to grant permissions to.
+
+        :return: An IAM Grant object representing the granted permissions
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9439593fbd53c1ca5d647f4f4b2338d27a3846bf28c592d17bea368919bba850)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantProfileUsage", [grantee]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IInferenceProfile).__jsii_proxy_class__ = lambda : _IInferenceProfileProxy
+
+
+@jsii.interface(jsii_type="@aws-cdk/aws-bedrock-alpha.IPrompt")
+class IPrompt(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
+    '''(experimental) Represents a Prompt, either created with CDK or imported.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="promptArn")
+    def prompt_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the prompt.
+
+        :stability: experimental
+        :attribute: true
+
+        Example::
+
+            "arn:aws:bedrock:us-east-1:123456789012:prompt/PROMPT12345"
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="promptId")
+    def prompt_id(self) -> builtins.str:
+        '''(experimental) The ID of the prompt.
+
+        :stability: experimental
+        :attribute: true
+
+        Example::
+
+            "PROMPT12345"
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="promptVersion")
+    def prompt_version(self) -> builtins.str:
+        '''(experimental) The version of the prompt.
+
+        :default: "DRAFT"
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKey")
+    def kms_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) Optional KMS encryption key associated with this prompt.
+
+        :stability: experimental
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantGet")
+    def grant_get(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant the given identity permissions to get the prompt.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPromptProxy(
+    jsii.proxy_for(_aws_cdk_ceddda9d.IResource), # type: ignore[misc]
+):
+    '''(experimental) Represents a Prompt, either created with CDK or imported.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "@aws-cdk/aws-bedrock-alpha.IPrompt"
+
+    @builtins.property
+    @jsii.member(jsii_name="promptArn")
+    def prompt_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the prompt.
+
+        :stability: experimental
+        :attribute: true
+
+        Example::
+
+            "arn:aws:bedrock:us-east-1:123456789012:prompt/PROMPT12345"
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "promptArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="promptId")
+    def prompt_id(self) -> builtins.str:
+        '''(experimental) The ID of the prompt.
+
+        :stability: experimental
+        :attribute: true
+
+        Example::
+
+            "PROMPT12345"
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "promptId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="promptVersion")
+    def prompt_version(self) -> builtins.str:
+        '''(experimental) The version of the prompt.
+
+        :default: "DRAFT"
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "promptVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKey")
+    def kms_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) Optional KMS encryption key associated with this prompt.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], jsii.get(self, "kmsKey"))
+
+    @jsii.member(jsii_name="grantGet")
+    def grant_get(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant the given identity permissions to get the prompt.
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8d0c9bda8bb121bbb6718c11c00d067e281206ebf3da183776755834fe0d8034)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantGet", [grantee]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPrompt).__jsii_proxy_class__ = lambda : _IPromptProxy
+
+
+@jsii.interface(jsii_type="@aws-cdk/aws-bedrock-alpha.IPromptRouter")
+class IPromptRouter(typing_extensions.Protocol):
+    '''(experimental) Represents a Prompt Router, which provides intelligent routing between different models.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="promptRouterArn")
+    def prompt_router_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the prompt router.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="promptRouterId")
+    def prompt_router_id(self) -> builtins.str:
+        '''(experimental) The ID of the prompt router.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="routingEndpoints")
+    def routing_endpoints(self) -> typing.List["IBedrockInvokable"]:
+        '''(experimental) The foundation models / profiles this router will route to.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPromptRouterProxy:
+    '''(experimental) Represents a Prompt Router, which provides intelligent routing between different models.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "@aws-cdk/aws-bedrock-alpha.IPromptRouter"
+
+    @builtins.property
+    @jsii.member(jsii_name="promptRouterArn")
+    def prompt_router_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the prompt router.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "promptRouterArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="promptRouterId")
+    def prompt_router_id(self) -> builtins.str:
+        '''(experimental) The ID of the prompt router.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "promptRouterId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="routingEndpoints")
+    def routing_endpoints(self) -> typing.List["IBedrockInvokable"]:
+        '''(experimental) The foundation models / profiles this router will route to.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List["IBedrockInvokable"], jsii.get(self, "routingEndpoints"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPromptRouter).__jsii_proxy_class__ = lambda : _IPromptRouterProxy
+
+
+@jsii.interface(jsii_type="@aws-cdk/aws-bedrock-alpha.IPromptVariant")
+class IPromptVariant(typing_extensions.Protocol):
+    '''(experimental) Interface representing a prompt variant configuration.
+
+    Variants are specific sets of inputs that guide FMs on Amazon Bedrock to
+    generate an appropriate response or output for a given task or instruction.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''(experimental) The name of the prompt variant.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="templateConfiguration")
+    def template_configuration(self) -> "PromptTemplateConfiguration":
+        '''(experimental) The template configuration.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="templateType")
+    def template_type(self) -> "PromptTemplateType":
+        '''(experimental) The type of prompt template.
+
+        :default: - Text
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="genAiResource")
+    def gen_ai_resource(self) -> typing.Optional["PromptGenAiResource"]:
+        '''(experimental) The generative AI resource configuration.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="inferenceConfiguration")
+    def inference_configuration(
+        self,
+    ) -> typing.Optional["PromptInferenceConfiguration"]:
+        '''(experimental) The inference configuration.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="modelId")
+    def model_id(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The unique identifier of the model with which to run inference on the prompt.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPromptVariantProxy:
+    '''(experimental) Interface representing a prompt variant configuration.
+
+    Variants are specific sets of inputs that guide FMs on Amazon Bedrock to
+    generate an appropriate response or output for a given task or instruction.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "@aws-cdk/aws-bedrock-alpha.IPromptVariant"
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''(experimental) The name of the prompt variant.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @builtins.property
+    @jsii.member(jsii_name="templateConfiguration")
+    def template_configuration(self) -> "PromptTemplateConfiguration":
+        '''(experimental) The template configuration.
+
+        :stability: experimental
+        '''
+        return typing.cast("PromptTemplateConfiguration", jsii.get(self, "templateConfiguration"))
+
+    @builtins.property
+    @jsii.member(jsii_name="templateType")
+    def template_type(self) -> "PromptTemplateType":
+        '''(experimental) The type of prompt template.
+
+        :default: - Text
+
+        :stability: experimental
+        '''
+        return typing.cast("PromptTemplateType", jsii.get(self, "templateType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="genAiResource")
+    def gen_ai_resource(self) -> typing.Optional["PromptGenAiResource"]:
+        '''(experimental) The generative AI resource configuration.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["PromptGenAiResource"], jsii.get(self, "genAiResource"))
+
+    @builtins.property
+    @jsii.member(jsii_name="inferenceConfiguration")
+    def inference_configuration(
+        self,
+    ) -> typing.Optional["PromptInferenceConfiguration"]:
+        '''(experimental) The inference configuration.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["PromptInferenceConfiguration"], jsii.get(self, "inferenceConfiguration"))
+
+    @builtins.property
+    @jsii.member(jsii_name="modelId")
+    def model_id(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The unique identifier of the model with which to run inference on the prompt.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "modelId"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPromptVariant).__jsii_proxy_class__ = lambda : _IPromptVariantProxy
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.InferenceConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={
+        "maximum_length": "maximumLength",
+        "stop_sequences": "stopSequences",
+        "temperature": "temperature",
+        "top_k": "topK",
+        "top_p": "topP",
+    },
+)
+class InferenceConfiguration:
+    def __init__(
+        self,
+        *,
+        maximum_length: jsii.Number,
+        stop_sequences: typing.Sequence[builtins.str],
+        temperature: jsii.Number,
+        top_k: jsii.Number,
+        top_p: jsii.Number,
+    ) -> None:
+        '''(experimental) LLM inference configuration.
+
+        :param maximum_length: (experimental) The maximum number of tokens to generate in the response. Integer min 0 max 4096
+        :param stop_sequences: (experimental) A list of stop sequences. A stop sequence is a sequence of characters that causes the model to stop generating the response. length 0-4
+        :param temperature: (experimental) The likelihood of the model selecting higher-probability options while generating a response. A lower value makes the model more likely to choose higher-probability options, while a higher value makes the model more likely to choose lower-probability options. Floating point min 0 max 1
+        :param top_k: (experimental) While generating a response, the model determines the probability of the following token at each point of generation. The value that you set for topK is the number of most-likely candidates from which the model chooses the next token in the sequence. For example, if you set topK to 50, the model selects the next token from among the top 50 most likely choices. Integer min 0 max 500
+        :param top_p: (experimental) While generating a response, the model determines the probability of the following token at each point of generation. The value that you set for Top P determines the number of most-likely candidates from which the model chooses the next token in the sequence. For example, if you set topP to 80, the model only selects the next token from the top 80% of the probability distribution of next tokens. Floating point min 0 max 1
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            agent = bedrock.Agent(self, "Agent",
+                foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1,
+                instruction="You are a helpful assistant.",
+                prompt_override_configuration=bedrock.PromptOverrideConfiguration.from_steps([
+                    step_type=bedrock.AgentStepType.PRE_PROCESSING,
+                    step_enabled=True,
+                    custom_prompt_template="Your custom prompt template here",
+                    inference_config=bedrock.InferenceConfiguration(
+                        temperature=0,
+                        top_p=1,
+                        top_k=250,
+                        maximum_length=1,
+                        stop_sequences=["\n\nHuman:"]
+                    )
+            
+                ])
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__715d624dff386da6c193fd1c39e8c824ded7833eed6a175f93d3637254cabb5e)
+            check_type(argname="argument maximum_length", value=maximum_length, expected_type=type_hints["maximum_length"])
+            check_type(argname="argument stop_sequences", value=stop_sequences, expected_type=type_hints["stop_sequences"])
+            check_type(argname="argument temperature", value=temperature, expected_type=type_hints["temperature"])
+            check_type(argname="argument top_k", value=top_k, expected_type=type_hints["top_k"])
+            check_type(argname="argument top_p", value=top_p, expected_type=type_hints["top_p"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "maximum_length": maximum_length,
+            "stop_sequences": stop_sequences,
+            "temperature": temperature,
+            "top_k": top_k,
+            "top_p": top_p,
+        }
+
+    @builtins.property
+    def maximum_length(self) -> jsii.Number:
+        '''(experimental) The maximum number of tokens to generate in the response.
+
+        Integer
+
+        min 0
+        max 4096
+
+        :stability: experimental
+        '''
+        result = self._values.get("maximum_length")
+        assert result is not None, "Required property 'maximum_length' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def stop_sequences(self) -> typing.List[builtins.str]:
+        '''(experimental) A list of stop sequences.
+
+        A stop sequence is a sequence of characters that
+        causes the model to stop generating the response.
+
+        length 0-4
+
+        :stability: experimental
+        '''
+        result = self._values.get("stop_sequences")
+        assert result is not None, "Required property 'stop_sequences' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def temperature(self) -> jsii.Number:
+        '''(experimental) The likelihood of the model selecting higher-probability options while generating a response.
+
+        A lower value makes the model more likely to choose
+        higher-probability options, while a higher value makes the model more
+        likely to choose lower-probability options.
+
+        Floating point
+
+        min 0
+        max 1
+
+        :stability: experimental
+        '''
+        result = self._values.get("temperature")
+        assert result is not None, "Required property 'temperature' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def top_k(self) -> jsii.Number:
+        '''(experimental) While generating a response, the model determines the probability of the following token at each point of generation.
+
+        The value that you set for
+        topK is the number of most-likely candidates from which the model chooses
+        the next token in the sequence. For example, if you set topK to 50, the
+        model selects the next token from among the top 50 most likely choices.
+
+        Integer
+
+        min 0
+        max 500
+
+        :stability: experimental
+        '''
+        result = self._values.get("top_k")
+        assert result is not None, "Required property 'top_k' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def top_p(self) -> jsii.Number:
+        '''(experimental) While generating a response, the model determines the probability of the following token at each point of generation.
+
+        The value that you set for
+        Top P determines the number of most-likely candidates from which the model
+        chooses the next token in the sequence. For example, if you set topP to
+        80, the model only selects the next token from the top 80% of the
+        probability distribution of next tokens.
+
+        Floating point
+
+        min 0
+        max 1
+
+        :stability: experimental
+        '''
+        result = self._values.get("top_p")
+        assert result is not None, "Required property 'top_p' is missing"
+        return typing.cast(jsii.Number, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "InferenceConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(IInferenceProfile)
+class InferenceProfileBase(
+    _aws_cdk_ceddda9d.Resource,
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.InferenceProfileBase",
+):
+    '''(experimental) Abstract base class for an Inference Profile.
+
+    Contains methods and attributes valid for Inference Profiles either created with CDK or imported.
+
+    :stability: experimental
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        environment_from_arn: typing.Optional[builtins.str] = None,
+        physical_name: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param account: The AWS account ID this resource belongs to. Default: - the resource is in the same account as the stack it belongs to
+        :param environment_from_arn: ARN to deduce region and account from. The ARN is parsed and the account and region are taken from the ARN. This should be used for imported resources. Cannot be supplied together with either ``account`` or ``region``. Default: - take environment from ``account``, ``region`` parameters, or use Stack environment.
+        :param physical_name: The value passed in by users to the physical name prop of the resource. - ``undefined`` implies that a physical name will be allocated by CloudFormation during deployment. - a concrete value implies a specific physical name - ``PhysicalName.GENERATE_IF_NEEDED`` is a marker that indicates that a physical will only be generated by the CDK if it is needed for cross-environment references. Otherwise, it will be allocated by CloudFormation. Default: - The physical name will be allocated by CloudFormation at deployment time
+        :param region: The AWS region this resource belongs to. Default: - the resource is in the same region as the stack it belongs to
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2a92128ef177576fc47dd242f72eaca7ea324de856c4f996463476ca04f2117c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = _aws_cdk_ceddda9d.ResourceProps(
+            account=account,
+            environment_from_arn=environment_from_arn,
+            physical_name=physical_name,
+            region=region,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="grantProfileUsage")
+    @abc.abstractmethod
+    def grant_profile_usage(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants appropriate permissions to use the inference profile.
+
+        Each profile type requires different permissions based on its usage pattern:
+
+        - Application profiles need bedrock:InvokeModel for direct invocation
+        - Cross-region profiles need bedrock:InvokeModel* for routing capabilities
+
+        Note: This does not grant permissions to use the underlying model in the profile.
+        For comprehensive model invocation permissions, use the grantInvoke method instead.
+
+        [disable-awslint:no-grants]
+
+        :param grantee: - The IAM principal to grant permissions to.
+
+        :return: An IAM Grant object representing the granted permissions
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="inferenceProfileArn")
+    @abc.abstractmethod
+    def inference_profile_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the inference profile.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="inferenceProfileId")
+    @abc.abstractmethod
+    def inference_profile_id(self) -> builtins.str:
+        '''(experimental) The unique identifier of the inference profile.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    @abc.abstractmethod
+    def type(self) -> "InferenceProfileType":
+        '''(experimental) The type of inference profile (SYSTEM_DEFINED or APPLICATION).
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _InferenceProfileBaseProxy(
+    InferenceProfileBase,
+    jsii.proxy_for(_aws_cdk_ceddda9d.Resource), # type: ignore[misc]
+):
+    @jsii.member(jsii_name="grantProfileUsage")
+    def grant_profile_usage(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants appropriate permissions to use the inference profile.
+
+        Each profile type requires different permissions based on its usage pattern:
+
+        - Application profiles need bedrock:InvokeModel for direct invocation
+        - Cross-region profiles need bedrock:InvokeModel* for routing capabilities
+
+        Note: This does not grant permissions to use the underlying model in the profile.
+        For comprehensive model invocation permissions, use the grantInvoke method instead.
+
+        [disable-awslint:no-grants]
+
+        :param grantee: - The IAM principal to grant permissions to.
+
+        :return: An IAM Grant object representing the granted permissions
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4c18fbb6be22a845480bc57c434a67a7dd3c72f457d131263982fd961d964a22)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantProfileUsage", [grantee]))
+
+    @builtins.property
+    @jsii.member(jsii_name="inferenceProfileArn")
+    def inference_profile_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the inference profile.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "inferenceProfileArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="inferenceProfileId")
+    def inference_profile_id(self) -> builtins.str:
+        '''(experimental) The unique identifier of the inference profile.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "inferenceProfileId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> "InferenceProfileType":
+        '''(experimental) The type of inference profile (SYSTEM_DEFINED or APPLICATION).
+
+        :stability: experimental
+        '''
+        return typing.cast("InferenceProfileType", jsii.get(self, "type"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, InferenceProfileBase).__jsii_proxy_class__ = lambda : _InferenceProfileBaseProxy
+
+
+@jsii.enum(jsii_type="@aws-cdk/aws-bedrock-alpha.InferenceProfileType")
+class InferenceProfileType(enum.Enum):
+    '''(experimental) These are the values used by the API when using aws bedrock get-inference-profile --inference-profile-identifier XXXXXXX.
+
+    :stability: experimental
+    '''
+
+    SYSTEM_DEFINED = "SYSTEM_DEFINED"
+    '''(experimental) An inference profile that is created by AWS.
+
+    These are profiles such as cross-region
+    which help you distribute traffic across a geographic region.
+
+    :stability: experimental
+    '''
+    APPLICATION = "APPLICATION"
+    '''(experimental) An inference profile that is user-created.
+
+    These are profiles that help
+    you track costs or metrics.
+
+    :stability: experimental
+    '''
+
+
+class InlineApiSchema(
+    ApiSchema,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.InlineApiSchema",
+):
+    '''(experimental) Class to define an API Schema from an inline string.
+
+    The schema can be provided directly as a string in either JSON or YAML format.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        inline_schema = bedrock.ApiSchema.from_inline("""
+            openapi: 3.0.3
+            info:
+              title: Library API
+              version: 1.0.0
+            paths:
+              /search:
+                get:
+                  summary: Search for books
+                  operationId: searchBooks
+                  parameters:
+                    - name: query
+                      in: query
+                      required: true
+                      schema:
+                        type: string
+            """)
+        
+        action_group_function = lambda_.Function(self, "ActionGroupFunction",
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            handler="index.handler",
+            code=lambda_.Code.from_asset(path.join(__dirname, "../lambda/action-group"))
+        )
+        
+        action_group = bedrock.AgentActionGroup(
+            name="query-library",
+            description="Use these functions to get information about the books in the library.",
+            executor=bedrock.ActionGroupExecutor.from_lambda(action_group_function),
+            enabled=True,
+            api_schema=inline_schema
+        )
+        
+        agent = bedrock.Agent(self, "Agent",
+            foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_HAIKU_V1_0,
+            instruction="You are a helpful and friendly agent that answers questions about literature."
+        )
+        
+        agent.add_action_group(action_group)
+    '''
+
+    def __init__(self, schema: builtins.str) -> None:
+        '''
+        :param schema: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0c276a821c9a889fcfc1d87230ab9f92627a99c7dc83fc06a8d00bb8d1534657)
+            check_type(argname="argument schema", value=schema, expected_type=type_hints["schema"])
+        jsii.create(self.__class__, self, [schema])
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.ManagedWordFilter",
+    jsii_struct_bases=[],
+    name_mapping={
+        "input_action": "inputAction",
+        "input_enabled": "inputEnabled",
+        "output_action": "outputAction",
+        "output_enabled": "outputEnabled",
+        "type": "type",
+    },
+)
+class ManagedWordFilter:
+    def __init__(
+        self,
+        *,
+        input_action: typing.Optional["GuardrailAction"] = None,
+        input_enabled: typing.Optional[builtins.bool] = None,
+        output_action: typing.Optional["GuardrailAction"] = None,
+        output_enabled: typing.Optional[builtins.bool] = None,
+        type: typing.Optional["ManagedWordFilterType"] = None,
+    ) -> None:
+        '''(experimental) Interface for managed word list filters.
+
+        :param input_action: (experimental) The action to take when a managed word is detected in the input. Default: GuardrailAction.BLOCK
+        :param input_enabled: (experimental) Whether the managed word filter is enabled for input. Default: true
+        :param output_action: (experimental) The action to take when a managed word is detected in the output. Default: GuardrailAction.BLOCK
+        :param output_enabled: (experimental) Whether the managed word filter is enabled for output. Default: true
+        :param type: (experimental) The type of managed word filter. Default: ManagedWordFilterType.PROFANITY
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+                guardrail_name="my-BedrockGuardrails"
+            )
+            
+            # Add managed word list with input/output actions
+            guardrail.add_managed_word_list_filter(
+                type=bedrock.ManagedWordFilterType.PROFANITY,
+                input_action=bedrock.GuardrailAction.BLOCK,
+                input_enabled=True,
+                output_action=bedrock.GuardrailAction.NONE,
+                output_enabled=True
+            )
+            
+            # Add individual words
+            guardrail.add_word_filter(text="drugs")
+            guardrail.add_word_filter(text="competitor")
+            
+            # Add words from a file
+            guardrail.add_word_filter_from_file("./scripts/wordsPolicy.csv")
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a32b0c29adeafeacb313b2573db65ee55b9a86ec336ea84c3d9ced7dfa77f2f5)
+            check_type(argname="argument input_action", value=input_action, expected_type=type_hints["input_action"])
+            check_type(argname="argument input_enabled", value=input_enabled, expected_type=type_hints["input_enabled"])
+            check_type(argname="argument output_action", value=output_action, expected_type=type_hints["output_action"])
+            check_type(argname="argument output_enabled", value=output_enabled, expected_type=type_hints["output_enabled"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if input_action is not None:
+            self._values["input_action"] = input_action
+        if input_enabled is not None:
+            self._values["input_enabled"] = input_enabled
+        if output_action is not None:
+            self._values["output_action"] = output_action
+        if output_enabled is not None:
+            self._values["output_enabled"] = output_enabled
+        if type is not None:
+            self._values["type"] = type
+
+    @builtins.property
+    def input_action(self) -> typing.Optional["GuardrailAction"]:
+        '''(experimental) The action to take when a managed word is detected in the input.
+
+        :default: GuardrailAction.BLOCK
+
+        :stability: experimental
+        '''
+        result = self._values.get("input_action")
+        return typing.cast(typing.Optional["GuardrailAction"], result)
+
+    @builtins.property
+    def input_enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether the managed word filter is enabled for input.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("input_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def output_action(self) -> typing.Optional["GuardrailAction"]:
+        '''(experimental) The action to take when a managed word is detected in the output.
+
+        :default: GuardrailAction.BLOCK
+
+        :stability: experimental
+        '''
+        result = self._values.get("output_action")
+        return typing.cast(typing.Optional["GuardrailAction"], result)
+
+    @builtins.property
+    def output_enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether the managed word filter is enabled for output.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("output_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def type(self) -> typing.Optional["ManagedWordFilterType"]:
+        '''(experimental) The type of managed word filter.
+
+        :default: ManagedWordFilterType.PROFANITY
+
+        :stability: experimental
+        '''
+        result = self._values.get("type")
+        return typing.cast(typing.Optional["ManagedWordFilterType"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ManagedWordFilter(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="@aws-cdk/aws-bedrock-alpha.ManagedWordFilterType")
+class ManagedWordFilterType(enum.Enum):
+    '''(experimental) Managed word list filter types supported by Amazon Bedrock.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+            guardrail_name="my-BedrockGuardrails"
+        )
+        
+        # Add managed word list with input/output actions
+        guardrail.add_managed_word_list_filter(
+            type=bedrock.ManagedWordFilterType.PROFANITY,
+            input_action=bedrock.GuardrailAction.BLOCK,
+            input_enabled=True,
+            output_action=bedrock.GuardrailAction.NONE,
+            output_enabled=True
+        )
+        
+        # Add individual words
+        guardrail.add_word_filter(text="drugs")
+        guardrail.add_word_filter(text="competitor")
+        
+        # Add words from a file
+        guardrail.add_word_filter_from_file("./scripts/wordsPolicy.csv")
+    '''
+
+    PROFANITY = "PROFANITY"
+    '''(experimental) Filter for profanity and explicit language.
+
+    :stability: experimental
+    '''
+
+
+class Memory(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-bedrock-alpha.Memory"):
+    '''(experimental) Memory class for managing Bedrock Agent memory configurations.
+
+    Enables conversational context retention
+    across multiple sessions through session identifiers. Memory context is stored with unique
+    memory IDs per user, allowing access to conversation history and summaries. Supports viewing
+    stored sessions and clearing memory.
+
+    :see: https://docs.aws.amazon.com/bedrock/latest/userguide/agents-memory.html
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        agent = bedrock.Agent(self, "MyAgent",
+            agent_name="MyAgent",
+            instruction="Your instruction here",
+            foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1,
+            memory=Memory.session_summary(
+                max_recent_sessions=10,  # Keep the last 10 session summaries
+                memory_duration=Duration.days(20)
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        *,
+        max_recent_sessions: typing.Optional[jsii.Number] = None,
+        memory_duration: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+    ) -> None:
+        '''
+        :param max_recent_sessions: (experimental) Maximum number of recent session summaries to include (min 1). Default: 20
+        :param memory_duration: (experimental) Duration for which session summaries are retained (between 1 and 365 days). Default: Duration.days(30)
+
+        :stability: experimental
+        '''
+        props = SessionSummaryMemoryProps(
+            max_recent_sessions=max_recent_sessions, memory_duration=memory_duration
+        )
+
+        jsii.create(self.__class__, self, [props])
+
+    @jsii.member(jsii_name="sessionSummary")
+    @builtins.classmethod
+    def session_summary(
+        cls,
+        *,
+        max_recent_sessions: typing.Optional[jsii.Number] = None,
+        memory_duration: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+    ) -> "Memory":
+        '''(experimental) Creates a session summary memory with custom configuration.
+
+        :param max_recent_sessions: (experimental) Maximum number of recent session summaries to include (min 1). Default: 20
+        :param memory_duration: (experimental) Duration for which session summaries are retained (between 1 and 365 days). Default: Duration.days(30)
+
+        :return: Memory instance
+
+        :stability: experimental
+        '''
+        props = SessionSummaryMemoryProps(
+            max_recent_sessions=max_recent_sessions, memory_duration=memory_duration
+        )
+
+        return typing.cast("Memory", jsii.sinvoke(cls, "sessionSummary", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SESSION_SUMMARY")
+    def SESSION_SUMMARY(cls) -> "Memory":
+        '''(experimental) Returns session summary memory with default configuration.
+
+        :default: memoryDuration=Duration.days(30), maxRecentSessions=20
+
+        :stability: experimental
+        '''
+        return typing.cast("Memory", jsii.sget(cls, "SESSION_SUMMARY"))
+
+
+@jsii.enum(jsii_type="@aws-cdk/aws-bedrock-alpha.ModalityType")
+class ModalityType(enum.Enum):
+    '''(experimental) The type of modality that can be used in content filters.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+            guardrail_name="my-BedrockGuardrails",
+            # Configure tier for content filters (optional)
+            content_filters_tier_config=bedrock.TierConfig.STANDARD
+        )
+        
+        guardrail.add_content_filter(
+            type=bedrock.ContentFilterType.SEXUAL,
+            input_strength=bedrock.ContentFilterStrength.HIGH,
+            output_strength=bedrock.ContentFilterStrength.MEDIUM,
+            # props below are optional
+            input_action=bedrock.GuardrailAction.BLOCK,
+            input_enabled=True,
+            output_action=bedrock.GuardrailAction.NONE,
+            output_enabled=True,
+            input_modalities=[bedrock.ModalityType.TEXT, bedrock.ModalityType.IMAGE],
+            output_modalities=[bedrock.ModalityType.TEXT]
+        )
+    '''
+
+    TEXT = "TEXT"
+    '''(experimental) Text modality for content filters.
+
+    :stability: experimental
+    '''
+    IMAGE = "IMAGE"
+    '''(experimental) Image modality for content filters.
+
+    :stability: experimental
+    '''
+
+
+@jsii.enum(jsii_type="@aws-cdk/aws-bedrock-alpha.OrchestrationType")
+class OrchestrationType(enum.Enum):
+    '''(experimental) Enum for orchestration types available for agents.
+
+    :stability: experimental
+    '''
+
+    DEFAULT = "DEFAULT"
+    '''(experimental) Default orchestration by the agent.
+
+    :stability: experimental
+    '''
+    CUSTOM_ORCHESTRATION = "CUSTOM_ORCHESTRATION"
+    '''(experimental) Custom orchestration using Lambda.
+
+    :stability: experimental
+    '''
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.PIIFilter",
+    jsii_struct_bases=[],
+    name_mapping={
+        "action": "action",
+        "type": "type",
+        "input_action": "inputAction",
+        "input_enabled": "inputEnabled",
+        "output_action": "outputAction",
+        "output_enabled": "outputEnabled",
+    },
+)
+class PIIFilter:
+    def __init__(
+        self,
+        *,
+        action: "GuardrailAction",
+        type: "PIIType",
+        input_action: typing.Optional["GuardrailAction"] = None,
+        input_enabled: typing.Optional[builtins.bool] = None,
+        output_action: typing.Optional["GuardrailAction"] = None,
+        output_enabled: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Interface to define a PII Filter.
+
+        :param action: (experimental) The action to take when PII is detected.
+        :param type: (experimental) The type of PII to filter.
+        :param input_action: (experimental) The action to take when PII is detected in the input. Default: GuardrailAction.BLOCK
+        :param input_enabled: (experimental) Whether the PII filter is enabled for input. Default: true
+        :param output_action: (experimental) The action to take when PII is detected in the output. Default: GuardrailAction.BLOCK
+        :param output_enabled: (experimental) Whether the PII filter is enabled for output. Default: true
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+                guardrail_name="my-BedrockGuardrails"
+            )
+            
+            # Add PII filter for addresses with input/output actions
+            guardrail.add_pIIFilter(
+                type=bedrock.GeneralPIIType.ADDRESS,
+                action=bedrock.GuardrailAction.BLOCK,
+                # below props are optional
+                input_action=bedrock.GuardrailAction.BLOCK,
+                input_enabled=True,
+                output_action=bedrock.GuardrailAction.ANONYMIZE,
+                output_enabled=True
+            )
+            
+            # Add PII filter for credit card numbers with input/output actions
+            guardrail.add_pIIFilter(
+                type=bedrock.FinancePIIType.CREDIT_DEBIT_CARD_NUMBER,
+                action=bedrock.GuardrailAction.BLOCK,
+                # below props are optional
+                input_action=bedrock.GuardrailAction.BLOCK,
+                input_enabled=True,
+                output_action=bedrock.GuardrailAction.ANONYMIZE,
+                output_enabled=True
+            )
+            
+            # Add PII filter for email addresses
+            guardrail.add_pIIFilter(
+                type=bedrock.GeneralPIIType.EMAIL,
+                action=bedrock.GuardrailAction.ANONYMIZE
+            )
+            
+            # Add PII filter for US Social Security Numbers
+            guardrail.add_pIIFilter(
+                type=bedrock.USASpecificPIIType.US_SOCIAL_SECURITY_NUMBER,
+                action=bedrock.GuardrailAction.BLOCK
+            )
+            
+            # Add PII filter for IP addresses
+            guardrail.add_pIIFilter(
+                type=bedrock.InformationTechnologyPIIType.IP_ADDRESS,
+                action=bedrock.GuardrailAction.ANONYMIZE
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__03660a8d794d1a579d50482b7ab1aa01ead0b3fb4f007eab6b8d03667d529d3d)
+            check_type(argname="argument action", value=action, expected_type=type_hints["action"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument input_action", value=input_action, expected_type=type_hints["input_action"])
+            check_type(argname="argument input_enabled", value=input_enabled, expected_type=type_hints["input_enabled"])
+            check_type(argname="argument output_action", value=output_action, expected_type=type_hints["output_action"])
+            check_type(argname="argument output_enabled", value=output_enabled, expected_type=type_hints["output_enabled"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "action": action,
+            "type": type,
+        }
+        if input_action is not None:
+            self._values["input_action"] = input_action
+        if input_enabled is not None:
+            self._values["input_enabled"] = input_enabled
+        if output_action is not None:
+            self._values["output_action"] = output_action
+        if output_enabled is not None:
+            self._values["output_enabled"] = output_enabled
+
+    @builtins.property
+    def action(self) -> "GuardrailAction":
+        '''(experimental) The action to take when PII is detected.
+
+        :stability: experimental
+        '''
+        result = self._values.get("action")
+        assert result is not None, "Required property 'action' is missing"
+        return typing.cast("GuardrailAction", result)
+
+    @builtins.property
+    def type(self) -> "PIIType":
+        '''(experimental) The type of PII to filter.
+
+        :stability: experimental
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast("PIIType", result)
+
+    @builtins.property
+    def input_action(self) -> typing.Optional["GuardrailAction"]:
+        '''(experimental) The action to take when PII is detected in the input.
+
+        :default: GuardrailAction.BLOCK
+
+        :stability: experimental
+        '''
+        result = self._values.get("input_action")
+        return typing.cast(typing.Optional["GuardrailAction"], result)
+
+    @builtins.property
+    def input_enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether the PII filter is enabled for input.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("input_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def output_action(self) -> typing.Optional["GuardrailAction"]:
+        '''(experimental) The action to take when PII is detected in the output.
+
+        :default: GuardrailAction.BLOCK
+
+        :stability: experimental
+        '''
+        result = self._values.get("output_action")
+        return typing.cast(typing.Optional["GuardrailAction"], result)
+
+    @builtins.property
+    def output_enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether the PII filter is enabled for output.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("output_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PIIFilter(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class PIIType(
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.PIIType",
+):
+    '''(experimental) Abstract base class for all PII types.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+            guardrail_name="my-BedrockGuardrails"
+        )
+        
+        # Add PII filter for addresses with input/output actions
+        guardrail.add_pIIFilter(
+            type=bedrock.GeneralPIIType.ADDRESS,
+            action=bedrock.GuardrailAction.BLOCK,
+            # below props are optional
+            input_action=bedrock.GuardrailAction.BLOCK,
+            input_enabled=True,
+            output_action=bedrock.GuardrailAction.ANONYMIZE,
+            output_enabled=True
+        )
+        
+        # Add PII filter for credit card numbers with input/output actions
+        guardrail.add_pIIFilter(
+            type=bedrock.FinancePIIType.CREDIT_DEBIT_CARD_NUMBER,
+            action=bedrock.GuardrailAction.BLOCK,
+            # below props are optional
+            input_action=bedrock.GuardrailAction.BLOCK,
+            input_enabled=True,
+            output_action=bedrock.GuardrailAction.ANONYMIZE,
+            output_enabled=True
+        )
+        
+        # Add PII filter for email addresses
+        guardrail.add_pIIFilter(
+            type=bedrock.GeneralPIIType.EMAIL,
+            action=bedrock.GuardrailAction.ANONYMIZE
+        )
+        
+        # Add PII filter for US Social Security Numbers
+        guardrail.add_pIIFilter(
+            type=bedrock.USASpecificPIIType.US_SOCIAL_SECURITY_NUMBER,
+            action=bedrock.GuardrailAction.BLOCK
+        )
+        
+        # Add PII filter for IP addresses
+        guardrail.add_pIIFilter(
+            type=bedrock.InformationTechnologyPIIType.IP_ADDRESS,
+            action=bedrock.GuardrailAction.ANONYMIZE
+        )
+    '''
+
+    def __init__(self, value: builtins.str) -> None:
+        '''(experimental) The string value of the PII type.
+
+        :param value: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f9f8951bbb8ec3e87e12f6615e72da3aacdc8a5244206ecd632a6856830aeb5d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.create(self.__class__, self, [value])
+
+    @jsii.member(jsii_name="toString")
+    def to_string(self) -> builtins.str:
+        '''(experimental) Returns the string representation of the PII type.
+
+        :return: The string value of the PII type.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.invoke(self, "toString", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    def value(self) -> builtins.str:
+        '''(experimental) The string value of the PII type.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "value"))
+
+
+class _PIITypeProxy(PIIType):
+    pass
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, PIIType).__jsii_proxy_class__ = lambda : _PIITypeProxy
+
+
+@jsii.enum(jsii_type="@aws-cdk/aws-bedrock-alpha.ParameterType")
+class ParameterType(enum.Enum):
+    '''(experimental) Enum for parameter types in function schemas.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        action_group_function = lambda_.Function(self, "ActionGroupFunction",
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            handler="index.handler",
+            code=lambda_.Code.from_asset(path.join(__dirname, "../lambda/action-group"))
+        )
+        
+        # Define a function schema with parameters
+        function_schema = bedrock.FunctionSchema(
+            functions=[bedrock.FunctionProps(
+                name="searchBooks",
+                description="Search for books in the library catalog",
+                parameters={
+                    "query": bedrock.FunctionParameterProps(
+                        type=bedrock.ParameterType.STRING,
+                        required=True,
+                        description="The search query string"
+                    ),
+                    "maxResults": bedrock.FunctionParameterProps(
+                        type=bedrock.ParameterType.INTEGER,
+                        required=False,
+                        description="Maximum number of results to return"
+                    ),
+                    "includeOutOfPrint": bedrock.FunctionParameterProps(
+                        type=bedrock.ParameterType.BOOLEAN,
+                        required=False,
+                        description="Whether to include out-of-print books"
+                    )
+                },
+                require_confirmation=bedrock.RequireConfirmation.DISABLED
+            ), bedrock.FunctionProps(
+                name="getBookDetails",
+                description="Get detailed information about a specific book",
+                parameters={
+                    "bookId": bedrock.FunctionParameterProps(
+                        type=bedrock.ParameterType.STRING,
+                        required=True,
+                        description="The unique identifier of the book"
+                    )
+                },
+                require_confirmation=bedrock.RequireConfirmation.ENABLED
+            )
+            ]
+        )
+        
+        # Create an action group using the function schema
+        action_group = bedrock.AgentActionGroup(
+            name="library-functions",
+            description="Functions for interacting with the library catalog",
+            executor=bedrock.ActionGroupExecutor.from_lambda(action_group_function),
+            function_schema=function_schema,
+            enabled=True
+        )
+        
+        agent = bedrock.Agent(self, "Agent",
+            foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_HAIKU_V1_0,
+            instruction="You are a helpful and friendly agent that answers questions about literature.",
+            action_groups=[action_group]
+        )
+    '''
+
+    STRING = "STRING"
+    '''(experimental) String parameter type.
+
+    :stability: experimental
+    '''
+    NUMBER = "NUMBER"
+    '''(experimental) Number parameter type.
+
+    :stability: experimental
+    '''
+    INTEGER = "INTEGER"
+    '''(experimental) Integer parameter type.
+
+    :stability: experimental
+    '''
+    BOOLEAN = "BOOLEAN"
+    '''(experimental) Boolean parameter type.
+
+    :stability: experimental
+    '''
+    ARRAY = "ARRAY"
+    '''(experimental) Array parameter type.
+
+    :stability: experimental
+    '''
+    OBJECT = "OBJECT"
+    '''(experimental) Object parameter type.
+
+    :stability: experimental
+    '''
+
+
+class ParentActionGroupSignature(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.ParentActionGroupSignature",
+):
+    '''(experimental) AWS Defined signatures for enabling certain capabilities in your agent.
+
+    :stability: experimental
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk.aws_bedrock_alpha as bedrock_alpha
+        
+        parent_action_group_signature = bedrock_alpha.ParentActionGroupSignature("value")
+    '''
+
+    def __init__(self, value: builtins.str) -> None:
+        '''(experimental) Constructor should be used as a temporary solution when a new signature is supported but its implementation in CDK hasn't been added yet.
+
+        :param value: The AWS-defined signature value for this action group capability.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ebccabd52fd67d660adf169e439525008c110204b48e0ed669d4ffeedce9e65e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.create(self.__class__, self, [value])
+
+    @jsii.member(jsii_name="toString")
+    def to_string(self) -> builtins.str:
+        '''(experimental) Returns the string representation of the signature value.
+
+        Used when configuring the action group in CloudFormation.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.invoke(self, "toString", []))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CODE_INTERPRETER")
+    def CODE_INTERPRETER(cls) -> "ParentActionGroupSignature":
+        '''(experimental) Signature that allows your agent to generate, run, and troubleshoot code when trying to complete a task.
+
+        :stability: experimental
+        '''
+        return typing.cast("ParentActionGroupSignature", jsii.sget(cls, "CODE_INTERPRETER"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="USER_INPUT")
+    def USER_INPUT(cls) -> "ParentActionGroupSignature":
+        '''(experimental) Signature that allows your agent to request the user for additional information when trying to complete a task.
+
+        :stability: experimental
+        '''
+        return typing.cast("ParentActionGroupSignature", jsii.sget(cls, "USER_INPUT"))
+
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    def value(self) -> builtins.str:
+        '''(experimental) The AWS-defined signature value for this action group capability.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "value"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.PromptAttributes",
+    jsii_struct_bases=[],
+    name_mapping={
+        "prompt_arn": "promptArn",
+        "kms_key": "kmsKey",
+        "prompt_version": "promptVersion",
+    },
+)
+class PromptAttributes:
+    def __init__(
+        self,
+        *,
+        prompt_arn: builtins.str,
+        kms_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        prompt_version: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Attributes for specifying an imported Bedrock Prompt.
+
+        :param prompt_arn: (experimental) The ARN of the prompt.
+        :param kms_key: (experimental) Optional KMS encryption key associated with this prompt. Default: undefined - An AWS managed key is used
+        :param prompt_version: (experimental) The version of the prompt. Default: "DRAFT"
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            # Import an existing prompt by ARN
+            imported_prompt = bedrock.Prompt.from_prompt_attributes(self, "ImportedPrompt",
+                prompt_arn="arn:aws:bedrock:region:account:prompt/prompt-id",
+                kms_key=kms.Key.from_key_arn(self, "ImportedKey", "arn:aws:kms:region:account:key/key-id"),  # optional
+                prompt_version="1"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__51ef93b4f36fd5b08bde67e71ac5163a924fe26c9faa4e4a1d4f5473c5569084)
+            check_type(argname="argument prompt_arn", value=prompt_arn, expected_type=type_hints["prompt_arn"])
+            check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
+            check_type(argname="argument prompt_version", value=prompt_version, expected_type=type_hints["prompt_version"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "prompt_arn": prompt_arn,
+        }
+        if kms_key is not None:
+            self._values["kms_key"] = kms_key
+        if prompt_version is not None:
+            self._values["prompt_version"] = prompt_version
+
+    @builtins.property
+    def prompt_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the prompt.
+
+        :stability: experimental
+        :attribute: true
+
+        Example::
+
+            "arn:aws:bedrock:us-east-1:123456789012:prompt/PROMPT12345"
+        '''
+        result = self._values.get("prompt_arn")
+        assert result is not None, "Required property 'prompt_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def kms_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) Optional KMS encryption key associated with this prompt.
+
+        :default: undefined - An AWS managed key is used
+
+        :stability: experimental
+        '''
+        result = self._values.get("kms_key")
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], result)
+
+    @builtins.property
+    def prompt_version(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The version of the prompt.
+
+        :default: "DRAFT"
+
+        :stability: experimental
+        '''
+        result = self._values.get("prompt_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PromptAttributes(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(IPrompt)
+class PromptBase(
+    _aws_cdk_ceddda9d.Resource,
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.PromptBase",
+):
+    '''(experimental) Abstract base class for a Prompt.
+
+    Contains methods and attributes valid for Prompts either created with CDK or imported.
+
+    :stability: experimental
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        environment_from_arn: typing.Optional[builtins.str] = None,
+        physical_name: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param account: The AWS account ID this resource belongs to. Default: - the resource is in the same account as the stack it belongs to
+        :param environment_from_arn: ARN to deduce region and account from. The ARN is parsed and the account and region are taken from the ARN. This should be used for imported resources. Cannot be supplied together with either ``account`` or ``region``. Default: - take environment from ``account``, ``region`` parameters, or use Stack environment.
+        :param physical_name: The value passed in by users to the physical name prop of the resource. - ``undefined`` implies that a physical name will be allocated by CloudFormation during deployment. - a concrete value implies a specific physical name - ``PhysicalName.GENERATE_IF_NEEDED`` is a marker that indicates that a physical will only be generated by the CDK if it is needed for cross-environment references. Otherwise, it will be allocated by CloudFormation. Default: - The physical name will be allocated by CloudFormation at deployment time
+        :param region: The AWS region this resource belongs to. Default: - the resource is in the same region as the stack it belongs to
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dfcb754f2fd64105d1e04b3f87d6a0011a2db79ad0e445b16106b4fcf8e8e371)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = _aws_cdk_ceddda9d.ResourceProps(
+            account=account,
+            environment_from_arn=environment_from_arn,
+            physical_name=physical_name,
+            region=region,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="grantGet")
+    def grant_get(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant the given identity permissions to get the prompt.
+
+        [disable-awslint:no-grants]
+
+        :param grantee: - The IAM principal to grant permissions to.
+
+        :default:
+
+        - Default grant configuration:
+        - actions: ['bedrock:GetPrompt']
+        - resourceArns: [this.promptArn]
+
+        :return: An IAM Grant object representing the granted permissions
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9a3b05516407e9f443e5374ffeef1f1b1547353eca4f1ba930fa7e715ec0b0aa)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantGet", [grantee]))
+
+    @builtins.property
+    @jsii.member(jsii_name="promptArn")
+    @abc.abstractmethod
+    def prompt_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the prompt.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="promptId")
+    @abc.abstractmethod
+    def prompt_id(self) -> builtins.str:
+        '''(experimental) The ID of the prompt.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="promptVersion")
+    @abc.abstractmethod
+    def prompt_version(self) -> builtins.str:
+        '''(experimental) The version of the prompt.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKey")
+    @abc.abstractmethod
+    def kms_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) Optional KMS encryption key associated with this prompt.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _PromptBaseProxy(
+    PromptBase,
+    jsii.proxy_for(_aws_cdk_ceddda9d.Resource), # type: ignore[misc]
+):
+    @builtins.property
+    @jsii.member(jsii_name="promptArn")
+    def prompt_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the prompt.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "promptArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="promptId")
+    def prompt_id(self) -> builtins.str:
+        '''(experimental) The ID of the prompt.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "promptId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="promptVersion")
+    def prompt_version(self) -> builtins.str:
+        '''(experimental) The version of the prompt.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "promptVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKey")
+    def kms_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) Optional KMS encryption key associated with this prompt.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], jsii.get(self, "kmsKey"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, PromptBase).__jsii_proxy_class__ = lambda : _PromptBaseProxy
+
+
+class PromptGenAiResource(
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.PromptGenAiResource",
+):
+    '''(experimental) Abstract base class for prompt GenAI resource configurations.
+
+    This provides a high-level abstraction over the underlying CloudFormation
+    GenAI resource properties, offering a more developer-friendly interface
+    while maintaining full compatibility with the underlying AWS Bedrock service.
+
+    :stability: experimental
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk.aws_bedrock_alpha as bedrock_alpha
+        
+        # agent_alias: bedrock_alpha.AgentAlias
+        
+        prompt_gen_ai_resource = bedrock_alpha.PromptGenAiResource.agent(
+            agent_alias=agent_alias
+        )
+    '''
+
+    def __init__(self) -> None:
+        '''
+        :stability: experimental
+        '''
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="agent")
+    @builtins.classmethod
+    def agent(cls, *, agent_alias: "IAgentAlias") -> "PromptGenAiResource":
+        '''(experimental) Creates an agent GenAI resource configuration.
+
+        :param agent_alias: (experimental) The agent alias to use for the GenAI resource.
+
+        :stability: experimental
+        '''
+        props = AgentGenAiResourceProps(agent_alias=agent_alias)
+
+        return typing.cast("PromptGenAiResource", jsii.sinvoke(cls, "agent", [props]))
+
+
+class _PromptGenAiResourceProxy(PromptGenAiResource):
+    pass
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, PromptGenAiResource).__jsii_proxy_class__ = lambda : _PromptGenAiResourceProxy
+
+
+class PromptInferenceConfiguration(
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.PromptInferenceConfiguration",
+):
+    '''(experimental) Abstract base class for prompt inference configurations.
+
+    This provides a high-level abstraction over the underlying CloudFormation
+    inference configuration properties, offering a more developer-friendly interface
+    while maintaining full compatibility with the underlying AWS Bedrock service.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        cmk = kms.Key(self, "cmk")
+        claude_model = bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_SONNET_V1_0
+        
+        variant1 = bedrock.PromptVariant.text(
+            variant_name="variant1",
+            model=claude_model,
+            prompt_variables=["topic"],
+            prompt_text="This is my first text prompt. Please summarize our conversation on: {{topic}}.",
+            inference_configuration=bedrock.PromptInferenceConfiguration.text(
+                temperature=1,
+                top_p=0.999,
+                max_tokens=2000
+            )
+        )
+        
+        prompt1 = bedrock.Prompt(self, "prompt1",
+            prompt_name="prompt1",
+            description="my first prompt",
+            default_variant=variant1,
+            variants=[variant1],
+            kms_key=cmk
+        )
+    '''
+
+    def __init__(self) -> None:
+        '''
+        :stability: experimental
+        '''
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="text")
+    @builtins.classmethod
+    def text(
+        cls,
+        *,
+        max_tokens: typing.Optional[jsii.Number] = None,
+        stop_sequences: typing.Optional[typing.Sequence[builtins.str]] = None,
+        temperature: typing.Optional[jsii.Number] = None,
+        top_p: typing.Optional[jsii.Number] = None,
+    ) -> "PromptInferenceConfiguration":
+        '''(experimental) Creates a text inference configuration.
+
+        :param max_tokens: (experimental) The maximum number of tokens to return in the response. Default: - No limit specified
+        :param stop_sequences: (experimental) A list of strings that define sequences after which the model will stop generating. Default: - No stop sequences
+        :param temperature: (experimental) Controls the randomness of the response. Higher values make output more random, lower values more deterministic. Valid range is 0.0 to 1.0. Default: - Model default temperature
+        :param top_p: (experimental) The percentage of most-likely candidates that the model considers for the next token. Valid range is 0.0 to 1.0. Default: - Model default topP
+
+        :stability: experimental
+        '''
+        props = PromptInferenceConfigurationProps(
+            max_tokens=max_tokens,
+            stop_sequences=stop_sequences,
+            temperature=temperature,
+            top_p=top_p,
+        )
+
+        return typing.cast("PromptInferenceConfiguration", jsii.sinvoke(cls, "text", [props]))
+
+
+class _PromptInferenceConfigurationProxy(PromptInferenceConfiguration):
+    pass
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, PromptInferenceConfiguration).__jsii_proxy_class__ = lambda : _PromptInferenceConfigurationProxy
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.PromptInferenceConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "max_tokens": "maxTokens",
+        "stop_sequences": "stopSequences",
+        "temperature": "temperature",
+        "top_p": "topP",
+    },
+)
+class PromptInferenceConfigurationProps:
+    def __init__(
+        self,
+        *,
+        max_tokens: typing.Optional[jsii.Number] = None,
+        stop_sequences: typing.Optional[typing.Sequence[builtins.str]] = None,
+        temperature: typing.Optional[jsii.Number] = None,
+        top_p: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''(experimental) Properties for creating a prompt inference configuration.
+
+        :param max_tokens: (experimental) The maximum number of tokens to return in the response. Default: - No limit specified
+        :param stop_sequences: (experimental) A list of strings that define sequences after which the model will stop generating. Default: - No stop sequences
+        :param temperature: (experimental) Controls the randomness of the response. Higher values make output more random, lower values more deterministic. Valid range is 0.0 to 1.0. Default: - Model default temperature
+        :param top_p: (experimental) The percentage of most-likely candidates that the model considers for the next token. Valid range is 0.0 to 1.0. Default: - Model default topP
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            cmk = kms.Key(self, "cmk")
+            claude_model = bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_SONNET_V1_0
+            
+            variant1 = bedrock.PromptVariant.text(
+                variant_name="variant1",
+                model=claude_model,
+                prompt_variables=["topic"],
+                prompt_text="This is my first text prompt. Please summarize our conversation on: {{topic}}.",
+                inference_configuration=bedrock.PromptInferenceConfiguration.text(
+                    temperature=1,
+                    top_p=0.999,
+                    max_tokens=2000
+                )
+            )
+            
+            prompt1 = bedrock.Prompt(self, "prompt1",
+                prompt_name="prompt1",
+                description="my first prompt",
+                default_variant=variant1,
+                variants=[variant1],
+                kms_key=cmk
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8535f55e5da7e4040e8859bbfb4263d7bb7890f5f2a84ce7cbde56f283ac65a2)
+            check_type(argname="argument max_tokens", value=max_tokens, expected_type=type_hints["max_tokens"])
+            check_type(argname="argument stop_sequences", value=stop_sequences, expected_type=type_hints["stop_sequences"])
+            check_type(argname="argument temperature", value=temperature, expected_type=type_hints["temperature"])
+            check_type(argname="argument top_p", value=top_p, expected_type=type_hints["top_p"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if max_tokens is not None:
+            self._values["max_tokens"] = max_tokens
+        if stop_sequences is not None:
+            self._values["stop_sequences"] = stop_sequences
+        if temperature is not None:
+            self._values["temperature"] = temperature
+        if top_p is not None:
+            self._values["top_p"] = top_p
+
+    @builtins.property
+    def max_tokens(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) The maximum number of tokens to return in the response.
+
+        :default: - No limit specified
+
+        :stability: experimental
+        '''
+        result = self._values.get("max_tokens")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def stop_sequences(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) A list of strings that define sequences after which the model will stop generating.
+
+        :default: - No stop sequences
+
+        :stability: experimental
+        '''
+        result = self._values.get("stop_sequences")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def temperature(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) Controls the randomness of the response.
+
+        Higher values make output more random, lower values more deterministic.
+        Valid range is 0.0 to 1.0.
+
+        :default: - Model default temperature
+
+        :stability: experimental
+        '''
+        result = self._values.get("temperature")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def top_p(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) The percentage of most-likely candidates that the model considers for the next token.
+
+        Valid range is 0.0 to 1.0.
+
+        :default: - Model default topP
+
+        :stability: experimental
+        '''
+        result = self._values.get("top_p")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PromptInferenceConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class PromptOverrideConfiguration(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.PromptOverrideConfiguration",
+):
+    '''(experimental) Configuration for overriding prompt templates and behaviors in different parts of an agent's sequence.
+
+    This allows customizing how the agent processes inputs,
+    makes decisions, and generates responses.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        agent = bedrock.Agent(self, "Agent",
+            foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1,
+            instruction="You are a helpful assistant.",
+            prompt_override_configuration=bedrock.PromptOverrideConfiguration.from_steps([
+                step_type=bedrock.AgentStepType.ROUTING_CLASSIFIER,
+                step_enabled=True,
+                custom_prompt_template="Your routing template here",
+                foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_V2
+        
+            ])
+        )
+    '''
+
+    @jsii.member(jsii_name="fromSteps")
+    @builtins.classmethod
+    def from_steps(
+        cls,
+        steps: typing.Sequence[typing.Union["PromptStepConfigBase", typing.Dict[builtins.str, typing.Any]]],
+    ) -> "PromptOverrideConfiguration":
+        '''(experimental) Creates a PromptOverrideConfiguration from individual step configurations.
+
+        Use this method when you want to override prompts without using a custom parser.
+
+        :param steps: The step configurations to use.
+
+        :return: A new PromptOverrideConfiguration instance
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1d39057223b726590938606b5e3ac9d394a1418fec4a81576b5273321f3b86d8)
+            check_type(argname="argument steps", value=steps, expected_type=type_hints["steps"])
+        return typing.cast("PromptOverrideConfiguration", jsii.sinvoke(cls, "fromSteps", [steps]))
+
+    @jsii.member(jsii_name="withCustomParser")
+    @builtins.classmethod
+    def with_custom_parser(
+        cls,
+        *,
+        knowledge_base_response_generation_step: typing.Optional[typing.Union["PromptKnowledgeBaseResponseGenerationConfigCustomParser", typing.Dict[builtins.str, typing.Any]]] = None,
+        memory_summarization_step: typing.Optional[typing.Union["PromptMemorySummarizationConfigCustomParser", typing.Dict[builtins.str, typing.Any]]] = None,
+        orchestration_step: typing.Optional[typing.Union["PromptOrchestrationConfigCustomParser", typing.Dict[builtins.str, typing.Any]]] = None,
+        parser: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IFunction"] = None,
+        post_processing_step: typing.Optional[typing.Union["PromptPostProcessingConfigCustomParser", typing.Dict[builtins.str, typing.Any]]] = None,
+        pre_processing_step: typing.Optional[typing.Union["PromptPreProcessingConfigCustomParser", typing.Dict[builtins.str, typing.Any]]] = None,
+        routing_classifier_step: typing.Optional[typing.Union["PromptRoutingClassifierConfigCustomParser", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> "PromptOverrideConfiguration":
+        '''(experimental) Creates a PromptOverrideConfiguration with a custom Lambda parser function.
+
+        :param knowledge_base_response_generation_step: (experimental) Configuration for the knowledge base response generation step. Default: undefined - No knowledge base response generation configuration
+        :param memory_summarization_step: (experimental) Configuration for the memory summarization step. Default: undefined - No memory summarization configuration
+        :param orchestration_step: (experimental) Configuration for the orchestration step. Default: undefined - No orchestration configuration
+        :param parser: (experimental) Lambda function to use as custom parser. Default: undefined - No custom parser is used
+        :param post_processing_step: (experimental) Configuration for the post-processing step. Default: undefined - No post-processing configuration
+        :param pre_processing_step: (experimental) Configuration for the pre-processing step. Default: undefined - No pre-processing configuration
+        :param routing_classifier_step: (experimental) Configuration for the routing classifier step. Default: undefined - No routing classifier configuration
+
+        :stability: experimental
+        '''
+        props = CustomParserProps(
+            knowledge_base_response_generation_step=knowledge_base_response_generation_step,
+            memory_summarization_step=memory_summarization_step,
+            orchestration_step=orchestration_step,
+            parser=parser,
+            post_processing_step=post_processing_step,
+            pre_processing_step=pre_processing_step,
+            routing_classifier_step=routing_classifier_step,
+        )
+
+        return typing.cast("PromptOverrideConfiguration", jsii.sinvoke(cls, "withCustomParser", [props]))
+
+    @builtins.property
+    @jsii.member(jsii_name="knowledgeBaseResponseGenerationStep")
+    def knowledge_base_response_generation_step(
+        self,
+    ) -> typing.Optional["PromptKnowledgeBaseResponseGenerationConfigCustomParser"]:
+        '''(experimental) Configuration for the knowledge base response generation step.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["PromptKnowledgeBaseResponseGenerationConfigCustomParser"], jsii.get(self, "knowledgeBaseResponseGenerationStep"))
+
+    @builtins.property
+    @jsii.member(jsii_name="memorySummarizationStep")
+    def memory_summarization_step(
+        self,
+    ) -> typing.Optional["PromptMemorySummarizationConfigCustomParser"]:
+        '''(experimental) Configuration for the memory summarization step.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["PromptMemorySummarizationConfigCustomParser"], jsii.get(self, "memorySummarizationStep"))
+
+    @builtins.property
+    @jsii.member(jsii_name="orchestrationStep")
+    def orchestration_step(
+        self,
+    ) -> typing.Optional["PromptOrchestrationConfigCustomParser"]:
+        '''(experimental) Configuration for the orchestration step.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["PromptOrchestrationConfigCustomParser"], jsii.get(self, "orchestrationStep"))
+
+    @builtins.property
+    @jsii.member(jsii_name="parser")
+    def parser(self) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IFunction"]:
+        '''(experimental) The custom Lambda parser function to use.
+
+        The Lambda parser processes and interprets the raw foundation model output.
+        It receives an input event with:
+
+        - messageVersion: Version of message format (1.0)
+        - agent: Info about the agent (name, id, alias, version)
+        - invokeModelRawResponse: Raw model output to parse
+        - promptType: Type of prompt being parsed
+        - overrideType: Type of override (OUTPUT_PARSER)
+
+        The Lambda must return a response that the agent uses for next actions.
+
+        :see: https://docs.aws.amazon.com/bedrock/latest/userguide/lambda-parser.html
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IFunction"], jsii.get(self, "parser"))
+
+    @builtins.property
+    @jsii.member(jsii_name="postProcessingStep")
+    def post_processing_step(
+        self,
+    ) -> typing.Optional["PromptPostProcessingConfigCustomParser"]:
+        '''(experimental) Configuration for the post-processing step.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["PromptPostProcessingConfigCustomParser"], jsii.get(self, "postProcessingStep"))
+
+    @builtins.property
+    @jsii.member(jsii_name="preProcessingStep")
+    def pre_processing_step(
+        self,
+    ) -> typing.Optional["PromptPreProcessingConfigCustomParser"]:
+        '''(experimental) Configuration for the pre-processing step.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["PromptPreProcessingConfigCustomParser"], jsii.get(self, "preProcessingStep"))
+
+    @builtins.property
+    @jsii.member(jsii_name="routingClassifierStep")
+    def routing_classifier_step(
+        self,
+    ) -> typing.Optional["PromptRoutingClassifierConfigCustomParser"]:
+        '''(experimental) Configuration for the routing classifier step.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["PromptRoutingClassifierConfigCustomParser"], jsii.get(self, "routingClassifierStep"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.PromptProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "prompt_name": "promptName",
+        "default_variant": "defaultVariant",
+        "description": "description",
+        "kms_key": "kmsKey",
+        "tags": "tags",
+        "variants": "variants",
+    },
+)
+class PromptProps:
+    def __init__(
+        self,
+        *,
+        prompt_name: builtins.str,
+        default_variant: typing.Optional["IPromptVariant"] = None,
+        description: typing.Optional[builtins.str] = None,
+        kms_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        variants: typing.Optional[typing.Sequence["IPromptVariant"]] = None,
+    ) -> None:
+        '''(experimental) Properties for creating a CDK managed Bedrock Prompt.
+
+        :param prompt_name: (experimental) The name of the prompt. This will be used as the physical name of the prompt. Allowed Pattern: ^([0-9a-zA-Z][_-]?){1,100}$
+        :param default_variant: (experimental) The Prompt Variant that will be used by default. Default: - No default variant provided.
+        :param description: (experimental) A description of what the prompt does. Default: - No description provided. Maximum Length: 200
+        :param kms_key: (experimental) The KMS key that the prompt is encrypted with. Default: - AWS owned and managed key.
+        :param tags: (experimental) Tags to apply to the prompt. Default: - No tags applied.
+        :param variants: (experimental) The variants of your prompt. Variants can use different messages, models, or configurations so that you can compare their outputs to decide the best variant for your use case. Maximum of 1 variants. Default: - No additional variants provided.
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            cmk = kms.Key(self, "cmk")
+            claude_model = bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_SONNET_V1_0
+            
+            variant1 = bedrock.PromptVariant.text(
+                variant_name="variant1",
+                model=claude_model,
+                prompt_variables=["topic"],
+                prompt_text="This is my first text prompt. Please summarize our conversation on: {{topic}}.",
+                inference_configuration=bedrock.PromptInferenceConfiguration.text(
+                    temperature=1,
+                    top_p=0.999,
+                    max_tokens=2000
+                )
+            )
+            
+            prompt1 = bedrock.Prompt(self, "prompt1",
+                prompt_name="prompt1",
+                description="my first prompt",
+                default_variant=variant1,
+                variants=[variant1],
+                kms_key=cmk
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f21d48bc28a05638e542db3f20b402102894e3c71cc5a1cfad3da206c3ec491b)
+            check_type(argname="argument prompt_name", value=prompt_name, expected_type=type_hints["prompt_name"])
+            check_type(argname="argument default_variant", value=default_variant, expected_type=type_hints["default_variant"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument variants", value=variants, expected_type=type_hints["variants"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "prompt_name": prompt_name,
+        }
+        if default_variant is not None:
+            self._values["default_variant"] = default_variant
+        if description is not None:
+            self._values["description"] = description
+        if kms_key is not None:
+            self._values["kms_key"] = kms_key
+        if tags is not None:
+            self._values["tags"] = tags
+        if variants is not None:
+            self._values["variants"] = variants
+
+    @builtins.property
+    def prompt_name(self) -> builtins.str:
+        '''(experimental) The name of the prompt.
+
+        This will be used as the physical name of the prompt.
+        Allowed Pattern: ^([0-9a-zA-Z][_-]?){1,100}$
+
+        :stability: experimental
+        '''
+        result = self._values.get("prompt_name")
+        assert result is not None, "Required property 'prompt_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def default_variant(self) -> typing.Optional["IPromptVariant"]:
+        '''(experimental) The Prompt Variant that will be used by default.
+
+        :default: - No default variant provided.
+
+        :stability: experimental
+        '''
+        result = self._values.get("default_variant")
+        return typing.cast(typing.Optional["IPromptVariant"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) A description of what the prompt does.
+
+        :default:
+
+        - No description provided.
+        Maximum Length: 200
+
+        :stability: experimental
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) The KMS key that the prompt is encrypted with.
+
+        :default: - AWS owned and managed key.
+
+        :stability: experimental
+        '''
+        result = self._values.get("kms_key")
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Tags to apply to the prompt.
+
+        :default: - No tags applied.
+
+        :stability: experimental
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def variants(self) -> typing.Optional[typing.List["IPromptVariant"]]:
+        '''(experimental) The variants of your prompt.
+
+        Variants can use different messages, models,
+        or configurations so that you can compare their outputs to decide the best
+        variant for your use case. Maximum of 1 variants.
+
+        :default: - No additional variants provided.
+
+        :stability: experimental
+        '''
+        result = self._values.get("variants")
+        return typing.cast(typing.Optional[typing.List["IPromptVariant"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PromptProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(IBedrockInvokable, IPromptRouter)
+class PromptRouter(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.PromptRouter",
+):
+    '''(experimental) Amazon Bedrock intelligent prompt routing provides a single serverless endpoint for efficiently routing requests between different foundational models within the same model family.
+
+    It can help you optimize for response quality and cost.
+
+    Intelligent prompt routing predicts the performance of each model for each request,
+    and dynamically routes each request to the model that it predicts is most likely
+    to give the desired response at the lowest cost.
+
+    :see: https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-routing.html
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        # Create a prompt router for intelligent model selection
+        prompt_router = bedrock.PromptRouter.from_default_id(bedrock.DefaultPromptRouterIdentifier.ANTHROPIC_CLAUDE_V1, "us-east-1")
+        
+        # Use the prompt router with a prompt variant
+        variant = bedrock.PromptVariant.text(
+            variant_name="variant1",
+            prompt_text="What is the capital of France?",
+            model=prompt_router
+        )
+        
+        bedrock.Prompt(self, "Prompt",
+            prompt_name="prompt-router-test",
+            variants=[variant]
+        )
+    '''
+
+    def __init__(
+        self,
+        props: typing.Union["PromptRouterProps", typing.Dict[builtins.str, typing.Any]],
+        region: builtins.str,
+    ) -> None:
+        '''
+        :param props: -
+        :param region: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2d7aaad1ae87d58cbbe31bd9cb833594ac94ad6ecd7ff13daa345953d9bc443e)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+        jsii.create(self.__class__, self, [props, region])
+
+    @jsii.member(jsii_name="fromDefaultId")
+    @builtins.classmethod
+    def from_default_id(
+        cls,
+        default_router: "DefaultPromptRouterIdentifier",
+        region: builtins.str,
+    ) -> "PromptRouter":
+        '''(experimental) Creates a PromptRouter from a default router identifier.
+
+        :param default_router: - The default router configuration to use.
+        :param region: - The AWS region where the router will be used.
+
+        :return: A new PromptRouter instance configured with the default settings
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__408cce5bf982b8040ad0c4b74941ddd8d1510bbca8f87f984cc655e97b09345e)
+            check_type(argname="argument default_router", value=default_router, expected_type=type_hints["default_router"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+        return typing.cast("PromptRouter", jsii.sinvoke(cls, "fromDefaultId", [default_router, region]))
+
+    @jsii.member(jsii_name="grantInvoke")
+    def grant_invoke(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants the necessary permissions to invoke this prompt router and all its routing endpoints.
+
+        This method grants permissions to:
+
+        - Get prompt router details (bedrock:GetPromptRouter)
+        - Invoke models through the router (bedrock:InvokeModel)
+        - Use all underlying models and cross-region profiles
+          [disable-awslint:no-grants]
+
+        :param grantee: - The IAM principal to grant permissions to.
+
+        :return: An IAM Grant object representing the granted permissions
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__80f5135bd6e526d5ba652584fd86c268a4deda87d2f6331a9f85c248013b85c7)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantInvoke", [grantee]))
+
+    @builtins.property
+    @jsii.member(jsii_name="invokableArn")
+    def invokable_arn(self) -> builtins.str:
+        '''(experimental) The ARN used for invoking this prompt router.
+
+        This equals to the promptRouterArn property, useful for implementing IBedrockInvokable interface.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "invokableArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="promptRouterArn")
+    def prompt_router_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the prompt router.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "promptRouterArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="promptRouterId")
+    def prompt_router_id(self) -> builtins.str:
+        '''(experimental) The ID of the prompt router.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "promptRouterId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="routingEndpoints")
+    def routing_endpoints(self) -> typing.List["IBedrockInvokable"]:
+        '''(experimental) The inference endpoints (cross-region profiles) that this router will route to.
+
+        These are created automatically based on the routing models and region.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List["IBedrockInvokable"], jsii.get(self, "routingEndpoints"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.PromptRouterProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "prompt_router_id": "promptRouterId",
+        "routing_models": "routingModels",
+    },
+)
+class PromptRouterProps:
+    def __init__(
+        self,
+        *,
+        prompt_router_id: builtins.str,
+        routing_models: typing.Sequence["BedrockFoundationModel"],
+    ) -> None:
+        '''(experimental) Properties for configuring a Prompt Router.
+
+        :param prompt_router_id: (experimental) Prompt Router ID that identifies the routing configuration.
+        :param routing_models: (experimental) The foundation models this router will route to. The router will intelligently select between these models based on the request.
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_alpha as bedrock_alpha
+            
+            # bedrock_foundation_model: bedrock_alpha.BedrockFoundationModel
+            
+            prompt_router_props = bedrock_alpha.PromptRouterProps(
+                prompt_router_id="promptRouterId",
+                routing_models=[bedrock_foundation_model]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2d9920c9e1ac11de1a5ffc4ef32dc7b524971967b01baf4a0a5727ca8c5d9fa0)
+            check_type(argname="argument prompt_router_id", value=prompt_router_id, expected_type=type_hints["prompt_router_id"])
+            check_type(argname="argument routing_models", value=routing_models, expected_type=type_hints["routing_models"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "prompt_router_id": prompt_router_id,
+            "routing_models": routing_models,
+        }
+
+    @builtins.property
+    def prompt_router_id(self) -> builtins.str:
+        '''(experimental) Prompt Router ID that identifies the routing configuration.
+
+        :stability: experimental
+        '''
+        result = self._values.get("prompt_router_id")
+        assert result is not None, "Required property 'prompt_router_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def routing_models(self) -> typing.List["BedrockFoundationModel"]:
+        '''(experimental) The foundation models this router will route to.
+
+        The router will intelligently select between these models based on the request.
+
+        :stability: experimental
+        '''
+        result = self._values.get("routing_models")
+        assert result is not None, "Required property 'routing_models' is missing"
+        return typing.cast(typing.List["BedrockFoundationModel"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PromptRouterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.PromptStepConfigBase",
+    jsii_struct_bases=[],
+    name_mapping={
+        "step_type": "stepType",
+        "custom_prompt_template": "customPromptTemplate",
+        "inference_config": "inferenceConfig",
+        "step_enabled": "stepEnabled",
+        "use_custom_parser": "useCustomParser",
+    },
+)
+class PromptStepConfigBase:
+    def __init__(
+        self,
+        *,
+        step_type: "AgentStepType",
+        custom_prompt_template: typing.Optional[builtins.str] = None,
+        inference_config: typing.Optional[typing.Union["InferenceConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        step_enabled: typing.Optional[builtins.bool] = None,
+        use_custom_parser: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Base configuration interface for all prompt step types.
+
+        :param step_type: (experimental) The type of step this configuration applies to.
+        :param custom_prompt_template: (experimental) The custom prompt template to be used. Default: - The default prompt template will be used.
+        :param inference_config: (experimental) The inference configuration parameters to use. Default: undefined - Default inference configuration will be used
+        :param step_enabled: (experimental) Whether to enable or skip this step in the agent sequence. Default: - The default state for each step type is as follows. PRE_PROCESSING – ENABLED ORCHESTRATION – ENABLED KNOWLEDGE_BASE_RESPONSE_GENERATION – ENABLED POST_PROCESSING – DISABLED
+        :param use_custom_parser: (experimental) Whether to use the custom Lambda parser defined for the sequence. Default: - false
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_alpha as bedrock_alpha
+            
+            prompt_step_config_base = bedrock_alpha.PromptStepConfigBase(
+                step_type=bedrock_alpha.AgentStepType.PRE_PROCESSING,
+            
+                # the properties below are optional
+                custom_prompt_template="customPromptTemplate",
+                inference_config=bedrock_alpha.InferenceConfiguration(
+                    maximum_length=123,
+                    stop_sequences=["stopSequences"],
+                    temperature=123,
+                    top_k=123,
+                    top_p=123
+                ),
+                step_enabled=False,
+                use_custom_parser=False
+            )
+        '''
+        if isinstance(inference_config, dict):
+            inference_config = InferenceConfiguration(**inference_config)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c80dbca03d170ec1393aad8bb4aee5d9109f13b498913a973f3a939b8dfeb044)
+            check_type(argname="argument step_type", value=step_type, expected_type=type_hints["step_type"])
+            check_type(argname="argument custom_prompt_template", value=custom_prompt_template, expected_type=type_hints["custom_prompt_template"])
+            check_type(argname="argument inference_config", value=inference_config, expected_type=type_hints["inference_config"])
+            check_type(argname="argument step_enabled", value=step_enabled, expected_type=type_hints["step_enabled"])
+            check_type(argname="argument use_custom_parser", value=use_custom_parser, expected_type=type_hints["use_custom_parser"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "step_type": step_type,
+        }
+        if custom_prompt_template is not None:
+            self._values["custom_prompt_template"] = custom_prompt_template
+        if inference_config is not None:
+            self._values["inference_config"] = inference_config
+        if step_enabled is not None:
+            self._values["step_enabled"] = step_enabled
+        if use_custom_parser is not None:
+            self._values["use_custom_parser"] = use_custom_parser
+
+    @builtins.property
+    def step_type(self) -> "AgentStepType":
+        '''(experimental) The type of step this configuration applies to.
+
+        :stability: experimental
+        '''
+        result = self._values.get("step_type")
+        assert result is not None, "Required property 'step_type' is missing"
+        return typing.cast("AgentStepType", result)
+
+    @builtins.property
+    def custom_prompt_template(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The custom prompt template to be used.
+
+        :default: - The default prompt template will be used.
+
+        :see: https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-placeholders.html
+        :stability: experimental
+        '''
+        result = self._values.get("custom_prompt_template")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def inference_config(self) -> typing.Optional["InferenceConfiguration"]:
+        '''(experimental) The inference configuration parameters to use.
+
+        :default: undefined - Default inference configuration will be used
+
+        :stability: experimental
+        '''
+        result = self._values.get("inference_config")
+        return typing.cast(typing.Optional["InferenceConfiguration"], result)
+
+    @builtins.property
+    def step_enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to enable or skip this step in the agent sequence.
+
+        :default:
+
+        - The default state for each step type is as follows.
+
+        PRE_PROCESSING – ENABLED
+        ORCHESTRATION – ENABLED
+        KNOWLEDGE_BASE_RESPONSE_GENERATION – ENABLED
+        POST_PROCESSING – DISABLED
+
+        :stability: experimental
+        '''
+        result = self._values.get("step_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def use_custom_parser(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to use the custom Lambda parser defined for the sequence.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("use_custom_parser")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PromptStepConfigBase(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class PromptTemplateConfiguration(
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.PromptTemplateConfiguration",
+):
+    '''(experimental) Abstract base class for prompt template configurations.
+
+    This provides a high-level abstraction over the underlying CloudFormation
+    template configuration properties, offering a more developer-friendly interface
+    while maintaining full compatibility with the underlying AWS Bedrock service.
+
+    :stability: experimental
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk.aws_bedrock_alpha as bedrock_alpha
+        
+        # chat_message: bedrock_alpha.ChatMessage
+        # tool: bedrock_alpha.Tool
+        # tool_choice: bedrock_alpha.ToolChoice
+        
+        prompt_template_configuration = bedrock_alpha.PromptTemplateConfiguration.chat(
+            messages=[chat_message],
+        
+            # the properties below are optional
+            input_variables=["inputVariables"],
+            system="system",
+            tool_configuration=bedrock_alpha.ToolConfiguration(
+                tool_choice=tool_choice,
+                tools=[tool]
+            )
+        )
+    '''
+
+    def __init__(self) -> None:
+        '''
+        :stability: experimental
+        '''
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="chat")
+    @builtins.classmethod
+    def chat(
+        cls,
+        *,
+        messages: typing.Sequence["ChatMessage"],
+        input_variables: typing.Optional[typing.Sequence[builtins.str]] = None,
+        system: typing.Optional[builtins.str] = None,
+        tool_configuration: typing.Optional[typing.Union["ToolConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> "PromptTemplateConfiguration":
+        '''(experimental) Creates a chat template configuration.
+
+        :param messages: (experimental) The messages in the chat template.
+        :param input_variables: (experimental) The input variables for the template. Default: - No input variables
+        :param system: (experimental) The system message for the chat template. Default: - No system message
+        :param tool_configuration: (experimental) The tool configuration for the chat template. Default: - No tool configuration
+
+        :stability: experimental
+        '''
+        props = ChatTemplateConfigurationProps(
+            messages=messages,
+            input_variables=input_variables,
+            system=system,
+            tool_configuration=tool_configuration,
+        )
+
+        return typing.cast("PromptTemplateConfiguration", jsii.sinvoke(cls, "chat", [props]))
+
+    @jsii.member(jsii_name="text")
+    @builtins.classmethod
+    def text(
+        cls,
+        *,
+        text: builtins.str,
+        input_variables: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> "PromptTemplateConfiguration":
+        '''(experimental) Creates a text template configuration.
+
+        :param text: (experimental) The text content of the template.
+        :param input_variables: (experimental) The input variables for the template. Default: - No input variables
+
+        :stability: experimental
+        '''
+        props = TextTemplateConfigurationProps(
+            text=text, input_variables=input_variables
+        )
+
+        return typing.cast("PromptTemplateConfiguration", jsii.sinvoke(cls, "text", [props]))
+
+
+class _PromptTemplateConfigurationProxy(PromptTemplateConfiguration):
+    pass
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, PromptTemplateConfiguration).__jsii_proxy_class__ = lambda : _PromptTemplateConfigurationProxy
+
+
+@jsii.enum(jsii_type="@aws-cdk/aws-bedrock-alpha.PromptTemplateType")
+class PromptTemplateType(enum.Enum):
+    '''(experimental) The type of prompt template.
+
+    :stability: experimental
+    '''
+
+    TEXT = "TEXT"
+    '''(experimental) Text template for simple text-based prompts.
+
+    :stability: experimental
+    '''
+    CHAT = "CHAT"
+    '''(experimental) Chat template for conversational prompts with message history.
+
+    :stability: experimental
+    '''
+
+
+class PromptVariant(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.PromptVariant",
+):
+    '''(experimental) Factory class for creating prompt variants.
+
+    Provides static methods to create different types of prompt variants
+    with proper configuration and type safety.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        cmk = kms.Key(self, "cmk")
+        claude_model = bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_SONNET_V1_0
+        
+        variant1 = bedrock.PromptVariant.text(
+            variant_name="variant1",
+            model=claude_model,
+            prompt_variables=["topic"],
+            prompt_text="This is my first text prompt. Please summarize our conversation on: {{topic}}.",
+            inference_configuration=bedrock.PromptInferenceConfiguration.text(
+                temperature=1,
+                top_p=0.999,
+                max_tokens=2000
+            )
+        )
+        
+        prompt1 = bedrock.Prompt(self, "prompt1",
+            prompt_name="prompt1",
+            description="my first prompt",
+            default_variant=variant1,
+            variants=[variant1],
+            kms_key=cmk
+        )
+    '''
+
+    @jsii.member(jsii_name="agent")
+    @builtins.classmethod
+    def agent(
+        cls,
+        *,
+        agent_alias: "IAgentAlias",
+        prompt_text: builtins.str,
+        model: "IBedrockInvokable",
+        variant_name: builtins.str,
+        prompt_variables: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> "IPromptVariant":
+        '''(experimental) Creates an agent prompt template variant.
+
+        :param agent_alias: (experimental) An alias pointing to the agent version to be used.
+        :param prompt_text: (experimental) The text prompt. Variables are used by enclosing its name with double curly braces as in ``{{variable_name}}``.
+        :param model: (experimental) The model which is used to run the prompt. The model could be a foundation model, a custom model, or a provisioned model.
+        :param variant_name: (experimental) The name of the prompt variant.
+        :param prompt_variables: (experimental) The variables in the prompt template that can be filled in at runtime. Default: - No variables defined.
+
+        :return: A PromptVariant configured for agent interactions
+
+        :stability: experimental
+        '''
+        props = AgentPromptVariantProps(
+            agent_alias=agent_alias,
+            prompt_text=prompt_text,
+            model=model,
+            variant_name=variant_name,
+            prompt_variables=prompt_variables,
+        )
+
+        return typing.cast("IPromptVariant", jsii.sinvoke(cls, "agent", [props]))
+
+    @jsii.member(jsii_name="chat")
+    @builtins.classmethod
+    def chat(
+        cls,
+        *,
+        messages: typing.Sequence["ChatMessage"],
+        inference_configuration: typing.Optional["PromptInferenceConfiguration"] = None,
+        system: typing.Optional[builtins.str] = None,
+        tool_configuration: typing.Optional[typing.Union["ToolConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        model: "IBedrockInvokable",
+        variant_name: builtins.str,
+        prompt_variables: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> "IPromptVariant":
+        '''(experimental) Creates a chat template variant.
+
+        Use this template type when
+        the model supports the Converse API or the Anthropic Claude Messages API.
+        This allows you to include a System prompt and previous User messages
+        and Assistant messages for context.
+
+        :param messages: (experimental) The messages in the chat prompt. Must include at least one User Message. The messages should alternate between User and Assistant.
+        :param inference_configuration: (experimental) Inference configuration for the Chat Prompt. Default: - No inference configuration provided.
+        :param system: (experimental) Context or instructions for the model to consider before generating a response. Default: - No system message provided.
+        :param tool_configuration: (experimental) The configuration with available tools to the model and how it must use them. Default: - No tool configuration provided.
+        :param model: (experimental) The model which is used to run the prompt. The model could be a foundation model, a custom model, or a provisioned model.
+        :param variant_name: (experimental) The name of the prompt variant.
+        :param prompt_variables: (experimental) The variables in the prompt template that can be filled in at runtime. Default: - No variables defined.
+
+        :return: A PromptVariant configured for chat interactions
+
+        :stability: experimental
+        '''
+        props = ChatPromptVariantProps(
+            messages=messages,
+            inference_configuration=inference_configuration,
+            system=system,
+            tool_configuration=tool_configuration,
+            model=model,
+            variant_name=variant_name,
+            prompt_variables=prompt_variables,
+        )
+
+        return typing.cast("IPromptVariant", jsii.sinvoke(cls, "chat", [props]))
+
+    @jsii.member(jsii_name="text")
+    @builtins.classmethod
+    def text(
+        cls,
+        *,
+        prompt_text: builtins.str,
+        inference_configuration: typing.Optional["PromptInferenceConfiguration"] = None,
+        model: "IBedrockInvokable",
+        variant_name: builtins.str,
+        prompt_variables: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> "IPromptVariant":
+        '''(experimental) Creates a text template variant.
+
+        :param prompt_text: (experimental) The text prompt. Variables are used by enclosing its name with double curly braces as in ``{{variable_name}}``.
+        :param inference_configuration: (experimental) Inference configuration for the Text Prompt. Default: - No inference configuration provided.
+        :param model: (experimental) The model which is used to run the prompt. The model could be a foundation model, a custom model, or a provisioned model.
+        :param variant_name: (experimental) The name of the prompt variant.
+        :param prompt_variables: (experimental) The variables in the prompt template that can be filled in at runtime. Default: - No variables defined.
+
+        :return: A PromptVariant configured for text processing
+
+        :stability: experimental
+        '''
+        props = TextPromptVariantProps(
+            prompt_text=prompt_text,
+            inference_configuration=inference_configuration,
+            model=model,
+            variant_name=variant_name,
+            prompt_variables=prompt_variables,
+        )
+
+        return typing.cast("IPromptVariant", jsii.sinvoke(cls, "text", [props]))
+
+
+class PromptVersion(
+    _constructs_77d1e7e8.Construct,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.PromptVersion",
+):
+    '''(experimental) Class to create a Prompt Version with CDK.
+
+    Creates a version of the prompt. Use this to create a static snapshot of your
+    prompt that can be deployed to production. Versions allow you to easily switch
+    between different configurations for your prompt and update your application
+    with the most appropriate version for your use-case.
+
+    :see: https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-management-deploy.html
+    :stability: experimental
+    :cloudformationResource: AWS::Bedrock::PromptVersion
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        cmk = kms.Key(self, "cmk")
+        claude_model = bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_SONNET_V1_0
+        
+        variant1 = bedrock.PromptVariant.text(
+            variant_name="variant1",
+            model=claude_model,
+            prompt_variables=["topic"],
+            prompt_text="This is my first text prompt. Please summarize our conversation on: {{topic}}.",
+            inference_configuration=bedrock.PromptInferenceConfiguration.text(
+                temperature=1,
+                top_p=0.999,
+                max_tokens=2000
+            )
+        )
+        
+        prompt1 = bedrock.Prompt(self, "prompt1",
+            prompt_name="prompt1",
+            description="my first prompt",
+            default_variant=variant1,
+            variants=[variant1],
+            kms_key=cmk
+        )
+        
+        prompt_version = bedrock.PromptVersion(self, "MyPromptVersion",
+            prompt=prompt1,
+            description="my first version"
+        )
+        # or alternatively:
+        # const promptVersion = prompt1.createVersion('my first version');
+        version_string = prompt_version.version
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        prompt: "IPrompt",
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) ****************************************************************************                           CONSTRUCTOR ***************************************************************************.
+
+        :param scope: -
+        :param id: -
+        :param prompt: (experimental) The prompt to use for this version.
+        :param description: (experimental) The description of the prompt version. Default: - No description provided. Maximum length: 200
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dfe8fbace1aa5d4a8a24745685e58a36f07ad28eae0ff633d71959293bc97659)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = PromptVersionProps(prompt=prompt, description=description)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @builtins.property
+    @jsii.member(jsii_name="prompt")
+    def prompt(self) -> "IPrompt":
+        '''(experimental) The prompt used by this version.
+
+        :stability: experimental
+        '''
+        return typing.cast("IPrompt", jsii.get(self, "prompt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="version")
+    def version(self) -> builtins.str:
+        '''(experimental) The version of the prompt that was created.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "version"))
+
+    @builtins.property
+    @jsii.member(jsii_name="versionArn")
+    def version_arn(self) -> builtins.str:
+        '''(experimental) The Amazon Resource Name (ARN) of the prompt version.
+
+        :stability: experimental
+        :attribute: true
+
+        Example::
+
+            "arn:aws:bedrock:us-east-1:123456789012:prompt/PROMPT12345:1"
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "versionArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The description of the prompt version.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.PromptVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={"prompt": "prompt", "description": "description"},
+)
+class PromptVersionProps:
+    def __init__(
+        self,
+        *,
+        prompt: "IPrompt",
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Properties for creating a CDK managed Bedrock Prompt Version.
+
+        :param prompt: (experimental) The prompt to use for this version.
+        :param description: (experimental) The description of the prompt version. Default: - No description provided. Maximum length: 200
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            cmk = kms.Key(self, "cmk")
+            claude_model = bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_SONNET_V1_0
+            
+            variant1 = bedrock.PromptVariant.text(
+                variant_name="variant1",
+                model=claude_model,
+                prompt_variables=["topic"],
+                prompt_text="This is my first text prompt. Please summarize our conversation on: {{topic}}.",
+                inference_configuration=bedrock.PromptInferenceConfiguration.text(
+                    temperature=1,
+                    top_p=0.999,
+                    max_tokens=2000
+                )
+            )
+            
+            prompt1 = bedrock.Prompt(self, "prompt1",
+                prompt_name="prompt1",
+                description="my first prompt",
+                default_variant=variant1,
+                variants=[variant1],
+                kms_key=cmk
+            )
+            
+            prompt_version = bedrock.PromptVersion(self, "MyPromptVersion",
+                prompt=prompt1,
+                description="my first version"
+            )
+            # or alternatively:
+            # const promptVersion = prompt1.createVersion('my first version');
+            version_string = prompt_version.version
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a0195ad3e1264862c15594d450fc875d5e30d70149dcb4a32dbb552f9ec0c833)
+            check_type(argname="argument prompt", value=prompt, expected_type=type_hints["prompt"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "prompt": prompt,
+        }
+        if description is not None:
+            self._values["description"] = description
+
+    @builtins.property
+    def prompt(self) -> "IPrompt":
+        '''(experimental) The prompt to use for this version.
+
+        :stability: experimental
+        '''
+        result = self._values.get("prompt")
+        assert result is not None, "Required property 'prompt' is missing"
+        return typing.cast("IPrompt", result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The description of the prompt version.
+
+        :default:
+
+        - No description provided.
+        Maximum length: 200
+
+        :stability: experimental
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PromptVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.RegexFilter",
+    jsii_struct_bases=[],
+    name_mapping={
+        "action": "action",
+        "name": "name",
+        "pattern": "pattern",
+        "description": "description",
+        "input_action": "inputAction",
+        "input_enabled": "inputEnabled",
+        "output_action": "outputAction",
+        "output_enabled": "outputEnabled",
+    },
+)
+class RegexFilter:
+    def __init__(
+        self,
+        *,
+        action: "GuardrailAction",
+        name: builtins.str,
+        pattern: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        input_action: typing.Optional["GuardrailAction"] = None,
+        input_enabled: typing.Optional[builtins.bool] = None,
+        output_action: typing.Optional["GuardrailAction"] = None,
+        output_enabled: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) A Regular expression (regex) filter for sensitive information.
+
+        :param action: (experimental) The action to take when a regex match is detected.
+        :param name: (experimental) The name of the regex filter.
+        :param pattern: (experimental) The regular expression pattern to match.
+        :param description: (experimental) The description of the regex filter. Default: - No description
+        :param input_action: (experimental) The action to take when a regex match is detected in the input. Default: GuardrailAction.BLOCK
+        :param input_enabled: (experimental) Whether the regex filter is enabled for input. Default: true
+        :param output_action: (experimental) The action to take when a regex match is detected in the output. Default: GuardrailAction.BLOCK
+        :param output_enabled: (experimental) Whether the regex filter is enabled for output. Default: true
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+                guardrail_name="my-BedrockGuardrails"
+            )
+            # Add regex filter with input/output actions
+            guardrail.add_regex_filter(
+                name="TestRegexFilter",
+                pattern="test-pattern",
+                action=bedrock.GuardrailAction.ANONYMIZE,
+                # below props are optional
+                description="This is a test regex filter",
+                input_action=bedrock.GuardrailAction.BLOCK,
+                input_enabled=True,
+                output_action=bedrock.GuardrailAction.ANONYMIZE,
+                output_enabled=True
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__14249a7edad5543c4beede9f3f1188d7c843e42f2846b88b76839cf893392075)
+            check_type(argname="argument action", value=action, expected_type=type_hints["action"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument input_action", value=input_action, expected_type=type_hints["input_action"])
+            check_type(argname="argument input_enabled", value=input_enabled, expected_type=type_hints["input_enabled"])
+            check_type(argname="argument output_action", value=output_action, expected_type=type_hints["output_action"])
+            check_type(argname="argument output_enabled", value=output_enabled, expected_type=type_hints["output_enabled"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "action": action,
+            "name": name,
+            "pattern": pattern,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if input_action is not None:
+            self._values["input_action"] = input_action
+        if input_enabled is not None:
+            self._values["input_enabled"] = input_enabled
+        if output_action is not None:
+            self._values["output_action"] = output_action
+        if output_enabled is not None:
+            self._values["output_enabled"] = output_enabled
+
+    @builtins.property
+    def action(self) -> "GuardrailAction":
+        '''(experimental) The action to take when a regex match is detected.
+
+        :stability: experimental
+        '''
+        result = self._values.get("action")
+        assert result is not None, "Required property 'action' is missing"
+        return typing.cast("GuardrailAction", result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''(experimental) The name of the regex filter.
+
+        :stability: experimental
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def pattern(self) -> builtins.str:
+        '''(experimental) The regular expression pattern to match.
+
+        :stability: experimental
+        '''
+        result = self._values.get("pattern")
+        assert result is not None, "Required property 'pattern' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The description of the regex filter.
+
+        :default: - No description
+
+        :stability: experimental
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def input_action(self) -> typing.Optional["GuardrailAction"]:
+        '''(experimental) The action to take when a regex match is detected in the input.
+
+        :default: GuardrailAction.BLOCK
+
+        :stability: experimental
+        '''
+        result = self._values.get("input_action")
+        return typing.cast(typing.Optional["GuardrailAction"], result)
+
+    @builtins.property
+    def input_enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether the regex filter is enabled for input.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("input_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def output_action(self) -> typing.Optional["GuardrailAction"]:
+        '''(experimental) The action to take when a regex match is detected in the output.
+
+        :default: GuardrailAction.BLOCK
+
+        :stability: experimental
+        '''
+        result = self._values.get("output_action")
+        return typing.cast(typing.Optional["GuardrailAction"], result)
+
+    @builtins.property
+    def output_enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether the regex filter is enabled for output.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("output_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RegexFilter(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="@aws-cdk/aws-bedrock-alpha.RequireConfirmation")
+class RequireConfirmation(enum.Enum):
+    '''(experimental) Enum for require confirmation state in function schemas.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        action_group_function = lambda_.Function(self, "ActionGroupFunction",
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            handler="index.handler",
+            code=lambda_.Code.from_asset(path.join(__dirname, "../lambda/action-group"))
+        )
+        
+        # Define a function schema with parameters
+        function_schema = bedrock.FunctionSchema(
+            functions=[bedrock.FunctionProps(
+                name="searchBooks",
+                description="Search for books in the library catalog",
+                parameters={
+                    "query": bedrock.FunctionParameterProps(
+                        type=bedrock.ParameterType.STRING,
+                        required=True,
+                        description="The search query string"
+                    ),
+                    "maxResults": bedrock.FunctionParameterProps(
+                        type=bedrock.ParameterType.INTEGER,
+                        required=False,
+                        description="Maximum number of results to return"
+                    ),
+                    "includeOutOfPrint": bedrock.FunctionParameterProps(
+                        type=bedrock.ParameterType.BOOLEAN,
+                        required=False,
+                        description="Whether to include out-of-print books"
+                    )
+                },
+                require_confirmation=bedrock.RequireConfirmation.DISABLED
+            ), bedrock.FunctionProps(
+                name="getBookDetails",
+                description="Get detailed information about a specific book",
+                parameters={
+                    "bookId": bedrock.FunctionParameterProps(
+                        type=bedrock.ParameterType.STRING,
+                        required=True,
+                        description="The unique identifier of the book"
+                    )
+                },
+                require_confirmation=bedrock.RequireConfirmation.ENABLED
+            )
+            ]
+        )
+        
+        # Create an action group using the function schema
+        action_group = bedrock.AgentActionGroup(
+            name="library-functions",
+            description="Functions for interacting with the library catalog",
+            executor=bedrock.ActionGroupExecutor.from_lambda(action_group_function),
+            function_schema=function_schema,
+            enabled=True
+        )
+        
+        agent = bedrock.Agent(self, "Agent",
+            foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_HAIKU_V1_0,
+            instruction="You are a helpful and friendly agent that answers questions about literature.",
+            action_groups=[action_group]
+        )
+    '''
+
+    ENABLED = "ENABLED"
+    '''(experimental) Confirmation is enabled.
+
+    :stability: experimental
+    '''
+    DISABLED = "DISABLED"
+    '''(experimental) Confirmation is disabled.
+
+    :stability: experimental
+    '''
+
+
+class S3ApiSchema(
+    ApiSchema,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.S3ApiSchema",
+):
+    '''(experimental) Class to define an API Schema from an S3 object.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        bucket = s3.Bucket.from_bucket_name(self, "ExistingBucket", "my-schema-bucket")
+        s3_schema = bedrock.ApiSchema.from_s3_file(bucket, "schemas/action-group.yaml")
+        
+        action_group_function = lambda_.Function(self, "ActionGroupFunction",
+            runtime=lambda_.Runtime.PYTHON_3_12,
+            handler="index.handler",
+            code=lambda_.Code.from_asset(path.join(__dirname, "../lambda/action-group"))
+        )
+        
+        action_group = bedrock.AgentActionGroup(
+            name="query-library",
+            description="Use these functions to get information about the books in the library.",
+            executor=bedrock.ActionGroupExecutor.from_lambda(action_group_function),
+            enabled=True,
+            api_schema=s3_schema
+        )
+        
+        agent = bedrock.Agent(self, "Agent",
+            foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_HAIKU_V1_0,
+            instruction="You are a helpful and friendly agent that answers questions about literature."
+        )
+        
+        agent.add_action_group(action_group)
+    '''
+
+    def __init__(
+        self,
+        *,
+        bucket_name: builtins.str,
+        object_key: builtins.str,
+        object_version: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param bucket_name: The name of the S3 Bucket the object is in.
+        :param object_key: The path inside the Bucket where the object is located at.
+        :param object_version: The S3 object version.
+
+        :stability: experimental
+        '''
+        location = _aws_cdk_aws_s3_ceddda9d.Location(
+            bucket_name=bucket_name,
+            object_key=object_key,
+            object_version=object_version,
+        )
+
+        jsii.create(self.__class__, self, [location])
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.SessionSummaryMemoryProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "max_recent_sessions": "maxRecentSessions",
+        "memory_duration": "memoryDuration",
+    },
+)
+class SessionSummaryMemoryProps:
+    def __init__(
+        self,
+        *,
+        max_recent_sessions: typing.Optional[jsii.Number] = None,
+        memory_duration: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+    ) -> None:
+        '''(experimental) Properties for SessionSummaryConfiguration.
+
+        :param max_recent_sessions: (experimental) Maximum number of recent session summaries to include (min 1). Default: 20
+        :param memory_duration: (experimental) Duration for which session summaries are retained (between 1 and 365 days). Default: Duration.days(30)
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            agent = bedrock.Agent(self, "MyAgent",
+                agent_name="MyAgent",
+                instruction="Your instruction here",
+                foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1,
+                memory=Memory.session_summary(
+                    max_recent_sessions=10,  # Keep the last 10 session summaries
+                    memory_duration=Duration.days(20)
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__66ca7c708f8916f74c35e9ad0069f982f7710c5742e63b6e61b9889bdcea86ee)
+            check_type(argname="argument max_recent_sessions", value=max_recent_sessions, expected_type=type_hints["max_recent_sessions"])
+            check_type(argname="argument memory_duration", value=memory_duration, expected_type=type_hints["memory_duration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if max_recent_sessions is not None:
+            self._values["max_recent_sessions"] = max_recent_sessions
+        if memory_duration is not None:
+            self._values["memory_duration"] = memory_duration
+
+    @builtins.property
+    def max_recent_sessions(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) Maximum number of recent session summaries to include (min 1).
+
+        :default: 20
+
+        :stability: experimental
+        '''
+        result = self._values.get("max_recent_sessions")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def memory_duration(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
+        '''(experimental) Duration for which session summaries are retained (between 1 and 365 days).
+
+        :default: Duration.days(30)
+
+        :stability: experimental
+        '''
+        result = self._values.get("memory_duration")
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SessionSummaryMemoryProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.TextPromptVariantProps",
+    jsii_struct_bases=[CommonPromptVariantProps],
+    name_mapping={
+        "model": "model",
+        "variant_name": "variantName",
+        "prompt_variables": "promptVariables",
+        "prompt_text": "promptText",
+        "inference_configuration": "inferenceConfiguration",
+    },
+)
+class TextPromptVariantProps(CommonPromptVariantProps):
+    def __init__(
+        self,
+        *,
+        model: "IBedrockInvokable",
+        variant_name: builtins.str,
+        prompt_variables: typing.Optional[typing.Sequence[builtins.str]] = None,
+        prompt_text: builtins.str,
+        inference_configuration: typing.Optional["PromptInferenceConfiguration"] = None,
+    ) -> None:
+        '''(experimental) Properties for creating a text prompt variant.
+
+        :param model: (experimental) The model which is used to run the prompt. The model could be a foundation model, a custom model, or a provisioned model.
+        :param variant_name: (experimental) The name of the prompt variant.
+        :param prompt_variables: (experimental) The variables in the prompt template that can be filled in at runtime. Default: - No variables defined.
+        :param prompt_text: (experimental) The text prompt. Variables are used by enclosing its name with double curly braces as in ``{{variable_name}}``.
+        :param inference_configuration: (experimental) Inference configuration for the Text Prompt. Default: - No inference configuration provided.
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            cmk = kms.Key(self, "cmk")
+            claude_model = bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_SONNET_V1_0
+            
+            variant1 = bedrock.PromptVariant.text(
+                variant_name="variant1",
+                model=claude_model,
+                prompt_variables=["topic"],
+                prompt_text="This is my first text prompt. Please summarize our conversation on: {{topic}}.",
+                inference_configuration=bedrock.PromptInferenceConfiguration.text(
+                    temperature=1,
+                    top_p=0.999,
+                    max_tokens=2000
+                )
+            )
+            
+            prompt1 = bedrock.Prompt(self, "prompt1",
+                prompt_name="prompt1",
+                description="my first prompt",
+                default_variant=variant1,
+                variants=[variant1],
+                kms_key=cmk
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4c37d6509a49a80c4133ffb8cb909f78f35a5aa61c19a255bdba8f0412b80522)
+            check_type(argname="argument model", value=model, expected_type=type_hints["model"])
+            check_type(argname="argument variant_name", value=variant_name, expected_type=type_hints["variant_name"])
+            check_type(argname="argument prompt_variables", value=prompt_variables, expected_type=type_hints["prompt_variables"])
+            check_type(argname="argument prompt_text", value=prompt_text, expected_type=type_hints["prompt_text"])
+            check_type(argname="argument inference_configuration", value=inference_configuration, expected_type=type_hints["inference_configuration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "model": model,
+            "variant_name": variant_name,
+            "prompt_text": prompt_text,
+        }
+        if prompt_variables is not None:
+            self._values["prompt_variables"] = prompt_variables
+        if inference_configuration is not None:
+            self._values["inference_configuration"] = inference_configuration
+
+    @builtins.property
+    def model(self) -> "IBedrockInvokable":
+        '''(experimental) The model which is used to run the prompt.
+
+        The model could be a foundation
+        model, a custom model, or a provisioned model.
+
+        :stability: experimental
+        '''
+        result = self._values.get("model")
+        assert result is not None, "Required property 'model' is missing"
+        return typing.cast("IBedrockInvokable", result)
+
+    @builtins.property
+    def variant_name(self) -> builtins.str:
+        '''(experimental) The name of the prompt variant.
+
+        :stability: experimental
+        '''
+        result = self._values.get("variant_name")
+        assert result is not None, "Required property 'variant_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def prompt_variables(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) The variables in the prompt template that can be filled in at runtime.
+
+        :default: - No variables defined.
+
+        :stability: experimental
+        '''
+        result = self._values.get("prompt_variables")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def prompt_text(self) -> builtins.str:
+        '''(experimental) The text prompt.
+
+        Variables are used by enclosing its name with double curly braces
+        as in ``{{variable_name}}``.
+
+        :stability: experimental
+        '''
+        result = self._values.get("prompt_text")
+        assert result is not None, "Required property 'prompt_text' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def inference_configuration(
+        self,
+    ) -> typing.Optional["PromptInferenceConfiguration"]:
+        '''(experimental) Inference configuration for the Text Prompt.
+
+        :default: - No inference configuration provided.
+
+        :stability: experimental
+        '''
+        result = self._values.get("inference_configuration")
+        return typing.cast(typing.Optional["PromptInferenceConfiguration"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TextPromptVariantProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.TextTemplateConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={"text": "text", "input_variables": "inputVariables"},
+)
+class TextTemplateConfigurationProps:
+    def __init__(
+        self,
+        *,
+        text: builtins.str,
+        input_variables: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''(experimental) Properties for creating a text template configuration.
+
+        :param text: (experimental) The text content of the template.
+        :param input_variables: (experimental) The input variables for the template. Default: - No input variables
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_alpha as bedrock_alpha
+            
+            text_template_configuration_props = bedrock_alpha.TextTemplateConfigurationProps(
+                text="text",
+            
+                # the properties below are optional
+                input_variables=["inputVariables"]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c8bcb2ce739d391a989fbe1d6d40676a32673ead263da132143ae6225efc37aa)
+            check_type(argname="argument text", value=text, expected_type=type_hints["text"])
+            check_type(argname="argument input_variables", value=input_variables, expected_type=type_hints["input_variables"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "text": text,
+        }
+        if input_variables is not None:
+            self._values["input_variables"] = input_variables
+
+    @builtins.property
+    def text(self) -> builtins.str:
+        '''(experimental) The text content of the template.
+
+        :stability: experimental
+        '''
+        result = self._values.get("text")
+        assert result is not None, "Required property 'text' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def input_variables(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) The input variables for the template.
+
+        :default: - No input variables
+
+        :stability: experimental
+        '''
+        result = self._values.get("input_variables")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TextTemplateConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="@aws-cdk/aws-bedrock-alpha.TierConfig")
+class TierConfig(enum.Enum):
+    '''(experimental) ****************************************************************************                            TIER CONFIG ***************************************************************************.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+            guardrail_name="my-BedrockGuardrails",
+            # Configure tier for topic filters (optional)
+            topics_tier_config=bedrock.TierConfig.STANDARD
+        )
+        
+        # Use a predefined topic
+        guardrail.add_denied_topic_filter(bedrock.Topic.FINANCIAL_ADVICE)
+        
+        # Create a custom topic with input/output actions
+        guardrail.add_denied_topic_filter(
+            bedrock.Topic.custom(
+                name="Legal_Advice",
+                definition="Offering guidance or suggestions on legal matters, legal actions, interpretation of laws, or legal rights and responsibilities.",
+                examples=["Can I sue someone for this?", "What are my legal rights in this situation?", "Is this action against the law?", "What should I do to file a legal complaint?", "Can you explain this law to me?"
+                ],
+                # props below are optional
+                input_action=bedrock.GuardrailAction.BLOCK,
+                input_enabled=True,
+                output_action=bedrock.GuardrailAction.NONE,
+                output_enabled=True
+            ))
+    '''
+
+    CLASSIC = "CLASSIC"
+    '''(experimental) Provides established guardrails functionality supporting English, French, and Spanish languages.
+
+    :stability: experimental
+    '''
+    STANDARD = "STANDARD"
+    '''(experimental) Provides a more robust solution than the CLASSIC tier and has more comprehensive language support.
+
+    This tier requires that your guardrail use cross-Region inference.
+
+    :stability: experimental
+    '''
+
+
+class Tool(
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.Tool",
+):
+    '''(experimental) Abstract base class for tools that can be used by the model.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        cmk = kms.Key(self, "cmk")
+        
+        variant_chat = bedrock.PromptVariant.chat(
+            variant_name="variant1",
+            model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V1_0,
+            messages=[
+                bedrock.ChatMessage.user("From now on, you speak Japanese!"),
+                bedrock.ChatMessage.assistant("Konnichiwa!"),
+                bedrock.ChatMessage.user("From now on, you speak {{language}}!")
+            ],
+            system="You are a helpful assistant that only speaks the language you`re told.",
+            prompt_variables=["language"],
+            tool_configuration=bedrock.ToolConfiguration(
+                tool_choice=bedrock.ToolChoice.AUTO,
+                tools=[
+                    bedrock.Tool.function(
+                        name="top_song",
+                        description="Get the most popular song played on a radio station.",
+                        input_schema={
+                            "type": "object",
+                            "properties": {
+                                "sign": {
+                                    "type": "string",
+                                    "description": "The call sign for the radio station for which you want the most popular song. Example calls signs are WZPZ and WKR."
+                                }
+                            },
+                            "required": ["sign"]
+                        }
+                    )
+                ]
+            )
+        )
+        
+        bedrock.Prompt(self, "prompt1",
+            prompt_name="prompt-chat",
+            description="my first chat prompt",
+            default_variant=variant_chat,
+            variants=[variant_chat],
+            kms_key=cmk
+        )
+    '''
+
+    def __init__(self) -> None:
+        '''
+        :stability: experimental
+        '''
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="function")
+    @builtins.classmethod
+    def function(
+        cls,
+        *,
+        description: builtins.str,
+        input_schema: typing.Any,
+        name: builtins.str,
+    ) -> "Tool":
+        '''(experimental) Creates a function tool.
+
+        :param description: (experimental) A description of what the function does.
+        :param input_schema: (experimental) The input schema for the function parameters.
+        :param name: (experimental) The name of the function.
+
+        :stability: experimental
+        '''
+        props = FunctionToolProps(
+            description=description, input_schema=input_schema, name=name
+        )
+
+        return typing.cast("Tool", jsii.sinvoke(cls, "function", [props]))
+
+
+class _ToolProxy(Tool):
+    pass
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, Tool).__jsii_proxy_class__ = lambda : _ToolProxy
+
+
+class ToolChoice(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.ToolChoice",
+):
+    '''(experimental) Defines how the model should choose which tool to use.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        cmk = kms.Key(self, "cmk")
+        
+        variant_chat = bedrock.PromptVariant.chat(
+            variant_name="variant1",
+            model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V1_0,
+            messages=[
+                bedrock.ChatMessage.user("From now on, you speak Japanese!"),
+                bedrock.ChatMessage.assistant("Konnichiwa!"),
+                bedrock.ChatMessage.user("From now on, you speak {{language}}!")
+            ],
+            system="You are a helpful assistant that only speaks the language you`re told.",
+            prompt_variables=["language"],
+            tool_configuration=bedrock.ToolConfiguration(
+                tool_choice=bedrock.ToolChoice.AUTO,
+                tools=[
+                    bedrock.Tool.function(
+                        name="top_song",
+                        description="Get the most popular song played on a radio station.",
+                        input_schema={
+                            "type": "object",
+                            "properties": {
+                                "sign": {
+                                    "type": "string",
+                                    "description": "The call sign for the radio station for which you want the most popular song. Example calls signs are WZPZ and WKR."
+                                }
+                            },
+                            "required": ["sign"]
+                        }
+                    )
+                ]
+            )
+        )
+        
+        bedrock.Prompt(self, "prompt1",
+            prompt_name="prompt-chat",
+            description="my first chat prompt",
+            default_variant=variant_chat,
+            variants=[variant_chat],
+            kms_key=cmk
+        )
+    '''
+
+    def __init__(
+        self,
+        any: typing.Any,
+        auto: typing.Any,
+        tool: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param any: -
+        :param auto: -
+        :param tool: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f9b665468c15b8c19a2a98f8899dd27c580e24595964f1cb6a62696c3de85310)
+            check_type(argname="argument any", value=any, expected_type=type_hints["any"])
+            check_type(argname="argument auto", value=auto, expected_type=type_hints["auto"])
+            check_type(argname="argument tool", value=tool, expected_type=type_hints["tool"])
+        jsii.create(self.__class__, self, [any, auto, tool])
+
+    @jsii.member(jsii_name="specificTool")
+    @builtins.classmethod
+    def specific_tool(cls, tool_name: builtins.str) -> "ToolChoice":
+        '''(experimental) The Model must request the specified tool.
+
+        Only supported by some models like Anthropic Claude 3 models.
+
+        :param tool_name: - The name of the specific tool to use.
+
+        :return: A ToolChoice instance configured for the specific tool
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b1c13383d8823910cf4866089a0b6815ceddad6909d501eaa7b59acd6e03c4ae)
+            check_type(argname="argument tool_name", value=tool_name, expected_type=type_hints["tool_name"])
+        return typing.cast("ToolChoice", jsii.sinvoke(cls, "specificTool", [tool_name]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANY")
+    def ANY(cls) -> "ToolChoice":
+        '''(experimental) The model must request at least one tool (no text is generated).
+
+        :stability: experimental
+        '''
+        return typing.cast("ToolChoice", jsii.sget(cls, "ANY"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AUTO")
+    def AUTO(cls) -> "ToolChoice":
+        '''(experimental) (Default).
+
+        The Model automatically decides if a tool should be called or whether to generate text instead.
+
+        :stability: experimental
+        '''
+        return typing.cast("ToolChoice", jsii.sget(cls, "AUTO"))
+
+    @builtins.property
+    @jsii.member(jsii_name="any")
+    def any(self) -> typing.Any:
+        '''(experimental) Configuration for ANY tool choice.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Any, jsii.get(self, "any"))
+
+    @builtins.property
+    @jsii.member(jsii_name="auto")
+    def auto(self) -> typing.Any:
+        '''(experimental) Configuration for AUTO tool choice.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Any, jsii.get(self, "auto"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tool")
+    def tool(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The specific tool name if using specific tool choice.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tool"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.ToolConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={"tool_choice": "toolChoice", "tools": "tools"},
+)
+class ToolConfiguration:
+    def __init__(
+        self,
+        *,
+        tool_choice: "ToolChoice",
+        tools: typing.Sequence["Tool"],
+    ) -> None:
+        '''(experimental) Configuration for tools available to the model.
+
+        :param tool_choice: (experimental) How the model should choose which tool to use.
+        :param tools: (experimental) The tools available to the model.
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            cmk = kms.Key(self, "cmk")
+            
+            variant_chat = bedrock.PromptVariant.chat(
+                variant_name="variant1",
+                model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V1_0,
+                messages=[
+                    bedrock.ChatMessage.user("From now on, you speak Japanese!"),
+                    bedrock.ChatMessage.assistant("Konnichiwa!"),
+                    bedrock.ChatMessage.user("From now on, you speak {{language}}!")
+                ],
+                system="You are a helpful assistant that only speaks the language you`re told.",
+                prompt_variables=["language"],
+                tool_configuration=bedrock.ToolConfiguration(
+                    tool_choice=bedrock.ToolChoice.AUTO,
+                    tools=[
+                        bedrock.Tool.function(
+                            name="top_song",
+                            description="Get the most popular song played on a radio station.",
+                            input_schema={
+                                "type": "object",
+                                "properties": {
+                                    "sign": {
+                                        "type": "string",
+                                        "description": "The call sign for the radio station for which you want the most popular song. Example calls signs are WZPZ and WKR."
+                                    }
+                                },
+                                "required": ["sign"]
+                            }
+                        )
+                    ]
+                )
+            )
+            
+            bedrock.Prompt(self, "prompt1",
+                prompt_name="prompt-chat",
+                description="my first chat prompt",
+                default_variant=variant_chat,
+                variants=[variant_chat],
+                kms_key=cmk
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4399195642aec86e0f72eb2d3e56e3c94df9466d4df078918fd63845772c5368)
+            check_type(argname="argument tool_choice", value=tool_choice, expected_type=type_hints["tool_choice"])
+            check_type(argname="argument tools", value=tools, expected_type=type_hints["tools"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "tool_choice": tool_choice,
+            "tools": tools,
+        }
+
+    @builtins.property
+    def tool_choice(self) -> "ToolChoice":
+        '''(experimental) How the model should choose which tool to use.
+
+        :stability: experimental
+        '''
+        result = self._values.get("tool_choice")
+        assert result is not None, "Required property 'tool_choice' is missing"
+        return typing.cast("ToolChoice", result)
+
+    @builtins.property
+    def tools(self) -> typing.List["Tool"]:
+        '''(experimental) The tools available to the model.
+
+        :stability: experimental
+        '''
+        result = self._values.get("tools")
+        assert result is not None, "Required property 'tools' is missing"
+        return typing.cast(typing.List["Tool"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ToolConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class Topic(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-bedrock-alpha.Topic"):
+    '''(experimental) Represents predefined topics that can be used to filter content.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+            guardrail_name="my-BedrockGuardrails",
+            # Configure tier for topic filters (optional)
+            topics_tier_config=bedrock.TierConfig.STANDARD
+        )
+        
+        # Use a predefined topic
+        guardrail.add_denied_topic_filter(bedrock.Topic.FINANCIAL_ADVICE)
+        
+        # Create a custom topic with input/output actions
+        guardrail.add_denied_topic_filter(
+            bedrock.Topic.custom(
+                name="Legal_Advice",
+                definition="Offering guidance or suggestions on legal matters, legal actions, interpretation of laws, or legal rights and responsibilities.",
+                examples=["Can I sue someone for this?", "What are my legal rights in this situation?", "Is this action against the law?", "What should I do to file a legal complaint?", "Can you explain this law to me?"
+                ],
+                # props below are optional
+                input_action=bedrock.GuardrailAction.BLOCK,
+                input_enabled=True,
+                output_action=bedrock.GuardrailAction.NONE,
+                output_enabled=True
+            ))
+    '''
+
+    def __init__(
+        self,
+        *,
+        definition: builtins.str,
+        examples: typing.Sequence[builtins.str],
+        name: builtins.str,
+        input_action: typing.Optional["GuardrailAction"] = None,
+        input_enabled: typing.Optional[builtins.bool] = None,
+        output_action: typing.Optional["GuardrailAction"] = None,
+        output_enabled: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''
+        :param definition: (experimental) Provide a clear definition to detect and block user inputs and FM responses that fall into this topic. Avoid starting with "don't".
+        :param examples: (experimental) Representative phrases that refer to the topic. These phrases can represent a user input or a model response. Add between 1 and 100 phrases, up to 100 characters each.
+        :param name: (experimental) The name of the topic to deny.
+        :param input_action: (experimental) The action to take when a topic is detected in the input. Default: GuardrailAction.BLOCK
+        :param input_enabled: (experimental) Whether the topic filter is enabled for input. Default: true
+        :param output_action: (experimental) The action to take when a topic is detected in the output. Default: GuardrailAction.BLOCK
+        :param output_enabled: (experimental) Whether the topic filter is enabled for output. Default: true
+
+        :stability: experimental
+        '''
+        props = CustomTopicProps(
+            definition=definition,
+            examples=examples,
+            name=name,
+            input_action=input_action,
+            input_enabled=input_enabled,
+            output_action=output_action,
+            output_enabled=output_enabled,
+        )
+
+        jsii.create(self.__class__, self, [props])
+
+    @jsii.member(jsii_name="custom")
+    @builtins.classmethod
+    def custom(
+        cls,
+        *,
+        definition: builtins.str,
+        examples: typing.Sequence[builtins.str],
+        name: builtins.str,
+        input_action: typing.Optional["GuardrailAction"] = None,
+        input_enabled: typing.Optional[builtins.bool] = None,
+        output_action: typing.Optional["GuardrailAction"] = None,
+        output_enabled: typing.Optional[builtins.bool] = None,
+    ) -> "Topic":
+        '''(experimental) Create a custom topic filter.
+
+        :param definition: (experimental) Provide a clear definition to detect and block user inputs and FM responses that fall into this topic. Avoid starting with "don't".
+        :param examples: (experimental) Representative phrases that refer to the topic. These phrases can represent a user input or a model response. Add between 1 and 100 phrases, up to 100 characters each.
+        :param name: (experimental) The name of the topic to deny.
+        :param input_action: (experimental) The action to take when a topic is detected in the input. Default: GuardrailAction.BLOCK
+        :param input_enabled: (experimental) Whether the topic filter is enabled for input. Default: true
+        :param output_action: (experimental) The action to take when a topic is detected in the output. Default: GuardrailAction.BLOCK
+        :param output_enabled: (experimental) Whether the topic filter is enabled for output. Default: true
+
+        :stability: experimental
+        '''
+        props = CustomTopicProps(
+            definition=definition,
+            examples=examples,
+            name=name,
+            input_action=input_action,
+            input_enabled=input_enabled,
+            output_action=output_action,
+            output_enabled=output_enabled,
+        )
+
+        return typing.cast("Topic", jsii.sinvoke(cls, "custom", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="FINANCIAL_ADVICE")
+    def FINANCIAL_ADVICE(cls) -> "Topic":
+        '''(experimental) Filter for financial advice and investment recommendations.
+
+        :stability: experimental
+        '''
+        return typing.cast("Topic", jsii.sget(cls, "FINANCIAL_ADVICE"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="INAPPROPRIATE_CONTENT")
+    def INAPPROPRIATE_CONTENT(cls) -> "Topic":
+        '''(experimental) Filter for inappropriate or explicit content.
+
+        :stability: experimental
+        '''
+        return typing.cast("Topic", jsii.sget(cls, "INAPPROPRIATE_CONTENT"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="LEGAL_ADVICE")
+    def LEGAL_ADVICE(cls) -> "Topic":
+        '''(experimental) Filter for legal advice and recommendations.
+
+        :stability: experimental
+        '''
+        return typing.cast("Topic", jsii.sget(cls, "LEGAL_ADVICE"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="MEDICAL_ADVICE")
+    def MEDICAL_ADVICE(cls) -> "Topic":
+        '''(experimental) Filter for medical advice and health recommendations.
+
+        :stability: experimental
+        '''
+        return typing.cast("Topic", jsii.sget(cls, "MEDICAL_ADVICE"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="POLITICAL_ADVICE")
+    def POLITICAL_ADVICE(cls) -> "Topic":
+        '''(experimental) Filter for political advice and recommendations.
+
+        :stability: experimental
+        '''
+        return typing.cast("Topic", jsii.sget(cls, "POLITICAL_ADVICE"))
+
+    @builtins.property
+    @jsii.member(jsii_name="definition")
+    def definition(self) -> builtins.str:
+        '''(experimental) Definition of the topic.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "definition"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''(experimental) The name of the topic to deny.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @builtins.property
+    @jsii.member(jsii_name="examples")
+    def examples(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Representative phrases that refer to the topic.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "examples"))
+
+    @builtins.property
+    @jsii.member(jsii_name="inputAction")
+    def input_action(self) -> typing.Optional["GuardrailAction"]:
+        '''(experimental) The action to take when a topic is detected in the input.
+
+        :default: GuardrailAction.BLOCK
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["GuardrailAction"], jsii.get(self, "inputAction"))
+
+    @builtins.property
+    @jsii.member(jsii_name="inputEnabled")
+    def input_enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether the topic filter is enabled for input.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.bool], jsii.get(self, "inputEnabled"))
+
+    @builtins.property
+    @jsii.member(jsii_name="outputAction")
+    def output_action(self) -> typing.Optional["GuardrailAction"]:
+        '''(experimental) The action to take when a topic is detected in the output.
+
+        :default: GuardrailAction.BLOCK
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["GuardrailAction"], jsii.get(self, "outputAction"))
+
+    @builtins.property
+    @jsii.member(jsii_name="outputEnabled")
+    def output_enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether the topic filter is enabled for output.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.bool], jsii.get(self, "outputEnabled"))
+
+
+class UKSpecificPIIType(
+    PIIType,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.UKSpecificPIIType",
+):
+    '''(experimental) Types of PII specific to the United Kingdom (UK).
+
+    :stability: experimental
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk.aws_bedrock_alpha as bedrock_alpha
+        
+        u_kSpecific_pIIType = bedrock_alpha.UKSpecificPIIType.UK_NATIONAL_HEALTH_SERVICE_NUMBER
+    '''
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="UK_NATIONAL_HEALTH_SERVICE_NUMBER")
+    def UK_NATIONAL_HEALTH_SERVICE_NUMBER(cls) -> "UKSpecificPIIType":
+        '''(experimental) A UK National Health Service Number is a 10-17 digit number, such as 485 777 3456.
+
+        :stability: experimental
+        '''
+        return typing.cast("UKSpecificPIIType", jsii.sget(cls, "UK_NATIONAL_HEALTH_SERVICE_NUMBER"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="UK_NATIONAL_INSURANCE_NUMBER")
+    def UK_NATIONAL_INSURANCE_NUMBER(cls) -> "UKSpecificPIIType":
+        '''(experimental) A UK National Insurance Number (NINO) provides individuals with access to National Insurance (social security) benefits.
+
+        It is also used for some purposes in the UK
+        tax system.
+
+        :stability: experimental
+        '''
+        return typing.cast("UKSpecificPIIType", jsii.sget(cls, "UK_NATIONAL_INSURANCE_NUMBER"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="UK_UNIQUE_TAXPAYER_REFERENCE_NUMBER")
+    def UK_UNIQUE_TAXPAYER_REFERENCE_NUMBER(cls) -> "UKSpecificPIIType":
+        '''(experimental) A UK Unique Taxpayer Reference (UTR) is a 10-digit number that identifies a taxpayer or a business.
+
+        :stability: experimental
+        '''
+        return typing.cast("UKSpecificPIIType", jsii.sget(cls, "UK_UNIQUE_TAXPAYER_REFERENCE_NUMBER"))
+
+
+class USASpecificPIIType(
+    PIIType,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.USASpecificPIIType",
+):
+    '''(experimental) Types of PII specific to the USA.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+            guardrail_name="my-BedrockGuardrails"
+        )
+        
+        # Add PII filter for addresses with input/output actions
+        guardrail.add_pIIFilter(
+            type=bedrock.GeneralPIIType.ADDRESS,
+            action=bedrock.GuardrailAction.BLOCK,
+            # below props are optional
+            input_action=bedrock.GuardrailAction.BLOCK,
+            input_enabled=True,
+            output_action=bedrock.GuardrailAction.ANONYMIZE,
+            output_enabled=True
+        )
+        
+        # Add PII filter for credit card numbers with input/output actions
+        guardrail.add_pIIFilter(
+            type=bedrock.FinancePIIType.CREDIT_DEBIT_CARD_NUMBER,
+            action=bedrock.GuardrailAction.BLOCK,
+            # below props are optional
+            input_action=bedrock.GuardrailAction.BLOCK,
+            input_enabled=True,
+            output_action=bedrock.GuardrailAction.ANONYMIZE,
+            output_enabled=True
+        )
+        
+        # Add PII filter for email addresses
+        guardrail.add_pIIFilter(
+            type=bedrock.GeneralPIIType.EMAIL,
+            action=bedrock.GuardrailAction.ANONYMIZE
+        )
+        
+        # Add PII filter for US Social Security Numbers
+        guardrail.add_pIIFilter(
+            type=bedrock.USASpecificPIIType.US_SOCIAL_SECURITY_NUMBER,
+            action=bedrock.GuardrailAction.BLOCK
+        )
+        
+        # Add PII filter for IP addresses
+        guardrail.add_pIIFilter(
+            type=bedrock.InformationTechnologyPIIType.IP_ADDRESS,
+            action=bedrock.GuardrailAction.ANONYMIZE
+        )
+    '''
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="US_BANK_ACCOUNT_NUMBER")
+    def US_BANK_ACCOUNT_NUMBER(cls) -> "USASpecificPIIType":
+        '''(experimental) A US bank account number, which is typically 10 to 12 digits long.
+
+        :stability: experimental
+        '''
+        return typing.cast("USASpecificPIIType", jsii.sget(cls, "US_BANK_ACCOUNT_NUMBER"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="US_BANK_ROUTING_NUMBER")
+    def US_BANK_ROUTING_NUMBER(cls) -> "USASpecificPIIType":
+        '''(experimental) A US bank account routing number.
+
+        These are typically nine digits long.
+
+        :stability: experimental
+        '''
+        return typing.cast("USASpecificPIIType", jsii.sget(cls, "US_BANK_ROUTING_NUMBER"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="US_INDIVIDUAL_TAX_IDENTIFICATION_NUMBER")
+    def US_INDIVIDUAL_TAX_IDENTIFICATION_NUMBER(cls) -> "USASpecificPIIType":
+        '''(experimental) A US Individual Taxpayer Identification Number (ITIN) is a nine-digit number that starts with a "9" and contain a "7" or "8" as the fourth digit.
+
+        :stability: experimental
+        '''
+        return typing.cast("USASpecificPIIType", jsii.sget(cls, "US_INDIVIDUAL_TAX_IDENTIFICATION_NUMBER"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="US_PASSPORT_NUMBER")
+    def US_PASSPORT_NUMBER(cls) -> "USASpecificPIIType":
+        '''(experimental) A US passport number.
+
+        Passport numbers range from six to nine alphanumeric characters.
+
+        :stability: experimental
+        '''
+        return typing.cast("USASpecificPIIType", jsii.sget(cls, "US_PASSPORT_NUMBER"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="US_SOCIAL_SECURITY_NUMBER")
+    def US_SOCIAL_SECURITY_NUMBER(cls) -> "USASpecificPIIType":
+        '''(experimental) A US Social Security Number (SSN) is a nine-digit number that is issued to US citizens, permanent residents, and temporary working residents.
+
+        :stability: experimental
+        '''
+        return typing.cast("USASpecificPIIType", jsii.sget(cls, "US_SOCIAL_SECURITY_NUMBER"))
+
+
+@jsii.enum(jsii_type="@aws-cdk/aws-bedrock-alpha.VectorType")
+class VectorType(enum.Enum):
+    '''(experimental) The data type for the vectors when using a model to convert text into vector embeddings.
+
+    The model must support the specified data type for vector embeddings. Floating-point (float32)
+    is the default data type, and is supported by most models for vector embeddings. See Supported
+    embeddings models for information on the available models and their vector data types.
+
+    :stability: experimental
+    '''
+
+    FLOATING_POINT = "FLOATING_POINT"
+    '''(experimental) ``FLOATING_POINT`` convert the data to floating-point (float32) vector embeddings (more precise, but more costly).
+
+    :stability: experimental
+    '''
+    BINARY = "BINARY"
+    '''(experimental) ``BINARY`` convert the data to binary vector embeddings (less precise, but less costly).
+
+    :stability: experimental
+    '''
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.WordFilter",
+    jsii_struct_bases=[],
+    name_mapping={
+        "text": "text",
+        "input_action": "inputAction",
+        "input_enabled": "inputEnabled",
+        "output_action": "outputAction",
+        "output_enabled": "outputEnabled",
+    },
+)
+class WordFilter:
+    def __init__(
+        self,
+        *,
+        text: builtins.str,
+        input_action: typing.Optional["GuardrailAction"] = None,
+        input_enabled: typing.Optional[builtins.bool] = None,
+        output_action: typing.Optional["GuardrailAction"] = None,
+        output_enabled: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Interface to define a Word Filter.
+
+        :param text: (experimental) The text to filter.
+        :param input_action: (experimental) The action to take when a word is detected in the input. Default: GuardrailAction.BLOCK
+        :param input_enabled: (experimental) Whether the word filter is enabled for input. Default: true
+        :param output_action: (experimental) The action to take when a word is detected in the output. Default: GuardrailAction.BLOCK
+        :param output_enabled: (experimental) Whether the word filter is enabled for output. Default: true
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+                guardrail_name="my-BedrockGuardrails"
+            )
+            
+            # Add managed word list with input/output actions
+            guardrail.add_managed_word_list_filter(
+                type=bedrock.ManagedWordFilterType.PROFANITY,
+                input_action=bedrock.GuardrailAction.BLOCK,
+                input_enabled=True,
+                output_action=bedrock.GuardrailAction.NONE,
+                output_enabled=True
+            )
+            
+            # Add individual words
+            guardrail.add_word_filter(text="drugs")
+            guardrail.add_word_filter(text="competitor")
+            
+            # Add words from a file
+            guardrail.add_word_filter_from_file("./scripts/wordsPolicy.csv")
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__54823457000e887af5262958b0537ed254989a76514878baf0ed72811de4c298)
+            check_type(argname="argument text", value=text, expected_type=type_hints["text"])
+            check_type(argname="argument input_action", value=input_action, expected_type=type_hints["input_action"])
+            check_type(argname="argument input_enabled", value=input_enabled, expected_type=type_hints["input_enabled"])
+            check_type(argname="argument output_action", value=output_action, expected_type=type_hints["output_action"])
+            check_type(argname="argument output_enabled", value=output_enabled, expected_type=type_hints["output_enabled"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "text": text,
+        }
+        if input_action is not None:
+            self._values["input_action"] = input_action
+        if input_enabled is not None:
+            self._values["input_enabled"] = input_enabled
+        if output_action is not None:
+            self._values["output_action"] = output_action
+        if output_enabled is not None:
+            self._values["output_enabled"] = output_enabled
+
+    @builtins.property
+    def text(self) -> builtins.str:
+        '''(experimental) The text to filter.
+
+        :stability: experimental
+        '''
+        result = self._values.get("text")
+        assert result is not None, "Required property 'text' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def input_action(self) -> typing.Optional["GuardrailAction"]:
+        '''(experimental) The action to take when a word is detected in the input.
+
+        :default: GuardrailAction.BLOCK
+
+        :stability: experimental
+        '''
+        result = self._values.get("input_action")
+        return typing.cast(typing.Optional["GuardrailAction"], result)
+
+    @builtins.property
+    def input_enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether the word filter is enabled for input.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("input_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def output_action(self) -> typing.Optional["GuardrailAction"]:
+        '''(experimental) The action to take when a word is detected in the output.
+
+        :default: GuardrailAction.BLOCK
+
+        :stability: experimental
+        '''
+        result = self._values.get("output_action")
+        return typing.cast(typing.Optional["GuardrailAction"], result)
+
+    @builtins.property
+    def output_enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether the word filter is enabled for output.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("output_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WordFilter(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(IAgentAlias)
+class AgentAliasBase(
+    _aws_cdk_ceddda9d.Resource,
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.AgentAliasBase",
+):
+    '''(experimental) Abstract base class for an Agent.
+
+    Contains methods and attributes valid for Agents either created with CDK or imported.
+
+    :stability: experimental
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        environment_from_arn: typing.Optional[builtins.str] = None,
+        physical_name: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param account: The AWS account ID this resource belongs to. Default: - the resource is in the same account as the stack it belongs to
+        :param environment_from_arn: ARN to deduce region and account from. The ARN is parsed and the account and region are taken from the ARN. This should be used for imported resources. Cannot be supplied together with either ``account`` or ``region``. Default: - take environment from ``account``, ``region`` parameters, or use Stack environment.
+        :param physical_name: The value passed in by users to the physical name prop of the resource. - ``undefined`` implies that a physical name will be allocated by CloudFormation during deployment. - a concrete value implies a specific physical name - ``PhysicalName.GENERATE_IF_NEEDED`` is a marker that indicates that a physical will only be generated by the CDK if it is needed for cross-environment references. Otherwise, it will be allocated by CloudFormation. Default: - The physical name will be allocated by CloudFormation at deployment time
+        :param region: The AWS region this resource belongs to. Default: - the resource is in the same region as the stack it belongs to
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c76c254ff658709c91b9f92836c40baa806c28af85c028c89448b6d932a0915c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = _aws_cdk_ceddda9d.ResourceProps(
+            account=account,
+            environment_from_arn=environment_from_arn,
+            physical_name=physical_name,
+            region=region,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant the given principal identity permissions to perform actions on this agent alias.
+
+        Note: This grant will only work when the grantee is in the same AWS account
+        where the agent alias is defined. Cross-account grant is not supported.
+        [disable-awslint:no-grants]
+
+        :param grantee: -
+        :param actions: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f605b4cd4baa1eb130f51bcadc5c4a81822ae2cab31ec49a4e9b5b32f8fc9c45)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
+
+    @jsii.member(jsii_name="grantGet")
+    def grant_get(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant the given identity permissions to get the agent alias.
+
+        Note: This grant will only work when the grantee is in the same AWS account
+        where the agent alias is defined. Cross-account agent read is not supported.
+        [disable-awslint:no-grants]
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dbf39e88263f8cef13dfe1f4d67a47c3bf2490d27c8ce9a70ade0cad70e3b7d6)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantGet", [grantee]))
+
+    @jsii.member(jsii_name="grantInvoke")
+    def grant_invoke(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant the given identity permissions to invoke the agent alias.
+
+        Note: This grant will only work when the grantee is in the same AWS account
+        where the agent alias is defined. Cross-account invocation is not supported.
+        [disable-awslint:no-grants]
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d6a50391f64a87b84a4584ba8e48f37b926fb74fc6eceb7e6109f491509b2092)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantInvoke", [grantee]))
+
+    @jsii.member(jsii_name="onCloudTrailEvent")
+    def on_cloud_trail_event(
+        self,
+        id: builtins.str,
+        *,
+        target: typing.Optional["_aws_cdk_aws_events_ceddda9d.IRuleTarget"] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
+        description: typing.Optional[builtins.str] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
+        rule_name: typing.Optional[builtins.str] = None,
+    ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
+        '''(experimental) Define an EventBridge rule that triggers when something happens to this agent alias.
+
+        Requires that there exists at least one CloudTrail Trail in your account
+        that captures the event. This method will not create the Trail.
+
+        :param id: The id of the rule.
+        :param target: The target to register for the event. Default: - No target is added to the rule. Use ``addTarget()`` to add a target.
+        :param cross_stack_scope: The scope to use if the source of the rule and its target are in different Stacks (but in the same account & region). This helps dealing with cycles that often arise in these situations. Default: - none (the main scope will be used, even for cross-stack Events)
+        :param description: A description of the rule's purpose. Default: - No description
+        :param event_pattern: Additional restrictions for the event to route to the specified target. The method that generates the rule probably imposes some type of event filtering. The filtering implied by what you pass here is added on top of that filtering. Default: - No additional filtering based on an event pattern.
+        :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__095d243c58d0aea9f21e7e1d1b7f1cd5ad28281a11a261aa1fbae414e5a7456f)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        options = _aws_cdk_aws_events_ceddda9d.OnEventOptions(
+            target=target,
+            cross_stack_scope=cross_stack_scope,
+            description=description,
+            event_pattern=event_pattern,
+            rule_name=rule_name,
+        )
+
+        return typing.cast("_aws_cdk_aws_events_ceddda9d.Rule", jsii.invoke(self, "onCloudTrailEvent", [id, options]))
+
+    @builtins.property
+    @jsii.member(jsii_name="agent")
+    @abc.abstractmethod
+    def agent(self) -> "IAgent":
+        '''(experimental) The underlying agent for this alias.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="aliasArn")
+    @abc.abstractmethod
+    def alias_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the agent alias.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="aliasId")
+    @abc.abstractmethod
+    def alias_id(self) -> builtins.str:
+        '''(experimental) The unique identifier of the agent alias.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _AgentAliasBaseProxy(
+    AgentAliasBase,
+    jsii.proxy_for(_aws_cdk_ceddda9d.Resource), # type: ignore[misc]
+):
+    @builtins.property
+    @jsii.member(jsii_name="agent")
+    def agent(self) -> "IAgent":
+        '''(experimental) The underlying agent for this alias.
+
+        :stability: experimental
+        '''
+        return typing.cast("IAgent", jsii.get(self, "agent"))
+
+    @builtins.property
+    @jsii.member(jsii_name="aliasArn")
+    def alias_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the agent alias.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "aliasArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="aliasId")
+    def alias_id(self) -> builtins.str:
+        '''(experimental) The unique identifier of the agent alias.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "aliasId"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, AgentAliasBase).__jsii_proxy_class__ = lambda : _AgentAliasBaseProxy
+
+
+@jsii.implements(IAgent)
+class AgentBase(
+    _aws_cdk_ceddda9d.Resource,
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.AgentBase",
+):
+    '''(experimental) Abstract base class for an Agent.
+
+    Contains methods and attributes valid for Agents either created with CDK or imported.
+
+    :stability: experimental
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        environment_from_arn: typing.Optional[builtins.str] = None,
+        physical_name: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param account: The AWS account ID this resource belongs to. Default: - the resource is in the same account as the stack it belongs to
+        :param environment_from_arn: ARN to deduce region and account from. The ARN is parsed and the account and region are taken from the ARN. This should be used for imported resources. Cannot be supplied together with either ``account`` or ``region``. Default: - take environment from ``account``, ``region`` parameters, or use Stack environment.
+        :param physical_name: The value passed in by users to the physical name prop of the resource. - ``undefined`` implies that a physical name will be allocated by CloudFormation during deployment. - a concrete value implies a specific physical name - ``PhysicalName.GENERATE_IF_NEEDED`` is a marker that indicates that a physical will only be generated by the CDK if it is needed for cross-environment references. Otherwise, it will be allocated by CloudFormation. Default: - The physical name will be allocated by CloudFormation at deployment time
+        :param region: The AWS region this resource belongs to. Default: - the resource is in the same region as the stack it belongs to
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d35aa54a631bc9ca37bc8477f55b0cac6286ce864c5768fdc4f1d2e480ec1799)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = _aws_cdk_ceddda9d.ResourceProps(
+            account=account,
+            environment_from_arn=environment_from_arn,
+            physical_name=physical_name,
+            region=region,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="grantInvoke")
+    def grant_invoke(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant invoke permissions on this agent to an IAM principal.
+
+        [disable-awslint:no-grants]
+
+        :param grantee: - The IAM principal to grant invoke permissions to.
+
+        :default:
+
+        - Default grant configuration:
+        - actions: ['bedrock:InvokeAgent']
+        - resourceArns: [this.agentArn]
+
+        :return: An IAM Grant object representing the granted permissions
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__87c56642c7d7642cf9968ade38695bd0f8a20c4c562d1611dce60c2bfb519373)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantInvoke", [grantee]))
+
+    @jsii.member(jsii_name="metricCount")
+    def metric_count(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Creates a CloudWatch metric for tracking agent invocations.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :default:
+
+        - Default metric configuration:
+        - namespace: 'AWS/Bedrock'
+        - metricName: 'Invocations'
+        - dimensionsMap: { AgentId: this.agentId }
+
+        :return: A CloudWatch Metric configured for agent invocation counts
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricCount", [props]))
+
+    @jsii.member(jsii_name="onEvent")
+    def on_event(
+        self,
+        id: builtins.str,
+        *,
+        target: typing.Optional["_aws_cdk_aws_events_ceddda9d.IRuleTarget"] = None,
+        cross_stack_scope: typing.Optional["_constructs_77d1e7e8.Construct"] = None,
+        description: typing.Optional[builtins.str] = None,
+        event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
+        rule_name: typing.Optional[builtins.str] = None,
+    ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
+        '''(experimental) Creates an EventBridge rule for agent events.
+
+        :param id: - Unique identifier for the rule.
+        :param target: The target to register for the event. Default: - No target is added to the rule. Use ``addTarget()`` to add a target.
+        :param cross_stack_scope: The scope to use if the source of the rule and its target are in different Stacks (but in the same account & region). This helps dealing with cycles that often arise in these situations. Default: - none (the main scope will be used, even for cross-stack Events)
+        :param description: A description of the rule's purpose. Default: - No description
+        :param event_pattern: Additional restrictions for the event to route to the specified target. The method that generates the rule probably imposes some type of event filtering. The filtering implied by what you pass here is added on top of that filtering. Default: - No additional filtering based on an event pattern.
+        :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
+
+        :default:
+
+        - Default event pattern:
+        - source: ['aws.bedrock']
+        - detail: { 'agent-id': [this.agentId] }
+
+        :return: An EventBridge Rule configured for agent events
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2e2bf859b46e6177afc37c92a35764e2e847cf84005e6f9511ec77cff25aff6a)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        options = _aws_cdk_aws_events_ceddda9d.OnEventOptions(
+            target=target,
+            cross_stack_scope=cross_stack_scope,
+            description=description,
+            event_pattern=event_pattern,
+            rule_name=rule_name,
+        )
+
+        return typing.cast("_aws_cdk_aws_events_ceddda9d.Rule", jsii.invoke(self, "onEvent", [id, options]))
+
+    @builtins.property
+    @jsii.member(jsii_name="agentArn")
+    @abc.abstractmethod
+    def agent_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the agent.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="agentId")
+    @abc.abstractmethod
+    def agent_id(self) -> builtins.str:
+        '''(experimental) The ID of the Agent.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="agentVersion")
+    @abc.abstractmethod
+    def agent_version(self) -> builtins.str:
+        '''(experimental) The version of the agent.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="grantPrincipal")
+    @abc.abstractmethod
+    def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
+        '''(experimental) The principal to grant permissions to.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="role")
+    @abc.abstractmethod
+    def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
+        '''(experimental) The IAM role associated to the agent.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKey")
+    @abc.abstractmethod
+    def kms_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) Optional KMS encryption key associated with this agent.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="lastUpdated")
+    @abc.abstractmethod
+    def last_updated(self) -> typing.Optional[builtins.str]:
+        '''(experimental) When this agent was last updated.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _AgentBaseProxy(
+    AgentBase,
+    jsii.proxy_for(_aws_cdk_ceddda9d.Resource), # type: ignore[misc]
+):
+    @builtins.property
+    @jsii.member(jsii_name="agentArn")
+    def agent_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the agent.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "agentArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="agentId")
+    def agent_id(self) -> builtins.str:
+        '''(experimental) The ID of the Agent.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "agentId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="agentVersion")
+    def agent_version(self) -> builtins.str:
+        '''(experimental) The version of the agent.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "agentVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="grantPrincipal")
+    def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
+        '''(experimental) The principal to grant permissions to.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IPrincipal", jsii.get(self, "grantPrincipal"))
+
+    @builtins.property
+    @jsii.member(jsii_name="role")
+    def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
+        '''(experimental) The IAM role associated to the agent.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", jsii.get(self, "role"))
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKey")
+    def kms_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) Optional KMS encryption key associated with this agent.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], jsii.get(self, "kmsKey"))
+
+    @builtins.property
+    @jsii.member(jsii_name="lastUpdated")
+    def last_updated(self) -> typing.Optional[builtins.str]:
+        '''(experimental) When this agent was last updated.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "lastUpdated"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, AgentBase).__jsii_proxy_class__ = lambda : _AgentBaseProxy
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.AgentPromptVariantProps",
+    jsii_struct_bases=[CommonPromptVariantProps],
+    name_mapping={
+        "model": "model",
+        "variant_name": "variantName",
+        "prompt_variables": "promptVariables",
+        "agent_alias": "agentAlias",
+        "prompt_text": "promptText",
+    },
+)
+class AgentPromptVariantProps(CommonPromptVariantProps):
+    def __init__(
+        self,
+        *,
+        model: "IBedrockInvokable",
+        variant_name: builtins.str,
+        prompt_variables: typing.Optional[typing.Sequence[builtins.str]] = None,
+        agent_alias: "IAgentAlias",
+        prompt_text: builtins.str,
+    ) -> None:
+        '''(experimental) Properties for creating an agent prompt variant.
+
+        :param model: (experimental) The model which is used to run the prompt. The model could be a foundation model, a custom model, or a provisioned model.
+        :param variant_name: (experimental) The name of the prompt variant.
+        :param prompt_variables: (experimental) The variables in the prompt template that can be filled in at runtime. Default: - No variables defined.
+        :param agent_alias: (experimental) An alias pointing to the agent version to be used.
+        :param prompt_text: (experimental) The text prompt. Variables are used by enclosing its name with double curly braces as in ``{{variable_name}}``.
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            cmk = kms.Key(self, "cmk")
+            
+            # Assuming you have an existing agent and alias
+            agent = bedrock.Agent.from_agent_attributes(self, "ImportedAgent",
+                agent_arn="arn:aws:bedrock:region:account:agent/agent-id",
+                role_arn="arn:aws:iam::account:role/agent-role"
+            )
+            
+            agent_alias = bedrock.AgentAlias.from_attributes(self, "ImportedAlias",
+                alias_id="alias-id",
+                alias_name="my-alias",
+                agent_version="1",
+                agent=agent
+            )
+            
+            agent_variant = bedrock.PromptVariant.agent(
+                variant_name="agent-variant",
+                model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V1_0,
+                agent_alias=agent_alias,
+                prompt_text="Use the agent to help with: {{task}}. Please be thorough and provide detailed explanations.",
+                prompt_variables=["task"]
+            )
+            
+            bedrock.Prompt(self, "agentPrompt",
+                prompt_name="agent-prompt",
+                description="Prompt for agent interactions",
+                default_variant=agent_variant,
+                variants=[agent_variant],
+                kms_key=cmk
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__01102c8a252598bdf0c2fa5e9441dca50972085b9c0072d7ff6c0b51334fc26c)
+            check_type(argname="argument model", value=model, expected_type=type_hints["model"])
+            check_type(argname="argument variant_name", value=variant_name, expected_type=type_hints["variant_name"])
+            check_type(argname="argument prompt_variables", value=prompt_variables, expected_type=type_hints["prompt_variables"])
+            check_type(argname="argument agent_alias", value=agent_alias, expected_type=type_hints["agent_alias"])
+            check_type(argname="argument prompt_text", value=prompt_text, expected_type=type_hints["prompt_text"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "model": model,
+            "variant_name": variant_name,
+            "agent_alias": agent_alias,
+            "prompt_text": prompt_text,
+        }
+        if prompt_variables is not None:
+            self._values["prompt_variables"] = prompt_variables
+
+    @builtins.property
+    def model(self) -> "IBedrockInvokable":
+        '''(experimental) The model which is used to run the prompt.
+
+        The model could be a foundation
+        model, a custom model, or a provisioned model.
+
+        :stability: experimental
+        '''
+        result = self._values.get("model")
+        assert result is not None, "Required property 'model' is missing"
+        return typing.cast("IBedrockInvokable", result)
+
+    @builtins.property
+    def variant_name(self) -> builtins.str:
+        '''(experimental) The name of the prompt variant.
+
+        :stability: experimental
+        '''
+        result = self._values.get("variant_name")
+        assert result is not None, "Required property 'variant_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def prompt_variables(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) The variables in the prompt template that can be filled in at runtime.
+
+        :default: - No variables defined.
+
+        :stability: experimental
+        '''
+        result = self._values.get("prompt_variables")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def agent_alias(self) -> "IAgentAlias":
+        '''(experimental) An alias pointing to the agent version to be used.
+
+        :stability: experimental
+        '''
+        result = self._values.get("agent_alias")
+        assert result is not None, "Required property 'agent_alias' is missing"
+        return typing.cast("IAgentAlias", result)
+
+    @builtins.property
+    def prompt_text(self) -> builtins.str:
+        '''(experimental) The text prompt.
+
+        Variables are used by enclosing its name with double curly braces
+        as in ``{{variable_name}}``.
+
+        :stability: experimental
+        '''
+        result = self._values.get("prompt_text")
+        assert result is not None, "Required property 'prompt_text' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AgentPromptVariantProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(IBedrockInvokable)
+class ApplicationInferenceProfile(
+    InferenceProfileBase,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.ApplicationInferenceProfile",
+):
+    '''(experimental) Class to create an Application Inference Profile with CDK.
+
+    These are inference profiles created by users (user defined).
+    This helps to track costs and model usage.
+
+    Application inference profiles are user-defined profiles that help you track costs and model usage.
+    They can be created for a single region or for multiple regions using a cross-region inference profile.
+
+    :see: https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-create.html
+    :stability: experimental
+    :cloudformationResource: AWS::Bedrock::ApplicationInferenceProfile
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        # Create a cross-region inference profile
+        cross_region_profile = bedrock.CrossRegionInferenceProfile.from_config(
+            geo_region=bedrock.CrossRegionInferenceProfileRegion.US,
+            model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V2_0
+        )
+        
+        # Create an application inference profile across regions
+        app_profile = bedrock.ApplicationInferenceProfile(self, "MyMultiRegionProfile",
+            application_inference_profile_name="claude-35-sonnet-v2-multi-region",
+            model_source=cross_region_profile,
+            description="Multi-region application profile for cost tracking"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        application_inference_profile_name: builtins.str,
+        model_source: "IBedrockInvokable",
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param application_inference_profile_name: (experimental) The name of the application inference profile. This name will be used to identify the inference profile in the AWS console and APIs. - Required: Yes - Maximum length: 64 characters - Pattern: ``^([0-9a-zA-Z:.][ _-]?)+$``
+        :param model_source: (experimental) The model source for this inference profile. To create an application inference profile for one Region, specify a foundation model. Usage and costs for requests made to that Region with that model will be tracked. To create an application inference profile for multiple Regions, specify a cross region (system-defined) inference profile. The inference profile will route requests to the Regions defined in the cross region (system-defined) inference profile that you choose. Usage and costs for requests made to the Regions in the inference profile will be tracked.
+        :param description: (experimental) Description of the inference profile. Provides additional context about the purpose and usage of this inference profile. - Maximum length: 200 characters when provided - Pattern: ``^([0-9a-zA-Z:.][ _-]?)+$`` Default: - No description is provided
+        :param tags: (experimental) A list of tags associated with the inference profile. Tags help you organize and categorize your AWS resources. Default: - No tags are applied
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__31e595918d731abaeecfc40bee5ff41695f0fe4871e00d2558e631c39ad3e633)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = ApplicationInferenceProfileProps(
+            application_inference_profile_name=application_inference_profile_name,
+            model_source=model_source,
+            description=description,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromApplicationInferenceProfileAttributes")
+    @builtins.classmethod
+    def from_application_inference_profile_attributes(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        inference_profile_arn: builtins.str,
+        inference_profile_identifier: builtins.str,
+    ) -> "IInferenceProfile":
+        '''(experimental) Import an Application Inference Profile given its attributes.
+
+        [disable-awslint:no-grants]
+
+        :param scope: - The construct scope.
+        :param id: - Identifier of the construct.
+        :param inference_profile_arn: (experimental) The ARN of the application inference profile.
+        :param inference_profile_identifier: (experimental) The ID or Amazon Resource Name (ARN) of the inference profile. This can be either the profile ID or the full ARN.
+
+        :return: An IInferenceProfile reference to the existing application inference profile
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7ef72113088d78a80b4e2899b9ad569ae5ba7fdb03c32d1301fe49c008e11a00)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        attrs = ApplicationInferenceProfileAttributes(
+            inference_profile_arn=inference_profile_arn,
+            inference_profile_identifier=inference_profile_identifier,
+        )
+
+        return typing.cast("IInferenceProfile", jsii.sinvoke(cls, "fromApplicationInferenceProfileAttributes", [scope, id, attrs]))
+
+    @jsii.member(jsii_name="fromCfnApplicationInferenceProfile")
+    @builtins.classmethod
+    def from_cfn_application_inference_profile(
+        cls,
+        cfn_application_inference_profile: "_aws_cdk_aws_bedrock_ceddda9d.CfnApplicationInferenceProfile",
+    ) -> "IInferenceProfile":
+        '''(experimental) Import a low-level L1 Cfn Application Inference Profile.
+
+        [disable-awslint:no-grants]
+
+        :param cfn_application_inference_profile: - The L1 CfnApplicationInferenceProfile to import.
+
+        :return: An IInferenceProfile reference to the imported application inference profile
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6c9114c7140e6b38bce327f99a5d21eb33e5c045cd449bd0f6491fe029415b63)
+            check_type(argname="argument cfn_application_inference_profile", value=cfn_application_inference_profile, expected_type=type_hints["cfn_application_inference_profile"])
+        return typing.cast("IInferenceProfile", jsii.sinvoke(cls, "fromCfnApplicationInferenceProfile", [cfn_application_inference_profile]))
+
+    @jsii.member(jsii_name="grantInvoke")
+    def grant_invoke(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Gives the appropriate policies to invoke and use the application inference profile.
+
+        This method ensures the appropriate permissions are given to use either the inference profile
+        or the underlying foundation model/cross-region profile.
+        [disable-awslint:no-grants]
+
+        :param grantee: - The IAM principal to grant permissions to.
+
+        :return: An IAM Grant object representing the granted permissions
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__257e03e6a3b42668cc69b6d0dca2ff1bb21d5595f5cafdfdef0e9410587119ef)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantInvoke", [grantee]))
+
+    @jsii.member(jsii_name="grantProfileUsage")
+    def grant_profile_usage(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants appropriate permissions to use the application inference profile (AIP).
+
+        This method adds the necessary IAM permissions to allow the grantee to:
+
+        - Get inference profile details (bedrock:GetInferenceProfile)
+        - Invoke the model through the inference profile (bedrock:InvokeModel)
+
+        Note: This does not grant permissions to use the underlying model/cross-region profile in the AIP.
+        For comprehensive permissions, use grantInvoke() instead.
+        [disable-awslint:no-grants]
+
+        :param grantee: - The IAM principal to grant permissions to.
+
+        :return: An IAM Grant object representing the granted permissions
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9de2d55c5d051de08923ea71dbfc5e0a5719413a08fdc028c9060a7d269aa57c)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantProfileUsage", [grantee]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''(experimental) Uniquely identifies this class.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="createdAt")
+    def created_at(self) -> builtins.str:
+        '''(experimental) Time Stamp for Application Inference Profile creation.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "createdAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="inferenceProfileArn")
+    def inference_profile_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the application inference profile.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "inferenceProfileArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="inferenceProfileId")
+    def inference_profile_id(self) -> builtins.str:
+        '''(experimental) The unique identifier of the application inference profile.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "inferenceProfileId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="inferenceProfileModel")
+    def inference_profile_model(self) -> "IBedrockInvokable":
+        '''(experimental) The underlying model/cross-region model used by the application inference profile.
+
+        :stability: experimental
+        '''
+        return typing.cast("IBedrockInvokable", jsii.get(self, "inferenceProfileModel"))
+
+    @builtins.property
+    @jsii.member(jsii_name="inferenceProfileName")
+    def inference_profile_name(self) -> builtins.str:
+        '''(experimental) The name of the application inference profile.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "inferenceProfileName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="invokableArn")
+    def invokable_arn(self) -> builtins.str:
+        '''(experimental) The ARN used for invoking this inference profile.
+
+        This equals to the inferenceProfileArn property, useful for implementing IBedrockInvokable interface.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "invokableArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    def status(self) -> builtins.str:
+        '''(experimental) The status of the application inference profile.
+
+        ACTIVE means that the inference profile is ready to be used.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "status"))
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> "InferenceProfileType":
+        '''(experimental) The type of the inference profile.
+
+        Always APPLICATION for application inference profiles.
+
+        :stability: experimental
+        '''
+        return typing.cast("InferenceProfileType", jsii.get(self, "type"))
+
+    @builtins.property
+    @jsii.member(jsii_name="updatedAt")
+    def updated_at(self) -> builtins.str:
+        '''(experimental) Time Stamp for Application Inference Profile update.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "updatedAt"))
+
+
+@jsii.implements(IBedrockInvokable)
+class BedrockFoundationModel(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.BedrockFoundationModel",
+):
+    '''(experimental) Bedrock models.
+
+    If you need to use a model name that doesn't exist as a static member, you
+    can instantiate a ``BedrockFoundationModel`` object, e.g: ``new BedrockFoundationModel('my-model')``.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        parser_function = lambda_.Function(self, "ParserFunction",
+            runtime=lambda_.Runtime.PYTHON_3_10,
+            handler="index.handler",
+            code=lambda_.Code.from_asset("lambda")
+        )
+        
+        agent = bedrock.Agent(self, "Agent",
+            foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1,
+            instruction="You are a helpful assistant.",
+            prompt_override_configuration=bedrock.PromptOverrideConfiguration.with_custom_parser(
+                parser=parser_function,
+                pre_processing_step=bedrock.PromptPreProcessingConfigCustomParser(
+                    step_type=bedrock.AgentStepType.PRE_PROCESSING,
+                    use_custom_parser=True
+                )
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        value: builtins.str,
+        *,
+        legacy: typing.Optional[builtins.bool] = None,
+        optimized_for_agents: typing.Optional[builtins.bool] = None,
+        supported_vector_type: typing.Optional[typing.Sequence["VectorType"]] = None,
+        supports_agents: typing.Optional[builtins.bool] = None,
+        supports_cross_region: typing.Optional[builtins.bool] = None,
+        supports_knowledge_base: typing.Optional[builtins.bool] = None,
+        vector_dimensions: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''
+        :param value: -
+        :param legacy: (experimental) https://docs.aws.amazon.com/bedrock/latest/userguide/model-lifecycle.html A version is marked Legacy when there is a more recent version which provides superior performance. Amazon Bedrock sets an EOL date for Legacy versions. Default: - false
+        :param optimized_for_agents: (experimental) Currently, some of the offered models are optimized with prompts/parsers fine-tuned for integrating with the agents architecture. When true, the model has been specifically optimized for agent interactions. Default: - false
+        :param supported_vector_type: (experimental) Embeddings models have different supported vector types. Defines whether the model supports floating-point or binary vectors. Default: - undefined
+        :param supports_agents: (experimental) Bedrock Agents can use this model. When true, the model can be used with Bedrock Agents for automated task execution. Default: - false
+        :param supports_cross_region: (experimental) Can be used with a Cross-Region Inference Profile. When true, the model supports inference across different AWS regions. Default: - false
+        :param supports_knowledge_base: (experimental) Bedrock Knowledge Base can use this model. When true, the model can be used for knowledge base operations. Default: - false
+        :param vector_dimensions: (experimental) Embedding models have different vector dimensions. Only applicable for embedding models. Defines the dimensionality of the vector embeddings. Default: - undefined
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c72ea354d94de945db88ea8f90368338db6b71c53c1de96d6b6ff8e5ca8bd139)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        props = BedrockFoundationModelProps(
+            legacy=legacy,
+            optimized_for_agents=optimized_for_agents,
+            supported_vector_type=supported_vector_type,
+            supports_agents=supports_agents,
+            supports_cross_region=supports_cross_region,
+            supports_knowledge_base=supports_knowledge_base,
+            vector_dimensions=vector_dimensions,
+        )
+
+        jsii.create(self.__class__, self, [value, props])
+
+    @jsii.member(jsii_name="fromCdkFoundationModel")
+    @builtins.classmethod
+    def from_cdk_foundation_model(
+        cls,
+        model_id: "_aws_cdk_aws_bedrock_ceddda9d.FoundationModel",
+        *,
+        legacy: typing.Optional[builtins.bool] = None,
+        optimized_for_agents: typing.Optional[builtins.bool] = None,
+        supported_vector_type: typing.Optional[typing.Sequence["VectorType"]] = None,
+        supports_agents: typing.Optional[builtins.bool] = None,
+        supports_cross_region: typing.Optional[builtins.bool] = None,
+        supports_knowledge_base: typing.Optional[builtins.bool] = None,
+        vector_dimensions: typing.Optional[jsii.Number] = None,
+    ) -> "BedrockFoundationModel":
+        '''(experimental) Creates a BedrockFoundationModel from a FoundationModel.
+
+        Use this method when you have a foundation model from the CDK.
+
+        :param model_id: - The foundation model.
+        :param legacy: (experimental) https://docs.aws.amazon.com/bedrock/latest/userguide/model-lifecycle.html A version is marked Legacy when there is a more recent version which provides superior performance. Amazon Bedrock sets an EOL date for Legacy versions. Default: - false
+        :param optimized_for_agents: (experimental) Currently, some of the offered models are optimized with prompts/parsers fine-tuned for integrating with the agents architecture. When true, the model has been specifically optimized for agent interactions. Default: - false
+        :param supported_vector_type: (experimental) Embeddings models have different supported vector types. Defines whether the model supports floating-point or binary vectors. Default: - undefined
+        :param supports_agents: (experimental) Bedrock Agents can use this model. When true, the model can be used with Bedrock Agents for automated task execution. Default: - false
+        :param supports_cross_region: (experimental) Can be used with a Cross-Region Inference Profile. When true, the model supports inference across different AWS regions. Default: - false
+        :param supports_knowledge_base: (experimental) Bedrock Knowledge Base can use this model. When true, the model can be used for knowledge base operations. Default: - false
+        :param vector_dimensions: (experimental) Embedding models have different vector dimensions. Only applicable for embedding models. Defines the dimensionality of the vector embeddings. Default: - undefined
+
+        :return: A new BedrockFoundationModel instance
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__21746783fde44094590eeb2e0bf9318cd7c94a7d9fdbbc276e7c07e9882807b9)
+            check_type(argname="argument model_id", value=model_id, expected_type=type_hints["model_id"])
+        props = BedrockFoundationModelProps(
+            legacy=legacy,
+            optimized_for_agents=optimized_for_agents,
+            supported_vector_type=supported_vector_type,
+            supports_agents=supports_agents,
+            supports_cross_region=supports_cross_region,
+            supports_knowledge_base=supports_knowledge_base,
+            vector_dimensions=vector_dimensions,
+        )
+
+        return typing.cast("BedrockFoundationModel", jsii.sinvoke(cls, "fromCdkFoundationModel", [model_id, props]))
+
+    @jsii.member(jsii_name="fromCdkFoundationModelId")
+    @builtins.classmethod
+    def from_cdk_foundation_model_id(
+        cls,
+        model_id: "_aws_cdk_aws_bedrock_ceddda9d.FoundationModelIdentifier",
+        *,
+        legacy: typing.Optional[builtins.bool] = None,
+        optimized_for_agents: typing.Optional[builtins.bool] = None,
+        supported_vector_type: typing.Optional[typing.Sequence["VectorType"]] = None,
+        supports_agents: typing.Optional[builtins.bool] = None,
+        supports_cross_region: typing.Optional[builtins.bool] = None,
+        supports_knowledge_base: typing.Optional[builtins.bool] = None,
+        vector_dimensions: typing.Optional[jsii.Number] = None,
+    ) -> "BedrockFoundationModel":
+        '''(experimental) Creates a BedrockFoundationModel from a FoundationModelIdentifier.
+
+        Use this method when you have a model identifier from the CDK.
+
+        :param model_id: - The foundation model identifier.
+        :param legacy: (experimental) https://docs.aws.amazon.com/bedrock/latest/userguide/model-lifecycle.html A version is marked Legacy when there is a more recent version which provides superior performance. Amazon Bedrock sets an EOL date for Legacy versions. Default: - false
+        :param optimized_for_agents: (experimental) Currently, some of the offered models are optimized with prompts/parsers fine-tuned for integrating with the agents architecture. When true, the model has been specifically optimized for agent interactions. Default: - false
+        :param supported_vector_type: (experimental) Embeddings models have different supported vector types. Defines whether the model supports floating-point or binary vectors. Default: - undefined
+        :param supports_agents: (experimental) Bedrock Agents can use this model. When true, the model can be used with Bedrock Agents for automated task execution. Default: - false
+        :param supports_cross_region: (experimental) Can be used with a Cross-Region Inference Profile. When true, the model supports inference across different AWS regions. Default: - false
+        :param supports_knowledge_base: (experimental) Bedrock Knowledge Base can use this model. When true, the model can be used for knowledge base operations. Default: - false
+        :param vector_dimensions: (experimental) Embedding models have different vector dimensions. Only applicable for embedding models. Defines the dimensionality of the vector embeddings. Default: - undefined
+
+        :return: A new BedrockFoundationModel instance
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__99e6623f3ac6adc2fae17fdb40358d156dfbc20814dd317a4e724bf44ede364e)
+            check_type(argname="argument model_id", value=model_id, expected_type=type_hints["model_id"])
+        props = BedrockFoundationModelProps(
+            legacy=legacy,
+            optimized_for_agents=optimized_for_agents,
+            supported_vector_type=supported_vector_type,
+            supports_agents=supports_agents,
+            supports_cross_region=supports_cross_region,
+            supports_knowledge_base=supports_knowledge_base,
+            vector_dimensions=vector_dimensions,
+        )
+
+        return typing.cast("BedrockFoundationModel", jsii.sinvoke(cls, "fromCdkFoundationModelId", [model_id, props]))
+
+    @jsii.member(jsii_name="asArn")
+    def as_arn(self) -> builtins.str:
+        '''(experimental) Returns the ARN of the foundation model in the following format: ``arn:${Partition}:bedrock:${Region}::foundation-model/${ResourceId}``.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.invoke(self, "asArn", []))
+
+    @jsii.member(jsii_name="asIModel")
+    def as_i_model(self) -> "_aws_cdk_aws_bedrock_ceddda9d.IModel":
+        '''(experimental) Returns the IModel.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_aws_bedrock_ceddda9d.IModel", jsii.invoke(self, "asIModel", []))
+
+    @jsii.member(jsii_name="grantInvoke")
+    def grant_invoke(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Gives the appropriate policies to invoke and use the Foundation Model in the stack region.
+
+        [disable-awslint:no-grants]
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ffad53dee884df6b2476ed3cd5b2db73771ff68f85c38de0570b5b16841bcd21)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantInvoke", [grantee]))
+
+    @jsii.member(jsii_name="grantInvokeAllRegions")
+    def grant_invoke_all_regions(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Gives the appropriate policies to invoke and use the Foundation Model in all regions.
+
+        [disable-awslint:no-grants]
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c036ac01b7085698fb4634261fe75aea9d21d24dd6c4187d1454cda55c36912a)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantInvokeAllRegions", [grantee]))
+
+    @jsii.member(jsii_name="toString")
+    def to_string(self) -> builtins.str:
+        '''(experimental) Returns a string representation of an object.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.invoke(self, "toString", []))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AI21_JAMBA_1_5_LARGE_V1")
+    def AI21_JAMBA_1_5_LARGE_V1(cls) -> "BedrockFoundationModel":
+        '''(experimental) AI21's Jamba 1.5 Large model optimized for text generation tasks. Suitable for complex language understanding and generation tasks.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Optimized for natural language processing
+        - Best for: Content generation, summarization, and complex text analysis
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "AI21_JAMBA_1_5_LARGE_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AI21_JAMBA_1_5_MINI_V1")
+    def AI21_JAMBA_1_5_MINI_V1(cls) -> "BedrockFoundationModel":
+        '''(experimental) AI21's Jamba 1.5 Mini model, a lighter version optimized for faster processing. Balances performance with efficiency for general text tasks.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Faster response times compared to larger models
+        - Best for: Quick text processing, basic content generation
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "AI21_JAMBA_1_5_MINI_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AI21_JAMBA_INSTRUCT_V1")
+    def AI21_JAMBA_INSTRUCT_V1(cls) -> "BedrockFoundationModel":
+        '''(experimental) AI21's Jamba Instruct model, specifically designed for instruction-following tasks. Optimized for understanding and executing specific instructions.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Enhanced instruction understanding
+        - Best for: Task-specific instructions, command processing
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "AI21_JAMBA_INSTRUCT_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_NOVA_LITE_V1")
+    def AMAZON_NOVA_LITE_V1(cls) -> "BedrockFoundationModel":
+        '''(experimental) Amazon's Nova Lite model, balancing performance with efficiency.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Cross-region support
+        - Optimized for agents
+        - Best for: General-purpose language tasks, moderate complexity
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "AMAZON_NOVA_LITE_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_NOVA_MICRO_V1")
+    def AMAZON_NOVA_MICRO_V1(cls) -> "BedrockFoundationModel":
+        '''(experimental) Amazon's Nova Micro model, a lightweight model optimized for efficiency.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Cross-region support
+        - Optimized for agents
+        - Best for: Quick processing tasks, basic language understanding
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "AMAZON_NOVA_MICRO_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_NOVA_PREMIER_V1")
+    def AMAZON_NOVA_PREMIER_V1(cls) -> "BedrockFoundationModel":
+        '''(experimental) Amazon's Nova Premier model, the most advanced in the Nova series.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Cross-region support
+        - Optimized for agents
+        - Best for: High-end applications, complex analysis, premium performance
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "AMAZON_NOVA_PREMIER_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_NOVA_PRO_V1")
+    def AMAZON_NOVA_PRO_V1(cls) -> "BedrockFoundationModel":
+        '''(experimental) Amazon's Nova Pro model, offering advanced capabilities for complex tasks.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Cross-region support
+        - Optimized for agents
+        - Best for: Complex language tasks, professional applications
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "AMAZON_NOVA_PRO_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_TITAN_PREMIER_V1_0")
+    def AMAZON_TITAN_PREMIER_V1_0(cls) -> "BedrockFoundationModel":
+        '''(experimental) Amazon's Titan Text Premier model, designed for high-quality text generation. Offers enhanced capabilities for complex language tasks.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Advanced language understanding
+        - Best for: Complex content generation, detailed analysis
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "AMAZON_TITAN_PREMIER_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_TITAN_TEXT_EXPRESS_V1")
+    def AMAZON_TITAN_TEXT_EXPRESS_V1(cls) -> "BedrockFoundationModel":
+        '''(experimental) Amazon's Titan Text Express model, optimized for fast text generation. Provides quick responses while maintaining good quality output.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Fast response times
+        - Best for: Real-time applications, chatbots, quick content generation
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "AMAZON_TITAN_TEXT_EXPRESS_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_HAIKU_V1_0")
+    def ANTHROPIC_CLAUDE_3_5_HAIKU_V1_0(cls) -> "BedrockFoundationModel":
+        '''(experimental) Anthropic's Claude 3.5 Haiku model, optimized for quick responses. Lightweight model focused on speed and efficiency.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Cross-region support
+        - Optimized for agents
+        - Best for: Fast responses, lightweight processing
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_5_HAIKU_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_SONNET_V1_0")
+    def ANTHROPIC_CLAUDE_3_5_SONNET_V1_0(cls) -> "BedrockFoundationModel":
+        '''(experimental) Anthropic's Claude 3.5 Sonnet V1 model, balanced performance model. Offers good balance between performance and efficiency.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Cross-region support
+        - Optimized for agents
+        - Best for: General language tasks, balanced performance
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_5_SONNET_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_SONNET_V2_0")
+    def ANTHROPIC_CLAUDE_3_5_SONNET_V2_0(cls) -> "BedrockFoundationModel":
+        '''(experimental) Anthropic's Claude 3.5 Sonnet V2 model, optimized for agent interactions. Enhanced version with improved performance and capabilities.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Cross-region support
+        - Optimized for agents
+        - Best for: Agent-based applications, complex dialogue
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_5_SONNET_V2_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_7_SONNET_V1_0")
+    def ANTHROPIC_CLAUDE_3_7_SONNET_V1_0(cls) -> "BedrockFoundationModel":
+        '''(experimental) Anthropic's Claude 3.7 Sonnet model, latest in the Claude 3 series. Advanced language model with enhanced capabilities.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Cross-region support
+        - Best for: Complex reasoning, analysis, and content generation
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_7_SONNET_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_HAIKU_4_5_V1_0")
+    def ANTHROPIC_CLAUDE_HAIKU_4_5_V1_0(cls) -> "BedrockFoundationModel":
+        '''(experimental) Anthropic's Claude Haiku 4.5 model, most cost-efficient and fastest. Delivers near-frontier performance with substantially lower cost and faster speeds.
+
+        Features:
+
+        - Supports vision (Image input modality)
+        - Cross-region support
+        - Supports Bedrock Agents
+        - Best for: Large-scale deployments, budget-conscious applications, real-time customer service, latency-sensitive use cases
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "ANTHROPIC_CLAUDE_HAIKU_4_5_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_HAIKU_V1_0")
+    def ANTHROPIC_CLAUDE_HAIKU_V1_0(cls) -> "BedrockFoundationModel":
+        '''(experimental) Anthropic's Claude Haiku model, optimized for efficiency. Fast and efficient model for lightweight tasks.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Cross-region support
+        - Optimized for agents
+        - Best for: Quick responses, simple tasks
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "ANTHROPIC_CLAUDE_HAIKU_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_INSTANT_V1_2")
+    def ANTHROPIC_CLAUDE_INSTANT_V1_2(cls) -> "BedrockFoundationModel":
+        '''(experimental) Anthropic's Claude Instant V1.2 model, legacy version. Fast and efficient model optimized for quick responses.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Legacy model with EOL date
+        - Optimized for agents
+        - Best for: Quick responses, simple tasks, legacy applications
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "ANTHROPIC_CLAUDE_INSTANT_V1_2"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_4_1_V1_0")
+    def ANTHROPIC_CLAUDE_OPUS_4_1_V1_0(cls) -> "BedrockFoundationModel":
+        '''(experimental) Anthropic's Claude Opus 4.1 model, most advanced for coding and agentic applications. Excels at independently planning and executing complex development tasks end-to-end. Drop-in replacement for Opus 4 with superior performance and precision.
+
+        Features:
+
+        - Supports vision (Image input modality)
+        - Cross-region support
+        - Supports Bedrock Agents
+        - Best for: Complex end-to-end development, agentic applications, research, advanced reasoning
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_4_1_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_4_5_V1_0")
+    def ANTHROPIC_CLAUDE_OPUS_4_5_V1_0(cls) -> "BedrockFoundationModel":
+        '''(experimental) Anthropic's Claude Opus 4.5 model, the flagship model released November 2025. Excels at real-world programming tasks, scoring highest on SWE-bench Verified benchmarks. Demonstrates superior performance in long-horizon, goal-directed agentic work with fewer dead-ends.
+
+        Features:
+
+        - Supports vision (Image input modality)
+        - Cross-region support
+        - Supports Bedrock Agents
+        - Best for: Software engineering, code migration, agentic workflows, financial modeling, deep research
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_4_5_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_4_6_V1")
+    def ANTHROPIC_CLAUDE_OPUS_4_6_V1(cls) -> "BedrockFoundationModel":
+        '''(experimental) Anthropic's Claude Opus 4.6 model, the most intelligent model and the world's best model for coding, enterprise agents, and professional work. Supports both 200K and 1M context tokens (with the latter in preview). Excels in agentic workflows, complex coding projects, and enterprise applications requiring sophisticated reasoning.
+
+        Features:
+
+        - Supports vision (Image input modality)
+        - Cross-region support
+        - Supports Bedrock Agents
+        - Best for: Financial analysis, cybersecurity, computer use workflows, long-horizon development, multi-tool orchestration
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_4_6_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_4_7")
+    def ANTHROPIC_CLAUDE_OPUS_4_7(cls) -> "BedrockFoundationModel":
+        '''(experimental) Anthropic's Claude Opus 4.7 model, Anthropic's most capable generally available model, advancing performance across coding, enterprise workflows, and long-running agentic tasks. Features a 1M token context window, 128K max output tokens, and supports reasoning.
+
+        Features:
+
+        - Supports vision (Image input modality)
+        - Cross-region support
+        - Supports Bedrock Agents
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_4_7"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_4_V1_0")
+    def ANTHROPIC_CLAUDE_OPUS_4_V1_0(cls) -> "BedrockFoundationModel":
+        '''(experimental) Anthropic's Claude Opus 4 model, next-generation frontier model. High-performance model for advanced reasoning and complex multi-step tasks.
+
+        Features:
+
+        - Supports vision (Image input modality)
+        - Cross-region support
+        - Supports Bedrock Agents
+        - Best for: Advanced reasoning, complex workflows, enterprise applications
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_4_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_V1_0")
+    def ANTHROPIC_CLAUDE_OPUS_V1_0(cls) -> "BedrockFoundationModel":
+        '''(experimental) Anthropic's Claude Opus model, designed for advanced tasks. High-performance model with extensive capabilities.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Optimized for agents
+        - Best for: Complex reasoning, research, and analysis
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_SONNET_4_5_V1_0")
+    def ANTHROPIC_CLAUDE_SONNET_4_5_V1_0(cls) -> "BedrockFoundationModel":
+        '''(experimental) Anthropic's Claude Sonnet 4.5 model, most intelligent in the Claude 4 series. Demonstrates advancements in agent capabilities with enhanced performance in tool handling, memory management, and context processing. Excels at autonomous long-horizon coding tasks.
+
+        Features:
+
+        - Supports vision (Image input modality)
+        - Cross-region support
+        - Supports Bedrock Agents
+        - Enhanced tool handling and memory management for long-running tasks
+        - Best for: Complex agents, coding, autonomous long-horizon tasks, research and analysis, cybersecurity and finance applications
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "ANTHROPIC_CLAUDE_SONNET_4_5_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_SONNET_4_6")
+    def ANTHROPIC_CLAUDE_SONNET_4_6(cls) -> "BedrockFoundationModel":
+        '''(experimental) Anthropic's Claude Sonnet 4.6 model. Improved performance for coding, agentic workflows, and browser-based automation.
+
+        Features:
+
+        - Supports vision (Image input modality)
+        - Cross-region support
+        - Supports Bedrock Agents
+        - Best for: Coding, agentic workflows, browser-based automation, enterprise applications
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "ANTHROPIC_CLAUDE_SONNET_4_6"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_SONNET_4_V1_0")
+    def ANTHROPIC_CLAUDE_SONNET_4_V1_0(cls) -> "BedrockFoundationModel":
+        '''(experimental) Anthropic's Claude Sonnet 4 model, next-generation frontier model. Advanced model with improved performance for production environments. Balances quality, cost-effectiveness, and responsiveness.
+
+        Features:
+
+        - Supports vision (Image input modality)
+        - Cross-region support
+        - Supports Bedrock Agents
+        - Best for: Production applications, complex language tasks, balanced performance and cost
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "ANTHROPIC_CLAUDE_SONNET_4_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_SONNET_V1_0")
+    def ANTHROPIC_CLAUDE_SONNET_V1_0(cls) -> "BedrockFoundationModel":
+        '''(experimental) Anthropic's Claude Sonnet model, legacy version. Balanced model for general-purpose tasks.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Cross-region support
+        - Legacy model with EOL date
+        - Best for: General language tasks, standard applications
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "ANTHROPIC_CLAUDE_SONNET_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_V2")
+    def ANTHROPIC_CLAUDE_V2(cls) -> "BedrockFoundationModel":
+        '''(experimental) Anthropic's Claude V2 model, legacy version. Original Claude V2 model with broad capabilities.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Legacy model with EOL date
+        - Optimized for agents
+        - Best for: General language tasks, legacy applications
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "ANTHROPIC_CLAUDE_V2"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_V2_1")
+    def ANTHROPIC_CLAUDE_V2_1(cls) -> "BedrockFoundationModel":
+        '''(experimental) Anthropic's Claude V2.1 model, legacy version. Improved version of Claude V2 with enhanced capabilities.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Legacy model with EOL date
+        - Optimized for agents
+        - Best for: General language tasks, legacy applications
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "ANTHROPIC_CLAUDE_V2_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="COHERE_EMBED_ENGLISH_V3")
+    def COHERE_EMBED_ENGLISH_V3(cls) -> "BedrockFoundationModel":
+        '''(experimental) Cohere's English embedding model, optimized for English text embeddings. Specialized for semantic understanding of English content.
+
+        Features:
+
+        - Supports Knowledge Base integration
+        - 1024-dimensional vectors
+        - Supports both floating-point and binary vectors
+        - Best for: English text embeddings, semantic search, content similarity
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "COHERE_EMBED_ENGLISH_V3"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="COHERE_EMBED_MULTILINGUAL_V3")
+    def COHERE_EMBED_MULTILINGUAL_V3(cls) -> "BedrockFoundationModel":
+        '''(experimental) Cohere's Multilingual embedding model, supporting multiple languages. Enables semantic understanding across different languages.
+
+        Features:
+
+        - Supports Knowledge Base integration
+        - 1024-dimensional vectors
+        - Supports both floating-point and binary vectors
+        - Best for: Cross-lingual embeddings, multilingual semantic search
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "COHERE_EMBED_MULTILINGUAL_V3"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="DEEPSEEK_R1_V1")
+    def DEEPSEEK_R1_V1(cls) -> "BedrockFoundationModel":
+        '''(experimental) Deepseek's R1 model, designed for general language understanding. Balanced model for various language tasks.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Cross-region support
+        - Best for: General language tasks, content generation
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "DEEPSEEK_R1_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_3_1_70B_INSTRUCT_V1")
+    def META_LLAMA_3_1_70_B_INSTRUCT_V1(cls) -> "BedrockFoundationModel":
+        '''(experimental) Meta's Llama 3 70B Instruct model, large-scale instruction model. High-capacity model for complex language understanding.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Cross-region support
+        - Best for: Complex instructions, advanced language tasks
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "META_LLAMA_3_1_70B_INSTRUCT_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_3_1_8B_INSTRUCT_V1")
+    def META_LLAMA_3_1_8_B_INSTRUCT_V1(cls) -> "BedrockFoundationModel":
+        '''(experimental) Meta's Llama 3 1.8B Instruct model, compact instruction-following model. Efficient model optimized for instruction-based tasks.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Cross-region support
+        - Best for: Lightweight instruction processing, quick responses
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "META_LLAMA_3_1_8B_INSTRUCT_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_3_2_11B_INSTRUCT_V1")
+    def META_LLAMA_3_2_11_B_INSTRUCT_V1(cls) -> "BedrockFoundationModel":
+        '''(experimental) Meta's Llama 3.2 11B Instruct model, mid-sized instruction model. Balanced model for general instruction processing.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Cross-region support
+        - Best for: General instruction tasks, balanced performance
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "META_LLAMA_3_2_11B_INSTRUCT_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_3_2_1B_INSTRUCT_V1")
+    def META_LLAMA_3_2_1_B_INSTRUCT_V1(cls) -> "BedrockFoundationModel":
+        '''(experimental) Meta's Llama 3.2 1B Instruct model, ultra-lightweight model. Most compact model in the Llama 3.2 series.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Cross-region support
+        - Best for: Simple instructions, fastest response times
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "META_LLAMA_3_2_1B_INSTRUCT_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_3_2_3B_INSTRUCT_V1")
+    def META_LLAMA_3_2_3_B_INSTRUCT_V1(cls) -> "BedrockFoundationModel":
+        '''(experimental) Meta's Llama 3.2 3B Instruct model, compact efficient model. Lightweight model for basic instruction processing.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Cross-region support
+        - Best for: Basic instructions, efficient processing
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "META_LLAMA_3_2_3B_INSTRUCT_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_3_3_70B_INSTRUCT_V1")
+    def META_LLAMA_3_3_70_B_INSTRUCT_V1(cls) -> "BedrockFoundationModel":
+        '''(experimental) Meta's Llama 3.3 70B Instruct model, latest large-scale model. Advanced model with enhanced capabilities.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Cross-region support
+        - Best for: Complex reasoning, advanced language tasks
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "META_LLAMA_3_3_70B_INSTRUCT_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_4_MAVERICK_17B_INSTRUCT_V1")
+    def META_LLAMA_4_MAVERICK_17_B_INSTRUCT_V1(cls) -> "BedrockFoundationModel":
+        '''(experimental) Meta's Llama 4 Maverick 17B Instruct model, innovative mid-sized model. Specialized for creative and dynamic responses.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Cross-region support
+        - Best for: Creative tasks, innovative solutions
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "META_LLAMA_4_MAVERICK_17B_INSTRUCT_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_4_SCOUT_17B_INSTRUCT_V1")
+    def META_LLAMA_4_SCOUT_17_B_INSTRUCT_V1(cls) -> "BedrockFoundationModel":
+        '''(experimental) Meta's Llama 4 Scout 17B Instruct model, analytical mid-sized model. Focused on precise and analytical responses.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Cross-region support
+        - Best for: Analytical tasks, precise responses
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "META_LLAMA_4_SCOUT_17B_INSTRUCT_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="MISTRAL_7B_INSTRUCT_V0")
+    def MISTRAL_7_B_INSTRUCT_V0(cls) -> "BedrockFoundationModel":
+        '''(experimental) Mistral's 7B Instruct model, efficient instruction-following model. Balanced performance for instruction processing.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Optimized for instruction tasks
+        - Best for: General instruction processing, balanced performance
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "MISTRAL_7B_INSTRUCT_V0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="MISTRAL_LARGE_2402_V1")
+    def MISTRAL_LARGE_2402_V1(cls) -> "BedrockFoundationModel":
+        '''(experimental) Mistral's Large 2402 model, high-capacity language model. Advanced model for complex language understanding.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Enhanced language capabilities
+        - Best for: Complex reasoning, detailed analysis
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "MISTRAL_LARGE_2402_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="MISTRAL_LARGE_2407_V1")
+    def MISTRAL_LARGE_2407_V1(cls) -> "BedrockFoundationModel":
+        '''(experimental) Mistral's Large 2407 model, updated large-scale model. Enhanced version with improved capabilities.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Advanced language processing
+        - Best for: Sophisticated language tasks, complex analysis
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "MISTRAL_LARGE_2407_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="MISTRAL_MIXTRAL_8X7B_INSTRUCT_V0")
+    def MISTRAL_MIXTRAL_8_X7_B_INSTRUCT_V0(cls) -> "BedrockFoundationModel":
+        '''(experimental) Mistral's Mixtral 8x7B Instruct model, mixture-of-experts architecture. Advanced model combining multiple expert networks.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Specialized expert networks
+        - Best for: Complex tasks, diverse language understanding
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "MISTRAL_MIXTRAL_8X7B_INSTRUCT_V0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="MISTRAL_PIXTRAL_LARGE_2502_V1")
+    def MISTRAL_PIXTRAL_LARGE_2502_V1(cls) -> "BedrockFoundationModel":
+        '''(experimental) Mistral's Pixtral Large 2502 model, specialized large model. Advanced model with cross-region support.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Cross-region support
+        - Best for: Advanced language tasks, distributed applications
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "MISTRAL_PIXTRAL_LARGE_2502_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="MISTRAL_SMALL_2402_V1")
+    def MISTRAL_SMALL_2402_V1(cls) -> "BedrockFoundationModel":
+        '''(experimental) Mistral's Small 2402 model, compact efficient model. Optimized for quick responses and efficiency.
+
+        Features:
+
+        - Supports Bedrock Agents integration
+        - Efficient processing
+        - Best for: Quick responses, basic language tasks
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "MISTRAL_SMALL_2402_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="TITAN_EMBED_TEXT_V1")
+    def TITAN_EMBED_TEXT_V1(cls) -> "BedrockFoundationModel":
+        '''(experimental) Amazon's Titan Embed Text V1 model for text embeddings.
+
+        Features:
+
+        - Supports Knowledge Base integration
+        - 1536-dimensional vectors
+        - Floating-point vector type
+        - Best for: Text embeddings, semantic search, document similarity
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "TITAN_EMBED_TEXT_V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="TITAN_EMBED_TEXT_V2_1024")
+    def TITAN_EMBED_TEXT_V2_1024(cls) -> "BedrockFoundationModel":
+        '''(experimental) Amazon's Titan Embed Text V2 model with 1024-dimensional vectors.
+
+        Features:
+
+        - Supports Knowledge Base integration
+        - 1024-dimensional vectors
+        - Supports both floating-point and binary vectors
+        - Best for: High-dimensional embeddings, advanced semantic search
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "TITAN_EMBED_TEXT_V2_1024"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="TITAN_EMBED_TEXT_V2_256")
+    def TITAN_EMBED_TEXT_V2_256(cls) -> "BedrockFoundationModel":
+        '''(experimental) Amazon's Titan Embed Text V2 model with 256-dimensional vectors.
+
+        Features:
+
+        - Supports Knowledge Base integration
+        - 256-dimensional vectors
+        - Supports both floating-point and binary vectors
+        - Best for: Efficient embeddings with lower dimensionality
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "TITAN_EMBED_TEXT_V2_256"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="TITAN_EMBED_TEXT_V2_512")
+    def TITAN_EMBED_TEXT_V2_512(cls) -> "BedrockFoundationModel":
+        '''(experimental) Amazon's Titan Embed Text V2 model with 512-dimensional vectors.
+
+        Features:
+
+        - Supports Knowledge Base integration
+        - 512-dimensional vectors
+        - Supports both floating-point and binary vectors
+        - Best for: Balanced performance and dimensionality
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.sget(cls, "TITAN_EMBED_TEXT_V2_512"))
+
+    @builtins.property
+    @jsii.member(jsii_name="invokableArn")
+    def invokable_arn(self) -> builtins.str:
+        '''(experimental) The ARN used for invoking the model.
+
+        This is the same as modelArn for foundation models.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "invokableArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="modelArn")
+    def model_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the foundation model.
+
+        Format: arn:${Partition}:bedrock:${Region}::foundation-model/${ResourceId}
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "modelArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="modelId")
+    def model_id(self) -> builtins.str:
+        '''(experimental) The unique identifier of the foundation model.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "modelId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="supportsAgents")
+    def supports_agents(self) -> builtins.bool:
+        '''(experimental) Whether this model supports integration with Bedrock Agents.
+
+        When true, the model can be used with Bedrock Agents for automated task execution.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.bool, jsii.get(self, "supportsAgents"))
+
+    @builtins.property
+    @jsii.member(jsii_name="supportsCrossRegion")
+    def supports_cross_region(self) -> builtins.bool:
+        '''(experimental) Whether this model supports cross-region inference.
+
+        When true, the model can be used with Cross-Region Inference Profiles.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.bool, jsii.get(self, "supportsCrossRegion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="supportsKnowledgeBase")
+    def supports_knowledge_base(self) -> builtins.bool:
+        '''(experimental) Whether this model supports integration with Bedrock Knowledge Base.
+
+        When true, the model can be used for knowledge base operations.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.bool, jsii.get(self, "supportsKnowledgeBase"))
+
+    @builtins.property
+    @jsii.member(jsii_name="supportedVectorType")
+    def supported_vector_type(self) -> typing.Optional[typing.List["VectorType"]]:
+        '''(experimental) The vector types supported by this model for embeddings.
+
+        Defines whether the model supports floating-point or binary vectors.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[typing.List["VectorType"]], jsii.get(self, "supportedVectorType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="vectorDimensions")
+    def vector_dimensions(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) The dimensionality of the vector embeddings produced by this model.
+
+        Only applicable for embedding models.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "vectorDimensions"))
+
+
+class CanadaSpecificPIIType(
+    PIIType,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.CanadaSpecificPIIType",
+):
+    '''(experimental) Types of PII specific to Canada.
+
+    :stability: experimental
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk.aws_bedrock_alpha as bedrock_alpha
+        
+        canada_specific_pIIType = bedrock_alpha.CanadaSpecificPIIType.CA_HEALTH_NUMBER
+    '''
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CA_HEALTH_NUMBER")
+    def CA_HEALTH_NUMBER(cls) -> "CanadaSpecificPIIType":
+        '''(experimental) A Canadian Health Service Number is a 10-digit unique identifier, required for individuals to access healthcare benefits.
+
+        :stability: experimental
+        '''
+        return typing.cast("CanadaSpecificPIIType", jsii.sget(cls, "CA_HEALTH_NUMBER"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CA_SOCIAL_INSURANCE_NUMBER")
+    def CA_SOCIAL_INSURANCE_NUMBER(cls) -> "CanadaSpecificPIIType":
+        '''(experimental) A Canadian Social Insurance Number (SIN) is a nine-digit unique identifier, required for individuals to access government programs and benefits.
+
+        :stability: experimental
+        '''
+        return typing.cast("CanadaSpecificPIIType", jsii.sget(cls, "CA_SOCIAL_INSURANCE_NUMBER"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.ChatPromptVariantProps",
+    jsii_struct_bases=[CommonPromptVariantProps],
+    name_mapping={
+        "model": "model",
+        "variant_name": "variantName",
+        "prompt_variables": "promptVariables",
+        "messages": "messages",
+        "inference_configuration": "inferenceConfiguration",
+        "system": "system",
+        "tool_configuration": "toolConfiguration",
+    },
+)
+class ChatPromptVariantProps(CommonPromptVariantProps):
+    def __init__(
+        self,
+        *,
+        model: "IBedrockInvokable",
+        variant_name: builtins.str,
+        prompt_variables: typing.Optional[typing.Sequence[builtins.str]] = None,
+        messages: typing.Sequence["ChatMessage"],
+        inference_configuration: typing.Optional["PromptInferenceConfiguration"] = None,
+        system: typing.Optional[builtins.str] = None,
+        tool_configuration: typing.Optional[typing.Union["ToolConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''(experimental) Properties for creating a chat prompt variant.
+
+        :param model: (experimental) The model which is used to run the prompt. The model could be a foundation model, a custom model, or a provisioned model.
+        :param variant_name: (experimental) The name of the prompt variant.
+        :param prompt_variables: (experimental) The variables in the prompt template that can be filled in at runtime. Default: - No variables defined.
+        :param messages: (experimental) The messages in the chat prompt. Must include at least one User Message. The messages should alternate between User and Assistant.
+        :param inference_configuration: (experimental) Inference configuration for the Chat Prompt. Default: - No inference configuration provided.
+        :param system: (experimental) Context or instructions for the model to consider before generating a response. Default: - No system message provided.
+        :param tool_configuration: (experimental) The configuration with available tools to the model and how it must use them. Default: - No tool configuration provided.
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            cmk = kms.Key(self, "cmk")
+            
+            variant_chat = bedrock.PromptVariant.chat(
+                variant_name="variant1",
+                model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V1_0,
+                messages=[
+                    bedrock.ChatMessage.user("From now on, you speak Japanese!"),
+                    bedrock.ChatMessage.assistant("Konnichiwa!"),
+                    bedrock.ChatMessage.user("From now on, you speak {{language}}!")
+                ],
+                system="You are a helpful assistant that only speaks the language you`re told.",
+                prompt_variables=["language"],
+                tool_configuration=bedrock.ToolConfiguration(
+                    tool_choice=bedrock.ToolChoice.AUTO,
+                    tools=[
+                        bedrock.Tool.function(
+                            name="top_song",
+                            description="Get the most popular song played on a radio station.",
+                            input_schema={
+                                "type": "object",
+                                "properties": {
+                                    "sign": {
+                                        "type": "string",
+                                        "description": "The call sign for the radio station for which you want the most popular song. Example calls signs are WZPZ and WKR."
+                                    }
+                                },
+                                "required": ["sign"]
+                            }
+                        )
+                    ]
+                )
+            )
+            
+            bedrock.Prompt(self, "prompt1",
+                prompt_name="prompt-chat",
+                description="my first chat prompt",
+                default_variant=variant_chat,
+                variants=[variant_chat],
+                kms_key=cmk
+            )
+        '''
+        if isinstance(tool_configuration, dict):
+            tool_configuration = ToolConfiguration(**tool_configuration)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8e3ddf3228d4368d99df996155a0ed2d076310b24b74df6b18358058542faa82)
+            check_type(argname="argument model", value=model, expected_type=type_hints["model"])
+            check_type(argname="argument variant_name", value=variant_name, expected_type=type_hints["variant_name"])
+            check_type(argname="argument prompt_variables", value=prompt_variables, expected_type=type_hints["prompt_variables"])
+            check_type(argname="argument messages", value=messages, expected_type=type_hints["messages"])
+            check_type(argname="argument inference_configuration", value=inference_configuration, expected_type=type_hints["inference_configuration"])
+            check_type(argname="argument system", value=system, expected_type=type_hints["system"])
+            check_type(argname="argument tool_configuration", value=tool_configuration, expected_type=type_hints["tool_configuration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "model": model,
+            "variant_name": variant_name,
+            "messages": messages,
+        }
+        if prompt_variables is not None:
+            self._values["prompt_variables"] = prompt_variables
+        if inference_configuration is not None:
+            self._values["inference_configuration"] = inference_configuration
+        if system is not None:
+            self._values["system"] = system
+        if tool_configuration is not None:
+            self._values["tool_configuration"] = tool_configuration
+
+    @builtins.property
+    def model(self) -> "IBedrockInvokable":
+        '''(experimental) The model which is used to run the prompt.
+
+        The model could be a foundation
+        model, a custom model, or a provisioned model.
+
+        :stability: experimental
+        '''
+        result = self._values.get("model")
+        assert result is not None, "Required property 'model' is missing"
+        return typing.cast("IBedrockInvokable", result)
+
+    @builtins.property
+    def variant_name(self) -> builtins.str:
+        '''(experimental) The name of the prompt variant.
+
+        :stability: experimental
+        '''
+        result = self._values.get("variant_name")
+        assert result is not None, "Required property 'variant_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def prompt_variables(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) The variables in the prompt template that can be filled in at runtime.
+
+        :default: - No variables defined.
+
+        :stability: experimental
+        '''
+        result = self._values.get("prompt_variables")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def messages(self) -> typing.List["ChatMessage"]:
+        '''(experimental) The messages in the chat prompt.
+
+        Must include at least one User Message.
+        The messages should alternate between User and Assistant.
+
+        :stability: experimental
+        '''
+        result = self._values.get("messages")
+        assert result is not None, "Required property 'messages' is missing"
+        return typing.cast(typing.List["ChatMessage"], result)
+
+    @builtins.property
+    def inference_configuration(
+        self,
+    ) -> typing.Optional["PromptInferenceConfiguration"]:
+        '''(experimental) Inference configuration for the Chat Prompt.
+
+        :default: - No inference configuration provided.
+
+        :stability: experimental
+        '''
+        result = self._values.get("inference_configuration")
+        return typing.cast(typing.Optional["PromptInferenceConfiguration"], result)
+
+    @builtins.property
+    def system(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Context or instructions for the model to consider before generating a response.
+
+        :default: - No system message provided.
+
+        :stability: experimental
+        '''
+        result = self._values.get("system")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tool_configuration(self) -> typing.Optional["ToolConfiguration"]:
+        '''(experimental) The configuration with available tools to the model and how it must use them.
+
+        :default: - No tool configuration provided.
+
+        :stability: experimental
+        '''
+        result = self._values.get("tool_configuration")
+        return typing.cast(typing.Optional["ToolConfiguration"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ChatPromptVariantProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(IBedrockInvokable, IInferenceProfile)
+class CrossRegionInferenceProfile(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.CrossRegionInferenceProfile",
+):
+    '''(experimental) Cross-region inference enables you to seamlessly manage unplanned traffic bursts by utilizing compute across different AWS Regions.
+
+    With cross-region
+    inference, you can distribute traffic across multiple AWS Regions, enabling
+    higher throughput and enhanced resilience during periods of peak demands.
+
+    This construct represents a system-defined inference profile that routes
+    requests across multiple regions based on availability and demand.
+
+    :see: https://docs.aws.amazon.com/bedrock/latest/userguide/cross-region-inference.html
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        # Create a cross-region inference profile
+        cross_region_profile = bedrock.CrossRegionInferenceProfile.from_config(
+            geo_region=bedrock.CrossRegionInferenceProfileRegion.US,
+            model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V2_0
+        )
+        
+        # Create an application inference profile across regions
+        app_profile = bedrock.ApplicationInferenceProfile(self, "MyMultiRegionProfile",
+            application_inference_profile_name="claude-35-sonnet-v2-multi-region",
+            model_source=cross_region_profile,
+            description="Multi-region application profile for cost tracking"
+        )
+    '''
+
+    @jsii.member(jsii_name="fromConfig")
+    @builtins.classmethod
+    def from_config(
+        cls,
+        *,
+        geo_region: "CrossRegionInferenceProfileRegion",
+        model: "BedrockFoundationModel",
+    ) -> "CrossRegionInferenceProfile":
+        '''(experimental) Creates a Cross-Region Inference Profile from the provided configuration.
+
+        :param geo_region: (experimental) The geographic region where the traffic is going to be distributed. Routing factors in user traffic, demand and utilization of resources.
+        :param model: (experimental) A foundation model supporting cross-region inference. The model must have cross-region support enabled.
+
+        :return: A new CrossRegionInferenceProfile instance
+
+        :stability: experimental
+        :throws: ValidationError if the model doesn't support cross-region inference
+        '''
+        config = CrossRegionInferenceProfileProps(geo_region=geo_region, model=model)
+
+        return typing.cast("CrossRegionInferenceProfile", jsii.sinvoke(cls, "fromConfig", [config]))
+
+    @jsii.member(jsii_name="grantInvoke")
+    def grant_invoke(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Gives the appropriate policies to invoke and use the Foundation Model.
+
+        For cross-region inference profiles, this method grants permissions to:
+
+        - Invoke the model in all regions where the inference profile can route requests
+        - Use the inference profile itself
+          [disable-awslint:no-grants]
+
+        :param grantee: - The IAM principal to grant permissions to.
+
+        :return: An IAM Grant object representing the granted permissions
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7bdce53345030d621d2572a991a021e15ce22e26990dc1669333fb230ef31aec)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantInvoke", [grantee]))
+
+    @jsii.member(jsii_name="grantProfileUsage")
+    def grant_profile_usage(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grants appropriate permissions to use the cross-region inference profile.
+
+        This method adds the necessary IAM permissions to allow the grantee to:
+
+        - Get inference profile details (bedrock:GetInferenceProfile)
+        - Invoke the model through the inference profile (bedrock:InvokeModel*)
+
+        Note: This does not grant permissions to use the underlying model directly.
+        For comprehensive permissions, use grantInvoke() instead.
+        [disable-awslint:no-grants]
+
+        :param grantee: - The IAM principal to grant permissions to.
+
+        :return: An IAM Grant object representing the granted permissions
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f67de2362109894f028e47202266ab16657077349378ff9eb8351f4f00962d03)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantProfileUsage", [grantee]))
+
+    @builtins.property
+    @jsii.member(jsii_name="inferenceProfileArn")
+    def inference_profile_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the inference profile.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "inferenceProfileArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="inferenceProfileId")
+    def inference_profile_id(self) -> builtins.str:
+        '''(experimental) The unique identifier of the inference profile.
+
+        Format: {geoRegion}.{modelId}
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "inferenceProfileId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="inferenceProfileModel")
+    def inference_profile_model(self) -> "BedrockFoundationModel":
+        '''(experimental) The underlying foundation model supporting cross-region inference.
+
+        :stability: experimental
+        '''
+        return typing.cast("BedrockFoundationModel", jsii.get(self, "inferenceProfileModel"))
+
+    @builtins.property
+    @jsii.member(jsii_name="invokableArn")
+    def invokable_arn(self) -> builtins.str:
+        '''(experimental) The ARN used for invoking this inference profile.
+
+        This equals to the inferenceProfileArn property, useful for implementing IBedrockInvokable interface.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "invokableArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> "InferenceProfileType":
+        '''(experimental) The type of inference profile.
+
+        Always SYSTEM_DEFINED for cross-region profiles.
+
+        :stability: experimental
+        '''
+        return typing.cast("InferenceProfileType", jsii.get(self, "type"))
+
+
+class FinancePIIType(
+    PIIType,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.FinancePIIType",
+):
+    '''(experimental) Types of PII in the domain of Finance.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+            guardrail_name="my-BedrockGuardrails"
+        )
+        
+        # Add PII filter for addresses with input/output actions
+        guardrail.add_pIIFilter(
+            type=bedrock.GeneralPIIType.ADDRESS,
+            action=bedrock.GuardrailAction.BLOCK,
+            # below props are optional
+            input_action=bedrock.GuardrailAction.BLOCK,
+            input_enabled=True,
+            output_action=bedrock.GuardrailAction.ANONYMIZE,
+            output_enabled=True
+        )
+        
+        # Add PII filter for credit card numbers with input/output actions
+        guardrail.add_pIIFilter(
+            type=bedrock.FinancePIIType.CREDIT_DEBIT_CARD_NUMBER,
+            action=bedrock.GuardrailAction.BLOCK,
+            # below props are optional
+            input_action=bedrock.GuardrailAction.BLOCK,
+            input_enabled=True,
+            output_action=bedrock.GuardrailAction.ANONYMIZE,
+            output_enabled=True
+        )
+        
+        # Add PII filter for email addresses
+        guardrail.add_pIIFilter(
+            type=bedrock.GeneralPIIType.EMAIL,
+            action=bedrock.GuardrailAction.ANONYMIZE
+        )
+        
+        # Add PII filter for US Social Security Numbers
+        guardrail.add_pIIFilter(
+            type=bedrock.USASpecificPIIType.US_SOCIAL_SECURITY_NUMBER,
+            action=bedrock.GuardrailAction.BLOCK
+        )
+        
+        # Add PII filter for IP addresses
+        guardrail.add_pIIFilter(
+            type=bedrock.InformationTechnologyPIIType.IP_ADDRESS,
+            action=bedrock.GuardrailAction.ANONYMIZE
+        )
+    '''
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CREDIT_DEBIT_CARD_CVV")
+    def CREDIT_DEBIT_CARD_CVV(cls) -> "FinancePIIType":
+        '''(experimental) A three-digit card verification code (CVV) that is present on VISA, MasterCard, and Discover credit and debit cards.
+
+        For American Express credit or debit cards,
+        the CVV is a four-digit numeric code.
+
+        :stability: experimental
+        '''
+        return typing.cast("FinancePIIType", jsii.sget(cls, "CREDIT_DEBIT_CARD_CVV"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CREDIT_DEBIT_CARD_EXPIRY")
+    def CREDIT_DEBIT_CARD_EXPIRY(cls) -> "FinancePIIType":
+        '''(experimental) The expiration date for a credit or debit card.
+
+        This number is usually four digits
+        long and is often formatted as month/year or MM/YY. Guardrails recognizes expiration
+        dates such as 01/21, 01/2021, and Jan 2021.
+
+        :stability: experimental
+        '''
+        return typing.cast("FinancePIIType", jsii.sget(cls, "CREDIT_DEBIT_CARD_EXPIRY"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CREDIT_DEBIT_CARD_NUMBER")
+    def CREDIT_DEBIT_CARD_NUMBER(cls) -> "FinancePIIType":
+        '''(experimental) The number for a credit or debit card.
+
+        These numbers can vary from 13 to 16 digits
+        in length.
+
+        :stability: experimental
+        '''
+        return typing.cast("FinancePIIType", jsii.sget(cls, "CREDIT_DEBIT_CARD_NUMBER"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="INTERNATIONAL_BANK_ACCOUNT_NUMBER")
+    def INTERNATIONAL_BANK_ACCOUNT_NUMBER(cls) -> "FinancePIIType":
+        '''(experimental) An International Bank Account Number (IBAN).
+
+        It has specific formats in each country.
+
+        :stability: experimental
+        '''
+        return typing.cast("FinancePIIType", jsii.sget(cls, "INTERNATIONAL_BANK_ACCOUNT_NUMBER"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PIN")
+    def PIN(cls) -> "FinancePIIType":
+        '''(experimental) A four-digit personal identification number (PIN) with which you can access your bank account.
+
+        :stability: experimental
+        '''
+        return typing.cast("FinancePIIType", jsii.sget(cls, "PIN"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SWIFT_CODE")
+    def SWIFT_CODE(cls) -> "FinancePIIType":
+        '''(experimental) A SWIFT code is a standard format of Bank Identifier Code (BIC) used to specify a particular bank or branch.
+
+        Banks use these codes for money transfers such as
+        international wire transfers. SWIFT codes consist of eight or 11 characters.
+
+        :stability: experimental
+        '''
+        return typing.cast("FinancePIIType", jsii.sget(cls, "SWIFT_CODE"))
+
+
+class GeneralPIIType(
+    PIIType,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.GeneralPIIType",
+):
+    '''(experimental) Types of PII that are general, and not domain-specific.
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+            guardrail_name="my-BedrockGuardrails"
+        )
+        
+        # Add PII filter for addresses with input/output actions
+        guardrail.add_pIIFilter(
+            type=bedrock.GeneralPIIType.ADDRESS,
+            action=bedrock.GuardrailAction.BLOCK,
+            # below props are optional
+            input_action=bedrock.GuardrailAction.BLOCK,
+            input_enabled=True,
+            output_action=bedrock.GuardrailAction.ANONYMIZE,
+            output_enabled=True
+        )
+        
+        # Add PII filter for credit card numbers with input/output actions
+        guardrail.add_pIIFilter(
+            type=bedrock.FinancePIIType.CREDIT_DEBIT_CARD_NUMBER,
+            action=bedrock.GuardrailAction.BLOCK,
+            # below props are optional
+            input_action=bedrock.GuardrailAction.BLOCK,
+            input_enabled=True,
+            output_action=bedrock.GuardrailAction.ANONYMIZE,
+            output_enabled=True
+        )
+        
+        # Add PII filter for email addresses
+        guardrail.add_pIIFilter(
+            type=bedrock.GeneralPIIType.EMAIL,
+            action=bedrock.GuardrailAction.ANONYMIZE
+        )
+        
+        # Add PII filter for US Social Security Numbers
+        guardrail.add_pIIFilter(
+            type=bedrock.USASpecificPIIType.US_SOCIAL_SECURITY_NUMBER,
+            action=bedrock.GuardrailAction.BLOCK
+        )
+        
+        # Add PII filter for IP addresses
+        guardrail.add_pIIFilter(
+            type=bedrock.InformationTechnologyPIIType.IP_ADDRESS,
+            action=bedrock.GuardrailAction.ANONYMIZE
+        )
+    '''
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ADDRESS")
+    def ADDRESS(cls) -> "GeneralPIIType":
+        '''(experimental) A physical address, such as "100 Main Street, Anytown, USA" or "Suite #12, Building 123".
+
+        An address can include information such as the street, building,
+        location, city, state, country, county, zip code, precinct, and neighborhood.
+
+        :stability: experimental
+        '''
+        return typing.cast("GeneralPIIType", jsii.sget(cls, "ADDRESS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AGE")
+    def AGE(cls) -> "GeneralPIIType":
+        '''(experimental) An individual's age, including the quantity and unit of time.
+
+        :stability: experimental
+        '''
+        return typing.cast("GeneralPIIType", jsii.sget(cls, "AGE"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="DRIVER_ID")
+    def DRIVER_ID(cls) -> "GeneralPIIType":
+        '''(experimental) The number assigned to a driver's license, which is an official document permitting an individual to operate one or more motorized vehicles on a public road.
+
+        A driver's license number consists of alphanumeric characters.
+
+        :stability: experimental
+        '''
+        return typing.cast("GeneralPIIType", jsii.sget(cls, "DRIVER_ID"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="EMAIL")
+    def EMAIL(cls) -> "GeneralPIIType":
+        '''(experimental) An email address, such as marymajor@email.com.
+
+        :stability: experimental
+        '''
+        return typing.cast("GeneralPIIType", jsii.sget(cls, "EMAIL"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="LICENSE_PLATE")
+    def LICENSE_PLATE(cls) -> "GeneralPIIType":
+        '''(experimental) A license plate for a vehicle is issued by the state or country where the vehicle is registered.
+
+        The format for passenger vehicles is typically five
+        to eight digits, consisting of upper-case letters and numbers. The format
+        varies depending on the location of the issuing state or country.
+
+        :stability: experimental
+        '''
+        return typing.cast("GeneralPIIType", jsii.sget(cls, "LICENSE_PLATE"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="NAME")
+    def NAME(cls) -> "GeneralPIIType":
+        '''(experimental) An individual's name.
+
+        This entity type does not include titles, such as Dr.,
+        Mr., Mrs., or Miss.
+
+        :stability: experimental
+        '''
+        return typing.cast("GeneralPIIType", jsii.sget(cls, "NAME"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PASSWORD")
+    def PASSWORD(cls) -> "GeneralPIIType":
+        '''(experimental) An alphanumeric string that is used as a password, such as "*very20special#pass*".
+
+        :stability: experimental
+        '''
+        return typing.cast("GeneralPIIType", jsii.sget(cls, "PASSWORD"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PHONE")
+    def PHONE(cls) -> "GeneralPIIType":
+        '''(experimental) A phone number.
+
+        This entity type also includes fax and pager numbers.
+
+        :stability: experimental
+        '''
+        return typing.cast("GeneralPIIType", jsii.sget(cls, "PHONE"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="USERNAME")
+    def USERNAME(cls) -> "GeneralPIIType":
+        '''(experimental) A user name that identifies an account, such as a login name, screen name, nick name, or handle.
+
+        :stability: experimental
+        '''
+        return typing.cast("GeneralPIIType", jsii.sget(cls, "USERNAME"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VEHICLE_IDENTIFICATION_NUMBER")
+    def VEHICLE_IDENTIFICATION_NUMBER(cls) -> "GeneralPIIType":
+        '''(experimental) A Vehicle Identification Number (VIN) uniquely identifies a vehicle.
+
+        VIN
+        content and format are defined in the ISO 3779 specification. Each country
+        has specific codes and formats for VINs.
+
+        :stability: experimental
+        '''
+        return typing.cast("GeneralPIIType", jsii.sget(cls, "VEHICLE_IDENTIFICATION_NUMBER"))
+
+
+@jsii.implements(IGuardrail)
+class GuardrailBase(
+    _aws_cdk_ceddda9d.Resource,
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.GuardrailBase",
+):
+    '''(experimental) Abstract base class for a Guardrail.
+
+    Contains methods and attributes valid for Guardrails either created with CDK or imported.
+
+    :stability: experimental
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        environment_from_arn: typing.Optional[builtins.str] = None,
+        physical_name: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param account: The AWS account ID this resource belongs to. Default: - the resource is in the same account as the stack it belongs to
+        :param environment_from_arn: ARN to deduce region and account from. The ARN is parsed and the account and region are taken from the ARN. This should be used for imported resources. Cannot be supplied together with either ``account`` or ``region``. Default: - take environment from ``account``, ``region`` parameters, or use Stack environment.
+        :param physical_name: The value passed in by users to the physical name prop of the resource. - ``undefined`` implies that a physical name will be allocated by CloudFormation during deployment. - a concrete value implies a specific physical name - ``PhysicalName.GENERATE_IF_NEEDED`` is a marker that indicates that a physical will only be generated by the CDK if it is needed for cross-environment references. Otherwise, it will be allocated by CloudFormation. Default: - The physical name will be allocated by CloudFormation at deployment time
+        :param region: The AWS region this resource belongs to. Default: - the resource is in the same region as the stack it belongs to
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bbd3382fa2c6433fcb06c30527e0f5a4717f4fa968eab066b9b793d006725191)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = _aws_cdk_ceddda9d.ResourceProps(
+            account=account,
+            environment_from_arn=environment_from_arn,
+            physical_name=physical_name,
+            region=region,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="metricAll")
+    @builtins.classmethod
+    def metric_all(
+        cls,
+        metric_name: builtins.str,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the given named metric for all guardrails.
+
+        By default, the metric will be calculated as a sum over a period of 5 minutes.
+        You can customize this by using the ``statistic`` and ``period`` properties.
+
+        :param metric_name: -
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__34e9489eba5e87057aef8c9ee9b131400fe634424c9f3031336cd323e160259c)
+            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.sinvoke(cls, "metricAll", [metric_name, props]))
+
+    @jsii.member(jsii_name="metricAllInvocationLatency")
+    @builtins.classmethod
+    def metric_all_invocation_latency(
+        cls,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the invocation latency metric for all guardrails.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.sinvoke(cls, "metricAllInvocationLatency", [props]))
+
+    @jsii.member(jsii_name="metricAllInvocations")
+    @builtins.classmethod
+    def metric_all_invocations(
+        cls,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the invocations metric for all guardrails.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.sinvoke(cls, "metricAllInvocations", [props]))
+
+    @jsii.member(jsii_name="metricAllInvocationsIntervened")
+    @builtins.classmethod
+    def metric_all_invocations_intervened(
+        cls,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the invocations intervened metric for all guardrails.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.sinvoke(cls, "metricAllInvocationsIntervened", [props]))
+
+    @jsii.member(jsii_name="metricAllTextUnitCount")
+    @builtins.classmethod
+    def metric_all_text_unit_count(
+        cls,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the text unit count metric for all guardrails.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.sinvoke(cls, "metricAllTextUnitCount", [props]))
+
+    @jsii.member(jsii_name="grant")
+    def grant(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+        *actions: builtins.str,
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant the given principal identity permissions to perform actions on this guardrail.
+
+        [disable-awslint:no-grants]
+
+        :param grantee: -
+        :param actions: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c76d2f95bb642257266b548cfd6fb04172fefaa00d8fb8e43dcda755f6af5b6d)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grant", [grantee, *actions]))
+
+    @jsii.member(jsii_name="grantApply")
+    def grant_apply(
+        self,
+        grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
+        '''(experimental) Grant the given identity permissions to apply the guardrail.
+
+        [disable-awslint:no-grants]
+
+        :param grantee: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6e2815562f05531441044e58d31347064e90f5fd7076494f36b5df3f71d591aa)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.Grant", jsii.invoke(self, "grantApply", [grantee]))
+
+    @jsii.member(jsii_name="metric")
+    def metric(
+        self,
+        metric_name: builtins.str,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the given named metric for this guardrail.
+
+        By default, the metric will be calculated as a sum over a period of 5 minutes.
+        You can customize this by using the ``statistic`` and ``period`` properties.
+
+        :param metric_name: -
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__27352025e27fa325f67e94290d07acd8005d06421f869ddfbd84e1d35bd14f59)
+            check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metric", [metric_name, props]))
+
+    @jsii.member(jsii_name="metricInvocationClientErrors")
+    def metric_invocation_client_errors(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the invocation client errors metric for this guardrail.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricInvocationClientErrors", [props]))
+
+    @jsii.member(jsii_name="metricInvocationLatency")
+    def metric_invocation_latency(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the invocation latency metric for this guardrail.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricInvocationLatency", [props]))
+
+    @jsii.member(jsii_name="metricInvocations")
+    def metric_invocations(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the invocations metric for this guardrail.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricInvocations", [props]))
+
+    @jsii.member(jsii_name="metricInvocationServerErrors")
+    def metric_invocation_server_errors(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the invocation server errors metric for this guardrail.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricInvocationServerErrors", [props]))
+
+    @jsii.member(jsii_name="metricInvocationsIntervened")
+    def metric_invocations_intervened(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the invocations intervened metric for this guardrail.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricInvocationsIntervened", [props]))
+
+    @jsii.member(jsii_name="metricInvocationThrottles")
+    def metric_invocation_throttles(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the invocation throttles metric for this guardrail.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricInvocationThrottles", [props]))
+
+    @jsii.member(jsii_name="metricTextUnitCount")
+    def metric_text_unit_count(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Return the text unit count metric for this guardrail.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricTextUnitCount", [props]))
+
+    @jsii.member(jsii_name="updateVersion")
+    def _update_version(self, version: builtins.str) -> None:
+        '''
+        :param version: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__af95349f6a3bfc399f30c628b9c1f36cdc615706d35ec1cd94c0005473c16153)
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+        return typing.cast(None, jsii.invoke(self, "updateVersion", [version]))
+
+    @builtins.property
+    @jsii.member(jsii_name="guardrailArn")
+    @abc.abstractmethod
+    def guardrail_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the guardrail.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="guardrailId")
+    @abc.abstractmethod
+    def guardrail_id(self) -> builtins.str:
+        '''(experimental) The ID of the guardrail.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="guardrailVersion")
+    def guardrail_version(self) -> builtins.str:
+        '''(experimental) The version of the guardrail.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "guardrailVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKey")
+    @abc.abstractmethod
+    def kms_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) Optional KMS encryption key associated with this guardrail.
+
+        :stability: experimental
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="lastUpdated")
+    @abc.abstractmethod
+    def last_updated(self) -> typing.Optional[builtins.str]:
+        '''(experimental) When this guardrail was last updated.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _GuardrailBaseProxy(
+    GuardrailBase,
+    jsii.proxy_for(_aws_cdk_ceddda9d.Resource), # type: ignore[misc]
+):
+    @builtins.property
+    @jsii.member(jsii_name="guardrailArn")
+    def guardrail_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the guardrail.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "guardrailArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="guardrailId")
+    def guardrail_id(self) -> builtins.str:
+        '''(experimental) The ID of the guardrail.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "guardrailId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKey")
+    def kms_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) Optional KMS encryption key associated with this guardrail.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], jsii.get(self, "kmsKey"))
+
+    @builtins.property
+    @jsii.member(jsii_name="lastUpdated")
+    def last_updated(self) -> typing.Optional[builtins.str]:
+        '''(experimental) When this guardrail was last updated.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "lastUpdated"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, GuardrailBase).__jsii_proxy_class__ = lambda : _GuardrailBaseProxy
+
+
+class InformationTechnologyPIIType(
+    PIIType,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.InformationTechnologyPIIType",
+):
+    '''(experimental) Types of PII in the domain of IT (Information Technology).
+
+    :stability: experimental
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+            guardrail_name="my-BedrockGuardrails"
+        )
+        
+        # Add PII filter for addresses with input/output actions
+        guardrail.add_pIIFilter(
+            type=bedrock.GeneralPIIType.ADDRESS,
+            action=bedrock.GuardrailAction.BLOCK,
+            # below props are optional
+            input_action=bedrock.GuardrailAction.BLOCK,
+            input_enabled=True,
+            output_action=bedrock.GuardrailAction.ANONYMIZE,
+            output_enabled=True
+        )
+        
+        # Add PII filter for credit card numbers with input/output actions
+        guardrail.add_pIIFilter(
+            type=bedrock.FinancePIIType.CREDIT_DEBIT_CARD_NUMBER,
+            action=bedrock.GuardrailAction.BLOCK,
+            # below props are optional
+            input_action=bedrock.GuardrailAction.BLOCK,
+            input_enabled=True,
+            output_action=bedrock.GuardrailAction.ANONYMIZE,
+            output_enabled=True
+        )
+        
+        # Add PII filter for email addresses
+        guardrail.add_pIIFilter(
+            type=bedrock.GeneralPIIType.EMAIL,
+            action=bedrock.GuardrailAction.ANONYMIZE
+        )
+        
+        # Add PII filter for US Social Security Numbers
+        guardrail.add_pIIFilter(
+            type=bedrock.USASpecificPIIType.US_SOCIAL_SECURITY_NUMBER,
+            action=bedrock.GuardrailAction.BLOCK
+        )
+        
+        # Add PII filter for IP addresses
+        guardrail.add_pIIFilter(
+            type=bedrock.InformationTechnologyPIIType.IP_ADDRESS,
+            action=bedrock.GuardrailAction.ANONYMIZE
+        )
+    '''
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AWS_ACCESS_KEY")
+    def AWS_ACCESS_KEY(cls) -> "InformationTechnologyPIIType":
+        '''(experimental) A unique identifier that's associated with a secret access key.
+
+        You use
+        the access key ID and secret access key to sign programmatic AWS requests
+        cryptographically.
+
+        :stability: experimental
+        '''
+        return typing.cast("InformationTechnologyPIIType", jsii.sget(cls, "AWS_ACCESS_KEY"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AWS_SECRET_KEY")
+    def AWS_SECRET_KEY(cls) -> "InformationTechnologyPIIType":
+        '''(experimental) A unique identifier that's associated with a secret access key.
+
+        You use
+        the access key ID and secret access key to sign programmatic AWS requests
+        cryptographically.
+
+        :stability: experimental
+        '''
+        return typing.cast("InformationTechnologyPIIType", jsii.sget(cls, "AWS_SECRET_KEY"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="IP_ADDRESS")
+    def IP_ADDRESS(cls) -> "InformationTechnologyPIIType":
+        '''(experimental) An IPv4 address, such as 198.51.100.0.
+
+        :stability: experimental
+        '''
+        return typing.cast("InformationTechnologyPIIType", jsii.sget(cls, "IP_ADDRESS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="MAC_ADDRESS")
+    def MAC_ADDRESS(cls) -> "InformationTechnologyPIIType":
+        '''(experimental) A media access control (MAC) address assigned to a network interface.
+
+        :stability: experimental
+        '''
+        return typing.cast("InformationTechnologyPIIType", jsii.sget(cls, "MAC_ADDRESS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="URL")
+    def URL(cls) -> "InformationTechnologyPIIType":
+        '''(experimental) A web address, such as www.example.com.
+
+        :stability: experimental
+        '''
+        return typing.cast("InformationTechnologyPIIType", jsii.sget(cls, "URL"))
+
+
+@jsii.implements(IPrompt)
+class Prompt(
+    PromptBase,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.Prompt",
+):
+    '''(experimental) Class to create (or import) a Prompt with CDK.
+
+    Prompts are a specific set of inputs that guide Foundation Models (FMs) on Amazon Bedrock to
+    generate an appropriate response or output for a given task or instruction.
+    You can optimize the prompt for specific use cases and models.
+
+    :see: https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-management.html
+    :stability: experimental
+    :cloudformationResource: AWS::Bedrock::Prompt
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        cmk = kms.Key(self, "cmk")
+        claude_model = bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_SONNET_V1_0
+        
+        variant1 = bedrock.PromptVariant.text(
+            variant_name="variant1",
+            model=claude_model,
+            prompt_variables=["topic"],
+            prompt_text="This is my first text prompt. Please summarize our conversation on: {{topic}}.",
+            inference_configuration=bedrock.PromptInferenceConfiguration.text(
+                temperature=1,
+                top_p=0.999,
+                max_tokens=2000
+            )
+        )
+        
+        prompt1 = bedrock.Prompt(self, "prompt1",
+            prompt_name="prompt1",
+            description="my first prompt",
+            default_variant=variant1,
+            variants=[variant1],
+            kms_key=cmk
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        prompt_name: builtins.str,
+        default_variant: typing.Optional["IPromptVariant"] = None,
+        description: typing.Optional[builtins.str] = None,
+        kms_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        variants: typing.Optional[typing.Sequence["IPromptVariant"]] = None,
+    ) -> None:
+        '''(experimental) ****************************************************************************                           CONSTRUCTOR ***************************************************************************.
+
+        :param scope: -
+        :param id: -
+        :param prompt_name: (experimental) The name of the prompt. This will be used as the physical name of the prompt. Allowed Pattern: ^([0-9a-zA-Z][_-]?){1,100}$
+        :param default_variant: (experimental) The Prompt Variant that will be used by default. Default: - No default variant provided.
+        :param description: (experimental) A description of what the prompt does. Default: - No description provided. Maximum Length: 200
+        :param kms_key: (experimental) The KMS key that the prompt is encrypted with. Default: - AWS owned and managed key.
+        :param tags: (experimental) Tags to apply to the prompt. Default: - No tags applied.
+        :param variants: (experimental) The variants of your prompt. Variants can use different messages, models, or configurations so that you can compare their outputs to decide the best variant for your use case. Maximum of 1 variants. Default: - No additional variants provided.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__57111a68db61bf87f1bb0c2f022984df846756b347c00bbff7c3060bbd425726)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = PromptProps(
+            prompt_name=prompt_name,
+            default_variant=default_variant,
+            description=description,
+            kms_key=kms_key,
+            tags=tags,
+            variants=variants,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromPromptAttributes")
+    @builtins.classmethod
+    def from_prompt_attributes(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        prompt_arn: builtins.str,
+        kms_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        prompt_version: typing.Optional[builtins.str] = None,
+    ) -> "IPrompt":
+        '''(experimental) Creates a Prompt reference from an existing prompt's attributes.
+
+        :param scope: - The construct scope.
+        :param id: - Identifier of the construct.
+        :param prompt_arn: (experimental) The ARN of the prompt.
+        :param kms_key: (experimental) Optional KMS encryption key associated with this prompt. Default: undefined - An AWS managed key is used
+        :param prompt_version: (experimental) The version of the prompt. Default: "DRAFT"
+
+        :default: - For attrs.promptVersion: 'DRAFT' if no explicit version is provided
+
+        :return: An IPrompt reference to the existing prompt
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c292e2c90088389bc6e12291cba37904cecf17e0181bc500908f7b9dc3c8b3bf)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        attrs = PromptAttributes(
+            prompt_arn=prompt_arn, kms_key=kms_key, prompt_version=prompt_version
+        )
+
+        return typing.cast("IPrompt", jsii.sinvoke(cls, "fromPromptAttributes", [scope, id, attrs]))
+
+    @jsii.member(jsii_name="addVariant")
+    def add_variant(self, variant: "IPromptVariant") -> None:
+        '''(experimental) Adds a prompt variant to the prompt.
+
+        :param variant: - The prompt variant to add.
+
+        :stability: experimental
+        :throws: ValidationError if adding the variant would exceed the maximum allowed variants
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__887fba79ce148e77bf63c894044209a37f87213838fda19bd8b532c3e1429979)
+            check_type(argname="argument variant", value=variant, expected_type=type_hints["variant"])
+        return typing.cast(None, jsii.invoke(self, "addVariant", [variant]))
+
+    @jsii.member(jsii_name="createVersion")
+    def create_version(
+        self,
+        description: typing.Optional[builtins.str] = None,
+    ) -> "PromptVersion":
+        '''(experimental) Creates a prompt version, a static snapshot of your prompt that can be deployed to production.
+
+        :param description: - Optional description for the version.
+
+        :default: - No description provided
+
+        :return: A PromptVersion object containing the version details including ARN and version string
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ec55ad1963c49b510a42476c90f267cc2bc4a3b6da52e2865d980708a0d3b27f)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+        return typing.cast("PromptVersion", jsii.invoke(self, "createVersion", [description]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''(experimental) Uniquely identifies this class.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="promptArn")
+    def prompt_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the prompt.
+
+        :stability: experimental
+        :attribute: true
+
+        Example::
+
+            "arn:aws:bedrock:us-east-1:123456789012:prompt/PROMPT12345"
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "promptArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="promptId")
+    def prompt_id(self) -> builtins.str:
+        '''(experimental) The ID of the prompt.
+
+        :stability: experimental
+        :attribute: true
+
+        Example::
+
+            "PROMPT12345"
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "promptId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="promptName")
+    def prompt_name(self) -> builtins.str:
+        '''(experimental) The name of the prompt.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "promptName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="promptVersion")
+    def prompt_version(self) -> builtins.str:
+        '''(experimental) The version of the prompt.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "promptVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="variants")
+    def variants(self) -> typing.List["IPromptVariant"]:
+        '''(experimental) The variants of the prompt.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List["IPromptVariant"], jsii.get(self, "variants"))
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The description of the prompt.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKey")
+    def kms_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) The KMS key that the prompt is encrypted with.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], jsii.get(self, "kmsKey"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.PromptKnowledgeBaseResponseGenerationConfigCustomParser",
+    jsii_struct_bases=[PromptStepConfigBase],
+    name_mapping={
+        "step_type": "stepType",
+        "custom_prompt_template": "customPromptTemplate",
+        "inference_config": "inferenceConfig",
+        "step_enabled": "stepEnabled",
+        "use_custom_parser": "useCustomParser",
+    },
+)
+class PromptKnowledgeBaseResponseGenerationConfigCustomParser(PromptStepConfigBase):
+    def __init__(
+        self,
+        *,
+        step_type: "AgentStepType",
+        custom_prompt_template: typing.Optional[builtins.str] = None,
+        inference_config: typing.Optional[typing.Union["InferenceConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        step_enabled: typing.Optional[builtins.bool] = None,
+        use_custom_parser: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Configuration for the knowledge base response generation step.
+
+        :param step_type: (experimental) The type of step this configuration applies to.
+        :param custom_prompt_template: (experimental) The custom prompt template to be used. Default: - The default prompt template will be used.
+        :param inference_config: (experimental) The inference configuration parameters to use. Default: undefined - Default inference configuration will be used
+        :param step_enabled: (experimental) Whether to enable or skip this step in the agent sequence. Default: - The default state for each step type is as follows. PRE_PROCESSING – ENABLED ORCHESTRATION – ENABLED KNOWLEDGE_BASE_RESPONSE_GENERATION – ENABLED POST_PROCESSING – DISABLED
+        :param use_custom_parser: (experimental) Whether to use the custom Lambda parser defined for the sequence. Default: - false
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_alpha as bedrock_alpha
+            
+            prompt_knowledge_base_response_generation_config_custom_parser = bedrock_alpha.PromptKnowledgeBaseResponseGenerationConfigCustomParser(
+                step_type=bedrock_alpha.AgentStepType.PRE_PROCESSING,
+            
+                # the properties below are optional
+                custom_prompt_template="customPromptTemplate",
+                inference_config=bedrock_alpha.InferenceConfiguration(
+                    maximum_length=123,
+                    stop_sequences=["stopSequences"],
+                    temperature=123,
+                    top_k=123,
+                    top_p=123
+                ),
+                step_enabled=False,
+                use_custom_parser=False
+            )
+        '''
+        if isinstance(inference_config, dict):
+            inference_config = InferenceConfiguration(**inference_config)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ff59ff4e8f8241de7bd05809f66c99d45b60f152560b50867f223721c27d2bc3)
+            check_type(argname="argument step_type", value=step_type, expected_type=type_hints["step_type"])
+            check_type(argname="argument custom_prompt_template", value=custom_prompt_template, expected_type=type_hints["custom_prompt_template"])
+            check_type(argname="argument inference_config", value=inference_config, expected_type=type_hints["inference_config"])
+            check_type(argname="argument step_enabled", value=step_enabled, expected_type=type_hints["step_enabled"])
+            check_type(argname="argument use_custom_parser", value=use_custom_parser, expected_type=type_hints["use_custom_parser"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "step_type": step_type,
+        }
+        if custom_prompt_template is not None:
+            self._values["custom_prompt_template"] = custom_prompt_template
+        if inference_config is not None:
+            self._values["inference_config"] = inference_config
+        if step_enabled is not None:
+            self._values["step_enabled"] = step_enabled
+        if use_custom_parser is not None:
+            self._values["use_custom_parser"] = use_custom_parser
+
+    @builtins.property
+    def step_type(self) -> "AgentStepType":
+        '''(experimental) The type of step this configuration applies to.
+
+        :stability: experimental
+        '''
+        result = self._values.get("step_type")
+        assert result is not None, "Required property 'step_type' is missing"
+        return typing.cast("AgentStepType", result)
+
+    @builtins.property
+    def custom_prompt_template(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The custom prompt template to be used.
+
+        :default: - The default prompt template will be used.
+
+        :see: https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-placeholders.html
+        :stability: experimental
+        '''
+        result = self._values.get("custom_prompt_template")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def inference_config(self) -> typing.Optional["InferenceConfiguration"]:
+        '''(experimental) The inference configuration parameters to use.
+
+        :default: undefined - Default inference configuration will be used
+
+        :stability: experimental
+        '''
+        result = self._values.get("inference_config")
+        return typing.cast(typing.Optional["InferenceConfiguration"], result)
+
+    @builtins.property
+    def step_enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to enable or skip this step in the agent sequence.
+
+        :default:
+
+        - The default state for each step type is as follows.
+
+        PRE_PROCESSING – ENABLED
+        ORCHESTRATION – ENABLED
+        KNOWLEDGE_BASE_RESPONSE_GENERATION – ENABLED
+        POST_PROCESSING – DISABLED
+
+        :stability: experimental
+        '''
+        result = self._values.get("step_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def use_custom_parser(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to use the custom Lambda parser defined for the sequence.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("use_custom_parser")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PromptKnowledgeBaseResponseGenerationConfigCustomParser(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.PromptMemorySummarizationConfigCustomParser",
+    jsii_struct_bases=[PromptStepConfigBase],
+    name_mapping={
+        "step_type": "stepType",
+        "custom_prompt_template": "customPromptTemplate",
+        "inference_config": "inferenceConfig",
+        "step_enabled": "stepEnabled",
+        "use_custom_parser": "useCustomParser",
+    },
+)
+class PromptMemorySummarizationConfigCustomParser(PromptStepConfigBase):
+    def __init__(
+        self,
+        *,
+        step_type: "AgentStepType",
+        custom_prompt_template: typing.Optional[builtins.str] = None,
+        inference_config: typing.Optional[typing.Union["InferenceConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        step_enabled: typing.Optional[builtins.bool] = None,
+        use_custom_parser: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Configuration for the memory summarization step.
+
+        :param step_type: (experimental) The type of step this configuration applies to.
+        :param custom_prompt_template: (experimental) The custom prompt template to be used. Default: - The default prompt template will be used.
+        :param inference_config: (experimental) The inference configuration parameters to use. Default: undefined - Default inference configuration will be used
+        :param step_enabled: (experimental) Whether to enable or skip this step in the agent sequence. Default: - The default state for each step type is as follows. PRE_PROCESSING – ENABLED ORCHESTRATION – ENABLED KNOWLEDGE_BASE_RESPONSE_GENERATION – ENABLED POST_PROCESSING – DISABLED
+        :param use_custom_parser: (experimental) Whether to use the custom Lambda parser defined for the sequence. Default: - false
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_alpha as bedrock_alpha
+            
+            prompt_memory_summarization_config_custom_parser = bedrock_alpha.PromptMemorySummarizationConfigCustomParser(
+                step_type=bedrock_alpha.AgentStepType.PRE_PROCESSING,
+            
+                # the properties below are optional
+                custom_prompt_template="customPromptTemplate",
+                inference_config=bedrock_alpha.InferenceConfiguration(
+                    maximum_length=123,
+                    stop_sequences=["stopSequences"],
+                    temperature=123,
+                    top_k=123,
+                    top_p=123
+                ),
+                step_enabled=False,
+                use_custom_parser=False
+            )
+        '''
+        if isinstance(inference_config, dict):
+            inference_config = InferenceConfiguration(**inference_config)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2c3254c964ab870d157cd9dac8226191b56dea63507327a11b9d17e91dc9d8ae)
+            check_type(argname="argument step_type", value=step_type, expected_type=type_hints["step_type"])
+            check_type(argname="argument custom_prompt_template", value=custom_prompt_template, expected_type=type_hints["custom_prompt_template"])
+            check_type(argname="argument inference_config", value=inference_config, expected_type=type_hints["inference_config"])
+            check_type(argname="argument step_enabled", value=step_enabled, expected_type=type_hints["step_enabled"])
+            check_type(argname="argument use_custom_parser", value=use_custom_parser, expected_type=type_hints["use_custom_parser"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "step_type": step_type,
+        }
+        if custom_prompt_template is not None:
+            self._values["custom_prompt_template"] = custom_prompt_template
+        if inference_config is not None:
+            self._values["inference_config"] = inference_config
+        if step_enabled is not None:
+            self._values["step_enabled"] = step_enabled
+        if use_custom_parser is not None:
+            self._values["use_custom_parser"] = use_custom_parser
+
+    @builtins.property
+    def step_type(self) -> "AgentStepType":
+        '''(experimental) The type of step this configuration applies to.
+
+        :stability: experimental
+        '''
+        result = self._values.get("step_type")
+        assert result is not None, "Required property 'step_type' is missing"
+        return typing.cast("AgentStepType", result)
+
+    @builtins.property
+    def custom_prompt_template(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The custom prompt template to be used.
+
+        :default: - The default prompt template will be used.
+
+        :see: https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-placeholders.html
+        :stability: experimental
+        '''
+        result = self._values.get("custom_prompt_template")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def inference_config(self) -> typing.Optional["InferenceConfiguration"]:
+        '''(experimental) The inference configuration parameters to use.
+
+        :default: undefined - Default inference configuration will be used
+
+        :stability: experimental
+        '''
+        result = self._values.get("inference_config")
+        return typing.cast(typing.Optional["InferenceConfiguration"], result)
+
+    @builtins.property
+    def step_enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to enable or skip this step in the agent sequence.
+
+        :default:
+
+        - The default state for each step type is as follows.
+
+        PRE_PROCESSING – ENABLED
+        ORCHESTRATION – ENABLED
+        KNOWLEDGE_BASE_RESPONSE_GENERATION – ENABLED
+        POST_PROCESSING – DISABLED
+
+        :stability: experimental
+        '''
+        result = self._values.get("step_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def use_custom_parser(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to use the custom Lambda parser defined for the sequence.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("use_custom_parser")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PromptMemorySummarizationConfigCustomParser(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.PromptOrchestrationConfigCustomParser",
+    jsii_struct_bases=[PromptStepConfigBase],
+    name_mapping={
+        "step_type": "stepType",
+        "custom_prompt_template": "customPromptTemplate",
+        "inference_config": "inferenceConfig",
+        "step_enabled": "stepEnabled",
+        "use_custom_parser": "useCustomParser",
+    },
+)
+class PromptOrchestrationConfigCustomParser(PromptStepConfigBase):
+    def __init__(
+        self,
+        *,
+        step_type: "AgentStepType",
+        custom_prompt_template: typing.Optional[builtins.str] = None,
+        inference_config: typing.Optional[typing.Union["InferenceConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        step_enabled: typing.Optional[builtins.bool] = None,
+        use_custom_parser: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Configuration for the orchestration step.
+
+        :param step_type: (experimental) The type of step this configuration applies to.
+        :param custom_prompt_template: (experimental) The custom prompt template to be used. Default: - The default prompt template will be used.
+        :param inference_config: (experimental) The inference configuration parameters to use. Default: undefined - Default inference configuration will be used
+        :param step_enabled: (experimental) Whether to enable or skip this step in the agent sequence. Default: - The default state for each step type is as follows. PRE_PROCESSING – ENABLED ORCHESTRATION – ENABLED KNOWLEDGE_BASE_RESPONSE_GENERATION – ENABLED POST_PROCESSING – DISABLED
+        :param use_custom_parser: (experimental) Whether to use the custom Lambda parser defined for the sequence. Default: - false
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_alpha as bedrock_alpha
+            
+            prompt_orchestration_config_custom_parser = bedrock_alpha.PromptOrchestrationConfigCustomParser(
+                step_type=bedrock_alpha.AgentStepType.PRE_PROCESSING,
+            
+                # the properties below are optional
+                custom_prompt_template="customPromptTemplate",
+                inference_config=bedrock_alpha.InferenceConfiguration(
+                    maximum_length=123,
+                    stop_sequences=["stopSequences"],
+                    temperature=123,
+                    top_k=123,
+                    top_p=123
+                ),
+                step_enabled=False,
+                use_custom_parser=False
+            )
+        '''
+        if isinstance(inference_config, dict):
+            inference_config = InferenceConfiguration(**inference_config)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1bd90bd69c0117ad5c57c3ca7c500809ffe9f26fd492886d93c33613b05951ac)
+            check_type(argname="argument step_type", value=step_type, expected_type=type_hints["step_type"])
+            check_type(argname="argument custom_prompt_template", value=custom_prompt_template, expected_type=type_hints["custom_prompt_template"])
+            check_type(argname="argument inference_config", value=inference_config, expected_type=type_hints["inference_config"])
+            check_type(argname="argument step_enabled", value=step_enabled, expected_type=type_hints["step_enabled"])
+            check_type(argname="argument use_custom_parser", value=use_custom_parser, expected_type=type_hints["use_custom_parser"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "step_type": step_type,
+        }
+        if custom_prompt_template is not None:
+            self._values["custom_prompt_template"] = custom_prompt_template
+        if inference_config is not None:
+            self._values["inference_config"] = inference_config
+        if step_enabled is not None:
+            self._values["step_enabled"] = step_enabled
+        if use_custom_parser is not None:
+            self._values["use_custom_parser"] = use_custom_parser
+
+    @builtins.property
+    def step_type(self) -> "AgentStepType":
+        '''(experimental) The type of step this configuration applies to.
+
+        :stability: experimental
+        '''
+        result = self._values.get("step_type")
+        assert result is not None, "Required property 'step_type' is missing"
+        return typing.cast("AgentStepType", result)
+
+    @builtins.property
+    def custom_prompt_template(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The custom prompt template to be used.
+
+        :default: - The default prompt template will be used.
+
+        :see: https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-placeholders.html
+        :stability: experimental
+        '''
+        result = self._values.get("custom_prompt_template")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def inference_config(self) -> typing.Optional["InferenceConfiguration"]:
+        '''(experimental) The inference configuration parameters to use.
+
+        :default: undefined - Default inference configuration will be used
+
+        :stability: experimental
+        '''
+        result = self._values.get("inference_config")
+        return typing.cast(typing.Optional["InferenceConfiguration"], result)
+
+    @builtins.property
+    def step_enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to enable or skip this step in the agent sequence.
+
+        :default:
+
+        - The default state for each step type is as follows.
+
+        PRE_PROCESSING – ENABLED
+        ORCHESTRATION – ENABLED
+        KNOWLEDGE_BASE_RESPONSE_GENERATION – ENABLED
+        POST_PROCESSING – DISABLED
+
+        :stability: experimental
+        '''
+        result = self._values.get("step_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def use_custom_parser(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to use the custom Lambda parser defined for the sequence.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("use_custom_parser")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PromptOrchestrationConfigCustomParser(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.PromptPostProcessingConfigCustomParser",
+    jsii_struct_bases=[PromptStepConfigBase],
+    name_mapping={
+        "step_type": "stepType",
+        "custom_prompt_template": "customPromptTemplate",
+        "inference_config": "inferenceConfig",
+        "step_enabled": "stepEnabled",
+        "use_custom_parser": "useCustomParser",
+    },
+)
+class PromptPostProcessingConfigCustomParser(PromptStepConfigBase):
+    def __init__(
+        self,
+        *,
+        step_type: "AgentStepType",
+        custom_prompt_template: typing.Optional[builtins.str] = None,
+        inference_config: typing.Optional[typing.Union["InferenceConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        step_enabled: typing.Optional[builtins.bool] = None,
+        use_custom_parser: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Configuration for the post-processing step.
+
+        :param step_type: (experimental) The type of step this configuration applies to.
+        :param custom_prompt_template: (experimental) The custom prompt template to be used. Default: - The default prompt template will be used.
+        :param inference_config: (experimental) The inference configuration parameters to use. Default: undefined - Default inference configuration will be used
+        :param step_enabled: (experimental) Whether to enable or skip this step in the agent sequence. Default: - The default state for each step type is as follows. PRE_PROCESSING – ENABLED ORCHESTRATION – ENABLED KNOWLEDGE_BASE_RESPONSE_GENERATION – ENABLED POST_PROCESSING – DISABLED
+        :param use_custom_parser: (experimental) Whether to use the custom Lambda parser defined for the sequence. Default: - false
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_alpha as bedrock_alpha
+            
+            prompt_post_processing_config_custom_parser = bedrock_alpha.PromptPostProcessingConfigCustomParser(
+                step_type=bedrock_alpha.AgentStepType.PRE_PROCESSING,
+            
+                # the properties below are optional
+                custom_prompt_template="customPromptTemplate",
+                inference_config=bedrock_alpha.InferenceConfiguration(
+                    maximum_length=123,
+                    stop_sequences=["stopSequences"],
+                    temperature=123,
+                    top_k=123,
+                    top_p=123
+                ),
+                step_enabled=False,
+                use_custom_parser=False
+            )
+        '''
+        if isinstance(inference_config, dict):
+            inference_config = InferenceConfiguration(**inference_config)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__59f64d023eb42889bb015de46d2debde642498318f963061062b0299ec1bbe58)
+            check_type(argname="argument step_type", value=step_type, expected_type=type_hints["step_type"])
+            check_type(argname="argument custom_prompt_template", value=custom_prompt_template, expected_type=type_hints["custom_prompt_template"])
+            check_type(argname="argument inference_config", value=inference_config, expected_type=type_hints["inference_config"])
+            check_type(argname="argument step_enabled", value=step_enabled, expected_type=type_hints["step_enabled"])
+            check_type(argname="argument use_custom_parser", value=use_custom_parser, expected_type=type_hints["use_custom_parser"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "step_type": step_type,
+        }
+        if custom_prompt_template is not None:
+            self._values["custom_prompt_template"] = custom_prompt_template
+        if inference_config is not None:
+            self._values["inference_config"] = inference_config
+        if step_enabled is not None:
+            self._values["step_enabled"] = step_enabled
+        if use_custom_parser is not None:
+            self._values["use_custom_parser"] = use_custom_parser
+
+    @builtins.property
+    def step_type(self) -> "AgentStepType":
+        '''(experimental) The type of step this configuration applies to.
+
+        :stability: experimental
+        '''
+        result = self._values.get("step_type")
+        assert result is not None, "Required property 'step_type' is missing"
+        return typing.cast("AgentStepType", result)
+
+    @builtins.property
+    def custom_prompt_template(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The custom prompt template to be used.
+
+        :default: - The default prompt template will be used.
+
+        :see: https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-placeholders.html
+        :stability: experimental
+        '''
+        result = self._values.get("custom_prompt_template")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def inference_config(self) -> typing.Optional["InferenceConfiguration"]:
+        '''(experimental) The inference configuration parameters to use.
+
+        :default: undefined - Default inference configuration will be used
+
+        :stability: experimental
+        '''
+        result = self._values.get("inference_config")
+        return typing.cast(typing.Optional["InferenceConfiguration"], result)
+
+    @builtins.property
+    def step_enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to enable or skip this step in the agent sequence.
+
+        :default:
+
+        - The default state for each step type is as follows.
+
+        PRE_PROCESSING – ENABLED
+        ORCHESTRATION – ENABLED
+        KNOWLEDGE_BASE_RESPONSE_GENERATION – ENABLED
+        POST_PROCESSING – DISABLED
+
+        :stability: experimental
+        '''
+        result = self._values.get("step_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def use_custom_parser(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to use the custom Lambda parser defined for the sequence.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("use_custom_parser")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PromptPostProcessingConfigCustomParser(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.PromptPreProcessingConfigCustomParser",
+    jsii_struct_bases=[PromptStepConfigBase],
+    name_mapping={
+        "step_type": "stepType",
+        "custom_prompt_template": "customPromptTemplate",
+        "inference_config": "inferenceConfig",
+        "step_enabled": "stepEnabled",
+        "use_custom_parser": "useCustomParser",
+    },
+)
+class PromptPreProcessingConfigCustomParser(PromptStepConfigBase):
+    def __init__(
+        self,
+        *,
+        step_type: "AgentStepType",
+        custom_prompt_template: typing.Optional[builtins.str] = None,
+        inference_config: typing.Optional[typing.Union["InferenceConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        step_enabled: typing.Optional[builtins.bool] = None,
+        use_custom_parser: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Configuration for the pre-processing step.
+
+        :param step_type: (experimental) The type of step this configuration applies to.
+        :param custom_prompt_template: (experimental) The custom prompt template to be used. Default: - The default prompt template will be used.
+        :param inference_config: (experimental) The inference configuration parameters to use. Default: undefined - Default inference configuration will be used
+        :param step_enabled: (experimental) Whether to enable or skip this step in the agent sequence. Default: - The default state for each step type is as follows. PRE_PROCESSING – ENABLED ORCHESTRATION – ENABLED KNOWLEDGE_BASE_RESPONSE_GENERATION – ENABLED POST_PROCESSING – DISABLED
+        :param use_custom_parser: (experimental) Whether to use the custom Lambda parser defined for the sequence. Default: - false
+
+        :stability: experimental
+        :exampleMetadata: fixture=default infused
+
+        Example::
+
+            parser_function = lambda_.Function(self, "ParserFunction",
+                runtime=lambda_.Runtime.PYTHON_3_10,
+                handler="index.handler",
+                code=lambda_.Code.from_asset("lambda")
+            )
+            
+            agent = bedrock.Agent(self, "Agent",
+                foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1,
+                instruction="You are a helpful assistant.",
+                prompt_override_configuration=bedrock.PromptOverrideConfiguration.with_custom_parser(
+                    parser=parser_function,
+                    pre_processing_step=bedrock.PromptPreProcessingConfigCustomParser(
+                        step_type=bedrock.AgentStepType.PRE_PROCESSING,
+                        use_custom_parser=True
+                    )
+                )
+            )
+        '''
+        if isinstance(inference_config, dict):
+            inference_config = InferenceConfiguration(**inference_config)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6d80ef278090d225b8a023bd94ab2dadffa101778d0344756a8f633a90aa20e9)
+            check_type(argname="argument step_type", value=step_type, expected_type=type_hints["step_type"])
+            check_type(argname="argument custom_prompt_template", value=custom_prompt_template, expected_type=type_hints["custom_prompt_template"])
+            check_type(argname="argument inference_config", value=inference_config, expected_type=type_hints["inference_config"])
+            check_type(argname="argument step_enabled", value=step_enabled, expected_type=type_hints["step_enabled"])
+            check_type(argname="argument use_custom_parser", value=use_custom_parser, expected_type=type_hints["use_custom_parser"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "step_type": step_type,
+        }
+        if custom_prompt_template is not None:
+            self._values["custom_prompt_template"] = custom_prompt_template
+        if inference_config is not None:
+            self._values["inference_config"] = inference_config
+        if step_enabled is not None:
+            self._values["step_enabled"] = step_enabled
+        if use_custom_parser is not None:
+            self._values["use_custom_parser"] = use_custom_parser
+
+    @builtins.property
+    def step_type(self) -> "AgentStepType":
+        '''(experimental) The type of step this configuration applies to.
+
+        :stability: experimental
+        '''
+        result = self._values.get("step_type")
+        assert result is not None, "Required property 'step_type' is missing"
+        return typing.cast("AgentStepType", result)
+
+    @builtins.property
+    def custom_prompt_template(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The custom prompt template to be used.
+
+        :default: - The default prompt template will be used.
+
+        :see: https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-placeholders.html
+        :stability: experimental
+        '''
+        result = self._values.get("custom_prompt_template")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def inference_config(self) -> typing.Optional["InferenceConfiguration"]:
+        '''(experimental) The inference configuration parameters to use.
+
+        :default: undefined - Default inference configuration will be used
+
+        :stability: experimental
+        '''
+        result = self._values.get("inference_config")
+        return typing.cast(typing.Optional["InferenceConfiguration"], result)
+
+    @builtins.property
+    def step_enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to enable or skip this step in the agent sequence.
+
+        :default:
+
+        - The default state for each step type is as follows.
+
+        PRE_PROCESSING – ENABLED
+        ORCHESTRATION – ENABLED
+        KNOWLEDGE_BASE_RESPONSE_GENERATION – ENABLED
+        POST_PROCESSING – DISABLED
+
+        :stability: experimental
+        '''
+        result = self._values.get("step_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def use_custom_parser(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to use the custom Lambda parser defined for the sequence.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("use_custom_parser")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PromptPreProcessingConfigCustomParser(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-bedrock-alpha.PromptRoutingClassifierConfigCustomParser",
+    jsii_struct_bases=[PromptStepConfigBase],
+    name_mapping={
+        "step_type": "stepType",
+        "custom_prompt_template": "customPromptTemplate",
+        "inference_config": "inferenceConfig",
+        "step_enabled": "stepEnabled",
+        "use_custom_parser": "useCustomParser",
+        "foundation_model": "foundationModel",
+    },
+)
+class PromptRoutingClassifierConfigCustomParser(PromptStepConfigBase):
+    def __init__(
+        self,
+        *,
+        step_type: "AgentStepType",
+        custom_prompt_template: typing.Optional[builtins.str] = None,
+        inference_config: typing.Optional[typing.Union["InferenceConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        step_enabled: typing.Optional[builtins.bool] = None,
+        use_custom_parser: typing.Optional[builtins.bool] = None,
+        foundation_model: "IBedrockInvokable",
+    ) -> None:
+        '''(experimental) Configuration for the routing classifier step.
+
+        :param step_type: (experimental) The type of step this configuration applies to.
+        :param custom_prompt_template: (experimental) The custom prompt template to be used. Default: - The default prompt template will be used.
+        :param inference_config: (experimental) The inference configuration parameters to use. Default: undefined - Default inference configuration will be used
+        :param step_enabled: (experimental) Whether to enable or skip this step in the agent sequence. Default: - The default state for each step type is as follows. PRE_PROCESSING – ENABLED ORCHESTRATION – ENABLED KNOWLEDGE_BASE_RESPONSE_GENERATION – ENABLED POST_PROCESSING – DISABLED
+        :param use_custom_parser: (experimental) Whether to use the custom Lambda parser defined for the sequence. Default: - false
+        :param foundation_model: (experimental) The foundation model to use for the routing classifier step. This is required for the routing classifier step.
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_bedrock_alpha as bedrock_alpha
+            
+            # bedrock_invokable: bedrock_alpha.IBedrockInvokable
+            
+            prompt_routing_classifier_config_custom_parser = bedrock_alpha.PromptRoutingClassifierConfigCustomParser(
+                foundation_model=bedrock_invokable,
+                step_type=bedrock_alpha.AgentStepType.PRE_PROCESSING,
+            
+                # the properties below are optional
+                custom_prompt_template="customPromptTemplate",
+                inference_config=bedrock_alpha.InferenceConfiguration(
+                    maximum_length=123,
+                    stop_sequences=["stopSequences"],
+                    temperature=123,
+                    top_k=123,
+                    top_p=123
+                ),
+                step_enabled=False,
+                use_custom_parser=False
+            )
+        '''
+        if isinstance(inference_config, dict):
+            inference_config = InferenceConfiguration(**inference_config)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fc21a218a77483a368cb274b36d03170fc21d293e79e34fd252a38e1277e3a90)
+            check_type(argname="argument step_type", value=step_type, expected_type=type_hints["step_type"])
+            check_type(argname="argument custom_prompt_template", value=custom_prompt_template, expected_type=type_hints["custom_prompt_template"])
+            check_type(argname="argument inference_config", value=inference_config, expected_type=type_hints["inference_config"])
+            check_type(argname="argument step_enabled", value=step_enabled, expected_type=type_hints["step_enabled"])
+            check_type(argname="argument use_custom_parser", value=use_custom_parser, expected_type=type_hints["use_custom_parser"])
+            check_type(argname="argument foundation_model", value=foundation_model, expected_type=type_hints["foundation_model"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "step_type": step_type,
+            "foundation_model": foundation_model,
+        }
+        if custom_prompt_template is not None:
+            self._values["custom_prompt_template"] = custom_prompt_template
+        if inference_config is not None:
+            self._values["inference_config"] = inference_config
+        if step_enabled is not None:
+            self._values["step_enabled"] = step_enabled
+        if use_custom_parser is not None:
+            self._values["use_custom_parser"] = use_custom_parser
+
+    @builtins.property
+    def step_type(self) -> "AgentStepType":
+        '''(experimental) The type of step this configuration applies to.
+
+        :stability: experimental
+        '''
+        result = self._values.get("step_type")
+        assert result is not None, "Required property 'step_type' is missing"
+        return typing.cast("AgentStepType", result)
+
+    @builtins.property
+    def custom_prompt_template(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The custom prompt template to be used.
+
+        :default: - The default prompt template will be used.
+
+        :see: https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-placeholders.html
+        :stability: experimental
+        '''
+        result = self._values.get("custom_prompt_template")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def inference_config(self) -> typing.Optional["InferenceConfiguration"]:
+        '''(experimental) The inference configuration parameters to use.
+
+        :default: undefined - Default inference configuration will be used
+
+        :stability: experimental
+        '''
+        result = self._values.get("inference_config")
+        return typing.cast(typing.Optional["InferenceConfiguration"], result)
+
+    @builtins.property
+    def step_enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to enable or skip this step in the agent sequence.
+
+        :default:
+
+        - The default state for each step type is as follows.
+
+        PRE_PROCESSING – ENABLED
+        ORCHESTRATION – ENABLED
+        KNOWLEDGE_BASE_RESPONSE_GENERATION – ENABLED
+        POST_PROCESSING – DISABLED
+
+        :stability: experimental
+        '''
+        result = self._values.get("step_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def use_custom_parser(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to use the custom Lambda parser defined for the sequence.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("use_custom_parser")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def foundation_model(self) -> "IBedrockInvokable":
+        '''(experimental) The foundation model to use for the routing classifier step.
+
+        This is required for the routing classifier step.
+
+        :stability: experimental
+        '''
+        result = self._values.get("foundation_model")
+        assert result is not None, "Required property 'foundation_model' is missing"
+        return typing.cast("IBedrockInvokable", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PromptRoutingClassifierConfigCustomParser(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(IAgent)
+class Agent(
+    AgentBase,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.Agent",
+):
+    '''(experimental) Class to create (or import) an Agent with CDK.
+
+    :stability: experimental
+    :cloudformationResource: AWS::Bedrock::Agent
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        parser_function = lambda_.Function(self, "ParserFunction",
+            runtime=lambda_.Runtime.PYTHON_3_10,
+            handler="index.handler",
+            code=lambda_.Code.from_asset("lambda")
+        )
+        
+        agent = bedrock.Agent(self, "Agent",
+            foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1,
+            instruction="You are a helpful assistant.",
+            prompt_override_configuration=bedrock.PromptOverrideConfiguration.with_custom_parser(
+                parser=parser_function,
+                pre_processing_step=bedrock.PromptPreProcessingConfigCustomParser(
+                    step_type=bedrock.AgentStepType.PRE_PROCESSING,
+                    use_custom_parser=True
+                )
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        foundation_model: "IBedrockInvokable",
+        instruction: builtins.str,
+        action_groups: typing.Optional[typing.Sequence["AgentActionGroup"]] = None,
+        agent_collaboration: typing.Optional["AgentCollaboration"] = None,
+        agent_name: typing.Optional[builtins.str] = None,
+        code_interpreter_enabled: typing.Optional[builtins.bool] = None,
+        custom_orchestration_executor: typing.Optional["CustomOrchestrationExecutor"] = None,
+        description: typing.Optional[builtins.str] = None,
+        existing_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        force_delete: typing.Optional[builtins.bool] = None,
+        guardrail: typing.Optional["IGuardrail"] = None,
+        idle_session_ttl: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        kms_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        memory: typing.Optional["Memory"] = None,
+        prompt_override_configuration: typing.Optional["PromptOverrideConfiguration"] = None,
+        should_prepare_agent: typing.Optional[builtins.bool] = None,
+        user_input_enabled: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param foundation_model: (experimental) The foundation model used for orchestration by the agent.
+        :param instruction: (experimental) The instruction used by the agent. This determines how the agent will perform his task. This instruction must have a minimum of 40 characters.
+        :param action_groups: (experimental) The Action Groups associated with the agent. Default: - Only default action groups (UserInput and CodeInterpreter) are added
+        :param agent_collaboration: (experimental) Configuration for agent collaboration settings, including AgentCollaboratorType and AgentCollaborators. This property allows you to define how the agent collaborates with other agents and what collaborators it can work with. Default: - No agent collaboration configuration.
+        :param agent_name: (experimental) The name of the agent. This will be used as the physical name of the agent. Default: - A name is generated by CDK. Supported pattern : ^([0-9a-zA-Z][_-]?){1,100}$
+        :param code_interpreter_enabled: (experimental) Select whether the agent can generate, run, and troubleshoot code when trying to complete a task. Default: false
+        :param custom_orchestration_executor: (experimental) The Lambda function to use for custom orchestration. If provided, custom orchestration will be used. If not provided, default orchestration will be used. Default: - Default orchestration
+        :param description: (experimental) A description of the agent. Default: - No description is provided.
+        :param existing_role: (experimental) An existing IAM Role to associate with this agent. Use this property when you want to reuse an existing IAM role rather than create a new one. The role must have a trust policy that allows the Bedrock service to assume it. Default: - A new role is created for you.
+        :param force_delete: (experimental) Whether to delete the resource even if it's in use. Default: false
+        :param guardrail: (experimental) The guardrail that will be associated with the agent. Default: - No guardrail is provided.
+        :param idle_session_ttl: (experimental) How long sessions should be kept open for the agent. If no conversation occurs during this time, the session expires and Amazon Bedrock deletes any data provided before the timeout. Default: - 10 minutes
+        :param kms_key: (experimental) The KMS key of the agent if custom encryption is configured. Default: - An AWS managed key is used.
+        :param memory: (experimental) The type and configuration of the memory to maintain context across multiple sessions and recall past interactions. This can be useful for maintaining continuity in multi-turn conversations and recalling user preferences or past interactions. Default: - No memory will be used. Agents will retain context from the current session only.
+        :param prompt_override_configuration: (experimental) Overrides some prompt templates in different parts of an agent sequence configuration. Default: - No overrides are provided.
+        :param should_prepare_agent: (experimental) Specifies whether to automatically update the ``DRAFT`` version of the agent after making changes to the agent. The ``DRAFT`` version can be continually iterated upon during internal development. Default: false
+        :param user_input_enabled: (experimental) Select whether the agent can prompt additional information from the user when it does not have enough information to respond to an utterance. Default: false
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5c1da6dbc073c2e3dee222bd452cbcf2d4ea3cf0842dc28465a37f8887438de3)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = AgentProps(
+            foundation_model=foundation_model,
+            instruction=instruction,
+            action_groups=action_groups,
+            agent_collaboration=agent_collaboration,
+            agent_name=agent_name,
+            code_interpreter_enabled=code_interpreter_enabled,
+            custom_orchestration_executor=custom_orchestration_executor,
+            description=description,
+            existing_role=existing_role,
+            force_delete=force_delete,
+            guardrail=guardrail,
+            idle_session_ttl=idle_session_ttl,
+            kms_key=kms_key,
+            memory=memory,
+            prompt_override_configuration=prompt_override_configuration,
+            should_prepare_agent=should_prepare_agent,
+            user_input_enabled=user_input_enabled,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromAgentAttributes")
+    @builtins.classmethod
+    def from_agent_attributes(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        agent_arn: builtins.str,
+        role_arn: builtins.str,
+        agent_version: typing.Optional[builtins.str] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
+        last_updated: typing.Optional[builtins.str] = None,
+    ) -> "IAgent":
+        '''(experimental) Creates an Agent reference from an existing agent's attributes.
+
+        :param scope: - The construct scope.
+        :param id: - Identifier of the construct.
+        :param agent_arn: (experimental) The ARN of the agent.
+        :param role_arn: (experimental) The ARN of the IAM role associated to the agent.
+        :param agent_version: (experimental) The agent version. If no explicit versions have been created, leave this empty to use the DRAFT version. Otherwise, use the version number (e.g. 1). Default: 'DRAFT'
+        :param kms_key_arn: (experimental) Optional KMS encryption key associated with this agent. Default: undefined - An AWS managed key is used
+        :param last_updated: (experimental) When this agent was last updated. Default: undefined - No last updated timestamp is provided
+
+        :default: - For attrs.agentVersion: 'DRAFT' if no explicit version is provided
+
+        :return: An IAgent reference to the existing agent
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c540786cbad361f254315ba321394ff0856d947cee9a259f1d02470add47fe69)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        attrs = AgentAttributes(
+            agent_arn=agent_arn,
+            role_arn=role_arn,
+            agent_version=agent_version,
+            kms_key_arn=kms_key_arn,
+            last_updated=last_updated,
+        )
+
+        return typing.cast("IAgent", jsii.sinvoke(cls, "fromAgentAttributes", [scope, id, attrs]))
+
+    @jsii.member(jsii_name="addActionGroup")
+    def add_action_group(self, action_group: "AgentActionGroup") -> None:
+        '''(experimental) Adds an action group to the agent and configures necessary permissions.
+
+        :param action_group: - The action group to add.
+
+        :default:
+
+        - Default permissions:
+        - Lambda function invoke permissions if executor is present
+        - S3 GetObject permissions if apiSchema.s3File is present
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e41ea74e490315a61ad841dea482cc082c005209a203d74fa4a65c176a9732e5)
+            check_type(argname="argument action_group", value=action_group, expected_type=type_hints["action_group"])
+        return typing.cast(None, jsii.invoke(self, "addActionGroup", [action_group]))
+
+    @jsii.member(jsii_name="addActionGroups")
+    def add_action_groups(self, *action_groups: "AgentActionGroup") -> None:
+        '''(experimental) Configuration for agent collaboration.
+
+        :param action_groups: -
+
+        :default: - No collaboration configuration.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b558923d37923289e77a58811a37fe7a7a02b5cd20db20812845e8dd62b96b19)
+            check_type(argname="argument action_groups", value=action_groups, expected_type=typing.Tuple[type_hints["action_groups"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast(None, jsii.invoke(self, "addActionGroups", [*action_groups]))
+
+    @jsii.member(jsii_name="addGuardrail")
+    def add_guardrail(self, guardrail: "IGuardrail") -> None:
+        '''(experimental) Add guardrail to the agent.
+
+        :param guardrail: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2da57e1a14e682bd21480f81af7eb57498075f9075db17da76fedea2ecc2bfc2)
+            check_type(argname="argument guardrail", value=guardrail, expected_type=type_hints["guardrail"])
+        return typing.cast(None, jsii.invoke(self, "addGuardrail", [guardrail]))
+
+    @jsii.member(jsii_name="generatePhysicalName")
+    def _generate_physical_name(self) -> builtins.str:
+        '''(experimental) Generates a physical name for the agent.
+
+        :default:
+
+        - Generated name format: 'agent-{hash}-{uniqueName}' with:
+        - maxLength: MAXLENGTH_FOR_ROLE_NAME - '-bedrockagent'.length
+        - lower: true
+        - separator: '-'
+
+        :return: A unique name for the agent with appropriate length constraints
+
+        :stability: experimental
+        :protected: true
+        '''
+        return typing.cast(builtins.str, jsii.invoke(self, "generatePhysicalName", []))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''(experimental) Uniquely identifies this class.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="actionGroups")
+    def action_groups(self) -> typing.List["AgentActionGroup"]:
+        '''(experimental) action groups associated with the ageny.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List["AgentActionGroup"], jsii.get(self, "actionGroups"))
+
+    @builtins.property
+    @jsii.member(jsii_name="agentArn")
+    def agent_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the agent.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "agentArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="agentId")
+    def agent_id(self) -> builtins.str:
+        '''(experimental) The unique identifier for the agent.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "agentId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="agentVersion")
+    def agent_version(self) -> builtins.str:
+        '''(experimental) The version of the agent.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "agentVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="grantPrincipal")
+    def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
+        '''(experimental) The principal to grant permissions to.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IPrincipal", jsii.get(self, "grantPrincipal"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''(experimental) The name of the agent.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @builtins.property
+    @jsii.member(jsii_name="role")
+    def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
+        '''(experimental) The IAM role associated to the agent.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", jsii.get(self, "role"))
+
+    @builtins.property
+    @jsii.member(jsii_name="testAlias")
+    def test_alias(self) -> "IAgentAlias":
+        '''(experimental) Default alias of the agent.
+
+        :stability: experimental
+        '''
+        return typing.cast("IAgentAlias", jsii.get(self, "testAlias"))
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKey")
+    def kms_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) Optional KMS encryption key associated with this agent.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], jsii.get(self, "kmsKey"))
+
+    @builtins.property
+    @jsii.member(jsii_name="lastUpdated")
+    def last_updated(self) -> typing.Optional[builtins.str]:
+        '''(experimental) When this agent was last updated.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "lastUpdated"))
+
+    @builtins.property
+    @jsii.member(jsii_name="guardrail")
+    def guardrail(self) -> typing.Optional["IGuardrail"]:
+        '''(experimental) The guardrail that will be associated with the agent.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["IGuardrail"], jsii.get(self, "guardrail"))
+
+    @guardrail.setter
+    def guardrail(self, value: typing.Optional["IGuardrail"]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__19d97a8bf2748b94cd71cc851ae07209efa4e3301f2ed44ee20b9a688d4c86a1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "guardrail", value) # pyright: ignore[reportArgumentType]
+
+
+class AgentAlias(
+    AgentAliasBase,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.AgentAlias",
+):
+    '''(experimental) Class to create an Agent Alias with CDK.
+
+    :stability: experimental
+    :cloudformationResource: AWS::Bedrock::AgentAlias
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        # Create a specialized agent
+        customer_support_agent = bedrock.Agent(self, "CustomerSupportAgent",
+            instruction="You specialize in answering customer support questions.",
+            foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1
+        )
+        
+        # Create an agent alias
+        customer_support_alias = bedrock.AgentAlias(self, "CustomerSupportAlias",
+            agent=customer_support_agent,
+            agent_alias_name="production"
+        )
+        
+        # Create a main agent that collaborates with the specialized agent
+        main_agent = bedrock.Agent(self, "MainAgent",
+            instruction="You route specialized questions to other agents.",
+            foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_LITE_V1,
+            agent_collaboration={
+                "type": bedrock.AgentCollaboratorType.SUPERVISOR,
+                "collaborators": [
+                    bedrock.AgentCollaborator(
+                        agent_alias=customer_support_alias,
+                        collaboration_instruction="Route customer support questions to this agent.",
+                        collaborator_name="CustomerSupport",
+                        relay_conversation_history=True
+                    )
+                ]
+            }
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        agent: "IAgent",
+        agent_alias_name: typing.Optional[builtins.str] = None,
+        agent_version: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param agent: (experimental) The agent associated to this alias.
+        :param agent_alias_name: (experimental) The name for the agent alias. This will be used as the physical name of the agent alias. Default: "latest"
+        :param agent_version: (experimental) The version of the agent to associate with the agent alias. Default: - Creates a new version of the agent.
+        :param description: (experimental) Description for the agent alias. Default: undefined - No description is provided
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__42756e488adc0d798aade78ff819dc550151bd380ede90fe77d6aa5c01bebb44)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = AgentAliasProps(
+            agent=agent,
+            agent_alias_name=agent_alias_name,
+            agent_version=agent_version,
+            description=description,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromAttributes")
+    @builtins.classmethod
+    def from_attributes(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        agent: "IAgent",
+        agent_version: builtins.str,
+        alias_id: builtins.str,
+        alias_name: typing.Optional[builtins.str] = None,
+    ) -> "IAgentAlias":
+        '''(experimental) Brings an Agent Alias from an existing one created outside of CDK.
+
+        :param scope: -
+        :param id: -
+        :param agent: (experimental) The underlying agent for this alias.
+        :param agent_version: (experimental) The agent version for this alias.
+        :param alias_id: (experimental) The Id of the agent alias.
+        :param alias_name: (experimental) The name of the agent alias. Default: undefined - No alias name is provided
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__61e68f17caa900cc2bc2da7f093e54644fc9ad79356dad14956cfac36fadae9d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        attrs = AgentAliasAttributes(
+            agent=agent,
+            agent_version=agent_version,
+            alias_id=alias_id,
+            alias_name=alias_name,
+        )
+
+        return typing.cast("IAgentAlias", jsii.sinvoke(cls, "fromAttributes", [scope, id, attrs]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''(experimental) Uniquely identifies this class.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="agent")
+    def agent(self) -> "IAgent":
+        '''(experimental) The underlying agent for this alias.
+
+        :stability: experimental
+        '''
+        return typing.cast("IAgent", jsii.get(self, "agent"))
+
+    @builtins.property
+    @jsii.member(jsii_name="aliasArn")
+    def alias_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the agent alias.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "aliasArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="aliasId")
+    def alias_id(self) -> builtins.str:
+        '''(experimental) The unique identifier of the agent alias.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "aliasId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="aliasName")
+    def alias_name(self) -> builtins.str:
+        '''(experimental) The name of the agent alias.
+
+        This is either provided by the user or generated from a hash.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "aliasName"))
+
+
+class Guardrail(
+    GuardrailBase,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-bedrock-alpha.Guardrail",
+):
+    '''(experimental) Class to create a Guardrail with CDK.
+
+    :stability: experimental
+    :cloudformationResource: AWS::Bedrock::Guardrail
+    :exampleMetadata: fixture=default infused
+
+    Example::
+
+        guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+            guardrail_name="my-BedrockGuardrails"
+        )
+        # Add regex filter with input/output actions
+        guardrail.add_regex_filter(
+            name="TestRegexFilter",
+            pattern="test-pattern",
+            action=bedrock.GuardrailAction.ANONYMIZE,
+            # below props are optional
+            description="This is a test regex filter",
+            input_action=bedrock.GuardrailAction.BLOCK,
+            input_enabled=True,
+            output_action=bedrock.GuardrailAction.ANONYMIZE,
+            output_enabled=True
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        guardrail_name: builtins.str,
+        blocked_input_messaging: typing.Optional[builtins.str] = None,
+        blocked_outputs_messaging: typing.Optional[builtins.str] = None,
+        content_filters: typing.Optional[typing.Sequence[typing.Union["ContentFilter", typing.Dict[builtins.str, typing.Any]]]] = None,
+        content_filters_tier_config: typing.Optional["TierConfig"] = None,
+        contextual_grounding_filters: typing.Optional[typing.Sequence[typing.Union["ContextualGroundingFilter", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cross_region_config: typing.Optional[typing.Union["GuardrailCrossRegionConfigProperty", typing.Dict[builtins.str, typing.Any]]] = None,
+        denied_topics: typing.Optional[typing.Sequence["Topic"]] = None,
+        description: typing.Optional[builtins.str] = None,
+        kms_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+        managed_word_list_filters: typing.Optional[typing.Sequence[typing.Union["ManagedWordFilter", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pii_filters: typing.Optional[typing.Sequence[typing.Union["PIIFilter", typing.Dict[builtins.str, typing.Any]]]] = None,
+        regex_filters: typing.Optional[typing.Sequence[typing.Union["RegexFilter", typing.Dict[builtins.str, typing.Any]]]] = None,
+        topics_tier_config: typing.Optional["TierConfig"] = None,
+        word_filters: typing.Optional[typing.Sequence[typing.Union["WordFilter", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param guardrail_name: (experimental) The name of the guardrail. This will be used as the physical name of the guardrail.
+        :param blocked_input_messaging: (experimental) The message to return when the guardrail blocks a prompt. Must be between 1 and 500 characters. Default: "Sorry, your query violates our usage policy."
+        :param blocked_outputs_messaging: (experimental) The message to return when the guardrail blocks a model response. Must be between 1 and 500 characters. Default: "Sorry, I am unable to answer your question because of our usage policy."
+        :param content_filters: (experimental) The content filters to apply to the guardrail. Default: []
+        :param content_filters_tier_config: (experimental) The tier configuration to apply to the guardrail. Default: filters.TierConfig.CLASSIC
+        :param contextual_grounding_filters: (experimental) The contextual grounding filters to apply to the guardrail. Default: []
+        :param cross_region_config: (experimental) The cross-region configuration for the guardrail. This is optional and when provided, it should be of type GuardrailCrossRegionConfigProperty. Default: - No cross-region configuration
+        :param denied_topics: (experimental) A list of policies related to topics that the guardrail should deny. Default: []
+        :param description: (experimental) The description of the guardrail. Default: - No description
+        :param kms_key: (experimental) A custom KMS key to use for encrypting data. Default: - Data is encrypted by default with a key that AWS owns and manages for you
+        :param managed_word_list_filters: (experimental) The managed word filters to apply to the guardrail. Default: []
+        :param pii_filters: (experimental) The PII filters to apply to the guardrail. Default: []
+        :param regex_filters: (experimental) The regular expression (regex) filters to apply to the guardrail. Default: []
+        :param topics_tier_config: (experimental) The tier configuration to apply to the guardrail. Default: filters.TierConfig.CLASSIC
+        :param word_filters: (experimental) The word filters to apply to the guardrail. Default: []
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9cc76281da1487b175f2b421d5e876e86cc1dbef15b9ba267c071ed09902aa11)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = GuardrailProps(
+            guardrail_name=guardrail_name,
+            blocked_input_messaging=blocked_input_messaging,
+            blocked_outputs_messaging=blocked_outputs_messaging,
+            content_filters=content_filters,
+            content_filters_tier_config=content_filters_tier_config,
+            contextual_grounding_filters=contextual_grounding_filters,
+            cross_region_config=cross_region_config,
+            denied_topics=denied_topics,
+            description=description,
+            kms_key=kms_key,
+            managed_word_list_filters=managed_word_list_filters,
+            pii_filters=pii_filters,
+            regex_filters=regex_filters,
+            topics_tier_config=topics_tier_config,
+            word_filters=word_filters,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromCfnGuardrail")
+    @builtins.classmethod
+    def from_cfn_guardrail(
+        cls,
+        cfn_guardrail: "_aws_cdk_aws_bedrock_ceddda9d.CfnGuardrail",
+    ) -> "IGuardrail":
+        '''(experimental) Import a low-level L1 Cfn Guardrail.
+
+        :param cfn_guardrail: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e6cd89d5cb29d103635b6161cd7d7d1145cf5d47f414e2d895c2235191de2087)
+            check_type(argname="argument cfn_guardrail", value=cfn_guardrail, expected_type=type_hints["cfn_guardrail"])
+        return typing.cast("IGuardrail", jsii.sinvoke(cls, "fromCfnGuardrail", [cfn_guardrail]))
+
+    @jsii.member(jsii_name="fromGuardrailAttributes")
+    @builtins.classmethod
+    def from_guardrail_attributes(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        guardrail_arn: builtins.str,
+        guardrail_version: typing.Optional[builtins.str] = None,
+        kms_key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
+    ) -> "IGuardrail":
+        '''(experimental) Import a guardrail given its attributes.
+
+        :param scope: -
+        :param id: -
+        :param guardrail_arn: (experimental) The ARN of the guardrail. At least one of guardrailArn or guardrailId must be defined in order to initialize a guardrail ref.
+        :param guardrail_version: (experimental) The version of the guardrail. Default: "DRAFT"
+        :param kms_key: (experimental) The KMS key of the guardrail if custom encryption is configured. Default: undefined - Means data is encrypted by default with a AWS-managed key
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9f0fb3cb3c8581a4e2c16c1872a189c98cfa93934db4497777be7ddc1dbb8fb0)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        attrs = GuardrailAttributes(
+            guardrail_arn=guardrail_arn,
+            guardrail_version=guardrail_version,
+            kms_key=kms_key,
+        )
+
+        return typing.cast("IGuardrail", jsii.sinvoke(cls, "fromGuardrailAttributes", [scope, id, attrs]))
+
+    @jsii.member(jsii_name="addContentFilter")
+    def add_content_filter(
+        self,
+        *,
+        input_strength: "ContentFilterStrength",
+        output_strength: "ContentFilterStrength",
+        type: "ContentFilterType",
+        input_action: typing.Optional["GuardrailAction"] = None,
+        input_enabled: typing.Optional[builtins.bool] = None,
+        input_modalities: typing.Optional[typing.Sequence["ModalityType"]] = None,
+        output_action: typing.Optional["GuardrailAction"] = None,
+        output_enabled: typing.Optional[builtins.bool] = None,
+        output_modalities: typing.Optional[typing.Sequence["ModalityType"]] = None,
+    ) -> None:
+        '''(experimental) Adds a content filter to the guardrail.
+
+        :param input_strength: (experimental) The strength of the content filter to apply to prompts / user input.
+        :param output_strength: (experimental) The strength of the content filter to apply to model responses.
+        :param type: (experimental) The type of harmful category that the content filter is applied to.
+        :param input_action: (experimental) The action to take when content is detected in the input. Default: GuardrailAction.BLOCK
+        :param input_enabled: (experimental) Whether the content filter is enabled for input. Default: true
+        :param input_modalities: (experimental) The input modalities to apply the content filter to. Default: undefined - Applies to text modality
+        :param output_action: (experimental) The action to take when content is detected in the output. Default: GuardrailAction.BLOCK
+        :param output_enabled: (experimental) Whether the content filter is enabled for output. Default: true
+        :param output_modalities: (experimental) The output modalities to apply the content filter to. Default: undefined - Applies to text modality
+
+        :stability: experimental
+        '''
+        filter = ContentFilter(
+            input_strength=input_strength,
+            output_strength=output_strength,
+            type=type,
+            input_action=input_action,
+            input_enabled=input_enabled,
+            input_modalities=input_modalities,
+            output_action=output_action,
+            output_enabled=output_enabled,
+            output_modalities=output_modalities,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "addContentFilter", [filter]))
+
+    @jsii.member(jsii_name="addContextualGroundingFilter")
+    def add_contextual_grounding_filter(
+        self,
+        *,
+        threshold: jsii.Number,
+        type: "ContextualGroundingFilterType",
+        action: typing.Optional["GuardrailAction"] = None,
+        enabled: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Adds a contextual grounding filter to the guardrail.
+
+        :param threshold: (experimental) The threshold for the contextual grounding filter. - ``0`` (blocks nothing) - ``0.99`` (blocks almost everything)
+        :param type: (experimental) The type of contextual grounding filter.
+        :param action: (experimental) The action to take when contextual grounding is detected. Default: GuardrailAction.BLOCK
+        :param enabled: (experimental) Whether the contextual grounding filter is enabled. Default: true
+
+        :stability: experimental
+        '''
+        filter = ContextualGroundingFilter(
+            threshold=threshold, type=type, action=action, enabled=enabled
+        )
+
+        return typing.cast(None, jsii.invoke(self, "addContextualGroundingFilter", [filter]))
+
+    @jsii.member(jsii_name="addDeniedTopicFilter")
+    def add_denied_topic_filter(self, filter: "Topic") -> None:
+        '''(experimental) Adds a denied topic filter to the guardrail.
+
+        :param filter: The denied topic filter to add.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9211c57e98da2744ef41f20d3cf12f97d3dad07e5665826e46e1e061ff620e3e)
+            check_type(argname="argument filter", value=filter, expected_type=type_hints["filter"])
+        return typing.cast(None, jsii.invoke(self, "addDeniedTopicFilter", [filter]))
+
+    @jsii.member(jsii_name="addManagedWordListFilter")
+    def add_managed_word_list_filter(
+        self,
+        *,
+        input_action: typing.Optional["GuardrailAction"] = None,
+        input_enabled: typing.Optional[builtins.bool] = None,
+        output_action: typing.Optional["GuardrailAction"] = None,
+        output_enabled: typing.Optional[builtins.bool] = None,
+        type: typing.Optional["ManagedWordFilterType"] = None,
+    ) -> None:
+        '''(experimental) Adds a managed word list filter to the guardrail.
+
+        :param input_action: (experimental) The action to take when a managed word is detected in the input. Default: GuardrailAction.BLOCK
+        :param input_enabled: (experimental) Whether the managed word filter is enabled for input. Default: true
+        :param output_action: (experimental) The action to take when a managed word is detected in the output. Default: GuardrailAction.BLOCK
+        :param output_enabled: (experimental) Whether the managed word filter is enabled for output. Default: true
+        :param type: (experimental) The type of managed word filter. Default: ManagedWordFilterType.PROFANITY
+
+        :stability: experimental
+        '''
+        filter = ManagedWordFilter(
+            input_action=input_action,
+            input_enabled=input_enabled,
+            output_action=output_action,
+            output_enabled=output_enabled,
+            type=type,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "addManagedWordListFilter", [filter]))
+
+    @jsii.member(jsii_name="addPIIFilter")
+    def add_pii_filter(
+        self,
+        *,
+        action: "GuardrailAction",
+        type: "PIIType",
+        input_action: typing.Optional["GuardrailAction"] = None,
+        input_enabled: typing.Optional[builtins.bool] = None,
+        output_action: typing.Optional["GuardrailAction"] = None,
+        output_enabled: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Adds a PII filter to the guardrail.
+
+        :param action: (experimental) The action to take when PII is detected.
+        :param type: (experimental) The type of PII to filter.
+        :param input_action: (experimental) The action to take when PII is detected in the input. Default: GuardrailAction.BLOCK
+        :param input_enabled: (experimental) Whether the PII filter is enabled for input. Default: true
+        :param output_action: (experimental) The action to take when PII is detected in the output. Default: GuardrailAction.BLOCK
+        :param output_enabled: (experimental) Whether the PII filter is enabled for output. Default: true
+
+        :stability: experimental
+        '''
+        filter = PIIFilter(
+            action=action,
+            type=type,
+            input_action=input_action,
+            input_enabled=input_enabled,
+            output_action=output_action,
+            output_enabled=output_enabled,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "addPIIFilter", [filter]))
+
+    @jsii.member(jsii_name="addRegexFilter")
+    def add_regex_filter(
+        self,
+        *,
+        action: "GuardrailAction",
+        name: builtins.str,
+        pattern: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        input_action: typing.Optional["GuardrailAction"] = None,
+        input_enabled: typing.Optional[builtins.bool] = None,
+        output_action: typing.Optional["GuardrailAction"] = None,
+        output_enabled: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Adds a regex filter to the guardrail.
+
+        :param action: (experimental) The action to take when a regex match is detected.
+        :param name: (experimental) The name of the regex filter.
+        :param pattern: (experimental) The regular expression pattern to match.
+        :param description: (experimental) The description of the regex filter. Default: - No description
+        :param input_action: (experimental) The action to take when a regex match is detected in the input. Default: GuardrailAction.BLOCK
+        :param input_enabled: (experimental) Whether the regex filter is enabled for input. Default: true
+        :param output_action: (experimental) The action to take when a regex match is detected in the output. Default: GuardrailAction.BLOCK
+        :param output_enabled: (experimental) Whether the regex filter is enabled for output. Default: true
+
+        :stability: experimental
+        '''
+        filter = RegexFilter(
+            action=action,
+            name=name,
+            pattern=pattern,
+            description=description,
+            input_action=input_action,
+            input_enabled=input_enabled,
+            output_action=output_action,
+            output_enabled=output_enabled,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "addRegexFilter", [filter]))
+
+    @jsii.member(jsii_name="addWordFilter")
+    def add_word_filter(
+        self,
+        *,
+        text: builtins.str,
+        input_action: typing.Optional["GuardrailAction"] = None,
+        input_enabled: typing.Optional[builtins.bool] = None,
+        output_action: typing.Optional["GuardrailAction"] = None,
+        output_enabled: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Adds a word filter to the guardrail.
+
+        :param text: (experimental) The text to filter.
+        :param input_action: (experimental) The action to take when a word is detected in the input. Default: GuardrailAction.BLOCK
+        :param input_enabled: (experimental) Whether the word filter is enabled for input. Default: true
+        :param output_action: (experimental) The action to take when a word is detected in the output. Default: GuardrailAction.BLOCK
+        :param output_enabled: (experimental) Whether the word filter is enabled for output. Default: true
+
+        :stability: experimental
+        '''
+        filter = WordFilter(
+            text=text,
+            input_action=input_action,
+            input_enabled=input_enabled,
+            output_action=output_action,
+            output_enabled=output_enabled,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "addWordFilter", [filter]))
+
+    @jsii.member(jsii_name="addWordFilterFromFile")
+    def add_word_filter_from_file(
+        self,
+        file_path: builtins.str,
+        input_action: typing.Optional["GuardrailAction"] = None,
+        output_action: typing.Optional["GuardrailAction"] = None,
+        input_enabled: typing.Optional[builtins.bool] = None,
+        output_enabled: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Adds a word filter to the guardrail.
+
+        :param file_path: The location of the word filter file.
+        :param input_action: -
+        :param output_action: -
+        :param input_enabled: -
+        :param output_enabled: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b3b4fd2117744015c5db7f001e05574459291192522522d6a56ca73cea74574b)
+            check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
+            check_type(argname="argument input_action", value=input_action, expected_type=type_hints["input_action"])
+            check_type(argname="argument output_action", value=output_action, expected_type=type_hints["output_action"])
+            check_type(argname="argument input_enabled", value=input_enabled, expected_type=type_hints["input_enabled"])
+            check_type(argname="argument output_enabled", value=output_enabled, expected_type=type_hints["output_enabled"])
+        return typing.cast(None, jsii.invoke(self, "addWordFilterFromFile", [file_path, input_action, output_action, input_enabled, output_enabled]))
+
+    @jsii.member(jsii_name="createVersion")
+    def create_version(
+        self,
+        description: typing.Optional[builtins.str] = None,
+    ) -> builtins.str:
+        '''(experimental) Create a version for the guardrail.
+
+        :param description: The description of the version.
+
+        :return: The guardrail version.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8cc9ee864484b0822c9ff48b990b273cbcd399c20254b74590103c42cd07fae9)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+        return typing.cast(builtins.str, jsii.invoke(self, "createVersion", [description]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''(experimental) Uniquely identifies this class.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="blockedInputMessaging")
+    def blocked_input_messaging(self) -> builtins.str:
+        '''(experimental) The message to return when the guardrail blocks a prompt.
+
+        :default: "Sorry, your query violates our usage policy."
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "blockedInputMessaging"))
+
+    @builtins.property
+    @jsii.member(jsii_name="blockedOutputsMessaging")
+    def blocked_outputs_messaging(self) -> builtins.str:
+        '''(experimental) The message to return when the guardrail blocks a model response.
+
+        :default: "Sorry, I am unable to answer your question because of our usage policy."
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "blockedOutputsMessaging"))
+
+    @builtins.property
+    @jsii.member(jsii_name="contentFilters")
+    def content_filters(self) -> typing.List["ContentFilter"]:
+        '''(experimental) The content filters applied by the guardrail.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List["ContentFilter"], jsii.get(self, "contentFilters"))
+
+    @builtins.property
+    @jsii.member(jsii_name="contentFiltersTierConfig")
+    def content_filters_tier_config(self) -> "TierConfig":
+        '''(experimental) The tier that your guardrail uses for content filters.
+
+        Consider using a tier that balances performance, accuracy, and compatibility with your existing generative AI workflows.
+
+        :default: filters.TierConfig.CLASSIC
+
+        :stability: experimental
+        '''
+        return typing.cast("TierConfig", jsii.get(self, "contentFiltersTierConfig"))
+
+    @builtins.property
+    @jsii.member(jsii_name="contextualGroundingFilters")
+    def contextual_grounding_filters(self) -> typing.List["ContextualGroundingFilter"]:
+        '''(experimental) The contextual grounding filters applied by the guardrail.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List["ContextualGroundingFilter"], jsii.get(self, "contextualGroundingFilters"))
+
+    @builtins.property
+    @jsii.member(jsii_name="deniedTopics")
+    def denied_topics(self) -> typing.List["Topic"]:
+        '''(experimental) The denied topic filters applied by the guardrail.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List["Topic"], jsii.get(self, "deniedTopics"))
+
+    @builtins.property
+    @jsii.member(jsii_name="guardrailArn")
+    def guardrail_arn(self) -> builtins.str:
+        '''(experimental) The ARN of the guardrail.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "guardrailArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="guardrailId")
+    def guardrail_id(self) -> builtins.str:
+        '''(experimental) The ID of the guardrail.
+
+        :stability: experimental
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "guardrailId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="hash")
+    def hash(self) -> builtins.str:
+        '''(experimental) The computed hash of the guardrail properties.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "hash"))
+
+    @builtins.property
+    @jsii.member(jsii_name="managedWordListFilters")
+    def managed_word_list_filters(self) -> typing.List["ManagedWordFilter"]:
+        '''(experimental) The managed word list filters applied by the guardrail.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List["ManagedWordFilter"], jsii.get(self, "managedWordListFilters"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''(experimental) The name of the guardrail.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @builtins.property
+    @jsii.member(jsii_name="piiFilters")
+    def pii_filters(self) -> typing.List["PIIFilter"]:
+        '''(experimental) The PII filters applied by the guardrail.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List["PIIFilter"], jsii.get(self, "piiFilters"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regexFilters")
+    def regex_filters(self) -> typing.List["RegexFilter"]:
+        '''(experimental) The regex filters applied by the guardrail.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List["RegexFilter"], jsii.get(self, "regexFilters"))
+
+    @builtins.property
+    @jsii.member(jsii_name="topicsTierConfig")
+    def topics_tier_config(self) -> "TierConfig":
+        '''(experimental) The tier that your guardrail uses for denied topic filters.
+
+        :default: filters.TierConfig.CLASSIC
+
+        :stability: experimental
+        '''
+        return typing.cast("TierConfig", jsii.get(self, "topicsTierConfig"))
+
+    @builtins.property
+    @jsii.member(jsii_name="wordFilters")
+    def word_filters(self) -> typing.List["WordFilter"]:
+        '''(experimental) The word filters applied by the guardrail.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.List["WordFilter"], jsii.get(self, "wordFilters"))
+
+    @builtins.property
+    @jsii.member(jsii_name="crossRegionConfig")
+    def cross_region_config(
+        self,
+    ) -> typing.Optional["GuardrailCrossRegionConfigProperty"]:
+        '''(experimental) The cross-region configuration for the guardrail.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["GuardrailCrossRegionConfigProperty"], jsii.get(self, "crossRegionConfig"))
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKey")
+    def kms_key(self) -> typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"]:
+        '''(experimental) The KMS key used to encrypt data.
+
+        :default: undefined - "Data is encrypted by default with a key that AWS owns and manages for you"
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"], jsii.get(self, "kmsKey"))
+
+    @builtins.property
+    @jsii.member(jsii_name="lastUpdated")
+    def last_updated(self) -> typing.Optional[builtins.str]:
+        '''(experimental) When this guardrail was last updated.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "lastUpdated"))
+
+
+__all__ = [
+    "ActionGroupExecutor",
+    "Agent",
+    "AgentActionGroup",
+    "AgentActionGroupProps",
+    "AgentAlias",
+    "AgentAliasAttributes",
+    "AgentAliasBase",
+    "AgentAliasProps",
+    "AgentAttributes",
+    "AgentBase",
+    "AgentCollaboration",
+    "AgentCollaborationConfig",
+    "AgentCollaborator",
+    "AgentCollaboratorProps",
+    "AgentCollaboratorType",
+    "AgentGenAiResourceProps",
+    "AgentPromptVariantProps",
+    "AgentProps",
+    "AgentStepType",
+    "ApiSchema",
+    "ApplicationInferenceProfile",
+    "ApplicationInferenceProfileAttributes",
+    "ApplicationInferenceProfileProps",
+    "AssetApiSchema",
+    "BedrockFoundationModel",
+    "BedrockFoundationModelProps",
+    "CanadaSpecificPIIType",
+    "ChatMessage",
+    "ChatMessageRole",
+    "ChatPromptVariantProps",
+    "ChatTemplateConfigurationProps",
+    "CommonPromptVariantProps",
+    "ContentFilter",
+    "ContentFilterStrength",
+    "ContentFilterType",
+    "ContextualGroundingFilter",
+    "ContextualGroundingFilterType",
+    "CrossRegionInferenceProfile",
+    "CrossRegionInferenceProfileProps",
+    "CrossRegionInferenceProfileRegion",
+    "CustomControl",
+    "CustomOrchestrationExecutor",
+    "CustomParserProps",
+    "CustomTopicProps",
+    "DefaultPromptRouterIdentifier",
+    "FinancePIIType",
+    "Function",
+    "FunctionParameter",
+    "FunctionParameterProps",
+    "FunctionProps",
+    "FunctionSchema",
+    "FunctionSchemaProps",
+    "FunctionToolProps",
+    "GeneralPIIType",
+    "Guardrail",
+    "GuardrailAction",
+    "GuardrailAttributes",
+    "GuardrailBase",
+    "GuardrailCrossRegionConfigProperty",
+    "GuardrailProps",
+    "IAgent",
+    "IAgentAlias",
+    "IBedrockInvokable",
+    "IGuardrail",
+    "IInferenceProfile",
+    "IPrompt",
+    "IPromptRouter",
+    "IPromptVariant",
+    "InferenceConfiguration",
+    "InferenceProfileBase",
+    "InferenceProfileType",
+    "InformationTechnologyPIIType",
+    "InlineApiSchema",
+    "ManagedWordFilter",
+    "ManagedWordFilterType",
+    "Memory",
+    "ModalityType",
+    "OrchestrationType",
+    "PIIFilter",
+    "PIIType",
+    "ParameterType",
+    "ParentActionGroupSignature",
+    "Prompt",
+    "PromptAttributes",
+    "PromptBase",
+    "PromptGenAiResource",
+    "PromptInferenceConfiguration",
+    "PromptInferenceConfigurationProps",
+    "PromptKnowledgeBaseResponseGenerationConfigCustomParser",
+    "PromptMemorySummarizationConfigCustomParser",
+    "PromptOrchestrationConfigCustomParser",
+    "PromptOverrideConfiguration",
+    "PromptPostProcessingConfigCustomParser",
+    "PromptPreProcessingConfigCustomParser",
+    "PromptProps",
+    "PromptRouter",
+    "PromptRouterProps",
+    "PromptRoutingClassifierConfigCustomParser",
+    "PromptStepConfigBase",
+    "PromptTemplateConfiguration",
+    "PromptTemplateType",
+    "PromptVariant",
+    "PromptVersion",
+    "PromptVersionProps",
+    "RegexFilter",
+    "RequireConfirmation",
+    "S3ApiSchema",
+    "SessionSummaryMemoryProps",
+    "TextPromptVariantProps",
+    "TextTemplateConfigurationProps",
+    "TierConfig",
+    "Tool",
+    "ToolChoice",
+    "ToolConfiguration",
+    "Topic",
+    "UKSpecificPIIType",
+    "USASpecificPIIType",
+    "VectorType",
+    "WordFilter",
+]
+
+publication.publish()
+
+def _typecheckingstub__b3f8715f9bf580f1336c3ef0001b564cd5377a641554f928ee8a9337f101d4ea(
+    lambda_function: _aws_cdk_aws_lambda_ceddda9d.IFunction,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f216a3b9945ded433d1397b46354d778b44544b12c7e1444f18f26697b23c949(
+    enabled: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c7e35cbb8b23de7b78171edfc3dfea96900c1650cd60b84a3b3daafe40b03e1e(
+    enabled: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__96565235b78a53a99b9a5b0de1f6e1cb436217f7023225486fb3b6b0402c16b1(
+    *,
+    api_schema: typing.Optional[ApiSchema] = None,
+    description: typing.Optional[builtins.str] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    executor: typing.Optional[ActionGroupExecutor] = None,
+    force_delete: typing.Optional[builtins.bool] = None,
+    function_schema: typing.Optional[FunctionSchema] = None,
+    name: typing.Optional[builtins.str] = None,
+    parent_action_group_signature: typing.Optional[ParentActionGroupSignature] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2cf3ee27a5cffdeb97ea680716346f7407718c3709c2070bc5cfe5846adf5e53(
+    *,
+    agent: IAgent,
+    agent_version: builtins.str,
+    alias_id: builtins.str,
+    alias_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__223e58e52a6c762628fbd5894a3746df0edc021abe283a3fa5fae709b84c6e2b(
+    *,
+    agent: IAgent,
+    agent_alias_name: typing.Optional[builtins.str] = None,
+    agent_version: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ec4361e61c0d3b4b62f635521602d37a1a496b4cd051caa617df76fefcfb8daa(
+    *,
+    agent_arn: builtins.str,
+    role_arn: builtins.str,
+    agent_version: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+    last_updated: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8a9907acc35e0edfd5ff2b73fc849757eb706524befb93fa2d2644edefa77814(
+    *,
+    collaborators: typing.Sequence[AgentCollaborator],
+    type: AgentCollaboratorType,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5dcc21bf3943fccd3a13e28a26304d667dc4ab7c6a95e6ba7b947029e97b6f3(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__38cb6ea0e190b8eef95b7964639213d5273c82e36cad360e5f54a538ea1015a1(
+    *,
+    agent_alias: IAgentAlias,
+    collaboration_instruction: builtins.str,
+    collaborator_name: builtins.str,
+    relay_conversation_history: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__33bcde888a455b9531f35f38f12e7c13c3f7670348fd29ef4e818ebfdb3ccaf2(
+    *,
+    agent_alias: IAgentAlias,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1e71f5eada4b0acb202729bade487b2adb4e2e2b8fd4546f4cb3bcbc8f3d8cc1(
+    *,
+    foundation_model: IBedrockInvokable,
+    instruction: builtins.str,
+    action_groups: typing.Optional[typing.Sequence[AgentActionGroup]] = None,
+    agent_collaboration: typing.Optional[AgentCollaboration] = None,
+    agent_name: typing.Optional[builtins.str] = None,
+    code_interpreter_enabled: typing.Optional[builtins.bool] = None,
+    custom_orchestration_executor: typing.Optional[CustomOrchestrationExecutor] = None,
+    description: typing.Optional[builtins.str] = None,
+    existing_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+    force_delete: typing.Optional[builtins.bool] = None,
+    guardrail: typing.Optional[IGuardrail] = None,
+    idle_session_ttl: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    memory: typing.Optional[Memory] = None,
+    prompt_override_configuration: typing.Optional[PromptOverrideConfiguration] = None,
+    should_prepare_agent: typing.Optional[builtins.bool] = None,
+    user_input_enabled: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fef98095a98b1c3218daff037e79d43c41de797ec47d848bf1caa44f27c10abf(
+    s3_file: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.Location, typing.Dict[builtins.str, typing.Any]]] = None,
+    inline_schema: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ea650d724bddc459b33660757cb186cf804ba8ff34e5149c2ba116012bac3d13(
+    schema: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ef4f4f3b1ccc0ba1ca114b89046ebec72d8562e37d54d5ce5a48fb13bdb98e5(
+    path: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__882387202413f33bb2e0f658215337e89d82d8bab90973056398f7bc7f939f52(
+    bucket: _aws_cdk_interfaces_aws_s3_ceddda9d.IBucketRef,
+    object_key: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__76e0a26e725dfaec34abb9a24f9dbb705db1ad5628dcbb66f7928377b31d4c7e(
+    *,
+    inference_profile_arn: builtins.str,
+    inference_profile_identifier: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__810069fb413e0865d1bc4f071e4e80a59497c694c81a5012ce44cde4a3aaa6fb(
+    *,
+    application_inference_profile_name: builtins.str,
+    model_source: IBedrockInvokable,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aee3c625b88d3cf9715cbd94ca9cf4c640ffe4007031b066fcea7749d1fd3b20(
+    path: builtins.str,
+    *,
+    deploy_time: typing.Optional[builtins.bool] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    readers: typing.Optional[typing.Sequence[_aws_cdk_aws_iam_ceddda9d.IGrantable]] = None,
+    source_kms_key: typing.Optional[_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef] = None,
+    asset_hash: typing.Optional[builtins.str] = None,
+    asset_hash_type: typing.Optional[_aws_cdk_ceddda9d.AssetHashType] = None,
+    bundling: typing.Optional[typing.Union[_aws_cdk_ceddda9d.BundlingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+    follow_symlinks: typing.Optional[_aws_cdk_ceddda9d.SymlinkFollowMode] = None,
+    ignore_mode: typing.Optional[_aws_cdk_ceddda9d.IgnoreMode] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e42433d3c2e0a249ee91a1f011a13449ed0bdad079ab434f1317b403ad25b8e7(
+    scope: _constructs_77d1e7e8.Construct,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9871e1b6209dedd6005dcce72b65ee8c40c6a25156e22de4c732060c640acf67(
+    *,
+    legacy: typing.Optional[builtins.bool] = None,
+    optimized_for_agents: typing.Optional[builtins.bool] = None,
+    supported_vector_type: typing.Optional[typing.Sequence[VectorType]] = None,
+    supports_agents: typing.Optional[builtins.bool] = None,
+    supports_cross_region: typing.Optional[builtins.bool] = None,
+    supports_knowledge_base: typing.Optional[builtins.bool] = None,
+    vector_dimensions: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__69926d4c72afa6eb67b4372eb231b05022c986c807207c2ca08a862641fc1228(
+    role: ChatMessageRole,
+    text: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cfba172ab223d8d947414c2e6237817df150f4b81d03d66f5a55e7b6f72dca92(
+    text: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9962ea2fe07172e88bf2a3a245c970a1aa16b150b0e7663a0ad70d39cab6a665(
+    text: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__13df5cea477f33c5ec15daf2643457ae61e75630602804bd588d737bade36a12(
+    *,
+    messages: typing.Sequence[ChatMessage],
+    input_variables: typing.Optional[typing.Sequence[builtins.str]] = None,
+    system: typing.Optional[builtins.str] = None,
+    tool_configuration: typing.Optional[typing.Union[ToolConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d5c1966c59dd84fee806a6f6b9ed1086393c0f932d389f23b26cd3a1311804dd(
+    *,
+    model: IBedrockInvokable,
+    variant_name: builtins.str,
+    prompt_variables: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__21467c345b1f90d2308981e3bf6521f4ebbc70404310b69e5393e88c0db166a8(
+    *,
+    input_strength: ContentFilterStrength,
+    output_strength: ContentFilterStrength,
+    type: ContentFilterType,
+    input_action: typing.Optional[GuardrailAction] = None,
+    input_enabled: typing.Optional[builtins.bool] = None,
+    input_modalities: typing.Optional[typing.Sequence[ModalityType]] = None,
+    output_action: typing.Optional[GuardrailAction] = None,
+    output_enabled: typing.Optional[builtins.bool] = None,
+    output_modalities: typing.Optional[typing.Sequence[ModalityType]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__acb2ec7f1c0805242859a3b876b9d882033c3ed6bf8d3bdca028b8e9e3f91ff4(
+    *,
+    threshold: jsii.Number,
+    type: ContextualGroundingFilterType,
+    action: typing.Optional[GuardrailAction] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c3aad6016aa72f7f91a877c52ec9c860dd8b442b1aaee38aa485432923186a0f(
+    *,
+    geo_region: CrossRegionInferenceProfileRegion,
+    model: BedrockFoundationModel,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9581a8fe03e677bcf39692a4a671ac83b906583168b1efeb85160cd87ace6e24(
+    lambda_function: _aws_cdk_aws_lambda_ceddda9d.IFunction,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5e9247125ea57043b0c8014036fd32415bac33f25230256cde57ebee738d550b(
+    *,
+    knowledge_base_response_generation_step: typing.Optional[typing.Union[PromptKnowledgeBaseResponseGenerationConfigCustomParser, typing.Dict[builtins.str, typing.Any]]] = None,
+    memory_summarization_step: typing.Optional[typing.Union[PromptMemorySummarizationConfigCustomParser, typing.Dict[builtins.str, typing.Any]]] = None,
+    orchestration_step: typing.Optional[typing.Union[PromptOrchestrationConfigCustomParser, typing.Dict[builtins.str, typing.Any]]] = None,
+    parser: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.IFunction] = None,
+    post_processing_step: typing.Optional[typing.Union[PromptPostProcessingConfigCustomParser, typing.Dict[builtins.str, typing.Any]]] = None,
+    pre_processing_step: typing.Optional[typing.Union[PromptPreProcessingConfigCustomParser, typing.Dict[builtins.str, typing.Any]]] = None,
+    routing_classifier_step: typing.Optional[typing.Union[PromptRoutingClassifierConfigCustomParser, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__beed11d4471f17479492fcdf7dff3800d890e1a0ba2217447c6c8fefc0cb523e(
+    *,
+    definition: builtins.str,
+    examples: typing.Sequence[builtins.str],
+    name: builtins.str,
+    input_action: typing.Optional[GuardrailAction] = None,
+    input_enabled: typing.Optional[builtins.bool] = None,
+    output_action: typing.Optional[GuardrailAction] = None,
+    output_enabled: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__afff183f47ab9cba063848fa5cc915f6deaad94e1aaeca1688be3a79be4bf746(
+    *,
+    type: ParameterType,
+    description: typing.Optional[builtins.str] = None,
+    required: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d6a1e6361e2edbbe58148c14c19a168946ef6213e0d123499089a4f3e48f6a0d(
+    *,
+    description: builtins.str,
+    name: builtins.str,
+    parameters: typing.Optional[typing.Mapping[builtins.str, typing.Union[FunctionParameterProps, typing.Dict[builtins.str, typing.Any]]]] = None,
+    require_confirmation: typing.Optional[RequireConfirmation] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__64dfdaad570b5bc4904b9d9f356eb416095866cc4cca0546c2bb37dbb844e916(
+    *,
+    functions: typing.Sequence[typing.Union[FunctionProps, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6b7085110ea801ef9ae204ede9e1d507ec3d4b73d3bf7e52b8ff251bf268dd08(
+    *,
+    description: builtins.str,
+    input_schema: typing.Any,
+    name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__443b07ac479ccb99a117fa9b47b1c7ef1d39f39c60d2240301632b277220ee69(
+    *,
+    guardrail_arn: builtins.str,
+    guardrail_version: typing.Optional[builtins.str] = None,
+    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__86537e134053437104c276125d87105036299eb706678090c020ed8c1fce3614(
+    *,
+    guardrail_profile_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e08b0d4db3b9c9f5f0cb1dec2d26ccaa28b79f14c4ed9061807181c90fdd4473(
+    *,
+    guardrail_name: builtins.str,
+    blocked_input_messaging: typing.Optional[builtins.str] = None,
+    blocked_outputs_messaging: typing.Optional[builtins.str] = None,
+    content_filters: typing.Optional[typing.Sequence[typing.Union[ContentFilter, typing.Dict[builtins.str, typing.Any]]]] = None,
+    content_filters_tier_config: typing.Optional[TierConfig] = None,
+    contextual_grounding_filters: typing.Optional[typing.Sequence[typing.Union[ContextualGroundingFilter, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cross_region_config: typing.Optional[typing.Union[GuardrailCrossRegionConfigProperty, typing.Dict[builtins.str, typing.Any]]] = None,
+    denied_topics: typing.Optional[typing.Sequence[Topic]] = None,
+    description: typing.Optional[builtins.str] = None,
+    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    managed_word_list_filters: typing.Optional[typing.Sequence[typing.Union[ManagedWordFilter, typing.Dict[builtins.str, typing.Any]]]] = None,
+    pii_filters: typing.Optional[typing.Sequence[typing.Union[PIIFilter, typing.Dict[builtins.str, typing.Any]]]] = None,
+    regex_filters: typing.Optional[typing.Sequence[typing.Union[RegexFilter, typing.Dict[builtins.str, typing.Any]]]] = None,
+    topics_tier_config: typing.Optional[TierConfig] = None,
+    word_filters: typing.Optional[typing.Sequence[typing.Union[WordFilter, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f618bd28d205f12fe18f577c6cf06cfa5419cd5eba307a62054fe15003721240(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__36b2c150112fc98f8b2c8eebfbc62fdd6f55ded880e47bf4dffbba187d0bf1c4(
+    id: builtins.str,
+    *,
+    target: typing.Optional[_aws_cdk_aws_events_ceddda9d.IRuleTarget] = None,
+    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+    description: typing.Optional[builtins.str] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_cdk_aws_events_ceddda9d.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
+    rule_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f4cca4a424332ea1f29775bfb3a1ac6db0f5368e9dfae8d1adb7fe67e042a6af(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4f3e1ad5ab734c71be4df5c8ad8732b4f05f16f371b0379a039c7c2d3b7dec8a(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c205eff6a91ceb0127ca10998bf86f4e152274ba9eceea415fa6e71f802904bb(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ad4bacfc955253cfea89b4d09ebbbf2ccae8ba53fb98679bb4f2f96718f4477c(
+    id: builtins.str,
+    *,
+    target: typing.Optional[_aws_cdk_aws_events_ceddda9d.IRuleTarget] = None,
+    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+    description: typing.Optional[builtins.str] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_cdk_aws_events_ceddda9d.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
+    rule_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aeff941da61743d78967d00b93f8c3e1baf285b4d10bc9d78579d8de4c9e8a77(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__250f9ca816d2b6d16388bd03db7cd93a7f40623473d31ca8e97ddbe470fd285c(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__62abcf64ad0ab789ac6a912c77de318dd484b4fa8b9fb15b20edc4d2e6e4fb02(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a7540f7e59149363a835819cc327ebe6b68d729fae169758f3530fe8ed70519a(
+    metric_name: builtins.str,
+    *,
+    account: typing.Optional[builtins.str] = None,
+    color: typing.Optional[builtins.str] = None,
+    dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
+    label: typing.Optional[builtins.str] = None,
+    period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+    region: typing.Optional[builtins.str] = None,
+    stack_account: typing.Optional[builtins.str] = None,
+    stack_region: typing.Optional[builtins.str] = None,
+    statistic: typing.Optional[builtins.str] = None,
+    unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+    visible: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9439593fbd53c1ca5d647f4f4b2338d27a3846bf28c592d17bea368919bba850(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8d0c9bda8bb121bbb6718c11c00d067e281206ebf3da183776755834fe0d8034(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__715d624dff386da6c193fd1c39e8c824ded7833eed6a175f93d3637254cabb5e(
+    *,
+    maximum_length: jsii.Number,
+    stop_sequences: typing.Sequence[builtins.str],
+    temperature: jsii.Number,
+    top_k: jsii.Number,
+    top_p: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a92128ef177576fc47dd242f72eaca7ea324de856c4f996463476ca04f2117c(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    account: typing.Optional[builtins.str] = None,
+    environment_from_arn: typing.Optional[builtins.str] = None,
+    physical_name: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4c18fbb6be22a845480bc57c434a67a7dd3c72f457d131263982fd961d964a22(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c276a821c9a889fcfc1d87230ab9f92627a99c7dc83fc06a8d00bb8d1534657(
+    schema: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a32b0c29adeafeacb313b2573db65ee55b9a86ec336ea84c3d9ced7dfa77f2f5(
+    *,
+    input_action: typing.Optional[GuardrailAction] = None,
+    input_enabled: typing.Optional[builtins.bool] = None,
+    output_action: typing.Optional[GuardrailAction] = None,
+    output_enabled: typing.Optional[builtins.bool] = None,
+    type: typing.Optional[ManagedWordFilterType] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__03660a8d794d1a579d50482b7ab1aa01ead0b3fb4f007eab6b8d03667d529d3d(
+    *,
+    action: GuardrailAction,
+    type: PIIType,
+    input_action: typing.Optional[GuardrailAction] = None,
+    input_enabled: typing.Optional[builtins.bool] = None,
+    output_action: typing.Optional[GuardrailAction] = None,
+    output_enabled: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f9f8951bbb8ec3e87e12f6615e72da3aacdc8a5244206ecd632a6856830aeb5d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ebccabd52fd67d660adf169e439525008c110204b48e0ed669d4ffeedce9e65e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__51ef93b4f36fd5b08bde67e71ac5163a924fe26c9faa4e4a1d4f5473c5569084(
+    *,
+    prompt_arn: builtins.str,
+    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    prompt_version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dfcb754f2fd64105d1e04b3f87d6a0011a2db79ad0e445b16106b4fcf8e8e371(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    account: typing.Optional[builtins.str] = None,
+    environment_from_arn: typing.Optional[builtins.str] = None,
+    physical_name: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9a3b05516407e9f443e5374ffeef1f1b1547353eca4f1ba930fa7e715ec0b0aa(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8535f55e5da7e4040e8859bbfb4263d7bb7890f5f2a84ce7cbde56f283ac65a2(
+    *,
+    max_tokens: typing.Optional[jsii.Number] = None,
+    stop_sequences: typing.Optional[typing.Sequence[builtins.str]] = None,
+    temperature: typing.Optional[jsii.Number] = None,
+    top_p: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1d39057223b726590938606b5e3ac9d394a1418fec4a81576b5273321f3b86d8(
+    steps: typing.Sequence[typing.Union[PromptStepConfigBase, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f21d48bc28a05638e542db3f20b402102894e3c71cc5a1cfad3da206c3ec491b(
+    *,
+    prompt_name: builtins.str,
+    default_variant: typing.Optional[IPromptVariant] = None,
+    description: typing.Optional[builtins.str] = None,
+    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    variants: typing.Optional[typing.Sequence[IPromptVariant]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2d7aaad1ae87d58cbbe31bd9cb833594ac94ad6ecd7ff13daa345953d9bc443e(
+    props: typing.Union[PromptRouterProps, typing.Dict[builtins.str, typing.Any]],
+    region: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__408cce5bf982b8040ad0c4b74941ddd8d1510bbca8f87f984cc655e97b09345e(
+    default_router: DefaultPromptRouterIdentifier,
+    region: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__80f5135bd6e526d5ba652584fd86c268a4deda87d2f6331a9f85c248013b85c7(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2d9920c9e1ac11de1a5ffc4ef32dc7b524971967b01baf4a0a5727ca8c5d9fa0(
+    *,
+    prompt_router_id: builtins.str,
+    routing_models: typing.Sequence[BedrockFoundationModel],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c80dbca03d170ec1393aad8bb4aee5d9109f13b498913a973f3a939b8dfeb044(
+    *,
+    step_type: AgentStepType,
+    custom_prompt_template: typing.Optional[builtins.str] = None,
+    inference_config: typing.Optional[typing.Union[InferenceConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    step_enabled: typing.Optional[builtins.bool] = None,
+    use_custom_parser: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dfe8fbace1aa5d4a8a24745685e58a36f07ad28eae0ff633d71959293bc97659(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    prompt: IPrompt,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a0195ad3e1264862c15594d450fc875d5e30d70149dcb4a32dbb552f9ec0c833(
+    *,
+    prompt: IPrompt,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__14249a7edad5543c4beede9f3f1188d7c843e42f2846b88b76839cf893392075(
+    *,
+    action: GuardrailAction,
+    name: builtins.str,
+    pattern: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    input_action: typing.Optional[GuardrailAction] = None,
+    input_enabled: typing.Optional[builtins.bool] = None,
+    output_action: typing.Optional[GuardrailAction] = None,
+    output_enabled: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__66ca7c708f8916f74c35e9ad0069f982f7710c5742e63b6e61b9889bdcea86ee(
+    *,
+    max_recent_sessions: typing.Optional[jsii.Number] = None,
+    memory_duration: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4c37d6509a49a80c4133ffb8cb909f78f35a5aa61c19a255bdba8f0412b80522(
+    *,
+    model: IBedrockInvokable,
+    variant_name: builtins.str,
+    prompt_variables: typing.Optional[typing.Sequence[builtins.str]] = None,
+    prompt_text: builtins.str,
+    inference_configuration: typing.Optional[PromptInferenceConfiguration] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c8bcb2ce739d391a989fbe1d6d40676a32673ead263da132143ae6225efc37aa(
+    *,
+    text: builtins.str,
+    input_variables: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f9b665468c15b8c19a2a98f8899dd27c580e24595964f1cb6a62696c3de85310(
+    any: typing.Any,
+    auto: typing.Any,
+    tool: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b1c13383d8823910cf4866089a0b6815ceddad6909d501eaa7b59acd6e03c4ae(
+    tool_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4399195642aec86e0f72eb2d3e56e3c94df9466d4df078918fd63845772c5368(
+    *,
+    tool_choice: ToolChoice,
+    tools: typing.Sequence[Tool],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__54823457000e887af5262958b0537ed254989a76514878baf0ed72811de4c298(
+    *,
+    text: builtins.str,
+    input_action: typing.Optional[GuardrailAction] = None,
+    input_enabled: typing.Optional[builtins.bool] = None,
+    output_action: typing.Optional[GuardrailAction] = None,
+    output_enabled: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c76c254ff658709c91b9f92836c40baa806c28af85c028c89448b6d932a0915c(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    account: typing.Optional[builtins.str] = None,
+    environment_from_arn: typing.Optional[builtins.str] = None,
+    physical_name: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f605b4cd4baa1eb130f51bcadc5c4a81822ae2cab31ec49a4e9b5b32f8fc9c45(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dbf39e88263f8cef13dfe1f4d67a47c3bf2490d27c8ce9a70ade0cad70e3b7d6(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d6a50391f64a87b84a4584ba8e48f37b926fb74fc6eceb7e6109f491509b2092(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__095d243c58d0aea9f21e7e1d1b7f1cd5ad28281a11a261aa1fbae414e5a7456f(
+    id: builtins.str,
+    *,
+    target: typing.Optional[_aws_cdk_aws_events_ceddda9d.IRuleTarget] = None,
+    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+    description: typing.Optional[builtins.str] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_cdk_aws_events_ceddda9d.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
+    rule_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d35aa54a631bc9ca37bc8477f55b0cac6286ce864c5768fdc4f1d2e480ec1799(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    account: typing.Optional[builtins.str] = None,
+    environment_from_arn: typing.Optional[builtins.str] = None,
+    physical_name: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__87c56642c7d7642cf9968ade38695bd0f8a20c4c562d1611dce60c2bfb519373(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e2bf859b46e6177afc37c92a35764e2e847cf84005e6f9511ec77cff25aff6a(
+    id: builtins.str,
+    *,
+    target: typing.Optional[_aws_cdk_aws_events_ceddda9d.IRuleTarget] = None,
+    cross_stack_scope: typing.Optional[_constructs_77d1e7e8.Construct] = None,
+    description: typing.Optional[builtins.str] = None,
+    event_pattern: typing.Optional[typing.Union[_aws_cdk_aws_events_ceddda9d.EventPattern, typing.Dict[builtins.str, typing.Any]]] = None,
+    rule_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__01102c8a252598bdf0c2fa5e9441dca50972085b9c0072d7ff6c0b51334fc26c(
+    *,
+    model: IBedrockInvokable,
+    variant_name: builtins.str,
+    prompt_variables: typing.Optional[typing.Sequence[builtins.str]] = None,
+    agent_alias: IAgentAlias,
+    prompt_text: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__31e595918d731abaeecfc40bee5ff41695f0fe4871e00d2558e631c39ad3e633(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    application_inference_profile_name: builtins.str,
+    model_source: IBedrockInvokable,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ef72113088d78a80b4e2899b9ad569ae5ba7fdb03c32d1301fe49c008e11a00(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    inference_profile_arn: builtins.str,
+    inference_profile_identifier: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6c9114c7140e6b38bce327f99a5d21eb33e5c045cd449bd0f6491fe029415b63(
+    cfn_application_inference_profile: _aws_cdk_aws_bedrock_ceddda9d.CfnApplicationInferenceProfile,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__257e03e6a3b42668cc69b6d0dca2ff1bb21d5595f5cafdfdef0e9410587119ef(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9de2d55c5d051de08923ea71dbfc5e0a5719413a08fdc028c9060a7d269aa57c(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c72ea354d94de945db88ea8f90368338db6b71c53c1de96d6b6ff8e5ca8bd139(
+    value: builtins.str,
+    *,
+    legacy: typing.Optional[builtins.bool] = None,
+    optimized_for_agents: typing.Optional[builtins.bool] = None,
+    supported_vector_type: typing.Optional[typing.Sequence[VectorType]] = None,
+    supports_agents: typing.Optional[builtins.bool] = None,
+    supports_cross_region: typing.Optional[builtins.bool] = None,
+    supports_knowledge_base: typing.Optional[builtins.bool] = None,
+    vector_dimensions: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__21746783fde44094590eeb2e0bf9318cd7c94a7d9fdbbc276e7c07e9882807b9(
+    model_id: _aws_cdk_aws_bedrock_ceddda9d.FoundationModel,
+    *,
+    legacy: typing.Optional[builtins.bool] = None,
+    optimized_for_agents: typing.Optional[builtins.bool] = None,
+    supported_vector_type: typing.Optional[typing.Sequence[VectorType]] = None,
+    supports_agents: typing.Optional[builtins.bool] = None,
+    supports_cross_region: typing.Optional[builtins.bool] = None,
+    supports_knowledge_base: typing.Optional[builtins.bool] = None,
+    vector_dimensions: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__99e6623f3ac6adc2fae17fdb40358d156dfbc20814dd317a4e724bf44ede364e(
+    model_id: _aws_cdk_aws_bedrock_ceddda9d.FoundationModelIdentifier,
+    *,
+    legacy: typing.Optional[builtins.bool] = None,
+    optimized_for_agents: typing.Optional[builtins.bool] = None,
+    supported_vector_type: typing.Optional[typing.Sequence[VectorType]] = None,
+    supports_agents: typing.Optional[builtins.bool] = None,
+    supports_cross_region: typing.Optional[builtins.bool] = None,
+    supports_knowledge_base: typing.Optional[builtins.bool] = None,
+    vector_dimensions: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ffad53dee884df6b2476ed3cd5b2db73771ff68f85c38de0570b5b16841bcd21(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c036ac01b7085698fb4634261fe75aea9d21d24dd6c4187d1454cda55c36912a(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8e3ddf3228d4368d99df996155a0ed2d076310b24b74df6b18358058542faa82(
+    *,
+    model: IBedrockInvokable,
+    variant_name: builtins.str,
+    prompt_variables: typing.Optional[typing.Sequence[builtins.str]] = None,
+    messages: typing.Sequence[ChatMessage],
+    inference_configuration: typing.Optional[PromptInferenceConfiguration] = None,
+    system: typing.Optional[builtins.str] = None,
+    tool_configuration: typing.Optional[typing.Union[ToolConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7bdce53345030d621d2572a991a021e15ce22e26990dc1669333fb230ef31aec(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f67de2362109894f028e47202266ab16657077349378ff9eb8351f4f00962d03(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bbd3382fa2c6433fcb06c30527e0f5a4717f4fa968eab066b9b793d006725191(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    account: typing.Optional[builtins.str] = None,
+    environment_from_arn: typing.Optional[builtins.str] = None,
+    physical_name: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__34e9489eba5e87057aef8c9ee9b131400fe634424c9f3031336cd323e160259c(
+    metric_name: builtins.str,
+    *,
+    account: typing.Optional[builtins.str] = None,
+    color: typing.Optional[builtins.str] = None,
+    dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
+    label: typing.Optional[builtins.str] = None,
+    period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+    region: typing.Optional[builtins.str] = None,
+    stack_account: typing.Optional[builtins.str] = None,
+    stack_region: typing.Optional[builtins.str] = None,
+    statistic: typing.Optional[builtins.str] = None,
+    unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+    visible: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c76d2f95bb642257266b548cfd6fb04172fefaa00d8fb8e43dcda755f6af5b6d(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6e2815562f05531441044e58d31347064e90f5fd7076494f36b5df3f71d591aa(
+    grantee: _aws_cdk_aws_iam_ceddda9d.IGrantable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__27352025e27fa325f67e94290d07acd8005d06421f869ddfbd84e1d35bd14f59(
+    metric_name: builtins.str,
+    *,
+    account: typing.Optional[builtins.str] = None,
+    color: typing.Optional[builtins.str] = None,
+    dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    id: typing.Optional[builtins.str] = None,
+    label: typing.Optional[builtins.str] = None,
+    period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+    region: typing.Optional[builtins.str] = None,
+    stack_account: typing.Optional[builtins.str] = None,
+    stack_region: typing.Optional[builtins.str] = None,
+    statistic: typing.Optional[builtins.str] = None,
+    unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+    visible: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af95349f6a3bfc399f30c628b9c1f36cdc615706d35ec1cd94c0005473c16153(
+    version: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__57111a68db61bf87f1bb0c2f022984df846756b347c00bbff7c3060bbd425726(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    prompt_name: builtins.str,
+    default_variant: typing.Optional[IPromptVariant] = None,
+    description: typing.Optional[builtins.str] = None,
+    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    variants: typing.Optional[typing.Sequence[IPromptVariant]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c292e2c90088389bc6e12291cba37904cecf17e0181bc500908f7b9dc3c8b3bf(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    prompt_arn: builtins.str,
+    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    prompt_version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__887fba79ce148e77bf63c894044209a37f87213838fda19bd8b532c3e1429979(
+    variant: IPromptVariant,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ec55ad1963c49b510a42476c90f267cc2bc4a3b6da52e2865d980708a0d3b27f(
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ff59ff4e8f8241de7bd05809f66c99d45b60f152560b50867f223721c27d2bc3(
+    *,
+    step_type: AgentStepType,
+    custom_prompt_template: typing.Optional[builtins.str] = None,
+    inference_config: typing.Optional[typing.Union[InferenceConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    step_enabled: typing.Optional[builtins.bool] = None,
+    use_custom_parser: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2c3254c964ab870d157cd9dac8226191b56dea63507327a11b9d17e91dc9d8ae(
+    *,
+    step_type: AgentStepType,
+    custom_prompt_template: typing.Optional[builtins.str] = None,
+    inference_config: typing.Optional[typing.Union[InferenceConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    step_enabled: typing.Optional[builtins.bool] = None,
+    use_custom_parser: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1bd90bd69c0117ad5c57c3ca7c500809ffe9f26fd492886d93c33613b05951ac(
+    *,
+    step_type: AgentStepType,
+    custom_prompt_template: typing.Optional[builtins.str] = None,
+    inference_config: typing.Optional[typing.Union[InferenceConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    step_enabled: typing.Optional[builtins.bool] = None,
+    use_custom_parser: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__59f64d023eb42889bb015de46d2debde642498318f963061062b0299ec1bbe58(
+    *,
+    step_type: AgentStepType,
+    custom_prompt_template: typing.Optional[builtins.str] = None,
+    inference_config: typing.Optional[typing.Union[InferenceConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    step_enabled: typing.Optional[builtins.bool] = None,
+    use_custom_parser: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6d80ef278090d225b8a023bd94ab2dadffa101778d0344756a8f633a90aa20e9(
+    *,
+    step_type: AgentStepType,
+    custom_prompt_template: typing.Optional[builtins.str] = None,
+    inference_config: typing.Optional[typing.Union[InferenceConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    step_enabled: typing.Optional[builtins.bool] = None,
+    use_custom_parser: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fc21a218a77483a368cb274b36d03170fc21d293e79e34fd252a38e1277e3a90(
+    *,
+    step_type: AgentStepType,
+    custom_prompt_template: typing.Optional[builtins.str] = None,
+    inference_config: typing.Optional[typing.Union[InferenceConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    step_enabled: typing.Optional[builtins.bool] = None,
+    use_custom_parser: typing.Optional[builtins.bool] = None,
+    foundation_model: IBedrockInvokable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5c1da6dbc073c2e3dee222bd452cbcf2d4ea3cf0842dc28465a37f8887438de3(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    foundation_model: IBedrockInvokable,
+    instruction: builtins.str,
+    action_groups: typing.Optional[typing.Sequence[AgentActionGroup]] = None,
+    agent_collaboration: typing.Optional[AgentCollaboration] = None,
+    agent_name: typing.Optional[builtins.str] = None,
+    code_interpreter_enabled: typing.Optional[builtins.bool] = None,
+    custom_orchestration_executor: typing.Optional[CustomOrchestrationExecutor] = None,
+    description: typing.Optional[builtins.str] = None,
+    existing_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+    force_delete: typing.Optional[builtins.bool] = None,
+    guardrail: typing.Optional[IGuardrail] = None,
+    idle_session_ttl: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    memory: typing.Optional[Memory] = None,
+    prompt_override_configuration: typing.Optional[PromptOverrideConfiguration] = None,
+    should_prepare_agent: typing.Optional[builtins.bool] = None,
+    user_input_enabled: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c540786cbad361f254315ba321394ff0856d947cee9a259f1d02470add47fe69(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    agent_arn: builtins.str,
+    role_arn: builtins.str,
+    agent_version: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+    last_updated: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e41ea74e490315a61ad841dea482cc082c005209a203d74fa4a65c176a9732e5(
+    action_group: AgentActionGroup,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b558923d37923289e77a58811a37fe7a7a02b5cd20db20812845e8dd62b96b19(
+    *action_groups: AgentActionGroup,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2da57e1a14e682bd21480f81af7eb57498075f9075db17da76fedea2ecc2bfc2(
+    guardrail: IGuardrail,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__19d97a8bf2748b94cd71cc851ae07209efa4e3301f2ed44ee20b9a688d4c86a1(
+    value: typing.Optional[IGuardrail],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__42756e488adc0d798aade78ff819dc550151bd380ede90fe77d6aa5c01bebb44(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    agent: IAgent,
+    agent_alias_name: typing.Optional[builtins.str] = None,
+    agent_version: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__61e68f17caa900cc2bc2da7f093e54644fc9ad79356dad14956cfac36fadae9d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    agent: IAgent,
+    agent_version: builtins.str,
+    alias_id: builtins.str,
+    alias_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9cc76281da1487b175f2b421d5e876e86cc1dbef15b9ba267c071ed09902aa11(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    guardrail_name: builtins.str,
+    blocked_input_messaging: typing.Optional[builtins.str] = None,
+    blocked_outputs_messaging: typing.Optional[builtins.str] = None,
+    content_filters: typing.Optional[typing.Sequence[typing.Union[ContentFilter, typing.Dict[builtins.str, typing.Any]]]] = None,
+    content_filters_tier_config: typing.Optional[TierConfig] = None,
+    contextual_grounding_filters: typing.Optional[typing.Sequence[typing.Union[ContextualGroundingFilter, typing.Dict[builtins.str, typing.Any]]]] = None,
+    cross_region_config: typing.Optional[typing.Union[GuardrailCrossRegionConfigProperty, typing.Dict[builtins.str, typing.Any]]] = None,
+    denied_topics: typing.Optional[typing.Sequence[Topic]] = None,
+    description: typing.Optional[builtins.str] = None,
+    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+    managed_word_list_filters: typing.Optional[typing.Sequence[typing.Union[ManagedWordFilter, typing.Dict[builtins.str, typing.Any]]]] = None,
+    pii_filters: typing.Optional[typing.Sequence[typing.Union[PIIFilter, typing.Dict[builtins.str, typing.Any]]]] = None,
+    regex_filters: typing.Optional[typing.Sequence[typing.Union[RegexFilter, typing.Dict[builtins.str, typing.Any]]]] = None,
+    topics_tier_config: typing.Optional[TierConfig] = None,
+    word_filters: typing.Optional[typing.Sequence[typing.Union[WordFilter, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e6cd89d5cb29d103635b6161cd7d7d1145cf5d47f414e2d895c2235191de2087(
+    cfn_guardrail: _aws_cdk_aws_bedrock_ceddda9d.CfnGuardrail,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9f0fb3cb3c8581a4e2c16c1872a189c98cfa93934db4497777be7ddc1dbb8fb0(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    guardrail_arn: builtins.str,
+    guardrail_version: typing.Optional[builtins.str] = None,
+    kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKey] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9211c57e98da2744ef41f20d3cf12f97d3dad07e5665826e46e1e061ff620e3e(
+    filter: Topic,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b3b4fd2117744015c5db7f001e05574459291192522522d6a56ca73cea74574b(
+    file_path: builtins.str,
+    input_action: typing.Optional[GuardrailAction] = None,
+    output_action: typing.Optional[GuardrailAction] = None,
+    input_enabled: typing.Optional[builtins.bool] = None,
+    output_enabled: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8cc9ee864484b0822c9ff48b990b273cbcd399c20254b74590103c42cd07fae9(
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [IAgent, IAgentAlias, IBedrockInvokable, IGuardrail, IInferenceProfile, IPrompt, IPromptRouter, IPromptVariant]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

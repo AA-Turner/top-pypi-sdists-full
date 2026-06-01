@@ -1,0 +1,10 @@
+filters:
+  - interlinks.lua
+
+interlinks:
+  sources:
+    other:
+      # note that url is usually the http address it is
+      # fetched from, but we generate the inventory for
+      # this source manually.
+      url: "other+"

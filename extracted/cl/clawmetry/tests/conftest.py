@@ -1,0 +1,178 @@
+"""
+Shared fixtures for ClawMetry test suite.
+"""
+import os
+import sys
+import json
+import subprocess
+import time
+from pathlib import Path
+import pytest
+import requests
+
+
+# Playwright's sync API can only be entered once per process. Share a single
+# browser across all E2E test modules via this session-scoped fixture; each
+# module owns its own contexts off the shared browser.
+@pytest.fixture(scope="session")
+def _shared_chromium():
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        pytest.skip("playwright not installed")
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        yield browser
+        browser.close()
+
+
+def pytest_configure(config):
+    """Register the 'quarantine' mark so -m 'not quarantine' works cleanly."""
+    config.addinivalue_line(
+        "markers",
+        "quarantine: test quarantined from main PR gate due to known flakiness; "
+        "see tests/quarantine.txt",
+    )
+
+
+def pytest_collection_modifyitems(items):
+    """Apply 'quarantine' mark to tests listed in tests/quarantine.txt.
+
+    Quarantined tests are excluded from the main PR gate via
+    -m 'not quarantine'. They still run daily in quarantine-sweep.yml,
+    which hard-fails if they go from flaky to permanently broken.
+    """
+    quarantine_path = Path(__file__).parent / "quarantine.txt"
+    if not quarantine_path.exists():
+        return
+    quarantined = {
+        line.strip()
+        for line in quarantine_path.read_text().splitlines()
+        if line.strip() and not line.startswith("#")
+    }
+    if not quarantined:
+        return
+    quarantine_mark = pytest.mark.quarantine
+    for item in items:
+        if item.nodeid in quarantined:
+            item.add_marker(quarantine_mark)
+
+
+def pytest_addoption(parser):
+    """CLI flags shared across the suite.
+
+    ``--update-baseline`` is consumed by
+    ``tests/test_moat_perf_benchmark.py`` to rewrite the committed perf
+    baseline. Declared here because pytest_addoption hooks must live in
+    a conftest (not in the test module itself).
+    """
+    parser.addoption(
+        "--update-baseline", action="store_true", default=False,
+        help="Rewrite tests/data/moat_perf_baseline.json from the current run.",
+    )
+
+
+def _detect_gateway_token():
+    """Detect gateway token from OpenClaw config."""
+    # Environment variable
+    token = os.environ.get("CLAWMETRY_TOKEN", "").strip()
+    if token:
+        return token
+
+    # OpenClaw config
+    config_path = os.path.expanduser("~/.openclaw/openclaw.json")
+    try:
+        with open(config_path) as f:
+            cfg = json.load(f)
+        token = cfg.get("gateway", {}).get("auth", {}).get("token", "").strip()
+        if token:
+            return token
+    except (FileNotFoundError, ValueError, KeyError):
+        pass
+
+    return None
+
+
+def _is_server_running(base_url, token=None):
+    """Check if the ClawMetry server is reachable."""
+    try:
+        headers = {}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+        r = requests.get(f"{base_url}/api/health", headers=headers, timeout=5)
+        return r.status_code == 200
+    except requests.exceptions.ConnectionError:
+        return False
+
+
+BASE_URL = os.environ.get("CLAWMETRY_URL", "http://localhost:8900")
+GATEWAY_TOKEN = _detect_gateway_token()
+
+
+@pytest.fixture(scope="session")
+def base_url():
+    return BASE_URL
+
+
+@pytest.fixture(scope="session")
+def token():
+    return GATEWAY_TOKEN
+
+
+@pytest.fixture(scope="session")
+def api(base_url, token):
+    """Requests session with auth pre-configured."""
+    session = requests.Session()
+    if token:
+        session.headers.update({"Authorization": f"Bearer {token}"})
+    return session
+
+
+@pytest.fixture(scope="session", autouse=True)
+def server(base_url, token):
+    """Ensure the ClawMetry server is running before tests."""
+    if _is_server_running(base_url, token):
+        yield base_url
+        return
+
+    # No gateway token available -- we're probably running hermetic MOAT /
+    # unit tests (e.g. the MOAT Verifier CI job) that use their own Flask
+    # test clients and don't need a live dashboard server at all. Yield None
+    # so those tests proceed; any test that actually needs a running server
+    # should guard itself with `if server is None: pytest.skip(...)`.
+    if not token:
+        yield None
+        return
+
+    # Start the server
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    dashboard = os.path.join(repo_root, "dashboard.py")
+    env = os.environ.copy()
+    # Propagate the CI test token so the server accepts our requests
+    if token:
+        env["OPENCLAW_GATEWAY_TOKEN"] = token
+    # Derive port from base_url
+    try:
+        port = base_url.split(":")[-1].rstrip("/")
+    except Exception:
+        port = "8900"
+    proc = subprocess.Popen(
+        [sys.executable, dashboard, "--port", port, "--no-debug"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        env=env,
+    )
+
+    # Wait up to 20 seconds for the server to be ready
+    for _ in range(40):
+        time.sleep(0.5)
+        if _is_server_running(base_url, token):
+            break
+    else:
+        stderr_out = proc.stderr.read(2000) if proc.stderr else b""
+        proc.terminate()
+        pytest.fail(f"ClawMetry server failed to start. stderr: {stderr_out.decode(errors='replace')}")
+
+    yield base_url
+
+    proc.terminate()

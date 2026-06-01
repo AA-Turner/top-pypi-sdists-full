@@ -1,0 +1,40 @@
+image:
+- Visual Studio 2017
+- Ubuntu
+stack: python 3.6, python 3.7
+version: '{branch}-{build}'
+branches:
+  only:
+  - default
+environment:
+  matrix:
+  - WIN_PYTHON: C:\\Python36
+    LNX_PYTHON: 3.6
+    DEPS: dataclasses importlib_resources
+
+  - WIN_PYTHON: C:\\Python37
+    LNX_PYTHON: 3.7
+    DEPS:
+
+matrix:
+  # For some reason 3.7 on Linux won't work
+  # with a platform error
+  exclude:
+    - image: Ubuntu
+      LNX_PYTHON: 3.7
+
+build: off
+install:
+- cmd: '%WIN_PYTHON%\\python.exe -m pip install objectgraph typing_extensions wheel virtualenv %DEPS%'
+- sh: '~/venv$LNX_PYTHON*/bin/python3 -m pip install objectgraph typing_extensions wheel virtualenv $DEPS'
+test_script:
+- cmd: '%WIN_PYTHON%\\python.exe -m unittest -v'
+- sh: '~/venv$LNX_PYTHON*/bin/python3 -m unittest -v'
+notifications:
+- provider: Email
+  to:
+  - ronaldoussoren@mac.com
+  subject: 'appveyor: modulegraph'
+  on_build_success: false
+  on_build_failure: true
+  on_build_status_changed: true

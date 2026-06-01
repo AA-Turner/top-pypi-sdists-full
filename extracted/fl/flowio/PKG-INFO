@@ -1,0 +1,103 @@
+Metadata-Version: 2.4
+Name: FlowIO
+Version: 1.4.0
+Summary: FlowIO is a Python library for reading / writing Flow Cytometry Standard (FCS) files
+Author-email: Scott White <whitews@gmail.com>
+License: BSD 3-Clause License
+        
+        Copyright (c) 2019, Scott White
+        All rights reserved.
+        
+        Redistribution and use in source and binary forms, with or without
+        modification, are permitted provided that the following conditions are met:
+        
+        * Redistributions of source code must retain the above copyright notice, this
+          list of conditions and the following disclaimer.
+        
+        * Redistributions in binary form must reproduce the above copyright notice,
+          this list of conditions and the following disclaimer in the documentation
+          and/or other materials provided with the distribution.
+        
+        * Neither the name of the copyright holder nor the names of its
+          contributors may be used to endorse or promote products derived from
+          this software without specific prior written permission.
+        
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+        AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+        IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+        FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+        DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+        SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+        CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+        OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+        OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+        
+Project-URL: Homepage, https://github.com/whitews/flowio
+Project-URL: Documentation, https://flowio.readthedocs.io/en/latest/
+Project-URL: Repository, https://github.com/whitews/flowio
+Project-URL: Issues, https://github.com/whitews/FlowIO/issues
+Project-URL: Changelog, https://github.com/whitews/FlowIO/releases
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy>=1.19.3
+Dynamic: license-file
+
+# FlowIO
+
+[![PyPI license](https://img.shields.io/pypi/l/flowio.svg?colorB=dodgerblue)](https://pypi.python.org/pypi/flowio/)
+[![PyPI pyversions](https://img.shields.io/pypi/pyversions/flowio.svg)](https://pypi.python.org/pypi/flowio/)
+[![PyPI version](https://img.shields.io/pypi/v/flowio.svg?colorB=blue)](https://pypi.python.org/pypi/flowio/)
+[![DOI](https://zenodo.org/badge/14634514.svg)](https://zenodo.org/badge/latestdoi/14634514)
+
+
+[![Test (master)](https://github.com/whitews/FlowIO/actions/workflows/tests_master.yml/badge.svg)](https://github.com/whitews/FlowIO/actions/workflows/tests_master.yml)
+[![Test (develop)](https://github.com/whitews/FlowIO/actions/workflows/tests_develop.yml/badge.svg)](https://github.com/whitews/FlowIO/actions/workflows/tests_develop.yml)
+[![Coverage](https://codecov.io/gh/whitews/FlowIO/branch/master/graph/badge.svg)](https://codecov.io/gh/whitews/flowio)
+[![Documentation Status](https://readthedocs.org/projects/flowio/badge/?version=latest)](https://flowio.readthedocs.io/en/latest/?badge=latest)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/flowio)
+
+## Overview
+
+FlowIO is a Python library for reading and writing Flow Cytometry Standard (FCS)
+files, with minimal dependencies and is compatible with Python 3.9+. It is intended 
+as a lightweight library, suitable for parsing FCS data sets (e.g. as a web server 
+backend, for simple metadata extraction, etc.). For higher level cytometry analysis, 
+please see the related [FlowKit](https://github.com/whitews/FlowKit) library which 
+offers a much wider set of analysis options such as compensation, transformation, 
+and gating support (including support for importing FlowJo 10 workspaces).
+
+If you have any questions about FlowIO, find any bugs, or feel something is missing 
+from the documentation [please submit an issue to the GitHub repository here](https://github.com/whitews/FlowIO/issues/new/).
+
+## Installation
+
+The recommended way to install FlowIO is via the `pip` command:
+
+```
+pip install flowio
+```
+
+Or, if you prefer, you can install from the GitHub source:
+
+```
+git clone https://github.com/whitews/flowio
+cd flowio
+pip install .
+```
+
+## Documentation
+
+The FlowIO API documentation is available [on ReadTheDocs here](https://flowio.readthedocs.io/en/latest/?badge=latest). If you have any questions about FlowIO or find any bugs [please submit an issue to the GitHub repository here](https://github.com/whitews/FlowIO/issues/new/).
+
+### Changelogs
+
+[Changelogs for versions are available here](https://github.com/whitews/FlowIO/releases)
+

@@ -1,0 +1,3 @@
+DOMAIN: str
+CONF_PHONE: str
+CONF_REFRESH_TOKEN: str

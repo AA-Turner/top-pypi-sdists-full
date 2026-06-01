@@ -112,7 +112,7 @@ class SMatrix_SELL:
 
     def _check_gpu_available(self) -> bool:
         """Check if GPU operations are available."""
-        if self.device != 'gpu':
+        if not isinstance(self.device, str) or "gpu" not in self.device:
             return False
         if not CUPY_AVAILABLE:
             warnings.warn("CuPy not available. Falling back to CPU.")
@@ -133,15 +133,15 @@ class SMatrix_SELL:
                     "Falling back to CPU implementation."
                 )
                 self.device = 'cpu'
-                return
-            
+                return    
             try:
-                # Read CUDA source code
-                with open(self.cuda_source_path, 'r', encoding='utf-8') as f:
+                with open(self.cuda_source_path, 'r') as f:
                     cuda_source = f.read()
-                
-                # Compile with CuPy (uses cache automatically)
-                SMatrix_SELL._compiled_module = cp.cuda.compile_with_cache(cuda_source)
+
+                SMatrix_SELL._compiled_module = cp.RawModule(
+                    code=cuda_source,
+                    options=('--std=c++11', '-use_fast_math')
+                )
                 
             except Exception as e:
                 warnings.warn(f"Failed to compile CUDA module: {e}. Falling back to CPU.")
@@ -616,14 +616,14 @@ class SMatrix_SELL:
             # GPU implementation
             window_gpu = cp.asarray(window_vector) if not isinstance(window_vector, cp.ndarray) else window_vector
             
-            apodize_kernel = self.sparse_mod.get_function("apply_apodisation_kernel__SELL")
+            apodize_kernel = self.sparse_mod.get_function("apply_apodization_kernel__SELL")
             threads = 128
             blocks = (self.total_storage + threads - 1) // threads
             
             apodize_kernel(
                 grid=(blocks, 1, 1), block=(threads, 1, 1),
                 args=[self.sell_values_gpu, self.sell_colinds_gpu, window_gpu.data.ptr, 
-                      np.int64(self.total_storage)]
+                      np.int64(self.total_storage), np.uint32(self.Z * self.X)]
             )
             cp.cuda.Stream.null.synchronize()
             

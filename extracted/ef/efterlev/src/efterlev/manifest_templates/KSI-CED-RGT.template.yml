@@ -1,0 +1,32 @@
+# KSI-CED-RGT — Reviewing General Training
+#
+# DRAFT — this is a starter-pack template. Copy it to
+# `.efterlev/manifests/<ksi-id>.yml` (drop the `.template` suffix) and
+# fill in the DRAFT placeholders before letting it land in your
+# attestation pipeline. The `_template_help` block carries the
+# questions you should answer; remove that block once filled in.
+
+ksi: KSI-CED-RGT
+name: "Reviewing General Training"
+
+_template_help:
+  description: >
+    KSI-CED-RGT reviews the effectiveness of training given to all employees on policies, procedures, and security topics. The attestation should name the general training program, the cadence, and how completion + effectiveness are tracked.
+  questions:
+      - "What general security/compliance training does every employee complete?"
+      - "What's the cadence (on-hire, annual)?"
+      - "How is completion tracked (LMS, HRIS report)?"
+      - "How is effectiveness measured (quiz scores, phishing test results)?"
+      - "Who owns the program?"
+
+evidence:
+  - type: attestation
+    statement: >
+      DRAFT — Example: All employees complete the General Security Awareness training (KnowBe4, 1 hour) on hire and annually. Completion tracked in Workday with quarterly compliance reports to People Ops. Effectiveness measured via the monthly KnowBe4 phishing simulations (target: <5% click rate). HR Compliance owns the program.
+    attested_by: "DRAFT — your-vp-security@example.com"
+    attested_at: "DRAFT — YYYY-MM-DD"
+    reviewed_at: "DRAFT — YYYY-MM-DD"
+    next_review: "DRAFT — YYYY-MM-DD (recommend 6-month review cadence)"
+    supporting_docs:
+      - "DRAFT — ./policies/your-runbook.pdf"
+      - "DRAFT — https://wiki.your-company.example/path-to-relevant-docs"

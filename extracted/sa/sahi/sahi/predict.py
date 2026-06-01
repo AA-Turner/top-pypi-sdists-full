@@ -1,14 +1,18 @@
+"""High-level prediction API for object detection."""
+
 from __future__ import annotations
 
 import os
 import time
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from functools import cmp_to_key
+from typing import Any
 
 import numpy as np
 from PIL import Image
 from tqdm import tqdm
 
+from sahi.annotation import ObjectAnnotation
 from sahi.auto_model import AutoDetectionModel
 from sahi.logger import logger
 from sahi.models.base import DetectionModel
@@ -34,7 +38,7 @@ from sahi.utils.cv import (
 from sahi.utils.file import Path, increment_path, list_files, save_json, save_pickle
 from sahi.utils.import_utils import check_requirements
 
-POSTPROCESS_NAME_TO_CLASS = {
+POSTPROCESS_NAME_TO_CLASS: dict[str, Callable[..., PostprocessPredictions]] = {
     "GREEDYNMM": GreedyNMMPostprocess,
     "NMM": NMMPostprocess,
     "NMS": NMSPostprocess,
@@ -44,7 +48,24 @@ POSTPROCESS_NAME_TO_CLASS = {
 LOW_MODEL_CONFIDENCE = 0.1
 
 
-def filter_predictions(object_prediction_list, exclude_classes_by_name, exclude_classes_by_id):
+def filter_predictions(
+    object_prediction_list: list[ObjectPrediction],
+    exclude_classes_by_name: list[str] | None,
+    exclude_classes_by_id: list[int] | None,
+) -> list[ObjectPrediction]:
+    """Filter out predictions whose category matches an exclusion list.
+
+    Args:
+        object_prediction_list: list[ObjectPrediction]
+            Predictions to filter.
+        exclude_classes_by_name: list[str] or None
+            Category names to exclude.
+        exclude_classes_by_id: list[int] or None
+            Category IDs to exclude.
+
+    Returns:
+        list[ObjectPrediction]: Predictions not matching any exclusion criterion.
+    """
     return [
         obj_pred
         for obj_pred in object_prediction_list
@@ -54,18 +75,19 @@ def filter_predictions(object_prediction_list, exclude_classes_by_name, exclude_
 
 
 def get_prediction(
-    image,
-    detection_model,
-    shift_amount: list = [0, 0],
-    full_shape=None,
+    image: str | np.ndarray | Image.Image,
+    detection_model: DetectionModel,
+    shift_amount: list[int] | None = None,
+    full_shape: list[int] | None = None,
     postprocess: PostprocessPredictions | None = None,
     verbose: int = 0,
     exclude_classes_by_name: list[str] | None = None,
     exclude_classes_by_id: list[int] | None = None,
+    confidence_threshold: float | None = None,
 ) -> PredictionResult:
     """Function for performing prediction for given image using given detection_model.
 
-    Arguments:
+    Args:
         image: str or np.ndarray
             Location of image or numpy image matrix to slice
         detection_model: model.DetectionMode
@@ -84,47 +106,67 @@ def get_prediction(
         exclude_classes_by_id: Optional[List[int]]
             None: if no classes are excluded
             List[int]: set of classes to exclude using one or more IDs
+        confidence_threshold: float, optional
+            Override the model's confidence threshold for this call only.
+            The model's original threshold is restored after the call.
+
+    Example:
+        >>> from sahi import AutoDetectionModel
+        >>> from sahi.predict import get_prediction
+        >>> model = AutoDetectionModel.from_pretrained(
+        ...     model_type="ultralytics",
+        ...     model_path="yolo11n.pt",
+        ...     confidence_threshold=0.3,
+        ... )
+        >>> # run with a different threshold without changing the model
+        >>> result = get_prediction("image.jpg", model, confidence_threshold=0.7)
+        >>> print(model.confidence_threshold)  # still 0.3
+
     Returns:
         A dict with fields:
             object_prediction_list: a list of ObjectPrediction
             durations_in_seconds: a dict containing elapsed times for profiling
     """
-    durations_in_seconds = dict()
+    original_confidence_threshold = detection_model.confidence_threshold
+    if confidence_threshold is not None:
+        detection_model.confidence_threshold = confidence_threshold
 
-    # read image as pil
-    image_as_pil = read_image_as_pil(image)
-    # get prediction
-    time_start = time.time()
-    detection_model.perform_inference(np.ascontiguousarray(image_as_pil))
-    time_end = time.time() - time_start
-    durations_in_seconds["prediction"] = time_end
+    try:
+        durations_in_seconds = dict()
+        image_as_arr = read_image_as_pil(image, return_arr=True)
 
-    if full_shape is None:
-        full_shape = [image_as_pil.height, image_as_pil.width]
+        if shift_amount is None:
+            shift_amount = [0, 0]
+        if full_shape is None:
+            if image_as_arr.ndim == 2:  # type: ignore[union-attr]
+                h, w = image_as_arr.shape  # type: ignore[misc]
+            else:
+                h, w = image_as_arr.shape[:2]  # type: ignore[union-attr]
+            full_shape = [h, w]
 
-    # process prediction
-    time_start = time.time()
-    # works only with 1 batch
-    detection_model.convert_original_predictions(
-        shift_amount=shift_amount,
-        full_shape=full_shape,
-    )
-    object_prediction_list: list[ObjectPrediction] = detection_model.object_prediction_list
-    object_prediction_list = filter_predictions(object_prediction_list, exclude_classes_by_name, exclude_classes_by_id)
+        time_start = time.perf_counter()
+        detection_model.perform_inference(np.ascontiguousarray(image_as_arr))
+        durations_in_seconds["prediction"] = time.perf_counter() - time_start
 
-    # postprocess matching predictions
-    if postprocess is not None:
-        object_prediction_list = postprocess(object_prediction_list)
-
-    time_end = time.time() - time_start
-    durations_in_seconds["postprocess"] = time_end
-
-    if verbose == 1:
-        print(
-            "Prediction performed in",
-            durations_in_seconds["prediction"],
-            "seconds.",
+        time_start = time.perf_counter()
+        detection_model.convert_original_predictions(
+            shift_amount=shift_amount,  # type: ignore[arg-type]
+            full_shape=full_shape,  # type: ignore[arg-type]
         )
+        object_prediction_list: list[ObjectPrediction] = detection_model.object_prediction_list
+        object_prediction_list = filter_predictions(
+            object_prediction_list, exclude_classes_by_name, exclude_classes_by_id
+        )
+
+        if postprocess is not None:
+            object_prediction_list = postprocess(object_prediction_list)
+
+        durations_in_seconds["postprocess"] = time.perf_counter() - time_start
+
+        if verbose == 1:
+            print("Prediction performed in", durations_in_seconds["prediction"], "seconds.")
+    finally:
+        detection_model.confidence_threshold = original_confidence_threshold
 
     return PredictionResult(
         image=image, object_prediction_list=object_prediction_list, durations_in_seconds=durations_in_seconds
@@ -132,8 +174,8 @@ def get_prediction(
 
 
 def get_sliced_prediction(
-    image,
-    detection_model=None,
+    image: str | np.ndarray | Image.Image,
+    detection_model: DetectionModel | None = None,
     slice_height: int | None = None,
     slice_width: int | None = None,
     overlap_height_ratio: float = 0.2,
@@ -150,6 +192,11 @@ def get_sliced_prediction(
     slice_dir: str | None = None,
     exclude_classes_by_name: list[str] | None = None,
     exclude_classes_by_id: list[int] | None = None,
+    progress_bar: bool = False,
+    progress_callback: Callable | None = None,
+    batch_size: int = 1,
+    force_postprocess_type: bool = False,
+    confidence_threshold: float | None = None,
 ) -> PredictionResult:
     """Function for slice image + get predicion for each slice + combine predictions in full image.
 
@@ -204,159 +251,227 @@ def get_sliced_prediction(
         exclude_classes_by_id: Optional[List[int]]
             None: if no classes are excluded
             List[int]: set of classes to exclude using one or more IDs
+        progress_bar: bool
+            Whether to show progress bar for slice processing. Default: False.
+        progress_callback: callable
+            A callback function that will be called after each slice is processed.
+            The function should accept two arguments: (current_slice, total_slices)
+        batch_size: int
+            Number of slices to process in a single batch inference call.
+            Increasing this value can improve GPU utilization and throughput.
+            Default: 1 (sequential, same as previous behavior).
+        force_postprocess_type: bool
+            If True, the auto postprocess type switch will be disabled.
+            When False (default) and the detection model's confidence threshold is
+            below LOW_MODEL_CONFIDENCE (0.1), the postprocess type will be
+            automatically switched to NMS/IOU to avoid bounding box enlargement
+            from merge operations. Default: False.
+        confidence_threshold: float, optional
+            Override the model's confidence threshold for this call only.
+            The model's original threshold is restored after the call.
+
+    Example:
+        >>> from sahi import AutoDetectionModel
+        >>> from sahi.predict import get_sliced_prediction
+        >>> model = AutoDetectionModel.from_pretrained(
+        ...     model_type="ultralytics",
+        ...     model_path="yolo11n.pt",
+        ...     confidence_threshold=0.3,
+        ... )
+        >>> # sweep thresholds without recreating the model
+        >>> for thresh in [0.3, 0.5, 0.7]:
+        ...     result = get_sliced_prediction("image.jpg", model, confidence_threshold=thresh)
+        ...     print(thresh, len(result.object_prediction_list))
+        >>> print(model.confidence_threshold)  # still 0.3
+
     Returns:
         A Dict with fields:
             object_prediction_list: a list of sahi.prediction.ObjectPrediction
             durations_in_seconds: a dict containing elapsed times for profiling
     """
+    if batch_size < 1:
+        raise ValueError(f"batch_size must be >= 1, got {batch_size}")
+    if detection_model is None:
+        raise ValueError("detection_model must be provided for sliced prediction")
 
-    # for profiling
-    durations_in_seconds = dict()
+    original_confidence_threshold = detection_model.confidence_threshold
+    if confidence_threshold is not None:
+        detection_model.confidence_threshold = confidence_threshold
 
-    # currently only 1 batch supported
-    num_batch = 1
-    # create slices from full image
-    time_start = time.time()
-    slice_image_result = slice_image(
-        image=image,
-        output_file_name=slice_export_prefix,
-        output_dir=slice_dir,
-        slice_height=slice_height,
-        slice_width=slice_width,
-        overlap_height_ratio=overlap_height_ratio,
-        overlap_width_ratio=overlap_width_ratio,
-        auto_slice_resolution=auto_slice_resolution,
-    )
-    from sahi.models.ultralytics import UltralyticsDetectionModel
+    try:
+        durations_in_seconds = dict()
 
-    num_slices = len(slice_image_result)
-    time_end = time.time() - time_start
-    durations_in_seconds["slice"] = time_end
-
-    if isinstance(detection_model, UltralyticsDetectionModel) and detection_model.is_obb:
-        # Only NMS is supported for OBB model outputs
-        postprocess_type = "NMS"
-
-    # init match postprocess instance
-    if postprocess_type not in POSTPROCESS_NAME_TO_CLASS.keys():
-        raise ValueError(
-            f"postprocess_type should be one of {list(POSTPROCESS_NAME_TO_CLASS.keys())} "
-            f"but given as {postprocess_type}"
+        # create slices from full image
+        time_start = time.perf_counter()
+        slice_image_result = slice_image(
+            image=image,
+            output_file_name=slice_export_prefix,
+            output_dir=slice_dir,
+            slice_height=slice_height,
+            slice_width=slice_width,
+            overlap_height_ratio=overlap_height_ratio,
+            overlap_width_ratio=overlap_width_ratio,
+            auto_slice_resolution=auto_slice_resolution,
         )
-    postprocess_constructor = POSTPROCESS_NAME_TO_CLASS[postprocess_type]
-    postprocess = postprocess_constructor(
-        match_threshold=postprocess_match_threshold,
-        match_metric=postprocess_match_metric,
-        class_agnostic=postprocess_class_agnostic,
-    )
+        from sahi.models.ultralytics import UltralyticsDetectionModel
 
-    postprocess_time = 0
-    time_start = time.time()
+        num_slices = len(slice_image_result)
+        durations_in_seconds["slice"] = time.perf_counter() - time_start
 
-    # create prediction input
-    num_group = int(num_slices / num_batch)
-    if verbose == 1 or verbose == 2:
-        tqdm.write(f"Performing prediction on {num_slices} slices.")
-    object_prediction_list = []
-    # perform sliced prediction
-    for group_ind in range(num_group):
-        # prepare batch (currently supports only 1 batch)
-        image_list = []
-        shift_amount_list = []
-        for image_ind in range(num_batch):
-            image_list.append(slice_image_result.images[group_ind * num_batch + image_ind])
-            shift_amount_list.append(slice_image_result.starting_pixels[group_ind * num_batch + image_ind])
-        # perform batch prediction
-        prediction_result = get_prediction(
-            image=image_list[0],
-            detection_model=detection_model,
-            shift_amount=shift_amount_list[0],
-            full_shape=[
-                slice_image_result.original_image_height,
-                slice_image_result.original_image_width,
-            ],
-            exclude_classes_by_name=exclude_classes_by_name,
-            exclude_classes_by_id=exclude_classes_by_id,
+        # auto postprocess type switch for low confidence thresholds
+        if (
+            not force_postprocess_type
+            and detection_model.confidence_threshold < LOW_MODEL_CONFIDENCE
+            and postprocess_type != "NMS"
+        ):
+            logger.warning(
+                f"Switching postprocess type/metric to NMS/IOU since model confidence "
+                f"threshold is low ({detection_model.confidence_threshold})."
+            )
+            postprocess_type = "NMS"
+            postprocess_match_metric = "IOU"
+
+        if isinstance(detection_model, UltralyticsDetectionModel) and detection_model.is_obb:
+            # Only NMS is supported for OBB model outputs
+            postprocess_type = "NMS"
+
+        if postprocess_type not in POSTPROCESS_NAME_TO_CLASS.keys():
+            raise ValueError(
+                f"postprocess_type should be one of {list(POSTPROCESS_NAME_TO_CLASS.keys())} "
+                f"but given as {postprocess_type}"
+            )
+        postprocess_constructor = POSTPROCESS_NAME_TO_CLASS[postprocess_type]
+        postprocess = postprocess_constructor(
+            match_threshold=postprocess_match_threshold,
+            match_metric=postprocess_match_metric,
+            class_agnostic=postprocess_class_agnostic,
         )
-        # convert sliced predictions to full predictions
-        for object_prediction in prediction_result.object_prediction_list:
-            if object_prediction:  # if not empty
-                object_prediction_list.append(object_prediction.get_shifted_object_prediction())
 
-        # merge matching predictions during sliced prediction
-        if merge_buffer_length is not None and len(object_prediction_list) > merge_buffer_length:
+        postprocess_time = 0.0
+        time_start = time.perf_counter()
+        num_batches = (num_slices + batch_size - 1) // batch_size
+        if verbose == 1 or verbose == 2:
+            tqdm.write(f"Performing prediction on {num_slices} slices.")
+
+        if progress_bar:
+            slice_iterator = tqdm(range(num_batches), desc="Processing slices", total=num_batches)
+        else:
+            slice_iterator = range(num_batches)
+
+        full_shape: list[int | float] = [
+            slice_image_result.original_image_height,
+            slice_image_result.original_image_width,
+        ]
+        object_prediction_list = []
+        slices_processed = 0
+        for batch_ind in slice_iterator:
+            batch_start = batch_ind * batch_size
+            batch_end = min(batch_start + batch_size, num_slices)
+            batch_images = [slice_image_result.images[i] for i in range(batch_start, batch_end)]
+            batch_shifts: list[list[int | float]] = [
+                list(slice_image_result.starting_pixels[i]) for i in range(batch_start, batch_end)
+            ]
+            current_batch_size = len(batch_images)
+
+            detection_model.perform_batch_inference([np.ascontiguousarray(img) for img in batch_images])
+            detection_model.convert_original_predictions(
+                shift_amount=batch_shifts,
+                full_shape=[full_shape] * current_batch_size,
+            )
+
+            for image_preds in detection_model.object_prediction_list_per_image:
+                filtered_preds = filter_predictions(image_preds, exclude_classes_by_name, exclude_classes_by_id)
+                for object_prediction in filtered_preds:
+                    if object_prediction:
+                        object_prediction_list.append(object_prediction.get_shifted_object_prediction())
+
+            slices_processed += current_batch_size
+
+            if merge_buffer_length is not None and len(object_prediction_list) > merge_buffer_length:
+                postprocess_time_start = time.time()
+                object_prediction_list = postprocess(object_prediction_list)
+                postprocess_time += time.time() - postprocess_time_start
+
+            if progress_callback is not None:
+                progress_callback(slices_processed, num_slices)
+
+        if num_slices > 1 and perform_standard_pred:
+            prediction_result = get_prediction(
+                image=image,
+                detection_model=detection_model,
+                shift_amount=[0, 0],
+                full_shape=[
+                    slice_image_result.original_image_height,
+                    slice_image_result.original_image_width,
+                ],
+                postprocess=None,
+                exclude_classes_by_name=exclude_classes_by_name,
+                exclude_classes_by_id=exclude_classes_by_id,
+            )
+            object_prediction_list.extend(prediction_result.object_prediction_list)
+
+        if len(object_prediction_list) > 1:
             postprocess_time_start = time.time()
             object_prediction_list = postprocess(object_prediction_list)
             postprocess_time += time.time() - postprocess_time_start
 
-    # perform standard prediction
-    if num_slices > 1 and perform_standard_pred:
-        prediction_result = get_prediction(
-            image=image,
-            detection_model=detection_model,
-            shift_amount=[0, 0],
-            full_shape=[
-                slice_image_result.original_image_height,
-                slice_image_result.original_image_width,
-            ],
-            postprocess=None,
-            exclude_classes_by_name=exclude_classes_by_name,
-            exclude_classes_by_id=exclude_classes_by_id,
-        )
-        object_prediction_list.extend(prediction_result.object_prediction_list)
+        time_end = time.perf_counter() - time_start
+        durations_in_seconds["prediction"] = time_end - postprocess_time
+        durations_in_seconds["postprocess"] = postprocess_time
 
-    # merge matching predictions
-    if len(object_prediction_list) > 1:
-        postprocess_time_start = time.time()
-        object_prediction_list = postprocess(object_prediction_list)
-        postprocess_time += time.time() - postprocess_time_start
-
-    time_end = time.time() - time_start
-    durations_in_seconds["prediction"] = time_end - postprocess_time
-    durations_in_seconds["postprocess"] = postprocess_time
-
-    if verbose == 2:
-        print(
-            "Slicing performed in",
-            durations_in_seconds["slice"],
-            "seconds.",
-        )
-        print(
-            "Prediction performed in",
-            durations_in_seconds["prediction"],
-            "seconds.",
-        )
-        print(
-            "Postprocessing performed in",
-            durations_in_seconds["postprocess"],
-            "seconds.",
-        )
+        if verbose == 2:
+            print("Slicing performed in", durations_in_seconds["slice"], "seconds.")
+            print("Prediction performed in", durations_in_seconds["prediction"], "seconds.")
+            print("Postprocessing performed in", durations_in_seconds["postprocess"], "seconds.")
+    finally:
+        detection_model.confidence_threshold = original_confidence_threshold
 
     return PredictionResult(
         image=image, object_prediction_list=object_prediction_list, durations_in_seconds=durations_in_seconds
     )
 
 
-def bbox_sort(a, b, thresh):
-    """
-    a, b  - function receives two bounding bboxes
+def bbox_sort(a: tuple, b: tuple, thresh: int | float) -> int:
+    """Compare two bounding boxes for reading-order sorting.
 
-    thresh - the threshold takes into account how far two bounding bboxes differ in
-    Y where thresh is the threshold we set for the
-    minimum allowable difference in height between adjacent bboxes
-    and sorts them by the X coordinate
-    """
+    Boxes whose Y-coordinates differ by no more than ``thresh`` are
+    considered to be on the same row and are sorted by X-coordinate.
+    Otherwise they are sorted by Y-coordinate.
 
+    Args:
+        a: tuple
+            First bounding box as ``(x, y, w, h)``.
+        b: tuple
+            Second bounding box as ``(x, y, w, h)``.
+        thresh: int or float
+            Maximum Y-coordinate difference to treat two boxes as being
+            on the same row.
+
+    Returns:
+        int: Negative if ``a`` should come first, positive if ``b``
+        should come first, zero if equal.
+    """
     bbox_a = a
     bbox_b = b
 
     if abs(bbox_a[1] - bbox_b[1]) <= thresh:
-        return bbox_a[0] - bbox_b[0]
+        diff = bbox_a[0] - bbox_b[0]
+        return -1 if diff < 0 else (1 if diff > 0 else 0)
 
-    return bbox_a[1] - bbox_b[1]
+    diff = bbox_a[1] - bbox_b[1]
+    return -1 if diff < 0 else (1 if diff > 0 else 0)
 
 
-def agg_prediction(result: PredictionResult, thresh):
+def agg_prediction(result: PredictionResult, thresh: float) -> list:
+    """Aggregate predictions by merging overlapping bounding boxes.
+
+    Args:
+        result: Prediction result object containing detections.
+        thresh: Threshold for bounding box overlap merging.
+
+    Returns:
+        List of aggregated bounding boxes and associated data.
+    """
     coord_list = []
     res = result.to_coco_annotations()
     for ann in res:
@@ -367,7 +482,11 @@ def agg_prediction(result: PredictionResult, thresh):
         h = current_bbox[3]
 
         coord_list.append((x, y, w, h))
-    cnts = sorted(coord_list, key=cmp_to_key(lambda a, b: bbox_sort(a, b, thresh)))
+
+    def _cmp(a: tuple[Any, ...], b: tuple[Any, ...]) -> int:
+        return bbox_sort(a, b, thresh)
+
+    cnts = sorted(coord_list, key=cmp_to_key(_cmp))
     for pred in range(len(res) - 1):
         res[pred]["image_id"] = cnts.index(tuple(res[pred]["bbox"]))
 
@@ -414,8 +533,10 @@ def predict(
     force_postprocess_type: bool = False,
     exclude_classes_by_name: list[str] | None = None,
     exclude_classes_by_id: list[int] | None = None,
-    **kwargs,
-):
+    progress_bar: bool = False,
+    batch_size: int = 1,
+    **kwargs: Any,
+) -> dict | None:
     """Performs prediction for all present images in given folder.
 
     Args:
@@ -484,13 +605,24 @@ def predict(
             Save results to project/name.
         name: str
             Save results to project/name.
-        visual_bbox_thickness: int
-        visual_text_size: float
-        visual_text_thickness: int
-        visual_hide_labels: bool
-        visual_hide_conf: bool
-        visual_export_format: str
-            Can be specified as 'jpg' or 'png'
+        visual_bbox_thickness: int, optional
+            Line thickness (in pixels) for bounding boxes in exported visualizations.
+            If None, a default thickness is chosen based on image size.
+        visual_text_size: float, optional
+            Font scale/size for label text in exported visualizations. If None, a
+            sensible default is used.
+        visual_text_thickness: int, optional
+            Thickness of text labels. If None, a sensible default is used.
+        visual_hide_labels: bool, optional
+            If True, class label names won't be shown on the exported visuals.
+        visual_hide_conf: bool, optional
+            If True, confidence scores won't be shown on the exported visuals.
+        visual_export_format: str, optional
+            Output image format to use when exporting visuals. Supported values are
+            'png' (default) and 'jpg'. Note that 'jpg' uses lossy compression and may
+            produce smaller files. This parameter is ignored when `novisual` is True.
+            Exported visuals are written under the run directory: `project/name/visuals`
+            (and `project/name/visuals_with_gt` when ground-truth overlays are created).
         verbose: int
             0: no print
             1: print slice/prediction durations, number of slices
@@ -505,24 +637,20 @@ def predict(
         exclude_classes_by_id: Optional[List[int]]
             None: if no classes are excluded
             List[int]: set of classes to exclude using one or more IDs
+        progress_bar: bool
+            Whether to show a progress bar. Default is False.
+        batch_size: int
+            Batch size for processing images. Default is 1.
+        **kwargs: Additional keyword arguments passed to the prediction pipeline.
     """
     # assert prediction type
     if no_standard_prediction and no_sliced_prediction:
         raise ValueError("'no_standard_prediction' and 'no_sliced_prediction' cannot be True at the same time.")
 
-    # auto postprocess type
-    if not force_postprocess_type and model_confidence_threshold < LOW_MODEL_CONFIDENCE and postprocess_type != "NMS":
-        logger.warning(
-            f"Switching postprocess type/metric to NMS/IOU since confidence "
-            f"threshold is low ({model_confidence_threshold})."
-        )
-        postprocess_type = "NMS"
-        postprocess_match_metric = "IOU"
-
     # for profiling
     durations_in_seconds = dict()
 
-    # init export directories
+    # Init export directories
     save_dir = Path(increment_path(Path(project) / name, exist_ok=False))  # increment run
     crop_dir = save_dir / "crops"
     visual_dir = save_dir / "visuals"
@@ -531,7 +659,7 @@ def predict(
     if not novisual or export_pickle or export_crop or dataset_json_path is not None:
         save_dir.mkdir(parents=True, exist_ok=True)  # make dir
 
-    # init image iterator
+    # Init image iterator
     # TODO: rewrite this as iterator class as in https://github.com/ultralytics/yolov5/blob/d059d1da03aee9a3c0059895aa4c7c14b7f25a9e/utils/datasets.py#L178
     source_is_video = False
     num_frames = None
@@ -552,7 +680,7 @@ def predict(
         image_iterator = [source]
     else:
         logger.error("No valid input given to predict function")
-        return
+        return None
 
     # init model instance
     time_start = time.time()
@@ -617,6 +745,9 @@ def predict(
                 verbose=1 if verbose else 0,
                 exclude_classes_by_name=exclude_classes_by_name,
                 exclude_classes_by_id=exclude_classes_by_id,
+                progress_bar=progress_bar,
+                batch_size=batch_size,
+                force_postprocess_type=force_postprocess_type,
             )
             object_prediction_list = prediction_result.object_prediction_list
             if prediction_result.durations_in_seconds:
@@ -649,14 +780,16 @@ def predict(
             # append predictions in coco format
             for object_prediction in object_prediction_list:
                 coco_prediction = object_prediction.to_coco_prediction()
-                coco_prediction.image_id = coco.images[ind].id
+                image_id = coco.images[ind].id
+                if image_id is not None:
+                    coco_prediction.image_id = image_id
                 coco_prediction_json = coco_prediction.json
                 if coco_prediction_json["bbox"]:
                     coco_json.append(coco_prediction_json)
             if not novisual:
                 # convert ground truth annotations to object_prediction_list
                 coco_image: CocoImage = coco.images[ind]
-                object_prediction_gt_list: list[ObjectPrediction] = []
+                object_prediction_gt_list: list[ObjectAnnotation] = []
                 for coco_annotation in coco_image.annotations:
                     coco_annotation_dict = coco_annotation.json
                     category_name = coco_annotation.category_name
@@ -774,6 +907,7 @@ def predict(
 
     if return_dict:
         return {"export_dir": save_dir}
+    return None
 
 
 def predict_fiftyone(
@@ -800,7 +934,9 @@ def predict_fiftyone(
     verbose: int = 1,
     exclude_classes_by_name: list[str] | None = None,
     exclude_classes_by_id: list[int] | None = None,
-):
+    progress_bar: bool = False,
+    batch_size: int = 1,
+) -> None:
     """Performs prediction for all present images in given folder.
 
     Args:
@@ -863,6 +999,10 @@ def predict_fiftyone(
         exclude_classes_by_id: Optional[List[int]]
             None: if no classes are excluded
             List[int]: set of classes to exclude using one or more IDs
+        progress_bar: bool
+            Whether to show progress bar for slice processing. Default: False.
+        batch_size: int
+            Batch size for processing images. Default is 1.
     """
     check_requirements(["fiftyone"])
 
@@ -917,6 +1057,8 @@ def predict_fiftyone(
                     verbose=verbose,
                     exclude_classes_by_name=exclude_classes_by_name,
                     exclude_classes_by_id=exclude_classes_by_id,
+                    progress_bar=progress_bar,
+                    batch_size=batch_size,
                 )
                 durations_in_seconds["slice"] += prediction_result.durations_in_seconds["slice"]
             else:

@@ -1,0 +1,83 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = 'bacore'
+description = "BACore is a framework for business analysis and test automation."
+readme = "README.md"
+authors = [
+    { name = "Kristian Grönberg", email = "kristian@gronberg.org" },
+    { name = "Jacob Dahlberg", email = "dahlberg.jacob@gmail.com"},
+    { name = "Jonatan Söderström", email = "jonatan.m.soderstrom@gmail.com"}]
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Development Status :: 1 - Planning",
+    "Framework :: MkDocs",
+    "Framework :: Pydantic :: 2",
+    "Framework :: Pytest",
+    "Intended Audience :: Developers",
+    "Natural Language :: English" ]
+dynamic = ["version"]
+keywords = ["business analysis", "test automation", "testing" ]
+requires-python = ">=3.9"
+dependencies = [
+    "Faker>=29.0.0",
+    "hypothesis>=6.112.1",
+    "pydantic-settings>=2.4.0",
+    "requests_ntlm>=1.3.0",
+    "sqlmodel>=0.0.22",
+    "toml>=0.10.2" ]
+
+[project.optional-dependencies]
+dev = [
+    "bpython>=0.24",
+    "debugpy>=1.8.7",
+    "markdown-exec[ansi]>=1.7.0",
+    "maturin>=1.7.1",
+    "mkdocs-caption>=0.0.10",
+    "mkdocs-material",
+    "mkdocstrings>=0.24.0",
+    "mkdocstrings-python>=1.7.5",
+    "mkdocs-git-show-history-log-plugin>=0.2",
+    "neoteroi-mkdocs>=1.0.4",
+    "pdbpp>=0.10.3",
+    "pytest>=7.4.3",
+    "pytest-testmon>=2.1.0",
+    "pytest-watch>=4.2.0",
+    "python-language-server[all]>=0.36.2",
+    "ruff>=0.5.2" ]
+ppt = [ "python-pptx>=1.0.2" ]
+web = [
+    "python-fasthtml>=0.6.4" ]
+
+[tool.maturin]
+python-source = "python"
+module-name = "bacore._bacore"
+features = ["pyo3/extension-module"]
+compatibility = "manylinux2014"
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+
+
+[tool.pytest.ini_options]
+testpaths = "tests"
+addopts = [
+    "--import-mode=importlib" ]
+
+markers = [
+    "deve: Tests for setting up local development environment",
+    "domain: Tests for domain",
+    "interactors: Tests for interactors",
+    "interfaces: Tests for interfaces" ]
+
+[tool.ruff]
+line-length = 120
+indent-width = 4
+
+[tool.ruff.lint]
+ignore = []

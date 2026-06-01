@@ -1,0 +1,129 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# NOTE: no [project] table on purpose — setup.py owns all build metadata
+# (name, version, deps, extras_require) for PyPI publishing. Adding [project]
+# here triggers setuptools' PEP 621 merge path and conflicts with setup.py.
+# uv will emit a "No requires-python" warning and default to >=3.11; that's
+# fine for local dev (pytest 9 supports 3.10+ anyway). CI's python-lint and
+# typecheck jobs pin Python explicitly via setup-python.
+
+# uv layered on top of setup.py: setup.py owns the build + integration extras
+# (PyPI release path); uv handles the dev workflow + lockfile. See
+# docs/python-standards.md.
+[dependency-groups]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov",
+    "ruff>=0.15.12",
+    "mypy>=1.10.0",
+    "pre-commit>=3.7.0",
+    # Autonomous v2 build/lint tooling — ADR 0001
+    "grpcio-tools>=1.60",
+    "import-linter>=2.0",
+]
+
+[tool.uv]
+package = false  # build is owned by setup.py; uv must not try to build the project
+
+[tool.pytest.ini_options]
+minversion = "7.4"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+]
+markers = [
+    "e2e: end-to-end tests (require real API)",
+    "performance: performance benchmark tests",
+    "slow: slow running tests",
+    "integration: integration tests",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["sdk/aigie"]
+branch = true
+omit = [
+    "sdk/aigie/__init__.py",
+    "tests/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
+
+# Ruff config lives in ruff.toml at the repo root (shared with kytte-platfrom).
+[tool.ruff]
+extend = "ruff.toml"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+# Import-linter contracts enforce the proto firewall in autonomous v2.
+# Only `aigie.autonomous.control_plane.codec` may import generated protobuf
+# code under `aigie.autonomous.control_plane._pb`. Everything else operates
+# on internal dataclasses. See plan §3.7.
+[tool.importlinter]
+root_package = "aigie"
+
+# NOTE: source_modules is grown phase-by-phase as modules are added.
+# Modules not yet created are omitted to avoid lint-imports errors on
+# missing source.  Each phase adds its new module to the list.
+# NOTE: source_modules is grown phase-by-phase as modules are added.
+# Exempt from this contract (allowed to import _pb):
+#   control_plane/codec.py  (phase 4) — the only codec seam per ADR §3.7
+#   control_plane/stub_server.py — test harness explicitly exempted in task spec
+# source_modules lists are pruned to existing modules to avoid lint-imports errors.
+[[tool.importlinter.contracts]]
+name = "proto firewall — only codec touches _pb"
+type = "forbidden"
+source_modules = [
+    # Wave D — data structures and queue (no transport, no _pb imports):
+    "aigie.autonomous.config",
+    "aigie.autonomous.rules",
+    "aigie.autonomous.outcome",
+    "aigie.autonomous.metrics",
+    # Wave E (sub-wave 1) — reflex + adapter contract:
+    "aigie.autonomous.reflex",
+    "aigie.autonomous.adapters",
+    "aigie.autonomous.adapters.base",
+    # Wave E.2 — directives + blast radius + apply dispatcher:
+    "aigie.autonomous.directives",
+    # Wave F — control plane client + langgraph adapter:
+    "aigie.autonomous.control_plane.client",
+    "aigie.autonomous.control_plane.reconnect",
+    "aigie.autonomous.adapters.langgraph",
+    # Wave G — runtime wire-up:
+    "aigie.autonomous.runtime",
+    # codec.py is EXEMPT — it is the only module permitted to import _pb (ADR §3.7).
+    # stub_server.py is also exempt (test harness).
+    # control_plane/__init__.py is EXEMPT — factory wires codec into client.
+    # "aigie.autonomous.control_plane.client",  # Wave F (P4)
+    # "aigie.autonomous.control_plane.reconnect",
+    # "aigie.autonomous.runtime",        # Wave G (P11)
+]
+forbidden_modules = ["aigie.autonomous.control_plane._pb"]
+
+[[tool.importlinter.contracts]]
+name = "core never imports integrations"
+type = "forbidden"
+source_modules = ["aigie.autonomous"]
+forbidden_modules = ["aigie.integrations"]

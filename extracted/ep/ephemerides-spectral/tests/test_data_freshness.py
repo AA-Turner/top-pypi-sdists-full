@@ -1,0 +1,58 @@
+"""Committed _data/ and _research/ must match what codegen would produce."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+import pytest
+
+_HERE = Path(__file__).resolve()
+_PKG_DIR = _HERE.parents[1]
+_PROJECT_ROOT = _PKG_DIR.parent
+_CODEGEN = _PROJECT_ROOT / "codegen"
+_PKG_ROOT = _PKG_DIR / "ephemerides_spectral"
+_DATA_DIR = _PKG_ROOT / "_data"
+_RESEARCH_DIR = _PKG_ROOT / "_research"
+
+def _sha256(p: Path) -> str:
+    h = hashlib.sha256()
+    with p.open("rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+@pytest.fixture(scope="module")
+def manifest() -> dict:
+    p = _DATA_DIR / "manifest.json"
+    if not p.exists():
+        pytest.skip("_data/manifest.json missing")
+    return json.loads(p.read_text(encoding="utf-8"))
+
+def test_manifest_lists_every_committed_file(manifest: dict) -> None:
+    expected: set[str] = set()
+    for p in _DATA_DIR.iterdir():
+        if p.suffix == ".json" and p.name != "manifest.json":
+            expected.add(f"_data/{p.name}")
+    if _RESEARCH_DIR.exists():
+        # Walk recursively (v0.25.0+: attested_adapters/ + attested/
+        # subtrees ship under _research/). Use rglob so nested
+        # directories are covered without depth limits.
+        for p in _RESEARCH_DIR.rglob("*"):
+            if not p.is_file():
+                continue
+            # Skip transient build artifacts.
+            if p.suffix == ".pyc" or "__pycache__" in p.parts:
+                continue
+            rel = p.relative_to(_PKG_ROOT).as_posix()
+            expected.add(rel)
+    listed = set(manifest["files"].keys())
+    assert listed == expected
+
+def test_manifest_sha_matches_committed_files(manifest: dict) -> None:
+    for rel_path, entry in manifest["files"].items():
+        p = _PKG_ROOT / rel_path
+        assert p.exists()
+        assert entry["sha256"] == _sha256(p)

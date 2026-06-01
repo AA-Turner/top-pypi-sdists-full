@@ -1,0 +1,29 @@
+[build-system]
+requires = ["maturin>=1.12,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "rapidcube"
+version = "0.2.1"
+description = "A lightning-fast 2x2 and 3x3 Rubik's Cube simulator for Python, implemented in Rust."
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+  "Programming Language :: Rust",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = ["torch>=2.5.1"]
+
+[dependency-groups]
+dev = [
+  "magiccube>=1.0.0",
+  "maturin>=1.13.1",
+  "pdoc>=14.7.0",
+  "pycuber>=0.2.2",
+  "pytest>=8.3.5",
+  "pytest-benchmark>=4.0.0",
+]
+
+[tool.pytest]
+python_files = ["test_*.py", "bench_*.py"]

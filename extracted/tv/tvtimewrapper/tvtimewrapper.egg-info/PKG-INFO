@@ -1,0 +1,26 @@
+Metadata-Version: 2.1
+Name: tvtimewrapper
+Version: 0.0.3
+Summary: Python Wrapper library for TVTime App (formerly TV Show Time)
+Home-page: https://github.com/seanwlk/tvtimewrapper
+Author: seanwlk
+Author-email: seanwlk@my.com
+License: UNKNOWN
+Description: # TVTime Wrapper
+        
+        Simple class that allows the usage of TVTime via script with APIs.
+        
+        ## Usage
+        
+        from tvtimewrapper import TVTimeWrapper
+        
+        tvtime = TVTimeWrapper("username","password")
+        
+        Full documentation available here: https://github.com/seanwlk/tvtimewrapper
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: GNU General Public License v2 (GPLv2)
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown

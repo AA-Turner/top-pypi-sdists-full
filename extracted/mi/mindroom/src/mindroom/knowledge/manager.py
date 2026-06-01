@@ -1,0 +1,1747 @@
+"""Knowledge base management for file-backed RAG."""
+
+from __future__ import annotations
+
+import asyncio
+import base64
+import hashlib
+import os
+import subprocess
+import time
+import uuid
+from contextlib import suppress
+from copy import deepcopy
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from fnmatch import fnmatchcase
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Literal, NoReturn, Protocol, cast, runtime_checkable
+from urllib.parse import quote, urlparse, urlunparse
+
+from agno.knowledge.embedder.base import Embedder
+from agno.knowledge.embedder.ollama import OllamaEmbedder
+from agno.knowledge.knowledge import Knowledge
+from agno.knowledge.reader import ReaderFactory
+from agno.knowledge.reader.markdown_reader import MarkdownReader
+from agno.knowledge.reader.text_reader import TextReader
+from agno.vectordb.chroma import ChromaDb
+
+from mindroom.constants import RuntimePaths, resolve_config_relative_path
+from mindroom.credentials import get_runtime_shared_credentials_manager
+from mindroom.credentials_sync import get_api_key_for_provider, get_ollama_host
+from mindroom.embeddings import (
+    MindRoomOpenAIEmbedder,
+    create_sentence_transformers_embedder,
+    effective_knowledge_embedder_signature,
+)
+from mindroom.knowledge.chunking import SafeFixedSizeChunking
+from mindroom.knowledge.index_metadata import (
+    load_index_metadata_payload,
+    parse_index_metadata_fields,
+    write_index_metadata_payload,
+)
+from mindroom.knowledge.redaction import (
+    credential_free_repo_url,
+    credential_free_url_identity,
+    embedded_http_userinfo,
+    redact_credentials_in_text,
+    redact_url_credentials,
+)
+from mindroom.logging_config import get_logger
+from mindroom.model_defaults import OLLAMA_HOST_DEFAULT
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
+
+    from agno.knowledge.reader.base import Reader
+
+    from mindroom.config.knowledge import KnowledgeBaseMode, KnowledgeGitConfig
+    from mindroom.config.main import Config
+
+logger = get_logger(__name__)
+
+_COLLECTION_PREFIX = "mindroom_knowledge"
+_SOURCE_PATH_KEY = "source_path"
+_SOURCE_MTIME_NS_KEY = "source_mtime_ns"
+_SOURCE_SIZE_KEY = "source_size"
+_SOURCE_DIGEST_KEY = "source_digest"
+_MAX_CONCURRENT_KNOWLEDGE_FILE_INDEXES = 32
+_POST_INDEX_VECTOR_VISIBILITY_RETRY_DELAYS_SECONDS = (0.0, 0.01, 0.05)
+_GIT_CHECKOUT_DETECTION_TIMEOUT_SECONDS = 5.0
+_INDEXING_STATUS_RESETTING = "resetting"
+_INDEXING_STATUS_INDEXING = "indexing"
+_INDEXING_STATUS_COMPLETE = "complete"
+_INDEXING_STATUSES = {
+    _INDEXING_STATUS_RESETTING,
+    _INDEXING_STATUS_INDEXING,
+    _INDEXING_STATUS_COMPLETE,
+}
+_INDEXING_MODES: set[str] = {"semantic", "files"}
+_TEXT_LIKE_EXTENSIONS = {
+    ".md",
+    ".markdown",
+    ".txt",
+    ".text",
+    ".rst",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".toml",
+    ".ini",
+    ".csv",
+    ".tsv",
+    ".html",
+    ".xml",
+    ".py",
+    ".pyi",
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
+    ".mjs",
+    ".cjs",
+    ".c",
+    ".cc",
+    ".cpp",
+    ".cxx",
+    ".h",
+    ".hh",
+    ".hpp",
+    ".java",
+    ".kt",
+    ".kts",
+    ".go",
+    ".rs",
+    ".rb",
+    ".php",
+    ".swift",
+    ".scala",
+    ".sc",
+    ".sh",
+    ".bash",
+    ".zsh",
+    ".fish",
+    ".ps1",
+    ".sql",
+    ".css",
+    ".scss",
+    ".sass",
+    ".less",
+    ".vue",
+    ".svelte",
+    ".proto",
+}
+_FileSignature = tuple[int, int, str]
+
+
+@dataclass(frozen=True)
+class IndexingSettings:
+    """Typed schema for settings that determine knowledge index compatibility."""
+
+    base_id: str
+    storage_root: str
+    knowledge_path: str
+    mode: KnowledgeBaseMode
+    embedder_provider: str
+    embedder_model: str
+    embedder_host: str
+    embedder_dimensions: str
+    chunk_size: str
+    chunk_overlap: str
+    repo_identity: str
+    git_branch: str
+    git_lfs: str
+    git_skip_hidden: str
+    git_include_patterns: str
+    git_exclude_patterns: str
+    include_extensions: str
+    exclude_extensions: str
+
+    @classmethod
+    def from_metadata(cls, settings: Mapping[str, str]) -> IndexingSettings | None:
+        """Build typed settings from the persisted JSON object."""
+        if set(settings) != {
+            "base_id",
+            "storage_root",
+            "knowledge_path",
+            "mode",
+            "embedder_provider",
+            "embedder_model",
+            "embedder_host",
+            "embedder_dimensions",
+            "chunk_size",
+            "chunk_overlap",
+            "repo_identity",
+            "git_branch",
+            "git_lfs",
+            "git_skip_hidden",
+            "git_include_patterns",
+            "git_exclude_patterns",
+            "include_extensions",
+            "exclude_extensions",
+        }:
+            return None
+        mode = settings["mode"]
+        if mode not in _INDEXING_MODES:
+            return None
+        return cls(
+            base_id=settings["base_id"],
+            storage_root=settings["storage_root"],
+            knowledge_path=settings["knowledge_path"],
+            mode=cast("KnowledgeBaseMode", mode),
+            embedder_provider=settings["embedder_provider"],
+            embedder_model=settings["embedder_model"],
+            embedder_host=settings["embedder_host"],
+            embedder_dimensions=settings["embedder_dimensions"],
+            chunk_size=settings["chunk_size"],
+            chunk_overlap=settings["chunk_overlap"],
+            repo_identity=settings["repo_identity"],
+            git_branch=settings["git_branch"],
+            git_lfs=settings["git_lfs"],
+            git_skip_hidden=settings["git_skip_hidden"],
+            git_include_patterns=settings["git_include_patterns"],
+            git_exclude_patterns=settings["git_exclude_patterns"],
+            include_extensions=settings["include_extensions"],
+            exclude_extensions=settings["exclude_extensions"],
+        )
+
+    def to_metadata(self) -> dict[str, str]:
+        """Return the JSON object persisted in index metadata."""
+        return {
+            "base_id": self.base_id,
+            "storage_root": self.storage_root,
+            "knowledge_path": self.knowledge_path,
+            "mode": self.mode,
+            "embedder_provider": self.embedder_provider,
+            "embedder_model": self.embedder_model,
+            "embedder_host": self.embedder_host,
+            "embedder_dimensions": self.embedder_dimensions,
+            "chunk_size": self.chunk_size,
+            "chunk_overlap": self.chunk_overlap,
+            "repo_identity": self.repo_identity,
+            "git_branch": self.git_branch,
+            "git_lfs": self.git_lfs,
+            "git_skip_hidden": self.git_skip_hidden,
+            "git_include_patterns": self.git_include_patterns,
+            "git_exclude_patterns": self.git_exclude_patterns,
+            "include_extensions": self.include_extensions,
+            "exclude_extensions": self.exclude_extensions,
+        }
+
+    def query_compatibility_key(self) -> tuple[str, str, str, str, str, str, str, str]:
+        """Return fields that must match for safe vector queries."""
+        return (
+            self.base_id,
+            self.storage_root,
+            self.knowledge_path,
+            self.mode,
+            self.embedder_provider,
+            self.embedder_model,
+            self.embedder_host,
+            self.embedder_dimensions,
+        )
+
+    def corpus_compatibility_key(self) -> tuple[str, str, str, str, str, str, str, str, str, str, str, str]:
+        """Return fields that must match for safe source-corpus reuse."""
+        return (
+            self.base_id,
+            self.storage_root,
+            self.knowledge_path,
+            self.mode,
+            self.repo_identity,
+            self.git_branch,
+            self.git_lfs,
+            self.git_skip_hidden,
+            self.git_include_patterns,
+            self.git_exclude_patterns,
+            self.include_extensions,
+            self.exclude_extensions,
+        )
+
+
+@runtime_checkable
+class _CollectionListingClient(Protocol):
+    """Vector client surface needed for best-effort collection cleanup."""
+
+    def list_collections(self) -> list[object]:
+        """Return collection names or collection objects."""
+        ...
+
+
+@runtime_checkable
+class _NamedCollection(Protocol):
+    """Collection object shape returned by Chroma clients."""
+
+    name: str
+
+
+class _CollectionExistenceEmbedder(Embedder):
+    """Minimal embedder for collection probes that must never embed content."""
+
+    def get_embedding(self, text: str) -> list[float]:
+        _ = text
+        msg = "Knowledge collection existence checks must not embed content"
+        raise NotImplementedError(msg)
+
+    def get_embedding_and_usage(self, text: str) -> tuple[list[float], dict[str, object] | None]:
+        _ = text
+        msg = "Knowledge collection existence checks must not embed content"
+        raise NotImplementedError(msg)
+
+    async def async_get_embedding(self, text: str) -> list[float]:
+        _ = text
+        msg = "Knowledge collection existence checks must not embed content"
+        raise NotImplementedError(msg)
+
+    async def async_get_embedding_and_usage(self, text: str) -> tuple[list[float], dict[str, object] | None]:
+        _ = text
+        msg = "Knowledge collection existence checks must not embed content"
+        raise NotImplementedError(msg)
+
+
+@dataclass(frozen=True)
+class _PersistedIndexState:
+    settings: IndexingSettings
+    status: Literal["resetting", "indexing", "complete"]
+    collection: str | None = None
+    last_published_at: str | None = None
+    published_revision: str | None = None
+    indexed_count: int | None = None
+    source_signature: str | None = None
+
+
+@dataclass
+class _CandidatePublishState:
+    index_published: bool = False
+
+
+def _raise_cancelled() -> NoReturn:
+    raise asyncio.CancelledError
+
+
+def _resolve_knowledge_path(
+    path: str,
+    runtime_paths: RuntimePaths,
+) -> Path:
+    return resolve_config_relative_path(path, runtime_paths=runtime_paths)
+
+
+def _ensure_knowledge_directory_ready(knowledge_path: Path) -> None:
+    if knowledge_path.exists() and not knowledge_path.is_dir():
+        msg = f"Knowledge path {knowledge_path} must be a directory"
+        raise ValueError(msg)
+    knowledge_path.mkdir(parents=True, exist_ok=True)
+
+
+def git_checkout_present(root: Path, *, timeout_seconds: float | None = None) -> bool:
+    """Return whether root itself is a Git worktree checkout."""
+    if not root.is_dir():
+        return False
+    effective_timeout_seconds = _GIT_CHECKOUT_DETECTION_TIMEOUT_SECONDS if timeout_seconds is None else timeout_seconds
+    if effective_timeout_seconds <= 0:
+        effective_timeout: float | None = None
+    else:
+        effective_timeout = effective_timeout_seconds
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--is-inside-work-tree", "--show-toplevel"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=effective_timeout,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    if result.returncode != 0:
+        return False
+    lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    if len(lines) < 2 or lines[0] != "true":
+        return False
+    try:
+        return Path(lines[1]).resolve() == root.resolve()
+    except OSError:
+        return False
+
+
+def chroma_collection_exists(storage_path: Path, collection_name: str) -> bool:
+    """Check collection existence without constructing Agno Knowledge."""
+    vector_db = ChromaDb(
+        collection=collection_name,
+        path=str(storage_path),
+        persistent_client=True,
+        embedder=_CollectionExistenceEmbedder(),
+    )
+    return vector_db.exists()
+
+
+def _safe_identifier(value: str) -> str:
+    sanitized = "".join(char if char.isalnum() or char in {"_", "-"} else "_" for char in value)
+    return sanitized or "default"
+
+
+def _base_storage_key(base_id: str, knowledge_path: Path) -> str:
+    digest_source = f"{base_id}:{knowledge_path.resolve()}"
+    digest = hashlib.sha256(digest_source.encode("utf-8")).hexdigest()[:8]
+    return f"{_safe_identifier(base_id)}_{digest}"
+
+
+def _collection_name(base_id: str, knowledge_path: Path) -> str:
+    return f"{_COLLECTION_PREFIX}_{_base_storage_key(base_id, knowledge_path)}"
+
+
+def _filter_settings_key(values: Iterable[str]) -> str:
+    return str(tuple(sorted(values)))
+
+
+def _indexing_settings_key(config: Config, storage_path: Path, base_id: str, knowledge_path: Path) -> IndexingSettings:
+    base_config = config.get_knowledge_base_config(base_id)
+    git_config = base_config.git
+    if base_config.mode == "semantic":
+        embedder_config = config.memory.embedder.config
+        embedder_provider, embedder_model, embedder_host, embedder_dimensions = effective_knowledge_embedder_signature(
+            config.memory.embedder.provider,
+            embedder_config.model,
+            host=embedder_config.host,
+            dimensions=embedder_config.dimensions,
+        )
+        chunk_size = str(base_config.chunk_size)
+        chunk_overlap = str(base_config.chunk_overlap)
+        include_extensions = (
+            _filter_settings_key(base_config.include_extensions) if base_config.include_extensions is not None else ""
+        )
+        exclude_extensions = _filter_settings_key(base_config.exclude_extensions)
+    else:
+        embedder_provider = ""
+        embedder_model = ""
+        embedder_host = ""
+        embedder_dimensions = ""
+        chunk_size = ""
+        chunk_overlap = ""
+        include_extensions = ""
+        exclude_extensions = ""
+    return IndexingSettings(
+        base_id=base_id,
+        storage_root=str(storage_path.resolve()),
+        knowledge_path=str(knowledge_path.resolve()),
+        mode=base_config.mode,
+        embedder_provider=embedder_provider,
+        embedder_model=embedder_model,
+        embedder_host=embedder_host,
+        embedder_dimensions=embedder_dimensions,
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        repo_identity=credential_free_url_identity(git_config.repo_url) if git_config is not None else "",
+        git_branch=git_config.branch if git_config is not None else "",
+        git_lfs=str(git_config.lfs) if git_config is not None else "",
+        git_skip_hidden=str(git_config.skip_hidden) if git_config is not None else "",
+        git_include_patterns=_filter_settings_key(git_config.include_patterns) if git_config is not None else "",
+        git_exclude_patterns=_filter_settings_key(git_config.exclude_patterns) if git_config is not None else "",
+        include_extensions=include_extensions,
+        exclude_extensions=exclude_extensions,
+    )
+
+
+def _semantic_indexing_enabled(config: Config, base_id: str) -> bool:
+    return config.get_knowledge_base_config(base_id).mode == "semantic"
+
+
+def _create_embedder(config: Config, runtime_paths: RuntimePaths) -> Embedder:
+    provider = config.memory.embedder.provider
+    embedder_config = config.memory.embedder.config
+
+    if provider == "openai":
+        return MindRoomOpenAIEmbedder(
+            id=embedder_config.model,
+            api_key=get_api_key_for_provider("openai", runtime_paths=runtime_paths),
+            base_url=embedder_config.host,
+            dimensions=embedder_config.dimensions,
+        )
+
+    if provider == "ollama":
+        host = get_ollama_host(runtime_paths=runtime_paths) or embedder_config.host or OLLAMA_HOST_DEFAULT
+        return OllamaEmbedder(id=embedder_config.model, host=host)
+
+    if provider == "sentence_transformers":
+        return create_sentence_transformers_embedder(
+            runtime_paths,
+            embedder_config.model,
+            dimensions=embedder_config.dimensions,
+        )
+
+    msg = (
+        f"Unsupported knowledge embedder provider: {provider}. "
+        "Supported providers: openai, ollama, sentence_transformers"
+    )
+    raise ValueError(msg)
+
+
+def _authenticated_repo_url(
+    repo_url: str,
+    credentials_service: str | None,
+    runtime_paths: RuntimePaths,
+) -> str:
+    """Inject HTTPS credentials from CredentialsManager into a repository URL."""
+    if not credentials_service:
+        return repo_url
+
+    credentials = get_runtime_shared_credentials_manager(runtime_paths).load_credentials(credentials_service) or {}
+    username = credentials.get("username")
+    token = credentials.get("token") or credentials.get("api_key")
+    password = credentials.get("password")
+
+    if not isinstance(username, str) and token and not password:
+        username = "x-access-token"
+
+    if not isinstance(username, str) or not username:
+        return repo_url
+
+    secret: str | None
+    if isinstance(password, str) and password:
+        secret = password
+    elif isinstance(token, str) and token:
+        secret = token
+    else:
+        secret = None
+
+    if secret is None:
+        return repo_url
+
+    parsed = urlparse(repo_url)
+    if parsed.scheme not in {"http", "https"}:
+        return repo_url
+
+    hostname = parsed.netloc.split("@")[-1]
+    auth_netloc = f"{quote(username, safe='')}:{quote(secret, safe='')}@{hostname}"
+    return urlunparse(parsed._replace(netloc=auth_netloc))
+
+
+def _credentials_service_http_userinfo(
+    credentials_service: str | None,
+    runtime_paths: RuntimePaths,
+) -> tuple[str, str] | None:
+    if not credentials_service:
+        return None
+
+    credentials = get_runtime_shared_credentials_manager(runtime_paths).load_credentials(credentials_service) or {}
+    username = credentials.get("username")
+    token = credentials.get("token") or credentials.get("api_key")
+    password = credentials.get("password")
+
+    if not isinstance(username, str) and token and not password:
+        username = "x-access-token"
+
+    if not isinstance(username, str) or not username:
+        return None
+
+    if isinstance(password, str) and password:
+        return username, password
+    if isinstance(token, str) and token:
+        return username, token
+    return None
+
+
+def _git_http_basic_auth_env(clean_url: str, username: str, secret: str) -> dict[str, str]:
+    encoded = base64.b64encode(f"{username}:{secret}".encode()).decode("ascii")
+    return {
+        "GIT_CONFIG_COUNT": "1",
+        "GIT_CONFIG_KEY_0": f"http.{clean_url}.extraHeader",
+        "GIT_CONFIG_VALUE_0": f"Authorization: Basic {encoded}",
+    }
+
+
+def _git_auth_env(
+    repo_url: str,
+    credentials_service: str | None,
+    runtime_paths: RuntimePaths,
+) -> dict[str, str] | None:
+    """Return process-local Git config that injects credentials without persisting them."""
+    clean_url = credential_free_repo_url(repo_url)
+    parsed_clean_url = urlparse(clean_url)
+
+    embedded_userinfo = embedded_http_userinfo(repo_url)
+    if embedded_userinfo is not None:
+        return _git_http_basic_auth_env(clean_url, *embedded_userinfo)
+
+    credentials_userinfo = (
+        _credentials_service_http_userinfo(credentials_service, runtime_paths)
+        if parsed_clean_url.scheme in {"http", "https"}
+        else None
+    )
+    if credentials_userinfo is not None:
+        return _git_http_basic_auth_env(clean_url, *credentials_userinfo)
+
+    authenticated_url = (
+        repo_url if clean_url != repo_url else _authenticated_repo_url(clean_url, credentials_service, runtime_paths)
+    )
+    if authenticated_url == clean_url:
+        return None
+    parsed_authenticated_url = urlparse(authenticated_url)
+    if parsed_authenticated_url.netloc and "@" in parsed_authenticated_url.netloc:
+        return None
+    return {
+        "GIT_CONFIG_COUNT": "1",
+        "GIT_CONFIG_KEY_0": f"url.{authenticated_url}.insteadOf",
+        "GIT_CONFIG_VALUE_0": clean_url,
+    }
+
+
+def _merge_git_env(*envs: dict[str, str] | None) -> dict[str, str] | None:
+    merged: dict[str, str] = {}
+    for env in envs:
+        if env:
+            merged.update(env)
+    return merged or None
+
+
+def _split_posix_parts(value: str) -> tuple[str, ...]:
+    normalized = value.replace("\\", "/").strip()
+    normalized = normalized.removeprefix("./")
+    normalized = normalized.strip("/")
+    if not normalized:
+        return ()
+    return tuple(part for part in normalized.split("/") if part and part != ".")
+
+
+def _matches_root_glob(relative_path: str, pattern: str) -> bool:
+    """Return True when relative path matches the root-anchored glob pattern."""
+    path_parts = _split_posix_parts(relative_path)
+    pattern_parts = _split_posix_parts(pattern)
+    if not pattern_parts:
+        return False
+
+    cache: dict[tuple[int, int], bool] = {}
+
+    def _match(path_index: int, pattern_index: int) -> bool:
+        key = (path_index, pattern_index)
+        if key in cache:
+            return cache[key]
+
+        if pattern_index == len(pattern_parts):
+            result = path_index == len(path_parts)
+        else:
+            pattern_part = pattern_parts[pattern_index]
+            if pattern_part == "**":
+                next_index = pattern_index
+                while next_index < len(pattern_parts) and pattern_parts[next_index] == "**":
+                    next_index += 1
+                if next_index == len(pattern_parts):
+                    result = True
+                else:
+                    result = any(_match(next_path, next_index) for next_path in range(path_index, len(path_parts) + 1))
+            elif path_index < len(path_parts) and fnmatchcase(path_parts[path_index], pattern_part):
+                result = _match(path_index + 1, pattern_index + 1)
+            else:
+                result = False
+
+        cache[key] = result
+        return result
+
+    return _match(0, 0)
+
+
+def _is_hidden_relative_path(relative_path: Path) -> bool:
+    return any(part.startswith(".") for part in relative_path.parts)
+
+
+def _include_knowledge_relative_path(config: Config, base_id: str, relative_path: str) -> bool:
+    """Return whether a relative path is managed by the base path filters."""
+    path_obj = Path(relative_path)
+    if path_obj.is_absolute() or ".." in path_obj.parts:
+        return False
+
+    base_config = config.get_knowledge_base_config(base_id)
+    git_config = base_config.git
+    if git_config is not None and git_config.skip_hidden and _is_hidden_relative_path(path_obj):
+        return False
+
+    if git_config is None:
+        return True
+
+    if git_config.include_patterns and not any(
+        _matches_root_glob(relative_path, pattern) for pattern in git_config.include_patterns
+    ):
+        return False
+
+    return not any(_matches_root_glob(relative_path, pattern) for pattern in git_config.exclude_patterns)
+
+
+def include_semantic_knowledge_relative_path(config: Config, base_id: str, relative_path: str) -> bool:
+    """Return whether a relative path is semantically indexable for one base."""
+    if not _include_knowledge_relative_path(config, base_id, relative_path):
+        return False
+
+    base_config = config.get_knowledge_base_config(base_id)
+    include_extensions = set(base_config.include_extensions) if base_config.include_extensions is not None else None
+    exclude_extensions = set(base_config.exclude_extensions)
+    allowed_extensions = include_extensions if include_extensions is not None else _TEXT_LIKE_EXTENSIONS
+
+    suffix = Path(relative_path).suffix.lower()
+    if suffix not in allowed_extensions:
+        return False
+    return suffix not in exclude_extensions
+
+
+def include_knowledge_relative_path(config: Config, base_id: str, relative_path: str) -> bool:
+    """Return whether a relative path belongs to the active source set for one base."""
+    if config.get_knowledge_base_config(base_id).mode == "files":
+        return _include_knowledge_relative_path(config, base_id, relative_path)
+    return include_semantic_knowledge_relative_path(config, base_id, relative_path)
+
+
+def _path_is_symlink_or_under_symlink(root: Path, path: Path) -> bool:
+    try:
+        relative_path = path.relative_to(root)
+    except ValueError:
+        return True
+
+    current = root
+    for part in relative_path.parts:
+        current = current / part
+        if current.is_symlink():
+            return True
+    return False
+
+
+def _include_knowledge_file(config: Config, base_id: str, knowledge_root: Path, file_path: Path) -> bool:
+    """Return whether a file belongs to the active source set for one base."""
+    root = knowledge_root.resolve()
+    candidate = file_path if file_path.is_absolute() else root / file_path
+    try:
+        candidate.relative_to(root)
+    except ValueError:
+        return False
+    if _path_is_symlink_or_under_symlink(root, candidate):
+        return False
+    try:
+        resolved_candidate = candidate.resolve(strict=True)
+        resolved_candidate.relative_to(root)
+    except (OSError, ValueError):
+        return False
+    if not candidate.is_file():
+        return False
+    relative_path = candidate.relative_to(root)
+    return include_knowledge_relative_path(config, base_id, relative_path.as_posix())
+
+
+def list_knowledge_files(config: Config, base_id: str, knowledge_root: Path) -> list[Path]:
+    """List managed files without constructing a knowledge manager."""
+    root = knowledge_root.resolve()
+    if not root.is_dir():
+        return []
+
+    files: list[Path] = []
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+        current_dir = Path(dirpath)
+        dirnames[:] = [dirname for dirname in dirnames if not (current_dir / dirname).is_symlink()]
+        for filename in filenames:
+            path = current_dir / filename
+            if _include_knowledge_file(config, base_id, root, path):
+                files.append(path)
+    return sorted(files)
+
+
+def _knowledge_file_paths_from_relative_paths(
+    config: Config,
+    base_id: str,
+    knowledge_root: Path,
+    relative_paths: Iterable[str],
+) -> list[Path]:
+    root = knowledge_root.resolve()
+    files: list[Path] = []
+    for relative_path in sorted(set(relative_paths)):
+        path = root / relative_path
+        if _include_knowledge_file(config, base_id, root, path):
+            files.append(path)
+    return files
+
+
+def _git_tracked_relative_paths_from_checkout(
+    config: Config,
+    base_id: str,
+    knowledge_root: Path,
+    *,
+    timeout_seconds: float | None = None,
+) -> set[str]:
+    git_config = config.get_knowledge_base_config(base_id).git
+    if git_config is None:
+        return set()
+    effective_timeout_seconds = float(
+        git_config.sync_timeout_seconds if timeout_seconds is None else timeout_seconds,
+    )
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "-z"],
+            cwd=str(knowledge_root),
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=effective_timeout_seconds,
+        )
+    except subprocess.TimeoutExpired as exc:
+        msg = f"Git command timed out after {effective_timeout_seconds:g}s: git ls-files -z"
+        raise RuntimeError(msg) from exc
+    except OSError as exc:
+        msg = f"Git command failed: git ls-files -z\n{exc}"
+        raise RuntimeError(msg) from exc
+
+    if result.returncode != 0:
+        details = redact_credentials_in_text((result.stderr or result.stdout).strip())
+        msg = f"Git command failed with exit code {result.returncode}: git ls-files -z"
+        if details:
+            msg = f"{msg}\n{details}"
+        raise RuntimeError(msg)
+
+    return {
+        path for path in result.stdout.split("\x00") if path and include_knowledge_relative_path(config, base_id, path)
+    }
+
+
+def list_git_tracked_knowledge_files(
+    config: Config,
+    base_id: str,
+    knowledge_root: Path,
+    *,
+    timeout_seconds: float | None = None,
+) -> list[Path]:
+    """List Git-tracked files using the active source set for one base."""
+    root = knowledge_root.resolve()
+    if not git_checkout_present(root, timeout_seconds=timeout_seconds):
+        return []
+    return _knowledge_file_paths_from_relative_paths(
+        config,
+        base_id,
+        root,
+        _git_tracked_relative_paths_from_checkout(config, base_id, root, timeout_seconds=timeout_seconds),
+    )
+
+
+def _file_content_digest(file_path: Path) -> str:
+    digest = hashlib.sha256()
+    with file_path.open("rb") as handle:
+        while chunk := handle.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def knowledge_source_signature(
+    config: Config,
+    base_id: str,
+    knowledge_root: Path,
+    *,
+    tracked_relative_paths: Iterable[str] | None = None,
+) -> str:
+    """Return a robust signature for the currently managed local file corpus."""
+    root = knowledge_root.resolve()
+    digest = hashlib.sha256()
+    base_config = config.get_knowledge_base_config(base_id)
+    if base_config.git is None:
+        files = list_knowledge_files(config, base_id, root)
+    else:
+        tracked_paths = (
+            set(tracked_relative_paths)
+            if tracked_relative_paths is not None
+            else _git_tracked_relative_paths_from_checkout(config, base_id, root)
+        )
+        files = _knowledge_file_paths_from_relative_paths(config, base_id, root, tracked_paths)
+    for path in files:
+        try:
+            stat = path.stat()
+            relative_path = path.relative_to(root).as_posix()
+            source_digest = _file_content_digest(path)
+        except OSError:
+            continue
+        digest.update(relative_path.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(str(stat.st_mtime_ns).encode("ascii"))
+        digest.update(b"\0")
+        digest.update(str(stat.st_size).encode("ascii"))
+        digest.update(b"\0")
+        digest.update(source_digest.encode("ascii"))
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def _source_signature_from_file_signatures(file_signatures: Mapping[str, _FileSignature]) -> str:
+    """Return the same corpus signature from already-indexed relative path signatures."""
+    digest = hashlib.sha256()
+    for relative_path, (source_mtime_ns, source_size, source_digest) in sorted(file_signatures.items()):
+        digest.update(relative_path.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(str(source_mtime_ns).encode("ascii"))
+        digest.update(b"\0")
+        digest.update(str(source_size).encode("ascii"))
+        digest.update(b"\0")
+        digest.update(source_digest.encode("ascii"))
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+@dataclass
+class KnowledgeManager:
+    """Manage indexing for one knowledge base folder."""
+
+    base_id: str
+    config: Config
+    runtime_paths: RuntimePaths
+    storage_path: Path | None = None
+    knowledge_path: Path | None = None
+    _indexing_settings: IndexingSettings = field(init=False)
+    _base_storage_path: Path = field(init=False)
+    _indexing_settings_path: Path = field(init=False)
+    _git_lfs_hydrated_head_path: Path = field(init=False)
+    _knowledge: Knowledge = field(init=False)
+    _indexed_files: set[str] = field(default_factory=set, init=False)
+    _indexed_signatures: dict[str, _FileSignature | None] = field(default_factory=dict, init=False)
+    _lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False)
+    _state_lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False)
+    _git_sync_lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False)
+    _git_last_successful_commit: str | None = field(default=None, init=False)
+    _last_refresh_error: str | None = field(default=None, init=False)
+    _git_lfs_checked: bool = field(default=False, init=False)
+    _git_lfs_repository_ready: bool = field(default=False, init=False)
+    _git_tracked_relative_paths: set[str] | None = field(default=None, init=False, repr=False)
+    _persisted_collection_missing_on_init: bool = field(default=False, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        """Initialize filesystem paths and the underlying vector database."""
+        base_config = self.config.get_knowledge_base_config(self.base_id)
+        if self.storage_path is None:
+            self.storage_path = self.runtime_paths.storage_root
+        if self.knowledge_path is None:
+            self.knowledge_path = _resolve_knowledge_path(base_config.path, self.runtime_paths)
+        if self.storage_path is None or self.knowledge_path is None:
+            msg = f"Knowledge manager '{self.base_id}' requires storage_path and knowledge_path"
+            raise ValueError(msg)
+        self.storage_path = self.storage_path.resolve()
+        self.knowledge_path = self.knowledge_path.resolve()
+        _ensure_knowledge_directory_ready(self.knowledge_path)
+        self._set_settings(self.config, self.runtime_paths, self.storage_path, self.knowledge_path)
+        self._base_storage_path = (
+            self.storage_path / "knowledge_db" / _base_storage_key(self.base_id, self.knowledge_path)
+        ).resolve()
+        self._base_storage_path.mkdir(parents=True, exist_ok=True)
+        self._indexing_settings_path = self._base_storage_path / "indexing_settings.json"
+        self._git_lfs_hydrated_head_path = self._base_storage_path / "git_lfs_hydrated_head.txt"
+        persisted_state = self._load_persisted_index_state()
+        if not _semantic_indexing_enabled(self.config, self.base_id):
+            self._persisted_collection_missing_on_init = False
+            self._knowledge = Knowledge()
+            return
+        self._persisted_collection_missing_on_init = self._persisted_collection_missing(persisted_state)
+        collection_name = (
+            persisted_state.collection
+            if (
+                persisted_state is not None
+                and persisted_state.collection is not None
+                and not self._persisted_collection_missing_on_init
+            )
+            else self._default_collection_name()
+        )
+        self._knowledge = self._build_knowledge(collection_name)
+
+    def _set_settings(
+        self,
+        config: Config,
+        runtime_paths: RuntimePaths,
+        storage_path: Path,
+        knowledge_path: Path,
+    ) -> None:
+        self.config = config
+        self.runtime_paths = runtime_paths
+        self.storage_path = storage_path
+        self.knowledge_path = knowledge_path.resolve()
+        self._indexing_settings = _indexing_settings_key(
+            config,
+            storage_path,
+            self.base_id,
+            self.knowledge_path,
+        )
+
+    def _knowledge_source_path(self) -> Path:
+        knowledge_path = self.knowledge_path
+        if knowledge_path is None:
+            msg = f"Knowledge path for base '{self.base_id}' is not initialized"
+            raise RuntimeError(msg)
+        return knowledge_path
+
+    def _persisted_collection_missing(self, persisted_state: _PersistedIndexState | None) -> bool:
+        if persisted_state is None or persisted_state.status != _INDEXING_STATUS_COMPLETE:
+            return False
+        collection_name = persisted_state.collection or self._default_collection_name()
+        try:
+            return not chroma_collection_exists(self._base_storage_path, collection_name)
+        except Exception:
+            logger.warning(
+                "Knowledge collection existence check failed during manager initialization",
+                base_id=self.base_id,
+                collection=collection_name,
+                exc_info=True,
+            )
+            return True
+
+    def _load_persisted_index_state(self) -> _PersistedIndexState | None:
+        payload = load_index_metadata_payload(self._indexing_settings_path)
+        if payload is None:
+            return None
+        fields = parse_index_metadata_fields(
+            payload,
+            allowed_statuses=_INDEXING_STATUSES,
+            require_complete_fields_for_all_statuses=True,
+        )
+        if fields is None:
+            return None
+        (
+            settings,
+            status,
+            collection,
+            last_published_at,
+            published_revision,
+            indexed_count,
+            source_signature,
+        ) = fields
+        indexing_settings = IndexingSettings.from_metadata(settings)
+        if indexing_settings is None:
+            return None
+        return _PersistedIndexState(
+            indexing_settings,
+            cast('Literal["resetting", "indexing", "complete"]', status),
+            collection=collection,
+            last_published_at=last_published_at,
+            published_revision=published_revision,
+            indexed_count=indexed_count,
+            source_signature=source_signature,
+        )
+
+    def _save_persisted_index_state(
+        self,
+        status: Literal["resetting", "indexing", "complete"],
+        *,
+        settings: IndexingSettings | None = None,
+        collection: str | None = None,
+        last_published_at: str | None = None,
+        published_revision: str | None = None,
+        indexed_count: int | None = None,
+        source_signature: str | None = None,
+    ) -> None:
+        write_index_metadata_payload(
+            self._indexing_settings_path,
+            settings=(settings or self._indexing_settings).to_metadata(),
+            status=status,
+            collection=collection,
+            last_published_at=last_published_at,
+            published_revision=published_revision,
+            indexed_count=indexed_count,
+            source_signature=source_signature,
+        )
+
+    def _load_git_lfs_hydrated_head(self) -> str | None:
+        try:
+            hydrated_head = self._git_lfs_hydrated_head_path.read_text(encoding="utf-8").strip()
+        except OSError:
+            return None
+        return hydrated_head or None
+
+    def _save_git_lfs_hydrated_head(self, head: str) -> None:
+        self._git_lfs_hydrated_head_path.write_text(head, encoding="utf-8")
+
+    def _clear_git_lfs_hydrated_head(self) -> None:
+        self._git_lfs_hydrated_head_path.unlink(missing_ok=True)
+
+    def _has_existing_index(self) -> bool:
+        vector_db = self._knowledge.vector_db
+        return isinstance(vector_db, ChromaDb) and vector_db.exists()
+
+    def _needs_full_reindex_on_create(self) -> bool:
+        if self._persisted_collection_missing_on_init:
+            return True
+        persisted_state = self._load_persisted_index_state()
+        if persisted_state is None:
+            return self._indexing_settings_path.exists() and self._has_existing_index()
+        return (
+            persisted_state.settings != self._indexing_settings or persisted_state.status == _INDEXING_STATUS_RESETTING
+        )
+
+    def _git_config(self) -> KnowledgeGitConfig | None:
+        return self.config.get_knowledge_base_config(self.base_id).git
+
+    def _git_uses_lfs(self) -> bool:
+        git_config = self._git_config()
+        return bool(git_config and git_config.lfs)
+
+    def _git_sync_timeout_seconds(self) -> float | None:
+        git_config = self._git_config()
+        if git_config is None:
+            return None
+        return float(git_config.sync_timeout_seconds)
+
+    async def _git_checkout_present(self) -> bool:
+        return await asyncio.to_thread(
+            git_checkout_present,
+            self._knowledge_source_path(),
+            timeout_seconds=self._git_sync_timeout_seconds(),
+        )
+
+    def _include_active_relative_path(self, relative_path: str) -> bool:
+        return include_knowledge_relative_path(self.config, self.base_id, relative_path)
+
+    async def _run_git(
+        self,
+        args: list[str],
+        *,
+        cwd: Path | None = None,
+        env: dict[str, str] | None = None,
+    ) -> str:
+        repo_root = cwd or self._knowledge_source_path()
+        process = await asyncio.create_subprocess_exec(
+            "git",
+            *args,
+            cwd=str(repo_root),
+            env=None if env is None else {**os.environ, **env},
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            timeout_seconds = self._git_sync_timeout_seconds()
+            if timeout_seconds is None:
+                stdout, stderr = await process.communicate()
+            else:
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout_seconds)
+        except asyncio.CancelledError:
+            with suppress(ProcessLookupError):
+                process.kill()
+            with suppress(ProcessLookupError):
+                await process.wait()
+            raise
+        except TimeoutError as exc:
+            with suppress(ProcessLookupError):
+                process.kill()
+            with suppress(ProcessLookupError):
+                await process.wait()
+            command = " ".join(["git", *(redact_url_credentials(arg) for arg in args)])
+            msg = f"Git command timed out after {timeout_seconds:.0f}s: {command}"
+            raise RuntimeError(msg) from exc
+
+        if process.returncode == 0:
+            return stdout.decode("utf-8", errors="replace")
+
+        stdout_text = stdout.decode("utf-8", errors="replace").strip()
+        stderr_text = stderr.decode("utf-8", errors="replace").strip()
+        details = redact_credentials_in_text(stderr_text or stdout_text)
+        command = " ".join(["git", *(redact_url_credentials(arg) for arg in args)])
+        msg = f"Git command failed with exit code {process.returncode}: {command}"
+        if details:
+            msg = f"{msg}\n{details}"
+        raise RuntimeError(msg)
+
+    async def _ensure_git_lfs_available(self, *, cwd: Path) -> None:
+        if not self._git_uses_lfs() or self._git_lfs_checked:
+            return
+        try:
+            await self._run_git(["lfs", "version"], cwd=cwd)
+        except RuntimeError as exc:
+            msg = "Git LFS is required for this knowledge base but is not available in the runtime image"
+            raise RuntimeError(msg) from exc
+        self._git_lfs_checked = True
+
+    async def _ensure_git_lfs_repository_ready(self, repo_root: Path) -> None:
+        if not self._git_uses_lfs() or self._git_lfs_repository_ready:
+            return
+        await self._ensure_git_lfs_available(cwd=repo_root)
+        await self._run_git(["lfs", "install", "--local"], cwd=repo_root)
+        self._git_lfs_repository_ready = True
+
+    def _git_lfs_skip_smudge_env(self, git_config: KnowledgeGitConfig) -> dict[str, str] | None:
+        if not git_config.lfs:
+            return None
+        return {"GIT_LFS_SKIP_SMUDGE": "1"}
+
+    def _git_lfs_pull_args(self, git_config: KnowledgeGitConfig) -> list[str]:
+        return ["lfs", "pull", "origin", git_config.branch]
+
+    async def _hydrate_git_lfs_worktree(
+        self,
+        git_config: KnowledgeGitConfig,
+        *,
+        repo_root: Path | None = None,
+        current_head: str | None = None,
+    ) -> None:
+        if not git_config.lfs:
+            return
+        resolved_head = current_head or await self._git_rev_parse("HEAD")
+        if resolved_head is not None:
+            hydrated_head = await asyncio.to_thread(self._load_git_lfs_hydrated_head)
+            if hydrated_head == resolved_head:
+                return
+        await self._run_git(
+            self._git_lfs_pull_args(git_config),
+            cwd=repo_root or self._knowledge_source_path(),
+            env=_git_auth_env(git_config.repo_url, git_config.credentials_service, self.runtime_paths),
+        )
+        if resolved_head is None:
+            resolved_head = await self._git_rev_parse("HEAD")
+        if resolved_head is not None:
+            await asyncio.to_thread(self._save_git_lfs_hydrated_head, resolved_head)
+
+    async def _git_rev_parse(self, ref: str) -> str | None:
+        try:
+            output = await self._run_git(["rev-parse", ref])
+        except RuntimeError:
+            return None
+        return output.strip() or None
+
+    async def _git_list_tracked_files(self) -> set[str]:
+        output = await self._run_git(["ls-files", "-z"])
+        raw_paths = [entry for entry in output.split("\x00") if entry]
+        tracked_files = {path for path in raw_paths if self._include_active_relative_path(path)}
+        self._git_tracked_relative_paths = set(tracked_files)
+        return tracked_files
+
+    async def _ensure_git_repository(self, git_config: KnowledgeGitConfig) -> bool:
+        runtime_paths = self.runtime_paths
+        knowledge_root = self._knowledge_source_path()
+        if await self._git_checkout_present():
+            await self._ensure_git_lfs_repository_ready(knowledge_root)
+            current_remote = (await self._run_git(["remote", "get-url", "origin"])).strip()
+            expected_remote = credential_free_repo_url(git_config.repo_url)
+            if current_remote != expected_remote:
+                await self._run_git(["remote", "set-url", "origin", expected_remote])
+            return False
+
+        if knowledge_root.exists() and any(knowledge_root.iterdir()):
+            msg = (
+                f"Cannot clone knowledge git repository into non-empty path {knowledge_root}. "
+                "Clear the folder or use a dedicated path."
+            )
+            raise RuntimeError(msg)
+
+        knowledge_root.parent.mkdir(parents=True, exist_ok=True)
+        if git_config.lfs:
+            await self._ensure_git_lfs_available(cwd=knowledge_root.parent)
+        clone_url = credential_free_repo_url(git_config.repo_url)
+        await self._run_git(
+            [
+                "clone",
+                "--single-branch",
+                "--branch",
+                git_config.branch,
+                clone_url,
+                str(knowledge_root),
+            ],
+            cwd=knowledge_root.parent,
+            env=_merge_git_env(
+                _git_auth_env(git_config.repo_url, git_config.credentials_service, runtime_paths),
+                self._git_lfs_skip_smudge_env(git_config),
+            ),
+        )
+        await self._run_git(["remote", "set-url", "origin", clone_url], cwd=knowledge_root)
+        await asyncio.to_thread(self._clear_git_lfs_hydrated_head)
+        await self._ensure_git_lfs_repository_ready(knowledge_root)
+        await self._hydrate_git_lfs_worktree(git_config, repo_root=knowledge_root)
+        return True
+
+    async def _sync_git_source_once(self, git_config: KnowledgeGitConfig) -> tuple[set[str], set[str], bool]:
+        cloned = await self._ensure_git_repository(git_config)
+        if cloned:
+            return await self._git_list_tracked_files(), set(), True
+
+        before_head = await self._git_rev_parse("HEAD")
+
+        remote_ref = f"origin/{git_config.branch}"
+        await self._run_git(
+            ["fetch", "origin", f"+refs/heads/{git_config.branch}:refs/remotes/{remote_ref}"],
+            env=_git_auth_env(git_config.repo_url, git_config.credentials_service, self.runtime_paths),
+        )
+        remote_head = await self._git_rev_parse(remote_ref)
+        if remote_head is None:
+            msg = f"Could not resolve remote ref '{remote_ref}' for knowledge base '{self.base_id}'"
+            raise RuntimeError(msg)
+
+        if before_head == remote_head:
+            await self._hydrate_git_lfs_worktree(git_config, current_head=remote_head)
+            return set(), set(), False
+
+        before_files = await self._git_list_tracked_files()
+
+        await self._run_git(
+            ["checkout", "--force", "-B", git_config.branch, remote_ref],
+            env=self._git_lfs_skip_smudge_env(git_config),
+        )
+        # Reviewed with Bas (2026-04-17): program-owned checkout, hard reset is the
+        # intentional way to realign it with the configured remote state.
+        await self._run_git(["reset", "--hard", remote_ref], env=self._git_lfs_skip_smudge_env(git_config))
+        await self._hydrate_git_lfs_worktree(git_config, current_head=remote_head)
+
+        after_files = await self._git_list_tracked_files()
+        if before_head is None:
+            changed_paths = after_files
+        else:
+            diff_output = await self._run_git(["diff", "--name-only", "--no-renames", f"{before_head}..HEAD"])
+            changed_paths = {path for path in diff_output.splitlines() if self._include_active_relative_path(path)}
+
+        removed_files = before_files - after_files
+        changed_files = {path for path in changed_paths if path in after_files} | (after_files - before_files)
+        return changed_files, removed_files, True
+
+    def list_files(self) -> list[Path]:
+        """List all files currently present in the knowledge folder."""
+        knowledge_root = self._knowledge_source_path()
+        if self._git_config() is not None:
+            if self._git_tracked_relative_paths is None:
+                if not git_checkout_present(knowledge_root, timeout_seconds=self._git_sync_timeout_seconds()):
+                    return []
+                self._git_tracked_relative_paths = _git_tracked_relative_paths_from_checkout(
+                    self.config,
+                    self.base_id,
+                    knowledge_root,
+                )
+            return _knowledge_file_paths_from_relative_paths(
+                self.config,
+                self.base_id,
+                knowledge_root,
+                self._git_tracked_relative_paths,
+            )
+        return list_knowledge_files(self.config, self.base_id, knowledge_root)
+
+    def _relative_path(self, file_path: Path) -> str:
+        return file_path.relative_to(self._knowledge_source_path()).as_posix()
+
+    def _file_signature(self, file_path: Path) -> _FileSignature:
+        stat = file_path.stat()
+        return stat.st_mtime_ns, stat.st_size, _file_content_digest(file_path)
+
+    def _has_vectors_for_source_path(
+        self,
+        relative_path: str,
+        *,
+        knowledge: Knowledge | None = None,
+    ) -> bool:
+        target_knowledge = knowledge or self._knowledge
+        vector_db = target_knowledge.vector_db
+        if not isinstance(vector_db, ChromaDb):
+            return True
+        if not vector_db.exists():
+            return False
+
+        collection = vector_db.client.get_collection(name=vector_db.collection_name)
+        result = collection.get(
+            where={_SOURCE_PATH_KEY: relative_path},
+            limit=1,
+            include=[],
+        )
+        ids = result.get("ids", []) or []
+        return bool(ids)
+
+    async def _wait_for_source_vectors(
+        self,
+        relative_path: str,
+        *,
+        knowledge: Knowledge | None = None,
+    ) -> bool:
+        """Retry post-insert visibility checks to tolerate brief vector-store lag."""
+        for attempt, delay_seconds in enumerate(_POST_INDEX_VECTOR_VISIBILITY_RETRY_DELAYS_SECONDS):
+            if attempt > 0:
+                await asyncio.sleep(delay_seconds)
+            has_vectors = await asyncio.to_thread(
+                self._has_vectors_for_source_path,
+                relative_path,
+                knowledge=knowledge,
+            )
+            if has_vectors:
+                return True
+        return False
+
+    def _build_reader(self, file_path: Path) -> Reader:
+        """Build a per-file reader with conservative chunking for text-like content."""
+        base_config = self.config.get_knowledge_base_config(self.base_id)
+        reader = ReaderFactory.get_reader_for_extension(file_path.suffix.lower())
+
+        # Large markdown/plain-text files are the common source of oversized embed requests.
+        if not isinstance(reader, (TextReader, MarkdownReader)):
+            return reader
+
+        configured_reader = deepcopy(reader)
+        configured_reader.chunk = True
+        configured_reader.chunk_size = base_config.chunk_size
+        configured_reader.chunking_strategy = SafeFixedSizeChunking(
+            chunk_size=base_config.chunk_size,
+            overlap=base_config.chunk_overlap,
+        )
+        return configured_reader
+
+    def _default_collection_name(self) -> str:
+        return _collection_name(self.base_id, self._knowledge_source_path())
+
+    def _candidate_collection_name(self) -> str:
+        return f"{self._default_collection_name()}_candidate_{time.time_ns()}_{uuid.uuid4().hex[:8]}"
+
+    def _build_vector_db(self, collection_name: str) -> ChromaDb:
+        return ChromaDb(
+            collection=collection_name,
+            path=str(self._base_storage_path),
+            persistent_client=True,
+            embedder=_create_embedder(self.config, self.runtime_paths),
+        )
+
+    def _build_knowledge(self, collection_name: str) -> Knowledge:
+        return Knowledge(vector_db=self._build_vector_db(collection_name))
+
+    def _cleanup_superseded_collections(
+        self,
+        *,
+        active_collection: str,
+    ) -> None:
+        vector_db = self._knowledge.vector_db
+        if not isinstance(vector_db, ChromaDb):
+            return
+        client = vector_db.client
+        if client is None or not isinstance(client, _CollectionListingClient):
+            return
+
+        default_collection = self._default_collection_name()
+        candidate_prefix = f"{self._default_collection_name()}_candidate_"
+
+        try:
+            collection_names = self._listed_collection_names(client)
+        except Exception:
+            logger.warning(
+                "Failed to list superseded knowledge collections for cleanup",
+                base_id=self.base_id,
+                exc_info=True,
+            )
+            return
+
+        for collection_name in collection_names:
+            same_base_collection = collection_name == default_collection or collection_name.startswith(candidate_prefix)
+            if collection_name == active_collection or not same_base_collection:
+                continue
+            try:
+                self._build_vector_db(collection_name).delete()
+            except Exception:
+                logger.warning(
+                    "Failed to clean superseded knowledge collection",
+                    base_id=self.base_id,
+                    collection=collection_name,
+                    exc_info=True,
+                )
+
+    def _listed_collection_names(self, client: _CollectionListingClient) -> tuple[str, ...]:
+        names: list[str] = []
+        for collection in client.list_collections():
+            if isinstance(collection, str):
+                names.append(collection)
+            elif isinstance(collection, _NamedCollection):
+                names.append(collection.name)
+        return tuple(dict.fromkeys(names))
+
+    def _reset_vector_db(self, vector_db: ChromaDb) -> None:
+        vector_db.delete()
+        vector_db.create()
+
+    async def _delete_unpublished_candidate_vector_db(self, vector_db: ChromaDb) -> None:
+        cleanup_task = asyncio.create_task(asyncio.to_thread(vector_db.delete))
+        try:
+            await asyncio.shield(cleanup_task)
+        except asyncio.CancelledError:
+            try:
+                await cleanup_task
+            except Exception:
+                logger.warning(
+                    "Failed to clean unpublished knowledge candidate collection",
+                    base_id=self.base_id,
+                    collection=vector_db.collection_name,
+                    exc_info=True,
+                )
+            raise
+        except Exception:
+            logger.warning(
+                "Failed to clean unpublished knowledge candidate collection",
+                base_id=self.base_id,
+                collection=vector_db.collection_name,
+                exc_info=True,
+            )
+
+    async def _save_candidate_publish_metadata(
+        self,
+        *,
+        candidate_vector_db: ChromaDb,
+        indexed_count: int,
+        source_signature: str,
+    ) -> bool:
+        save_task = asyncio.create_task(
+            asyncio.to_thread(
+                self._save_persisted_index_state,
+                _INDEXING_STATUS_COMPLETE,
+                collection=candidate_vector_db.collection_name,
+                last_published_at=datetime.now(tz=UTC).isoformat(),
+                published_revision=self._git_last_successful_commit,
+                indexed_count=indexed_count,
+                source_signature=source_signature,
+            ),
+        )
+        try:
+            await asyncio.shield(save_task)
+        except asyncio.CancelledError:
+            await save_task
+            return True
+        return False
+
+    async def _adopt_candidate_vector_db(
+        self,
+        *,
+        candidate_vector_db: ChromaDb,
+        indexed_files: set[str],
+        indexed_signatures: dict[str, _FileSignature | None],
+    ) -> None:
+        self._knowledge.vector_db = candidate_vector_db
+        async with self._state_lock:
+            self._indexed_files = indexed_files
+            self._indexed_signatures = indexed_signatures
+
+    async def _publish_candidate_after_metadata_save(
+        self,
+        *,
+        candidate_vector_db: ChromaDb,
+        indexed_files: set[str],
+        indexed_signatures: dict[str, _FileSignature | None],
+        indexed_count: int,
+        source_signature: str,
+        publish_state: _CandidatePublishState,
+    ) -> None:
+        publish_cancelled = await self._save_candidate_publish_metadata(
+            candidate_vector_db=candidate_vector_db,
+            indexed_count=indexed_count,
+            source_signature=source_signature,
+        )
+        publish_state.index_published = True
+        await self._adopt_candidate_vector_db(
+            candidate_vector_db=candidate_vector_db,
+            indexed_files=indexed_files,
+            indexed_signatures=indexed_signatures,
+        )
+        if publish_cancelled:
+            _raise_cancelled()
+
+    async def sync_git_source(self) -> dict[str, Any]:
+        """Fetch and force-align one configured Git repository checkout."""
+        git_config = self._git_config()
+        if git_config is None:
+            return {"updated": False, "changed_count": 0, "removed_count": 0}
+
+        async with self._git_sync_lock:
+            changed_files, removed_files, updated = await self._sync_git_source_once(git_config)
+            current_head = await self._git_rev_parse("HEAD")
+            self._git_last_successful_commit = current_head
+
+        if updated:
+            logger.info(
+                "Knowledge Git repository synchronized",
+                base_id=self.base_id,
+                repo_url=redact_url_credentials(git_config.repo_url),
+                branch=git_config.branch,
+                changed_count=len(changed_files),
+                removed_count=len(removed_files),
+                commit=current_head,
+            )
+        return {
+            "updated": updated,
+            "changed_count": len(changed_files),
+            "removed_count": len(removed_files),
+        }
+
+    async def _index_file_locked(
+        self,
+        resolved_path: Path,
+        *,
+        upsert: bool,
+        knowledge: Knowledge | None = None,
+        indexed_files: set[str] | None = None,
+        indexed_signatures: dict[str, _FileSignature | None] | None = None,
+    ) -> bool:
+        """Index one file while the caller owns the operation lock."""
+        relative_path = self._relative_path(resolved_path)
+        source_mtime_ns, source_size, source_digest = await asyncio.to_thread(self._file_signature, resolved_path)
+        metadata = {
+            _SOURCE_PATH_KEY: relative_path,
+            _SOURCE_MTIME_NS_KEY: source_mtime_ns,
+            _SOURCE_SIZE_KEY: source_size,
+            _SOURCE_DIGEST_KEY: source_digest,
+        }
+        reader = self._build_reader(resolved_path)
+        target_knowledge = knowledge or self._knowledge
+
+        try:
+            if upsert:
+                # Agno/Chroma upsert keys by content hash, so stale chunks from an older
+                # version of the same file can remain unless we clear by source metadata first.
+                await asyncio.to_thread(target_knowledge.remove_vectors_by_metadata, {_SOURCE_PATH_KEY: relative_path})
+            # Knowledge.ainsert is async by name only: it eventually calls into the
+            # vector database's synchronous batch upsert (e.g. ChromaDB's Rust
+            # _upsert) on the running event loop, blocking every other coroutine
+            # for as long as the embed+upsert batch takes. Use the sync insert API
+            # via asyncio.to_thread so embedding + vector database work runs on a
+            # worker thread and the loop stays responsive to Matrix sync, tool
+            # calls, and cache writes.
+            await asyncio.to_thread(
+                target_knowledge.insert,
+                path=str(resolved_path),
+                metadata=metadata,
+                upsert=upsert,
+                reader=reader,
+            )
+        except Exception:
+            logger.exception("Failed to index knowledge file", base_id=self.base_id, path=str(resolved_path))
+            return False
+
+        has_vectors = await self._wait_for_source_vectors(
+            relative_path,
+            knowledge=target_knowledge,
+        )
+        if not has_vectors:
+            if source_size == 0:
+                if indexed_files is not None and indexed_signatures is not None:
+                    indexed_files.add(relative_path)
+                    indexed_signatures[relative_path] = (source_mtime_ns, source_size, source_digest)
+                else:
+                    async with self._state_lock:
+                        self._indexed_files.add(relative_path)
+                        self._indexed_signatures[relative_path] = (source_mtime_ns, source_size, source_digest)
+                logger.info("Scanned empty knowledge file with no vectors", base_id=self.base_id, path=relative_path)
+                return True
+
+            logger.warning("Indexing produced no vectors for file", base_id=self.base_id, path=relative_path)
+            if indexed_files is not None and indexed_signatures is not None:
+                indexed_files.discard(relative_path)
+                indexed_signatures.pop(relative_path, None)
+            else:
+                async with self._state_lock:
+                    self._indexed_files.discard(relative_path)
+                    self._indexed_signatures.pop(relative_path, None)
+            return False
+
+        if indexed_files is not None and indexed_signatures is not None:
+            indexed_files.add(relative_path)
+            indexed_signatures[relative_path] = (source_mtime_ns, source_size, source_digest)
+        else:
+            async with self._state_lock:
+                self._indexed_files.add(relative_path)
+                self._indexed_signatures[relative_path] = (source_mtime_ns, source_size, source_digest)
+        logger.info("Indexed knowledge file", base_id=self.base_id, path=relative_path)
+        return True
+
+    async def _reindex_files_locked(
+        self,
+        files: list[Path],
+        *,
+        knowledge: Knowledge | None = None,
+        indexed_files: set[str] | None = None,
+        indexed_signatures: dict[str, _FileSignature | None] | None = None,
+    ) -> int:
+        """Reindex resolved files with bounded concurrency while holding the operation lock."""
+        if not files:
+            return 0
+
+        concurrency = min(_MAX_CONCURRENT_KNOWLEDGE_FILE_INDEXES, len(files))
+        if concurrency <= 1:
+            indexed_count = 0
+            for file_path in files:
+                indexed_count += int(
+                    await self._index_file_locked(
+                        file_path,
+                        upsert=True,
+                        knowledge=knowledge,
+                        indexed_files=indexed_files,
+                        indexed_signatures=indexed_signatures,
+                    ),
+                )
+            return indexed_count
+
+        semaphore = asyncio.Semaphore(concurrency)
+
+        async def _index_one(file_path: Path) -> bool:
+            async with semaphore:
+                return await self._index_file_locked(
+                    file_path,
+                    upsert=True,
+                    knowledge=knowledge,
+                    indexed_files=indexed_files,
+                    indexed_signatures=indexed_signatures,
+                )
+
+        results = await asyncio.gather(*(_index_one(file_path) for file_path in files))
+        return sum(int(indexed) for indexed in results)
+
+    async def reindex_all(self) -> int:
+        """Clear and rebuild the knowledge index from disk."""
+        if not _semantic_indexing_enabled(self.config, self.base_id):
+            self._last_refresh_error = None
+            return 0
+
+        async with self._lock:
+            self._last_refresh_error = None
+            files = await asyncio.to_thread(self.list_files)
+            candidate_knowledge = self._build_knowledge(self._candidate_collection_name())
+            candidate_vector_db = candidate_knowledge.vector_db
+            if not isinstance(candidate_vector_db, ChromaDb):
+                msg = "Knowledge reindex candidate collection requires a ChromaDb vector database"
+                raise TypeError(msg)
+
+            await asyncio.to_thread(self._reset_vector_db, candidate_vector_db)
+            candidate_publish_state = _CandidatePublishState()
+            candidate_indexed_files: set[str] = set()
+            candidate_indexed_signatures: dict[str, _FileSignature | None] = {}
+
+            try:
+                indexed_count = await self._reindex_files_locked(
+                    files,
+                    knowledge=candidate_knowledge,
+                    indexed_files=candidate_indexed_files,
+                    indexed_signatures=candidate_indexed_signatures,
+                )
+                if indexed_count != len(files):
+                    self._last_refresh_error = f"Indexed {indexed_count} of {len(files)} managed knowledge files"
+                    return indexed_count
+
+                expected_paths = {self._relative_path(file_path) for file_path in files}
+                candidate_signatures = {
+                    relative_path: signature
+                    for relative_path, signature in candidate_indexed_signatures.items()
+                    if signature is not None
+                }
+                if set(candidate_signatures) != expected_paths:
+                    self._last_refresh_error = (
+                        f"Indexed signatures covered {len(candidate_signatures)} of {len(expected_paths)} managed files"
+                    )
+                    return indexed_count
+
+                candidate_source_signature = _source_signature_from_file_signatures(candidate_signatures)
+                live_source_signature = await asyncio.to_thread(
+                    knowledge_source_signature,
+                    self.config,
+                    self.base_id,
+                    self._knowledge_source_path(),
+                    tracked_relative_paths=self._git_tracked_relative_paths,
+                )
+                if live_source_signature != candidate_source_signature:
+                    self._last_refresh_error = "Knowledge source changed during refresh; refresh skipped"
+                    return indexed_count
+
+                await self._publish_candidate_after_metadata_save(
+                    candidate_vector_db=candidate_vector_db,
+                    indexed_files=candidate_indexed_files,
+                    indexed_signatures=candidate_indexed_signatures,
+                    indexed_count=len(candidate_indexed_files),
+                    source_signature=candidate_source_signature,
+                    publish_state=candidate_publish_state,
+                )
+                await asyncio.to_thread(
+                    self._cleanup_superseded_collections,
+                    active_collection=candidate_vector_db.collection_name,
+                )
+            except Exception as exc:
+                self._last_refresh_error = redact_credentials_in_text(str(exc))
+                raise
+            else:
+                return indexed_count
+            finally:
+                if not candidate_publish_state.index_published:
+                    await self._delete_unpublished_candidate_vector_db(candidate_vector_db)

@@ -1,0 +1,25 @@
+Metadata-Version: 2.4
+Name: chalkpy-rs
+Version: 0.1.1
+Summary: Native Rust extension package for chalkpy
+Author: Chalk AI, Inc.
+Project-URL: Homepage, https://chalk.ai
+Project-URL: Documentation, https://docs.chalk.ai
+Project-URL: Changelog, https://docs.chalk.ai/docs/changelog
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Rust
+Requires-Python: <3.15,>=3.10
+Description-Content-Type: text/markdown
+
+# chalkpy-rs
+
+`chalkpy-rs` is the native Rust extension package used by `chalkpy`.
+
+The Python distribution is named `chalkpy-rs`, but it provides the
+top-level import module `chalk_rs`.

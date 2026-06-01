@@ -7,6 +7,25 @@ from simpletransformers.classification import (
 )
 
 
+def test_custom_model_post_init():
+    """Regression: custom PreTrainedModel subclasses must call post_init() so that
+    transformers v5 sets all_tied_weights_keys before from_pretrained accesses it."""
+    from transformers import ElectraConfig, RobertaConfig
+
+    from simpletransformers.custom_models.models import (
+        ElectraForMultiLabelSequenceClassification,
+        ElectraForSequenceClassification,
+        RobertaForMultiLabelSequenceClassification,
+    )
+
+    roberta_cfg = RobertaConfig(num_labels=2)
+    assert hasattr(RobertaForMultiLabelSequenceClassification(roberta_cfg), "all_tied_weights_keys")
+
+    electra_cfg = ElectraConfig(num_labels=2)
+    assert hasattr(ElectraForSequenceClassification(electra_cfg), "all_tied_weights_keys")
+    assert hasattr(ElectraForMultiLabelSequenceClassification(electra_cfg), "all_tied_weights_keys")
+
+
 @pytest.mark.parametrize(
     "model_type, model_name",
     [
@@ -128,9 +147,9 @@ def test_multiclass_classification(model_type, model_name):
     "model_type, model_name",
     [
         ("bert", "bert-base-uncased"),
+        ("roberta", "distilroberta-base"),
         # ("xlnet", "xlnet-base-cased"),
         #     ("xlm", "xlm-mlm-17-1280"),
-        #     ("roberta", "roberta-base"),
         #     ("distilbert", "distilbert-base-uncased"),
         #     ("albert", "albert-base-v1"),
         # ("camembert", "camembert-base")

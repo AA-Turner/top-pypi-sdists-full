@@ -1,0 +1,17 @@
+name: Create and check package
+description: building, checking the package
+
+runs:
+  using: "composite"
+  steps:
+    - name: Create package 📦
+      # python setup.py clean
+      run: python -m build --verbose
+      shell: bash
+
+    - name: Check package 📦
+      working-directory: dist
+      run: |
+        ls -lh .
+        twine check * --strict
+      shell: bash

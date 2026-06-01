@@ -144,7 +144,12 @@ Description: {description}
 
 {previous_error}
 
-Output ONLY the production code for {impl_path}. No prose, no fences.
+Rules:
+- Write COMPLETE, production-ready code. Do NOT use mock data, stubs, placeholders, or empty implementations.
+- Do NOT leave any TODO comments, "..." markers, or empty functions.
+- Python `__init__.py` files MUST remain 100% blank. Do NOT write code/imports inside them. Import from leaf modules directly (e.g. `from app.models.user import User` instead of `from app.models import User`).
+- If this file interacts with other parts of the codebase, ensure it integrates correctly with the real classes, functions, and endpoints.
+- Output ONLY the production code for {impl_path}. No prose, no fences.
 """
 
 

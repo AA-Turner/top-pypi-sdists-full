@@ -1,0 +1,282 @@
+interactions:
+  - request:
+      body:
+        '{"messages": [{"role": "system", "content": "Respond by first planning
+        your actions, then write code, inspect its effect, and reason about correctness"},
+        {"role": "user", "content": "What is the result of this math equation: 2 + 2?"}],
+        "model": "gpt-3.5-turbo-0125", "logprobs": true, "n": 1, "temperature": 0.1,
+        "top_logprobs": 1}'
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate
+        connection:
+          - keep-alive
+        content-length:
+          - "313"
+        content-type:
+          - application/json
+        host:
+          - api.openai.com
+        user-agent:
+          - AsyncOpenAI/Python 2.30.0
+        x-stainless-arch:
+          - arm64
+        x-stainless-async:
+          - async:asyncio
+        x-stainless-lang:
+          - python
+        x-stainless-os:
+          - MacOS
+        x-stainless-package-version:
+          - 2.30.0
+        x-stainless-raw-response:
+          - "true"
+        x-stainless-read-timeout:
+          - "60.0"
+        x-stainless-retry-count:
+          - "0"
+        x-stainless-runtime:
+          - CPython
+        x-stainless-runtime-version:
+          - 3.13.5
+      method: POST
+      uri: https://api.openai.com/v1/chat/completions
+    response:
+      body:
+        string: !!binary |
+          H4sIAAAAAAAA/9xXW0/bMBR+51dYfdkm0spO4jpB2gPb2NMumsSkSYBGmrptttTuYmelQvz3OSml
+          IXEat5U1CR4QOT7H+LvYx74/AaCXjHtnoBfPIhnPF2n/w493eDE5j97ffRTz9PPFxcpbse/i8tvF
+          19F5zykq+OgXjeWmahBzVUdlwtl6OM5oJGkxKyJkSMIw8Eg5MOdjmhZl04XsewPcl3k24n2IXPxY
+          OeNJTIVKuVKfANyXv4s1sjG9U2HobCJzKkQ0pSq2SVLBjKdFpBcJkQgZMdlztoMxZ5KyctmXHEzU
+          lEDOKMioyFMJ+KT8mkdyBuifPCrgABecAtcBSwpEojCuAKNUVXEQjdfFcskBy+cjmgkVnlIVywbg
+          cjttIoA/ANfsmn2i8pUAyyyRtCyNFRnFVHGUxnkaldFEnBWpt7e3i5WccfXn4zRv10u5ZossYfL1
+          OvqmzCwKvvClA9LyH2Q5ezb9X5olk1UF6aDKSUYnuYgKTVieppWBiDEuSxJKNW4eRx6e+E/5dJHx
+          kXguwJbjq6cgqCSUSZL/pmwtQ2Ut1VnVYB8OIPHRcBh6tZzRSlYssv0JfKcWQQg9i9w49YUsflZw
+          1Ce8r33vXLrp8ndC0MPQQSnh1CIPJ22jD46BGuWW2CkIDoeYeIQYCuK5DUGgJoSbssFmFrSlpA62
+          KfROMZsUtNDQQkULHTpKbDhCnRq7dyhEno88hIPDLYGGTbGbOxla28kakOZADzVAE3QLcB14G0qv
+          e0OH2C5yvQB7/hFi65RtZmmOBNIsDDResuYSLUHmJB1slDZH6LNbDhCinyRo8aZ1t/FJh9MggqEX
+          +OiIVoOQpvtYs0cD0R6oDvYGamku/78vDKFPoO+Tl94W9DhfTFcoXkO7hcYYugF2j2gJMKyHQmLm
+          BmvSa2AbQz9U+yYNeip2G8W6IzZP467zG2L19A/Uy/8IY2guBp7BxcDQPtikYyB7z44WJvdh82Cv
+          tdwevD1uD3s6E+/TwZD9l81u/wYwCDByjb1rzSTd5tAu1cAYthl2O08I33fDIDS9ImBrO9E12oHa
+          1XbyjO07+bSLaJdAgt3woIP4HwAAAP//3Fu7bsMwDPygBoVEkXr8R36gQJZMWQr49ysjnRJKomVT
+          tuPRE0mdT0fyPD/o1OD9JSk9G38n9b3kMp5Z5nxSIG/hFOxSDPcUDGN9lmf02hQflmL4cA/AMZdG
+          pV2+9gNJpR6qCfeLoMxsrM0ao76ynuotNVD0zqcVDXUa2T1P7eaZzaiT15nsuAw1zu25GayeHcYY
+          wLs1Q3KSNDDvPaS1IJmbgh4Q2PJIS9SNBlrShfCtt7WwZGoK+kibl89VnDlvbFZKK3pubvNmRa/0
+          GmUmbWnq3fgxS/rm0usB+7lHWwMBBktp00GsVZy6PmRSicuq+7T9Xhv3n9utMUfHaNE76j4+Zhhm
+          hm7X31MUp9l5noXJlDnsFt3GLEjRw4cvS/g0N/5o99uV/E51MrZEEXzamInTUHKe2uzMp7k1Nae9
+          GPvf7Ne4djE/iWhTHcY5IN5XZ1G0RmGccqSn39iSicvWDR2zyAvBr9/iov1JwblHA3Tg03pah6UN
+          AaPZmoGYXsCJQCi8sxj0KqpPto7iWm5Nc4XGwi1C5cKLsgBtbQx/1ycoCLnD89IJo5oN7Ls9yOAi
+          beIC9T1X14YKRW8cpdCvQhn/9VgRehWIUD7Lzu+2YNU+tIsTjEsmxDXNxqd7OPkSdXP7Rzo473UJ
+          TM6HBGt+FKCREvXeVqdsRr2YKNlh9JViXSG6jCgIPp5hNc3HKjgR7Rpj09tMwQYXpZ5JUqsyijzL
+          bLTNOhPsqxgzPAIkByeQjHyozQoP0Izzv4X1KgOGEFcMOphZtBqnMNkIM+rmef6t0rn9AQAA///c
+          XEGOwzAIfE5PrRzbgKm0P+gjcskL+n9p3V2pl+CAs3ac7TVSogwYBOOBN9LHsl0D5g4y+YTWBERo
+          6+d7OW4NxwpJ9RthXSvd23OXpyZMnXL7YmZw+MAi6vK0iFWF39eDi0dVSz/T2tvtVGQfgUJTXY7U
+          YYGJQOso6BFMYTXH3vRZovljVVGNw26EFMaFc8J6yRY+/N5Phrn7TJzt3u+1aEGp+HkKLvxBgc1s
+          ot3dkZ4XYJuh7/Q9cxVL7obFvbbWAhk5AXySJkfG1DjID7jffW9j2S6gI065YYOGEc0WclRKBKb3
+          aHD1UDKr1bRNMwbXkKmlpFP1DTpdZaLwt1PyNCHH7qXJoTSvANsKvXEmc/FcvPBdZXooUQLzOC+k
+          kUzP3cT0iIhUP0M6E9Mzz7O2s8UB54xq5UF5dV6lJ70ct4Zjh6R6jsVQLD3t7bnfBW/aVQEAkk/O
+          WmhI4x5+r/Tm0HF40RwVJlG9Xxrn8C1UM8Pm2DeTdrjlqpy8h+VqVc70c7CakMt/q/u2u51N67GC
+          zwfBmce8/q+QwrwLS7aIIVY/UjPxtXF+8EYuegrLdb9oAtv1b98AAAD//+VdS5LaMBDdcwyvZjYu
+          /SVfIidIFeMymhmnmIGyTVJZ5O6RTfgNEi38k3FYYnD16zaNWur3GjLd23ww1vZ1sxi+BroRDBwn
+          VGAi+D3RCNUK4TbWw/fhOfqEIcooexSOvt1c0NOBdUBkrBJBcZfkElAFxGV9y9wSVgOExdjkSfPy
+          X5SFyy1uYyeeW3jMqKoFe/29HC6zuI2dQF75Dku9SVpr9PDplxg3zAU9PXyN0Ui733C2ipHAiLM7
+          qjlM2vYWoBHLCRtwb/Bw4DDpo4sABaoanrxKTyQFwok3zZ+h+XT1P3lXo3YngQ8QQ/9PX/8znO6x
+          qfM4Vb4rSYbH2/d/9vsHsCOAnwMcao//dgeaTBSn3t0E427nww1jVuvBWITatX8Bz8kadRKpKJcd
+          QjLmYdmL12GZG1bLWIU6Mfu2+XVz5wclSiTe8yyk8jo2SYYK3jUaT0Rg1KS666QjCatBSBOcUO49
+          LiCkBKHdVPjfZ3gFwjVAG0BcKEFZJ1qfnz7FcBTQtQeXwIETDBG9SzBushyDOs/X4lreYZ4ay8AB
+          AI5fMJ5BsQMWFYqbLM77HbxjKdwGJF9dQ/SF2fZ355JjkaE05yE+AGNSEEQH77kLSwewomwd4wdk
+          A5j6EzNGOui9PTAfwAG+ZfznwgjgjCqCZ0UIsELq+Wc+Ah9gPz4V0iZCvBObo61om00Cmowp7mz1
+          jqeHWj8LfWiyuZSgSShtZ1AjlLJ6VStmvjiww+w5bUx7yiaRddOckL2u9Wc2ZNPuo9aPyRxPcmJA
+          BQwRjh9AG8VmKBjnbsooCwvQL4PSF18CEb3mn3n5vix0Wm4aZKXxSrQ43K+5U7S7GFgfGZAf22rZ
+          OKNGcmgqizLz/lrXs+FOFw86R8Z3Vbo+vX8c2nZ5u+VKV2m+Pp/OHmVp9q5Xp68eV8NRulvlm7ML
+          izNw19bY7r0Hnn+++dz+dCHL9LYyNm0LvcqzS8SnjxX6h86cHzs6uTE4KnXxM8/0ssp1UQdipV/T
+          Q06Jyt9lpT+WJlpvuti3HfwL6J/FX/LSeaUMgQAA
+      headers:
+        Access-Control-Expose-Headers:
+          - X-Request-ID
+        CF-Cache-Status:
+          - DYNAMIC
+        CF-Ray:
+          - 9efecde4bea098ce-SJC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - gzip
+        Content-Type:
+          - application/json
+        Date:
+          - Tue, 21 Apr 2026 19:30:38 GMT
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - <FILTERED>
+        Strict-Transport-Security:
+          - max-age=31536000; includeSubDomains; preload
+        Transfer-Encoding:
+          - chunked
+        X-Content-Type-Options:
+          - nosniff
+        alt-svc:
+          - h3=":443"; ma=86400
+        openai-organization:
+          - <FILTERED>
+        openai-processing-ms:
+          - "1911"
+        openai-project:
+          - <FILTERED>
+        openai-version:
+          - "2020-10-01"
+        x-openai-proxy-wasm:
+          - v0.1
+        x-ratelimit-limit-requests:
+          - "12000"
+        x-ratelimit-limit-tokens:
+          - "1000000"
+        x-ratelimit-remaining-requests:
+          - "11999"
+        x-ratelimit-remaining-tokens:
+          - "999958"
+        x-ratelimit-reset-requests:
+          - 5ms
+        x-ratelimit-reset-tokens:
+          - 2ms
+        x-request-id:
+          - req_cb0299e5e13b43228dff3107d05f6ab2
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        '{"messages": [{"role": "system", "content": "Respond by first planning
+        your actions, then write code, inspect its effect, and reason about correctness"},
+        {"role": "user", "content": "What is the result of this math equation: 2 + 2?"}],
+        "model": "gpt-3.5-turbo-0125", "logprobs": true, "n": 1, "temperature": 0.1,
+        "top_logprobs": 1}'
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate
+        connection:
+          - keep-alive
+        content-length:
+          - "313"
+        content-type:
+          - application/json
+        host:
+          - api.openai.com
+        user-agent:
+          - AsyncOpenAI/Python 2.30.0
+        x-stainless-arch:
+          - arm64
+        x-stainless-async:
+          - async:asyncio
+        x-stainless-lang:
+          - python
+        x-stainless-os:
+          - MacOS
+        x-stainless-package-version:
+          - 2.30.0
+        x-stainless-raw-response:
+          - "true"
+        x-stainless-read-timeout:
+          - "60.0"
+        x-stainless-retry-count:
+          - "0"
+        x-stainless-runtime:
+          - CPython
+        x-stainless-runtime-version:
+          - 3.13.5
+      method: POST
+      uri: https://api.openai.com/v1/chat/completions
+    response:
+      body:
+        string: !!binary |
+          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
+      headers:
+        Access-Control-Expose-Headers:
+          - X-Request-ID
+        CF-Cache-Status:
+          - DYNAMIC
+        CF-Ray:
+          - 9efecdf1cdf398ce-SJC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - gzip
+        Content-Type:
+          - application/json
+        Date:
+          - Tue, 21 Apr 2026 19:30:39 GMT
+        Server:
+          - cloudflare
+        Strict-Transport-Security:
+          - max-age=31536000; includeSubDomains; preload
+        Transfer-Encoding:
+          - chunked
+        X-Content-Type-Options:
+          - nosniff
+        alt-svc:
+          - h3=":443"; ma=86400
+        openai-organization:
+          - <FILTERED>
+        openai-processing-ms:
+          - "591"
+        openai-project:
+          - <FILTERED>
+        openai-version:
+          - "2020-10-01"
+        x-openai-proxy-wasm:
+          - v0.1
+        x-ratelimit-limit-requests:
+          - "12000"
+        x-ratelimit-limit-tokens:
+          - "1000000"
+        x-ratelimit-remaining-requests:
+          - "11999"
+        x-ratelimit-remaining-tokens:
+          - "999958"
+        x-ratelimit-reset-requests:
+          - 5ms
+        x-ratelimit-reset-tokens:
+          - 2ms
+        x-request-id:
+          - req_1b27eafca7d4479bb6fae6ecaa2295f6
+      status:
+        code: 200
+        message: OK
+version: 1

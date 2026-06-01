@@ -1,0 +1,115 @@
+from __future__ import annotations
+
+import asyncio
+from collections.abc import Awaitable, Callable
+from functools import cached_property
+from typing import TYPE_CHECKING
+from unittest.mock import AsyncMock
+
+from bluesky.protocols import Reading
+from event_model import DataKey
+
+from ._derived_signal_backend import DerivedSignalBackend
+from ._signal_backend import SignalBackend, SignalDatatypeT
+from ._soft_signal_backend import SoftSignalBackend
+from ._utils import Callback
+
+if TYPE_CHECKING:
+    from ._device import LazyMock
+
+MockPutCallback = (
+    Callable[[SignalDatatypeT], SignalDatatypeT | None]
+    | Callable[[SignalDatatypeT], Awaitable[SignalDatatypeT | None]]
+)
+
+
+class MockSignalBackend(SignalBackend[SignalDatatypeT]):
+    """Signal backend for testing, created by ``Device.connect(mock=True)``."""
+
+    def __init__(
+        self,
+        initial_backend: SignalBackend[SignalDatatypeT],
+        mock: LazyMock,
+    ) -> None:
+        if isinstance(initial_backend, MockSignalBackend):
+            raise ValueError("Cannot make a MockSignalBackend for a MockSignalBackend")
+
+        self.initial_backend = initial_backend
+
+        if isinstance(self.initial_backend, SoftSignalBackend | DerivedSignalBackend):
+            # Backend is already a SoftSignalBackend, so use it
+            self.soft_backend = self.initial_backend
+        else:
+            # Backend is not a SoftSignalBackend, so create one to mimic it
+            self.soft_backend = SoftSignalBackend(
+                datatype=self.initial_backend.datatype
+            )
+
+        # use existing Mock if provided
+        self.mock = mock
+        self._mock_put_callback: MockPutCallback | None = None
+        super().__init__(datatype=self.initial_backend.datatype)
+
+    def set_mock_put_callback(self, callback: MockPutCallback | None):
+        if "put_mock" in self.__dict__:
+            # put_mock cached property exists, so set the side effect on it
+            self.put_mock.side_effect = callback
+        else:
+            # put_mock doesn't exist, don't create it as that would be slow
+            # so just keep it internally
+            self._mock_put_callback = callback
+
+    @cached_property
+    def put_mock(self) -> AsyncMock:
+        """Return the mock that will track calls to `put()`."""
+        put_mock = AsyncMock(
+            name="put",
+            spec=Callable,
+            side_effect=self._mock_put_callback
+            if self._mock_put_callback
+            else lambda v: None,
+        )
+        self.mock().attach_mock(put_mock, "put")
+        return put_mock
+
+    def set_value(self, value: SignalDatatypeT):
+        """Set the value of the signal."""
+        self.soft_backend.set_value(value)
+
+    def source(self, name: str, read: bool) -> str:
+        return f"mock+{self.initial_backend.source(name, read)}"
+
+    async def connect(self, timeout: float) -> None:
+        raise RuntimeError("It is not possible to connect a MockSignalBackend")
+
+    @cached_property
+    def put_proceeds(self) -> asyncio.Event:
+        """Return an Event that will block `put()` until set.
+
+        The Event is initially set, but can be unset to block `put()`.
+        """
+        put_proceeds = asyncio.Event()
+        put_proceeds.set()
+        return put_proceeds
+
+    async def put(self, value: SignalDatatypeT | None):
+        new_value = await self.put_mock(value)
+        if new_value is None:
+            new_value = value
+        await self.soft_backend.put(new_value)
+        await self.put_proceeds.wait()
+
+    async def get_reading(self) -> Reading:
+        return await self.soft_backend.get_reading()
+
+    async def get_value(self) -> SignalDatatypeT:
+        return await self.soft_backend.get_value()
+
+    async def get_setpoint(self) -> SignalDatatypeT:
+        return await self.soft_backend.get_setpoint()
+
+    async def get_datakey(self, source: str) -> DataKey:
+        return await self.soft_backend.get_datakey(source)
+
+    def set_callback(self, callback: Callback[Reading[SignalDatatypeT]] | None) -> None:
+        self.soft_backend.set_callback(callback)

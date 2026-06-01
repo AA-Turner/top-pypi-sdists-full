@@ -1,0 +1,109 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "python-codicefiscale"
+description = "encode / decode italian fiscal codes - codifica / decodifica del Codice Fiscale italiano."
+authors = [
+    { name = "Fabio Caccamo", email = "fabio.caccamo@gmail.com" },
+]
+keywords = [
+    "codicefiscale",
+    "codice",
+    "fiscale",
+    "cf",
+    "fiscal code",
+    "italia",
+    "italy",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Software Development :: Build Tools",
+]
+dependencies = [
+    "python-dateutil >= 2.8, < 2.10",
+    "python-fsutil >= 0.16.0, < 1.0.0",
+    "python-slugify >= 7.0.0, < 9.0.0",
+]
+dynamic = ["version"]
+maintainers = [
+    { name = "Fabio Caccamo", email = "fabio.caccamo@gmail.com" },
+]
+
+[project.scripts]
+codicefiscale = "codicefiscale.__main__:main"
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[project.license]
+file = "LICENSE.txt"
+content-type = "text/plain"
+
+[project.urls]
+Homepage = "https://github.com/fabiocaccamo/python-codicefiscale"
+Download = "https://github.com/fabiocaccamo/python-codicefiscale/releases"
+Documentation = "https://github.com/fabiocaccamo/python-codicefiscale#readme"
+Issues = "https://github.com/fabiocaccamo/python-codicefiscale/issues"
+Funding = "https://github.com/sponsors/fabiocaccamo/"
+Twitter = "https://twitter.com/fabiocaccamo"
+
+[tool.black]
+line-length = 88
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  | venv
+)/
+'''
+
+[tool.mypy]
+files = ["src"]
+ignore_missing_imports = true
+install_types = true
+non_interactive = true
+strict = true
+
+[tool.pytest.ini_options]
+pythonpath = "src"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+ignore = []
+select = ["B", "B9", "C", "E", "F", "I", "W"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["codicefiscale"]
+
+[tool.setuptools.dynamic.version]
+attr = "codicefiscale.metadata.__version__"

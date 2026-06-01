@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: traceloop-sdk
-Version: 0.60.0
+Version: 0.61.0
 Summary: Traceloop Software Development Kit (SDK) for Python
 Project-URL: Repository, https://github.com/traceloop/openllmetry
 Project-URL: Documentation, https://traceloop.com/docs/openllmetry

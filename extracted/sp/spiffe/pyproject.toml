@@ -1,0 +1,69 @@
+[project]
+name = "spiffe"
+version = "0.2.9"
+description = "Python library for SPIFFE support"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+authors = [{ name = "Max Lambrecht", email = "maxlambrecht@gmail.com" }]
+dependencies = [
+  "grpcio>=1.78.0,<2",
+  "cryptography>=46",
+  "pyjwt[crypto]>=2,<2.13",
+  "pyasn1>=0.6.0,<0.7.0",
+  "pyasn1-modules>=0.4.0,<0.5.0",
+  "pem>=23,<24",
+  "protobuf>=6.31.1,<8",
+]
+
+[project.urls]
+Repository = "https://github.com/HewlettPackard/py-spiffe"
+
+[dependency-groups]
+dev = [
+  "grpcio-tools>=1.78.0,<2",
+  "mypy-protobuf>=5,<6",
+  "coverage>=7,<8",
+  "testutils",
+  # TODO: Drop this once grpc ships usable first-party type information:
+  # https://github.com/grpc/grpc/pull/41579
+  "types-grpcio>=1.0,<2",
+  "types-pyasn1>=0.6.0.20250914,<0.7.0",
+]
+
+[tool.uv.sources]
+testutils = { workspace = true }
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["spiffe*"]
+
+[tool.setuptools.package-data]
+spiffe = ["py.typed"]
+
+# Tool configurations
+[tool.mypy]
+strict = true
+files = ["."]
+exclude = '^(build|dist)/|^src/spiffe/_proto/'
+
+[[tool.mypy.overrides]]
+module = ["spiffe._proto.workload_pb2_grpc"]
+ignore_errors = true
+
+[tool.pyright]
+# setuptools / local installs copy sources under build/; do not type-check those trees
+exclude = ["src/spiffe/_proto", "build", "dist"]
+ignore = ["src/spiffe/_proto/workload_pb2_grpc.py"]
+typeCheckingMode = "standard"
+
+[tool.pytest.ini_options]
+addopts = ["--doctest-modules"]
+testpaths = ["tests"]

@@ -1,0 +1,16 @@
+# Production stack configuration for Agent Message Bus service
+#
+# GCP Project: internal-airbyte-ai-infra
+# Region: us-central1
+#
+# Authentication:
+#   GCP credentials are provided via GOOGLE_CREDENTIALS or gcloud auth
+#
+# Architecture: https://github.com/airbytehq/airbyte-ops-mcp/issues/448
+config:
+  gcp:project: internal-airbyte-ai-infra
+  gcp:region: us-central1
+  agent-message-bus:min-instances: "1"
+  agent-message-bus:max-instances: "10"
+  agent-message-bus:devin-org-id: org_iq47F3xxV39G0Zhn
+encryptionsalt: v1:AYsdW2X7dHA=:v1:6eavs6aAtKMTmYgn:i8+SJ8AS7AxxC9Ra1eMKk3n5+lFz8g==

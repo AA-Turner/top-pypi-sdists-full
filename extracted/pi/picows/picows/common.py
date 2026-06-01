@@ -1,0 +1,221 @@
+from http import HTTPStatus
+from typing import Union, Optional, Mapping, Iterable, Final, cast, Any, NewType
+from multidict import CIMultiDict
+
+WSHeadersLike = Union[Mapping[str, str], Iterable[tuple[str, str]]]
+WSBuffer = Union[str, bytes, bytearray, memoryview]
+WSHost = NewType('WSHost', str)
+WSPort = NewType('WSPort', int)
+
+
+PICOWS_DEBUG_LL: Final = 9
+
+
+class WSError(Exception):
+    """Base exception type for websocket-specific exceptions raised by picows."""
+    pass
+
+
+def add_extra_headers(headers: CIMultiDict[str], extra_headers: Optional[WSHeadersLike]) -> None:
+    if extra_headers:
+        sequence = extra_headers.items() if hasattr(extra_headers,
+                                                    "items") else extra_headers
+        for k, v in sequence:
+            if not isinstance(k, str) or not isinstance(v, str):
+                raise TypeError("extra_headers key/value must be str types")
+
+            headers.add(k, v)
+
+
+class WSUpgradeRequest:
+    __slots__ = ("method", "path", "version", "headers")
+    method  : bytes
+    path    : bytes
+    version : bytes
+    headers : CIMultiDict[str]
+
+
+class WSUpgradeResponse:
+    __slots__ = ("version", "status", "headers", "body")
+    version : bytes
+    status  : HTTPStatus
+    headers : CIMultiDict[str]
+    body    : Optional[bytes]
+
+    @staticmethod
+    def create_error_response(status: Union[int, HTTPStatus],
+                              body: Optional[bytes] = None,
+                              extra_headers: Optional[WSHeadersLike] = None) -> Any:
+        """
+        Create an upgrade response with an error.
+
+        :param status: int status code or http.HTTPStatus enum value
+        :param body: optional bytes-like response body
+        :param extra_headers: optional additional headers
+        :return: a new WSUpgradeResponse object
+        """
+        if status < 400:
+            raise ValueError(
+                f"invalid error response code {status}, can be only >=400")
+
+        self = WSUpgradeResponse()
+        self.version = b"HTTP/1.1"
+        self.status = HTTPStatus(status)
+        self.headers = CIMultiDict()
+        add_extra_headers(self.headers, extra_headers)
+        self.body = body
+
+        return self
+
+    @staticmethod
+    def create_redirect_response(status: Union[int, HTTPStatus],
+                                 location: str,
+                                 extra_headers: Optional[WSHeadersLike] = None) -> Any:
+        """
+        Create an upgrade redirect response.
+
+        :param status: int status code or http.HTTPStatus enum value
+        :param location: redirect target URL
+        :param extra_headers: optional additional headers
+        :return: a new WSUpgradeResponse object
+        """
+        if status < 300 or status > 399:
+            raise ValueError(
+                f"invalid redirect response code {status}, can be only 3xx")
+
+        self = WSUpgradeResponse()
+        self.version = b"HTTP/1.1"
+        self.status = HTTPStatus(status)
+        self.headers = CIMultiDict()
+        add_extra_headers(self.headers, extra_headers)
+        self.headers["Location"] = location
+        self.body = None
+
+        return self
+
+    @staticmethod
+    def create_101_response(extra_headers: Optional[WSHeadersLike] = None) -> Any:
+        """
+        Create 101 Switching Protocols response.
+
+        :param extra_headers: optional additional headers
+        :return: a new WSUpgradeResponse object
+        """
+        self = WSUpgradeResponse()
+        self.version = b"HTTP/1.1"
+        self.status = HTTPStatus.SWITCHING_PROTOCOLS
+        self.headers = CIMultiDict()
+        add_extra_headers(self.headers, extra_headers)
+        self.headers["Connection"] = "upgrade"
+        self.headers["Upgrade"] = "websocket"
+        self.body = None
+        return self
+
+    def to_bytes(self) -> bytearray:
+        response_bytes = bytearray()
+        response_bytes += b"%b %d %b\r\n" % (self.version, self.status.value, self.status.phrase.encode())
+
+        if self.body:
+            if "Content-Type" not in self.headers:
+                self.headers.add("Content-Type", "text/plain")
+            self.headers.add("Content-Length", f"{len(self.body):d}")
+
+        for k, v in self.headers.items():
+            response_bytes += f"{k}: {v}\r\n".encode()
+
+        response_bytes += b"\r\n"
+        if self.body:
+            response_bytes += self.body
+
+        return response_bytes
+
+
+class WSUpgradeResponseWithListener:
+    """
+    Bind :any:`WSUpgradeResponse` and :any:`WSListener` objects together.
+    """
+    __slots__ = ("response", "listener")
+
+    def __init__(self, response: WSUpgradeResponse, listener: Any):
+        if response.status == 101 and listener is None:
+            raise ValueError("listener cannot be None for 101 Switching Protocols response")
+
+        if response.status >= 400 and listener is not None:
+            raise ValueError("listener must be None for error response")
+
+        self.response = response
+        self.listener = listener
+
+
+class WSHandshakeError(WSError):
+    """
+    Raised by :any:`ws_connect` when websocket HTTP upgrade negotiation fails.
+    """
+    raw_header: Optional[bytes]
+    raw_body: Optional[bytes]
+    response: Optional[WSUpgradeResponse]
+
+    def __init__(self, description: str,
+                 raw_header: Optional[bytes] = None,
+                 raw_body: Optional[bytes] = None,
+                 response: Optional[WSUpgradeResponse] = None):
+        super().__init__(description)
+        self.raw_header = raw_header
+        self.raw_body = raw_body
+        self.response = response
+
+
+class WSInvalidMessageError(WSHandshakeError):
+    """
+    Raised when the HTTP handshake request or response is malformed.
+    """
+    pass
+
+
+class WSInvalidStatusError(WSHandshakeError):
+    """
+    Raised when the HTTP handshake response status rejects the WebSocket upgrade.
+    """
+    pass
+
+
+class WSInvalidHeaderError(WSHandshakeError):
+    """
+    Raised when a HTTP header in the WebSocket handshake is invalid.
+    """
+    name: str
+    value: Optional[str]
+
+    def __init__(self, description: str,
+                 name: str,
+                 value: Optional[str] = None,
+                 raw_header: Optional[bytes] = None,
+                 raw_body: Optional[bytes] = None,
+                 response: Optional[WSUpgradeResponse] = None):
+        super().__init__(description, raw_header, raw_body, response)
+        self.name = name
+        self.value = value
+
+
+class WSInvalidUpgradeError(WSInvalidHeaderError):
+    """
+    Raised when Upgrade / Connection headers are invalid in the WebSocket handshake.
+    """
+    pass
+
+
+class WSProtocolError(WSError):
+    """
+    Raised when receiving or sending frames that break the protocol or
+    violates max_frame_size limit.
+
+    Before raising this exception **picows** send CLOSE frame with error code
+    and initiate disconnect.
+    """
+
+    def __init__(self, code: Any, message: Any):
+        self.code = code
+        super().__init__(code, message)
+
+    def __str__(self) -> str:
+        return cast(str, self.args[1])

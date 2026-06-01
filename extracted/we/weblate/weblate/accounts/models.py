@@ -28,7 +28,12 @@ from django.utils import timezone
 from django.utils.functional import cached_property
 from django.utils.html import format_html
 from django.utils.timezone import now
-from django.utils.translation import get_language, gettext, gettext_lazy
+from django.utils.translation import (
+    get_language,
+    gettext,
+    gettext_lazy,
+    pgettext_lazy,
+)
 from django_otp.plugins.otp_static.models import StaticDevice
 from django_otp.plugins.otp_totp.models import TOTPDevice
 from django_otp_webauthn.models import WebAuthnCredential
@@ -70,6 +75,7 @@ from weblate.utils.validators import (
 )
 from weblate.wladmin.models import get_support_status
 
+from . import defaults
 from .types import ThemeChoices
 
 if TYPE_CHECKING:
@@ -77,6 +83,7 @@ if TYPE_CHECKING:
 
     from django.http.request import HttpRequest
     from django_otp.models import Device
+    from django_stubs_ext import StrOrPromise
 
     from weblate.accounts.types import DeviceType
     from weblate.auth.models import AuthenticatedHttpRequest
@@ -89,92 +96,75 @@ class WeblateAccountsConf(AppConf):
     """Accounts settings."""
 
     # Disable avatars
-    ENABLE_AVATARS = True
+    ENABLE_AVATARS = defaults.DEFAULT_ENABLE_AVATARS
 
     # Avatar URL prefix
-    AVATAR_URL_PREFIX = "https://www.gravatar.com/"
+    AVATAR_URL_PREFIX = defaults.DEFAULT_AVATAR_URL_PREFIX
 
     # Avatar fallback image
     # See http://en.gravatar.com/site/implement/images/ for available choices
-    AVATAR_DEFAULT_IMAGE = "identicon"
+    AVATAR_DEFAULT_IMAGE = defaults.DEFAULT_AVATAR_DEFAULT_IMAGE
 
     # Enable registrations
-    REGISTRATION_OPEN = True
+    REGISTRATION_OPEN = defaults.DEFAULT_REGISTRATION_OPEN
 
     # Allow registration from certain backends
-    REGISTRATION_ALLOW_BACKENDS: ClassVar[list[str]] = []
+    REGISTRATION_ALLOW_BACKENDS: ClassVar[list[str]] = list(
+        defaults.DEFAULT_REGISTRATION_ALLOW_BACKENDS
+    )
 
     # Allow rebinding to existing accounts
-    REGISTRATION_REBIND = False
+    REGISTRATION_REBIND = defaults.DEFAULT_REGISTRATION_REBIND
 
     # Registration email filter
-    REGISTRATION_EMAIL_MATCH = ".*"
-    REGISTRATION_ALLOW_DISPOSABLE_EMAILS = False
+    REGISTRATION_EMAIL_MATCH = defaults.DEFAULT_REGISTRATION_EMAIL_MATCH
+    REGISTRATION_ALLOW_DISPOSABLE_EMAILS = (
+        defaults.DEFAULT_REGISTRATION_ALLOW_DISPOSABLE_EMAILS
+    )
 
     # Captcha for registrations
-    REGISTRATION_CAPTCHA = True
+    REGISTRATION_CAPTCHA = defaults.DEFAULT_REGISTRATION_CAPTCHA
 
-    ALTCHA_COST = 3
-    ALTCHA_MEMORY_COST = 32768
-    ALTCHA_PARALLELISM = 1
+    ALTCHA_COST = defaults.DEFAULT_ALTCHA_COST
+    ALTCHA_MEMORY_COST = defaults.DEFAULT_ALTCHA_MEMORY_COST
+    ALTCHA_PARALLELISM = defaults.DEFAULT_ALTCHA_PARALLELISM
 
-    REGISTRATION_HINTS: ClassVar[dict[str, str]] = {}
+    REGISTRATION_HINTS: ClassVar[dict[str, str]] = dict(
+        defaults.DEFAULT_REGISTRATION_HINTS
+    )
 
     # How long to keep auditlog entries
-    AUDITLOG_EXPIRY = 180
+    AUDITLOG_EXPIRY = defaults.DEFAULT_AUDITLOG_EXPIRY
 
     # Disable login support status check for superusers
-    SUPPORT_STATUS_CHECK = True
+    SUPPORT_STATUS_CHECK = defaults.DEFAULT_SUPPORT_STATUS_CHECK
 
     # Auto-watch setting for new users
-    DEFAULT_AUTO_WATCH = True
+    DEFAULT_AUTO_WATCH = defaults.DEFAULT_AUTO_WATCH
 
-    CONTACT_FORM = "reply-to"
+    CONTACT_FORM = defaults.DEFAULT_CONTACT_FORM
 
-    PRIVATE_COMMIT_EMAIL_TEMPLATE = "{username}@users.noreply.{site_domain}"
-    PRIVATE_COMMIT_EMAIL_OPT_IN = True
-    PRIVATE_COMMIT_NAME_TEMPLATE = "{site_title} user {user_id}"
-    PRIVATE_COMMIT_NAME_OPT_IN = True
+    PRIVATE_COMMIT_EMAIL_TEMPLATE = defaults.DEFAULT_PRIVATE_COMMIT_EMAIL_TEMPLATE
+    PRIVATE_COMMIT_EMAIL_OPT_IN = defaults.DEFAULT_PRIVATE_COMMIT_EMAIL_OPT_IN
+    PRIVATE_COMMIT_NAME_TEMPLATE = defaults.DEFAULT_PRIVATE_COMMIT_NAME_TEMPLATE
+    PRIVATE_COMMIT_NAME_OPT_IN = defaults.DEFAULT_PRIVATE_COMMIT_NAME_OPT_IN
 
     # Auth0 provider default image & title on login page
-    SOCIAL_AUTH_AUTH0_IMAGE = "auth0.svg"
-    SOCIAL_AUTH_AUTH0_TITLE = "Auth0"
-    SOCIAL_AUTH_SAML_IMAGE = "saml.svg"
-    SOCIAL_AUTH_SAML_TITLE = "SAML"
+    SOCIAL_AUTH_AUTH0_IMAGE = defaults.DEFAULT_SOCIAL_AUTH_AUTH0_IMAGE
+    SOCIAL_AUTH_AUTH0_TITLE = defaults.DEFAULT_SOCIAL_AUTH_AUTH0_TITLE
+    SOCIAL_AUTH_SAML_IMAGE = defaults.DEFAULT_SOCIAL_AUTH_SAML_IMAGE
+    SOCIAL_AUTH_SAML_TITLE = defaults.DEFAULT_SOCIAL_AUTH_SAML_TITLE
 
     # URL for password reset page when using external identity provider
-    PASSWORD_RESET_URL = None
+    PASSWORD_RESET_URL = defaults.DEFAULT_PASSWORD_RESET_URL
 
-    MAXIMAL_PASSWORD_LENGTH = 72
-
-    # Login required URLs
-    LOGIN_REQUIRED_URLS: ClassVar[list[str]] = []
-    LOGIN_REQUIRED_URLS_EXCEPTIONS = (
-        r"{URL_PREFIX}/accounts/(.*)$",  # Required for login
-        r"{URL_PREFIX}/admin/login/(.*)$",  # Required for admin login
-        r"{URL_PREFIX}/static/(.*)$",  # Required for development mode
-        r"{URL_PREFIX}/widgets/(.*)$",  # Allowing public access to widgets
-        r"{URL_PREFIX}/data/(.*)$",  # Allowing public access to data exports
-        r"{URL_PREFIX}/hooks/(.*)$",  # Allowing public access to notification hooks
-        r"{URL_PREFIX}/healthz/$",  # Allowing public access to health check
-        r"{URL_PREFIX}/api/(.*)$",  # Allowing access to API
-        r"{URL_PREFIX}/js/i18n/$",  # JavaScript localization
-        r"{URL_PREFIX}/contact/$",  # Optional for contact form
-        r"{URL_PREFIX}/legal/(.*)$",  # Optional for legal app
-        r"{URL_PREFIX}/avatar/(.*)$",  # Optional for avatars
-        r"{URL_PREFIX}/site.webmanifest$",  # The request for the manifest is made without credentials
-    )
+    MAXIMAL_PASSWORD_LENGTH = defaults.DEFAULT_MAXIMAL_PASSWORD_LENGTH
 
     # Multi-level rate limiting for email notifications
     # Each tuple contains (max_emails, time_window_seconds)
-    RATELIMIT_NOTIFICATION_LIMITS: ClassVar[list[tuple[int, int]]] = [
-        # Prevent burst sends - 3 emails per 2 minutes
-        (3, 120),
-        # Equalize to avoid getting blocked for too long - 10 emails per hour
-        (10, 3600),
-        # Daily limit: 50 emails per day
-        (50, 86400),
-    ]
+    RATELIMIT_NOTIFICATION_LIMITS: ClassVar[list[tuple[int, int]]] = list(
+        defaults.DEFAULT_RATELIMIT_NOTIFICATION_LIMITS
+    )
 
     class Meta:
         prefix = ""
@@ -277,6 +267,8 @@ class Subscription(models.Model):
         return f"{reverse('unsubscribe')}?{urlencode({'i': self.get_signed_id()})}"
 
 
+EXTERNAL_CREATE_ACTIVITY = "external-create"
+
 ACCOUNT_ACTIVITY = {
     # Translators: Audit log entry
     "password": gettext_lazy("Password changed."),
@@ -330,6 +322,10 @@ ACCOUNT_ACTIVITY = {
         "translations uploaded by other user."
     ),
     # Translators: Audit log entry
+    EXTERNAL_CREATE_ACTIVITY: gettext_lazy(
+        "Account created externally from weblate.org for access to purchased services."
+    ),
+    # Translators: Audit log entry
     "blocked": gettext_lazy("Access to project {project} was blocked."),
     # Translators: Audit log entry
     "enabled": gettext_lazy("User was enabled by administrator."),
@@ -344,6 +340,10 @@ ACCOUNT_ACTIVITY = {
         "User was added to the site-wide {team} team by {username}."
     ),
     # Translators: Audit log entry
+    "sitewide-team-change": gettext_lazy(
+        "User access to the site-wide {team} team was changed by {username}."
+    ),
+    # Translators: Audit log entry
     "sitewide-team-remove": gettext_lazy(
         "User was removed from the site-wide {team} team by {username}."
     ),
@@ -355,6 +355,10 @@ ACCOUNT_ACTIVITY = {
     "donate": gettext_lazy("Semiannual support status review was displayed."),
     # Translators: Audit log entry
     "team-add": gettext_lazy("User was added to the {team} team by {username}."),
+    # Translators: Audit log entry
+    "team-change": gettext_lazy(
+        "User access to the {team} team was changed by {username}."
+    ),
     # Translators: Audit log entry
     "team-remove": gettext_lazy("User was removed from the {team} team by {username}."),
     # Translators: Audit log entry
@@ -422,11 +426,11 @@ EXTRA_MESSAGES = {
     ),
     # Translators: Audit log hint
     "register": gettext_lazy(
-        "If it was you, please use a password reset to regain access to your account."
+        "If it was you, reset your password to regain access to your account."
     ),
     # Translators: Audit log hint
     "connect": gettext_lazy(
-        "If it was you, please use a password reset to regain access to your account."
+        "If it was you, reset your password to regain access to your account."
     ),
 }
 
@@ -451,6 +455,23 @@ NOTIFY_ACTIVITY = {
     "twofactor-add",
     "twofactor-remove",
     "twofactor-failed",
+}
+
+
+# Taken from https://github.com/selwin/python-user-agents/blob/master/user_agents/parsers.py
+USER_AGENT_DEVICE_TYPES: dict[str, StrOrPromise] = {
+    # Translators: User agent device type
+    "PC": pgettext_lazy("User agent device type", "PC"),
+    # Translators: User agent device type
+    "Other": pgettext_lazy("User agent device type", "Other"),
+    # Translators: User agent device type
+    "Generic Smartphone": pgettext_lazy("User agent device type", "Generic Smartphone"),
+    # Translators: User agent device type
+    "Generic Feature Phone": pgettext_lazy(
+        "User agent device type", "Generic Feature Phone"
+    ),
+    # Translators: User agent device type
+    "iOS-Device": pgettext_lazy("User agent device type", "iOS-Device"),
 }
 
 
@@ -607,6 +628,18 @@ class AuditLog(models.Model):
         if self.activity in EXTRA_MESSAGES:
             return EXTRA_MESSAGES[self.activity].format(**self.params)
         return None
+
+    def get_user_agent_display(self) -> str:
+        """Return a user agent string with a localized first device-type segment."""
+        ua_string = self.user_agent
+        if not ua_string:
+            return ""
+
+        parts = ua_string.split(" / ")
+        device_type = parts[0].strip()
+        parts[0] = str(USER_AGENT_DEVICE_TYPES.get(device_type, device_type))
+
+        return " / ".join(parts)
 
     def should_notify(self) -> bool:
         return (

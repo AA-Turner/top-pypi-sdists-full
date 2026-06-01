@@ -24,6 +24,7 @@ from typing import (
 )
 
 import jinja2
+from jinja2.ext import Extension
 from jinja2.sandbox import ImmutableSandboxedEnvironment
 
 import numpy as np
@@ -192,6 +193,15 @@ class ChatFormatter(Protocol):
 
 
 class Jinja2ChatFormatter(ChatFormatter):
+    class IgnoreGenerationTags(Extension):
+        """Pass-through for HuggingFace's ``{% generation %}`` chat-template tag."""
+
+        tags = {"generation"}
+
+        def parse(self, parser: jinja2.parser.Parser):
+            parser.stream.skip(1)
+            return parser.parse_statements(("name:endgeneration",), drop_needle=True)
+
     def __init__(
         self,
         template: str,
@@ -209,15 +219,41 @@ class Jinja2ChatFormatter(ChatFormatter):
             set(stop_token_ids) if stop_token_ids is not None else None
         )
 
-        self._environment = ImmutableSandboxedEnvironment(
+        environment = ImmutableSandboxedEnvironment(
             loader=jinja2.BaseLoader(),
             trim_blocks=True,
             lstrip_blocks=True,
-        ).from_string(self.template)
+            # Keep this aligned with Transformers' chat-template Jinja extensions.
+            # https://github.com/huggingface/transformers/blob/39603d0e5cdb6f00e8d473d7fcbb01032d709181/src/transformers/utils/chat_template_utils.py#L489-L490
+            extensions=[
+                Jinja2ChatFormatter.IgnoreGenerationTags,
+                jinja2.ext.loopcontrols,
+            ],
+        )
+        # Match Transformers' chat-template JSON rendering behavior.
+        # https://github.com/huggingface/transformers/blob/39603d0e5cdb6f00e8d473d7fcbb01032d709181/src/transformers/utils/chat_template_utils.py#L481-L484
+        environment.filters["tojson"] = self.tojson
+        self._environment = environment.from_string(self.template)
 
     @staticmethod
     def strftime_now(f: str) -> str:
         return datetime.now().strftime(f)
+
+    @staticmethod
+    def tojson(
+        x: Any,
+        ensure_ascii: bool = False,
+        indent: Optional[int] = None,
+        separators: Optional[Tuple[str, str]] = None,
+        sort_keys: bool = False,
+    ) -> str:
+        return json.dumps(
+            x,
+            ensure_ascii=ensure_ascii,
+            indent=indent,
+            separators=separators,
+            sort_keys=sort_keys,
+        )
 
     def __call__(
         self,
@@ -3231,7 +3267,7 @@ class Llava15ChatHandler:
 
 class ObsidianChatHandler(Llava15ChatHandler):
     # Prompt Format
-    # The model followed ChatML format. However, with ### as the seperator
+    # The model followed ChatML format. However, with ### as the separator
 
     # <|im_start|>user
     # What is this sign about?\n<image>

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: llama_cpp_python
-Version: 0.3.23
+Version: 0.3.24
 Summary: Python bindings for the llama.cpp library
 Author-Email: Andrei Betlen <abetlen@gmail.com>
 License: MIT
@@ -109,7 +109,7 @@ pip install llama-cpp-python \
 
 ### Installation Configuration
 
-`llama.cpp` supports a number of hardware acceleration backends to speed up inference as well as backend specific options. See the [llama.cpp README](https://github.com/ggerganov/llama.cpp#build) for a full list.
+`llama.cpp` supports a number of hardware acceleration backends to speed up inference as well as backend specific options. See the [llama.cpp README](https://github.com/ggml-org/llama.cpp/blob/master/docs/build.md) for a full list.
 
 All `llama.cpp` cmake build options can be set via the `CMAKE_ARGS` environment variable or via the `--config-settings / -C` cli flag during installation.
 
@@ -223,12 +223,12 @@ pip install llama-cpp-python \
 </details>
 
 <details>
-<summary>hipBLAS (ROCm)</summary>
+<summary>HIP (ROCm)</summary>
 
-To install with hipBLAS / ROCm support for AMD cards, set the `GGML_HIPBLAS=on` environment variable before installing:
+To install with HIP / ROCm support for AMD cards, set the `GGML_HIP=on` environment variable before installing:
 
 ```bash
-CMAKE_ARGS="-DGGML_HIPBLAS=on" pip install llama-cpp-python
+CMAKE_ARGS="-DGGML_HIP=on" pip install llama-cpp-python
 ```
 
 </details>
@@ -319,7 +319,7 @@ To upgrade and rebuild `llama-cpp-python` add `--upgrade --force-reinstall --no-
 
 The high-level API provides a simple managed interface through the [`Llama`](https://llama-cpp-python.readthedocs.io/en/latest/api-reference/#llama_cpp.Llama) class.
 
-Below is a short example demonstrating how to use the high-level API to for basic text completion:
+Below is a short example demonstrating how to use the high-level API for basic text completion:
 
 ```python
 from llama_cpp import Llama
@@ -387,7 +387,7 @@ The high-level API also provides a simple interface for chat completion.
 Chat completion requires that the model knows how to format the messages into a single prompt.
 The `Llama` class does this using pre-registered chat formats (ie. `chatml`, `llama-2`, `gemma`, etc) or by providing a custom chat handler object.
 
-The model will will format the messages into a single prompt using the following order of precedence:
+The model will format the messages into a single prompt using the following order of precedence:
   - Use the `chat_handler` if provided
   - Use the `chat_format` if provided
   - Use the `tokenizer.chat_template` from the `gguf` model's metadata (should work for most new models, older models may not have this)
@@ -552,7 +552,7 @@ Below are the supported multi-modal models and their respective chat handlers (P
 | [llava-v1.5-13b](https://huggingface.co/mys/ggml_llava-v1.5-13b) | `Llava15ChatHandler` | `llava-1-5` |
 | [llava-v1.6-34b](https://huggingface.co/cjpais/llava-v1.6-34B-gguf) | `Llava16ChatHandler` | `llava-1-6` |
 | [moondream2](https://huggingface.co/vikhyatk/moondream2) | `MoondreamChatHandler` | `moondream2` |
-| [nanollava](https://huggingface.co/abetlen/nanollava-gguf) | `NanollavaChatHandler` | `nanollava` |
+| [nanollava](https://huggingface.co/abetlen/nanollava-gguf) | `NanoLlavaChatHandler` | `nanollava` |
 | [llama-3-vision-alpha](https://huggingface.co/abetlen/llama-3-vision-alpha-gguf) | `Llama3VisionAlphaChatHandler` | `llama-3-vision-alpha` |
 | [minicpm-v-2.6](https://huggingface.co/openbmb/MiniCPM-V-2_6-gguf) | `MiniCPMv26ChatHandler` | `minicpm-v-2.6` |
 | [qwen2.5-vl](https://huggingface.co/unsloth/Qwen2.5-VL-3B-Instruct-GGUF) | `Qwen25VLChatHandler` | `qwen2.5-vl` |
@@ -793,6 +793,7 @@ If you find any issues with the documentation, please open an issue or submit a 
 ## Development
 
 This package is under active development and I welcome any contributions.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution workflow, PR title, changelog, testing, and style guidelines.
 
 To get started, clone the repository and install the package in editable / development mode:
 

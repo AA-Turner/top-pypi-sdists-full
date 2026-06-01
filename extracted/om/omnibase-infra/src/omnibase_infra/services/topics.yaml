@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# Topics produced by infrastructure services (not nodes).
+# Scanned by ContractTopicExtractor.extract_from_skill_manifests().
+#
+# Topics listed here are NOT declared in any node contract.yaml but ARE
+# registered in ALL_PROVISIONED_TOPIC_SPECS (platform_topic_suffixes.py).
+# Without this manifest the contract-first TopicProvisioner would skip them,
+# causing TopicStartupValidator failures (OMN-5633).
+#
+# Ticket: OMN-4622, OMN-5633
+topics:
+  - onex.evt.omnibase-infra.llm-endpoint-health.v1
+  - onex.evt.omnibase-infra.runtime-health-check.v1
+  # --- Platform topics not owned by any node contract (OMN-5633) ---
+  - onex.evt.platform.service-heartbeat.v1
+  - onex.evt.platform.feature-flag-changed.v1
+  - onex.evt.platform.resolution-decided.v1
+  # --- Omnibase-infra topics not owned by any node contract (OMN-5633) ---
+  - onex.evt.omnibase-infra.circuit-breaker.v1
+  - onex.evt.omnibase-infra.gmail-archive-purged.v1
+  - onex.evt.omnibase-infra.wiring-health-snapshot.v1
+  # --- DLQ aggregation topic for omnidash (OMN-6136) ---
+  - onex.evt.platform.dlq-message.v1
+  # --- Canonical runtime DLQ topics not owned by node contracts (OMN-9649) ---
+  - onex.dlq.intents.v1
+  - onex.dlq.events.v1
+  - onex.dlq.commands.v1
+  # --- GitHub PR merged event (OMN-6726) ---
+  - onex.evt.github.pr-merged.v1
+  # --- Post-merge check chain result (OMN-6727) ---
+  - onex.evt.github.post-merge-result.v1
+  # --- A/B eval completed event (OMN-6779) ---
+  - onex.evt.omnibase-infra.eval-completed.v1
+  # --- Intelligence pipeline gap-fill topics (OMN-7810) ---
+  - onex.evt.omniintelligence.pattern-refined.v1
+  - onex.evt.omnimemory.document-ingested.v1
+  - onex.cmd.omninode.routing-requested.v1
+  - onex.evt.omninode.routing-completed.v1

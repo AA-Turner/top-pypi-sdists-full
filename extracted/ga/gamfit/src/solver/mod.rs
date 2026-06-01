@@ -1,0 +1,56 @@
+pub(crate) mod active_set;
+pub mod arrow_schur;
+pub mod arrow_schur_beta_graph;
+pub mod arrow_schur_convergence_check;
+pub mod estimate;
+pub mod evidence;
+pub mod family_jacobian;
+pub mod gaussian_reml;
+pub mod gpu;
+pub mod identifiability_audit;
+pub mod identifiability_canonical;
+pub mod inner_status;
+pub(crate) mod latent_cache;
+pub mod latent_inner;
+pub mod mixture_link;
+pub mod outer_strategy;
+pub(crate) mod persistent_warm_start;
+pub mod pirls;
+pub mod protocol;
+pub mod reml_compare;
+pub mod riemannian;
+pub mod riemannian_retraction;
+pub mod row_measure;
+pub mod seeding;
+pub mod sindy;
+pub(crate) mod startup_stats;
+pub mod topology_formula;
+pub mod topology_selector;
+pub mod visualizer;
+pub(crate) mod workflow;
+
+pub use evidence::{
+    EvidenceHvpLogDet, EvidenceIftGradientTerms, EvidenceLogDetSource, SelectedTopology,
+    TopologyCandidate, TopologyKind, TopologyScoreScale, TopologySelectOptions, evidence_grad_rho,
+    evidence_hessian_log_det, evidence_ift_gradient_correction, hessian_log_det_from_hvp,
+    laplace_evidence, select_topology,
+};
+pub use topology_selector::{
+    AutoTopologyKind, TopologyAutoFitEvidence, TopologyAutoRankedFit, TopologyAutoSelector,
+    TopologyAutoSelectorResult, select_topology_with_fit, tk_normalized_score,
+};
+
+/// Public re-export of the log-barrier configuration used by the REML/LAML
+/// evaluators for monotonicity-constrained coefficients. Exposed so callers
+/// (and integration tests) can construct and probe barrier objectives without
+/// reaching through the private `estimate::reml::unified` path.
+pub use estimate::reml::unified::BarrierConfig;
+/// Re-exported for the Python bindings (`gam-pyffi`), which must name the
+/// covariance-correction error type without reaching through the private
+/// `estimate::reml::unified` path.
+pub use estimate::reml::unified::CorrectedCovarianceError;
+/// Re-exported for the Python bindings (`gam-pyffi`), which build their
+/// analytic-penalty registry through the single shared descriptor parser that
+/// also serves the in-process workflow pipeline. Exposed here so PyFFI can name
+/// it without the (crate-private) `workflow` module being publicly reachable.
+pub use workflow::descriptors::build_analytic_penalty_registry_from_descriptors;

@@ -1,0 +1,582 @@
+# Reusable workflow for runtime smoke / regression boot validation (OMN-9250).
+#
+# Callers: Tier-1 smoke (OMN-9251), Tier-2 regression (OMN-9252). Two modes:
+#   - `compose`: spin up postgres+redpanda via docker-compose.e2e.yml + launch
+#     the runtime in-process. Used on ubuntu-latest PR runs.
+#   - `real`:    probe live services on a caller-supplied host (runtime_host,
+#     pg_port). Used on self-hosted runners targeting the .201 stack.
+#
+# Health response shape comes from
+# src/omnibase_infra/services/service_health.py::_handle_health:
+#     { "status": "healthy|degraded|unhealthy",
+#       "version": "x.y.z",
+#       "details": { "is_running": bool, "is_draining": bool, ... } }
+#
+# Hard gates (must pass — OMN-9458 extends coverage to runtime-effects and
+# startup log regressions so degraded-but-alive states fail the merge):
+#   * runtime /health        == "healthy" AND .details.is_running == true
+#   * runtime-effects /health == "healthy" AND .details.is_running == true
+#   * 60s hold: compose -> both background PIDs alive + both /health stable;
+#                real    -> both /health stable (no flapping beyond tolerance)
+#   * startup logs contain NO match for:
+#       - `Cannot register duplicate dispatcher ID`
+#       - `Auto-wiring failed for`
+#       - `asyncio.run\(\) cannot be called from a running event loop`
+#       - `RuntimeHostError` / `ServiceResolutionError` raised at boot
+#       - `load_runtime_config` fatal errors (service_kernel.py config gate)
+#   * registration_projections row count > 0 (active + fresh heartbeat)
+#   * rpk group list contains `onex-runtime` with >= 1 member
+#
+# Warn-only observations (never fail the job):
+#   * subscriber_count < 300 (empirical .201 threshold; see
+#     docs/plans/2026-04-19-runtime-permanent-fix-and-regression-guard-part-1.md
+#     §Rewritten Inventory §E truth-boundary rework).
+---
+name: Reusable Runtime Boot
+
+on:
+  workflow_call:
+    inputs:
+      mode:
+        description: "Execution mode: 'real' (probe live .201 stack) or 'compose' (bring up local stack)."
+        required: true
+        type: string
+      runtime_host:
+        description: "Runtime + postgres + redpanda host. localhost in compose mode; 192.168.86.201 in real mode."
+        required: false
+        type: string
+        default: "localhost"
+      pg_port:
+        description: "External postgres port for `real` mode. Defaults to 5436 per CLAUDE.md infra topology. (Compose mode ignores this and uses the port published by docker/docker-compose.e2e.yml, currently 5433.)"
+        required: false
+        type: string
+        default: "5436"
+      compose_pg_port:
+        description: "External postgres port published by docker/docker-compose.e2e.yml. Overrides pg_port when mode='compose'. Keep in sync with POSTGRES_PORT default in that compose file."
+        required: false
+        type: string
+        default: "5433"
+      real_ssh_user:
+        description: "SSH username for `real` mode rpk-group-list probe. If blank, uses the runner's whoami."
+        required: false
+        type: string
+        default: ""
+
+jobs:
+  boot:
+    name: runtime-boot (mode=${{ inputs.mode }})
+    # OMNI_RUNNER_SELECTOR_V1 — trusted CI defaults to self-hosted omnibase-ci; public forks default to ubuntu-latest
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    timeout-minutes: 20
+    env:
+      RUNTIME_HOST: ${{ inputs.runtime_host }}
+      PG_PORT: ${{ inputs.pg_port }}
+      # Use Kafka-backed event bus so registration flow + rpk group membership
+      # assertions reflect real topic wiring. Compose mode runs redpanda.
+      ONEX_EVENT_BUS_TYPE: "kafka"
+      POSTGRES_DATABASE: "omnibase_infra"
+      LLM_ENDPOINT_CIDR_ALLOWLIST: "10.0.0.0/8"
+
+    steps:
+      - name: Validate mode input
+        run: |
+          set -euo pipefail
+          case "${{ inputs.mode }}" in
+            real|compose) echo "mode=${{ inputs.mode }}" ;;
+            *)
+              echo "::error::mode must be 'real' or 'compose' (got '${{ inputs.mode }}')"
+              exit 1
+              ;;
+          esac
+
+      - name: Resolve mode-specific postgres port
+        id: resolve_pg
+        run: |
+          set -euo pipefail
+          if [[ "${{ inputs.mode }}" == "compose" ]]; then
+            effective="${{ inputs.compose_pg_port }}"
+            # Compose mode: self-hosted CI runners run inside Docker containers
+            # that share the Docker daemon with the compose stack via socket
+            # mount (/var/run/docker.sock). Port bindings (localhost:5433,
+            # localhost:19092) are on the HOST machine, not reachable from the
+            # runner container.
+            #
+            # Instead we connect the runner container directly to the compose
+            # network (omnibase-infra-network) and reach services by their
+            # container names on their INTERNAL ports.
+            #
+            # Kafka: redpanda internal listener is at redpanda:9092.
+            echo "KAFKA_BOOTSTRAP_SERVERS=redpanda:9092" >> "$GITHUB_ENV"
+            # Allow the redpanda internal hostname so the allowlist guard passes.
+            echo "KAFKA_BROKER_ALLOWLIST=redpanda:" >> "$GITHUB_ENV"
+            # DB URL via compose container name + internal postgres port.
+            echo "OMNIBASE_INFRA_DB_URL=postgresql://postgres:test-password@omnibase-infra-postgres:5432/omnibase_infra" >> "$GITHUB_ENV"
+          else
+            effective="${{ inputs.pg_port }}"
+          fi
+          echo "PG_PORT=${effective}" >> "$GITHUB_ENV"
+          echo "effective_pg_port=${effective}" >> "$GITHUB_OUTPUT"
+          echo "effective pg_port for mode=${{ inputs.mode }} -> ${effective}"
+
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Python and uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.6.14"
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install CLI dependencies (jq, curl)
+        if: inputs.mode == 'compose'
+        run: |
+          set -euo pipefail
+          # Self-hosted runners (omnibase-ci) already have jq and curl; skip
+          # apt-get (sudo unavailable on container runners).  psql is invoked
+          # via `docker exec` against omnibase-infra-postgres so no host psql
+          # is needed.
+          missing=()
+          command -v jq   >/dev/null 2>&1 || missing+=(jq)
+          command -v curl >/dev/null 2>&1 || missing+=(curl)
+          if [[ ${#missing[@]} -gt 0 ]]; then
+            if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+              sudo apt-get update
+              sudo apt-get install -y --no-install-recommends "${missing[@]}"
+            elif [[ "$(id -u)" -eq 0 ]]; then
+              apt-get update
+              apt-get install -y --no-install-recommends "${missing[@]}"
+            else
+              echo "::error::jq/curl missing and cannot install: no sudo and not running as root"
+              exit 1
+            fi
+          else
+            echo "jq and curl already available — skipping apt install"
+          fi
+          # rpk is executed via `docker exec` against the compose-managed
+          # omnibase-infra-redpanda container, so a host-level rpk install is
+          # unnecessary in compose mode.
+
+      - name: Bring up compose stack (postgres + redpanda)
+        if: inputs.mode == 'compose'
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          POSTGRES_PORT="${{ inputs.compose_pg_port }}" \
+            docker compose -f docker/docker-compose.e2e.yml up -d postgres redpanda
+
+          # Self-hosted CI runners run inside Docker containers that share the
+          # host Docker daemon via /var/run/docker.sock. Port bindings on the
+          # host (localhost:5433, localhost:19092) are NOT reachable from the
+          # runner container. Connect the runner to the compose network so the
+          # runtime can reach services by container name on internal ports.
+          RUNNER_ID=$(cat /proc/self/cgroup 2>/dev/null \
+            | grep -oP '(?<=docker/)([0-9a-f]{64})' | head -1 || true)
+          if [[ -z "$RUNNER_ID" ]]; then
+            RUNNER_ID=$(hostname)
+          fi
+          echo "Runner container ID/name: ${RUNNER_ID}"
+          docker network connect omnibase-infra-network "${RUNNER_ID}" 2>/dev/null \
+            || echo "network connect skipped (may already be connected or not in Docker)"
+
+          # Wait for both compose services to be healthy via docker exec.
+          # No localhost TCP check needed — we reach them by container name.
+          for i in $(seq 1 90); do
+            pg_ok=false
+            kafka_ok=false
+            if docker exec omnibase-infra-postgres pg_isready -U postgres >/dev/null 2>&1; then
+              pg_ok=true
+            fi
+            if docker exec omnibase-infra-redpanda rpk cluster health >/dev/null 2>&1; then
+              kafka_ok=true
+            fi
+            if $pg_ok && $kafka_ok; then
+              echo "compose infra healthy after ${i}s"
+              break
+            fi
+            echo "waiting... pg=${pg_ok} kafka=${kafka_ok} (${i}s)"
+            sleep 1
+          done
+          if ! $pg_ok || ! $kafka_ok; then
+            echo "::error::compose services not healthy after 90s — pg=${pg_ok} kafka=${kafka_ok}"
+            exit 1
+          fi
+
+      - name: Run database migrations (compose mode)
+        if: inputs.mode == 'compose'
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          # OMNIBASE_INFRA_DB_URL was set in the resolve_pg step to:
+          #   postgresql://postgres:test-password@omnibase-infra-postgres:5432/omnibase_infra
+          # The runner is now on omnibase-infra-network so omnibase-infra-postgres
+          # resolves by container-name DNS.
+          uv run python scripts/run-migrations.py
+
+      - name: Pre-warm Redpanda metadata (compose mode)
+        if: inputs.mode == 'compose'
+        run: |
+          set -euo pipefail
+          # Fresh Redpanda brokers need time for their metadata subsystem to
+          # stabilize after initial startup. Without a settling period, the
+          # runtime's topic-creation + immediate subscribe sequence hits
+          # InvalidPartitionsError / UnknownTopicOrPartitionError as Redpanda's
+          # partition metadata cache catches up. 60s covers the observed ~30s
+          # propagation lag with margin.
+          echo "Waiting 60s for Redpanda metadata subsystem to stabilize..."
+          sleep 60
+          echo "Redpanda pre-warm complete"
+
+      - name: Stage contracts outside /home (compose mode)
+        if: inputs.mode == 'compose'
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          # contract_loader_effect.yaml deny_patterns include "/home", which
+          # blocks the default contracts/ path when the runner CWD is under
+          # /home/runner/... (GitHub-hosted and self-hosted CI). Copy the
+          # contracts tree to /tmp so path.resolve() lands outside the deny list.
+          rm -rf /tmp/onex-contracts
+          cp -r "${{ github.workspace }}/contracts" /tmp/onex-contracts
+          echo "ONEX_CONTRACTS_DIR=/tmp/onex-contracts" >> "$GITHUB_ENV"
+
+      - name: Launch runtime (compose mode)
+        if: inputs.mode == 'compose'
+        working-directory: ${{ github.workspace }}
+        env:
+          # Fresh Redpanda brokers exhibit metadata propagation lag — topics are
+          # created successfully but aiokafka's _wait_on_metadata retries for
+          # several seconds before partition metadata becomes available. Extend
+          # the consumer start timeout from the default 30s to 120s so the
+          # runtime does not crash while Redpanda catches up.
+          KAFKA_TIMEOUT_SECONDS: "120"
+          # Redpanda --smp 1 --mode dev-container returns InvalidPartitionsError
+          # (error 37) for topics created with > 1 partition. Cap auto-created
+          # topics at 1 partition so CI Redpanda can serve valid partition metadata.
+          ONEX_TOPIC_PROVISIONER_MAX_PARTITIONS: "1"
+        run: |
+          set -euo pipefail
+          # Background the runtime so subsequent health-wait steps can probe it.
+          # `onex-runtime` is the console script declared in pyproject.toml:
+          #   onex-runtime = "omnibase_infra.runtime.kernel:main"
+          uv run onex-runtime > runtime.log 2>&1 &
+          echo "RUNTIME_PID=$!" >> "$GITHUB_ENV"
+
+      - name: Launch runtime-effects (compose mode)
+        if: inputs.mode == 'compose'
+        working-directory: ${{ github.workspace }}
+        env:
+          KAFKA_TIMEOUT_SECONDS: "120"
+          ONEX_TOPIC_PROVISIONER_MAX_PARTITIONS: "1"
+        run: |
+          set -euo pipefail
+          # runtime-effects listens on :8086 and consumes under a distinct
+          # Kafka consumer group so the main runtime's registration flow is
+          # not disturbed. Matches docker/catalog/services/runtime-effects.yaml.
+          RUNTIME_PROFILE=effects \
+          ONEX_HTTP_PORT=8086 \
+          ONEX_GROUP_ID=onex-runtime-effects \
+          OTEL_SERVICE_NAME=omninode-runtime-effects \
+            uv run onex-runtime > runtime-effects.log 2>&1 &
+          echo "RUNTIME_EFFECTS_PID=$!" >> "$GITHUB_ENV"
+
+      - name: Wait for runtime and runtime-effects health (hard gate)
+        id: health_wait
+        run: |
+          set -euo pipefail
+          runtime_url="http://${RUNTIME_HOST}:8085/health"
+          effects_url="http://${RUNTIME_HOST}:8086/health"
+          deadline=$((SECONDS + 120))
+          # Track last observed body so we can distinguish "never responded"
+          # from "responded with status=degraded" — per OMN-9458, a degraded
+          # runtime-effects must fail the gate with a specific error message,
+          # not a generic timeout.
+          : > runtime_last_body.txt
+          : > effects_last_body.txt
+          while (( SECONDS < deadline )); do
+            runtime_ready=0
+            effects_ready=0
+
+            if runtime_body=$(curl -fsS "$runtime_url" 2>/dev/null); then
+              echo "$runtime_body" > runtime_last_body.txt
+              if echo "$runtime_body" | jq -e '.status == "healthy" and .details.is_running == true' >/dev/null; then
+                echo "$runtime_body" > health_initial.json
+                runtime_ready=1
+              fi
+            fi
+
+            if effects_body=$(curl -fsS "$effects_url" 2>/dev/null); then
+              echo "$effects_body" > effects_last_body.txt
+              if echo "$effects_body" | jq -e '.status == "healthy" and .details.is_running == true' >/dev/null; then
+                echo "$effects_body" > effects_health_initial.json
+                effects_ready=1
+              fi
+            fi
+
+            if (( runtime_ready == 1 && effects_ready == 1 )); then
+              echo "runtime and runtime-effects healthy after $SECONDS seconds"
+              break
+            fi
+            sleep 2
+          done
+          # Distinguish degraded vs never-responded for faster triage (OMN-9458).
+          if [[ ! -f health_initial.json ]]; then
+            if [[ -s runtime_last_body.txt ]] && \
+               jq -e '.status == "degraded"' runtime_last_body.txt >/dev/null 2>&1; then
+              echo "::error::runtime /health returned status=degraded during startup — service reachable but explicitly reporting degraded state"
+              jq -c '{status, details}' runtime_last_body.txt || true
+            else
+              echo "::error::runtime /health never reported status=healthy AND .details.is_running=true within 120s"
+            fi
+            exit 1
+          fi
+          if [[ ! -f effects_health_initial.json ]]; then
+            if [[ -s effects_last_body.txt ]] && \
+               jq -e '.status == "degraded"' effects_last_body.txt >/dev/null 2>&1; then
+              echo "::error::runtime-effects /health returned status=degraded during startup — service reachable but explicitly reporting degraded state"
+              jq -c '{status, details}' effects_last_body.txt || true
+            else
+              echo "::error::runtime-effects /health never reported status=healthy AND .details.is_running=true within 120s"
+            fi
+            exit 1
+          fi
+          # Warn-only observation — subscriber_count<300 is a regression SIGNAL,
+          # not a contract gate. See plan §Rewritten Inventory §E.
+          sub_count=$(jq -r '.details.subscriber_count // 0' health_initial.json)
+          echo "subscriber_count=$sub_count"
+          if [[ "$sub_count" -lt 300 ]]; then
+            echo "::warning::subscriber_count=$sub_count below empirical .201 threshold of 300 — investigate possible regression"
+          fi
+
+      - name: Hold 60s — runtime and runtime-effects stability
+        run: |
+          set -euo pipefail
+          runtime_url="http://${RUNTIME_HOST}:8085/health"
+          effects_url="http://${RUNTIME_HOST}:8086/health"
+          if [[ "${{ inputs.mode }}" == "compose" ]]; then
+            # Both runtimes are background Python processes launched via uv
+            # (not containers), so `docker inspect RestartCount` is
+            # inapplicable. Assert both PIDs are still alive AND both /health
+            # endpoints remain healthy.
+            if [[ -z "${RUNTIME_PID:-}" ]]; then
+              echo "::error::RUNTIME_PID not set — compose-mode launch step did not run"
+              exit 1
+            fi
+            if [[ -z "${RUNTIME_EFFECTS_PID:-}" ]]; then
+              echo "::error::RUNTIME_EFFECTS_PID not set — compose-mode effects launch step did not run"
+              exit 1
+            fi
+            sleep 60
+            if ! kill -0 "${RUNTIME_PID}" 2>/dev/null; then
+              echo "::error::runtime PID ${RUNTIME_PID} died during 60s hold (crash)"
+              exit 1
+            fi
+            if ! kill -0 "${RUNTIME_EFFECTS_PID}" 2>/dev/null; then
+              echo "::error::runtime-effects PID ${RUNTIME_EFFECTS_PID} died during 60s hold (crash)"
+              exit 1
+            fi
+            if ! curl -fsS "$runtime_url" | jq -e '.status == "healthy" and .details.is_running == true' >/dev/null; then
+              echo "::error::runtime /health degraded after 60s hold"
+              exit 1
+            fi
+            if ! curl -fsS "$effects_url" | jq -e '.status == "healthy" and .details.is_running == true' >/dev/null; then
+              echo "::error::runtime-effects /health degraded after 60s hold"
+              exit 1
+            fi
+            echo "runtime and runtime-effects PIDs alive + /health healthy after 60s"
+          else
+            # Real mode: we don't control the remote containers. Assert both
+            # health endpoints remain stable over a 60s window.
+            deadline=$((SECONDS + 60))
+            runtime_failures=0
+            effects_failures=0
+            while (( SECONDS < deadline )); do
+              if ! curl -fsS "$runtime_url" | jq -e '.status == "healthy" and .details.is_running == true' >/dev/null; then
+                runtime_failures=$((runtime_failures + 1))
+              fi
+              if ! curl -fsS "$effects_url" | jq -e '.status == "healthy" and .details.is_running == true' >/dev/null; then
+                effects_failures=$((effects_failures + 1))
+              fi
+              sleep 5
+            done
+            if (( runtime_failures > 2 )); then
+              echo "::error::runtime /health flapped ${runtime_failures} times during 60s hold"
+              exit 1
+            fi
+            if (( effects_failures > 2 )); then
+              echo "::error::runtime-effects /health flapped ${effects_failures} times during 60s hold"
+              exit 1
+            fi
+            echo "runtime + runtime-effects /health stable over 60s hold (runtime_failures=${runtime_failures}, effects_failures=${effects_failures})"
+          fi
+
+      - name: Fail on startup auto-wiring or registration errors
+        run: |
+          set -euo pipefail
+          # OMN-9458: hard-fail on startup log regressions seen during the
+          # 2026-04-22 .201 refresh. Patterns target the runtime + runtime-effects
+          # boot sequences; anything matched here means the service reached
+          # /health but did so with a structural startup failure that would be
+          # caught by a human operator.
+          patterns='Cannot register duplicate dispatcher ID'
+          patterns+='|Auto-wiring failed for'
+          patterns+='|asyncio\.run\(\) cannot be called from a running event loop'
+          patterns+='|RuntimeHostError'
+          patterns+='|ServiceResolutionError'
+          patterns+='|load_runtime_config.*[Ee]rror'
+          if [[ "${{ inputs.mode }}" == "compose" ]]; then
+            cat runtime.log runtime-effects.log > startup_logs.txt
+          else
+            user="${{ inputs.real_ssh_user }}"
+            if [[ -z "$user" ]]; then
+              user="$(whoami)"
+            fi
+            ssh -o StrictHostKeyChecking=no "${user}@${RUNTIME_HOST}" \
+              "docker logs --since 10m omninode-runtime 2>&1; echo; docker logs --since 10m omninode-runtime-effects 2>&1" \
+              > startup_logs.txt
+          fi
+          if grep -E "$patterns" startup_logs.txt >/dev/null; then
+            echo "::error::startup logs contain auto-wiring / duplicate-dispatcher / service-resolution failures"
+            grep -En "$patterns" startup_logs.txt || true
+            exit 1
+          fi
+
+      - name: Query registration_projections for active/fresh rows
+        id: pg_liveness
+        env:
+          REAL_PG_PASSWORD: ${{ secrets.RUNTIME_PG_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ "${{ inputs.mode }}" == "compose" ]]; then
+            # Use docker exec so no host psql is required (container runners
+            # may not have psql and may not have sudo to install it).
+            count=$(docker exec -e PGPASSWORD=test-password omnibase-infra-postgres \
+              psql -h localhost -p 5432 -U postgres -d "${POSTGRES_DATABASE}" \
+              -tAc "SELECT count(*) FROM registration_projections WHERE current_state='active' AND last_heartbeat_at > NOW() - INTERVAL '60 seconds'" \
+              | tr -d '[:space:]')
+          else
+            if [[ -z "${REAL_PG_PASSWORD:-}" ]]; then
+              echo "::error::Missing secret: RUNTIME_PG_PASSWORD (required in real mode)"
+              exit 1
+            fi
+            export PGPASSWORD="${REAL_PG_PASSWORD}"
+            count=$(psql -h "${RUNTIME_HOST}" -p "${PG_PORT}" -U postgres -d "${POSTGRES_DATABASE}" \
+              -tAc "SELECT count(*) FROM registration_projections WHERE current_state='active' AND last_heartbeat_at > NOW() - INTERVAL '60 seconds'")
+          fi
+          echo "active_fresh_registrations=${count}"
+          echo "active_fresh_registrations=${count}" >> "$GITHUB_OUTPUT"
+          if [[ "${count}" -le 0 ]]; then
+            echo "::error::registration_projections has 0 active+fresh rows — runtime not publishing heartbeats"
+            exit 1
+          fi
+
+      - name: Assert onex-runtime consumer group has members
+        id: rpk_groups
+        run: |
+          set -euo pipefail
+          if [[ "${{ inputs.mode }}" == "compose" ]]; then
+            raw=$(docker exec omnibase-infra-redpanda rpk group list)
+          else
+            user="${{ inputs.real_ssh_user }}"
+            if [[ -z "$user" ]]; then
+              user="$(whoami)"
+            fi
+            raw=$(ssh -o StrictHostKeyChecking=no "${user}@${RUNTIME_HOST}" "docker exec omnibase-infra-redpanda rpk group list")
+          fi
+          echo "$raw" > rpk_groups.txt
+          if ! grep -qE '(^|[[:space:]])onex-runtime([[:space:]]|$)' rpk_groups.txt; then
+            echo "::error::rpk group list missing onex-runtime group"
+            cat rpk_groups.txt
+            exit 1
+          fi
+          # Assert the group has at least one member — presence alone is not enough.
+          member_count=$(echo "$raw" | awk '/onex-runtime/{print $NF}' | grep -E '^[0-9]+$' | head -1 || echo "0")
+          if [[ -z "$member_count" ]] || [[ "$member_count" -lt 1 ]]; then
+            echo "::error::onex-runtime consumer group has 0 members (got '${member_count}')"
+            cat rpk_groups.txt
+            exit 1
+          fi
+          echo "onex-runtime group member_count=${member_count}"
+
+      - name: Emit smoke-result.json artifact
+        if: always()
+        run: |
+          set -euo pipefail
+          # Make artifact emission robust to partial failure —
+          # health_initial.json / effects_health_initial.json / rpk_groups.txt /
+          # startup_logs.txt may be absent if an earlier step exited. Fall back
+          # to empty placeholders so the artifact always uploads and downstream
+          # tooling can discriminate "ran but failed early" from "never
+          # uploaded".
+          if [[ ! -f health_initial.json ]]; then
+            echo '{}' > health_initial.json
+          fi
+          if [[ ! -f effects_health_initial.json ]]; then
+            echo '{}' > effects_health_initial.json
+          fi
+          if [[ ! -f rpk_groups.txt ]]; then
+            : > rpk_groups.txt
+          fi
+          if [[ ! -f startup_logs.txt ]]; then
+            : > startup_logs.txt
+          fi
+          active_fresh_raw='${{ steps.pg_liveness.outputs.active_fresh_registrations }}'
+          if [[ -z "$active_fresh_raw" ]]; then
+            active_fresh_raw='0'
+          fi
+          jq -n \
+            --arg mode "${{ inputs.mode }}" \
+            --arg runtime_host "${RUNTIME_HOST}" \
+            --arg pg_port "${PG_PORT}" \
+            --slurpfile health health_initial.json \
+            --slurpfile effects_health effects_health_initial.json \
+            --arg active_fresh "${active_fresh_raw}" \
+            --rawfile rpk_groups rpk_groups.txt \
+            --rawfile startup_logs startup_logs.txt \
+            '{
+              mode: $mode,
+              runtime_host: $runtime_host,
+              pg_port: $pg_port,
+              health: $health[0],
+              effects_health: $effects_health[0],
+              active_fresh_registrations: ($active_fresh | tonumber),
+              rpk_groups: $rpk_groups,
+              startup_logs: $startup_logs
+            }' > smoke-result.json
+
+      - name: Upload smoke-result.json
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: smoke-result-${{ inputs.mode }}
+          path: smoke-result.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload runtime startup logs
+        if: always() && inputs.mode == 'compose'
+        uses: actions/upload-artifact@v7
+        with:
+          name: runtime-startup-logs-${{ inputs.mode }}
+          path: |
+            runtime.log
+            runtime-effects.log
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Stop background runtime (compose mode)
+        if: always() && inputs.mode == 'compose'
+        run: |
+          if [[ -n "${RUNTIME_PID:-}" ]]; then
+            kill "${RUNTIME_PID}" 2>/dev/null || true
+          fi
+          if [[ -n "${RUNTIME_EFFECTS_PID:-}" ]]; then
+            kill "${RUNTIME_EFFECTS_PID}" 2>/dev/null || true
+          fi
+          docker compose -f docker/docker-compose.e2e.yml down -v || true

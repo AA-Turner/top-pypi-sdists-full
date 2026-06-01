@@ -1,0 +1,46 @@
+[project]
+name = "esphome-device-builder-frontend"
+version = "0.1.112"
+description = "Prebuilt web frontend for the ESPHome Device Builder Dashboard"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+    { name = "The ESPHome Authors", email = "esphome@openhomefoundation.org" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Home Automation",
+]
+
+[project.license]
+text = "Apache-2.0"
+
+[project.urls]
+Documentation = "https://esphome.io"
+Homepage = "https://esphome.io"
+Issues = "https://github.com/esphome/device-builder/issues"
+Repository = "https://github.com/esphome/device-builder-frontend"
+
+[build-system]
+requires = [
+    "setuptools>=68",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+platforms = [
+    "any",
+]
+zip-safe = false
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = [
+    "esphome_device_builder_frontend",
+]

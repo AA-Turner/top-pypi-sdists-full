@@ -1,0 +1,467 @@
+Metadata-Version: 2.4
+Name: sphinx-llm
+Version: 0.4.1
+Project-URL: Documentation, https://github.com/NVIDIA/sphinx-llm#readme
+Project-URL: Issues, https://github.com/NVIDIA/sphinx-llm/issues
+Project-URL: Source, https://github.com/NVIDIA/sphinx-llm
+Author-email: Jacob Tomlinson <jacob@tomlinson.email>
+License:                                  Apache License
+                                   Version 2.0, January 2004
+                                http://www.apache.org/licenses/
+        
+           TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+        
+           1. Definitions.
+        
+              "License" shall mean the terms and conditions for use, reproduction,
+              and distribution as defined by Sections 1 through 9 of this document.
+        
+              "Licensor" shall mean the copyright owner or entity authorized by
+              the copyright owner that is granting the License.
+        
+              "Legal Entity" shall mean the union of the acting entity and all
+              other entities that control, are controlled by, or are under common
+              control with that entity. For the purposes of this definition,
+              "control" means (i) the power, direct or indirect, to cause the
+              direction or management of such entity, whether by contract or
+              otherwise, or (ii) ownership of fifty percent (50%) or more of the
+              outstanding shares, or (iii) beneficial ownership of such entity.
+        
+              "You" (or "Your") shall mean an individual or Legal Entity
+              exercising permissions granted by this License.
+        
+              "Source" form shall mean the preferred form for making modifications,
+              including but not limited to software source code, documentation
+              source, and configuration files.
+        
+              "Object" form shall mean any form resulting from mechanical
+              transformation or translation of a Source form, including but
+              not limited to compiled object code, generated documentation,
+              and conversions to other media types.
+        
+              "Work" shall mean the work of authorship, whether in Source or
+              Object form, made available under the License, as indicated by a
+              copyright notice that is included in or attached to the work
+              (an example is provided in the Appendix below).
+        
+              "Derivative Works" shall mean any work, whether in Source or Object
+              form, that is based on (or derived from) the Work and for which the
+              editorial revisions, annotations, elaborations, or other modifications
+              represent, as a whole, an original work of authorship. For the purposes
+              of this License, Derivative Works shall not include works that remain
+              separable from, or merely link (or bind by name) to the interfaces of,
+              the Work and Derivative Works thereof.
+        
+              "Contribution" shall mean any work of authorship, including
+              the original version of the Work and any modifications or additions
+              to that Work or Derivative Works thereof, that is intentionally
+              submitted to Licensor for inclusion in the Work by the copyright owner
+              or by an individual or Legal Entity authorized to submit on behalf of
+              the copyright owner. For the purposes of this definition, "submitted"
+              means any form of electronic, verbal, or written communication sent
+              to the Licensor or its representatives, including but not limited to
+              communication on electronic mailing lists, source code control systems,
+              and issue tracking systems that are managed by, or on behalf of, the
+              Licensor for the purpose of discussing and improving the Work, but
+              excluding communication that is conspicuously marked or otherwise
+              designated in writing by the copyright owner as "Not a Contribution."
+        
+              "Contributor" shall mean Licensor and any individual or Legal Entity
+              on behalf of whom a Contribution has been received by Licensor and
+              subsequently incorporated within the Work.
+        
+           2. Grant of Copyright License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              copyright license to reproduce, prepare Derivative Works of,
+              publicly display, publicly perform, sublicense, and distribute the
+              Work and such Derivative Works in Source or Object form.
+        
+           3. Grant of Patent License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              (except as stated in this section) patent license to make, have made,
+              use, offer to sell, sell, import, and otherwise transfer the Work,
+              where such license applies only to those patent claims licensable
+              by such Contributor that are necessarily infringed by their
+              Contribution(s) alone or by combination of their Contribution(s)
+              with the Work to which such Contribution(s) was submitted. If You
+              institute patent litigation against any entity (including a
+              cross-claim or counterclaim in a lawsuit) alleging that the Work
+              or a Contribution incorporated within the Work constitutes direct
+              or contributory patent infringement, then any patent licenses
+              granted to You under this License for that Work shall terminate
+              as of the date such litigation is filed.
+        
+           4. Redistribution. You may reproduce and distribute copies of the
+              Work or Derivative Works thereof in any medium, with or without
+              modifications, and in Source or Object form, provided that You
+              meet the following conditions:
+        
+              (a) You must give any other recipients of the Work or
+                  Derivative Works a copy of this License; and
+        
+              (b) You must cause any modified files to carry prominent notices
+                  stating that You changed the files; and
+        
+              (c) You must retain, in the Source form of any Derivative Works
+                  that You distribute, all copyright, patent, trademark, and
+                  attribution notices from the Source form of the Work,
+                  excluding those notices that do not pertain to any part of
+                  the Derivative Works; and
+        
+              (d) If the Work includes a "NOTICE" text file as part of its
+                  distribution, then any Derivative Works that You distribute must
+                  include a readable copy of the attribution notices contained
+                  within such NOTICE file, excluding those notices that do not
+                  pertain to any part of the Derivative Works, in at least one
+                  of the following places: within a NOTICE text file distributed
+                  as part of the Derivative Works; within the Source form or
+                  documentation, if provided along with the Derivative Works; or,
+                  within a display generated by the Derivative Works, if and
+                  wherever such third-party notices normally appear. The contents
+                  of the NOTICE file are for informational purposes only and
+                  do not modify the License. You may add Your own attribution
+                  notices within Derivative Works that You distribute, alongside
+                  or as an addendum to the NOTICE text from the Work, provided
+                  that such additional attribution notices cannot be construed
+                  as modifying the License.
+        
+              You may add Your own copyright statement to Your modifications and
+              may provide additional or different license terms and conditions
+              for use, reproduction, or distribution of Your modifications, or
+              for any such Derivative Works as a whole, provided Your use,
+              reproduction, and distribution of the Work otherwise complies with
+              the conditions stated in this License.
+        
+           5. Submission of Contributions. Unless You explicitly state otherwise,
+              any Contribution intentionally submitted for inclusion in the Work
+              by You to the Licensor shall be under the terms and conditions of
+              this License, without any additional terms or conditions.
+              Notwithstanding the above, nothing herein shall supersede or modify
+              the terms of any separate license agreement you may have executed
+              with Licensor regarding such Contributions.
+        
+           6. Trademarks. This License does not grant permission to use the trade
+              names, trademarks, service marks, or product names of the Licensor,
+              except as required for reasonable and customary use in describing the
+              origin of the Work and reproducing the content of the NOTICE file.
+        
+           7. Disclaimer of Warranty. Unless required by applicable law or
+              agreed to in writing, Licensor provides the Work (and each
+              Contributor provides its Contributions) on an "AS IS" BASIS,
+              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+              implied, including, without limitation, any warranties or conditions
+              of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+              PARTICULAR PURPOSE. You are solely responsible for determining the
+              appropriateness of using or redistributing the Work and assume any
+              risks associated with Your exercise of permissions under this License.
+        
+           8. Limitation of Liability. In no event and under no legal theory,
+              whether in tort (including negligence), contract, or otherwise,
+              unless required by applicable law (such as deliberate and grossly
+              negligent acts) or agreed to in writing, shall any Contributor be
+              liable to You for damages, including any direct, indirect, special,
+              incidental, or consequential damages of any character arising as a
+              result of this License or out of the use or inability to use the
+              Work (including but not limited to damages for loss of goodwill,
+              work stoppage, computer failure or malfunction, or any and all
+              other commercial damages or losses), even if such Contributor
+              has been advised of the possibility of such damages.
+        
+           9. Accepting Warranty or Additional Liability. While redistributing
+              the Work or Derivative Works thereof, You may choose to offer,
+              and charge a fee for, acceptance of support, warranty, indemnity,
+              or other liability obligations and/or rights consistent with this
+              License. However, in accepting such obligations, You may act only
+              on Your own behalf and on Your sole responsibility, not on behalf
+              of any other Contributor, and only if You agree to indemnify,
+              defend, and hold each Contributor harmless for any liability
+              incurred by, or claims asserted against, such Contributor by reason
+              of your accepting any such warranty or additional liability.
+        
+           END OF TERMS AND CONDITIONS
+        
+           APPENDIX: How to apply the Apache License to your work.
+        
+              To apply the Apache License to your work, attach the following
+              boilerplate notice, with the fields enclosed by brackets "{}"
+              replaced with your own identifying information. (Don't include
+              the brackets!)  The text should be enclosed in the appropriate
+              comment syntax for the file format. We also recommend that a
+              file or class name and description of purpose be included on the
+              same "printed page" as the copyright notice for easier
+              identification within third-party archives.
+        
+           Copyright 2018 NVIDIA Corporation
+        
+           Licensed under the Apache License, Version 2.0 (the "License");
+           you may not use this file except in compliance with the License.
+           You may obtain a copy of the License at
+        
+               http://www.apache.org/licenses/LICENSE-2.0
+        
+           Unless required by applicable law or agreed to in writing, software
+           distributed under the License is distributed on an "AS IS" BASIS,
+           WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+           See the License for the specific language governing permissions and
+           limitations under the License.
+License-File: LICENSE
+License-File: LICENSE_HEADER
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Python: >=3.9
+Requires-Dist: sphinx-markdown-builder>=0.6.8
+Requires-Dist: sphinx>=5
+Provides-Extra: gen
+Requires-Dist: langchain-ollama>=0.2.0; extra == 'gen'
+Description-Content-Type: text/markdown
+
+# sphinx-llm
+
+The `sphinx-llm` package includes a collection of
+[Sphinx](https://www.sphinx-doc.org/) extensions for working with LLMs.
+
+There are two categories of tools in this package:
+
+- **Enabling LLMs and agents to consume your docs** - Produces additional build
+  output for consumption by LLMs and agents. This is useful when you want your
+  project to be well indexed and represented in LLMs when users ask about
+  projects in your domain.
+- **Leveraging LLMs to generate content dynamically during the Sphinx build** -
+  Uses LLMs to generate content as part of the build process. This is useful
+  for generating static content that gets baked into the documentation. It is
+  not intended to provide an interactive chat service in your documentation.
+
+## Installation
+
+```console
+pip install sphinx-llm
+
+# For extensions that use LLMs to generate text
+pip install sphinx-llm[gen]
+```
+
+## Extensions
+
+### llms.txt Support
+
+The `sphinx_llm.txt` extension automatically generates markdown files for
+consumption by LLMs following the [llms.txt](https://llmstxt.org/) standard
+alongside HTML files during the Sphinx build process.
+
+The [llms.txt](https://llmstxt.org/) standard describes how you can provide
+documentation in a way that can be easily consumed by LLMs, either during
+model training or by agents at inference time when using tools that gather
+context from the web. The standard describes that your documentation sitemap
+should be provided in markdown in `llms.txt` and then the entire documentation
+should be provided in markdown via a single file called `llms-full.txt`.
+Additionally each individual page on your website should also have a markdown
+version of the page at the same URL with an additional `.md` extension.
+
+To use the extension add it to your `conf.py`:
+
+```python
+# conf.py
+# ...
+
+extensions = [
+    "sphinx_llm.txt",
+]
+```
+
+When you build your documentation with `sphinx-build` (or `make html`), the
+extension will:
+
+1. Builds your documentation as usual
+2. Also builds your documentation with the
+   [markdown builder](https://pypi.org/project/sphinx-markdown-builder/)
+3. Merges the build outputs together
+   - The markdown files will have the same as the HTML name plus an extra
+     `.md` extension
+4. Generates an index file for all the markdown files named `llms.txt`
+5. Concatenates all generated markdown into a single `llms-full.txt` file
+
+For example, if your build with the `html` builder generates:
+
+- `_build/html/index.html`
+- `_build/html/apples.html`
+
+The extension will also create:
+
+- `_build/html/llms.txt`
+- `_build/html/llms-full.txt`
+- `_build/html/index.html.md`
+- `_build/html/apples.html.md`
+
+With the `dirhtml` builder, which creates URLs like `/apples/` instead of
+`/apples.html`, the extension generates markdown files in both the file-suffix
+format (`page/index.html.md`) and the URL-suffix format (`page.md`) by default:
+
+- `_build/dirhtml/llms.txt`
+- `_build/dirhtml/llms-full.txt`
+- `_build/dirhtml/index.html.md`
+- `_build/dirhtml/apples/index.html.md` (file-suffix)
+- `_build/dirhtml/apples.md` (URL-suffix, matches Claude docs behavior like
+  `https://platform.claude.com/docs/overview.md`)
+
+You can control which format(s) are generated using the `llms_txt_suffix_mode`
+configuration option:
+
+- `"auto"` (default): For `dirhtml`, generates both file-suffix and URL-suffix
+  formats; for `html`, generates the standard `.html.md` format
+- `"file-suffix"`: For `dirhtml`, only generates `page/index.html.md`; for
+  `html`, generates the standard `.html.md` format
+- `"url-suffix"`: For `dirhtml`, only generates `page.md`; for `html`,
+  generates the standard `.html.md` format
+- `"replace"`: Replaces the `.html` extension with `.md` in the HTML output
+  path. For `html` builder: `page.html` → `page.md`. For `dirhtml` builder:
+  `page/index.html` → `page/index.md`
+
+> [!NOTE]
+> This extension only works with HTML builders (like `html` and `dirhtml`).
+
+#### Configuration
+
+Supported `conf.py` configuration options for `sphinx_llm.txt`.
+
+<!-- markdownlint-disable MD013 -->
+| **Name** | **Description** | **Type** | **Default** |
+| --- | --- | --- | --- |
+| `llms_txt_enabled` | Enable or disable all llms.txt artefact generation. Set to `False` to skip the entire extension without removing it from `conf.py`. Use `sphinx-build -D llms_txt_enabled=0` to skip on a per-build basis. | `bool` | `True` |
+| `llms_txt_description` | Override the project description set in `llms.txt` | `str` | Uses the project description from `pyproject.toml` by default |
+| `llms_txt_build_parallel` | Build markdown files in parallel to the HTML files. | `bool` | `True` |
+| `llms_txt_suffix_mode` | Suffix mode for generated markdown files. Options: `"auto"` (default behavior for each builder), `"file-suffix"` (spec-compliant format), `"url-suffix"` (URL-style format), or `"replace"` (replaces `.html` with `.md`). Note: `"both"` is deprecated but still supported (treated as `"auto"`). | `str` | `"auto"` |
+| `llms_txt_full_build` | Whether to generate the `llms-full.txt` file. Set to `False` to disable generation, which is useful for large documentation sites where the concatenated file would be too large. | `bool` | `True` |
+<!-- markdownlint-enable MD013 -->
+
+Each page's entry in `llms.txt` includes a short description. If a page defines
+an `html_meta` description — via `.. meta:: :description:` in rST or
+`html_meta: description:` in MyST frontmatter — that value is used. Otherwise
+the extension falls back to the first 100 characters of the page content.
+
+### Docref
+
+The `sphinx_llm.docref` extension adds a directive for summarising and
+referencing other pages in your documentation. Instead of just linking to a
+page the extension will generate a summary of the page being linked to and
+include that too.
+
+To use this extension you need to have [ollama](https://github.com/ollama/ollama)
+running.
+
+If you have a GPU then generation will be much faster, but it is optional. See
+[the GitHub Actions](.github/workflows/build-docs.yml) for an example of using
+it in CI.
+
+![Docref summary example](docs/source/_static/images/pig-feeding-summary.png)
+
+To use the extension add it to your `conf.py`.
+
+```python
+# conf.py
+# ...
+
+extensions = [
+    "sphinx_llm.docref",
+]
+```
+
+Then use the `docref` directive in your documents to reference other
+documents.
+
+```rst
+Testing page
+============
+
+
+.. docref:: apples
+
+   Summary of apples page.
+```
+
+Then when you run `sphinx-build` (or `make html`) a summary will be generated
+and your source file will be updated too.
+
+```rst
+Testing page
+============
+
+
+.. docref:: apples
+   :hash: 31ec12a54205539af3cde39b254ec766
+   :model: llama3.2:3b
+
+   Feeding apples to a friendly pig involves selecting ripe, pesticide-free
+   apples, washing them thoroughly, cutting into manageable pieces,
+   introducing them calmly, monitoring the pig's reaction, and cleaning up
+   afterwards.
+```
+
+A hash of the referenced document is included to avoid generating summaries
+unnecessarily. But if the referenced page changes the summary will be
+regenerated.
+
+You can also modify the summary if you need to clean up the language
+generated, and as long as the hash still matches the file it will be used.
+
+## Building the docs
+
+Try it out yourself by building the example documentation.
+
+```console
+uv run --dev sphinx-autobuild docs/source docs/build/html
+```
+
+## Alternatives
+
+There are other projects that solve this same problem, that's the wonderful
+nature of open source software. This section compares the various approaches
+each project has taken.
+
+These comparisons have been put together with the best of intentions and
+involvement from the maintainers of all projects compared here, but we
+acknowledge they are highly subjective. If you spot any information on this
+page that you believe to be incorrect or incomplete please don't hesitate to
+open a Pull Request. The goal here is to provide you with all the information
+you need to make the right choice for your needs.
+
+<!-- markdownlint-disable MD013 -->
+| **Dimension**                           | [sphinx-llm](https://github.com/NVIDIA/sphinx-llm)                                                                                                                                          | [sphinx-llms-txt](https://github.com/jdillard/sphinx-llms-txt/)                                |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------| ---------------------------------------------------------------------------------------------- |
+| **Purpose**                             | Rich `llms.txt` and `llms-full.txt` markdown creation with individual pages and LLM summarization capabilities.                                                                             | Simple `llms.txt` and `llms-full.txt` files creation.                                          |
+| **Individual pages**                    | Outputs a Markdown rendered version for each page.                                                                                                                                          | Source of each page is available at a Sphinx specific `_sources` URL.                          |
+| **Supported docs input formats**        | Works with any Sphinx source format including RST, MyST, etc.                                                                                                                               | Works with any Sphinx source format including RST, MyST, etc.                                  |
+| **Supported `llms.txt` output formats** | Markdown.                                                                                                                                                                                   | `llm.txt` is markdown; `llms-full.txt` and pages pass through source format.                   |
+| **Additional features**                 | In the future could allow `llms.txt` to include LLM generated summaries of each page (see [#28](https://github.com/NVIDIA/sphinx-llm/issues/28)).                                           | Allows manual configuration of `llms-full.txt` content.                                        |
+| **Build-time behavior**                 | Minimal build time impact; a separate build of the markdown is run in parallel, then the two build outputs are merged.                                                                      | Minimal build time impact; post build runs a converter/aggregator of `_sources`.               |
+| **Limitations**                         | Not all directives are supported by the markdown builder.                                                                                                                                   | Source documentation files are not processed, so directives like `automodule` aren't expanded. |
+<!-- markdownlint-enable MD013 -->
+
+## Making a release
+
+Releases are automated via GitHub Actions and any maintainers with write
+access to the repository can create one in just a couple of steps. To create
+a new release:
+
+1. Create a new tag with the version number:
+
+   ```console
+   git tag -a 0.0.0 -m 'Version 0.0.0'
+   ```
+
+2. Push the tag to the upstream repository:
+
+   ```console
+   git push https://github.com/NVIDIA/sphinx-llm main --tags
+   ```
+
+The GitHub Actions workflow will automatically build the package and publish
+it to PyPI using trusted publishing.

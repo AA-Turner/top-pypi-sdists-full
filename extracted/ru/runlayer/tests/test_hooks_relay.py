@@ -1,0 +1,332 @@
+"""Tests for the hooks relay command."""
+
+import json
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import httpx
+from typer.testing import CliRunner
+
+from runlayer_cli.commands.hooks import app
+from runlayer_cli.config import Config, HostConfig
+
+runner = CliRunner()
+
+
+def _make_config(*, host: str = "https://app.example.com", secret: str = "test-key"):
+    config = Config(
+        default_host=host,
+        hosts={
+            "app.example.com": HostConfig(url=host),
+        },
+    )
+    mock_store = MagicMock()
+    mock_store.get_secret.return_value = secret
+    return config, mock_store
+
+
+def test_relay_enforce_success():
+    """Relay enforce posts to /api/v1/hooks/cursor and returns response."""
+    config, mock_store = _make_config()
+    response_body = json.dumps({"permission": "allow"})
+
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.text = response_body
+    mock_response.is_success = True
+
+    with (
+        patch("runlayer_cli.commands.hooks.load_config", return_value=config),
+        patch("runlayer_cli.config.get_keyring_store", return_value=mock_store),
+        patch("httpx.Client") as mock_client_cls,
+    ):
+        mock_client = MagicMock()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+        mock_client.post.return_value = mock_response
+        mock_client_cls.return_value = mock_client
+
+        result = runner.invoke(app, ["enforce"], input='{"test": true}')
+        assert result.exit_code == 0
+        assert response_body in result.output
+
+        mock_client.post.assert_called_once()
+        call_args = mock_client.post.call_args
+        assert "/api/v1/hooks/cursor" in call_args[0][0]
+        assert call_args[1]["headers"]["x-runlayer-api-key"] == "test-key"
+
+
+def test_relay_event_success():
+    """Relay event posts to /api/v1/hooks/events."""
+    config, mock_store = _make_config()
+
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.text = "{}"
+    mock_response.is_success = True
+
+    with (
+        patch("runlayer_cli.commands.hooks.load_config", return_value=config),
+        patch("runlayer_cli.config.get_keyring_store", return_value=mock_store),
+        patch("httpx.Client") as mock_client_cls,
+    ):
+        mock_client = MagicMock()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+        mock_client.post.return_value = mock_response
+        mock_client_cls.return_value = mock_client
+
+        result = runner.invoke(app, ["event"], input='{"test": true}')
+        assert result.exit_code == 0
+
+        call_args = mock_client.post.call_args
+        assert "/api/v1/hooks/events" in call_args[0][0]
+
+
+def test_relay_tool_lifecycle_targets():
+    """Relay tool-pre/tool-post posts to local tool lifecycle endpoints."""
+    config, mock_store = _make_config()
+
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.text = "{}"
+    mock_response.is_success = True
+
+    with (
+        patch("runlayer_cli.commands.hooks.load_config", return_value=config),
+        patch("runlayer_cli.config.get_keyring_store", return_value=mock_store),
+        patch("httpx.Client") as mock_client_cls,
+    ):
+        mock_client = MagicMock()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+        mock_client.post.return_value = mock_response
+        mock_client_cls.return_value = mock_client
+
+        result = runner.invoke(app, ["tool-pre"], input='{"test": true}')
+        assert result.exit_code == 0
+        assert "/api/v1/hooks/tool/pre" in mock_client.post.call_args[0][0]
+
+        mock_client.post.reset_mock()
+
+        result = runner.invoke(app, ["tool-post"], input='{"test": true}')
+        assert result.exit_code == 0
+        assert "/api/v1/hooks/tool/post" in mock_client.post.call_args[0][0]
+
+
+def test_relay_unknown_target():
+    """Unknown target exits with code 1."""
+    result = runner.invoke(app, ["unknown"], input="{}")
+    assert result.exit_code == 1
+
+
+def test_relay_no_host_exits_1():
+    """Missing host in config exits with code 1."""
+    config = Config()
+
+    with patch("runlayer_cli.commands.hooks.load_config", return_value=config):
+        result = runner.invoke(app, ["enforce"], input="{}")
+        assert result.exit_code == 1
+
+
+def test_relay_no_secret_exits_1():
+    """Missing secret for host exits with code 1."""
+    config = Config(
+        default_host="https://app.example.com",
+        hosts={"app.example.com": HostConfig(url="https://app.example.com")},
+    )
+
+    with (
+        patch("runlayer_cli.commands.hooks.load_config", return_value=config),
+        patch("runlayer_cli.config.get_keyring_store", return_value=None),
+    ):
+        result = runner.invoke(app, ["enforce"], input="{}")
+        assert result.exit_code == 1
+
+
+def test_relay_network_error_exits_2():
+    """Network error exits with code 2."""
+    config, mock_store = _make_config()
+
+    with (
+        patch("runlayer_cli.commands.hooks.load_config", return_value=config),
+        patch("runlayer_cli.config.get_keyring_store", return_value=mock_store),
+        patch("httpx.Client") as mock_client_cls,
+    ):
+        mock_client = MagicMock()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+        mock_client.post.side_effect = httpx.ConnectError("connection refused")
+        mock_client_cls.return_value = mock_client
+
+        result = runner.invoke(app, ["enforce"], input="{}")
+        assert result.exit_code == 2
+
+
+def test_relay_api_error_exits_2():
+    """Non-success HTTP response exits with code 2."""
+    config, mock_store = _make_config()
+
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.text = '{"error": "unauthorized"}'
+    mock_response.is_success = False
+
+    with (
+        patch("runlayer_cli.commands.hooks.load_config", return_value=config),
+        patch("runlayer_cli.config.get_keyring_store", return_value=mock_store),
+        patch("httpx.Client") as mock_client_cls,
+    ):
+        mock_client = MagicMock()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+        mock_client.post.return_value = mock_response
+        mock_client_cls.return_value = mock_client
+
+        result = runner.invoke(app, ["enforce"], input="{}")
+        assert result.exit_code == 2
+
+
+def test_relay_timeout_override():
+    """--timeout overrides the default for the target."""
+    config, mock_store = _make_config()
+
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.text = "{}"
+    mock_response.is_success = True
+
+    with (
+        patch("runlayer_cli.commands.hooks.load_config", return_value=config),
+        patch("runlayer_cli.config.get_keyring_store", return_value=mock_store),
+        patch("httpx.Client") as mock_client_cls,
+    ):
+        mock_client = MagicMock()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+        mock_client.post.return_value = mock_response
+        mock_client_cls.return_value = mock_client
+
+        result = runner.invoke(app, ["event", "--timeout", "15"], input="{}")
+        assert result.exit_code == 0
+        assert mock_client.post.call_args[1]["timeout"] == 15
+
+
+def test_relay_hidden_from_help():
+    """The hooks app should be hidden."""
+    assert app.info.hidden is True
+
+
+def test_relay_debug_writes_file(tmp_path: Path):
+    """--debug writes request/response JSON to temp dir."""
+    config, mock_store = _make_config()
+    response_body = '{"ok": true}'
+
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.text = response_body
+    mock_response.status_code = 200
+    mock_response.is_success = True
+
+    with (
+        patch("runlayer_cli.commands.hooks.load_config", return_value=config),
+        patch("runlayer_cli.config.get_keyring_store", return_value=mock_store),
+        patch("httpx.Client") as mock_client_cls,
+        patch("runlayer_cli.commands.hooks._DEBUG_DIR", tmp_path),
+    ):
+        mock_client = MagicMock()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+        mock_client.post.return_value = mock_response
+        mock_client_cls.return_value = mock_client
+
+        result = runner.invoke(app, ["enforce", "--debug"], input='{"req": 1}')
+        assert result.exit_code == 0
+        assert response_body in result.output
+
+    files = list(tmp_path.glob("runlayer-relay-enforce-*.json"))
+    assert len(files) == 1
+    data = json.loads(files[0].read_text())
+    assert data["url"] == "https://app.example.com/api/v1/hooks/cursor"
+    # Bodies are deliberately not persisted — see `_write_debug` docstring.
+    assert "request_body" not in data
+    assert "response_body" not in data
+    assert data["request_body_size"] == len('{"req": 1}')
+    assert data["response_body_size"] == len(response_body)
+    assert data["response_status"] == 200
+    assert "timestamp" in data
+
+
+def test_relay_debug_does_not_alter_exit_code(tmp_path: Path):
+    """--debug doesn't change exit code on HTTP failure."""
+    config, mock_store = _make_config()
+
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.text = '{"error": "bad"}'
+    mock_response.status_code = 403
+    mock_response.is_success = False
+
+    with (
+        patch("runlayer_cli.commands.hooks.load_config", return_value=config),
+        patch("runlayer_cli.config.get_keyring_store", return_value=mock_store),
+        patch("httpx.Client") as mock_client_cls,
+        patch("runlayer_cli.commands.hooks._DEBUG_DIR", tmp_path),
+    ):
+        mock_client = MagicMock()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+        mock_client.post.return_value = mock_response
+        mock_client_cls.return_value = mock_client
+
+        result = runner.invoke(app, ["enforce", "--debug"], input="{}")
+        assert result.exit_code == 2
+
+    files = list(tmp_path.glob("runlayer-relay-enforce-*.json"))
+    assert len(files) == 1
+    assert json.loads(files[0].read_text())["response_status"] == 403
+
+
+def test_relay_debug_io_failure_ignored(tmp_path: Path):
+    """Debug file write failure doesn't affect relay behaviour."""
+    config, mock_store = _make_config()
+
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.text = '{"ok": true}'
+    mock_response.status_code = 200
+    mock_response.is_success = True
+
+    with (
+        patch("runlayer_cli.commands.hooks.load_config", return_value=config),
+        patch("runlayer_cli.config.get_keyring_store", return_value=mock_store),
+        patch("httpx.Client") as mock_client_cls,
+        patch("runlayer_cli.commands.hooks._write_debug", side_effect=OSError("boom")),
+    ):
+        mock_client = MagicMock()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+        mock_client.post.return_value = mock_response
+        mock_client_cls.return_value = mock_client
+
+        result = runner.invoke(app, ["enforce", "--debug"], input="{}")
+        assert result.exit_code == 0
+
+
+def test_relay_debug_on_network_error(tmp_path: Path):
+    """--debug still writes a file on network error (response fields null)."""
+    config, mock_store = _make_config()
+
+    with (
+        patch("runlayer_cli.commands.hooks.load_config", return_value=config),
+        patch("runlayer_cli.config.get_keyring_store", return_value=mock_store),
+        patch("httpx.Client") as mock_client_cls,
+        patch("runlayer_cli.commands.hooks._DEBUG_DIR", tmp_path),
+    ):
+        mock_client = MagicMock()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+        mock_client.post.side_effect = httpx.ConnectError("refused")
+        mock_client_cls.return_value = mock_client
+
+        result = runner.invoke(app, ["enforce", "--debug"], input='{"x": 1}')
+        assert result.exit_code == 2
+
+    files = list(tmp_path.glob("runlayer-relay-enforce-*.json"))
+    assert len(files) == 1
+    data = json.loads(files[0].read_text())
+    assert data["response_status"] is None
+    assert data["response_body_size"] is None
+    assert "response_body" not in data

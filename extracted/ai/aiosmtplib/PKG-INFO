@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiosmtplib
-Version: 5.1.0
+Version: 5.1.1
 Summary: asyncio SMTP client
 Project-URL: Documentation, https://aiosmtplib.readthedocs.io/en/stable/
 Project-URL: Changelog, https://github.com/cole/aiosmtplib/blob/main/CHANGELOG.rst

@@ -1,2 +1,0 @@
-class NothingToDoError(Exception):
-    pass

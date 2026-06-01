@@ -3,6 +3,7 @@ from __future__ import annotations
 import collections
 import collections.abc
 import dataclasses
+import hashlib
 import inspect
 import json
 from datetime import timedelta
@@ -98,6 +99,28 @@ _logger = get_logger(__name__)
 
 _CHALK_ANON_SQL_SOURCE_PREFIX = "__chalk_anon_sql_source_"
 _CHALK_ANON_STREAM_SOURCE_PREFIX = "__chalk_anon_stream_source_"
+
+
+@dataclasses.dataclass
+class _CapturedGlobalValueDeduper:
+    _ids_by_serialized_value: dict[bytes, str] = dataclasses.field(default_factory=dict)
+    _values_by_id: dict[str, pb.FunctionReferenceCapturedGlobal] = dataclasses.field(default_factory=dict)
+
+    def intern(self, name: str, captured_global: FunctionCapturedGlobal) -> str:
+        value = ToProtoConverter.create_captured_global_inline(name, captured_global, captured_global_deduper=self)
+        serialized_value = value.SerializeToString(deterministic=True)
+        if serialized_value in self._ids_by_serialized_value:
+            return self._ids_by_serialized_value[serialized_value]
+
+        value_id = hashlib.sha256(serialized_value).hexdigest()
+        self._ids_by_serialized_value[serialized_value] = value_id
+        self._values_by_id[value_id] = value
+        return value_id
+
+    def to_proto(self) -> list[pb.CapturedGlobalValue]:
+        return [
+            pb.CapturedGlobalValue(id=value_id, value=value) for value_id, value in sorted(self._values_by_id.items())
+        ]
 
 
 class ToProtoConverter:
@@ -452,6 +475,7 @@ class ToProtoConverter:
         filename: Optional[str] = None,
         source_line: Optional[int] = None,
         captured_globals: Optional[Mapping[str, FunctionCapturedGlobal]] = None,
+        captured_global_deduper: _CapturedGlobalValueDeduper | None = None,
     ) -> pb.FunctionReference:
         module = inspect.getmodule(fn)
         if definition is None and not should_skip_source_code_parsing():
@@ -466,16 +490,65 @@ class ToProtoConverter:
             function_definition=definition,
             source_line=source_line,
             captured_globals=(
-                [ToProtoConverter.create_captured_global(name, captured) for name, captured in captured_globals.items()]
+                [
+                    ToProtoConverter.create_captured_global(
+                        name,
+                        captured,
+                        captured_global_deduper=captured_global_deduper,
+                    )
+                    for name, captured in captured_globals.items()
+                ]
                 if captured_globals
                 else None
             ),
         )
 
     @staticmethod
+    def create_captured_function(
+        captured_global: FunctionCapturedGlobalFunction,
+        *,
+        captured_global_deduper: _CapturedGlobalValueDeduper | None = None,
+    ) -> pb.FunctionGlobalCapturedFunction:
+        return pb.FunctionGlobalCapturedFunction(
+            source=captured_global.source,
+            module=captured_global.module,
+            captured_globals=(
+                [
+                    ToProtoConverter.create_captured_global(
+                        name,
+                        captured,
+                        captured_global_deduper=captured_global_deduper,
+                    )
+                    for name, captured in captured_global.captured_globals.items()
+                ]
+                if captured_global.captured_globals
+                else None
+            ),
+            name=captured_global.name,
+        )
+
+    @staticmethod
     def create_captured_global(
         name: str,
         captured_global: FunctionCapturedGlobal,
+        *,
+        captured_global_deduper: _CapturedGlobalValueDeduper | None = None,
+    ) -> pb.FunctionReferenceCapturedGlobal:
+        if captured_global_deduper is not None:
+            return pb.FunctionReferenceCapturedGlobal(
+                global_name=name,
+                value_ref=pb.FunctionGlobalCapturedValueRef(
+                    id=captured_global_deduper.intern(name, captured_global),
+                ),
+            )
+        return ToProtoConverter.create_captured_global_inline(name, captured_global)
+
+    @staticmethod
+    def create_captured_global_inline(
+        name: str,
+        captured_global: FunctionCapturedGlobal,
+        *,
+        captured_global_deduper: _CapturedGlobalValueDeduper | None = None,
     ) -> pb.FunctionReferenceCapturedGlobal:
         if isinstance(captured_global, FunctionCapturedGlobalFeatureClass):
             return pb.FunctionReferenceCapturedGlobal(
@@ -524,18 +597,9 @@ class ToProtoConverter:
             return pb.FunctionReferenceCapturedGlobal(
                 global_name=name,
                 source_reference=source_reference,
-                function=pb.FunctionGlobalCapturedFunction(
-                    source=captured_global.source,
-                    module=captured_global.module,
-                    captured_globals=(
-                        [
-                            ToProtoConverter.create_captured_global(name, captured)
-                            for name, captured in captured_global.captured_globals.items()
-                        ]
-                        if captured_global.captured_globals
-                        else None
-                    ),
-                    name=captured_global.name,
+                function=ToProtoConverter.create_captured_function(
+                    captured_global,
+                    captured_global_deduper=captured_global_deduper,
                 ),
             )
         elif isinstance(captured_global, FunctionCapturedGlobalVariable):
@@ -1145,7 +1209,11 @@ class ToProtoConverter:
         )
 
     @classmethod
-    def convert_online_or_offline_resolver(cls, r: Union[OnlineResolver, OfflineResolver]) -> pb.Resolver:
+    def convert_online_or_offline_resolver(
+        cls,
+        r: Union[OnlineResolver, OfflineResolver],
+        captured_global_deduper: _CapturedGlobalValueDeduper | None = None,
+    ) -> pb.Resolver:
         if r.output is None:
             raise ValueError("Resolver missing `output` attribute")
 
@@ -1226,6 +1294,7 @@ class ToProtoConverter:
             captured_globals=r.function_captured_globals,
             filename=r.filename,
             source_line=r.source_line,
+            captured_global_deduper=captured_global_deduper,
         )
         postprocessing_underscore_expr: expr_pb.LogicalExprNode | None = None
         if isinstance(r.postprocessing, Underscore):
@@ -1334,7 +1403,11 @@ class ToProtoConverter:
             raise TypeError(f"Unknown param type: {type(p).__name__}")
 
     @classmethod
-    def convert_parse_info(cls, info: ParseInfo) -> pb.ParseInfo:
+    def convert_parse_info(
+        cls,
+        info: ParseInfo,
+        captured_global_deduper: _CapturedGlobalValueDeduper | None = None,
+    ) -> pb.ParseInfo:
         try:
             maybe_input_type = ToProtoConverter.convert_rich_type_to_protobuf(info.input_type)
         except:
@@ -1361,6 +1434,7 @@ class ToProtoConverter:
             parse_function=ToProtoConverter.create_function_reference(
                 info.fn,
                 captured_globals=info.parse_function_captured_globals,
+                captured_global_deduper=captured_global_deduper,
             ),
             is_parse_function_output_optional=info.output_is_optional,
             parse_function_input_type_name=info.input_type.__name__,
@@ -1369,7 +1443,11 @@ class ToProtoConverter:
         )
 
     @classmethod
-    def convert_stream_resolver(cls, r: StreamResolver) -> pb.StreamResolver:
+    def convert_stream_resolver(
+        cls,
+        r: StreamResolver,
+        captured_global_deduper: _CapturedGlobalValueDeduper | None = None,
+    ) -> pb.StreamResolver:
         mode: pb.WindowMode | None = None
         if r.mode:
             mode = cls._mode_to_proto.get(r.mode)
@@ -1435,7 +1513,14 @@ class ToProtoConverter:
                 else None
             ),
             source_v2=ToProtoConverter.create_stream_source_reference(r.source),
-            parse_info=ToProtoConverter.convert_parse_info(r.parse) if r.parse else None,
+            parse_info=(
+                ToProtoConverter.convert_parse_info(
+                    r.parse,
+                    captured_global_deduper=captured_global_deduper,
+                )
+                if r.parse
+                else None
+            ),
             mode=mode,
             environments=r.environment or [],
             timeout_duration=timedelta_to_proto_duration(r.timeout) if r.timeout is not None else None,
@@ -1449,6 +1534,7 @@ class ToProtoConverter:
                 filename=r.filename,
                 source_line=r.source_line,
                 captured_globals=r.function_captured_globals,
+                captured_global_deduper=captured_global_deduper,
             ),
             feature_expressions=feature_expressions,
             message_producer=message_producer,
@@ -1470,7 +1556,10 @@ class ToProtoConverter:
         )
 
     @staticmethod
-    def convert_sink_resolver(r: SinkResolver) -> pb.SinkResolver:
+    def convert_sink_resolver(
+        r: SinkResolver,
+        captured_global_deduper: _CapturedGlobalValueDeduper | None = None,
+    ) -> pb.SinkResolver:
         stream_source = None
         database_source = None
 
@@ -1500,6 +1589,7 @@ class ToProtoConverter:
                 filename=r.filename,
                 source_line=r.source_line,
                 captured_globals=r.function_captured_globals,
+                captured_global_deduper=captured_global_deduper,
             ),
         )
         if stream_source is not None:
@@ -1509,20 +1599,38 @@ class ToProtoConverter:
         return ans
 
     @staticmethod
-    def _convert_resolver(r: Resolver) -> Union[pb.Resolver, pb.StreamResolver, pb.SinkResolver]:
+    def _convert_resolver(
+        r: Resolver,
+        captured_global_deduper: _CapturedGlobalValueDeduper | None = None,
+    ) -> Union[pb.Resolver, pb.StreamResolver, pb.SinkResolver]:
         if isinstance(r, (OnlineResolver, OfflineResolver)):
-            return ToProtoConverter.convert_online_or_offline_resolver(r)
+            return ToProtoConverter.convert_online_or_offline_resolver(
+                r,
+                captured_global_deduper=captured_global_deduper,
+            )
         elif isinstance(r, StreamResolver):
-            return ToProtoConverter.convert_stream_resolver(r)
+            return ToProtoConverter.convert_stream_resolver(
+                r,
+                captured_global_deduper=captured_global_deduper,
+            )
         elif isinstance(r, SinkResolver):
-            return ToProtoConverter.convert_sink_resolver(r)
+            return ToProtoConverter.convert_sink_resolver(
+                r,
+                captured_global_deduper=captured_global_deduper,
+            )
         else:
             raise TypeError(f"Unknown resolver type: {type(r).__name__}")
 
     @staticmethod
-    def convert_resolver(r: Resolver) -> Union[pb.Resolver, pb.StreamResolver, pb.SinkResolver]:
+    def convert_resolver(
+        r: Resolver,
+        captured_global_deduper: _CapturedGlobalValueDeduper | None = None,
+    ) -> Union[pb.Resolver, pb.StreamResolver, pb.SinkResolver]:
         try:
-            return ToProtoConverter._convert_resolver(r)
+            return ToProtoConverter._convert_resolver(
+                r,
+                captured_global_deduper=captured_global_deduper,
+            )
         except Exception as e:
             raise ValueError(f"Error converting resolver '{r.fqn}'") from e
 
@@ -1561,9 +1669,13 @@ class ToProtoConverter:
         stream_resolvers: list[pb.StreamResolver] = []
         sink_resolvers: list[pb.SinkResolver] = []
         named_queries: list[pb.NamedQuery] = []
+        captured_global_deduper = _CapturedGlobalValueDeduper()
 
         for resolver in resolver_registry:
-            converted = ToProtoConverter.convert_resolver(resolver)
+            converted = ToProtoConverter.convert_resolver(
+                resolver,
+                captured_global_deduper=captured_global_deduper,
+            )
             if isinstance(converted, pb.Resolver):
                 resolvers.append(converted)
             elif isinstance(converted, pb.StreamResolver):
@@ -1594,6 +1706,7 @@ class ToProtoConverter:
             named_queries=named_queries,
             model_references=model_references,
             online_store_configs=online_store_configs,
+            captured_global_values=captured_global_deduper.to_proto(),
         )
 
     @classmethod

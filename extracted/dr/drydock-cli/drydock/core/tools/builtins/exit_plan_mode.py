@@ -53,7 +53,15 @@ class ExitPlanMode(
 
     @classmethod
     def format_result_display(cls, result: ExitPlanModeResult) -> ToolResultDisplay:
-        return ToolResultDisplay(success=result.switched, message=result.message)
+        # 2026-05-31: the "already in implementation mode" case was
+        # rendering as ✕ (failure) because success=result.switched is
+        # False when no switch happened — but functionally that's a
+        # successful no-op: the model wanted to be in implementation
+        # mode, and it is. The ✕ misled operators (and the model) into
+        # treating it as a real failure that needed retry. Both
+        # outcomes are successful tool dispatches; differentiate via
+        # the message only.
+        return ToolResultDisplay(success=True, message=result.message)
 
     @classmethod
     def get_status_text(cls) -> str:

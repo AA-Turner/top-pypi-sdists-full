@@ -1,0 +1,49 @@
+[project]
+name = "pySigma-backend-elasticsearch"
+version = "2.0.3"
+description = "pySigma Elasticsearch backend supporting Lucene, ES|QL (with correlations) and EQL queries"
+readme = "README.md"
+authors = [
+    {name = "Thomas Patzke", email = "thomas@patzke.org"},
+    {name = "Hendrik Baecker", email = "hb@process-zero.de"}
+]
+
+license = "LGPL-3.0-only"
+repository = "https://github.com/SigmaHQ/pySigma-backend-elasticsearch"
+requires-python = ">=3.10,<4.0"
+dependencies = [
+    "pysigma (>=1.0.0,<2.0.0)",
+    "pyyaml (>=6.0.3)"
+]
+
+
+[tool.poetry]
+packages = [
+    { include = "sigma" }
+]
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^9.0"
+pytest-cov = "^7.0"
+coverage = "^7.14"
+requests = "^2.34"
+defusedxml = "^0.7.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pylint.'MESSAGES CONTROL']
+disable = "missing-function-docstring,missing-module-docstring,line-too-long,too-many-lines"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+python_files = "test_*.py"
+addopts = "-vv --cov=sigma --cov-report term --cov-report xml:cov.xml"
+testpaths = [
+    "tests",
+]
+filterwarnings = [
+    'ignore:Unverified HTTPS request'
+]

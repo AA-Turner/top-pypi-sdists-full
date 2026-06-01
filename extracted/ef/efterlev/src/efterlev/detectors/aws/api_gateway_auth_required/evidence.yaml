@@ -1,0 +1,11 @@
+detector_id: aws.api_gateway_auth_required
+
+evidence_shape:
+  resource_type: string         # "aws_api_gateway_method" | "aws_apigatewayv2_route"
+  resource_name: string         # the Terraform logical name
+  route_label: string           # e.g. "GET get_users" (v1) | "GET /users" (v2)
+  auth_state: enum              # "auth_required" | "auth_none" | "unverifiable"
+  pattern: enum                 # "rest_api_v1_method_auth" | "http_api_v2_route_auth"
+  auth_mode: string             # the resolved or declared auth value
+  detail: string?               # short description (auth_required / unverifiable)
+  gap: string?                  # present only on auth_none evidence

@@ -1,0 +1,93 @@
+import re
+
+from PIL import Image
+from django.conf import settings
+from django.test import TestCase
+
+from NEMO.models import Tool
+from NEMO.tests.test_utilities import NEMOTestCaseMixin
+from NEMO.utilities import capitalize, get_email_from_settings, resize_image
+
+
+class MiscTests(NEMOTestCaseMixin, TestCase):
+    def test_capitalize(self):
+        self.assertEqual(capitalize(None), None)
+        self.assertEqual(capitalize(""), "")
+        self.assertEqual(capitalize("j"), "J")
+        self.assertEqual(capitalize("John Doe"), "John Doe")
+        self.assertEqual(capitalize("john Doe"), "John Doe")
+        self.assertEqual(capitalize("john doe"), "John doe")
+        self.assertEqual(capitalize("john DOE"), "John DOE")
+
+    def test_server_email(self):
+        default_from = "email@example.com"
+        self.assertEqual(get_email_from_settings(), settings.SERVER_EMAIL)
+        with self.settings(DEFAULT_FROM_EMAIL=default_from):
+            self.assertEqual(get_email_from_settings(), default_from)
+
+    def test_resize_image(self):
+        image_path = settings.BASE_DIR + "/../resources/images/jumbotron_watermark.png"
+        image = Image.open(image_path)
+        width, height = image.size
+        image.close()
+        resized = resize_image(open(image_path, "rb"), 40)
+        resized_image = Image.open(resized)
+        resized_width, resized_height = resized_image.size
+        if width > height:
+            self.assertEqual(resized_width, 40)
+        else:
+            self.assertEqual(resized_height, 40)
+        resized_image.close()
+
+    def test_regex_escaping(self):
+        # non escaped, no match
+        self.assertFalse(re.match("test?[]]", "test?[]]"))
+        # escaped, match
+        self.assertTrue(re.match(re.escape("test?[]]"), "test?[]]"))
+        # escaped + number
+        self.assertTrue(re.match(re.escape("test?[]]") + "\d+$", "test?[]]5"))
+        self.assertTrue(re.match(re.escape("test?[]]") + "\d+$", "test?[]]124"))
+        # number is mandatory
+        self.assertFalse(re.match(re.escape("test?[]]") + "\d+$", "test?[]]"))
+
+
+class IsEmptyLookupTests(NEMOTestCaseMixin, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        # 1. The "True NULL" Record
+        cls.null_record = Tool.objects.create(name="null record", _serial=None, _description=None)
+
+        # 2. The "Empty String" Record
+        # (Oracle treats char_field '' as NULL, but text_field as an empty CLOB)
+        cls.empty_string_record = Tool.objects.create(name="empty record", _serial="", _description="")
+
+        # 3. The "Populated" Record
+        cls.populated_record = Tool.objects.create(name="populated record", _serial="Data", _description="Data")
+
+    # --- TESTING TRUE (Looking for empty values) ---
+    def test_char_field_isempty_true(self):
+        """Should return records where char_field is NULL or ''"""
+        results = Tool.objects.filter(_serial__isempty=True)
+        self.assertEqual(results.count(), 2)
+        self.assertIn(self.null_record, results)
+        self.assertIn(self.empty_string_record, results)
+
+    def test_text_field_isempty_true(self):
+        """Should return records where text_field is NULL or an empty CLOB"""
+        results = Tool.objects.filter(_description__isempty=True)
+        self.assertEqual(results.count(), 2)
+        self.assertIn(self.null_record, results)
+        self.assertIn(self.empty_string_record, results)
+
+    # --- TESTING FALSE (Looking for populated values) ---
+    def test_char_field_isempty_false(self):
+        """Should ONLY return the record with actual text in the char_field"""
+        results = Tool.objects.filter(_serial__isempty=False)
+        self.assertEqual(results.count(), 1)
+        self.assertIn(self.populated_record, results)
+
+    def test_text_field_isempty_false(self):
+        """Should ONLY return the record with actual text in the text_field"""
+        results = Tool.objects.filter(_description__isempty=False)
+        self.assertEqual(results.count(), 1)
+        self.assertIn(self.populated_record, results)

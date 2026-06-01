@@ -1,0 +1,12 @@
+detector_id: aws.lambda_vpc_isolation
+
+evidence_shape:
+  resource_type: string         # always "aws_lambda_function"
+  resource_name: string         # the Terraform logical name
+  function_name: string         # resolved or literal function_name
+  isolation_state: enum         # "vpc_isolated" | "internet_facing" | "unverifiable"
+  pattern: enum                 # "lambda_vpc_isolation"
+  subnet_count: int?            # vpc_isolated only
+  security_group_count: int?    # vpc_isolated only
+  detail: string?               # short description (vpc_isolated / unverifiable)
+  gap: string?                  # present only on internet_facing evidence

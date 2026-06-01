@@ -1,0 +1,89 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fastapi_poe"
+version = "0.0.83"
+authors = [
+  { name="Yusheng Ding", email="yding@quora.com" },
+  { name="Kris Yang", email="kryang@quora.com" },
+  { name="John Li", email="jli@quora.com" },
+]
+description = "A demonstration of the Poe protocol using FastAPI"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "fastapi",
+    "sse-starlette>=2.2.1",
+    "typing-extensions>=4.5.0",
+    "uvicorn",
+    "httpx",
+    "httpx-sse",
+    "pydantic>2",
+]
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "pytest-asyncio",
+]
+
+[project.urls]
+"Homepage" = "https://creator.poe.com/"
+
+[tool.pyright]
+pythonVersion = "3.9"
+
+[tool.pytest.ini_options]
+addopts = "--cov=src/fastapi_poe --cov-fail-under=80"
+required_plugins = ["pytest-cov"]
+
+[tool.black]
+target-version = ['py39']
+skip-magic-trailing-comma = true
+
+[tool.ruff]
+lint.select = [
+  "F",
+  "E",
+  "I",  # import sorting
+  "ANN",  # type annotations for everything
+  "C4",  # flake8-comprehensions
+  "B",  # bugbear
+  "SIM",  # simplify
+  "UP",  # pyupgrade
+  "PIE810",  # startswith/endswith with a tuple
+  "SIM101",  # mergeable isinstance() calls
+  "SIM201",  # "not ... == ..." -> "... != ..."
+  "SIM202",  # "not ... != ..." -> "... == ..."
+  "C400",  # unnecessary list() calls
+  "C401",  # unnecessary set() calls
+  "C402",  # unnecessary dict() calls
+  "C403",  # unnecessary listcomp within set() call
+  "C404",  # unnecessary listcomp within dict() call
+  "C405",  # use set literals
+  "C406",  # use dict literals
+  "C409",  # tuple() calls that can be replaced with literals
+  "C410",  # list() calls that can be replaced with literals
+  "C411",  # list() calls with genexps that can be replaced with listcomps
+  "C413",  # unnecessary list() calls around sorted()
+  "C414",  # unnecessary list() calls inside sorted()
+  "C417",  # unnecessary map() calls that can be replaced with listcomps/genexps
+  "C418",  # unnecessary dict() calls that can be replaced with literals
+  "PERF101",  # unnecessary list() calls that can be replaced with literals
+]
+
+lint.ignore = [
+  "B008",  # do not perform function calls in argument defaults
+  "ANN101",  # missing type annotation for self in method
+  "ANN102",  # missing type annotation for cls in classmethod
+]
+
+line-length = 100
+target-version = "py39"

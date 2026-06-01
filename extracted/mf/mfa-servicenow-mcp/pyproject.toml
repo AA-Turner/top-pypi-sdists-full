@@ -1,0 +1,121 @@
+[build-system]
+# Pin hatchling to the 1.27 line: it emits Metadata-Version 2.4, which twine /
+# the PyPI publish action accept. hatchling >= 1.28 emits Metadata-Version 2.5,
+# which is not yet in the metadata spec and twine rejects ("'2.5' is not a valid
+# metadata version") — breaking `uv build` + publish. Revisit when twine ships
+# 2.5 support.
+requires = ["hatchling>=1.27,<1.28"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mfa-servicenow-mcp"
+version = "1.14.16"
+description = "A Model Context Protocol (MCP) server implementation for ServiceNow"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {file = "LICENSE"}
+authors = [
+    {name = "jshsakura"},
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+    "mcp[cli]>=1.27.0",
+    "requests>=2.32.4",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "httpx>=0.28.0",
+    "PyYAML>=6.0",
+    "orjson>=3.9.0",
+    # v1.12.20: curl_cffi promoted from optional to regular dependency.
+    # Routing through libcurl-impersonate (BoringSSL fork) lets the auth
+    # manager switch to a real-browser TLS handshake at runtime when
+    # SERVICENOW_TLS_IMPERSONATE=<profile> is set. Without it, ServiceNow
+    # instances fronted by Cloudflare/Akamai or running JA3-based bot
+    # detection (observed on a hardened customer instance) reject stock
+    # Python requests no matter how valid the captured session is. Wheels
+    # ship for macOS / Linux / Windows × Python 3.11+, ~20MB on first
+    # install — small enough not to gate the feature behind extras when
+    # the symptom is "real browser works, MCP doesn't, no recovery path".
+    "curl_cffi>=0.7.0",
+]
+
+[project.optional-dependencies]
+browser = [
+    "playwright>=1.44.0",
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-xdist>=3.5.0",
+    "black>=25.1.0",
+    "isort==5.13.2",
+    "mypy>=1.0.0",
+    "ruff>=0.0.1",
+    "pre-commit>=3.0.0",
+    "types-PyYAML>=6.0.12",
+    "types-requests>=2.32.0",
+]
+[project.scripts]
+servicenow-mcp = "servicenow_mcp.cli:main"
+servicenow-mcp-skills = "servicenow_mcp.setup_skills:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/servicenow_mcp"]
+include = ["src/servicenow_mcp/config/*"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = false
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "B"]
+# E501 (line too long): black already manages line length — keeping E501 on
+# would just flag long docstrings/tool descriptions black intentionally leaves
+# alone. Strings cannot be wrapped without changing their content.
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "--ignore=examples --cov=src/servicenow_mcp --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["src/servicenow_mcp"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.",
+    "if TYPE_CHECKING:",
+]
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.409",
+]

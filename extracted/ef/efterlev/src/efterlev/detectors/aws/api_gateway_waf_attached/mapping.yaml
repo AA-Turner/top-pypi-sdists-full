@@ -1,0 +1,40 @@
+detector_id: aws.api_gateway_waf_attached
+
+ksis:
+  - id: KSI-CNA-RVP
+    name: "Reviewing Protections"
+    coverage: partial
+    notes: >
+      Evidences whether each `aws_api_gateway_stage` (REST API v1)
+      and `aws_apigatewayv2_stage` (HTTP/WebSocket API v2) has an
+      `aws_wafv2_web_acl_association` referencing it. Per the
+      DECISIONS entry: ships as a single early-warning signal now;
+      the broader `aws.waf_*` family (rule coverage, rate limiting,
+      geo-blocking, managed rule groups) is deferred to Tier 3.
+      Joins `aws.cna_dos_protection` on this KSI -- that detector
+      covers Shield-side DOS protection; this one covers the WAF
+      side. Per the DECISIONS Decision #1, the detector emits per-
+      stage posture; the Gap Agent reasons about whether absence
+      is intentional (private API not exposed publicly). Does NOT
+      evidence Web ACL rule presence, rate limiting, geo-blocking,
+      or managed rule group selection -- those are the future
+      `aws.waf_*` family's territory.
+
+controls:
+  - id: SI-3
+    evidence_type: infrastructure
+    coverage: partial
+    notes: >
+      Malicious Code Protection at the L7 boundary -- WAF is the
+      AWS-native equivalent of a perimeter WAF / IDS for HTTP traffic.
+      The attachment declaration is the IaC-layer signal; rule
+      coverage (the actual Malicious Code detection capability) is
+      a separate dimension covered by the future aws.waf_* family.
+  - id: SC-5
+    evidence_type: infrastructure
+    coverage: partial
+    notes: >
+      Denial of Service Protection -- WAF rate limiting and IP
+      reputation sets contribute to the DOS-protection posture. The
+      attachment declaration is the prerequisite; rule configuration
+      is the substantive evidence covered by future detectors.

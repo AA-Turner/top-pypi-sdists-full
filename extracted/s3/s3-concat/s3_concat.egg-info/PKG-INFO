@@ -1,0 +1,98 @@
+Metadata-Version: 2.4
+Name: s3-concat
+Version: 0.3.0
+Summary: Concat files in s3
+Author-email: Eddy Hintze <eddy@gitx.codes>
+License: The MIT License (MIT)
+        
+        Copyright (c) 2019 Eddy Hintze
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Project-URL: Homepage, https://github.com/xtream1101/s3-concat
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Utilities
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: boto3
+Dynamic: license-file
+
+# Python S3 Concat
+
+[![PyPI](https://img.shields.io/pypi/v/s3-concat.svg)](https://pypi.python.org/pypi/s3-concat)
+[![PyPI](https://img.shields.io/pypi/l/s3-concat.svg)](https://pypi.python.org/pypi/s3-concat)  
+
+S3 Concat is used to concatenate many small files in an s3 bucket into fewer larger files.
+
+## Install
+
+`pip install s3-concat`
+
+## Usage
+
+### Command Line
+
+`$ s3-concat -h`
+
+### Import
+
+```python
+from s3_concat import S3Concat
+
+bucket = "YOUR_BUCKET_NAME"
+path_to_concat = "PATH_TO_FILES_TO_CONCAT"
+concatenated_file = "FILE_TO_SAVE_TO.json"
+# Setting this to a size will always add a part number at the end of the file name
+min_file_size = "50MB"  # ex: FILE_TO_SAVE_TO-1.json, FILE_TO_SAVE_TO-2.json, ...
+# Setting this to None will concat all files into a single file
+# min_file_size = None  ex: FILE_TO_SAVE_TO.json
+
+# Init the job
+job = S3Concat(bucket, concatenated_file, min_file_size,
+               content_type="application/json",
+              #  source_bucket="SOURCE_BUCKET_NAME",  # For copying files from another bucket
+              #  session=boto3.session.Session(),  # For custom aws session
+              #  s3_client_kwargs={}  # Use to pass arguments allowed by the s3 client: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/core/session.html
+              # delimiter="\n",  # Will insert this delimiter between each file when concatenating. Warning, this will need to download all files no matter the size to add this delimiter
+               )
+# Add files, can call multiple times to add files from other directories
+job.add_files(path_to_concat)
+# Add a single file at a time
+job.add_file("some/file_key.json")
+# Only use small_parts_threads if you need to. See Advanced Usage section below.
+job.concat(small_parts_threads=4, main_threads=2)
+```
+
+## Advanced Usage
+
+Depending on your use case, you may want to use more threads then just 1.  
+
+- `main_threads` is the number of threads to use when uploading files to s3. This will help when there are a lot of files that are already over the `min_file_size` that is set
+
+- `small_parts_threads` is only used when the files you are trying to concat are less then 5MB. These are spawned from _inside_ of the `main_threads`. Due to the limitations of the s3 multipart_upload api (see _Limitations_ below) any files less then 5MB need to be downloaded locally, concated together, then re uploaded. By setting this thread count it will download the parts in parallel for faster creation of the concatenation process.  
+
+The values set for these arguments depends on your use case and the system you are running this on.
+
+## Limitations
+
+This uses the multipart upload of s3 and its limits are https://docs.aws.amazon.com/AmazonS3/latest/dev/qfacts.html

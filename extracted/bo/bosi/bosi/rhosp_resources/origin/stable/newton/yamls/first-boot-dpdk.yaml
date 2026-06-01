@@ -1,0 +1,158 @@
+heat_template_version: 2014-10-16
+
+description: >
+    Extra hostname configuration
+
+parameters:
+  ComputeKernelArgs:
+    description: Space seprated list of Kernel args to be update to gruib.
+    type: string
+    default: ""
+  ComputeHostnameFormat:
+    type: string
+    default: ""
+  NeutronDpdkCoreList:
+    type: string
+    default: ""
+  NeutronDpdkSocketMemory:
+    type: string
+    default: ""
+  HostIsolatedCoreList:
+    type: string
+    default: ""
+  HostCpusList:
+    description: A list or range of physical CPU cores to be tuned.
+    type: string
+    default: ""
+
+resources:
+  userdata:
+    type: OS::Heat::MultipartMime
+    properties:
+     parts:
+     - config: {get_resource: set_dpdk_params}
+     - config: {get_resource: install_tuned}
+     - config: {get_resource: compute_kernel_args}
+
+  set_dpdk_params:
+     type: OS::Heat::SoftwareConfig
+     properties:
+      config:
+        str_replace:
+          template: |
+            #!/bin/bash
+            set -x
+            get_mask()
+            {
+              local list=$1
+              local mask=0
+              declare -a bm
+              max_idx=0
+              for core in $(echo $list | sed 's/,/ /g')
+              do
+                  index=$(($core/32))
+                  bm[$index]=0
+                  if [ $max_idx -lt $index ]; then
+                     max_idx=$(($index))
+                  fi
+              done
+              for ((i=$max_idx;i>=0;i--));
+              do
+                  bm[$i]=0
+              done
+              for core in $(echo $list | sed 's/,/ /g')
+              do
+                  index=$(($core/32))
+                  temp=$((1<<$(($core % 32))))
+                  bm[$index]=$((${bm[$index]} | $temp))
+              done
+
+              printf -v mask "%x" "${bm[$max_idx]}"
+              for ((i=$max_idx-1;i>=0;i--));
+              do
+                  printf -v hex "%08x" "${bm[$i]}"
+                  mask+=$hex
+              done
+              printf "%s" "$mask"
+            }
+
+            FORMAT=$COMPUTE_HOSTNAME_FORMAT
+            if [[ -z $FORMAT ]] ; then
+              FORMAT="compute" ;
+            else
+              # Assumption: only %index% and %stackname% are the variables in Host name format
+              FORMAT=$(echo $FORMAT | sed  's/\%index\%//g' | sed 's/\%stackname\%//g') ;
+            fi
+            if [[ $(hostname) == *$FORMAT* ]] ; then
+              pmd_cpu_mask=$( get_mask $PMD_CORES )
+              host_cpu_mask=$( get_mask $LCORE_LIST )
+              socket_mem=$(echo $SOCKET_MEMORY | sed s/\'//g )
+              ovs-vsctl --no-wait set Open_vSwitch . other_config:dpdk-init=true
+              ovs-vsctl --no-wait set Open_vSwitch . other_config:dpdk-socket-mem=$socket_mem
+              ovs-vsctl --no-wait set Open_vSwitch . other_config:pmd-cpu-mask=$pmd_cpu_mask
+              ovs-vsctl --no-wait set Open_vSwitch . other_config:dpdk-lcore-mask=$host_cpu_mask
+            fi
+          params:
+            $COMPUTE_HOSTNAME_FORMAT: {get_param: ComputeHostnameFormat}
+            $LCORE_LIST: {get_param: HostCpusList}
+            $PMD_CORES: {get_param: NeutronDpdkCoreList}
+            $SOCKET_MEMORY: {get_param: NeutronDpdkSocketMemory}
+
+  install_tuned:
+     type: OS::Heat::SoftwareConfig
+     properties:
+      config:
+        str_replace:
+          template: |
+            #!/bin/bash
+            FORMAT=$COMPUTE_HOSTNAME_FORMAT
+            if [[ -z $FORMAT ]] ; then
+              FORMAT="compute" ;
+            else
+              # Assumption: only %index% and %stackname% are the variables in Host name format
+              FORMAT=$(echo $FORMAT | sed  's/\%index\%//g' | sed 's/\%stackname\%//g') ;
+            fi
+            if [[ $(hostname) == *$FORMAT* ]] ; then
+              tuned_conf_path="/etc/tuned/cpu-partitioning-variables.conf"
+              if [ -n "$TUNED_CORES" ]; then
+                grep -q "^isolated_cores" $tuned_conf_path
+                if [ "$?" -eq 0 ]; then
+                  sed -i 's/^isolated_cores=.*/isolated_cores=$TUNED_CORES/' $tuned_conf_path
+                else
+                  echo "isolated_cores=$TUNED_CORES" >> $tuned_conf_path
+                fi
+                tuned-adm profile cpu-partitioning
+              fi
+            fi
+          params:
+            $COMPUTE_HOSTNAME_FORMAT: {get_param: ComputeHostnameFormat}
+            $TUNED_CORES: {get_param: HostIsolatedCoreList}
+
+  compute_kernel_args:
+     type: OS::Heat::SoftwareConfig
+     properties:
+      config:
+        str_replace:
+          template: |
+            #!/bin/bash
+            FORMAT=$COMPUTE_HOSTNAME_FORMAT
+            if [[ -z $FORMAT ]] ; then
+              FORMAT="compute" ;
+            else
+              # Assumption: only %index% and %stackname% are the variables in Host name format
+              FORMAT=$(echo $FORMAT | sed  's/\%index\%//g' | sed 's/\%stackname\%//g') ;
+            fi
+            if [[ $(hostname) == *$FORMAT* ]] ; then
+              sed 's/^\(GRUB_CMDLINE_LINUX=".*\)"/\1 $KERNEL_ARGS isolcpus=$TUNED_CORES"/g' -i /etc/default/grub ;
+              grub2-mkconfig -o /etc/grub2.cfg
+              reboot
+            fi
+          params:
+            $KERNEL_ARGS: {get_param: ComputeKernelArgs}
+            $COMPUTE_HOSTNAME_FORMAT: {get_param: ComputeHostnameFormat}
+            $TUNED_CORES: {get_param: HostIsolatedCoreList}
+
+outputs:
+  OS::stack_id:
+    value: {get_resource: userdata}
+

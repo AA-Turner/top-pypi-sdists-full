@@ -1,0 +1,27 @@
+detector_id: aws.mla_log_access_least_privilege
+
+ksis:
+  - id: KSI-MLA-ALA
+    name: "Authorizing Log Access"
+    coverage: partial
+    notes: >
+      Evidences IaC-declared least-privilege boundaries on log data:
+      explicit `aws_cloudwatch_log_resource_policy` resources, and
+      IAM policies containing `logs:` actions classified as scoped
+      (specific resource ARN) or overly-permissive (Resource: "*").
+      Does not evidence runtime authorization decisions, just-in-time
+      access cadence, or attribute-based access control beyond what
+      the policy `Condition` block expresses statically.
+
+controls:
+  - id: AC-3
+    evidence_type: infrastructure
+    coverage: partial
+    notes: >
+      Access enforcement on log data via IAM policy + resource policy.
+  - id: AC-6
+    evidence_type: infrastructure
+    coverage: partial
+    notes: >
+      Least privilege — overly-permissive `logs:*` with `Resource: "*"`
+      flagged as anti-pattern.

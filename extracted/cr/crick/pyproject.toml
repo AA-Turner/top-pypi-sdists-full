@@ -1,0 +1,36 @@
+[build-system]
+requires = [
+    "setuptools>=68.2.2",
+    "setuptools-scm[toml]>=6.2",
+    "Cython",
+    "numpy>=2.0.0",
+    "versioneer[toml]",
+]
+build-backend = "setuptools.build_meta:__legacy__"
+
+[project]
+name = "crick"
+description="High performance approximate and streaming algorithms"
+maintainers = [{name = "Jim Crist", email = "crist042@umn.edu"}]
+license = {text = "BSD-3-Clause"}
+readme = "README.rst"
+requires-python = ">=3.10"
+dynamic = ["version"]
+
+[project.urls]
+Source = "https://github.com/dask/crick"
+
+[tool.setuptools]
+include-package-data = true
+zip-safe = false
+
+[tool.setuptools.packages.find]
+namespaces = false
+
+[tool.versioneer]
+VCS = "git"
+style = "pep440"
+versionfile_source = "crick/_version.py"
+versionfile_build = "crick/_version.py"
+tag_prefix = ""
+parentdir_prefix = "crick-"

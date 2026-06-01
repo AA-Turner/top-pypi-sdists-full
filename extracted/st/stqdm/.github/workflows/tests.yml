@@ -1,0 +1,123 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: "0 4 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+
+jobs:
+  list_nox_sessions_groups:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Cache sessions
+        id: sessions-cache
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: |
+            format-sessions
+            test-sessions
+          key: sessions-${{ runner.os }}-${{ github.head_ref || github.ref_name }}-${{ hashFiles('noxfile.py', 'commands/list_nox_manifest.py') }}
+          restore-keys: |
+            sessions-${{ runner.os }}-${{ github.event.repository.default_branch }}-${{ hashFiles('noxfile.py', 'commands/list_nox_manifest.py') }}
+      - uses: ./.github/workflows/actions/install_dependencies
+      - name: List all format sessions
+        if: steps.sessions-cache.outputs.cache-hit != 'true'
+        run: echo "matrix=$(uv run python commands/list_nox_manifest.py --sessions ruff_format ruff_check lint commitlint release coverage test_demo_app --json)" >> format-sessions
+      - name: List all test sessions
+        if: steps.sessions-cache.outputs.cache-hit != 'true'
+        run: echo "matrix=$(uv run python commands/list_nox_manifest.py --sessions tests --json)" >> test-sessions
+
+      - name: Export format sessions
+        id: export-format-sessions
+        run: cat format-sessions >> $GITHUB_OUTPUT
+      - name: Export test sessions
+        id: export-test-sessions
+        run: cat test-sessions >> $GITHUB_OUTPUT
+    outputs:
+      format_sessions: ${{ steps.export-format-sessions.outputs.matrix }}
+      test_sessions: ${{ steps.export-test-sessions.outputs.matrix }}
+
+  run_all_tests:
+    needs: list_nox_sessions_groups
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          ${{ fromJson(needs.list_nox_sessions_groups.outputs.test_sessions) }}
+    name: Run tests session ${{ matrix.session }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+      - uses: ./.github/workflows/actions/install_dependencies
+        with:
+          python_version: |
+            ${{ matrix.python }}
+            3.12
+      - uses: ./.github/workflows/actions/run_nox_session
+        with:
+          nox_session: ${{ matrix.session }}
+
+  browser_smoke:
+    needs: list_nox_sessions_groups
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+      - uses: ./.github/workflows/actions/install_dependencies
+        with:
+          python_version: 3.12
+      - uses: ./.github/workflows/actions/run_nox_session
+        with:
+          nox_session: browser_smoke
+
+  format:
+    needs: list_nox_sessions_groups
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          ${{ fromJson(needs.list_nox_sessions_groups.outputs.format_sessions) }}
+    name: Run format session ${{ matrix.session }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+      - uses: ./.github/workflows/actions/install_dependencies
+        with:
+          python_version: |
+            ${{ matrix.python }}
+            3.12
+      - uses: ./.github/workflows/actions/run_nox_session
+        with:
+          nox_session: ${{ matrix.session }}
+      - if: ${{ startsWith(matrix.session, 'coverage') }}
+        uses: codecov/codecov-action@cddd853df119a48c5be31a973f8cd97e12e35e16 # v6.0.1
+        with:
+          files: ./codecov.xml
+          flags: pytest
+
+  all_test_passed:
+    # Used to easy force requirements checks in GitHub
+    needs:
+      - format
+      - browser_smoke
+      - run_all_tests
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "All test passed"

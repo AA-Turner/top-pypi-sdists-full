@@ -1,0 +1,122 @@
+[build-system]
+requires = [
+    "setuptools >= 61",
+    "setuptools_scm",
+]
+build-backend = "setuptools.build_meta"
+
+# PEP 621: Storing project metadata in pyproject.toml
+# https://peps.python.org/pep-0621/
+[project]
+name = "aioqbt"
+description = "API library for qBittorrent with asyncio"
+readme = "README.md"
+authors = [
+    { name = "Aaron Tsang" },
+]
+license = { text = "MIT" }
+keywords = ["qbittorrent", "asyncio"]
+dynamic = ["version"]
+requires-python = ">=3.7"
+classifiers = [
+    # classifier list on https://pypi.org/classifiers/
+    "Development Status :: 4 - Beta",
+    "Framework :: AsyncIO",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.9",
+    "Typing :: Typed",
+]
+dependencies = [
+    "aiohttp >= 3.8.1",
+    "typing-extensions >= 4.2.0",
+]
+
+# optional-dependencies is a table whose values are lists of PEP 508 strings
+[project.optional-dependencies]
+dev = [
+    "mypy >= 1.5.1",
+    "black >= 23.9.0",
+    "isort >= 5.12.0",
+]
+docs = [
+    "sphinx >= 7.2.5",
+    "sphinx-rtd-theme >= 1.3.0",
+]
+test = [
+    "pytest >= 7.4.2",
+    "pytest-asyncio >= 0.21.1",
+    "coverage[toml] >= 6.4.4",
+]
+
+[project.urls]
+Homepage = "https://github.com/tsangwpx/aioqbt"
+Documentation = "https://aioqbt.readthedocs.io/en/latest/"
+Source = "https://github.com/tsangwpx/aioqbt"
+
+[tool.setuptools.dynamic]
+version = { attr = "aioqbt.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 100
+target-version = ["py39", "py310", "py311", "py312", "py313"]
+
+[tool.isort]
+line_length = 100
+profile = "black"
+classes = ["RSSAPI"]
+
+[tool.mypy]
+python_version = "3.9"
+sqlite_cache = true
+# selected strict options, sorted by name
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_any_unimported = true
+disallow_subclassing_any = true
+disallow_untyped_decorators = true
+extra_checks = true
+no_implicit_reexport = true
+strict_equality = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unreachable = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = [
+    "aioqbt.*",
+    "helper.*", # test helper
+]
+# complete strict options
+disallow_incomplete_defs = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+
+[tool.coverage.run]
+relative_files = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "\\bpragma: no cover\\b",
+    "^\\s*raise (AssertionError|NotImplementedError)\\b",
+    "^\\s*return (NotImplemented)\\b",
+    "^\\s*(assert True|pass|\\.\\.\\.)",
+    "^\\s*if TYPE_CHECKING:",
+    "^\\s*def __repr__",
+]
+omit = [
+    "tests/*"
+]

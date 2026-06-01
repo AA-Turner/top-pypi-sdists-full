@@ -1,5 +1,0 @@
-plugin: nil
-source-branch:
-build-packages:
-  - package9
-organize:

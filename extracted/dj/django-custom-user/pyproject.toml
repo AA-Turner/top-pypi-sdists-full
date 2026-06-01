@@ -1,0 +1,99 @@
+[tool.poetry]
+name = "django-custom-user"
+version = "1.1"
+description = "Custom user model for Django with the same behaviour as the default User class but with email instead of username."
+authors = ["Josep Cugat <jcugat@gmail.com>"]
+license = "BSD-3-Clause"
+readme = "README.rst"
+homepage = "https://github.com/jcugat/django-custom-user"
+repository = "https://github.com/jcugat/django-custom-user"
+documentation = "https://github.com/jcugat/django-custom-user#django-custom-user"
+keywords = ["django", "custom", "user", "auth", "model", "email", "without", "username"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: Internet :: WWW/HTTP :: WSGI",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+packages = [
+    { include = "custom_user", from = "src" },
+]
+
+[tool.poetry.urls]
+"Changelog" = "https://github.com/jcugat/django-custom-user#changelog"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+Django = ">=3.2"
+mysqlclient = {version = "^2.1.0", optional = true}
+psycopg2 = {version = "^2.9.0", optional = true}
+
+[tool.poetry.dev-dependencies]
+autoflake = "^1.4"
+black = "^22.1.0"
+bump2version = "^1.0.1"
+coverage = {version = "^6.5.0", extras = ["toml"]}
+django-environ = "^0.8.0"
+flake8 = "^5.0.0"
+isort = "^5.10.0"
+tox = "^3.24.0"
+tox-gh-actions = "^2.9.0"
+tox-poetry-installer = {extras = ["poetry"], version = "^0.8.3"}
+# This is needed because newer versions of poetry-core are not compatible with
+# tox-poetry-installer, and if we upgrade tox-poetry-installer then we are forced
+# to bump the lowest required version of Python, which we still want to test against
+poetry-core = "<1.1"
+
+[tool.poetry.extras]
+mysql = ["mysqlclient"]
+postgres = ["psycopg2"]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+exclude = '''
+/(
+    .tox
+  | src/custom_user/migrations/
+  | test_custom_user_subclass/migrations/
+)/
+'''
+
+[tool.coverage.run]
+branch = true
+parallel = true
+source = [
+    "custom_user",
+    "test_custom_user_subclass",
+    "test_settings",
+]
+
+[tool.coverage.paths]
+source = [
+    "src/custom_user",
+    ".tox/*/lib/python*/site-packages/custom_user",
+]
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+skip_covered = true
+
+[tool.isort]
+profile = "black"

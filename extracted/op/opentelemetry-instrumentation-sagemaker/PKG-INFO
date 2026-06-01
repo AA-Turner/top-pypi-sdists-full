@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-instrumentation-sagemaker
-Version: 0.60.0
+Version: 0.61.0
 Summary: OpenTelemetry SageMaker instrumentation
 Project-URL: Repository, https://github.com/traceloop/openllmetry/tree/main/packages/opentelemetry-instrumentation-sagemaker
 Author-email: Bobby Lindsey <bwlind@amazon.com>

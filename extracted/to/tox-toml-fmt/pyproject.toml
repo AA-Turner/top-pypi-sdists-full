@@ -1,0 +1,121 @@
+[build-system]
+build-backend = "maturin"
+requires = [
+  "maturin>=1.13.1",
+]
+
+[project]
+name = "tox-toml-fmt"
+description = "Format your pyproject.toml file"
+readme = { file = "README.rst", content-type = "text/x-rst" }
+keywords = [
+  "format",
+  "pyproject",
+]
+license.file = "LICENSE.txt"
+authors = [
+  { name = "Bernat Gabor", email = "gaborjbernat@gmail.com" },
+]
+requires-python = ">=3.10"
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
+  "Programming Language :: Python :: Free Threading :: 1 - Unstable",
+]
+dynamic = [
+  "version",
+]
+dependencies = [
+  "toml-fmt-common",
+]
+urls."Bug Tracker" = "https://github.com/tox-dev/toml-fmt/issues"
+urls."Source Code" = "https://github.com/tox-dev/toml-fmt/tree/main/tox-toml-fmt"
+urls.Changelog = "https://github.com/tox-dev/toml-fmt/blob/main/tox-toml-fmt/CHANGELOG.md"
+urls.Documentation = "https://tox-toml-fmt.readthedocs.io/en/latest/"
+scripts.tox-toml-fmt = "tox_toml_fmt.__main__:runner"
+
+[dependency-groups]
+dev = [
+  { include-group = "fix" },
+  { include-group = "test" },
+  { include-group = "type" },
+]
+test = [
+  "covdefaults>=2.3",
+  "pytest>=9.0.3",
+  "pytest-cov>=7.1",
+  "pytest-mock>=3.15.1",
+]
+type = [
+  "mypy==1.20.2",
+  "types-cachetools>=6.2.0.20260408",
+  "types-chardet>=5.0.4.6",
+  { include-group = "test" },
+]
+docs = [
+  "furo>=2025.12.19; python_version>='3.14'",
+  "sphinx>=9.1; python_version>='3.14'",
+  "sphinx-argparse-cli>=1.21.3; python_version>='3.14'",
+  "sphinx-autodoc-typehints>=3.10.2; python_version>='3.14'",
+  "sphinx-copybutton>=0.5.2; python_version>='3.14'",
+  "sphinx-inline-tabs>=2025.12.21.14; python_version>='3.14'",
+]
+fix = [
+  "pre-commit-uv>=4.2.1",
+]
+pkg-meta = [
+  "check-wheel-contents>=0.6.3",
+  "twine>=6.2",
+  "uv>=0.11.8",
+]
+
+[tool.maturin]
+bindings = "pyo3"
+module-name = "tox_toml_fmt._lib"
+strip = true
+include = [
+  { path = "rust-toolchain.toml", format = "sdist" },
+  { path = "docs/", format = "sdist" },
+  { path = "CHANGELOG.md", format = "sdist" },
+  { path = "README.rst", format = "sdist" },
+]
+exclude = [
+  "**/__pycache__/**",
+  "**/*.pyc",
+  "**/*.pyo",
+]
+manifest-path = "tox-toml-fmt/Cargo.toml"
+python-source = "src"
+
+[tool.pyproject-fmt]
+max_supported_python = "3.15"
+
+[tool.mypy]
+show_error_codes = true
+strict = true
+
+[tool.coverage]
+run.parallel = true
+run.plugins = [
+  "covdefaults",
+]
+paths.source = [
+  "src",
+  ".tox/*/.venv/lib/*/site-packages",
+  ".tox\\*\\.venv\\Lib\\site-packages",
+  ".tox/*/lib/*/site-packages",
+  ".tox\\*\\Lib\\site-packages",
+  "**/src",
+  "**\\src",
+]
+report.fail_under = 100
+html.show_contexts = true
+html.skip_covered = false

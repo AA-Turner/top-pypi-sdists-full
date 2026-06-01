@@ -1,0 +1,17 @@
+# Avoid it thinking the dependency is the contracts' folder.
+contracts_folder: contracts
+
+dependencies:
+  - name: dependency-in-project-only
+    local: ./dependency_in_project_only
+    config_override:
+      contracts_folder: sources
+
+  - name: dependency-that-is-not-installed
+    site_package: apedependencythatisnotinstalledape
+    version: "1.2.3"
+
+compile:
+  # NOTE: this should say `include_dependencies: false` below.
+  # (it gets replaced with `true` in a test temporarily)
+  include_dependencies: false

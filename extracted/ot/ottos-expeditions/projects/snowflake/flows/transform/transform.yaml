@@ -1,6 +1,0 @@
-flow:
-  version: 0.1.0
-  parameters:
-    snowflake:
-      schema: transform
-  bootstrap: echo "hello!"

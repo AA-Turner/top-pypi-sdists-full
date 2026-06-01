@@ -1,0 +1,525 @@
+from __future__ import annotations
+
+# flake8: noqa
+import builtins
+import os
+import sys
+import importlib as il
+import gzip
+import jwt
+import time
+import threading
+from pathlib import Path
+import shutil
+from packaging import version
+from ._settings_instance import InstanceSettings, is_local_db_url
+from ..errors import CurrentInstanceNotConfigured
+from lamin_utils import logger
+
+
+IS_RUN_FROM_IPYTHON = getattr(builtins, "__IPYTHON__", False)
+IS_SETUP = False
+IS_MIGRATING = False
+CONN_MAX_AGE = 299
+
+
+import sys
+
+
+def _is_running_in_marimo() -> bool:
+    """True if this process is running inside a marimo notebook.
+
+    Marimo imports `marimo` before user cells execute, so if the module is
+    not already loaded, we treat that as “not marimo” and return `False`
+    without importing marimo. That's cheaper and safer than attempting the import
+    and excepting the ImportError.
+    """
+    mod = sys.modules.get("marimo")
+    if mod is None:
+        return False
+    return mod.running_in_notebook()
+
+
+def get_connection(connection_name: str):
+    from django.db import connections
+
+    return connections[connection_name]
+
+
+def error_no_instance_wrapper(execute, sql, params, many, context):
+    connection = context["connection"]
+
+    if (
+        connection.vendor == "sqlite"
+        and connection.settings_dict.get("NAME") == ":memory:"
+    ):
+        raise CurrentInstanceNotConfigured
+
+    return execute(sql, params, many, context)
+
+
+def ensure_error_no_instance_wrapper(connection_name: str = "default") -> None:
+    connection = get_connection(connection_name)
+    if error_no_instance_wrapper not in connection.execute_wrappers:
+        connection.execute_wrappers.insert(0, error_no_instance_wrapper)
+
+
+# db token that refreshes on access if needed
+class DBToken:
+    def __init__(
+        self, instance: InstanceSettings | dict, access_token: str | None = None
+    ):
+        self.instance = instance
+        self.access_token = access_token
+        # initialized in token_query
+        self._token: str | None = None
+        self._token_query: str | None = None
+        self._expiration: float | None = None
+        self._type: str | None = None
+
+    def _refresh_token(self):
+        from ._hub_core import access_db
+        from psycopg2.extensions import adapt
+
+        self._token = access_db(self.instance, self.access_token)
+        self._token_query = (
+            f"SELECT set_token({adapt(self._token).getquoted().decode()}, true);"
+        )
+        token_decoded = jwt.decode(self._token, options={"verify_signature": False})
+        self._expiration = token_decoded["exp"]
+        self._type = token_decoded["type"]
+
+    @property
+    def token_query(self) -> str:
+        # refresh token if needed
+        if self._token is None or time.time() >= self._expiration:  # type: ignore
+            self._refresh_token()
+
+        return self._token_query  # type: ignore
+
+
+# a class to manage jwt in dbs
+class DBTokenManager:
+    def __init__(self):
+        from django.db.transaction import Atomic
+
+        self.original_atomic_enter = Atomic.__enter__
+        self.atomic_is_patched = False
+
+        self.tokens: dict[str, DBToken] = {}
+
+    def set(self, token: DBToken, connection_name: str = "default"):
+        if connection_name in self.tokens:
+            return
+
+        from django.db.transaction import Atomic
+        from django.db.backends.signals import connection_created
+
+        def set_token_wrapper(execute, sql, params, many, context):
+            not_in_atomic_block = not context["connection"].in_atomic_block
+            # ignore atomic blocks
+            if not_in_atomic_block:
+                sql = token.token_query + sql
+            result = execute(sql, params, many, context)
+            # this ensures that psycopg3 in the current env doesn't break this wrapper
+            # psycopg3 returns a cursor
+            # psycopg3 fetching differs from psycopg2, it returns the output of all sql statements
+            # not only the last one as psycopg2 does. So we shift the cursor from set_token
+            if (
+                not_in_atomic_block
+                and result is not None
+                and hasattr(result, "nextset")
+            ):
+                result.nextset()
+            return result
+
+        get_connection(connection_name).execute_wrappers.append(set_token_wrapper)
+
+        def connection_callback(sender, connection, **kwargs):
+            if (
+                connection.alias == connection_name
+                and set_token_wrapper not in connection.execute_wrappers
+            ):
+                connection.execute_wrappers.append(set_token_wrapper)
+
+        dispatch_uid = f"dbtokenmanager:{id(self)}:{connection_name}"
+        # emitted when a database connection is established
+        # not when a database wrapper is created
+        connection_created.connect(
+            connection_callback, dispatch_uid=dispatch_uid, weak=False
+        )
+
+        self.tokens[connection_name] = token
+
+        if not self.atomic_is_patched:
+            # ensure we set the token only once for an outer atomic block
+            def __enter__(atomic):
+                self.original_atomic_enter(atomic)
+                connection_name = "default" if atomic.using is None else atomic.using
+                if connection_name in self.tokens:
+                    # here we don't use the connection from the closure
+                    # because Atomic is a single class to manage transactions for all connections
+                    connection = get_connection(connection_name)
+                    if len(connection.atomic_blocks) == 1:
+                        token = self.tokens[connection_name]
+                        # use raw psycopg2 connection here
+                        # atomic block ensures connection
+                        connection.connection.cursor().execute(token.token_query)
+
+            Atomic.__enter__ = __enter__
+
+            self.atomic_is_patched = True
+            logger.debug("django.db.transaction.Atomic.__enter__ has been patched")
+
+    def reset(self, connection_name: str = "default"):
+        if connection_name not in self.tokens:
+            return
+
+        from django.db.backends.signals import connection_created
+
+        connection = get_connection(connection_name)
+
+        connection.execute_wrappers = [
+            w
+            for w in connection.execute_wrappers
+            if getattr(w, "__name__", None) != "set_token_wrapper"
+        ]
+
+        dispatch_uid = f"dbtokenmanager:{id(self)}:{connection_name}"
+        connection_created.disconnect(dispatch_uid=dispatch_uid)
+
+        self.tokens.pop(connection_name, None)
+
+        if not self.tokens:
+            from django.db.transaction import Atomic
+
+            Atomic.__enter__ = self.original_atomic_enter
+            self.atomic_is_patched = False
+
+
+db_token_manager = DBTokenManager()
+
+
+def close_if_health_check_failed(self) -> None:
+    if self.close_at is not None:
+        if time.monotonic() >= self.close_at:
+            self.close()
+        self.close_at = time.monotonic() + CONN_MAX_AGE
+
+
+def get_django_default_db(isettings: InstanceSettings) -> dict:
+    import dj_database_url
+
+    instance_db = isettings.db
+    if isettings.dialect == "postgresql":
+        if os.getenv("LAMIN_DB_SSL_REQUIRE") == "false":
+            ssl_require = False
+        else:
+            ssl_require = not is_local_db_url(instance_db)
+        options = {
+            "connect_timeout": os.getenv("PGCONNECT_TIMEOUT", 20),
+            "gssencmode": "disable",
+        }
+    else:
+        ssl_require = False
+        options = {}
+    default_db = dj_database_url.config(
+        env="LAMINDB_DJANGO_DATABASE_URL",
+        default=instance_db,
+        # see comment next to patching BaseDatabaseWrapper below
+        conn_max_age=CONN_MAX_AGE,
+        conn_health_checks=True,
+        ssl_require=ssl_require,
+    )
+    if options:
+        # do not overwrite keys in options if set
+        default_db["OPTIONS"] = {**options, **default_db.get("OPTIONS", {})}
+    return default_db
+
+
+def get_installed_apps(isettings: InstanceSettings, init: bool = False) -> list[str]:
+    from .._init_instance import get_schema_module_name
+
+    module_names = ["core"] + list(isettings.modules)
+    raise_import_error = True if init else False
+    installed_apps = [
+        package_name
+        for name in module_names
+        if (
+            package_name := get_schema_module_name(
+                name, raise_import_error=raise_import_error
+            )
+        )
+        is not None
+    ]
+    return installed_apps
+
+
+def _warn_module_mismatch(target_apps: set[str], current_apps: set[str]) -> str | None:
+    if target_apps == current_apps:
+        return None
+    missing_apps = sorted(current_apps - target_apps)
+    additional_apps = sorted(target_apps - current_apps)
+    details: list[str] = []
+    if additional_apps:
+        details.append(
+            f"has non-configured modules: {','.join(additional_apps)}"
+        )  # no white space after comma for consistency
+    if missing_apps:
+        if additional_apps:
+            details.append("and")
+        details.append(
+            f"does not have some of your locally configured modules: {','.join(missing_apps)}"  # no white space after comma for consistency
+        )
+    if missing_apps:
+        hint = "you will run into an error when trying to permanently delete objects that are related to objects in these modules"
+    if additional_apps:
+        hint = f"you can only query entities (registries, fields) from modules that are configured in your environment"
+    modules_for_hint = sorted(app for app in target_apps if app != "lamindb")
+    modules_arg = ",".join(modules_for_hint) if modules_for_hint else '""'
+    hint2 = (
+        "to configure your environment with the instance modules, call: lamin settings modules set "
+        f"{modules_arg}"
+    )
+    return f"the instance {' '.join(details)}\n{hint}\n{hint2}"
+
+
+def _ensure_pgtrigger_meta_compat() -> None:
+    # In reconnect mode, Django settings/apps stay configured from the initial session.
+    # For postgres migrations, pgtrigger models use `Meta.triggers`, which Django rejects
+    # unless "triggers" is included in DEFAULT_NAMES.
+    from django.db.models import options as model_options
+
+    if "triggers" not in model_options.DEFAULT_NAMES:
+        model_options.DEFAULT_NAMES = (*model_options.DEFAULT_NAMES, "triggers")
+
+
+def reconnect_django(isettings: InstanceSettings, init: bool = False) -> None:
+    from django.conf import settings as django_settings
+    from django.db import connections
+    from lamindb_setup.core._settings import settings
+
+    target_db = get_django_default_db(isettings)
+    target_apps = set(get_installed_apps(isettings, init=init))
+    current_apps = set(getattr(django_settings, "INSTALLED_APPS", []))
+    settings.modules_warning = _warn_module_mismatch(
+        target_apps=target_apps, current_apps=current_apps
+    )
+
+    # In reconnect mode we avoid full app reloading; ensure compatibility for
+    # postgres-specific model metadata used by pgtrigger migrations.
+    if isettings.dialect == "postgresql":
+        _ensure_pgtrigger_meta_compat()
+
+    db_token_manager.reset("default")
+
+    current_default_db = django_settings.DATABASES.get("default", {})
+    merged_default_db = {**current_default_db, **target_db}
+    # avoid leaking stale backend-specific options (e.g. postgres connect_timeout) across reconnects
+    merged_default_db["OPTIONS"] = target_db.get("OPTIONS", {})
+    django_settings.DATABASES["default"] = merged_default_db
+    connections.close_all()
+    if hasattr(connections._connections, "default"):
+        delattr(connections._connections, "default")
+    ensure_error_no_instance_wrapper("default")
+
+    if isettings._fine_grained_access and isettings._db_permissions == "jwt":
+        db_token = DBToken(isettings)
+        db_token_manager.set(db_token)
+
+
+# this bundles set up and migration management
+def setup_django(
+    isettings: InstanceSettings,
+    deploy_migrations: bool = False,
+    create_migrations: bool = False,
+    configure_only: bool = False,
+    init: bool = False,
+    view_schema: bool = False,
+    appname_number: tuple[str, int] | None = None,
+):
+    if IS_RUN_FROM_IPYTHON or _is_running_in_marimo():
+        os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
+        logger.debug("DJANGO_ALLOW_ASYNC_UNSAFE env variable has been set to 'true'")
+
+    import django
+    from django.apps import apps
+    from django.conf import settings
+    from django.core.management import call_command
+
+    # configuration
+    is_django_configured = (
+        settings.configured and getattr(settings, "_wrapped", None) is not None
+    )
+    if not is_django_configured:
+        default_db = get_django_default_db(isettings)
+        DATABASES = {
+            "default": default_db,
+        }
+        installed_apps = get_installed_apps(isettings, init=init)
+        if view_schema:
+            installed_apps = installed_apps[::-1]  # to fix how apps appear
+            installed_apps += ["schema_graph", "django.contrib.staticfiles"]
+        if isettings.dialect == "postgresql":
+            installed_apps.insert(0, "pgtrigger")
+
+        kwargs = dict(
+            INSTALLED_APPS=installed_apps,
+            DATABASES=DATABASES,
+            DEFAULT_AUTO_FIELD="django.db.models.BigAutoField",
+            TIME_ZONE="UTC",
+            USE_TZ=True,
+        )
+        if view_schema:
+            kwargs.update(
+                DEBUG=True,
+                ROOT_URLCONF="lamindb_setup._schema",
+                SECRET_KEY="dummy",
+                TEMPLATES=[
+                    {
+                        "BACKEND": "django.template.backends.django.DjangoTemplates",
+                        "APP_DIRS": True,
+                    },
+                ],
+                STATIC_ROOT=f"{Path.home().as_posix()}/.lamin/",
+                STATICFILES_FINDERS=[
+                    "django.contrib.staticfiles.finders.AppDirectoriesFinder",
+                ],
+                STATIC_URL="static/",
+            )
+        if logger._verbosity == 5:  # debug-level verbosity
+            kwargs.update(
+                {
+                    "DEBUG": True,
+                    "LOGGING": {
+                        "version": 1,
+                        "handlers": {
+                            "console": {
+                                "level": "DEBUG",
+                                "class": "logging.StreamHandler",
+                            }
+                        },
+                        "loggers": {
+                            "django.db.backends": {
+                                "level": "DEBUG",
+                                "handlers": ["console"],
+                            }
+                        },
+                    },
+                }
+            )
+        settings.configure(**kwargs)
+        # this isn't needed the first time django.setup() is called, but for unknown reason it's needed the second time
+        # the first time, it already defaults to true
+        apps.apps_ready = True
+        django.setup(set_prefix=False)
+        # https://laminlabs.slack.com/archives/C04FPE8V01W/p1698239551460289
+        from django.db.backends.base.base import BaseDatabaseWrapper
+
+        BaseDatabaseWrapper.close_if_health_check_failed = close_if_health_check_failed
+        logger.debug(
+            "django.db.backends.base.base.BaseDatabaseWrapper.close_if_health_check_failed has been patched"
+        )
+
+        disable_context: bool = False
+        if (
+            env_disable_context := os.getenv("LAMINDB_DISABLE_CONNECTION_CONTEXT")
+        ) is not None:
+            disable_context = env_disable_context == "true"
+        elif IS_RUN_FROM_IPYTHON:
+            from ipykernel import __version__ as ipykernel_version
+
+            disable_context = version.parse(ipykernel_version) >= version.parse("7.0.0")
+        if disable_context:
+            django.db.connections._connections = threading.local()
+            logger.debug("django.db.connections._connections has been patched")
+
+        # error if trying to query with the default connection without setting up an instance
+        ensure_error_no_instance_wrapper("default")
+
+        if isettings._fine_grained_access and isettings._db_permissions == "jwt":
+            db_token = DBToken(isettings)
+            db_token_manager.set(db_token)  # sets for the default connection
+    elif init:
+        # in case init is called after Django was configured, we need to reconnect
+        # this path is currently not used because in lamindb_setup.init() we
+        # still default to reset_django()
+        reconnect_django(isettings, init=init)
+
+    if configure_only:
+        return None
+
+    # migrations management
+    if create_migrations:
+        call_command("makemigrations")
+        return None
+
+    if deploy_migrations:
+        if appname_number is None:
+            call_command("migrate", verbosity=2)
+        else:
+            app_name, app_number = appname_number
+            call_command("migrate", app_name, app_number, verbosity=2)
+        isettings._update_cloud_sqlite_file(unlock_cloud_sqlite=False)
+    elif init:
+        compressed_sqlite_path = Path(__file__).parent / "lamin.db.gz"
+        # seed from compressed sqlite file
+        if (
+            isettings.dialect == "sqlite"
+            and os.getenv("LAMINDB_INIT_FROM_SCRATCH", "false") != "true"
+            and compressed_sqlite_path.exists()
+        ):
+            with gzip.open(compressed_sqlite_path, "rb") as f_in:
+                with open(isettings._sqlite_file_local, "wb") as f_out:
+                    shutil.copyfileobj(f_in, f_out)
+        global IS_MIGRATING
+        IS_MIGRATING = True
+        call_command("migrate", verbosity=0)
+        IS_MIGRATING = False
+
+    global IS_SETUP
+    IS_SETUP = True
+
+    if isettings.keep_artifacts_local:
+        isettings._local_storage = isettings._search_local_root()
+
+
+# these needs to be followed by
+# setup_django()
+# reset_django_module_variables()
+def reset_django():
+    from django.conf import settings
+    from django.apps import apps
+    from django.db import connections
+
+    if not settings.configured:
+        return
+
+    connections.close_all()
+
+    global db_token_manager
+
+    db_token_manager.reset()
+
+    if getattr(settings, "_wrapped", None) is not None:
+        settings._wrapped = None
+
+    app_names = {"django"} | {app.name for app in apps.get_app_configs()}
+
+    apps.app_configs.clear()
+    apps.all_models.clear()
+    apps.apps_ready = apps.models_ready = apps.ready = apps.loading = False
+    apps.clear_cache()
+
+    # i suspect it is enough to just drop django and all the apps from sys.modules
+    # the code above is just a precaution
+    for module_name in list(sys.modules):
+        if module_name.partition(".")[0] in app_names:
+            del sys.modules[module_name]
+
+    il.invalidate_caches()
+
+    db_token_manager = DBTokenManager()
+
+    global IS_SETUP
+    IS_SETUP = False

@@ -1,0 +1,889 @@
+"""Tests for the agent delegation tool (DelegateTools toolkit)."""
+
+from __future__ import annotations
+
+from types import SimpleNamespace
+from typing import TYPE_CHECKING
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
+import mindroom.tools  # noqa: F401
+from mindroom.agents import create_agent, describe_agent
+from mindroom.config.agent import AgentConfig, AgentPrivateConfig
+from mindroom.config.main import Config
+from mindroom.config.models import DefaultsConfig, ModelConfig
+from mindroom.constants import resolve_runtime_paths
+from mindroom.custom_tools.delegate import MAX_DELEGATION_DEPTH, DelegateTools
+from mindroom.knowledge.availability import KnowledgeAvailability
+from mindroom.knowledge.manager import IndexingSettings
+from mindroom.knowledge.utils import _KnowledgeResolution
+from mindroom.tool_system.metadata import TOOL_METADATA
+from mindroom.tool_system.runtime_context import ToolRuntimeContext, get_tool_runtime_context, tool_runtime_context
+from mindroom.tool_system.worker_routing import ToolExecutionIdentity
+from tests.conftest import bind_runtime_paths, make_conversation_cache_mock, make_event_cache_mock, runtime_paths_for
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from mindroom.constants import RuntimePaths
+
+
+def _make_config(agents: dict[str, AgentConfig]) -> Config:
+    """Create a minimal Config with the given agents."""
+    return Config(
+        agents=agents,
+        models={"default": ModelConfig(provider="openai", id="gpt-4")},
+    )
+
+
+def _runtime_paths(storage_path: Path) -> RuntimePaths:
+    """Create explicit runtime paths for delegate-tool agent creation tests."""
+    return resolve_runtime_paths(
+        config_path=storage_path / "config.yaml",
+        storage_path=storage_path,
+        process_env={},
+    )
+
+
+def _bind_runtime_paths(config: Config, storage_path: Path) -> Config:
+    return bind_runtime_paths(config, _runtime_paths(storage_path))
+
+
+def _fake_indexing_settings(base_id: str) -> IndexingSettings:
+    return IndexingSettings(
+        base_id=base_id,
+        storage_root="storage",
+        knowledge_path=f"knowledge/{base_id}",
+        mode="semantic",
+        embedder_provider="openai",
+        embedder_model="text-embedding-3-small",
+        embedder_host="",
+        embedder_dimensions="",
+        chunk_size="5000",
+        chunk_overlap="0",
+        repo_identity="",
+        git_branch="",
+        git_lfs="",
+        git_skip_hidden="",
+        git_include_patterns="",
+        git_exclude_patterns="",
+        include_extensions="",
+        exclude_extensions="()",
+    )
+
+
+class TestDelegateTools:
+    """Tests for the DelegateTools Toolkit."""
+
+    @pytest.fixture
+    def storage_path(self, tmp_path: Path) -> Path:
+        """Return a temporary storage path."""
+        return tmp_path
+
+    @pytest.fixture
+    def config(self) -> Config:
+        """Create a test config with leader, code, and research agents."""
+        return _make_config(
+            {
+                "leader": AgentConfig(
+                    display_name="Leader",
+                    role="Orchestrate tasks",
+                    delegate_to=["code", "research"],
+                ),
+                "code": AgentConfig(
+                    display_name="CodeAgent",
+                    role="Generate code",
+                    tools=["file"],
+                ),
+                "research": AgentConfig(
+                    display_name="ResearchAgent",
+                    role="Research topics",
+                    tools=["duckduckgo"],
+                ),
+            },
+        )
+
+    @pytest.fixture
+    def tools(self, storage_path: Path, config: Config) -> DelegateTools:
+        """Create a DelegateTools instance for testing."""
+        runtime_paths = resolve_runtime_paths(
+            config_path=storage_path / "config.yaml",
+            storage_path=storage_path,
+        )
+        return DelegateTools(
+            agent_name="leader",
+            delegate_to=["code", "research"],
+            runtime_paths=runtime_paths,
+            config=config,
+            delegation_depth=0,
+        )
+
+    def test_toolkit_name(self, tools: DelegateTools) -> None:
+        """Test that the toolkit is registered with the correct name."""
+        assert tools.name == "delegate"
+
+    def test_toolkit_has_delegate_task(self, tools: DelegateTools) -> None:
+        """Test that the toolkit exposes the delegate_task function."""
+        func_names = [f.name for f in tools.async_functions.values()]
+        assert "delegate_task" in func_names
+
+    def test_instructions_contain_agent_descriptions(self, tools: DelegateTools) -> None:
+        """Test that toolkit instructions describe available delegation targets."""
+        instructions = tools.instructions
+        assert instructions is not None
+        assert "code" in instructions
+        assert "research" in instructions
+        assert "Generate code" in instructions
+        assert "Research topics" in instructions
+
+    @pytest.mark.asyncio
+    async def test_delegate_to_unknown_agent(self, tools: DelegateTools) -> None:
+        """Test that delegating to an unknown agent returns an error."""
+        result = await tools.delegate_task("unknown_agent", "do something")
+        assert "Cannot delegate to 'unknown_agent'" in result
+        assert "code" in result
+        assert "research" in result
+        assert "Run agents_list to inspect can_delegate flags." in result
+
+    @pytest.mark.asyncio
+    async def test_delegate_empty_task(self, tools: DelegateTools) -> None:
+        """Test that delegating an empty task returns an error."""
+        result = await tools.delegate_task("code", "")
+        assert "Cannot delegate an empty task" in result
+
+    @pytest.mark.asyncio
+    async def test_delegate_whitespace_only_task(self, tools: DelegateTools) -> None:
+        """Test that delegating a whitespace-only task returns an error."""
+        result = await tools.delegate_task("code", "   ")
+        assert "Cannot delegate an empty task" in result
+
+    @pytest.mark.asyncio
+    async def test_successful_delegation(self, tools: DelegateTools) -> None:
+        """Test that a successful delegation returns the agent's response content."""
+        with patch(
+            "mindroom.custom_tools.delegate.ai_response",
+            new_callable=AsyncMock,
+            return_value="Here is the generated code: print('hello')",
+        ) as mock_ai_response:
+            result = await tools.delegate_task("code", "Write a hello world program")
+
+            assert mock_ai_response.await_count == 1
+            call_kwargs = mock_ai_response.await_args.kwargs
+            assert call_kwargs["agent_name"] == "code"
+            assert call_kwargs["prompt"] == "Write a hello world program"
+            assert call_kwargs["runtime_paths"] == tools._runtime_paths
+            assert call_kwargs["config"] == tools._config
+            assert call_kwargs["knowledge"] is None
+            assert call_kwargs["user_id"] is None
+            assert call_kwargs["include_interactive_questions"] is False
+            assert call_kwargs["execution_identity"] is None
+            assert call_kwargs["delegation_depth"] == 1
+            assert call_kwargs["session_id"].startswith("delegate:leader:code:")
+            assert result == "Here is the generated code: print('hello')"
+
+    @pytest.mark.asyncio
+    async def test_delegation_with_no_content(self, tools: DelegateTools) -> None:
+        """Test that delegation with None content returns a fallback message."""
+        with patch(
+            "mindroom.custom_tools.delegate.ai_response",
+            new_callable=AsyncMock,
+            return_value="",
+        ):
+            result = await tools.delegate_task("code", "Do something")
+            assert "returned no content" in result
+
+    @pytest.mark.asyncio
+    async def test_delegation_error_handling(self, tools: DelegateTools) -> None:
+        """Test that exceptions during delegation are caught and returned as error strings."""
+        with patch(
+            "mindroom.custom_tools.delegate.ai_response",
+            side_effect=RuntimeError("Delegated run failed"),
+        ):
+            result = await tools.delegate_task("code", "Do something")
+            assert "Delegation to 'code' failed" in result
+            assert "Delegated run failed" in result
+
+    @pytest.mark.asyncio
+    async def test_delegation_depth_increments(self, storage_path: Path, config: Config) -> None:
+        """Verify that delegation_depth is passed through correctly."""
+        runtime_paths = resolve_runtime_paths(
+            config_path=storage_path / "config.yaml",
+            storage_path=storage_path,
+        )
+        tools = DelegateTools(
+            agent_name="leader",
+            delegate_to=["code"],
+            runtime_paths=runtime_paths,
+            config=config,
+            delegation_depth=1,
+        )
+
+        with patch(
+            "mindroom.custom_tools.delegate.ai_response",
+            new_callable=AsyncMock,
+            return_value="done",
+        ) as mock_ai_response:
+            await tools.delegate_task("code", "task")
+            assert mock_ai_response.await_args.kwargs["delegation_depth"] == 2
+
+    @pytest.mark.asyncio
+    async def test_delegate_threads_explicit_config_path(
+        self,
+        storage_path: Path,
+        config: Config,
+        tmp_path: Path,
+    ) -> None:
+        """Delegated agents should inherit the orchestrator-owned config path."""
+        config.agents["code"].tools = ["self_config"]
+        config_path = tmp_path / "custom-config.yaml"
+        runtime_paths = resolve_runtime_paths(config_path=config_path, storage_path=storage_path)
+        tools = DelegateTools(
+            agent_name="leader",
+            delegate_to=["code"],
+            runtime_paths=runtime_paths,
+            config=config,
+            delegation_depth=0,
+        )
+
+        with patch(
+            "mindroom.custom_tools.delegate.ai_response",
+            new_callable=AsyncMock,
+            return_value="done",
+        ) as mock_ai_response:
+            await tools.delegate_task("code", "update yourself")
+            assert mock_ai_response.await_args.kwargs["runtime_paths"] == runtime_paths
+
+
+class TestDelegateKnowledge:
+    """Test that delegated agents receive their configured knowledge bases."""
+
+    @pytest.mark.asyncio
+    async def test_delegation_resolves_knowledge(self, tmp_path: Path) -> None:
+        """Delegated agent with knowledge_bases should receive knowledge."""
+        config = Config(
+            agents={
+                "leader": AgentConfig(
+                    display_name="Leader",
+                    role="Lead",
+                    delegate_to=["researcher"],
+                ),
+                "researcher": AgentConfig(
+                    display_name="Researcher",
+                    role="Research with knowledge",
+                    knowledge_bases=["docs"],
+                ),
+            },
+            models={"default": ModelConfig(provider="openai", id="gpt-4")},
+            knowledge_bases={"docs": {"path": "./docs"}},
+        )
+        config = _bind_runtime_paths(config, tmp_path)
+        runtime_paths = resolve_runtime_paths(config_path=tmp_path / "config.yaml", storage_path=tmp_path)
+        tools = DelegateTools(
+            agent_name="leader",
+            delegate_to=["researcher"],
+            runtime_paths=runtime_paths,
+            config=config,
+            delegation_depth=0,
+        )
+
+        mock_knowledge = MagicMock()
+        with (
+            patch(
+                "mindroom.custom_tools.delegate.resolve_agent_knowledge_access",
+                return_value=_KnowledgeResolution(knowledge=mock_knowledge),
+            ) as mock_get,
+            patch(
+                "mindroom.custom_tools.delegate.ai_response",
+                new_callable=AsyncMock,
+                return_value="Found relevant docs",
+            ) as mock_ai_response,
+        ):
+            result = await tools.delegate_task("researcher", "Find info about X")
+
+            mock_get.assert_called_once()
+            args, kwargs = mock_get.call_args
+            assert args == ("researcher", config, runtime_paths)
+            assert kwargs["execution_identity"] is None
+            ai_kwargs = mock_ai_response.await_args.kwargs
+            assert ai_kwargs["agent_name"] == "researcher"
+            assert ai_kwargs["config"] == config
+            assert ai_kwargs["runtime_paths"] == runtime_paths
+            assert ai_kwargs["knowledge"] is mock_knowledge
+            assert ai_kwargs["include_interactive_questions"] is False
+            assert ai_kwargs["delegation_depth"] == 1
+            assert result == "Found relevant docs"
+
+    @pytest.mark.asyncio
+    @patch("mindroom.agent_storage.SqliteDb")
+    async def test_delegation_schedules_initial_load_for_unready_shared_base(
+        self,
+        mock_storage: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """Delegation should trigger the shared-base initial load when the published index is still initializing."""
+        assert mock_storage is not None
+        scheduled_base_ids: list[str] = []
+
+        class _FakeRefreshScheduler:
+            def schedule_refresh(self, base_id: str, **_kwargs: object) -> None:
+                scheduled_base_ids.append(base_id)
+
+            def is_refreshing(self, base_id: str, **_kwargs: object) -> bool:
+                _ = base_id
+                return False
+
+        def fake_lookup_knowledge_for_base(
+            base_id: str,
+            *,
+            on_availability: object | None = None,
+            **_kwargs: object,
+        ) -> SimpleNamespace:
+            if on_availability is not None:
+                on_availability(KnowledgeAvailability.INITIALIZING)
+            return SimpleNamespace(
+                key=SimpleNamespace(
+                    base_id=base_id,
+                    storage_root=str(tmp_path),
+                    knowledge_path=str(tmp_path / base_id),
+                    indexing_settings=_fake_indexing_settings(base_id),
+                ),
+                index=None,
+                availability=KnowledgeAvailability.INITIALIZING,
+            )
+
+        config = Config(
+            agents={
+                "leader": AgentConfig(
+                    display_name="Leader",
+                    role="Lead",
+                    delegate_to=["researcher"],
+                ),
+                "researcher": AgentConfig(
+                    display_name="Researcher",
+                    role="Research with knowledge",
+                    knowledge_bases=["docs"],
+                ),
+            },
+            models={"default": ModelConfig(provider="openai", id="gpt-4")},
+            knowledge_bases={"docs": {"path": "./docs"}},
+        )
+        config = _bind_runtime_paths(config, tmp_path)
+        agent = create_agent(
+            "leader",
+            config=config,
+            runtime_paths=runtime_paths_for(config),
+            execution_identity=None,
+            include_interactive_questions=False,
+            refresh_scheduler=_FakeRefreshScheduler(),
+        )
+        delegate_tool = next(tool for tool in agent.tools if tool.name == "delegate")
+
+        with (
+            patch("mindroom.knowledge.utils._lookup_knowledge_for_base", side_effect=fake_lookup_knowledge_for_base),
+            patch(
+                "mindroom.custom_tools.delegate.ai_response",
+                new_callable=AsyncMock,
+                return_value="Found relevant docs",
+            ),
+        ):
+            result = await delegate_tool.delegate_task("researcher", "Find info about X")
+
+        assert result == "Found relevant docs"
+        assert scheduled_base_ids == ["docs"]
+
+    @pytest.mark.asyncio
+    async def test_delegation_without_knowledge_passes_none(self, tmp_path: Path) -> None:
+        """Delegated agent without knowledge_bases should receive knowledge=None."""
+        config = _make_config(
+            {
+                "leader": AgentConfig(
+                    display_name="Leader",
+                    role="Lead",
+                    delegate_to=["worker"],
+                ),
+                "worker": AgentConfig(display_name="Worker", role="Work"),
+            },
+        )
+        config = _bind_runtime_paths(config, tmp_path)
+        runtime_paths = resolve_runtime_paths(config_path=tmp_path / "config.yaml", storage_path=tmp_path)
+        tools = DelegateTools(
+            agent_name="leader",
+            delegate_to=["worker"],
+            runtime_paths=runtime_paths,
+            config=config,
+            delegation_depth=0,
+        )
+
+        with patch(
+            "mindroom.custom_tools.delegate.ai_response",
+            new_callable=AsyncMock,
+            return_value="done",
+        ) as mock_ai_response:
+            await tools.delegate_task("worker", "do work")
+            assert mock_ai_response.await_args.kwargs["agent_name"] == "worker"
+            assert mock_ai_response.await_args.kwargs["knowledge"] is None
+
+    @pytest.mark.asyncio
+    async def test_delegation_uses_stored_execution_identity_for_private_target(self, tmp_path: Path) -> None:
+        """Delegation should use the constructor-bound execution identity for private targets."""
+        config = _make_config(
+            {
+                "leader": AgentConfig(
+                    display_name="Leader",
+                    role="Lead",
+                    delegate_to=["worker"],
+                ),
+                "worker": AgentConfig(
+                    display_name="Worker",
+                    role="Work",
+                    private=AgentPrivateConfig(per="user_agent", root="mind_data"),
+                ),
+            },
+        )
+        config = _bind_runtime_paths(config, tmp_path)
+        runtime_paths = resolve_runtime_paths(config_path=tmp_path / "config.yaml", storage_path=tmp_path)
+        execution_identity = ToolExecutionIdentity(
+            channel="matrix",
+            agent_name="leader",
+            requester_id="@alice:example.org",
+            room_id="!room:example.org",
+            thread_id="$thread",
+            resolved_thread_id="$thread",
+            session_id="session-1",
+        )
+        tools = DelegateTools(
+            agent_name="leader",
+            delegate_to=["worker"],
+            runtime_paths=runtime_paths,
+            config=config,
+            execution_identity=execution_identity,
+            delegation_depth=0,
+        )
+        with patch(
+            "mindroom.custom_tools.delegate.ai_response",
+            new_callable=AsyncMock,
+            return_value="done",
+        ) as mock_ai_response:
+            await tools.delegate_task("worker", "do work")
+
+        call_kwargs = mock_ai_response.await_args.kwargs
+        assert call_kwargs["agent_name"] == "worker"
+        assert call_kwargs["config"] == config
+        assert call_kwargs["runtime_paths"] == runtime_paths
+        delegated_identity = call_kwargs["execution_identity"]
+        assert delegated_identity is not execution_identity
+        assert delegated_identity is not None
+        assert delegated_identity.agent_name == "worker"
+        assert delegated_identity.requester_id == "@alice:example.org"
+        assert delegated_identity.room_id == "!room:example.org"
+        assert delegated_identity.thread_id == "$thread"
+        assert delegated_identity.session_id == call_kwargs["session_id"]
+        assert delegated_identity.session_id.startswith("delegate:leader:worker:")
+        assert call_kwargs["room_id"] == "!room:example.org"
+        assert call_kwargs["user_id"] == "@alice:example.org"
+        assert call_kwargs["delegation_depth"] == 1
+
+    @pytest.mark.asyncio
+    async def test_delegation_rebinds_runtime_context_for_child_agent(self, tmp_path: Path) -> None:
+        """Nested delegated runs should not inherit the parent agent/session runtime context."""
+        config = _make_config(
+            {
+                "leader": AgentConfig(
+                    display_name="Leader",
+                    role="Lead",
+                    delegate_to=["worker"],
+                ),
+                "worker": AgentConfig(
+                    display_name="Worker",
+                    role="Work",
+                ),
+            },
+        )
+        config = _bind_runtime_paths(config, tmp_path)
+        runtime_paths = resolve_runtime_paths(config_path=tmp_path / "config.yaml", storage_path=tmp_path)
+        execution_identity = ToolExecutionIdentity(
+            channel="matrix",
+            agent_name="leader",
+            requester_id="@alice:example.org",
+            room_id="!room:example.org",
+            thread_id="$thread",
+            resolved_thread_id="$thread",
+            session_id="session-1",
+        )
+        tools = DelegateTools(
+            agent_name="leader",
+            delegate_to=["worker"],
+            runtime_paths=runtime_paths,
+            config=config,
+            execution_identity=execution_identity,
+            delegation_depth=0,
+        )
+        runtime_context = ToolRuntimeContext(
+            agent_name="leader",
+            room_id="!room:example.org",
+            thread_id="$thread",
+            resolved_thread_id="$thread",
+            requester_id="@alice:example.org",
+            client=MagicMock(),
+            config=config,
+            runtime_paths=runtime_paths,
+            event_cache=make_event_cache_mock(),
+            conversation_cache=make_conversation_cache_mock(),
+            session_id="session-1",
+            correlation_id="corr-parent",
+        )
+
+        async def fake_ai_response(**kwargs: object) -> str:
+            context = get_tool_runtime_context()
+            assert context is not None
+            assert context.agent_name == "worker"
+            assert context.session_id == kwargs["session_id"]
+            assert context.room_id == "!room:example.org"
+            assert kwargs["room_id"] == "!room:example.org"
+            assert context.correlation_id == "corr-parent"
+            assert kwargs["correlation_id"] == "corr-parent"
+            assert context.active_model_name == "default"
+            return "done"
+
+        with (
+            tool_runtime_context(runtime_context),
+            patch("mindroom.custom_tools.delegate.ai_response", new=AsyncMock(side_effect=fake_ai_response)),
+        ):
+            result = await tools.delegate_task("worker", "do work")
+
+        assert result == "done"
+
+    @pytest.mark.asyncio
+    async def test_delegation_rebinds_room_resolved_model_for_child_agent(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Delegated child tools should see the child's room-resolved runtime model."""
+        config = Config(
+            agents={
+                "leader": AgentConfig(
+                    display_name="Leader",
+                    role="Lead",
+                    delegate_to=["worker"],
+                    model="default",
+                ),
+                "worker": AgentConfig(
+                    display_name="Worker",
+                    role="Work",
+                    model="default",
+                ),
+            },
+            defaults=DefaultsConfig(tools=[]),
+            room_models={"lobby": "large"},
+            models={
+                "default": ModelConfig(provider="openai", id="default-model", context_window=8_000),
+                "large": ModelConfig(provider="openai", id="large-model", context_window=48_000),
+            },
+        )
+        config = _bind_runtime_paths(config, tmp_path)
+        runtime_paths = resolve_runtime_paths(config_path=tmp_path / "config.yaml", storage_path=tmp_path)
+        monkeypatch.setattr("mindroom.matrix.state.get_room_alias_from_id", lambda *_args: "lobby")
+        execution_identity = ToolExecutionIdentity(
+            channel="matrix",
+            agent_name="leader",
+            requester_id="@alice:example.org",
+            room_id="!room:example.org",
+            thread_id="$thread",
+            resolved_thread_id="$thread",
+            session_id="session-1",
+        )
+        tools = DelegateTools(
+            agent_name="leader",
+            delegate_to=["worker"],
+            runtime_paths=runtime_paths,
+            config=config,
+            execution_identity=execution_identity,
+            delegation_depth=0,
+        )
+        runtime_context = ToolRuntimeContext(
+            agent_name="leader",
+            room_id="!room:example.org",
+            thread_id="$thread",
+            resolved_thread_id="$thread",
+            requester_id="@alice:example.org",
+            client=MagicMock(),
+            config=config,
+            runtime_paths=runtime_paths,
+            event_cache=make_event_cache_mock(),
+            conversation_cache=make_conversation_cache_mock(),
+            active_model_name="default",
+            session_id="session-1",
+        )
+
+        async def fake_ai_response(**kwargs: object) -> str:
+            context = get_tool_runtime_context()
+            assert context is not None
+            assert context.agent_name == "worker"
+            assert context.room_id == "!room:example.org"
+            assert context.active_model_name == "large"
+            assert kwargs["room_id"] == "!room:example.org"
+            return "done"
+
+        with (
+            tool_runtime_context(runtime_context),
+            patch("mindroom.custom_tools.delegate.ai_response", new=AsyncMock(side_effect=fake_ai_response)),
+        ):
+            result = await tools.delegate_task("worker", "do work")
+
+        assert result == "done"
+
+
+class TestDelegateToolRegistration:
+    """Test that the delegate tool is properly registered in the metadata registry."""
+
+    def test_delegate_in_tool_metadata(self) -> None:
+        """Test that delegate tool appears in the metadata registry."""
+        assert "delegate" in TOOL_METADATA
+        meta = TOOL_METADATA["delegate"]
+        assert meta.display_name == "Agent Delegation"
+        assert meta.status.value == "available"
+        assert meta.setup_type.value == "none"
+        assert meta.category.value == "productivity"
+
+
+class TestDelegateConfigValidation:
+    """Test config validation for delegate_to field."""
+
+    def test_valid_delegate_to(self) -> None:
+        """Test that valid delegate_to targets are accepted."""
+        config = _make_config(
+            {
+                "leader": AgentConfig(
+                    display_name="Leader",
+                    role="Lead",
+                    delegate_to=["worker"],
+                ),
+                "worker": AgentConfig(display_name="Worker", role="Work"),
+            },
+        )
+        assert config.agents["leader"].delegate_to == ["worker"]
+
+    def test_delegate_to_unknown_agent(self) -> None:
+        """Test that referencing an unknown agent in delegate_to raises ValueError."""
+        with pytest.raises(ValueError, match="delegates to unknown agent 'nonexistent'"):
+            _make_config(
+                {
+                    "leader": AgentConfig(
+                        display_name="Leader",
+                        role="Lead",
+                        delegate_to=["nonexistent"],
+                    ),
+                },
+            )
+
+    def test_delegate_to_self(self) -> None:
+        """Test that self-delegation raises ValueError."""
+        with pytest.raises(ValueError, match="cannot delegate to itself"):
+            _make_config(
+                {
+                    "leader": AgentConfig(
+                        display_name="Leader",
+                        role="Lead",
+                        delegate_to=["leader"],
+                    ),
+                },
+            )
+
+    def test_empty_delegate_to(self) -> None:
+        """Test that empty delegate_to is the default."""
+        config = _make_config(
+            {
+                "agent": AgentConfig(display_name="Agent", role="Do things"),
+            },
+        )
+        assert config.agents["agent"].delegate_to == []
+
+
+class TestDelegateAutoInjection:
+    """Test that DelegateTools is auto-injected when delegate_to is configured."""
+
+    @patch("mindroom.agent_storage.SqliteDb")
+    def test_auto_inject_delegate_tool(self, mock_storage: MagicMock, tmp_path: Path) -> None:  # noqa: ARG002
+        """Agent with delegate_to should automatically get the delegate tool."""
+        config = _make_config(
+            {
+                "leader": AgentConfig(
+                    display_name="Leader",
+                    role="Lead",
+                    delegate_to=["worker"],
+                ),
+                "worker": AgentConfig(display_name="Worker", role="Work"),
+            },
+        )
+        config = _bind_runtime_paths(config, tmp_path)
+        agent = create_agent(
+            "leader",
+            config=config,
+            runtime_paths=runtime_paths_for(config),
+            execution_identity=None,
+            include_interactive_questions=False,
+        )
+        tool_names = [tool.name for tool in agent.tools]
+        assert "delegate" in tool_names
+
+    @patch("mindroom.agent_storage.SqliteDb")
+    def test_no_delegate_tool_without_config(self, mock_storage: MagicMock, tmp_path: Path) -> None:  # noqa: ARG002
+        """Agent without delegate_to should not get the delegate tool."""
+        config = _make_config(
+            {
+                "worker": AgentConfig(display_name="Worker", role="Work"),
+            },
+        )
+        config = _bind_runtime_paths(config, tmp_path)
+        agent = create_agent(
+            "worker",
+            config=config,
+            runtime_paths=runtime_paths_for(config),
+            execution_identity=None,
+            include_interactive_questions=False,
+        )
+        tool_names = [tool.name for tool in agent.tools]
+        assert "delegate" not in tool_names
+
+    @patch("mindroom.agent_storage.SqliteDb")
+    def test_depth_limit_prevents_injection(self, mock_storage: MagicMock, tmp_path: Path) -> None:  # noqa: ARG002
+        """At max depth, delegate tool should not be auto-injected."""
+        config = _make_config(
+            {
+                "leader": AgentConfig(
+                    display_name="Leader",
+                    role="Lead",
+                    delegate_to=["worker"],
+                ),
+                "worker": AgentConfig(display_name="Worker", role="Work"),
+            },
+        )
+        config = _bind_runtime_paths(config, tmp_path)
+        agent = create_agent(
+            "leader",
+            config=config,
+            runtime_paths=runtime_paths_for(config),
+            execution_identity=None,
+            include_interactive_questions=False,
+            delegation_depth=MAX_DELEGATION_DEPTH,
+        )
+        tool_names = [tool.name for tool in agent.tools]
+        assert "delegate" not in tool_names
+
+    @patch("mindroom.agent_storage.SqliteDb")
+    def test_explicit_delegate_skipped_when_delegate_to_empty(self, mock_storage: MagicMock, tmp_path: Path) -> None:  # noqa: ARG002
+        """Explicit 'delegate' in tools list should be skipped when delegate_to is empty."""
+        config = _make_config(
+            {
+                "leader": AgentConfig(
+                    display_name="Leader",
+                    role="Lead",
+                    tools=["delegate"],
+                ),
+            },
+        )
+        config = _bind_runtime_paths(config, tmp_path)
+        agent = create_agent(
+            "leader",
+            config=config,
+            runtime_paths=runtime_paths_for(config),
+            execution_identity=None,
+            include_interactive_questions=False,
+        )
+        tool_names = [tool.name for tool in agent.tools]
+        assert "delegate" not in tool_names
+
+    @patch("mindroom.agent_storage.SqliteDb")
+    def test_depth_limit_prevents_explicit_delegate_tool(
+        self,
+        mock_storage: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """At max depth, explicit 'delegate' in tools list should be skipped."""
+        assert mock_storage is not None
+        config = _make_config(
+            {
+                "leader": AgentConfig(
+                    display_name="Leader",
+                    role="Lead",
+                    tools=["delegate"],
+                    delegate_to=["worker"],
+                ),
+                "worker": AgentConfig(display_name="Worker", role="Work"),
+            },
+        )
+        config = _bind_runtime_paths(config, tmp_path)
+        agent = create_agent(
+            "leader",
+            config=config,
+            runtime_paths=runtime_paths_for(config),
+            execution_identity=None,
+            include_interactive_questions=False,
+            delegation_depth=MAX_DELEGATION_DEPTH,
+        )
+        tool_names = [tool.name for tool in agent.tools]
+        assert "delegate" not in tool_names
+
+    @patch("mindroom.agent_storage.SqliteDb")
+    def test_depth_limit_prevents_default_tools_delegate(
+        self,
+        mock_storage: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        """At max depth, 'delegate' from defaults.tools should be skipped."""
+        assert mock_storage is not None
+        config = Config(
+            agents={
+                "leader": AgentConfig(
+                    display_name="Leader",
+                    role="Lead",
+                    delegate_to=["worker"],
+                ),
+                "worker": AgentConfig(display_name="Worker", role="Work"),
+            },
+            models={"default": ModelConfig(provider="openai", id="gpt-4")},
+            defaults=DefaultsConfig(tools=["delegate"]),
+        )
+        config = _bind_runtime_paths(config, tmp_path)
+        agent = create_agent(
+            "leader",
+            config=config,
+            runtime_paths=runtime_paths_for(config),
+            execution_identity=None,
+            include_interactive_questions=False,
+            delegation_depth=MAX_DELEGATION_DEPTH,
+        )
+        tool_names = [tool.name for tool in agent.tools]
+        assert "delegate" not in tool_names
+
+
+class TestDescribeAgentDelegation:
+    """Test that describe_agent includes delegation info."""
+
+    def test_describe_agent_with_delegation(self) -> None:
+        """Test that describe_agent output includes delegation targets."""
+        config = _make_config(
+            {
+                "leader": AgentConfig(
+                    display_name="Leader",
+                    role="Lead the team",
+                    delegate_to=["code", "research"],
+                ),
+                "code": AgentConfig(display_name="CodeAgent", role="Code"),
+                "research": AgentConfig(display_name="ResearchAgent", role="Research"),
+            },
+        )
+        description = describe_agent("leader", config)
+        assert "Can delegate to: code, research" in description
+
+    def test_describe_agent_without_delegation(self) -> None:
+        """Test that describe_agent output omits delegation when not configured."""
+        config = _make_config(
+            {
+                "worker": AgentConfig(display_name="Worker", role="Do work"),
+            },
+        )
+        description = describe_agent("worker", config)
+        assert "delegate" not in description.lower()

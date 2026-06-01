@@ -1,0 +1,2339 @@
+from __future__ import annotations
+
+import time
+import asyncio
+from typing import Optional, Dict, Any, Union
+import io
+import os
+import posixpath
+import logging
+
+from .experiment import Experiment
+from .job import Job
+from . import dirs
+from .model import Model as ModelService
+from . import storage
+from werkzeug.utils import secure_filename
+from .dataset import Dataset
+from .task_template import TaskTemplate
+from .generation import GenerationModel, load_generation_model as _load_generation_model
+from .job_status import JobStatus
+
+
+logger = logging.getLogger(__name__)
+
+
+def _launch_experiment_id_from_env() -> str | None:
+    """Experiment id passed by the launcher (_TFL_EXPERIMENT_ID or TFL_EXPERIMENT_ID fallback)."""
+    return os.environ.get("_TFL_EXPERIMENT_ID") or os.environ.get("TFL_EXPERIMENT_ID")
+
+
+def _run_async(coro):
+    """
+    Helper to run async code from sync context.
+    Handles event loop detection intelligently:
+    - If there's a running event loop, we need to use the async version instead
+    - If no running loop, uses asyncio.run() or run_until_complete()
+    """
+    try:
+        # Try to get the running event loop
+        loop = asyncio.get_running_loop()
+        # If we're in an async context, we can't use blocking calls
+        # The sync wrapper should not be used from async contexts
+        # Use the async version (a_* methods) instead
+        raise RuntimeError(
+            "Cannot use sync method when already in async context. "
+            "Use the async version instead (e.g., await lab.async_save_artifact() instead of lab.save_artifact())."
+        )
+    except RuntimeError as e:
+        # Check if this is our custom error or a "no running loop" error
+        if "Cannot use sync method" in str(e):
+            raise
+        # No running loop - we can safely create/use one.
+        # IMPORTANT: only catch get_event_loop() errors here; runtime errors raised
+        # by the coroutine itself must propagate and should not trigger a retry with
+        # the same coroutine object.
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            return asyncio.run(coro)
+
+        if loop.is_closed():
+            # Loop is closed, create a new one
+            return asyncio.run(coro)
+
+        # Loop exists but not running, use it
+        return loop.run_until_complete(coro)
+
+
+class Lab:
+    """
+    Simple facade over Experiment and Job for easy usage:
+
+    from lab import lab
+    lab.init(experiment_id="alpha")
+    lab.set_config({ ... })
+    lab.log("message")
+    lab.finish("success")
+    """
+
+    def __init__(self) -> None:
+        self._experiment: Optional[Experiment] = None
+        self._job: Optional[Job] = None
+        # Trackio integration flags (best-effort; do not affect core behavior)
+        self._trackio_available: bool = False
+        self._trackio_managed: bool = False
+
+    # ------------- lifecycle -------------
+    def init(self, experiment_id: str | None = None, config: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Initialize a job under the given experiment.
+        If _TFL_JOB_ID environment variable is set, uses that existing job.
+        If _TFL_EXPERIMENT_ID environment variable is set and experiment_id is not specified (defaults to "alpha"),
+        uses the environment variable value as the experiment_id.
+        Otherwise, creates the experiment structure if needed and creates a new job.
+        """
+        # Check if we should use experiment_id from environment variable
+        # If experiment_id is the default "alpha" and _TFL_EXPERIMENT_ID is set, use the env var
+        if not experiment_id:
+            env_experiment_id = _launch_experiment_id_from_env()
+            if env_experiment_id:
+                experiment_id = env_experiment_id
+            else:
+                experiment_id = "alpha"
+
+        # Check if we should use an existing job from environment variable
+        existing_job_id = os.environ.get("_TFL_JOB_ID")
+
+        if existing_job_id:
+            # Use existing job from environment variable
+            # This will raise an error if the job doesn't exist
+            self._experiment = _run_async(Experiment.create_or_get(experiment_id, create_new=False))
+            self._job = _run_async(Job.get(existing_job_id, self._experiment.id))
+            if self._job is None:
+                raise RuntimeError(f"Job with ID {existing_job_id} not found. Check _TFL_JOB_ID environment variable.")
+            logger.info(f"Using existing job ID: {existing_job_id}")
+            # Set start_time if not already set (for remote jobs launched through providers)
+            job_data = _run_async(self._job.get_job_data())
+            if not job_data.get("start_time"):
+                _run_async(
+                    self._job.update_job_data_field("start_time", time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()))
+                )
+        else:
+            # Create new job as before
+            self._experiment = _run_async(Experiment.create_or_get(experiment_id, create_new=True))
+            self._job = _run_async(self._experiment.create_job())
+            _run_async(self._job.update_job_data_field("start_time", time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())))
+            logger.info(f"Created new job ID: {self._job.id}")
+
+        # Update status to RUNNING for both cases
+        _run_async(self._job.update_status(JobStatus.RUNNING))
+
+        # Best-effort marker so UIs can distinguish jobs where lab has been
+        # explicitly initialized. This reuses the existing live_status field
+        # that remote_trap also writes to. Depending on ordering, live_status
+        # may briefly show this before the remote_trap status is set.
+        try:
+            _run_async(self._job.update_job_data_field("live_status", "Lab initialized"))
+        except Exception:
+            # Never let status marker failures break user code.
+            logger.debug("Failed to set live_status on job", exc_info=True)
+
+        # Check for wandb integration and capture URL if available
+        self._detect_and_capture_wandb_url()
+
+        # Initialize Trackio automatically if requested and available.
+        # This is entirely best-effort and never affects core job behavior.
+        self._trackio_available = False
+        self._trackio_managed = False
+        auto_init_trackio = os.environ.get("TLAB_TRACKIO_AUTO_INIT", "false").lower() == "true"
+        trackio_project_name_env = (os.environ.get("TLAB_TRACKIO_PROJECT_NAME") or "").strip()
+        trackio_run_name_env = (os.environ.get("TLAB_TRACKIO_RUN_NAME") or "").strip()
+        if auto_init_trackio:
+            try:
+                import trackio  # type: ignore[import]
+                from trackio import context_vars  # type: ignore[import]
+
+                self._trackio_available = True
+                existing_run = context_vars.current_run.get()
+                if existing_run is None and trackio_project_name_env:
+                    # Shared project: metrics dir should be set by compute launch (TRACKIO_DIR) before
+                    # trackio is imported; fall back for local/scripts without a provider.
+                    job_id_env = os.environ.get("_TFL_JOB_ID", "unknown")
+                    trackio_dir = (os.environ.get("TRACKIO_DIR") or "").strip()
+                    if not trackio_dir:
+                        trackio_dir = dirs.get_trackio_dir(job_id_env)
+                    os.makedirs(trackio_dir, exist_ok=True)
+                    os.environ.setdefault("TRACKIO_DIR", trackio_dir)
+                    _run_async(
+                        self._seed_trackio_shared_path_async(experiment_id or "", trackio_project_name_env, trackio_dir)
+                    )
+                    trackio.init(
+                        project=trackio_project_name_env,
+                        name=trackio_run_name_env or f"job-{job_id_env}",
+                    )
+                    self._trackio_managed = True
+                    logger.info(f"📊 Trackio auto-init enabled for shared project '{trackio_project_name_env}'")
+            except Exception:
+                # Silently ignore any Trackio issues; lab core behavior must not be affected
+                self._trackio_available = False
+
+        print(f"Trackio available: {self._trackio_available}")
+
+        # Set config if provided, otherwise auto-load from job_data if available
+        if config is not None:
+            self.set_config(config)
+        else:
+            # Auto-load config from job_data if available (for remote tasks)
+            auto_config = self.get_config()
+            if auto_config:
+                # Merge with any existing config, but don't overwrite experiment_name
+                if self._experiment is not None and "experiment_name" not in auto_config:
+                    auto_config = {**auto_config, "experiment_name": self._experiment.id}
+                self.set_config(auto_config)
+
+    def set_config(self, config: Dict[str, Any]) -> None:
+        """
+        Attach configuration to the current job.
+        """
+        self._ensure_initialized()
+        # Ensure experiment_name present for downstream consumers
+        if isinstance(config, dict) and "experiment_name" not in config and self._experiment is not None:
+            config = {**config, "experiment_name": self._experiment.id}
+        # keep the existing config with fields that are not in the new config
+        config_old = _run_async(self._job.get_job_data())
+        config_new = {**config_old, **config}
+        _run_async(self._job.set_job_data(config_new))  # type: ignore[union-attr]
+
+    def get_config(self) -> Dict[str, Any]:
+        """
+        Get configuration/parameters from job_data.
+
+        This method retrieves parameters that were stored when the task was launched.
+        Parameters are typically stored under the 'parameters' key in job_data.
+
+        Returns:
+            Dict[str, Any]: Configuration dictionary. Returns empty dict if no config found.
+        """
+        self._ensure_initialized()
+        job_data = _run_async(self._job.get_job_data())
+
+        # Try to get parameters from job_data
+        if isinstance(job_data, dict):
+            # First check for 'parameters' key (new standard)
+            if "parameters" in job_data and isinstance(job_data["parameters"], dict):
+                return job_data["parameters"]
+
+        return {}
+
+    def get_secret(self, secret_name: str) -> Optional[str]:
+        """
+        Get a secret by name (sync version).
+
+        This method reads secrets from both team_secrets.json and user_secrets_{user_id}.json files.
+        User secrets override team secrets (similar to GitHub secrets behavior).
+        Secrets can be configured in Team Settings (team secrets) or User Settings (user secrets).
+
+        If _TFL_USER_ID environment variable is set, user-specific secrets will be loaded and
+        merged with team secrets. User secrets take precedence over team secrets.
+
+        This is a sync wrapper around the async implementation.
+        Use async_get_secret() if you're already in an async context.
+
+        Args:
+            secret_name: Name of the secret to retrieve
+
+        Returns:
+            The secret value as a string, or None if the secret doesn't exist or can't be loaded.
+
+        Example:
+            from lab import lab
+
+            lab.init(experiment_id="alpha")
+            api_key = lab.get_secret("API_KEY")
+            if api_key:
+                # do cool stuff with the API key
+                pass
+        """
+        return _run_async(self.async_get_secret(secret_name))
+
+    async def async_get_secret(self, secret_name: str) -> Optional[str]:
+        """
+        Get a secret by name (async version).
+
+        This method reads secrets from both team_secrets.json and user_secrets_{user_id}.json files.
+        User secrets override team secrets (similar to GitHub secrets behavior).
+        Secrets can be configured in Team Settings (team secrets) or User Settings (user secrets).
+
+        If _TFL_USER_ID environment variable is set, user-specific secrets will be loaded and
+        merged with team secrets. User secrets take precedence over team secrets.
+
+        Args:
+            secret_name: Name of the secret to retrieve
+
+        Returns:
+            The secret value as a string, or None if the secret doesn't exist or can't be loaded.
+
+        Example:
+            from lab import lab
+
+            lab.init(experiment_id="alpha")
+            api_key = await lab.async_get_secret("API_KEY")
+            if api_key:
+                # do cool stuff with the API key
+                pass
+        """
+        import json
+        from . import storage
+        from .dirs import get_workspace_dir
+
+        try:
+            workspace_dir = await get_workspace_dir()
+
+            # Load team secrets first
+            team_secrets = {}
+            team_secrets_path = storage.join(workspace_dir, "team_secrets.json")
+            if await storage.exists(team_secrets_path):
+                async with await storage.open(team_secrets_path, "r") as f:
+                    content = await f.read()
+                    team_secrets = json.loads(content)
+
+            # Load user secrets if _TFL_USER_ID is set
+            user_id = os.environ.get("_TFL_USER_ID")
+            if user_id:
+                user_secrets = {}
+                user_secrets_path = storage.join(workspace_dir, f"user_secrets_{user_id}.json")
+                if await storage.exists(user_secrets_path):
+                    try:
+                        async with await storage.open(user_secrets_path, "r") as f:
+                            content = await f.read()
+                            user_secrets = json.loads(content)
+                    except Exception:
+                        # If user secrets file exists but can't be read, log warning but continue
+                        logger.warning(f"Failed to load user secrets for user {user_id}", exc_info=True)
+
+                # Merge: user secrets override team secrets
+                merged_secrets = {**team_secrets, **user_secrets}
+                return merged_secrets.get(secret_name)
+            else:
+                # No user_id, just return team secret
+                return team_secrets.get(secret_name)
+        except Exception:
+            logger.warning("Failed to load secret", exc_info=True)
+            return None
+
+    def copy_file_mounts(self) -> None:
+        """
+        Copy all files in the task directory to the user's home directory,
+        or to ~/sky_workdir if that directory already exists.
+        Uses _TFL_JOB_ID plus the same experiment id resolution as lab.init() when
+        lab.init() was not called (_TFL_EXPERIMENT_ID if set, else "alpha"), then reads
+        task_id from job_data and copies
+        from the task dir (workspace/task/<task_id>) to the chosen destination. No network/URL;
+        assumes the runner has access to the same storage (e.g. mounted workspace).
+        No-op if _TFL_JOB_ID is not set or job_data has no task_id.
+        """
+        job_id = os.environ.get("_TFL_JOB_ID")
+        if not job_id:
+            return
+        _run_async(self._copy_file_mounts_async(job_id))
+
+    async def async_copy_file_mounts(self) -> None:
+        """Same behavior as copy_file_mounts() for callers that already have a running event loop."""
+        job_id = os.environ.get("_TFL_JOB_ID")
+        if not job_id:
+            return
+        await self._copy_file_mounts_async(job_id)
+
+    async def _copy_file_mounts_async(self, job_id: str) -> None:
+        """Async implementation of copy_file_mounts."""
+        if self._experiment is not None:
+            experiment_id = self._experiment.id
+        else:
+            # Match init() when experiment_id argument was not passed (lines 93–98).
+            env_experiment_id = _launch_experiment_id_from_env()
+            experiment_id = env_experiment_id if env_experiment_id else "alpha"
+        try:
+            job = await Job.get(job_id, experiment_id)
+        except FileNotFoundError:
+            return
+        job_data = await job.get_job_data()
+        if not isinstance(job_data, dict):
+            return
+        task_id = job_data.get("task_id")
+        if not task_id:
+            return
+        # Use the same experiment scope as Job.get(); otherwise TaskTemplate falls back to
+        # legacy workspace/task/<id> and misses files under experiments/<exp>/tasks/<id>.
+        task_template = TaskTemplate(task_id, experiment_id=experiment_id)
+        task_dir = await task_template.get_dir()
+        if not await storage.exists(task_dir):
+            return
+        home_dir = os.path.expanduser("~")
+        sky_workdir = os.path.join(home_dir, "sky_workdir")
+        if os.path.isdir(sky_workdir):
+            dest_dir = sky_workdir
+        else:
+            dest_dir = home_dir
+
+        # Determine if we're working with a remote URI (e.g., s3://)
+        is_remote = storage.is_remote_path(task_dir)
+        protocol_prefix = ""
+        if is_remote and isinstance(task_dir, str):
+            # Extract protocol, e.g., "s3://"
+            protocol_prefix = task_dir.split("://")[0] + "://"
+
+        try:
+            files = await storage.find(task_dir)
+        except Exception:
+            logger.info("Failed to find task directory. Using fallback.", exc_info=True)
+            files = []
+            try:
+                walk_gen = await storage.walk(task_dir)
+                for root, _dirs, names in walk_gen:
+                    for name in names:
+                        files.append(storage.join(root, name))
+            except Exception:
+                logger.error("Failed to read task directory for mounting.", exc_info=True)
+                return
+
+        for path in files:
+            # Normalize remote paths returned by storage.find()/walk() to full URIs
+            full_path = path
+            if is_remote and isinstance(path, str) and not storage.is_remote_path(path):
+                # For S3/GCS/etc, fsspec.find() often returns keys without protocol
+                full_path = protocol_prefix + path.lstrip("/")
+
+            # Compute path relative to task_dir robustly, but never allow it to escape task_dir
+            if is_remote:
+                base = task_dir.rstrip("/")
+                full_path_normalized = full_path.rstrip("/")
+                if not full_path_normalized.startswith(base + "/"):
+                    # Skip anything outside the task_dir subtree
+                    logger.warning(f"Skipping path outside task_dir: {full_path_normalized}")
+                    continue
+                rel = full_path_normalized[len(base) + 1 :]
+            else:
+                try:
+                    rel = os.path.relpath(full_path, task_dir)
+                except ValueError as e:
+                    # If relpath fails (different drives, etc.), skip this entry
+                    logger.warning(f"Error computing relpath: {e}")
+                    continue
+
+            # Safety: skip anything that would traverse outside the task_dir
+            if not rel or rel == "." or rel.startswith(".."):
+                continue
+
+            local_path = os.path.join(dest_dir, rel)
+            try:
+                async with await storage.open(full_path, "rb") as f:
+                    data = await f.read()
+            except Exception:
+                logger.error(f"Error opening path: {full_path}", exc_info=True)
+                continue
+
+            os.makedirs(os.path.dirname(local_path), exist_ok=True)
+            with open(local_path, "wb") as out:
+                out.write(data)
+
+    # ------------- convenience logging -------------
+    def log(self, message: str) -> None:
+        self._ensure_initialized()
+        _run_async(self._job.log_info(message))  # type: ignore[union-attr]
+        # Check for wandb URL on every log operation
+        self._check_and_capture_wandb_url()
+        # Best-effort: keep Trackio metrics snapshot in sync so dashboards can be
+        # opened mid-run. This will overwrite any previous Trackio artifacts for
+        # this job with the latest DB from TRACKIO_DIR when Trackio is available.
+        try:
+            if self._trackio_available:
+                self._capture_existing_trackio_run()
+        except Exception:
+            logger.debug("Trackio snapshot failed during log()", exc_info=True)
+
+    def update_progress(
+        self,
+        progress: int,
+        metrics: Optional[Dict[str, float]] = None,
+        step: Optional[int] = None,
+    ) -> None:
+        """
+        Update job progress and optionally record a live metric snapshot.
+
+        Args:
+            progress: percent complete (0-100).
+            metrics:  optional dict of named metrics, e.g. {"loss": 0.42}.
+                      Overwrites job_data.current_metrics (latest-wins) and
+                      appends a row to <job_dir>/metrics.jsonl.
+            step:     optional step counter associated with this row.
+
+        Note: `score` (set by lab.finish) is the final, comparable result and is
+        separate from `current_metrics`. Use metrics for live training signal;
+        use score for the final number(s) that downstream tools rank on.
+        """
+        self._ensure_initialized()
+        _run_async(self._job.update_progress(progress, metrics=metrics, step=step))  # type: ignore[union-attr]
+        # Check for wandb URL on every progress update
+        self._check_and_capture_wandb_url()
+        # Keep Trackio snapshot reasonably fresh on progress updates.
+        try:
+            if self._trackio_available:
+                self._capture_existing_trackio_run()
+        except Exception:
+            logger.debug("Trackio snapshot failed during update_progress()", exc_info=True)
+
+    # ------------- checkpoint resume support -------------
+    def get_checkpoint_to_resume(self) -> Optional[str]:
+        """
+        Get the checkpoint path to resume training from (sync version).
+
+        This is a sync wrapper around the async implementation.
+        Use a_get_checkpoint_to_resume() if you're already in an async context.
+        """
+        return _run_async(self.async_get_checkpoint_to_resume())
+
+    async def async_get_checkpoint_to_resume(self) -> Optional[str]:
+        """
+        Get the checkpoint path to resume training from.
+
+        This method checks for checkpoint resume information stored in the job data
+        when resuming training from a checkpoint.
+
+        Returns:
+            Optional[str]: The full path to the checkpoint to resume from, or None if no
+                          checkpoint resume is requested.
+        """
+        if not self._job:
+            return None
+
+        job_data = await self._job.get_job_data()
+        if not job_data:
+            return None
+
+        parent_job_id = job_data.get("parent_job_id")
+        checkpoint_name = job_data.get("resumed_from_checkpoint")
+
+        if not parent_job_id or not checkpoint_name:
+            return None
+
+        # Build the checkpoint path from parent job's checkpoints directory
+        checkpoint_path = await self.async_get_parent_job_checkpoint_path(parent_job_id, checkpoint_name)
+
+        # Verify the checkpoint exists
+        if checkpoint_path and await storage.exists(checkpoint_path):
+            return checkpoint_path
+
+        return None
+
+    def get_parent_job_checkpoint_path(self, parent_job_id: str, checkpoint_name: str) -> Optional[str]:
+        """
+        Get the full path to a checkpoint from a parent job (sync version).
+
+        This is a sync wrapper around the async implementation.
+        Use async_get_parent_job_checkpoint_path() if you're already in an async context.
+        """
+        return _run_async(self.async_get_parent_job_checkpoint_path(parent_job_id, checkpoint_name))
+
+    async def async_get_parent_job_checkpoint_path(self, parent_job_id: str, checkpoint_name: str) -> Optional[str]:
+        """
+        Get the full path to a checkpoint from a parent job.
+
+        This is a helper method that constructs the path to a specific checkpoint
+        from a parent job's checkpoints directory.
+
+        Args:
+            parent_job_id (str): The ID of the parent job that created the checkpoint
+            checkpoint_name (str): The name of the checkpoint file or directory
+
+        Returns:
+            Optional[str]: The full path to the checkpoint, or None if it doesn't exist
+        """
+        try:
+            checkpoints_dir = await dirs.get_job_checkpoints_dir(parent_job_id, self._experiment.id)
+            checkpoint_path = storage.join(checkpoints_dir, checkpoint_name)
+
+            # Security check: ensure the checkpoint path is within the checkpoints directory
+            # Handle remote storage URIs (s3://, gs://, etc.) differently from local paths
+            if storage.is_remote_path(checkpoint_path):
+                # For remote storage, normalize only the path portion after the protocol
+                # posixpath.normpath breaks S3 URI format, so we need to handle it manually
+                checkpoint_path_normalized = checkpoint_path.rstrip("/")
+                checkpoints_dir_normalized = checkpoints_dir.rstrip("/")
+
+                # Ensure checkpoint path starts with checkpoints directory
+                if not checkpoint_path_normalized.startswith(checkpoints_dir_normalized + "/"):
+                    return None
+            else:
+                # For local paths, use posixpath.normpath
+                checkpoint_path_normalized = posixpath.normpath(checkpoint_path).rstrip("/")
+                checkpoints_dir_normalized = posixpath.normpath(checkpoints_dir).rstrip("/")
+
+                # Check if checkpoint path is strictly within checkpoints directory
+                if not checkpoint_path_normalized.startswith(checkpoints_dir_normalized + "/"):
+                    return None
+
+            if await storage.exists(checkpoint_path_normalized):
+                return checkpoint_path_normalized
+
+            return None
+        except Exception:
+            logger.error("Error getting parent job checkpoint path", exc_info=True)
+            return None
+
+    # ------------- completion -------------
+    def finish(
+        self,
+        message: str = "Job completed successfully",
+        score: Optional[Dict[str, Any]] = None,
+        additional_output_path: Optional[str] = None,
+        plot_data_path: Optional[str] = None,
+    ) -> None:
+        """
+        Mark the job as successfully completed and set completion metadata.
+
+        Args:
+            message: Human-readable completion message stored in ``completion_details``.
+            score: Optional **dict** of named metrics for this run (e.g. ``{"accuracy": 0.78}``).
+                The dict shape is required — pass ``{"score": 0.78}`` rather than ``0.78``.
+                Stored in ``job_data.score`` and surfaced by ``lab job list`` / ``lab job info``,
+                and read by sweep / autoresearch flows for optimization.
+            additional_output_path: Optional path to a directory of extra output files.
+            plot_data_path: Optional path to a JSON file with plot data for the job UI.
+
+        Examples:
+            Mark success with no metrics::
+
+                lab.finish(message="Done!")
+
+            Report a single metric::
+
+                lab.finish(message="Done!", score={"accuracy": 0.78})
+
+            Report multiple metrics::
+
+                lab.finish(score={"accuracy": 0.78, "f1": 0.83, "loss": 0.21})
+        """
+        self._ensure_initialized()
+        # Copy profiling from temp dir into job's profiling folder (when run under remote trap).
+        try:
+            profiling_temp = os.environ.get("_TFL_PROFILING_TEMP_DIR")
+            if profiling_temp and self._job:
+                from lab.profiling import copy_profiling_to_job
+
+                _run_async(
+                    copy_profiling_to_job(
+                        profiling_temp,
+                        str(self._job.id),
+                        experiment_id=str(self._experiment.id),
+                    ),  # type: ignore[union-attr]
+                )
+        except Exception:
+            pass
+        _run_async(self._job.update_progress(100))  # type: ignore[union-attr]
+
+        # Resolve score before the first write so it's included atomically with the
+        # other completion fields. This prevents a window where completion_status is
+        # "success" but score is still null (observable by caches or concurrent readers).
+        resolved_score: Dict[str, Any] = {}
+        if isinstance(score, dict):
+            resolved_score.update(score)
+        resolved_score.setdefault("discard", False)
+
+        completion_fields: Dict[str, Any] = {
+            "completion_status": "success",
+            "completion_details": message,
+            "end_time": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()),
+            "score": resolved_score,
+        }
+        if additional_output_path is not None and additional_output_path.strip() != "":
+            completion_fields["additional_output_path"] = additional_output_path
+        if plot_data_path is not None and plot_data_path.strip() != "":
+            completion_fields["plot_data_path"] = plot_data_path
+
+        _run_async(self._job.update_job_data_fields(completion_fields))  # type: ignore[union-attr]
+
+        # Best-effort Trackio integration: finish our own run if we created one,
+        # then capture the active Trackio DB (managed or user-created) into job artifacts.
+        try:
+            if self._trackio_available:
+                try:
+                    import trackio  # type: ignore[import]
+                    from trackio import context_vars  # type: ignore[import]
+
+                    current_run = context_vars.current_run.get()
+                    if self._trackio_managed and current_run is not None:
+                        trackio.finish()
+                except Exception:
+                    # Ignore Trackio finish errors
+                    pass
+
+                # Capture any active Trackio run (managed or external) into artifacts
+                try:
+                    self._capture_existing_trackio_run()
+                except Exception:
+                    pass
+        except Exception:
+            # Never let optional Trackio integration break finish()
+            logger.debug("Trackio integration failed during finish()", exc_info=True)
+
+        # Important: update cached_jobs only when all completion fields are already written.
+        _run_async(self._job.update_status(JobStatus.COMPLETE))  # type: ignore[union-attr]
+
+    def download_registry_model(self, model_id: str) -> str:
+        """Download a TLab registry model to ~/tmp/<model_id> and return the local path."""
+        return _run_async(self.async_download_registry_model(model_id))
+
+    async def async_download_registry_model(self, model_id: str) -> str:
+        """Download model from TLab registry storage to ~/tmp/<model_id> and return the local path."""
+        model = await ModelService.get(model_id)
+        remote_dir = await model.get_dir()
+        local_path = os.path.expanduser(f"~/tmp/{model_id}")
+        await storage.copy_dir(remote_dir, local_path)
+        return local_path
+
+    def save_artifact(
+        self,
+        source_path: Union[str, Any],
+        name: Optional[str] = None,
+        type: Optional[str] = None,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """
+        Save an artifact file or directory into this job's artifacts folder (sync version).
+
+        This is a sync wrapper around the async implementation.
+        Use aasync_save_artifact() if you're already in an async context.
+        """
+        return _run_async(self.async_save_artifact(source_path, name, type, config))
+
+    async def async_save_artifact(
+        self,
+        source_path: Union[str, Any],
+        name: Optional[str] = None,
+        type: Optional[str] = None,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """
+        Save an artifact file or directory into this job's artifacts folder.
+
+        Args:
+            source_path: Path to the file or directory to save, OR a pandas DataFrame
+                         when type="evals" or type="dataset"
+            name: Optional name for the artifact. If not provided, uses source basename
+                  or generates a default name for DataFrames. When type="dataset",
+                  this is used as the dataset_id. When type="model", this is used as the model name
+                  (will be prefixed with job_id for uniqueness).
+            type: Optional type of artifact.
+                  - If "evals", saves to eval_results directory and updates job data accordingly.
+                  - If "dataset", saves to job-specific datasets directory and tracks dataset_id in job data.
+                  - If "model", saves to job-specific models directory and tracks in job data.
+                  - Otherwise saves to artifacts directory.
+            config: Optional configuration dict.
+                   When type="evals", can contain column mappings under "evals" key, e.g.:
+                   {"evals": {"input": "input_col", "output": "output_col",
+                             "expected_output": "expected_col", "score": "score_col"}}
+                   When type="dataset", can contain:
+                   {"dataset": {...metadata...}, "suffix": "...", "is_image": bool}
+                   When type="model", can contain:
+                   {"model": {"architecture": "...", "pipeline_tag": "...", "parent_model": "..."}}
+                   or top-level keys: {"architecture": "...", "pipeline_tag": "...", "parent_model": "..."}
+                   Note: Model metadata is stored in job data but no longer creates Model Zoo entries.
+
+        Returns:
+            The destination path on disk.
+        """
+        self._ensure_initialized()
+
+        job_id = self._job.id  # type: ignore[union-attr]
+
+        # Handle DataFrame input when type="dataset"
+        if type == "dataset":
+            # Check if source is a DataFrame (pandas or HuggingFace dataset)
+            if hasattr(source_path, "to_json"):
+                # Normalize input: convert Hugging Face datasets.Dataset to pandas DataFrame
+                df = source_path
+                try:
+                    if hasattr(df, "to_pandas") and callable(getattr(df, "to_pandas")):
+                        df = df.to_pandas()
+                except Exception:
+                    pass
+
+                # Use name as dataset_id, or generate one if not provided
+                if name is None or (isinstance(name, str) and name.strip() == ""):
+                    import time
+
+                    timestamp = time.strftime("%Y%m%d_%H%M%S")
+                    dataset_id = f"generated_dataset_{job_id}_{timestamp}"
+                else:
+                    dataset_id = name.strip()
+
+                # Get additional metadata from config if provided
+                additional_metadata = {}
+                if config and isinstance(config, dict) and "dataset" in config:
+                    additional_metadata = config["dataset"]
+
+                # Get other parameters from config
+                suffix = None
+                is_image = False
+                if config and isinstance(config, dict):
+                    if "suffix" in config:
+                        suffix = config["suffix"]
+                    if "is_image" in config:
+                        is_image = config["is_image"]
+
+                # Delegate entirely to async_save_dataset which handles saving,
+                # metadata, and generated_datasets tracking.
+                return await self.async_save_dataset(
+                    df=df,
+                    dataset_id=dataset_id,
+                    additional_metadata=additional_metadata if additional_metadata else None,
+                    suffix=suffix,
+                    is_image=is_image,
+                    job_id=job_id,
+                )
+
+            # Handle file path input for datasets
+            else:
+                if not isinstance(source_path, str) or source_path.strip() == "":
+                    raise ValueError("source_path must be a non-empty string when type='dataset'")
+                src = source_path
+                # For local paths, resolve to absolute path; for remote paths (s3://, etc.) or URLs, use as-is
+                is_remote = storage.is_remote_path(src) or src.startswith(("http://", "https://"))
+                if not is_remote:
+                    src = os.path.abspath(src)
+
+                # Check source existence: use local filesystem for local paths, storage backend for remote
+                if is_remote:
+                    if not await storage.exists(src):
+                        raise FileNotFoundError(f"Dataset source does not exist: {src}")
+                else:
+                    if not os.path.exists(src):
+                        raise FileNotFoundError(f"Dataset source does not exist: {src}")
+
+                # Get dataset-specific parameters from config
+                # dataset_config = {}
+                # if config and isinstance(config, dict) and "dataset" in config:
+                #     dataset_config = config["dataset"]
+
+                # Determine base name with job_id prefix
+                if isinstance(name, str) and name.strip() != "":
+                    base_name_original = name.strip()
+                else:
+                    base_name_original = posixpath.basename(src)
+
+                # Add job_id prefix to avoid conflicts between jobs (like models)
+                base_name = f"{job_id}_{base_name_original}"
+
+                # Save to job-specific datasets directory (not a subdirectory per dataset)
+                datasets_dir = await dirs.get_job_datasets_dir(job_id, self._experiment.id)
+                dest = storage.join(datasets_dir, base_name)
+
+                # Create parent directories
+                await storage.makedirs(datasets_dir, exist_ok=True)
+
+                # Handle duplicate names within the same job by adding suffix
+                if await storage.exists(dest):
+                    counter = 1
+                    while True:
+                        base_name_with_suffix = f"{job_id}_{base_name_original}"
+                        # Insert counter before extension if it exists
+                        name_parts = base_name_original.rsplit(".", 1)
+                        if len(name_parts) > 1:
+                            base_name_with_suffix = f"{job_id}_{name_parts[0]}_{counter}.{name_parts[1]}"
+                        else:
+                            base_name_with_suffix = f"{job_id}_{base_name_original}_{counter}"
+
+                        dest = storage.join(datasets_dir, base_name_with_suffix)
+                        if not await storage.exists(dest):
+                            base_name = base_name_with_suffix
+                            break
+                        counter += 1
+
+                # Copy file or directory
+                # Check if source is directory: use local filesystem for local paths, storage backend for remote
+                if is_remote:
+                    src_is_dir = await storage.isdir(src)
+                else:
+                    src_is_dir = os.path.isdir(src)
+
+                if src_is_dir:
+                    await storage.copy_dir(src, dest)
+                else:
+                    await storage.copy_file(src, dest)
+
+                # Track in job_data (mirrors async_save_dataset tracking)
+                try:
+                    await self._job.update_job_data_field("dataset_id", base_name)  # type: ignore[union-attr]
+                    job_data = await self._job.get_job_data()
+                    dataset_list: list = []
+                    if isinstance(job_data, dict):
+                        existing = job_data.get("generated_datasets", [])
+                        if isinstance(existing, list):
+                            dataset_list = existing
+                    if base_name not in dataset_list:
+                        dataset_list.append(base_name)
+                    await self._job.update_job_data_field("generated_datasets", dataset_list)  # type: ignore[union-attr]
+                except Exception:
+                    logger.warning("Warning: Failed to track dataset in job_data", exc_info=True)
+
+                await self._job.log_info(  # type: ignore[union-attr]
+                    f"Dataset saved to '{dest}' and registered as generated dataset '{base_name}'"
+                )
+                return dest
+
+        # Handle DataFrame input when type="evals"
+        if type == "evals" and hasattr(source_path, "to_csv"):
+            # Normalize input: convert Hugging Face datasets.Dataset to pandas DataFrame
+            df = source_path
+            try:
+                if hasattr(df, "to_pandas") and callable(getattr(df, "to_pandas")):
+                    df = df.to_pandas()
+            except Exception:
+                pass
+
+            # Get column mappings from config or use defaults
+            evals_config = {}
+            if config and isinstance(config, dict) and "evals" in config:
+                evals_config = config["evals"]
+
+            default_mappings = {
+                "input": "input",
+                "output": "output",
+                "expected_output": "expected_output",
+                "score": "score",
+            }
+
+            # Merge user config with defaults
+            column_mappings = {**default_mappings, **evals_config}
+
+            # Validate that required columns exist (input, output, score are required)
+            required_columns = [
+                column_mappings["input"],
+                column_mappings["output"],
+                column_mappings["score"],
+            ]
+            if column_mappings.get("expected_output"):
+                required_columns.append(column_mappings["expected_output"])
+
+            missing_columns = [col for col in required_columns if col not in df.columns]
+            if missing_columns:
+                raise ValueError(f"Missing required columns in DataFrame: {missing_columns}")
+
+            # Determine destination directory and filename
+            dest_dir = await dirs.get_job_eval_results_dir(job_id, self._experiment.id)
+
+            if name is None or (isinstance(name, str) and name.strip() == ""):
+                import time
+
+                timestamp = time.strftime("%Y%m%d_%H%M%S")
+                filename = f"eval_results_{job_id}_{timestamp}.csv"
+            else:
+                filename = name if name.endswith(".csv") else f"{name}.csv"
+
+            dest = storage.join(dest_dir, filename)
+
+            # Create parent directories
+            await storage.makedirs(dest_dir, exist_ok=True)
+
+            # Save DataFrame to CSV using storage module
+            try:
+                if not hasattr(df, "to_csv"):
+                    raise TypeError(
+                        "source_path must be a pandas DataFrame or a Hugging Face datasets.Dataset when type='evals'"
+                    )
+                # Write DataFrame to StringIO buffer first (pandas doesn't support fsspec handles directly)
+                buffer = io.StringIO()
+                df.to_csv(buffer, index=False)
+                buffer.seek(0)
+                # Then write buffer content to storage
+                async with await storage.open(dest, "w", encoding="utf-8") as f:
+                    await f.write(buffer.getvalue())
+            except Exception as e:
+                raise RuntimeError(f"Failed to save evaluation results to {dest}: {str(e)}")
+
+            # Track in job_data
+            try:
+                job_data = await self._job.get_job_data()
+                eval_results_list = []
+                if isinstance(job_data, dict):
+                    existing = job_data.get("eval_results", [])
+                    if isinstance(existing, list):
+                        eval_results_list = existing
+                eval_results_list.append(dest)
+                await self._job.update_job_data_field("eval_results", eval_results_list)
+            except Exception:
+                pass
+
+            await self._job.log_info(f"Evaluation results saved to '{dest}'")  # type: ignore[union-attr]
+            return dest
+
+        # Handle file path input when type="model"
+        if type == "model":
+            if not isinstance(source_path, str) or source_path.strip() == "":
+                raise ValueError("source_path must be a non-empty string when type='model'")
+            src = source_path
+            # For local paths, resolve to absolute path; for remote paths (s3://, etc.) or URLs, use as-is
+            is_remote = storage.is_remote_path(src) or src.startswith(("http://", "https://"))
+            if not is_remote:
+                src = os.path.abspath(src)
+
+            # Check source existence: use local filesystem for local paths, storage backend for remote
+            if is_remote:
+                if not await storage.exists(src):
+                    raise FileNotFoundError(f"Model source does not exist: {src}")
+            else:
+                if not os.path.exists(src):
+                    raise FileNotFoundError(f"Model source does not exist: {src}")
+
+            # Get model-specific parameters from config
+            model_config = {}
+            architecture = None
+            pipeline_tag = None
+            parent_model = None
+
+            if config and isinstance(config, dict):
+                # Check for model config in nested dict
+                if "model" in config and isinstance(config["model"], dict):
+                    model_config = config["model"]
+                # Also allow top-level keys for convenience
+                if "architecture" in config:
+                    architecture = config["architecture"]
+                if "pipeline_tag" in config:
+                    pipeline_tag = config["pipeline_tag"]
+                if "parent_model" in config:
+                    parent_model = config["parent_model"]
+
+            # Override with nested model config if present
+            if model_config:
+                architecture = model_config.get("architecture") or architecture
+                pipeline_tag = model_config.get("pipeline_tag") or pipeline_tag
+                parent_model = model_config.get("parent_model") or parent_model
+
+            # Determine base name with job_id prefix
+            if isinstance(name, str) and name.strip() != "":
+                base_name_original = name.strip()
+            else:
+                base_name_original = posixpath.basename(src)
+
+            # For single file models, remove the extension from the directory name
+            base_name_without_ext = base_name_original
+            if not (is_remote and await storage.isdir(src)) and not (not is_remote and os.path.isdir(src)):
+                # It's a file, remove extension for directory name
+                name_parts = base_name_original.rsplit(".", 1)
+                if len(name_parts) > 1:
+                    base_name_without_ext = name_parts[0]
+
+            # Add job_id prefix to avoid conflicts between jobs
+            base_name = f"{job_id}_{base_name_without_ext}"
+
+            # Save to job-specific models directory
+            models_dir = await dirs.get_job_models_dir(job_id, self._experiment.id)
+            dest = storage.join(models_dir, base_name)
+
+            # Create model directory
+            await storage.makedirs(dest, exist_ok=True)
+
+            # Handle duplicate names within the same job by adding suffix
+            if await storage.exists(dest):
+                # Check if there are any files in the directory (not just the directory exists)
+                try:
+                    contents = await storage.ls(dest, detail=False)
+                    if contents:  # Directory exists and has contents
+                        counter = 1
+                        while True:
+                            base_name_with_suffix = f"{job_id}_{base_name_without_ext}_{counter}"
+                            dest = storage.join(models_dir, base_name_with_suffix)
+                            if not await storage.exists(dest):
+                                base_name = base_name_with_suffix
+                                await storage.makedirs(dest, exist_ok=True)
+                                break
+                            # Check if this directory has contents
+                            try:
+                                contents = await storage.ls(dest, detail=False)
+                                if not contents:  # Empty directory, we can use it
+                                    base_name = base_name_with_suffix
+                                    break
+                            except Exception:
+                                pass
+                            counter += 1
+                except Exception:
+                    pass
+
+            # Copy file or directory
+            # Check if source is directory: use local filesystem for local paths, storage backend for remote
+            if is_remote:
+                src_is_dir = await storage.isdir(src)
+            else:
+                src_is_dir = os.path.isdir(src)
+
+            if src_is_dir:
+                await storage.copy_dir(src, dest)
+            else:
+                dest_file = storage.join(dest, base_name_original)
+                await storage.copy_file(src, dest_file)
+
+            # Create model metadata JSON file alongside the model
+            try:
+                # Initialize model service
+                model_service = ModelService(base_name)
+
+                # Use provided architecture or detect it
+                if architecture is None:
+                    architecture = await model_service.detect_architecture(dest)
+
+                # Handle pipeline tag logic
+                if pipeline_tag is None and parent_model is not None:
+                    # Try to fetch pipeline tag from parent model
+                    pipeline_tag = model_service.fetch_pipeline_tag(parent_model)
+
+                # Determine model_filename for single-file models
+                # Check if dest contains a single model file
+                model_filename = ""
+                try:
+                    contents = await storage.ls(dest, detail=False)
+                    # Filter out metadata files
+                    model_files = [
+                        f
+                        for f in contents
+                        if not posixpath.basename(str(f) if not isinstance(f, dict) else f.get("name", "")).startswith(
+                            "."
+                        )
+                        and not posixpath.basename(str(f) if not isinstance(f, dict) else f.get("name", "")).endswith(
+                            ".json"
+                        )
+                    ]
+                    if len(model_files) == 1:
+                        # Single file model
+                        file_path = (
+                            model_files[0] if isinstance(model_files[0], str) else model_files[0].get("name", "")
+                        )
+                        model_filename = posixpath.basename(file_path)
+                except Exception:
+                    pass
+
+                # Prepare json_data with basic info
+                json_data = {
+                    "job_id": job_id,
+                    "description": f"Model generated by job {job_id}",
+                }
+
+                # Add pipeline tag to json_data if provided
+                if pipeline_tag is not None:
+                    json_data["pipeline_tag"] = pipeline_tag
+
+                # Use the Model class's generate_model_json method to create metadata
+                await model_service.generate_model_json(
+                    architecture=architecture,
+                    model_filename=model_filename,
+                    json_data=json_data,
+                )
+                await self._job.log_info(f"Model saved to '{dest}'")  # type: ignore[union-attr]
+            except Exception as e:
+                # This branch runs inside async code, so log directly with the async API.
+                await self._job.log_info(f"Warning: Model saved but metadata creation failed: {str(e)}")  # type: ignore[union-attr]
+
+            # Track in job_data
+            try:
+                job_data = await self._job.get_job_data()
+                model_list = []
+                if isinstance(job_data, dict):
+                    existing = job_data.get("models", [])
+                    if isinstance(existing, list):
+                        model_list = existing
+                model_list.append(dest)
+                await self._job.update_job_data_field("models", model_list)
+            except Exception:
+                pass
+
+            return dest
+
+        # Handle file path input (original behavior)
+        if not isinstance(source_path, str) or source_path.strip() == "":
+            raise ValueError("source_path must be a non-empty string")
+        src = source_path
+        # For local paths, resolve to absolute path; for remote paths (s3://, etc.) or URLs, use as-is
+        is_remote = storage.is_remote_path(src) or src.startswith(("http://", "https://"))
+        if not is_remote:
+            src = os.path.abspath(src)
+
+        # Check source existence: use local filesystem for local paths, storage backend for remote
+        if is_remote:
+            if not await storage.exists(src):
+                raise FileNotFoundError(f"Artifact source does not exist: {src}")
+        else:
+            if not os.path.exists(src):
+                raise FileNotFoundError(f"Artifact source does not exist: {src}")
+
+        # Determine destination directory based on type
+        if type == "evals":
+            dest_dir = await dirs.get_job_eval_results_dir(job_id, self._experiment.id)
+        else:
+            dest_dir = await dirs.get_job_artifacts_dir(job_id, self._experiment.id)
+
+        base_name = name if (isinstance(name, str) and name.strip() != "") else posixpath.basename(src)
+        dest = storage.join(dest_dir, base_name)
+
+        # Create parent directories
+        await storage.makedirs(dest_dir, exist_ok=True)
+
+        # Copy file or directory
+        # Check if source is directory: use local filesystem for local paths, storage backend for remote
+        if is_remote:
+            src_is_dir = await storage.isdir(src)
+        else:
+            src_is_dir = os.path.isdir(src)
+
+        if src_is_dir:
+            if await storage.exists(dest):
+                await storage.rm_tree(dest)
+            await storage.copy_dir(src, dest)
+        else:
+            await storage.copy_file(src, dest)
+
+        # Track in job_data based on type
+        try:
+            job_data = await self._job.get_job_data()
+            if type == "evals":
+                # For eval results, track in eval_results list
+                eval_results_list = []
+                if isinstance(job_data, dict):
+                    existing = job_data.get("eval_results", [])
+                    if isinstance(existing, list):
+                        eval_results_list = existing
+                eval_results_list.append(dest)
+                await self._job.update_job_data_field("eval_results", eval_results_list)
+            else:
+                # For regular artifacts, track in artifacts list
+                artifact_list = []
+                if isinstance(job_data, dict):
+                    existing = job_data.get("artifacts", [])
+                    if isinstance(existing, list):
+                        artifact_list = existing
+                artifact_list.append(dest)
+                await self._job.update_job_data_field("artifacts", artifact_list)
+        except Exception:
+            pass
+
+        return dest
+
+    def save_dataset(
+        self,
+        df,
+        dataset_id: str,
+        additional_metadata: Optional[Dict[str, Any]] = None,
+        suffix: Optional[str] = None,
+        is_image: bool = False,
+        job_id: Optional[str] = None,
+    ) -> str:
+        """
+        Save a dataset under the workspace datasets directory (sync version).
+
+        This is a sync wrapper around the async implementation.
+        Use a_save_dataset() if you're already in an async context.
+        """
+        # Auto-fill job_id if not provided and lab is initialized
+        if job_id is None and self._job is not None:
+            job_id = self._job.id
+        return _run_async(self.async_save_dataset(df, dataset_id, additional_metadata, suffix, is_image, job_id))
+
+    async def async_save_dataset(
+        self,
+        df,
+        dataset_id: str,
+        additional_metadata: Optional[Dict[str, Any]] = None,
+        suffix: Optional[str] = None,
+        is_image: bool = False,
+        job_id: Optional[str] = None,
+    ) -> str:
+        """
+        Save a dataset under the job-specific datasets directory.
+
+        Args:
+            df: A pandas DataFrame or a Hugging Face datasets.Dataset to serialize to disk.
+            dataset_id: Identifier for the dataset directory under `datasets/`.
+            additional_metadata: Optional dict to merge into dataset json_data.
+            suffix: Optional suffix to append to the output filename stem.
+            is_image: If True, save JSON Lines (for image metadata-style rows).
+            job_id: Required job ID. Datasets are saved to job-specific directory.
+
+        Returns:
+            The path to the saved dataset file on disk.
+        """
+        self._ensure_initialized()
+        if not isinstance(dataset_id, str) or dataset_id.strip() == "":
+            raise ValueError("dataset_id must be a non-empty string")
+
+        # Normalize input: convert Hugging Face datasets.Dataset to pandas DataFrame
+        try:
+            if hasattr(df, "to_pandas") and callable(getattr(df, "to_pandas")):
+                df = df.to_pandas()
+        except Exception:
+            logger.warning("Failed to convert dataset to pandas DataFrame", exc_info=True)
+
+        # Prepare dataset directory
+        dataset_id_safe = dataset_id.strip()
+
+        # Always use job-specific directory
+        if not job_id:
+            raise ValueError("job_id is required for saving datasets")
+
+        # Add job_id prefix to dataset_id to avoid conflicts between jobs
+        dataset_id_with_prefix = f"{job_id}_{dataset_id_safe}"
+
+        dataset_dir = await dirs.get_job_datasets_dir(job_id, self._experiment.id)
+        await storage.makedirs(dataset_dir, exist_ok=True)
+
+        # Determine output location and filename
+        if is_image:
+            # Image datasets already use a per-dataset subdirectory
+            lines = True
+            stem = dataset_id_with_prefix
+            if isinstance(suffix, str) and suffix.strip() != "":
+                stem = f"{stem}_{suffix.strip()}"
+            output_filename = "metadata.jsonl"
+            dataset_subdir = storage.join(dataset_dir, stem)
+            await storage.makedirs(dataset_subdir, exist_ok=True)
+            output_path = storage.join(dataset_subdir, output_filename)
+
+            # Handle duplicate image dataset names by creating a new subdirectory
+            if await storage.exists(output_path):
+                counter = 1
+                while True:
+                    stem_with_suffix = f"{dataset_id_with_prefix}_{counter}"
+                    if isinstance(suffix, str) and suffix.strip() != "":
+                        stem_with_suffix = f"{stem_with_suffix}_{suffix.strip()}"
+                    dataset_subdir = storage.join(dataset_dir, stem_with_suffix)
+                    output_path = storage.join(dataset_subdir, "metadata.jsonl")
+                    if not await storage.exists(output_path):
+                        stem = stem_with_suffix
+                        output_filename = "metadata.jsonl"
+                        dataset_id_with_prefix = (
+                            stem_with_suffix.split("_")[0] + "_" + stem_with_suffix.split("_", 1)[1]
+                            if "_" in stem_with_suffix
+                            else stem_with_suffix
+                        )
+                        break
+                    counter += 1
+
+                await storage.makedirs(dataset_subdir, exist_ok=True)
+        else:
+            # For non-image datasets, store all dataset files inside a dedicated
+            # per-dataset folder under the job's datasets directory so that the job
+            # sees exactly one logical "dataset" entry instead of many files.
+            lines = False
+            stem = dataset_id_with_prefix
+            if isinstance(suffix, str) and suffix.strip() != "":
+                stem = f"{stem}_{suffix.strip()}"
+
+            # Create a subdirectory for this dataset using the job-prefixed id
+            dataset_subdir = storage.join(dataset_dir, dataset_id_with_prefix)
+            await storage.makedirs(dataset_subdir, exist_ok=True)
+
+            # Write the main data file inside this dataset folder
+            output_filename = f"{stem}.json"
+            output_path = storage.join(dataset_subdir, output_filename)
+
+            # Handle duplicate names within the same job by adding a numeric suffix
+            if await storage.exists(output_path):
+                counter = 1
+                while True:
+                    stem_with_suffix = f"{stem}_{counter}"
+                    output_filename = f"{stem_with_suffix}.json"
+                    output_path = storage.join(dataset_subdir, output_filename)
+                    if not await storage.exists(output_path):
+                        stem = stem_with_suffix
+                        break
+                    counter += 1
+
+        # Persist dataframe
+        try:
+            if not hasattr(df, "to_json"):
+                raise TypeError("df must be a pandas DataFrame or a Hugging Face datasets.Dataset")
+            # Write DataFrame to StringIO buffer first (pandas doesn't support fsspec handles directly)
+            buffer = io.StringIO()
+            df.to_json(buffer, orient="records", lines=lines)
+            buffer.seek(0)
+            # Then write buffer content to storage
+            async with await storage.open(output_path, "w", encoding="utf-8") as f:
+                await f.write(buffer.getvalue())
+        except Exception as e:
+            raise RuntimeError(f"Failed to save dataset to {output_path}: {str(e)}")
+
+        # Create or update filesystem metadata using Dataset object (works for both global and job-specific)
+        try:
+            try:
+                ds = await Dataset.get(dataset_id_with_prefix, job_id=job_id)
+            except FileNotFoundError:
+                ds = await Dataset.create(dataset_id_with_prefix, job_id=job_id)
+
+            # Base json_data with generated flag for UI filtering
+            json_data: Dict[str, Any] = {
+                "generated": True,
+                "sample_count": len(df) if hasattr(df, "__len__") else -1,
+                "files": [output_filename],
+                "job_id": job_id,
+                "original_dataset_id": dataset_id_safe,  # Keep original ID for reference
+            }
+            if additional_metadata and isinstance(additional_metadata, dict):
+                json_data.update(additional_metadata)
+
+            await ds.set_metadata(
+                location="local",
+                description=json_data.get("description", ""),
+                size=-1,
+                json_data=json_data,
+            )
+        except Exception as e:
+            # Do not fail the save if metadata write fails; log to standard logger
+            logger.warning("Failed to create dataset metadata", exc_info=True)
+            try:
+                await self._job.update_job_data_field("dataset_metadata_error", str(e))  # type: ignore[union-attr]
+            except Exception:
+                logger.warning("Failed to log dataset metadata error", exc_info=True)
+
+        # Track dataset on the job for provenance
+        try:
+            await self._job.update_job_data_field("dataset_id", dataset_id_with_prefix)  # type: ignore[union-attr]
+            # Also track in generated_datasets list for consistency with save_artifact(type="dataset")
+            job_data = await self._job.get_job_data()  # type: ignore[union-attr]
+            generated_datasets_list: list = []
+            if isinstance(job_data, dict):
+                existing = job_data.get("generated_datasets", [])
+                if isinstance(existing, list):
+                    generated_datasets_list = existing
+            if dataset_id_with_prefix not in generated_datasets_list:
+                generated_datasets_list.append(dataset_id_with_prefix)
+            await self._job.update_job_data_field("generated_datasets", generated_datasets_list)  # type: ignore[union-attr]
+        except Exception:
+            logger.warning("Warning: Failed to track dataset in job_data", exc_info=True)
+
+        await self._job.log_info(  # type: ignore[union-attr]
+            f"Dataset saved to '{output_path}' and registered as generated dataset '{dataset_id_with_prefix}'"
+        )
+        return output_path
+
+    def save_checkpoint(self, source_path: str, name: Optional[str] = None) -> str:
+        """
+        Save a checkpoint file or directory into this job's checkpoints folder (sync version).
+
+        This is a sync wrapper around the async implementation.
+        Use async_save_checkpoint() if you're already in an async context.
+        """
+        return _run_async(self.async_save_checkpoint(source_path, name))
+
+    async def async_save_checkpoint(self, source_path: str, name: Optional[str] = None) -> str:
+        """
+        Save a checkpoint file or directory into this job's checkpoints folder.
+        Returns the destination path on disk.
+        """
+        self._ensure_initialized()
+        if not isinstance(source_path, str) or source_path.strip() == "":
+            raise ValueError("source_path must be a non-empty string")
+        src = source_path
+        # For local paths, resolve to absolute path; for remote paths (s3://, etc.) or URLs, use as-is
+        is_remote = storage.is_remote_path(src) or src.startswith(("http://", "https://"))
+        if not is_remote:
+            src = os.path.abspath(src)
+
+        # Check source existence: use local filesystem for local paths, storage backend for remote
+        if is_remote:
+            if not await storage.exists(src):
+                raise FileNotFoundError(f"Checkpoint source does not exist: {src}")
+        else:
+            if not os.path.exists(src):
+                raise FileNotFoundError(f"Checkpoint source does not exist: {src}")
+
+        job_id = self._job.id  # type: ignore[union-attr]
+        ckpts_dir = await dirs.get_job_checkpoints_dir(job_id, self._experiment.id)
+        base_name = name if (isinstance(name, str) and name.strip() != "") else posixpath.basename(src)
+        dest = storage.join(ckpts_dir, base_name)
+
+        # Create parent directories
+        await storage.makedirs(ckpts_dir, exist_ok=True)
+
+        # Copy file or directory
+        # Check if source is directory: use local filesystem for local paths, storage backend for remote
+        if is_remote:
+            src_is_dir = await storage.isdir(src)
+        else:
+            src_is_dir = os.path.isdir(src)
+
+        if src_is_dir:
+            if await storage.exists(dest):
+                await storage.rm_tree(dest)
+            await storage.copy_dir(src, dest)
+        else:
+            await storage.copy_file(src, dest)
+
+        # Track in job_data and update latest pointer
+        try:
+            job_data = await self._job.get_job_data()
+            ckpt_list = []
+            if isinstance(job_data, dict):
+                existing = job_data.get("checkpoints", [])
+                if isinstance(existing, list):
+                    ckpt_list = existing
+            ckpt_list.append(dest)
+            await self._job.update_job_data_field("checkpoints", ckpt_list)
+            await self._job.update_job_data_field("latest_checkpoint", dest)
+        except Exception:
+            logger.warning("Failed to track checkpoint in job_data", exc_info=True)
+
+        return dest
+
+    def save_model(
+        self,
+        source_path: str,
+        name: Optional[str] = None,
+        architecture: Optional[str] = None,
+        pipeline_tag: Optional[str] = None,
+        parent_model: Optional[str] = None,
+    ) -> str:
+        """
+        Save a model file or directory to the job-specific models directory (sync version).
+
+        This is a sync wrapper around the async implementation.
+        Use async_save_model() if you're already in an async context.
+        """
+        return _run_async(self.async_save_model(source_path, name, architecture, pipeline_tag, parent_model))
+
+    async def async_save_model(
+        self,
+        source_path: str,
+        name: Optional[str] = None,
+        architecture: Optional[str] = None,
+        pipeline_tag: Optional[str] = None,
+        parent_model: Optional[str] = None,
+    ) -> str:
+        """
+        Save a model file or directory to the job-specific models directory.
+
+        This method is a convenience wrapper around save_artifact with type="model".
+        For new code, consider using save_artifact directly with type="model".
+
+        Args:
+            source_path: Path to the model file or directory to save
+            name: Optional name for the model. If not provided, uses source basename.
+                 The final model name will be prefixed with the job_id for uniqueness.
+            architecture: Optional architecture string. If not provided, will attempt to
+                         detect from config.json for directory-based models.
+            pipeline_tag: Optional pipeline tag. If not provided and parent_model is given,
+                         will attempt to fetch from parent model on HuggingFace.
+            parent_model: Optional parent model name/ID.
+
+        Returns:
+            The destination path on disk.
+        """
+        # Build config dict from parameters
+        config = {}
+        if architecture is not None:
+            config["architecture"] = architecture
+        if pipeline_tag is not None:
+            config["pipeline_tag"] = pipeline_tag
+        if parent_model is not None:
+            config["parent_model"] = parent_model
+
+        # Use save_artifact with type="model"
+        return await self.async_save_artifact(
+            source_path=source_path,
+            name=name,
+            type="model",
+            config=config if config else None,
+        )
+
+    def error(
+        self,
+        message: str = "",
+    ) -> None:
+        """
+        Mark the job as failed and set completion metadata.
+        """
+        self._ensure_initialized()
+        # Copy profiling from temp dir into job's profiling folder (when run under remote trap).
+        try:
+            profiling_temp = os.environ.get("_TFL_PROFILING_TEMP_DIR")
+            if profiling_temp and self._job:
+                from lab.profiling import copy_profiling_to_job
+
+                _run_async(
+                    copy_profiling_to_job(
+                        profiling_temp,
+                        str(self._job.id),
+                        experiment_id=str(self._experiment.id),
+                    ),  # type: ignore[union-attr]
+                )
+        except Exception:
+            pass
+        _run_async(
+            self._job.update_job_data_fields(  # type: ignore[union-attr]
+                {
+                    "completion_status": "failed",
+                    "completion_details": message,
+                    "end_time": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()),
+                    "status": JobStatus.FAILED,
+                }
+            )
+        )
+        _run_async(self._job.update_status(JobStatus.FAILED))  # type: ignore[union-attr]
+
+    def _detect_and_capture_wandb_url(self) -> None:
+        """
+        Detect wandb run URLs from various sources and store them in job data.
+        This method checks for wandb integration in multiple ways:
+        1. Environment variables set by wandb
+        2. Active wandb runs in the current process
+        3. TRL trainer integrations
+        """
+        try:
+            # Method 1: Check environment variables set by wandb
+            wandb_url = os.environ.get("WANDB_URL")
+            if wandb_url:
+                _run_async(self._job.update_job_data_field("wandb_run_url", wandb_url))
+                logger.info(f"📊 Detected wandb run URL: {wandb_url}")
+                return
+
+            # Avoid importing wandb unless we have strong signals it is configured.
+            # Some native dependencies of wandb can hard-crash in constrained environments.
+            if not any(
+                os.environ.get(k)
+                for k in (
+                    "WANDB_API_KEY",
+                    "WANDB_PROJECT",
+                    "WANDB_RUN_ID",
+                    "WANDB_ENTITY",
+                    "WANDB_USER",
+                    "WANDB_MODE",
+                )
+            ):
+                return
+
+            # Method 2: Check for active wandb run in current process
+            try:
+                import wandb
+
+                if wandb.run is not None:
+                    wandb_url = wandb.run.url
+                    if wandb_url:
+                        _run_async(self._job.update_job_data_field("wandb_run_url", wandb_url))
+                        logger.info(f"📊 Detected wandb run URL: {wandb_url}")
+                        return
+            except ImportError:
+                pass
+
+            # Method 3: Check for wandb in TRL trainers or other frameworks
+            # Look for wandb integration in global variables or modules
+            try:
+                import wandb
+
+                # Check if there's a wandb run that was initialized elsewhere
+                if hasattr(wandb, "api") and wandb.api and wandb.api.api_key:
+                    # If wandb is configured, try to get the current run
+                    current_run = wandb.run
+                    if current_run and hasattr(current_run, "url"):
+                        wandb_url = current_run.url
+                        if wandb_url:
+                            _run_async(self._job.update_job_data_field("wandb_run_url", wandb_url))
+                            logger.info(f"📊 Detected wandb run URL: {wandb_url}")
+                            return
+            except (ImportError, AttributeError):
+                pass
+
+        except Exception:
+            # Silently fail - wandb detection is optional
+            pass
+
+    def _check_and_capture_wandb_url(self) -> None:
+        """
+        Check for wandb run URLs and capture them in job data.
+        This is called automatically on every log and progress update operation.
+        """
+        try:
+            # Only check if we haven't already captured a wandb URL
+            job_data = _run_async(self._job.get_job_data())
+            if job_data.get("wandb_run_url"):
+                return  # Already have a wandb URL
+
+            # Method 1: Check environment variables
+            wandb_url = os.environ.get("WANDB_URL")
+            if wandb_url:
+                _run_async(self._job.update_job_data_field("wandb_run_url", wandb_url))
+                logger.info(f"📊 Auto-detected wandb URL from environment: {wandb_url}")
+                return
+
+            # Method 2: Check active wandb run
+            try:
+                if not any(
+                    os.environ.get(k)
+                    for k in (
+                        "WANDB_API_KEY",
+                        "WANDB_PROJECT",
+                        "WANDB_RUN_ID",
+                        "WANDB_ENTITY",
+                        "WANDB_USER",
+                        "WANDB_MODE",
+                    )
+                ):
+                    return
+
+                import wandb
+
+                if wandb.run is not None and hasattr(wandb.run, "url"):
+                    wandb_url = wandb.run.url
+                    if wandb_url:
+                        _run_async(self._job.update_job_data_field("wandb_run_url", wandb_url))
+                        logger.info(f"📊 Auto-detected wandb URL from wandb.run: {wandb_url}")
+                        return
+            except ImportError:
+                pass
+
+        except Exception:
+            # Silently fail - wandb detection is optional
+            pass
+
+    def capture_wandb_url(self, wandb_url: str) -> None:
+        """
+        Manually capture a wandb run URL and store it in job data.
+        This can be called by scripts that have wandb integration.
+        """
+        if wandb_url and wandb_url.strip():
+            self._ensure_initialized()
+            clean_url = wandb_url.strip()
+            _run_async(self._job.update_job_data_field("wandb_run_url", clean_url))
+            logger.info(f"📊 Captured wandb run URL: {clean_url}")
+
+    def capture_trackio_metadata(self, db_path: str) -> str:
+        """
+        Save a local Trackio metrics directory or database file into the shared
+        trackio_runs project directory for this experiment.
+
+        This is a sync wrapper around the async implementation. Requires
+        TLAB_TRACKIO_PROJECT_NAME to be set.
+
+        Args:
+            db_path: Path to the Trackio directory (or single DB file) on the current machine.
+
+        Returns:
+            The destination path where the Trackio data was saved.
+        """
+        return _run_async(self.async_capture_trackio_metadata(db_path))
+
+    async def async_capture_trackio_metadata(self, db_path: str) -> str:
+        """
+        Async implementation of capture_trackio_metadata().
+        Requires TLAB_TRACKIO_PROJECT_NAME (shared project); copies to
+        trackio_runs/{experiment_id}/{project_name}/ and does not write
+        trackio_db_artifact_path (dashboard derives path).
+        """
+        self._ensure_initialized()
+
+        if not isinstance(db_path, str) or db_path.strip() == "":
+            raise ValueError("db_path must be a non-empty string")
+
+        src = os.path.abspath(db_path)
+
+        if not os.path.exists(src):
+            raise FileNotFoundError(f"Trackio path does not exist: {src}")
+
+        trackio_project_name_env = (os.environ.get("TLAB_TRACKIO_PROJECT_NAME") or "").strip()
+        if not (trackio_project_name_env and self._experiment is not None):
+            raise RuntimeError(
+                "TLAB_TRACKIO_PROJECT_NAME env var and an experiment context are required to capture Trackio metadata."
+            )
+
+        # Shared project: copy to trackio_runs/{experiment_id}/{project_name}/ (merge, do not rm)
+        workspace_dir = await dirs.get_workspace_dir()
+        trackio_dir = storage.join(
+            workspace_dir,
+            "trackio_runs",
+            secure_filename(str(self._experiment.id)),
+            secure_filename(trackio_project_name_env),
+        )
+        await storage.makedirs(trackio_dir, exist_ok=True)
+        if os.path.isdir(src):
+            await storage.copy_dir(src, trackio_dir)
+        else:
+            base_name = posixpath.basename(src)
+            dest_file = storage.join(trackio_dir, base_name)
+            await storage.copy_file(src, dest_file)
+        # Do not write trackio_db_artifact_path; dashboard derives from trackio_project_name
+        logger.info(f"📊 Saved Trackio metrics to shared project: {trackio_dir}")
+        return trackio_dir
+
+    async def _seed_trackio_shared_path_async(self, experiment_id: str, project_name: str, dest_dir: str) -> None:
+        """If shared project path exists, copy its contents into dest_dir (seed for new run)."""
+        try:
+            workspace_dir = await dirs.get_workspace_dir()
+            shared_path = storage.join(
+                workspace_dir,
+                "trackio_runs",
+                secure_filename(str(experiment_id)),
+                secure_filename(project_name),
+            )
+            if await storage.exists(shared_path) and await storage.isdir(shared_path):
+                await storage.copy_dir(shared_path, dest_dir)
+        except Exception as e:
+            logger.debug("Trackio shared path seed failed: %s", e)
+
+    def _capture_existing_trackio_run(self) -> None:
+        """
+        If trackio is installed and there is an active project, capture its DB into this
+        job's artifacts using capture_trackio_metadata().
+
+        Safe to call even if trackio is not installed or no run is active.
+        """
+        try:
+            from trackio import context_vars  # type: ignore[import]
+            from trackio.utils import TRACKIO_DIR  # type: ignore[import]
+
+            current_project = context_vars.current_project.get()
+            if current_project:
+                db_path = str(TRACKIO_DIR)
+                self.capture_trackio_metadata(db_path=db_path)
+        except Exception:
+            # Completely best-effort; ignore all errors here
+            return
+
+    def capture_active_trackio_run(self) -> None:
+        """
+        Public wrapper for scripts that already use Trackio and want to register
+        their metrics with TransformerLab. This snapshots the current Trackio DB
+        into this job's artifacts.
+        """
+        self._ensure_initialized()
+        self._capture_existing_trackio_run()
+
+    # ------------- helpers -------------
+    def _ensure_initialized(self) -> None:
+        if self._experiment is None or self._job is None:
+            raise RuntimeError("lab not initialized. Call lab.init(experiment_id=...) first.")
+
+    def _resolve_experiment_id(self, experiment_id: Optional[str] = None) -> str:
+        if isinstance(experiment_id, str) and experiment_id.strip() != "":
+            return secure_filename(experiment_id)
+        if self._experiment is not None:
+            return str(self._experiment.id)
+        raise RuntimeError(
+            "No experiment_id provided and lab is not initialized. "
+            "Call lab.init(experiment_id=...) or pass experiment_id explicitly."
+        )
+
+    @property
+    def job(self) -> Job:
+        self._ensure_initialized()
+        return self._job  # type: ignore[return-value]
+
+    def get_checkpoints_dir(self) -> str:
+        """
+        Get the checkpoints directory path for the current job (sync version).
+
+        This is a sync wrapper around the async implementation.
+        Use async_get_checkpoints_dir() if you're already in an async context.
+        """
+        return _run_async(self.async_get_checkpoints_dir())
+
+    async def async_get_checkpoints_dir(self) -> str:
+        """
+        Get the checkpoints directory path for the current job.
+        """
+        self._ensure_initialized()
+        return await self._job.get_checkpoints_dir()  # type: ignore[union-attr]
+
+    def get_artifacts_dir(self) -> str:
+        """
+        Get the artifacts directory path for the current job (sync version).
+
+        This is a sync wrapper around the async implementation.
+        Use async_get_artifacts_dir() if you're already in an async context.
+        """
+        return _run_async(self.async_get_artifacts_dir())
+
+    async def async_get_artifacts_dir(self) -> str:
+        """
+        Get the artifacts directory path for the current job.
+        """
+        self._ensure_initialized()
+        return await self._job.get_artifacts_dir()  # type: ignore[union-attr]
+
+    def get_checkpoint_paths(self) -> list[str]:
+        """
+        Get list of checkpoint file paths for the current job (sync version).
+
+        This is a sync wrapper around the async implementation.
+        Use async_get_checkpoint_paths() if you're already in an async context.
+        """
+        return _run_async(self.async_get_checkpoint_paths())
+
+    async def async_get_checkpoint_paths(self) -> list[str]:
+        """
+        Get list of checkpoint file paths for the current job.
+        """
+        self._ensure_initialized()
+        return await self._job.get_checkpoint_paths()  # type: ignore[union-attr]
+
+    def get_artifact_paths(self) -> list[str]:
+        """
+        Get list of artifact file paths for the current job (sync version).
+
+        This is a sync wrapper around the async implementation.
+        Use async_get_artifact_paths() if you're already in an async context.
+        """
+        return _run_async(self.async_get_artifact_paths())
+
+    async def async_get_artifact_paths(self) -> list[str]:
+        """
+        Get list of artifact file paths for the current job.
+        """
+        self._ensure_initialized()
+        return await self._job.get_artifact_paths()  # type: ignore[union-attr]
+
+    def list_datasets(self) -> list[Dict[str, Any]]:
+        """
+        List all local datasets available in the workspace.
+
+        Returns:
+            List of dictionaries containing dataset metadata. Each dictionary includes:
+            - dataset_id: The dataset identifier
+            - location: Where the dataset is stored (e.g. "local")
+            - description: A human-readable description
+            - size: The dataset size (-1 if unknown)
+            - json_data: Additional dataset metadata
+        """
+        return _run_async(Dataset.list_all())
+
+    def list_documents(self, folder: Optional[str] = None, experiment_id: Optional[str] = None) -> list[Dict[str, Any]]:
+        """
+        List documents for an experiment folder (sync version).
+        """
+        return _run_async(self.async_list_documents(folder=folder, experiment_id=experiment_id))
+
+    async def async_list_documents(
+        self, folder: Optional[str] = None, experiment_id: Optional[str] = None
+    ) -> list[Dict[str, Any]]:
+        """
+        List documents for an experiment folder (async version).
+        """
+        resolved_experiment_id = self._resolve_experiment_id(experiment_id)
+        exp = Experiment(resolved_experiment_id)
+        experiment_dir = await exp.get_dir()
+        documents_dir = storage.join(experiment_dir, "documents")
+
+        safe_folder = secure_filename(folder) if folder else ""
+        if safe_folder:
+            documents_dir = storage.join(documents_dir, safe_folder)
+
+        if not await storage.exists(documents_dir):
+            return []
+
+        entries = await storage.ls(documents_dir, detail=False)
+        results: list[Dict[str, Any]] = []
+        for full_path in entries:
+            name = os.path.basename(str(full_path).rstrip("/"))
+            if name in {".tlab_markitdown", ".keep"}:
+                continue
+            is_dir = await storage.isdir(full_path)
+            results.append(
+                {
+                    "name": name,
+                    "path": full_path,
+                    "type": "folder" if is_dir else os.path.splitext(name)[1].lower(),
+                }
+            )
+        return sorted(results, key=lambda item: item["name"])
+
+    def get_document_contents(
+        self,
+        document_name: str,
+        folder: Optional[str] = None,
+        experiment_id: Optional[str] = None,
+        encoding: str = "utf-8",
+        errors: str = "strict",
+    ) -> str:
+        """
+        Read a document as text (sync version).
+        """
+        return _run_async(
+            self.async_get_document_contents(
+                document_name=document_name,
+                folder=folder,
+                experiment_id=experiment_id,
+                encoding=encoding,
+                errors=errors,
+            )
+        )
+
+    async def async_get_document_contents(
+        self,
+        document_name: str,
+        folder: Optional[str] = None,
+        experiment_id: Optional[str] = None,
+        encoding: str = "utf-8",
+        errors: str = "strict",
+    ) -> str:
+        """
+        Read a document as text (async version).
+        """
+        document_bytes = await self.async_get_document_bytes(
+            document_name=document_name,
+            folder=folder,
+            experiment_id=experiment_id,
+        )
+        return document_bytes.decode(encoding, errors=errors)
+
+    def get_document_bytes(
+        self,
+        document_name: str,
+        folder: Optional[str] = None,
+        experiment_id: Optional[str] = None,
+    ) -> bytes:
+        """
+        Read a document as bytes (sync version).
+        """
+        return _run_async(
+            self.async_get_document_bytes(
+                document_name=document_name,
+                folder=folder,
+                experiment_id=experiment_id,
+            )
+        )
+
+    async def async_get_document_bytes(
+        self,
+        document_name: str,
+        folder: Optional[str] = None,
+        experiment_id: Optional[str] = None,
+    ) -> bytes:
+        """
+        Read a document as bytes (async version).
+        """
+        resolved_experiment_id = self._resolve_experiment_id(experiment_id)
+        exp = Experiment(resolved_experiment_id)
+        experiment_dir = await exp.get_dir()
+
+        safe_name = secure_filename(document_name)
+        if not safe_name:
+            raise ValueError("document_name must be a non-empty filename")
+
+        documents_dir = storage.join(experiment_dir, "documents")
+        safe_folder = secure_filename(folder) if folder else ""
+        if safe_folder:
+            document_path = storage.join(documents_dir, safe_folder, safe_name)
+        else:
+            document_path = storage.join(documents_dir, safe_name)
+
+        if not await storage.exists(document_path):
+            raise FileNotFoundError(f"Document not found: {document_path}")
+
+        async with await storage.open(document_path, "rb") as f:
+            return await f.read()
+
+    def get_dataset(self, dataset_id: str, job_id: Optional[str] = None) -> Dataset:
+        """
+        Get a specific local dataset by ID.
+
+        The lookup is automatically scoped to the current team/organization context.
+
+        Args:
+            dataset_id: The identifier of the dataset to retrieve
+            job_id: Optional job ID. If provided, looks up the dataset in the
+                    job-specific datasets directory instead of the global one.
+
+        Returns:
+            Dataset: A Dataset instance for the specified dataset
+
+        Raises:
+            FileNotFoundError: If the dataset directory doesn't exist
+        """
+        return _run_async(Dataset.get(dataset_id, job_id=job_id))
+
+    def list_models(self) -> list[Dict[str, Any]]:
+        """
+        List all local models available in the workspace.
+
+        Returns:
+            List of dictionaries containing model metadata. Each dictionary includes:
+            - model_id: The model identifier
+            - name: The model name
+            - json_data: Additional model metadata
+        """
+        return _run_async(ModelService.list_all())
+
+    def get_model(self, model_id: str) -> ModelService:
+        """
+        Get a specific local model by ID.
+
+        Args:
+            model_id: The identifier of the model to retrieve
+
+        Returns:
+            Model: A Model instance for the specified model
+
+        Raises:
+            FileNotFoundError: If the model directory doesn't exist
+        """
+        return _run_async(ModelService.get(model_id))
+
+    def get_model_path(self, model_id: str) -> str:
+        """
+        Get the filesystem path to a specific local model.
+
+        Args:
+            model_id: The identifier of the model
+
+        Returns:
+            str: The full path to the model directory
+
+        Raises:
+            FileNotFoundError: If the model doesn't exist
+        """
+        model = _run_async(ModelService.get(model_id))
+        return _run_async(model.get_dir())
+
+    @property
+    def experiment(self) -> Experiment:
+        self._ensure_initialized()
+        return self._experiment  # type: ignore[return-value]
+
+    def set_job_data_field(self, key: str, value: Any) -> None:
+        """
+        Set a single key/value pair on this job's job_data (sync version).
+        This is a thin, synchronous wrapper around Job.update_job_data_field and is
+        intended as a replacement for plugin SDK helpers like add_job_data().
+        """
+        self._ensure_initialized()
+        _run_async(self._job.update_job_data_field(key, value))  # type: ignore[union-attr]
+
+    def get_job_data(self) -> Dict[str, Any]:
+        """
+        Get the job data dictionary (sync version).
+
+        This is a sync wrapper around the async Job.get_job_data() method.
+        Use async_get_job_data() if you're already in an async context.
+        """
+        self._ensure_initialized()
+        return _run_async(self._job.get_job_data())  # type: ignore[union-attr]
+
+    async def async_get_job_data(self) -> Dict[str, Any]:
+        """
+        Get the job data dictionary (async version).
+        """
+        self._ensure_initialized()
+        return await self._job.get_job_data()  # type: ignore[union-attr]
+
+    def get_hf_callback(self):
+        """
+        Get a HuggingFace TrainerCallback instance for TransformerLab integration.
+
+        This callback automatically:
+        - Updates training progress in TransformerLab
+        - Logs training metrics (loss, etc.)
+        - Saves checkpoints to TransformerLab when they are created
+        - Logs epoch completion and training end events
+        - When Trackio is installed and a run is active, logs metrics to Trackio as well
+
+        Returns:
+            LabCallback: A TrainerCallback instance that can be passed to HuggingFace Trainer
+
+        Example:
+            from lab import lab
+            from transformers import Trainer
+
+            lab.init(experiment_id="my_experiment")
+            callback = lab.get_hf_callback()
+
+            trainer = Trainer(
+                model=model,
+                args=training_args,
+                train_dataset=dataset,
+                callbacks=[callback],
+            )
+        """
+        self._ensure_initialized()
+
+        # Import TrainerCallback at runtime to avoid requiring transformers as a dependency
+        try:
+            from transformers import TrainerCallback
+        except ImportError:
+            raise ImportError(
+                "transformers package is required to use get_hf_callback(). "
+                "Please install it with: uv pip install transformers"
+            )
+
+        class LabCallback(TrainerCallback):
+            """Custom callback to update TransformerLab progress and save checkpoints"""
+
+            def __init__(self, lab_instance: "Lab"):
+                super().__init__()
+                self.lab = lab_instance
+                self.training_started = False
+                self.total_steps = None
+                # Optional Trackio integration (best-effort)
+                self._trackio_available = False
+                self._trackio = None
+
+                try:
+                    import trackio  # type: ignore[import]
+                    from trackio import context_vars  # type: ignore[import]
+
+                    # Only enable Trackio logging if either:
+                    # - The env flag is set (user/QueueTask explicitly requested it), OR
+                    # - There is already an active Trackio run (user is managing Trackio manually).
+                    auto_init = os.environ.get("TLAB_TRACKIO_AUTO_INIT", "false").lower() == "true"
+                    existing_run = context_vars.current_run.get()
+                    if auto_init or existing_run is not None:
+                        self._trackio_available = True
+                        self._trackio = trackio
+                except Exception:
+                    # Trackio is entirely optional; ignore if not installed or misconfigured
+                    self._trackio_available = False
+
+            def on_train_begin(self, args, state, control, **kwargs):
+                """Called when training begins"""
+                self.lab.log("🚀 Training started with HuggingFace Trainer")
+                self.training_started = True
+                if state.max_steps and state.max_steps > 0:
+                    self.total_steps = state.max_steps
+                else:
+                    # Estimate steps if not provided
+                    self.total_steps = 1000
+
+            def on_step_end(self, args, state, control, **kwargs):
+                """Called after each training step"""
+                if self.total_steps:
+                    progress = int((state.global_step / self.total_steps) * 100)
+                    progress = min(progress, 95)  # Keep some buffer for final operations
+                    self.lab.update_progress(progress)
+
+                # Log training metrics if available
+                if state.log_history:
+                    latest_log = state.log_history[-1]
+                    if "loss" in latest_log:
+                        self.lab.log(f"Step {state.global_step}: loss={latest_log['loss']:.4f}")
+
+                    # Best-effort: also log raw metrics dict to Trackio if it's available.
+                    # This assumes that trackio.init() has been called elsewhere (either by
+                    # the user script or via TLAB_TRACKIO_AUTO_INIT in lab.init()).
+                    if self._trackio_available and self._trackio is not None:
+                        try:
+                            self._trackio.log(latest_log)
+                        except Exception:
+                            # Never let Trackio issues break training
+                            pass
+
+            def on_save(self, args, state, control, **kwargs):
+                """Called when a checkpoint is saved"""
+                self.lab.log(f"💾 Checkpoint saved at step {state.global_step}")
+
+                # Attempt to save the checkpoint using lab's checkpoint mechanism
+                if hasattr(args, "output_dir"):
+                    checkpoint_dir = None
+                    # Find the most recent checkpoint
+                    if os.path.exists(args.output_dir):
+                        checkpoints = [d for d in os.listdir(args.output_dir) if d.startswith("checkpoint-")]
+
+                        def _checkpoint_step(name: str) -> int:
+                            # Names are normally "checkpoint-<step>", but guard against
+                            # non-numeric suffixes (e.g. "checkpoint-final") so sorting
+                            # never raises ValueError.
+                            suffix = name.split("-", 1)[1] if "-" in name else ""
+                            return int(suffix) if suffix.isdigit() else -1
+
+                        if checkpoints:
+                            # Sort by checkpoint number
+                            checkpoints.sort(key=_checkpoint_step)
+                            latest_checkpoint = checkpoints[-1]
+                            checkpoint_dir = os.path.join(args.output_dir, latest_checkpoint)
+
+                            # Save checkpoint to TransformerLab
+                            try:
+                                saved_path = self.lab.save_checkpoint(checkpoint_dir, f"checkpoint-{state.global_step}")
+                                self.lab.log(f"✅ Saved checkpoint to TransformerLab: {saved_path}")
+                            except Exception as e:
+                                self.lab.log(f"⚠️  Could not save checkpoint to TransformerLab: {e}")
+
+            def on_epoch_end(self, args, state, control, **kwargs):
+                """Called at the end of each epoch"""
+                if state.epoch:
+                    self.lab.log(f"📊 Completed epoch {int(state.epoch)} / {args.num_train_epochs}")
+
+            def on_train_end(self, args, state, control, **kwargs):
+                """Called when training ends"""
+                self.lab.log("✅ Training completed successfully")
+                self.lab.update_progress(95)
+
+                # If Trackio is active, attempt to snapshot its DB into this job's artifacts
+                # so the dashboard can be viewed from the Tasks UI. This is best-effort and
+                # complements the capture that may happen in lab.finish().
+                try:
+                    if self._trackio_available:
+                        try:
+                            self.lab._capture_existing_trackio_run()
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+
+        return LabCallback(self)
+
+    def load_generation_model(self, config: Optional[Dict[str, Any] | str] = None) -> GenerationModel:
+        """
+        Convenience wrapper to construct a simple text generation model.
+
+        This delegates to lab.generation.load_generation_model and is intentionally
+        library-agnostic. You can call it directly on the lab facade:
+
+            from lab import lab
+            gen = lab.load_generation_model({"provider": "local", "model": "MyModel"})
+            output = gen.generate("Hello")
+        """
+        return _load_generation_model(config)
+
+
+def capture_wandb_url_from_env() -> str | None:
+    """
+    Utility function to capture wandb run URL from environment variables.
+    This can be called by scripts that use wandb but don't use the TLabPlugin system.
+
+    Returns:
+        str: The wandb run URL if found, None otherwise
+    """
+    return os.environ.get("WANDB_URL")
+
+
+def capture_wandb_url_from_run() -> str | None:
+    """
+    Utility function to capture wandb run URL from the current wandb run.
+    This can be called by scripts that have initialized wandb.run.
+
+    Returns:
+        str: The wandb run URL if found, None otherwise
+    """
+    try:
+        import wandb
+
+        if wandb.run is not None and hasattr(wandb.run, "url"):
+            return wandb.run.url
+    except ImportError:
+        pass
+    return None
+
+
+def capture_wandb_url_from_trl() -> str | None:
+    """
+    Utility function to capture wandb run URL from TRL trainers.
+    This checks for wandb integration in TRL-based training scripts.
+
+    Returns:
+        str: The wandb run URL if found, None otherwise
+    """
+    try:
+        import wandb
+
+        # Check for wandb in TRL trainer context
+        if wandb.run is not None:
+            return wandb.run.url
+
+        # Check environment variables as fallback
+        return os.environ.get("WANDB_URL")
+    except ImportError:
+        return None

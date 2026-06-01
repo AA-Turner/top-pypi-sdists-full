@@ -1,0 +1,74 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scitex-config"
+version = "0.3.6"
+description = "Configuration + path management with direct → yaml → env → default priority cascade and per-package state-dir resolver — standalone module from the SciTeX ecosystem"
+readme = "README.md"
+license = "AGPL-3.0-only"
+requires-python = ">=3.9"
+authors = [{name = "Yusuke Watanabe", email = "noreply@scitex.ai"}]
+keywords = ["scitex", "config", "yaml", "dotenv", "settings"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "PyYAML",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "ruff",
+    "scitex-dev>=0.11.7",
+]
+docs = [
+    "sphinx>=7.0",
+    "sphinx-rtd-theme>=2.0",
+    "myst-parser>=2.0",
+    "sphinx-copybutton>=0.5",
+    "sphinx-autodoc-typehints>=1.25",
+]
+all = [
+    "scitex-config[dev,docs]",
+]
+
+[project.urls]
+Homepage = "https://github.com/ywatanabe1989/scitex-config"
+Repository = "https://github.com/ywatanabe1989/scitex-config"
+Documentation = "https://scitex-config.readthedocs.io"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+scitex_config = ["*.yaml", "_skills/**/*.md"]
+
+[project.entry-points."scitex_dev.skills"]
+scitex-config = "scitex_config"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--disable-warnings"]
+
+[tool.coverage.run]
+parallel = true
+source = ["scitex_config"]
+concurrency = ["multiprocessing", "thread"]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I"]
+ignore = ["E501"]
+
+[tool.scitex-linter]
+library_dirs = ["src", "tests", "apps", "config", "docs", "examples"]

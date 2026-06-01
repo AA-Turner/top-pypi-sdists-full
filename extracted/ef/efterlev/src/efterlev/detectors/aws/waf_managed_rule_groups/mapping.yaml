@@ -1,0 +1,42 @@
+detector_id: aws.waf_managed_rule_groups
+
+ksis:
+  - id: KSI-CNA-RVP
+    name: "Reviewing Protections"
+    coverage: partial
+    notes: >
+      Evidences whether each `aws_wafv2_web_acl` references at least
+      one AWS- or vendor-managed rule group via
+      `statement.managed_rule_group_statement`. Managed groups
+      (AWSManagedRulesCommonRuleSet, AWSManagedRulesKnownBadInputsRuleSet,
+      etc.) provide the bulk OWASP-Top-10 / known-bad-input coverage
+      that hand-written custom rules rarely match. Joins
+      `aws.waf_rule_count`, `aws.cna_dos_protection`, and
+      `aws.api_gateway_waf_attached` on this KSI. Per the DECISIONS
+      entry, per-Web-ACL emission (NOT per-rule). Does NOT evidence
+      whether the chosen group is appropriate, whether override action
+      is `none` (so the group's rules actually fire vs only count), or
+      whether the group is the latest version -- those dimensions are
+      future `aws.waf_*` family detectors.
+
+controls:
+  - id: SI-3
+    evidence_type: infrastructure
+    coverage: partial
+    notes: >
+      Malicious Code Protection at the L7 boundary -- AWS-managed rule
+      groups are the bulk-protection layer (CVE-aware, OWASP-aligned)
+      most teams rely on for WAF coverage. The presence check is the
+      binary "does this Web ACL pull in any managed-group coverage at
+      all" prerequisite; group selection and override actions are
+      separate dimensions.
+  - id: "RA-5(11)"
+    evidence_type: infrastructure
+    coverage: partial
+    notes: >
+      Public Disclosure Program proxy signal -- AWS-managed rule sets
+      track CVE-class disclosures and known-bad-input patterns, so the
+      presence of managed groups is a thin but real signal that the
+      Web ACL benefits from AWS's vulnerability-disclosure program.
+      Does NOT prove the workload's own disclosure program; that is
+      the `KSI-RA-PDP` dimension future detectors may cover.

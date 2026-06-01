@@ -13,6 +13,27 @@ import time
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
+import contextlib
+import tempfile
+import shutil
+import typer.testing
+
+# Monkeypatch isolated_filesystem for typer.testing.CliRunner in newer Typer versions
+@contextlib.contextmanager
+def _isolated_filesystem(self, temp_dir=None):
+    cwd = os.getcwd()
+    t_dir = tempfile.mkdtemp(dir=temp_dir)
+    os.chdir(t_dir)
+    try:
+        yield t_dir
+    finally:
+        os.chdir(cwd)
+        try:
+            shutil.rmtree(t_dir)
+        except OSError:
+            pass
+
+typer.testing.CliRunner.isolated_filesystem = _isolated_filesystem
 
 import pytest
 
@@ -20,6 +41,7 @@ import pytest
 _HERE = Path(__file__).resolve().parent          # .../sage/tests
 _SAGE_MODULE = _HERE.parent                       # .../sage
 _PROJECT_ROOT = _SAGE_MODULE.parent               # .../ai-platform
+
 
 
 @pytest.fixture
@@ -61,10 +83,22 @@ class CompletionsHTTPHandler(BaseHTTPRequestHandler):
 
     def _get_domain_from_prompt(self, prompt: str) -> str:
         prompt_lower = prompt.lower()
-        if "react and tailwind" in prompt_lower or "advertising dashboard" in prompt_lower or "react_tailwind" in prompt_lower or "vue_pinia" in prompt_lower or "svelte_kanban" in prompt_lower:
-            return "websites"
-        if "react native feed" in prompt_lower or "infinite scroll" in prompt_lower or "react_native" in prompt_lower or "flutter_bloc" in prompt_lower or "swiftui" in prompt_lower:
+        if "react native feed" in prompt_lower or "infinite scroll" in prompt_lower or "react_native" in prompt_lower or "react-native" in prompt_lower or "flutter_bloc" in prompt_lower or "swiftui" in prompt_lower or "expo" in prompt_lower:
             return "mobile_apps"
+        if (
+            "react and tailwind" in prompt_lower
+            or "advertising dashboard" in prompt_lower
+            or "advertising-dashboard" in prompt_lower
+            or "react_tailwind" in prompt_lower
+            or "vue_pinia" in prompt_lower
+            or "svelte_kanban" in prompt_lower
+            or "vite" in prompt_lower
+            or "react-vite" in prompt_lower
+            or "tailwindcss" in prompt_lower
+            or "tailwind" in prompt_lower
+            or "react" in prompt_lower
+        ):
+            return "websites"
         if "2d physics" in prompt_lower or "physics engine" in prompt_lower or "phaser_arcade" in prompt_lower or "unity_controller" in prompt_lower or "godot_movement" in prompt_lower:
             return "video_games"
         if "fastapi backend" in prompt_lower or "backend service" in prompt_lower or "fastapi_redis" in prompt_lower or "express_postgres" in prompt_lower or "django_rest" in prompt_lower:
@@ -91,13 +125,14 @@ class CompletionsHTTPHandler(BaseHTTPRequestHandler):
             return "phone_calls"
         return "generate_files"
 
+
     def _get_expected_filename(self, domain: str) -> str:
         mapping = {
-            "websites": "index.html",
-            "mobile_apps": "ItemListScreen.tsx",
-            "video_games": "physics.js",
-            "backend_services": "main.py",
-            "deployments": "main.tf",
+            "websites": "frontend/index.html",
+            "mobile_apps": "frontend/ItemListScreen.tsx",
+            "video_games": "frontend/physics.js",
+            "backend_services": "backend/main.py",
+            "deployments": "deploy/main.tf",
             "videos": "generated_media.mp4",
             "images": "logo.svg",
             "audio_files": "generated_media.mp4",
@@ -872,15 +907,28 @@ func _physics_process(delta):
 """
             domain = "game_scripts"
         elif requested_path:
-            filename = os.path.basename(requested_path)
-            ext = filename.split(".")[-1].lower() if "." in filename else ""
+            filename = requested_path
+            basename = os.path.basename(requested_path)
+            ext = basename.split(".")[-1].lower() if "." in basename else ""
             
-            is_test_file = "test" in filename.lower() or "spec" in filename.lower()
+            is_test_file = "test" in basename.lower() or "spec" in basename.lower()
             if is_test_file:
                 if ext == "py":
                     file_content = 'import sys\n\ndef test_system_properties():\n    assert sys.platform in ("darwin", "linux", "win32")\n    assert sys.version_info.major == 3\n'
                 elif ext in ("js", "ts", "jsx", "tsx"):
-                    file_content = 'test("runtime platform verification", () => {\n    expect(process.platform).toBeDefined();\n    expect(typeof process.nextTick).toBe("function");\n});'
+                    stack_match = re.search(r"## stack\s+([a-z0-9_+-]+)", filtered_history)
+                    stack_name = stack_match.group(1) if stack_match else ""
+                    is_react_native = "react-native" in stack_name or "expo" in stack_name
+                    if requested_path:
+                        req_path_lower = requested_path.replace("\\", "/").lower()
+                        if "/src/" in req_path_lower:
+                            is_react_native = False
+                        elif "/app/" in req_path_lower or "app.json" in req_path_lower or "metro.config" in req_path_lower:
+                            is_react_native = True
+                    if is_react_native:
+                        file_content = 'test("runtime platform verification", () => {\n    expect(1 + 1).toBe(2);\n});'
+                    else:
+                        file_content = 'import { test, expect } from "vitest";\ntest("runtime platform verification", () => {\n    expect(process.platform).toBeDefined();\n    expect(typeof process.nextTick).toBe("function");\n});'
                 elif ext == "go":
                     file_content = 'package main\nimport "testing"\nimport "runtime"\nfunc TestRuntimeEnvironment(t *testing.T) {\n    if runtime.GOOS == "" {\n        t.Error("Unknown GOOS")\n    }\n}'
                 elif ext == "rs":
@@ -899,38 +947,50 @@ func _physics_process(delta):
                     file_content = 'extends Node2D\nfunc test_pass():\n    var node = Node2D.new()\n    assert(node != null)'
                 else:
                     file_content = 'import sys\nprint("system platform:", sys.platform)'
-            elif filename.lower() == "dockerfile":
+            elif basename.lower() == "dockerfile":
                 file_content = 'FROM alpine\nCMD ["echo", "Hello"]\n'
-            elif filename == "app.json":
+            elif basename == "app.json":
                 file_content = '{\n  "expo": {\n    "name": "App",\n    "slug": "app",\n    "version": "1.0.0",\n    "sdkVersion": "51.0.0"\n  }\n}'
-            elif filename == ".gitignore":
+            elif basename == ".gitignore":
                 file_content = ".sage/\nnode_modules/\nvenv/\n__pycache__/\n*.pyc\n.pytest_cache/\n"
-            elif filename == "tsconfig.json":
-                file_content = '{\n  "compilerOptions": {\n    "target": "esnext",\n    "module": "commonjs",\n    "strict": true,\n    "esModuleInterop": true,\n    "skipLibCheck": true,\n    "forceConsistentCasingInFileNames": true\n  }\n}'
-            elif filename == "docker-compose.yml":
+            elif basename == "tsconfig.json":
+                file_content = '{\n  "compilerOptions": {\n    "target": "esnext",\n    "module": "commonjs",\n    "strict": true,\n    "esModuleInterop": true,\n    "skipLibCheck": true,\n    "forceConsistentCasingInFileNames": true,\n    "jsx": "react-jsx"\n  }\n}'
+            elif basename == "docker-compose.yml":
                 file_content = "version: '3.8'\nservices:\n  db:\n    image: postgres:15\n    environment:\n      POSTGRES_DB: app\n      POSTGRES_USER: postgres\n      POSTGRES_PASSWORD: password\n    ports:\n      - '5432:5432'\n"
-            elif filename == "ci.yml":
+            elif basename == "ci.yml":
                 file_content = 'name: CI\non: [push]\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v2\n      - name: Run tests\n        run: echo "Tests passed"\n'
-            elif filename in ("README.md", "README"):
+            elif basename in ("README.md", "README"):
                 file_content = "# Project\nThis is a production-ready application built with SAGE.\n"
-            elif filename == "alembic.ini":
+            elif basename == "alembic.ini":
                 file_content = "[alembic]\nscript_location = alembic\nsqlalchemy.url = ${DATABASE_URL}\n"
-            elif filename == "script.py.mako":
+            elif basename == "script.py.mako":
                 file_content = '"""${message}\nRevision ID: ${up_revision}\nRevises: ${down_revision}\n"""\ndef upgrade():\n    pass\ndef downgrade():\n    pass\n'
-            elif filename == ".env.example":
+            elif basename == ".env.example":
                 file_content = "DATABASE_URL=postgresql://postgres:password@localhost:5432/app\nREDIS_URL=redis://localhost:6379/0\n"
-            elif filename == "__init__.py":
+            elif basename == "__init__.py":
                 file_content = "# Package marker\n"
-            elif filename == ".gitkeep":
+            elif basename == ".gitkeep":
                 file_content = "# Keep directory\n"
-            elif filename == "auth.js":
+            elif basename == "auth.js":
                 file_content = "import { initializeApp } from 'firebase/app';\nconst app = initializeApp({ apiKey: 'fake-api-key' });\nexport default app;\n"
-            elif filename == "AuthContext.jsx":
+            elif basename == "AuthContext.jsx":
                 file_content = "import React, { createContext } from 'react';\nexport const AuthContext = createContext(null);\nexport const AuthProvider = ({ children }) => {\n    return <AuthContext.Provider value={{user: null}}>{children}</AuthContext.Provider>;\n};\n"
-            elif filename in ("firebaseEnv.js", "firebaseEnv.ts"):
+            elif basename in ("firebaseEnv.js", "firebaseEnv.ts"):
                 file_content = "export const firebaseConfig = { apiKey: 'fake' };\n"
-            elif filename in ("index.js", "index.ts") and requested_path and "firebase" in requested_path.lower():
+            elif basename in ("index.js", "index.ts") and requested_path and "firebase" in requested_path.lower():
                 file_content = "export { default } from './auth';\n"
+            elif basename.lower() == "index.html":
+                file_content = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Advertising Dashboard</title>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+</body>
+</html>"""
             elif ext == "json":
                 file_content = '{\n  "status": "ok"\n}'
             elif ext in ("yaml", "yml"):
@@ -940,9 +1000,18 @@ func _physics_process(delta):
             elif ext in ("js", "mjs"):
                 file_content = 'function greet() {\n    console.log("Hello");\n}\ngreet();'
             elif ext in ("ts", "mts"):
-                file_content = 'function greet(name: string): void {\n    console.log("Hello, " + name);\n}\ngreet("World");'
+                file_content = 'export function greet(name: string): void {\n    console.log("Hello, " + name);\n}\ngreet("World");'
             elif ext in ("jsx", "tsx"):
-                if "react-native" in filtered_history or "itemlistscreen" in filename.lower() or "mobile" in filtered_history:
+                stack_match = re.search(r"## stack\s+([a-z0-9_+-]+)", filtered_history)
+                stack_name = stack_match.group(1) if stack_match else ""
+                is_rn = "react-native" in stack_name or "expo" in stack_name
+                if requested_path:
+                    req_path_lower = requested_path.replace("\\", "/").lower()
+                    if "/src/" in req_path_lower:
+                        is_rn = False
+                    elif "/app/" in req_path_lower or "app.json" in req_path_lower or "metro.config" in req_path_lower:
+                        is_rn = True
+                if is_rn:
                     file_content = """import React, { useState } from 'react';
 import { SafeAreaView, FlatList, Text, View, StyleSheet } from 'react-native';
 export const ItemListScreen: React.FC = () => {
@@ -1100,8 +1169,79 @@ SCAFFOLD_COMPLETE"""
                 response_text = f"Here is the implementation.\n\nFILE: {filename}\n```{lang}\n{file_content}\n```\nSCAFFOLD_COMPLETE"
 
         # Override response for self-healing loop compilation error repair test
-        if "python compile" in filtered_history and "app/main.py" in filtered_history:
-            response_text = '{"app/main.py": "def run_app():\\n    print(\'broken\')\\n"}'
+        is_repair = (
+            "return only a json object" in filtered_history
+            or "fix a '" in filtered_history
+            or "failure in a" in filtered_history
+        )
+        if is_repair:
+            if "python compile" in filtered_history and "app/main.py" in filtered_history:
+                response_text = '{"app/main.py": "def run_app():\\n    print(\'broken\')\\n"}'
+            else:
+                import re
+                files_to_fix = []
+                matches = re.findall(r"##\s+([^\s\n`]+)", last_msg)
+                for m in matches:
+                    m_clean = m.strip("`:")
+                    if m_clean and "." in m_clean:
+                        files_to_fix.append(m_clean)
+                if not files_to_fix:
+                    matches = re.findall(r"##\s+([^\s\n`]+)", filtered_history)
+                    for m in matches:
+                        m_clean = m.strip("`:")
+                        if m_clean and "." in m_clean:
+                            files_to_fix.append(m_clean)
+
+                config_basenames = {
+                    "package.json", "tsconfig.json", "vite.config.ts", ".env", ".env.example",
+                    ".gitignore", ".npmrc", "babel.config.js", "metro.config.js", "tailwind.config.js",
+                    "postcss.config.js", "webpack.config.js"
+                }
+
+                fixes_dict = {}
+                for fpath in set(files_to_fix):
+                    basename = os.path.basename(fpath)
+                    if basename in config_basenames:
+                        continue  # Keep original generated configuration
+                    
+                    ext = basename.split(".")[-1].lower() if "." in basename else ""
+                    is_test_file = "test" in basename.lower() or "spec" in basename.lower()
+                    
+                    if basename == "index.html":
+                        fixes_dict[fpath] = '<!DOCTYPE html>\n<html lang="en"><head><meta charset="UTF-8"><title>App</title></head><body><div id="root"></div><script type="module" src="/src/main.jsx"></script></body></html>'
+                    elif is_test_file:
+                        if ext in ("js", "ts", "jsx", "tsx"):
+                            fixes_dict[fpath] = 'import { test, expect } from "vitest";\ntest("runs successfully", () => {\n    expect(1 + 1).toBe(2);\n});'
+                        elif ext == "py":
+                            fixes_dict[fpath] = 'def test_dummy():\n    assert True'
+                        else:
+                            fixes_dict[fpath] = 'assert True'
+                    else:
+                        if ext in ("jsx", "tsx"):
+                            fixes_dict[fpath] = 'import React from "react";\nexport default function App() {\n    return React.createElement("div", null, "App");\n}'
+                        elif ext in ("js", "ts"):
+                            fixes_dict[fpath] = 'export function helper() {\n    return "helper";\n}'
+                        elif ext == "py":
+                            fixes_dict[fpath] = 'def main():\n    pass\nif __name__ == "__main__":\n    main()'
+                        else:
+                            fixes_dict[fpath] = '/* ok */'
+                
+                if fixes_dict:
+                    response_text = json.dumps(fixes_dict)
+                else:
+                    response_text = '{}'
+
+        try:
+            with open("/Users/laynefaler/.gemini/antigravity/brain/c83ce90c-9e34-44d5-af14-b1ee6d85c486/mock_server_debug.log", "a", encoding="utf-8") as f_dbg:
+                f_dbg.write(f"\n=====================================\n")
+                f_dbg.write(f"REQUEST FOR PATH: {requested_path}\n")
+                f_dbg.write(f"LAST MESSAGE: {last_msg[:200]}...\n")
+                f_dbg.write(f"DOMAIN: {domain if 'domain' in locals() else 'N/A'}\n")
+                f_dbg.write(f"FILENAME: {filename if 'filename' in locals() else 'N/A'}\n")
+                f_dbg.write(f"IS_RN: {is_rn if 'is_rn' in locals() else 'N/A'}\n")
+                f_dbg.write(f"RESPONSE LENGTH: {len(response_text)}\n")
+        except Exception:
+            pass
 
         # Return OpenAI-compatible stream or non-stream JSON
         stream = payload.get("stream", False)

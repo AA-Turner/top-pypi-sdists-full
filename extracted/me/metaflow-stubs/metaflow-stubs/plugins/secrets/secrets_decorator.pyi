@@ -1,0 +1,42 @@
+######################################################################################################
+#                                 Auto-generated Metaflow stub file                                  #
+# MF version: 2.19.31                                                                                #
+# Generated on 2026-06-01T01:50:49.602320                                                            #
+######################################################################################################
+
+from __future__ import annotations
+
+import metaflow
+import typing
+if typing.TYPE_CHECKING:
+    import metaflow.decorators
+
+from ...exception import MetaflowException as MetaflowException
+from .secrets_spec import SecretSpec as SecretSpec
+from .utils import get_secrets_backend_provider as get_secrets_backend_provider
+from .utils import validate_env_vars as validate_env_vars
+from .utils import validate_env_vars_across_secrets as validate_env_vars_across_secrets
+from .utils import validate_env_vars_vs_existing_env as validate_env_vars_vs_existing_env
+
+DEFAULT_SECRETS_ROLE: None
+
+UBF_TASK: str
+
+class SecretsDecorator(metaflow.decorators.StepDecorator, metaclass=type):
+    """
+    Specifies secrets to be retrieved and injected as environment variables prior to
+    the execution of a step.
+    
+    Parameters
+    ----------
+    sources : List[Union[str, Dict[str, Any]]], default: []
+        List of secret specs, defining how the secrets are to be retrieved
+    role : str, optional, default: None
+        Role to use for fetching secrets
+    allow_override : bool, optional, default: False
+        Toggle whether secrets can replace existing environment variables.
+    """
+    def task_pre_step(self, step_name, task_datastore, metadata, run_id, task_id, flow, graph, retry_count, max_user_code_retries, ubf_context, inputs):
+        ...
+    ...
+

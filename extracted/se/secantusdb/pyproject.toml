@@ -1,0 +1,191 @@
+[project]
+# PyPI project name. The Python *import* name stays `secantus` (the package
+# at src/secantus/) — pip-the-PyPI-name vs import-the-module-name is normal
+# Python (Pillow → PIL, scikit-learn → sklearn). PyPI normalizes
+# `SecantusDB` → `secantusdb` for URLs and lookup; pip is case-insensitive.
+name = "SecantusDB"
+version = "0.5.2b7"
+description = "An embeddable, MongoDB compatible, document database, built on WiredTiger"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Joe Drumgoole", email = "joe@joedrumgoole.com" }]
+license = "GPL-2.0-only AND CC-BY-4.0"
+# Compound SPDX expression: code (src/, build glue, vendored WiredTiger
+# headers we ship) is GPL-2.0-only; written content (README.md, docs/,
+# validation reports, pymongo_validation/README.md) is CC-BY-4.0. Both
+# license files travel with the wheel via `license-files` below.
+license-files = ["LICENSE", "LICENSE-DOCS"]
+dependencies = [
+    "pymongo>=4.6",
+    # `wiredtiger` is bundled in the binary wheel via vendor/wiredtiger;
+    # no PyPI dependency on the standalone wiredtiger package.
+    "s2sphere>=0.2.5",
+    "shapely>=2.0",
+    # python-dateutil powers variable-length date arithmetic in
+    # ``$densify`` (month / quarter / year units). Pure-Python, no
+    # native components; on virtually every box already as a
+    # transitive dep of botocore / pytest / etc.
+    "python-dateutil>=2.8",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-xdist>=3.5",
+    "pytest-json-report>=1.5",  # for pymongo-validation report generation
+    "pytest-benchmark>=4.0",  # for tests/test_perf_regression.py
+    "pytest-timeout>=2.4",  # per-test deadline; names hung tests instead of letting CI hang at 97%
+    "trustme>=1.2",  # ephemeral CA + self-signed certs for tests/test_tls.py
+    "invoke>=2.2",
+    "ruff>=0.6",
+    "sphinx>=7.2",
+    "myst-parser>=2.0",
+    "furo>=2024.1",
+]
+website = [
+    # Pelican + markdown plugin pull in Jinja2, feedgenerator, etc.
+    "pelican>=4.9",
+    "markdown>=3.6",
+    # AWS SDK for the boto3-based provisioner / deployer in
+    # website/infra/aws.py. Confined to the website extra so it never
+    # ships in the runtime dependency closure.
+    "boto3>=1.34",
+]
+admin = [
+    # Local FastAPI app served behind a pywebview window. Loopback-only
+    # with a per-launch token; no external services. See docs/admin.md.
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "jinja2>=3.1",
+    "httpx>=0.27",
+    "pywebview>=5.0",
+    "python-multipart>=0.0.9",
+    # OS-level process-name override — makes the macOS menu bar / Dock
+    # / Activity Monitor say "SecantusDB admin" instead of "Python".
+    "setproctitle>=1.3",
+]
+
+[project.scripts]
+# `secantusdb` is the primary console script, matching the PyPI distribution
+# name. `secantus` is kept as a shorter legacy alias — both invoke the same
+# entry point and start a standalone single-node server.
+secantusdb = "secantus.cli:main"
+secantus = "secantus.cli:main"
+secantusdb-admin = "secantus.admin.cli:main"
+# Offline restore tool: extract a SecantusDB backup archive into a
+# fresh directory the user then points a new `secantusdb` at.
+secantusdb-restore-archive = "secantus.restore_cli:main"
+
+[build-system]
+# SWIG is required at build time but pulled from the host (Homebrew /
+# apt / dnf / apk / choco) rather than the PyPI `swig` wrapper package.
+# The PyPI wrapper's `swig4.0 -help` shim trips CMake's FindSWIG
+# language-detection probe, so we rely on a real system swig instead.
+# Installation prerequisites are documented in docs/installation.md and
+# satisfied by tool.cibuildwheel.{linux,macos,windows} `before-build`.
+requires = ["scikit-build-core>=0.10"]
+build-backend = "scikit_build_core.build"
+
+[tool.scikit-build]
+minimum-version = "0.10"
+cmake.version = ">=3.21"
+cmake.build-type = "Release"
+build-dir = "build/{wheel_tag}"
+wheel.packages = ["src/secantus"]
+# vendor/wiredtiger contains GPL'd C source; cibuildwheel needs it.
+sdist.include = ["vendor/wiredtiger/**"]
+sdist.exclude = [
+    "vendor/wiredtiger/test/**",
+    "vendor/wiredtiger/bench/**",
+    "vendor/wiredtiger/examples/**",
+    # pymongo-validation is a dev-only fixture: pymongo's tests live as a
+    # git submodule (Apache-2.0; we don't redistribute), and our adapter
+    # code is invoked locally via `invoke validate`. Neither belongs in
+    # the wheel or the sdist.
+    "vendor/pymongo-tests/**",
+    "pymongo_validation/**",
+    "pymongo-validation/**",
+    "vendor/mongo-go-driver/**",
+    "go_validation/**",
+    "vendor/node-mongodb-native/**",
+    "node_validation/**",
+    "vendor/mongo-java-driver/**",
+    "java_validation/**",
+    "vendor/mongo-ruby-driver/**",
+    "ruby_validation/**",
+    ".validation/**",
+    # brandkit/ is marketing content (logos, brand-guide HTML); not
+    # needed at install or run time. The docs that need it pull from
+    # docs/_static/ (a small subset checked in there too). Cloners
+    # and the GitHub release page are the right place for the full kit.
+    "brandkit/**",
+    # website/ is the marketing site (Pelican source + boto3 provisioner).
+    # Dev-only; never shipped in the wheel or sdist.
+    "website/**",
+    # tests/cross_driver/ holds Go and Node smoke programs that exercise
+    # SecantusDB through non-Python drivers. The Python orchestrator
+    # (tests/test_geo_cross_driver.py) ships, but the JS/Go sources
+    # don't need to live in the wheel — they're dev-only scaffolding.
+    "tests/cross_driver/**",
+]
+
+[tool.cibuildwheel]
+# Skip 32-bit and pypy targets. Build for every supported CPython ABI
+# (requires-python is ">=3.10") so users on cp310/cp311/cp312/cp313
+# always pip-install a pre-built wheel.
+build = "cp310-* cp311-* cp312-* cp313-*"
+skip = ["*-win32", "*-manylinux_i686", "pp*"]
+build-verbosity = 1
+# Real smoke tests against the installed wheel: server bind, pymongo
+# handshake (hello/ping/serverInfo), unknown-command resilience. A broken
+# wheel that imports cleanly but mishandles requests fails here, not
+# silently in the user's pip install. pytest-xdist is needed because
+# pyproject.toml's [tool.pytest.ini_options] addopts="-n auto" is picked
+# up when pytest walks up from {project}/tests/.
+test-requires = ["pytest", "pytest-xdist"]
+test-command = "pytest -v {project}/tests/test_smoke.py {project}/tests/test_pymongo_smoke.py"
+
+[tool.cibuildwheel.linux]
+# manylinux x86_64 + aarch64 + musllinux x86_64 + aarch64; install swig in
+# whichever container cibuildwheel is using:
+#   - manylinux2014: CentOS 7 (yum)
+#   - manylinux_2_28: AlmaLinux 8 (dnf)
+#   - musllinux_1_2: Alpine (apk)
+# Each image ships exactly one of these, so the chained `||` picks the right
+# one and the others fail fast with command-not-found.
+archs = ["x86_64", "aarch64"]
+before-build = "apk add --no-cache swig || dnf install -y swig || yum install -y swig"
+
+[tool.cibuildwheel.macos]
+# arm64 only; x86_64 isn't a supported wheel target.
+archs = ["arm64"]
+before-build = "brew install swig"
+
+[tool.cibuildwheel.windows]
+archs = ["AMD64"]
+# SWIG ships preinstalled on windows-2022 runners; choco re-installs it idempotently
+# so a refreshed runner image without it still works.
+before-build = "choco install -y swig"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# `-m 'not perf and not online'`: keep perf-regression and network-
+# dependent tests out of the default run. Perf benchmarks fight for
+# CPU under xdist and would amplify variance (run via `invoke perf`).
+# Online tests hit the public internet (PyPI, GitHub, RTD) and depend
+# on a published release, so they belong in `invoke validate-readme`
+# rather than every dev pytest run.
+addopts = "-n auto --dist=loadgroup -m 'not perf and not online and not slow'"
+markers = [
+    "perf: performance regression tests (run via `invoke perf`, not in default suite)",
+    "online: tests that hit the public internet (run via `invoke validate-readme` or `pytest -m online`, not in default suite)",
+    "slow: long-running benchmarks / scaling regressions (run via `pytest -m slow`, not in default suite)",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM"]

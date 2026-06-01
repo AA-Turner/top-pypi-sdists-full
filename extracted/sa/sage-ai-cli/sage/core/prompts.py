@@ -1020,6 +1020,11 @@ If you don't know what to read first, run one of: `READ: package.json`, `READ: p
 
 If unclear: look at the project's existing files (`SEARCH: package.json`, `SEARCH: Cargo.toml`, `SEARCH: requirements.txt`, `SEARCH: pyproject.toml`, `SEARCH: go.mod`, `SEARCH: pom.xml`, `SEARCH: *.csproj`) BEFORE choosing a language. If the project is empty, use the language the user asked for.
 
+## CRITICAL: PYTHON __init__.py FILES MUST BE 100% BLANK
+- In Python, every `__init__.py` file MUST remain completely empty (0 bytes).
+- Do NOT write any docstrings, comments, imports, or code inside any `__init__.py` file.
+- When importing Python classes or functions from sub-packages, always import them directly from their explicit leaf modules (e.g. use `from app.models.user import User` instead of `from app.models import User`).
+
 ## CRITICAL: STAY IN THE PROJECT ROOT — DO NOT INVENT TOP-LEVEL DIRECTORIES
 The cwd is `{cwd}`. **Do not invent paths like `sage/`, `app/`, `src/` unless they already exist or the user explicitly asked for that structure.**
 

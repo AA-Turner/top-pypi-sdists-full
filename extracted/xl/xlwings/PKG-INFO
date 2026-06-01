@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xlwings
-Version: 0.35.3
+Version: 0.36.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
@@ -25,7 +25,9 @@ Requires-Dist: flask ; extra == 'all'
 Requires-Dist: requests ; extra == 'all'
 Requires-Dist: pdfrw ; extra == 'all'
 Requires-Dist: pytest ; extra == 'all'
+Requires-Dist: anyio ; extra == 'all'
 Requires-Dist: mistune ; extra == 'all'
+Requires-Dist: pytest ; extra == 'all'
 Requires-Dist: jinja2 ; extra == 'reports'
 Requires-Dist: pdfrw ; extra == 'reports'
 Requires-Dist: mistune ; extra == 'reports'

@@ -1,0 +1,108 @@
+[project]
+name = "mcp-stata"
+version = "3.3.0"
+description = " A lightweight Model Context Protocol (MCP) server for Stata. Execute commands, inspect data, retrieve stored results (`r()`/`e()`), and view graphs in your chat interface. Built for economists who want to integrate LLM assistance into their Stata workflow. "
+readme = "README.md"
+requires-python = ">=3.11"
+license = "AGPL-3.0-or-later"
+authors = [
+    { name = "Thomas Monk", email = "t.d.monk@lse.ac.uk" }
+]
+keywords = ["mcp", "stata", "statistics", "econometrics", "ai", "llm"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14"
+]
+dependencies = [
+    "mcp[cli]>=1.0.0",
+    "pandas>=2.0.0",
+    "numpy>=1.26.0",
+    "pydantic>=2.0.0",
+    "stata_setup>=0.1.0",
+    "httpx>=0.27.0,<0.28.0",  # Pin to 0.27.x for httpx_sse compatibility
+    "pytest-asyncio>=1.3.0",
+    "pyarrow>=14.0.0",
+    "polars>=1.36.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "build>=1.3.0",
+    "hatch>=1.16.2",
+    "twine>=6.2.0",
+    "ruff>=0.4.0",
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-xdist>=3.5.0",
+    "pytest-timeout>=2.3.1",
+    "python-semantic-release>=9.8.0",
+    "maturin>=1.11.5",
+]
+
+[project.urls]
+Homepage = "https://github.com/tmonk/mcp-stata"
+Repository = "https://github.com/tmonk/mcp-stata"
+Issues = "https://github.com/tmonk/mcp-stata/issues"
+
+[project.scripts]
+mcp-stata = "mcp_stata.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+package = true
+
+[tool.maturin]
+python-source = "src"
+module-name = "mcp_stata._native_ops"
+features = ["pyo3/abi3-py311"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mcp_stata"]
+
+[tool.hatch.build.targets.sdist]
+exclude = ["/tests", "/uv.lock"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/mcp_stata/py.typed" = "mcp_stata/py.typed"
+
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --cov=mcp_stata --cov-report=term-missing"
+timeout = 300
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+
+[tool.semantic_release]
+assets = ["server.json"]
+build_command = "python scripts/maintenance/sync_server_version.py"
+version_variables = [
+    "plugin/install.ps1:ScriptVersion",
+    "plugin/install.sh:SCRIPT_VERSION",
+]
+version_toml = [
+    "pyproject.toml:project.version",
+    "Cargo.toml:package.version"
+]
+branch = "main"
+commit_message = "chore(release): {version} [skip ci]"
+tag_format = "v{version}"

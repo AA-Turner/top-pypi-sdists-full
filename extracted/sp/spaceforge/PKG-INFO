@@ -1,0 +1,56 @@
+Metadata-Version: 2.4
+Name: spaceforge
+Version: 1.7.1
+Summary: A Python framework for building Spacelift plugins
+Author-email: Spacelift <support@spacelift.io>
+Maintainer-email: Spacelift <support@spacelift.io>
+License: MIT
+Project-URL: Homepage, https://github.com/spacelift-io/plugins
+Project-URL: Documentation, https://github.com/spacelift-io/plugins#readme
+Project-URL: Repository, https://github.com/spacelift-io/plugins
+Project-URL: Bug Reports, https://github.com/spacelift-io/plugins/issues
+Keywords: spacelift,plugin,framework,infrastructure,devops,spaceforge
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Systems Administration
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: PyYAML>=6.0
+Requires-Dist: click>=8.0.0
+Requires-Dist: pydantic>=2.11.7
+Requires-Dist: Jinja2>=3.1.0
+Requires-Dist: mergedeep>=1.3.4
+Provides-Extra: dev
+Requires-Dist: pytest>=6.0; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: black>=26.1.0; extra == "dev"
+Requires-Dist: isort; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: pylint==4.0.4; extra == "dev"
+Requires-Dist: types-PyYAML; extra == "dev"
+Requires-Dist: setuptools-scm[toml]>=6.2; extra == "dev"
+Requires-Dist: autoflake; extra == "dev"
+Dynamic: license-file
+
+# Spaceforge - Build Spacelift Plugins in Python
+
+Spaceforge is a Python framework for building powerful Spacelift plugins using a declarative, hook-based approach. Define your plugin logic in Python, and Spaceforge automatically generates the plugin manifest for Spacelift.
+
+## Usage
+
+For installation and usage instructions, see [our documentation](https://docs.spacelift.io/integrations/plugins).
+
+## Contributing
+
+To contribute to Spaceforge or create plugins, see our [CONTRIBUTING.md](./CONTRIBUTING.md) file.
+
+## License
+
+Spaceforge and Spacelift plugins are licensed under the [MIT license](./LICENSE).

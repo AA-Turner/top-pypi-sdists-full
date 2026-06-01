@@ -1,0 +1,8 @@
+detector_id: aws.rpl_backup_configured
+
+evidence_shape:
+  resource_type: string         # aws_backup_plan | aws_backup_vault | aws_backup_selection | aws_db_instance_automated_backups_replication
+  resource_name: string
+  recovery_state: enum          # configured
+  pattern: enum                 # backup_plan | backup_vault | backup_selection | rds_cross_region_replication
+  detail: string?               # short detail (e.g. rules=2, copy_actions=1, cmk=true)

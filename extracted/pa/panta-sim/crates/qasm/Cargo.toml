@@ -1,0 +1,11 @@
+[package]
+name = "qsim-qasm"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+qsim-core = { path = "../core" }
+qsim-simulator = { path = "../simulator" }
+
+[dev-dependencies]
+num-complex = "0.4"

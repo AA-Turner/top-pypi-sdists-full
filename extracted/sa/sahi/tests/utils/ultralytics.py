@@ -1,3 +1,5 @@
+"""Ultralytics/YOLO model constants and utilities for testing."""
+
 from __future__ import annotations
 
 import os
@@ -6,16 +8,20 @@ from pathlib import Path
 import requests
 from tqdm import tqdm
 
-YOLO11N_WEIGHTS_URL = "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n.pt"
-YOLO11N_SEG_WEIGHTS_URL = "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n-seg.pt"
-YOLO11N_OBB_WEIGHTS_URL = "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n-obb.pt"
+YOLO11N_WEIGHTS_URL = "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n.pt"
+YOLO11N_SEG_WEIGHTS_URL = "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n-seg.pt"
+YOLO11N_OBB_WEIGHTS_URL = "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n-obb.pt"
+YOLO26N_WEIGHTS_URL = "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n.pt"
 
 
 class UltralyticsConstants:
+    """Constants for Ultralytics/YOLO model paths."""
+
     YOLO11N_MODEL_PATH = "tests/data/models/yolo11n.pt"
     YOLO11N_SEG_MODEL_PATH = "tests/data/models/yolo11n-seg.pt"
     YOLO11N_OBB_MODEL_PATH = "tests/data/models/yolo11n-obb.pt"
     YOLO11N_ONNX_MODEL_PATH = "tests/data/models/yolo11/yolo11n.onnx"
+    YOLO26N_MODEL_PATH = "tests/data/models/yolo26n.pt"
 
 
 def download_file(url: str, save_path: str, chunk_size: int = 8192) -> None:
@@ -26,7 +32,8 @@ def download_file(url: str, save_path: str, chunk_size: int = 8192) -> None:
         save_path: Path where the file will be saved
         chunk_size: Size of chunks for downloading
     """
-    response = requests.get(url, stream=True)
+    response = requests.get(url, stream=True, allow_redirects=True)
+    response.raise_for_status()
     total_size = int(response.headers.get("content-length", 0))
 
     # Ensure directory exists
@@ -74,10 +81,26 @@ def download_yolo11n_obb_model(destination_path: str | None = None) -> str:
     return destination_path
 
 
+def download_yolo26n_model(destination_path: str | None = None) -> str:
+    """Downloads YOLO26n model if not already downloaded."""
+    if destination_path is None:
+        destination_path = UltralyticsConstants.YOLO26N_MODEL_PATH
+
+    if not os.path.exists(destination_path):
+        download_file(YOLO26N_WEIGHTS_URL, destination_path)
+    return destination_path
+
+
 def download_yolo11n_onnx_model(
     destination_path: str | Path = UltralyticsConstants.YOLO11N_ONNX_MODEL_PATH,
     image_size: int | None = 640,
-):
+) -> None:
+    """Download YOLO11n ONNX model and convert if needed.
+
+    Args:
+        destination_path: Path where the ONNX model will be saved.
+        image_size: Image size for model export.
+    """
     destination_path = Path(destination_path)
     model_path = destination_path.parent / (destination_path.stem + ".pt")
     download_yolo11n_model(str(model_path))

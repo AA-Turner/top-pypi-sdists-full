@@ -16,7 +16,7 @@ from django.utils.translation import gettext, gettext_lazy
 from weblate.accounts.forms import FullNameField, UniqueEmailMixin, UniqueUsernameField
 from weblate.accounts.utils import remove_user
 from weblate.auth.data import ROLES
-from weblate.auth.models import AutoGroup, Group, Role, User
+from weblate.auth.models import AutoGroup, Group, Role, TeamMembership, User
 from weblate.wladmin.models import WeblateModelAdmin
 
 if TYPE_CHECKING:
@@ -67,6 +67,14 @@ class InlineAutoGroupAdmin(admin.TabularInline):
         if block_group_edit(obj):
             return False
         return super().has_delete_permission(request, obj)
+
+
+class UserTeamMembershipInline(admin.TabularInline):
+    model = TeamMembership
+    fk_name = "user"
+    extra = 0
+    autocomplete_fields = ("group",)
+    filter_horizontal = ("limit_languages",)
 
 
 @admin.register(Role)
@@ -161,6 +169,7 @@ class WeblateUserAdmin(WeblateAuthAdmin, UserAdmin):
     search_fields = ("username", "full_name", "email")
     form = WeblateUserChangeForm
     add_form = WeblateUserCreationForm
+    inlines = (UserTeamMembershipInline,)
     add_fieldsets = (
         (None, {"fields": ("username",)}),
         (gettext_lazy("Personal info"), {"fields": ("full_name", "email")}),
@@ -171,7 +180,7 @@ class WeblateUserAdmin(WeblateAuthAdmin, UserAdmin):
         (gettext_lazy("Personal info"), {"fields": ("full_name", "email")}),
         (
             gettext_lazy("Permissions"),
-            {"fields": ("is_active", "is_bot", "is_superuser", "groups")},
+            {"fields": ("is_active", "is_bot", "is_superuser")},
         ),
         (
             gettext_lazy("Important dates"),
@@ -179,7 +188,7 @@ class WeblateUserAdmin(WeblateAuthAdmin, UserAdmin):
         ),
     )
     list_filter = ("is_superuser", "is_active", "is_bot", "groups")
-    filter_horizontal = ("groups",)
+    filter_horizontal = ()
 
     def user_groups(self, obj):
         """Display comma separated list of user groups."""
@@ -264,8 +273,8 @@ class WeblateGroupAdmin(WeblateAuthAdmin):
     model = Group
     form = GroupChangeForm
     inlines = (InlineAutoGroupAdmin,)
-    search_fields = ("name", "defining_project__name")
-    ordering = ("defining_project__name", "name")
+    search_fields = ("name", "defining_project__name", "defining_workspace__name")
+    ordering = ("defining_project__name", "defining_workspace__name", "name")
     list_filter = ("internal", "project_selection", "language_selection")
     filter_horizontal = (
         "roles",
@@ -274,7 +283,7 @@ class WeblateGroupAdmin(WeblateAuthAdmin):
         "components",
         "componentlists",
     )
-    list_display = ("name", "defining_project")
+    list_display = ("name", "defining_project", "defining_workspace")
 
     new_obj: Group
 

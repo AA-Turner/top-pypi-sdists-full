@@ -1,3 +1,0 @@
-[dependencies]
-json-fortran.git = "https://github.com/jacobwilliams/json-fortran.git"
-toml-f = "^0.3.0"

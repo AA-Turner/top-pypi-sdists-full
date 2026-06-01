@@ -1,0 +1,111 @@
+name: Build wheels
+
+on:
+  # Tag-triggered release builds belong to publish.yml (which also publishes).
+  # wheels.yml is the on-demand / continuous-validation matrix.
+  push:
+    branches:
+      - main  # Catch wheel regressions before they reach a tag.
+    # Docs- and license-only commits don't affect the wheel; skip the
+    # cibuildwheel matrix when nothing else changed. Pattern matches the
+    # ignores in test.yml.
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE*'
+      - 'docs/**'
+  workflow_dispatch:  # Manual ad-hoc trigger.
+
+jobs:
+  build_wheels:
+    name: Build ${{ matrix.platform }} wheels
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macos-x86_64 (macos-13 runners) is not supported. The runner
+          # queue is too scarce for reliable CI, and Apple Silicon is the
+          # active development target.
+          - os: macos-14
+            platform: macos-arm64
+            cibw_archs: arm64
+          - os: ubuntu-22.04
+            platform: linux-x86_64
+            cibw_archs: x86_64
+          - os: ubuntu-22.04-arm
+            platform: linux-aarch64
+            cibw_archs: aarch64
+          - os: windows-2022
+            platform: windows-x86_64
+            cibw_archs: AMD64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Same ccache plumbing as publish.yml — see comments there.
+      # Sharing the cache key (ccache-<platform>-wt-<sha>) across the
+      # two workflows means every main-branch wheels.yml run primes the
+      # cache that publish.yml will hit warm at tag time.
+      - name: Compute WT submodule SHA
+        id: wt-sha
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD:vendor/wiredtiger)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore ccache
+        if: matrix.platform != 'windows-x86_64'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-${{ matrix.platform }}-wt-${{ steps.wt-sha.outputs.sha }}
+          restore-keys: |
+            ccache-${{ matrix.platform }}-
+
+      - name: Build wheels with cibuildwheel
+        uses: pypa/cibuildwheel@v2.21
+        env:
+          CIBW_ARCHS: ${{ matrix.cibw_archs }}
+          CIBW_BEFORE_ALL_LINUX: |
+            (yum install -y ccache 2>/dev/null \
+              || dnf install -y ccache 2>/dev/null \
+              || apk add --no-cache ccache 2>/dev/null \
+              || true)
+            if ! command -v ccache >/dev/null 2>&1; then
+              echo "ccache unavailable on this image; installing passthrough shim"
+              printf '#!/bin/sh\nexec "$@"\n' > /usr/bin/ccache
+              chmod +x /usr/bin/ccache
+            fi
+          CIBW_CONTAINER_ENGINE: 'docker; create_args: -v /home/runner/.cache/ccache:/host_ccache'
+          CIBW_ENVIRONMENT_LINUX: >-
+            CCACHE_DIR=/host_ccache
+            CMAKE_C_COMPILER_LAUNCHER=ccache
+            CMAKE_CXX_COMPILER_LAUNCHER=ccache
+          CIBW_BEFORE_ALL_MACOS: brew install ccache
+          CIBW_ENVIRONMENT_MACOS: >-
+            CMAKE_C_COMPILER_LAUNCHER=ccache
+            CMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Upload wheel artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.platform }}
+          path: wheelhouse/*.whl
+
+  build_sdist:
+    name: Build sdist
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Build sdist
+        run: uv build --sdist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz

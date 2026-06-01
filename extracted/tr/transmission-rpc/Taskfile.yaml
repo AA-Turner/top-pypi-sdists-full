@@ -1,0 +1,42 @@
+version: '3'
+
+dotenv:
+  - .env
+
+tasks:
+  default:
+    cmds:
+      - task --list-all
+    silent: true
+
+  bump:
+    vars:
+      VERSION:
+        sh: yq '.project.version' pyproject.toml
+    cmds:
+      - git add pyproject.toml
+      - 'git commit -m "bump: {{.VERSION}}"'
+      - 'git tag "v{{.VERSION}}" -m "v{{.VERSION}}"'
+
+  lint:
+    cmds:
+      - pre-commit run -a
+      - mypy --show-column-numbers transmission_rpc
+
+  test:
+    cmds:
+      - pytest
+
+  dev:docs:
+    cmds:
+      - sphinx-autobuild -W --watch transmission_rpc ./docs/ ./dist/
+
+  build:docs:
+    sources:
+      - docs/**/*
+      - transmission_rpc/**/*
+    generates:
+      - dist/**/*
+    cmds:
+      - rm -rf dist/
+      - sphinx-build -W ./docs/ ./dist/

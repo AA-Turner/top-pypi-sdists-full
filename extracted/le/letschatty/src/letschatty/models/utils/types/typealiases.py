@@ -1,2 +1,0 @@
-ChannelId = str
-ContactPointId = str

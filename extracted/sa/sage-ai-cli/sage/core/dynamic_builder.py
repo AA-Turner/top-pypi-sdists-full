@@ -143,6 +143,10 @@ def _generate_file(
     generate: GenerateFn,
 ) -> str:
     """One-shot LLM call to write a single file with validate+retry."""
+    if Path(spec.path).name == "__init__.py":
+        return ""
+    if spec.template is not None:
+        return spec.template
     versions = CURRENT_VERSIONS.get(_lang_for_python(spec.language), CURRENT_VERSIONS["python"])
     prompt = build_file_prompt(task, spec, tree, stack_label, versions)
     content = strip_code_fences(generate(prompt))
@@ -387,7 +391,14 @@ def _parse_fixes_from_llm(
                         k_str = str(k)
                         try:
                             k_path = Path(k_str)
-                            resolved = k_path.resolve() if k_path.is_absolute() else (project_root / k_path).resolve()
+                            first_part = k_path.parts[0] if k_path.parts else ""
+                            repo_dirs = {"backend", "frontend", "shared", "deploy", ".github", ".sage"}
+                            is_nested = project_root.name in repo_dirs
+                            if is_nested and first_part in repo_dirs:
+                                resolved = k_path.resolve() if k_path.is_absolute() else (project_root.parent / k_path).resolve()
+                            else:
+                                resolved = k_path.resolve() if k_path.is_absolute() else (project_root / k_path).resolve()
+
                             if project_root.resolve() in resolved.parents or resolved == project_root.resolve():
                                 rel = str(resolved.relative_to(project_root.resolve()))
                                 normalized_fixes[rel] = str(v)
@@ -500,6 +511,10 @@ def _attempt_repair(
         f"{missing_hint}\n\n"
         "Return ONLY a JSON object: {{\"path\": \"full corrected content\", ...}}\n"
         "No explanation. Fix only what the error says.\n"
+        "CRITICAL:\n"
+        "1. Write 100% complete, fully implemented code. Do NOT use placeholder comments, mock data, or TODO stubs.\n"
+        "2. Ensure f-strings and string literals are syntactically correct (e.g. double check f-string quote matching, brace matching).\n"
+        "3. Ensure all imports are correct, fully resolved, and defined. Do not refer to non-existent classes/modules.\n"
         'Example: {"backend/app/main.py": "from fastapi import FastAPI\\napp=FastAPI()"}'
     )
 
@@ -540,16 +555,25 @@ def _attempt_repair(
 
         if all_ok:
             for rel_path, new_content in fixes.items():
-                if not isinstance(new_content, str) or len(new_content) < 10:
-                    continue
-                if rel_path in _PROTECTED_TEMPLATE_PATHS:
-                    log(f"[repair] SKIP {rel_path} (protected template)")
-                    continue
-
-                new_content = strip_code_fences(new_content)
-                target = project.root / rel_path
-                if not target.parent.exists():
+                first_part = Path(rel_path).parts[0] if Path(rel_path).parts else ""
+                repo_dirs = {"backend", "frontend", "shared", "deploy", ".github", ".sage"}
+                repo_files = {"docker-compose.yml", "package.json", "tsconfig.json", "README.md"}
+                is_nested = project.root.name in repo_dirs
+                if is_nested and (first_part in repo_dirs or rel_path in repo_files):
                     target = project.root.parent / rel_path
+                else:
+                    target = project.root / rel_path
+
+                if target.name == "__init__.py":
+                    new_content = ""
+                else:
+                    if not isinstance(new_content, str) or len(new_content) < 10:
+                        continue
+                    if rel_path in _PROTECTED_TEMPLATE_PATHS:
+                        log(f"[repair] SKIP {rel_path} (protected template)")
+                        continue
+                    new_content = strip_code_fences(new_content)
+
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text(new_content, encoding="utf-8")
                 log(f"[repair] wrote {rel_path}")
@@ -628,6 +652,91 @@ def _clean_ansi(obj):
     if isinstance(obj, list):
         return [_clean_ansi(x) for x in obj]
     return obj
+
+
+
+def _dynamic_prompt_compliance_check(
+    task: str,
+    out_dir: Path,
+    generate: GenerateFn,
+    log: ProgressFn,
+) -> None:
+    """Scan all generated source files and verify they fulfill every requirement in the user's task prompt.
+
+    If any requirement is missing or incomplete, ask the LLM to write/update the files.
+    """
+    log("[verify] running dynamic prompt-compliance check...")
+
+    # 1. Find all generated source files
+    code_extensions = {".py", ".ts", ".tsx", ".js", ".jsx"}
+    all_files = []
+    for p in out_dir.rglob("*"):
+        if p.is_file() and p.suffix in code_extensions:
+            try:
+                parts = p.relative_to(out_dir).parts
+            except ValueError:
+                continue
+            if any(x in parts for x in ("node_modules", "venv", ".venv", ".git", ".sage", "dist", "build", ".expo")):
+                continue
+            all_files.append(p)
+
+    if not all_files:
+        log("[verify] no generated source files found to check")
+        return
+
+    # Create a summary of the generated codebase
+    codebase_summary = []
+    for f in all_files:
+        try:
+            rel_path = str(f.relative_to(out_dir))
+            content = f.read_text("utf-8", errors="replace")
+        except Exception:
+            continue
+        # Keep it compact but structured
+        codebase_summary.append(f"### File: {rel_path}\n```\n{content[:2500]}\n```")
+
+    summary_text = "\n\n".join(codebase_summary)
+
+    prompt = (
+        "You are verifying if the generated codebase meets ALL requirements of the user's original task prompt.\n\n"
+        "User task prompt:\n"
+        f"\"\"\"\n{task}\n\"\"\"\n\n"
+        "Generated codebase (truncated if long):\n"
+        f"{summary_text}\n\n"
+        "Compare the generated codebase against the user's task prompt.\n"
+        "Identify any missing features, requirements, screens, API endpoints, logic, or configurations asked for in the prompt.\n"
+        "If everything is 100% complete and fully implemented, output ONLY the text: \"ALL_REQUIREMENTS_FULFILLED\".\n"
+        "If there are missing or incomplete parts, output a JSON object mapping the file paths (e.g. \"backend/app/api/campaign.py\" or \"frontend/app/campaign.tsx\") to the complete, updated content of the file that implements the missing requirements.\n"
+        "Make sure to write COMPLETE, functional production-grade implementations. No stubs, no placeholders, no comments saying 'implement here'.\n"
+        "Rule: Output ONLY the JSON object or the string \"ALL_REQUIREMENTS_FULFILLED\". No explanations, no markdown fences."
+    )
+
+    response = generate(prompt)
+    if "ALL_REQUIREMENTS_FULFILLED" in response:
+        log("[verify] prompt-compliance check passed: all requirements are fully implemented!")
+        return
+
+    # Attempt to parse fixes
+    fixes = _parse_fixes_from_llm(response, all_files, [], out_dir)
+    if fixes:
+        log(f"[verify] prompt-compliance check found missing items. Updating/creating {len(fixes)} files...")
+        for rel_path, new_content in fixes.items():
+            # Resolve path relative to out_dir
+            target = out_dir / rel_path
+            
+            if target.name == "__init__.py":
+                new_content = ""
+            else:
+                if not isinstance(new_content, str) or len(new_content) < 10:
+                    continue
+
+            # Safety check: must be inside out_dir
+            if out_dir.resolve() in target.resolve().parents or target.resolve() == out_dir.resolve():
+                from sage.core.principal_engineer import strip_code_fences
+                new_content = strip_code_fences(new_content)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(new_content, encoding="utf-8")
+                log(f"[verify] updated/created {rel_path} to fulfill missing requirements")
 
 
 # ──────────────────────── public builder ───────────────────────────────
@@ -751,6 +860,8 @@ def build_project_dynamic(
                 stack_label=stack_label,
                 generate=generate,
             )
+            if target.name == "__init__.py":
+                content = ""
             target.write_text(content, encoding="utf-8")
 
         if enable_tdd_loop and test_slots:
@@ -774,6 +885,8 @@ def build_project_dynamic(
                 generate=generate,
             )
             target = out_dir / primary_impl.path
+            if target.name == "__init__.py":
+                content = ""
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(content, encoding="utf-8")
             for slot in test_slots:
@@ -785,6 +898,8 @@ def build_project_dynamic(
                     generate=generate,
                 )
                 target = out_dir / slot.path
+                if target.name == "__init__.py":
+                    content = ""
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text(content, encoding="utf-8")
 
@@ -799,8 +914,45 @@ def build_project_dynamic(
             stack_label=stack_label,
             generate=generate,
         )
+        if target.name == "__init__.py":
+            content = ""
         target.write_text(content, encoding="utf-8")
         log(f"      ✓ {slot.path}")
+
+    # ── 5.1 Run Code Doctors for deterministic repairs ──
+    try:
+        from sage.core.code_doctors import run_code_doctors
+        run_code_doctors(
+            out_dir,
+            log=log,
+            fix_imports=True,
+            fix_framework=True,
+            detect_truncations_flag=True,
+            run_ruff=True,
+            run_eslint=True,
+        )
+    except Exception as exc:
+        log(f"[doctor] code doctors raised: {exc}")
+
+    # ── 5.2 Cross-file integration check ──
+    try:
+        from sage.core.integration_check import run_integration_check
+        run_integration_check(
+            out_dir, generate=generate, log=log
+        )
+    except Exception as exc:
+        log(f"[integration] integration check raised: {exc}")
+
+    # ── 5.5 Dynamic Prompt-Compliance Check ──
+    try:
+        _dynamic_prompt_compliance_check(
+            task=task,
+            out_dir=out_dir,
+            generate=generate,
+            log=log,
+        )
+    except Exception as exc:
+        log(f"[verify] dynamic compliance check failed: {exc}")
 
     # ── 6. Install + verify loop ──
     log("[5/6] installing and verifying...")

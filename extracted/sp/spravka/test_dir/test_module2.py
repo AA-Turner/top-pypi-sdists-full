@@ -1,4 +1,0 @@
-"""asd"""
-
-def asd():
-    pass

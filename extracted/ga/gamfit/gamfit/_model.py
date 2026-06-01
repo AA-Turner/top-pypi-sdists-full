@@ -1,0 +1,620 @@
+"""Public :class:`Model` shell.
+
+The numeric work all lives in the Rust core: this module marshals
+arguments through the FFI, hands payloads off to ``_survival`` /
+``_diagnose_plot`` helpers, and exposes Pythonic properties.
+"""
+
+from __future__ import annotations
+
+import json
+import math
+from pathlib import Path
+from typing import Any, Sequence
+
+from ._binding import rust_module
+from ._diagnostics import Diagnostics
+from ._exceptions import map_exception
+from ._sampling import PosteriorSamples
+from ._schema import SchemaCheck
+from ._summary import Summary
+from ._predict_shape import shape_predict_response
+from ._survival import (
+    CompetingRisksCIF,
+    CompetingRisksPrediction,
+    SurvivalPrediction,
+    TermBlock,
+    _MARGINAL_SLOPE_MODEL_CLASSES,
+    _SURVIVAL_MODEL_CLASSES,
+    _TRANSFORMATION_NORMAL_MODEL_CLASSES,
+    competing_risks_cif,
+    extract_row_ids,
+    term_blocks_for_model,
+)
+from ._tables import normalize_table, response_column_name, restore_output_table
+
+
+class Model:
+    __slots__ = ("_model_bytes", "_training_table_kind")
+
+    def __init__(self, *, _model_bytes: bytes, _training_table_kind: str | None = None) -> None:
+        self._model_bytes = _model_bytes
+        self._training_table_kind = _training_table_kind
+
+    def predict(
+        self,
+        data: Any,
+        *,
+        interval: float | None = None,
+        return_type: str | None = None,
+        id_column: str | None = None,
+    ) -> Any:
+        """Predict from new ``data``.
+
+        Parameters
+        ----------
+        data : table-like
+            Input rows in any format accepted by :func:`gamfit.fit`
+            (``pandas.DataFrame``, ``pyarrow.Table``, ``polars.DataFrame``,
+            ``dict`` of columns, ``list`` of record dicts, ...). Columns must
+            cover every predictor referenced by the fitted formula.
+        interval : float or None, default None
+            Single uncertainty knob. ``None`` returns the point prediction(s)
+            only. A float in ``(0, 1)`` (e.g. ``0.95``) requests the full
+            uncertainty decomposition at that pointwise coverage; the output
+            gains ``std_error``, ``mean_lower``, and ``mean_upper`` columns
+            alongside ``linear_predictor`` / ``mean``. On survival models it
+            also produces per-cell hazard / survival SEs. Issue #342
+            collapsed the previous overlapping ``with_uncertainty`` boolean
+            into this single flag (use ``interval=0.95`` for the SE-only
+            case).
+        return_type : {"dict", "pandas", "numpy", "polars", "pyarrow", "list"}, optional
+            Force a specific output container. ``None`` (default) mirrors the
+            shape of ``data`` (and the training table where unambiguous).
+        id_column : str or None, default None
+            Name of an identifier column in ``data`` to propagate as a row key
+            in the output (so predictions can be joined back to the input).
+
+        Returns
+        -------
+        ndarray | dict | DataFrame | SurvivalPrediction | CompetingRisksPrediction
+            The shape depends on the model class and on whether ``interval``,
+            ``id_column``, or ``return_type`` was set:
+
+            * Standard GAM, no interval / id_column / return_type: a 1-D
+              ``ndarray`` of point predictions on the response scale (the
+              fitted mean).
+            * Standard GAM with ``interval`` / ``id_column`` / ``return_type``:
+              a table (dict / DataFrame / ...) with columns
+              ``linear_predictor`` (linear-predictor scale; equals ``mean``
+              for identity-link models), ``mean`` (response scale; the point
+              prediction), and — when ``interval`` is set — ``std_error``
+              (response-scale standard error including both fixed-effect and
+              smoothing uncertainty) plus ``mean_lower`` / ``mean_upper``
+              (interval endpoints).
+            * Bernoulli marginal-slope: a 1-D ``ndarray`` of probabilities.
+            * Transformation-normal: a 1-D ``ndarray`` of z-scores.
+            * Survival models: :class:`SurvivalPrediction`.
+            * Competing-risks models: :class:`CompetingRisksPrediction`.
+
+        Notes
+        -----
+        For Gaussian / identity-link GLMs, ``linear_predictor`` and ``mean``
+        are numerically identical (linear-predictor scale == response scale).
+        For non-identity links (logit, log, ...) ``mean = link^{-1}(linear_predictor)``
+        and the two columns carry distinct information. Issues #310, #313, #342
+        renamed the columns from the engine-internal ``eta`` /
+        ``effective_se`` / ``effective_variance`` labels to the standard
+        statistical names; ``effective_variance`` was dropped (it was always
+        exactly ``std_error ** 2``, trivial to compute downstream).
+        """
+        headers, rows, table_kind = normalize_table(data)
+        row_ids = extract_row_ids(headers, rows, id_column)
+        opts_json = rust_module().build_model_predict_payload_json(
+            self._model_bytes, headers, rows, interval
+        )
+        try:
+            raw = rust_module().predict_table(
+                self._model_bytes, headers, rows, opts_json
+            )
+        except Exception as exc:
+            raise map_exception(exc) from exc
+        return shape_predict_response(
+            raw,
+            headers=headers,
+            rows=rows,
+            table_kind=table_kind,
+            training_table_kind=self._training_table_kind,
+            fallback_model_class=self._model_class_from_payload(),
+            fallback_family=self._family_from_payload(),
+            interval=interval,
+            return_type=return_type,
+            id_column=id_column,
+            row_ids=row_ids,
+            restore=restore_output_table,
+        )
+
+    def predict_array(
+        self,
+        X: Any,
+        *,
+        interval: float | None = None,
+    ) -> Any:
+        """Predict directly from a numeric NumPy-compatible feature matrix.
+
+        Only valid for models fitted via :func:`gamfit.fit_array` — positional
+        column order is only well-defined when the model itself was fitted
+        from a positional array, so the engine knows the predictor columns
+        are the synthetic sequence ``x0, x1, ..., x{p-1}`` (issue #341). For
+        models fitted from a named table (``gamfit.fit(df, formula)``), call
+        :meth:`predict` with a ``dict`` / DataFrame instead so columns can
+        be matched by name; silently mapping positional X to named features
+        would misorder swapped columns and produce wrong predictions.
+
+        ``interval`` is the single uncertainty knob (issue #342); see
+        :meth:`predict` for its semantics.
+        """
+        try:
+            rust = rust_module()
+            return rust.predict_array(
+                self._model_bytes,
+                rust.numeric_matrix_f64(X, "X"),
+                json.dumps({"interval": interval}),
+            )
+        except Exception as exc:
+            raise map_exception(exc) from exc
+
+    def summary(self) -> Summary:
+        """Return the model summary (coefficients, family, deviance, REML score)."""
+        try:
+            payload = rust_module().summary_payload_from_model(self._model_bytes)
+        except Exception as exc:
+            raise map_exception(exc) from exc
+        return Summary.from_dict(payload)
+
+    def smoothing_parameters(self) -> dict[int, float]:
+        """Return fitted smoothing/precision parameters by penalty index."""
+        return dict(rust_module().smoothing_parameters_from_model(self._model_bytes))
+
+    def check(self, data: Any) -> SchemaCheck:
+        """Validate ``data`` against the model's training schema."""
+        headers, rows, _ = normalize_table(data)
+        try:
+            payload = rust_module().check_payload_from_model(self._model_bytes, headers, rows)
+        except Exception as exc:
+            raise map_exception(exc) from exc
+        return SchemaCheck.from_dict(payload)
+
+    def report(self, path: str | Path | None = None) -> str:
+        """Generate a standalone HTML report of the fitted model."""
+        try:
+            html = rust_module().report_html(self._model_bytes)
+        except Exception as exc:
+            raise map_exception(exc) from exc
+        # allow-list (a): FFI response marshaling for optional file output.
+        if path is None:
+            return str(html)
+        Path(path).write_text(html, encoding="utf-8")
+        return str(path)
+
+    def sample(
+        self,
+        data: Any,
+        *,
+        samples: int | None = None,
+        warmup: int | None = None,
+        chains: int | None = None,
+        target_accept: float | None = None,
+        seed: int | None = None,
+    ) -> PosteriorSamples:
+        """Draw from the model's posterior with NUTS."""
+        headers, rows, _ = normalize_table(data)
+        try:
+            ffi = rust_module()
+            options_json = ffi.build_sample_payload_json(
+                samples, warmup, chains, target_accept, seed
+            )
+            raw = ffi.sample_table(
+                self._model_bytes,
+                headers,
+                rows,
+                options_json,
+            )
+        except Exception as exc:
+            raise map_exception(exc) from exc
+        return PosteriorSamples.from_ffi_json(raw, model_bytes=self._model_bytes)
+
+    def design_matrix(self, data: Any) -> Any:
+        """Materialised design matrix for ``data`` against the saved model."""
+        headers, rows, _ = normalize_table(data)
+        return rust_module().design_matrix_table_dense(self._model_bytes, headers, rows)
+
+    def design_matrix_array(self, X: Any) -> Any:
+        """Materialised design matrix for a numeric feature matrix."""
+        try:
+            rust = rust_module()
+            return rust.design_matrix_array(
+                self._model_bytes,
+                rust.numeric_matrix_f64(X, "X"),
+            )
+        except Exception as exc:
+            raise map_exception(exc) from exc
+
+    def difference_smooth(
+        self,
+        *,
+        view: str,
+        group: str | None = None,
+        pairs: Sequence[tuple[Any, Any]] | None = None,
+        n: int = 100,
+        level: float = 0.95,
+        simultaneous: bool = False,
+        n_sim: int = 10_000,
+        seed: int | None = 12345,
+        marginalise_random: bool = True,
+        group_means: bool = True,
+        data: Any | None = None,
+        return_type: str | None = None,
+    ) -> Any:
+        """Covariance-aware pairwise difference smooths (Rust-backed)."""
+        template: dict[str, str] = {}
+        # allow-list (a): FFI input marshaling for an optional template row.
+        if data is not None:
+            headers, rows, _ = normalize_table(data)
+            # allow-list (a): FFI input marshaling for empty prediction tables.
+            if rows:
+                first = rows[0]
+                # allow-list (a): FFI payload marshaling.
+                template = dict(zip(headers, map(str, first), strict=True))
+        try:
+            # allow-list (a): FFI optional argument marshaling.
+            group_arg = str(group) if group is not None else None
+            # allow-list (a): FFI payload sequence marshaling.
+            pairs_arg = (
+                list(map(lambda pair: (str(pair[0]), str(pair[1])), pairs))
+                if pairs is not None
+                else None
+            )
+            # allow-list (a): FFI optional argument marshaling.
+            seed_arg = int(seed) if seed is not None else None
+            # allow-list (a): FFI optional argument marshaling.
+            template_arg = None if not template else template
+            request_json = rust_module().build_difference_smooth_request_json(
+                str(view),
+                group_arg,
+                pairs_arg,
+                int(n),
+                float(level),
+                bool(simultaneous),
+                int(n_sim),
+                seed_arg,
+                bool(marginalise_random),
+                bool(group_means),
+                template_arg,
+            )
+            rows_out = rust_module().difference_smooth_rows(
+                self._model_bytes, request_json
+            )
+        except Exception as exc:
+            raise map_exception(exc) from exc
+        # allow-list (a): FFI response marshaling for requested output type.
+        if return_type == "list":
+            return rows_out
+        try:
+            import pandas as pd
+
+            return pd.DataFrame(rows_out)
+        except Exception:
+            return rows_out
+
+    def save(self, path: str | Path) -> None:
+        """Serialise the fitted model to ``path``."""
+        Path(path).write_bytes(self._model_bytes)
+
+    def extend_with_group(
+        self,
+        new_group_spec: dict[str, Any],
+        metadata: Any | None = None,
+        prior: Any | None = None,
+    ) -> "Model":
+        """Return a no-refit model extended with deployment-time group levels."""
+        # allow-list (a): FFI input validation.
+        if not isinstance(new_group_spec, dict):
+            raise TypeError("new_group_spec must be a dict")
+        try:
+            rust = rust_module()
+            # allow-list (a): FFI optional argument marshaling.
+            metadata_json = json.dumps(metadata) if metadata is not None else None
+            # allow-list (a): FFI optional argument marshaling.
+            prior_json = json.dumps(prior) if prior is not None else None
+            payload_json = rust.build_extend_group_payload_json(
+                json.dumps(new_group_spec),
+                metadata_json,
+                prior_json,
+            )
+            model_bytes = bytes(
+                rust.extend_model_with_group(self._model_bytes, payload_json)
+            )
+        except Exception as exc:
+            raise map_exception(exc) from exc
+        return Model(
+            _model_bytes=model_bytes,
+            _training_table_kind=self._training_table_kind,
+        )
+
+    def dumps(self) -> bytes:
+        """Return the serialised model as raw bytes."""
+        return self._model_bytes
+
+    @property
+    def formula(self) -> str:
+        return rust_module().required_saved_model_payload_string(
+            self._model_bytes, "formula"
+        )
+
+    @property
+    def family_name(self) -> str:
+        return self.summary().family_name
+
+    @property
+    def model_class(self) -> str:
+        return self._model_class_from_payload()
+
+    @property
+    def is_survival(self) -> bool:
+        return self.model_class in _SURVIVAL_MODEL_CLASSES
+
+    @property
+    def is_marginal_slope(self) -> bool:
+        return self.model_class in _MARGINAL_SLOPE_MODEL_CLASSES
+
+    @property
+    def is_transformation_normal(self) -> bool:
+        return self.model_class in _TRANSFORMATION_NORMAL_MODEL_CLASSES
+
+    @property
+    def response_name(self) -> str | None:
+        return response_column_name(self.formula)
+
+    @property
+    def training_table_kind(self) -> str | None:
+        return self._training_table_kind
+
+    @property
+    def group_metadata(self) -> dict[str, Any] | None:
+        return rust_module().model_group_metadata(self._model_bytes)
+
+    @property
+    def deployment_extensions(self) -> tuple[dict[str, Any], ...]:
+        return tuple(rust_module().model_deployment_extensions(self._model_bytes))
+
+    @property
+    def term_blocks(self) -> tuple[TermBlock, ...]:
+        """Per-term coefficient column ranges in fitted coefficient order."""
+        try:
+            return term_blocks_for_model(self._model_bytes)
+        except Exception as exc:
+            raise map_exception(exc) from exc
+
+    @property
+    def evidence(self) -> float:
+        """REML / LAML log marginal-likelihood score for this fit."""
+        return float(rust_module().model_evidence(self._model_bytes))
+
+    def bayes_factor_vs(self, other: "Model") -> float:
+        """Bayes factor of this fit against ``other``."""
+        # allow-list (a): FFI input validation.
+        if not isinstance(other, Model):
+            raise TypeError(
+                f"bayes_factor_vs expects a gamfit.Model, got {type(other).__name__}"
+            )
+        log_diff = rust_module().bayes_factor_log_diff(
+            self._model_bytes, other._model_bytes
+        )
+        return math.exp(log_diff)
+
+    def _model_class_from_payload(self) -> str:
+        return rust_module().required_saved_model_payload_string(
+            self._model_bytes, "model_kind"
+        )
+
+    def _family_from_payload(self) -> str:
+        return rust_module().required_saved_model_payload_string(
+            self._model_bytes, "family"
+        )
+
+    def diagnose(
+        self,
+        data: Any,
+        *,
+        y: str | None = None,
+        interval: float | None = 0.95,
+    ) -> Diagnostics:
+        """Score the fitted model on held-out ``data``."""
+        from ._diagnose_plot import diagnose as _diagnose
+
+        return _diagnose(self, data, y=y, interval=interval)
+
+    def plot(
+        self,
+        data: Any,
+        *,
+        x: str | None = None,
+        y: str | None = None,
+        interval: float | None = 0.95,
+        kind: str = "prediction",
+        ax: Any | None = None,
+    ) -> Any:
+        """Plot the model's behaviour on ``data`` with matplotlib."""
+        from ._diagnose_plot import plot as _plot
+
+        return _plot(self, data, x=x, y=y, interval=interval, kind=kind, ax=ax)
+
+    def __repr__(self) -> str:
+        parts = [
+            f"formula={self.formula!r}",
+            f"family_name={self.family_name!r}",
+            f"training_table_kind={self._training_table_kind!r}",
+        ]
+        return f"Model({', '.join(parts)})"
+
+    def __str__(self) -> str:
+        # Human-readable multi-line summary for ``print(model)``. The terse
+        # developer one-liner stays on ``__repr__``. The rendering itself
+        # lives in ``Summary.__str__`` so there is exactly one place that
+        # knows how to format the summary fields. (issue #308)
+        try:
+            return str(self.summary())
+        except Exception:
+            # Summary materialisation can fail on partially-loaded artifacts;
+            # fall back to the developer repr rather than crashing print().
+            return repr(self)
+
+    def _repr_html_(self) -> str:
+        return self.report()
+
+
+class MultinomialModel:
+    """Fitted penalized multinomial-logit GAM.
+
+    Returned by ``gamfit.fit(data, formula, family='multinomial')``. The
+    underlying solver is the canonical
+    ``gam::families::multinomial::fit_penalized_multinomial`` Newton solve
+    against a reference-coded softmax likelihood; the reference class is the
+    last level recorded in the dataset schema (i.e. order of first appearance
+    in the training table, which is stable across runs).
+
+    Class names are preserved verbatim from the categorical response column,
+    so :attr:`classes_` matches what ``predict`` columns line up with — no
+    silent permutation.
+
+    Slice A of issue #328: a single uniform smoothing parameter is shared
+    across every penalty block and every active class. REML / LAML λ
+    selection lands in the follow-up slice.
+    """
+
+    __slots__ = ("_model_bytes", "_training_table_kind", "_metadata")
+
+    def __init__(
+        self,
+        *,
+        _model_bytes: bytes,
+        _training_table_kind: str | None = None,
+    ) -> None:
+        self._model_bytes = _model_bytes
+        self._training_table_kind = _training_table_kind
+        # Cache the metadata dict on construction; it never changes for a
+        # fitted model and downstream property accessors deserve a cheap
+        # attribute read rather than an FFI round-trip per call.
+        self._metadata = rust_module().multinomial_model_metadata_pyfunc(self._model_bytes)
+
+    # ------------------------------------------------------------------ class metadata
+    @property
+    def classes_(self) -> list[str]:
+        """Class labels in the order ``predict`` columns line up with.
+
+        The last entry is the reference class. Matches the response level
+        order recorded in the training dataset schema.
+        """
+        return list(self._metadata["class_levels"])
+
+    @property
+    def formula(self) -> str:
+        return str(self._metadata["formula"])
+
+    @property
+    def family_name(self) -> str:
+        return "multinomial"
+
+    @property
+    def converged(self) -> bool:
+        return bool(self._metadata["converged"])
+
+    @property
+    def deviance(self) -> float:
+        return float(self._metadata["deviance"])
+
+    @property
+    def n_iter_(self) -> int:
+        return int(self._metadata["iterations"])
+
+    # ------------------------------------------------------------------ predict
+    def predict(self, data: Any) -> Any:
+        """Predict class probabilities for new rows.
+
+        Returns an ``(N, K)`` numpy array whose columns are aligned with
+        :attr:`classes_` (column ``j`` is ``P(Y = self.classes_[j] | x)``).
+        Rows sum to 1.
+        """
+        headers, rows, _ = normalize_table(data)
+        try:
+            probs = rust_module().predict_multinomial_formula_pyfunc(
+                self._model_bytes, headers, rows
+            )
+        except Exception as exc:
+            raise map_exception(exc) from exc
+        return probs
+
+    # ------------------------------------------------------------------ summary
+    def summary(self) -> str:
+        """Human-readable summary covering convergence, classes, per-class λ and edf.
+
+        REML-driven path: the Rust core selects per-active-class λ via the
+        outer Laplace/REML loop, so this method reports both the selected
+        λ_a and the per-class hat-matrix trace (effective degrees of
+        freedom) when the inference block is available.
+        """
+        meta = self._metadata
+        p = int(meta["p_per_class"])
+        m = int(meta["n_active_classes"])
+        levels = list(meta["class_levels"])
+        ref = int(meta["reference_class_index"])
+        lambdas = list(meta.get("lambdas", []))
+        edf_per_class = meta.get("edf_per_class")
+        lines = [
+            f"MultinomialModel formula: {meta['formula']}",
+            f"  classes: {levels}  (reference = {levels[ref]!r})",
+            f"  active classes (K-1): {m}",
+            f"  coefficients per class (P): {p}",
+            f"  total coefficients: {p * m}",
+            f"  iterations: {int(meta['iterations'])}  converged: {bool(meta['converged'])}",
+            f"  deviance: {float(meta['deviance']):.6g}",
+            f"  penalized -log L: {float(meta['penalized_neg_log_likelihood']):.6g}",
+        ]
+        # Per-class slope-norm + REML λ + hat-matrix trace rollup. Coefficients
+        # are stored in row-major `(P, K-1)` order; column `a` is class
+        # `levels[a]`.
+        coefs = list(meta["coefficients_flat"])
+        for a in range(m):
+            class_block = coefs[a * p : (a + 1) * p]
+            norm = math.sqrt(sum(c * c for c in class_block))
+            row_bits = [f"‖β_a‖₂ = {norm:.4g}"]
+            if a < len(lambdas):
+                row_bits.append(f"λ = {float(lambdas[a]):.4g}")
+            if edf_per_class is not None and a < len(edf_per_class):
+                row_bits.append(f"edf = {float(edf_per_class[a]):.4g}")
+            lines.append(
+                f"    class {levels[a]!r} vs ref: " + ", ".join(row_bits)
+            )
+        return "\n".join(lines)
+
+    # ------------------------------------------------------------------ identity / repr
+    def __repr__(self) -> str:
+        return (
+            f"MultinomialModel(formula={self.formula!r}, "
+            f"classes={self.classes_!r}, converged={self.converged})"
+        )
+
+    def __str__(self) -> str:
+        return self.summary()
+
+
+__all__ = [
+    "CompetingRisksCIF",
+    "CompetingRisksPrediction",
+    "Model",
+    "MultinomialModel",
+    "SurvivalPrediction",
+    "TermBlock",
+    "competing_risks_cif",
+]

@@ -1,0 +1,208 @@
+# Release workflow — builds the wheel + sdist, uploads to Test PyPI
+# always, and to real PyPI only on final (non-rc) version tags.
+#
+# One-time maintainer setup before this workflow can publish:
+#
+#   1. Test PyPI trusted publishing:
+#      At test.pypi.org → your account → Publishing → Add a new pending
+#      publisher (or trusted publisher if the `efterlev` project already
+#      exists on TestPyPI):
+#        - PyPI Project Name: efterlev
+#        - Owner: efterlev
+#        - Repository name: efterlev   (case-sensitive; matches
+#                                       `github.repository` returned at
+#                                       runtime, which is the lowercase
+#                                       canonical form post-rename
+#                                       2026-04-26)
+#        - Workflow filename: release-pypi.yml
+#        - Environment: test-pypi
+#
+#   2. Real PyPI trusted publishing:
+#      Same flow at pypi.org/manage/project/efterlev/settings/publishing/
+#      (the project already exists from the 2026-04-23 placeholder upload,
+#      so this is a "regular" trusted publisher, not pending). Use:
+#        - Environment: pypi
+#      AND configure the `pypi` GitHub environment (repo Settings →
+#      Environments) to require maintainer approval if your plan supports
+#      it — this is the human gate that confirms SPEC-09 release-smoke.yml
+#      passed on the same tag before real-PyPI publication proceeds. On
+#      free/Pro plans, environment-required-reviewers are plan-gated;
+#      defer until after the public flip if running on free/Pro. The
+#      deployment-tag-pattern restriction `v[0-9]*.[0-9]*.[0-9]*` already
+#      configured on the `pypi` environment provides a coarser gate that
+#      works on any plan.
+#
+# See SPEC-05 for the full design + rationale and .github/BRANCH_PROTECTION.md
+# for related repo-settings configuration.
+
+name: release-pypi
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-rc.[0-9]+'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build wheel + sdist
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.verify.outputs.version }}
+      is-rc: ${{ steps.verify.outputs.is-rc }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Verify in-source version matches tag
+        id: verify
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF#refs/tags/v}"
+          # As of v0.1.1, pyproject.toml uses hatch dynamic versioning
+          # (`[tool.hatch.version] path = "src/efterlev/__init__.py"`), so
+          # `[project].version` no longer exists as a static field. Read
+          # the version from the same source-of-truth hatch reads.
+          SOURCE_VERSION=$(python3 -c 'import re,sys; m=re.search(r"^__version__\s*=\s*[\"\x27]([^\"\x27]+)[\"\x27]", open("src/efterlev/__init__.py").read(), re.MULTILINE); sys.exit("could not parse __version__") if not m else print(m.group(1))')
+          # Normalize semver-shaped tag to PEP 440: v0.1.0-rc.1 → 0.1.0rc1
+          NORMALIZED=$(echo "$TAG" | sed -E 's/-rc\.([0-9]+)/rc\1/')
+          echo "Tag:                          v$TAG"
+          echo "Tag normalized:               $NORMALIZED"
+          echo "src/efterlev/__init__.py:     $SOURCE_VERSION"
+          if [ "$SOURCE_VERSION" != "$NORMALIZED" ]; then
+            echo "::error::Version mismatch — fix src/efterlev/__init__.py or re-tag."
+            exit 1
+          fi
+          echo "version=$NORMALIZED" >> "$GITHUB_OUTPUT"
+          if [[ "$TAG" == *"-rc."* ]]; then
+            echo "is-rc=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is-rc=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build
+        run: uv build
+
+      - name: Inspect artifacts
+        run: |
+          ls -la dist/
+          uv run --with twine twine check dist/*
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-test-pypi:
+    name: Publish to Test PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: test-pypi
+      url: https://test.pypi.org/project/efterlev/${{ needs.build.outputs.version }}/
+    permissions:
+      id-token: write  # OIDC for trusted publishing
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to Test PyPI
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          # Sigstore signing runs automatically under trusted publishing
+          # (SPEC-08 ties in here for signature and attestation).
+
+  publish-pypi:
+    name: Publish to real PyPI
+    needs: [build, publish-test-pypi]
+    # Final tags only — never publish rc tags to real PyPI (SPEC-05 scope).
+    if: ${{ needs.build.outputs.is-rc == 'false' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      # Environment is configured in repo settings to require maintainer
+      # approval. Approval is the human confirmation that release-smoke.yml
+      # (SPEC-09) has passed on the same tag.
+      url: https://pypi.org/project/efterlev/${{ needs.build.outputs.version }}/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to real PyPI
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
+        # Default URL is real PyPI; Sigstore signing runs automatically.
+
+  attach-sbom-to-release:
+    # Generate CycloneDX SBOMs for the wheel + sdist and attach them to
+    # the GitHub Release as ancillary supply-chain metadata. Final tags
+    # only (rc tags don't get a public Release page). The Sigstore
+    # signatures from PEP 740 + the cosign attestations on the container
+    # cover cryptographic provenance; the SBOMs cover dependency
+    # transparency, which is what `pip-audit` / Dependabot / a 3PAO
+    # reviewer wants when answering "what's actually inside the wheel".
+    name: Attach SBOMs to GitHub Release
+    needs: [build, publish-pypi]
+    if: ${{ needs.build.outputs.is-rc == 'false' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # gh release create / gh release upload
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+
+      - name: Generate CycloneDX SBOM for wheel
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        with:
+          file: dist/efterlev-${{ needs.build.outputs.version }}-py3-none-any.whl
+          format: cyclonedx-json
+          output-file: dist/efterlev-${{ needs.build.outputs.version }}-wheel-sbom.cdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Generate CycloneDX SBOM for sdist
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        with:
+          file: dist/efterlev-${{ needs.build.outputs.version }}.tar.gz
+          format: cyclonedx-json
+          output-file: dist/efterlev-${{ needs.build.outputs.version }}-sdist-sbom.cdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Attach SBOMs to GitHub Release
+        env:
+          TAG: v${{ needs.build.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # post-release-triage.yml is the canonical creator of the Release
+          # (it writes the triage report as the body). It races this job
+          # though, so create the Release here if it doesn't exist yet —
+          # post-release-triage's `gh release edit --notes-file` path
+          # handles the "Release exists, replace notes" case correctly.
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --title "$TAG" \
+              --notes "Release artifacts attached. Triage report appended by post-release-triage.yml. Verify cryptographic provenance with \`bash scripts/verify-release.sh $TAG\`."
+          fi
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber \
+            "dist/efterlev-${{ needs.build.outputs.version }}-wheel-sbom.cdx.json" \
+            "dist/efterlev-${{ needs.build.outputs.version }}-sdist-sbom.cdx.json"

@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fmod_toolkit"
+authors = [{ name = "Rudolf Kolbe", email = "rkolbe96@gmail.com" }]
+description = ""
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.8"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Games/Entertainment",
+]
+dependencies = ["pyfmodex>=0.7.2"]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+# optional dependencies must be lowercase/normalized
+tests = ["pytest"]
+dev = ["ruff", "fmod_toolkit[tests]"]
+
+[project.urls]
+"Homepage" = "https://github.com/K0lb3/fmod_toolkit"
+"Bug Tracker" = "https://github.com/K0lb3/fmod_toolkit/issues"
+
+[tool.setuptools.dynamic]
+version = { attr = "fmod_toolkit.__version__" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.cibuildwheel]
+environment = { "PY_SETUP_CLEANUP" = "1" }
+
+[tool.cibuildwheel.linux]
+archs = ["x86_64", "i686", "aarch64", "armv7l"]
+build = "cp38-* pp3*"
+
+[tool.cibuildwheel.macos]
+archs = ["x86_64", "arm64"]
+build = "cp38-macosx_x86_64 cp38-macosx_arm64 pp3*"
+
+[tool.cibuildwheel.windows]
+archs = ["AMD64", "x86", "ARM64"]
+build = "cp38-win_amd64 cp38-win32 cp39-win_arm64 pp3*"
+
+[tool.pyright]
+pythonVersion = "3.8"

@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: pyrate-limiter
-Version: 4.1.0
+Version: 4.2.0
 Summary: Python Rate-Limiter using Leaky-Bucket Algorithm
 Project-URL: Homepage, https://github.com/vutran1710/PyrateLimiter
 Project-URL: Repository, https://github.com/vutran1710/PyrateLimiter
-Project-URL: Documentation, https://pyrate-limiter.readthedocs.io
+Project-URL: Documentation, https://pyratelimiter.readthedocs.io
 Author-email: vutr <me@vutr.io>
 License-Expression: MIT
 License-File: LICENSE
@@ -652,7 +652,7 @@ from pyrate_limiter import Rate, Limiter, Duration, SQLiteBucket
 requests_per_minute = 5
 rate = Rate(requests_per_minute, Duration.MINUTE)
 bucket = SQLiteBucket.init_from_file([rate], use_file_lock=False)  # set use_file_lock to True if using across multiple processes
-limiter = Limiter(bucket, raise_when_fail=False, max_delay=max_delay)
+limiter = Limiter(bucket)
 ```
 
 You can also pass custom arguments to the `init_from_file` following its signature:

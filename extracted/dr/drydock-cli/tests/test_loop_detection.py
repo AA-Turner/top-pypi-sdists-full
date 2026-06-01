@@ -620,6 +620,34 @@ class TestHallucinatedToolLoop:
 
 
 # ============================================================================
+# bash({}) empty-command regression (2026-06-01)
+# Before this fix, BashArgs required command: str, so bash({}) raised a
+# pydantic ValidationError → ToolError → the model retried identically,
+# creating a hard loop (68 fires/24h observed in dispatch queue).
+# ============================================================================
+
+class TestBashEmptyCommand:
+    """bash({}) with missing command field must return a result, not raise."""
+
+    def test_bash_args_accepts_missing_command(self):
+        """BashArgs.model_validate({}) must not raise ValidationError."""
+        from drydock.core.tools.builtins.bash import BashArgs
+        from pydantic import ValidationError
+
+        try:
+            args = BashArgs.model_validate({})
+            assert args.command is None
+        except ValidationError:
+            pytest.fail("BashArgs.model_validate({}) raised ValidationError — breaks the loop-break fix")
+
+    def test_bash_args_accepts_none_command(self):
+        """BashArgs with explicit None command accepted."""
+        from drydock.core.tools.builtins.bash import BashArgs
+        args = BashArgs(command=None)
+        assert args.command is None
+
+
+# ============================================================================
 # Mid-turn user injection (Claude Code "type while busy" feature)
 # ============================================================================
 

@@ -5,12 +5,12 @@ See: https://github.com/frohoff/jdeserialize
 
 :authors: Thomas Calmant
 :license: Apache License 2.0
-:version: 0.4.4
+:version: 0.5.0
 :status: Alpha
 
 ..
 
-    Copyright 2024 Thomas Calmant
+    Copyright 2026 Thomas Calmant
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -146,7 +146,7 @@ class JavaStreamParser(api.IJavaStreamParser):
         # Read content
         contents = []  # type: List[ParsedJavaContent]
         while True:
-            self._log.info("Reading next content")
+            self._log.debug("Reading next content")
             start = self.__fd.tell()
             try:
                 type_code = self.__reader.read_byte()

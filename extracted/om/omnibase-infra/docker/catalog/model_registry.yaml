@@ -1,0 +1,151 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# Intelligent Model Router — Model Registry
+# Contract-driven registry of available LLM endpoints.
+# Cost and speed data come from the eval harness (OMN-7840) via live metrics.
+# Models without >=20 eval samples receive lowest routing priority.
+#
+# Tickets: OMN-7270, OMN-7841
+models:
+  - model_key: "qwen3-coder-30b"
+    provider: local
+    transport: http
+    base_url_env: LLM_CODER_URL
+    health_path: "/health"
+    # cyankiwi/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit on 192.168.86.201:8000
+    # Context extended to 112K via TurboQuant aither-kvcache K4/V3 compression
+    capabilities:
+      - code_generation
+      - refactoring
+      - documentation
+    context_window: 114688
+    hardware: "RTX 5090"
+    tier: local
+  - model_key: "deepseek-r1-14b"
+    provider: local
+    transport: http
+    base_url_env: LLM_CODER_FAST_URL
+    health_path: "/health"
+    # Corianas/DeepSeek-R1-Distill-Qwen-14B-AWQ on 192.168.86.201:8001
+    capabilities:
+      - deep_reasoning
+      - code_review
+      - classification
+    context_window: 24576
+    hardware: "RTX 4090"
+    tier: local
+  - model_key: "deepseek-r1-32b"
+    provider: local
+    transport: http
+    base_url_env: LLM_DEEPSEEK_R1_URL
+    health_path: "/health"
+    capabilities:
+      - deep_reasoning
+      - code_review
+      - math
+    context_window: 32768
+    hardware: "M2 Ultra"
+    tier: local
+  - model_key: "qwen3-next-80b"
+    provider: local
+    transport: http
+    base_url_env: LLM_QWEN3_NEXT_URL
+    # Qwen3-Next-80B-A3B-Instruct-4bit on localhost:8102 (MLX, multi-model server)
+    capabilities:
+      - code_review
+      - reasoning
+      - documentation
+    context_window: 32768
+    hardware: "MLX localhost"
+    tier: local
+  - model_key: "qwen3-embedding-8b"
+    provider: local
+    transport: http
+    base_url_env: LLM_EMBEDDING_URL
+    capabilities:
+      - embeddings
+    context_window: 8192
+    hardware: "RTX 4090"
+    tier: local
+  - model_key: "claude-sonnet"
+    provider: anthropic
+    transport: oauth # Claude Code uses OAuth, not ANTHROPIC_API_KEY
+    capabilities:
+      - code_generation
+      - reasoning
+      - vision
+      - computer_use
+      - documentation
+    context_window: 200000
+    tier: frontier_api
+  - model_key: "qwen-3.6-plus"
+    provider: qwen
+    transport: sdk
+    api_key_env: QWEN_API_KEY
+    capabilities:
+      - code_generation
+      - vision
+      - tool_use
+      - documentation
+    context_window: 1000000
+    tier: frontier_api
+  - model_key: "glm-4.5"
+    provider: zhipu
+    transport: http
+    base_url_env: LLM_GLM_URL
+    api_key_env: LLM_GLM_API_KEY
+    health_path: ""
+    capabilities:
+      - code_generation
+      - refactoring
+      - reasoning
+      - documentation
+    context_window: 128000
+    tier: frontier_api
+  - model_key: "glm-5"
+    provider: zhipu
+    transport: http
+    base_url_env: LLM_GLM_URL
+    api_key_env: LLM_GLM_API_KEY
+    capabilities:
+      - code_generation
+      - deep_reasoning
+      - refactoring
+    context_window: 128000
+    concurrency_limit: 2
+    tier: frontier_api
+  - model_key: "glm-5.1"
+    provider: zhipu
+    transport: http
+    base_url_env: LLM_GLM_URL
+    api_key_env: LLM_GLM_API_KEY
+    capabilities:
+      - code_generation
+      - deep_reasoning
+      - refactoring
+      - documentation
+    context_window: 128000
+    concurrency_limit: 1
+    tier: frontier_api
+  - model_key: "glm-5v-turbo"
+    provider: zhipu
+    transport: sdk
+    api_key_env: ZHIPU_API_KEY
+    capabilities:
+      - vision
+      - gui_execution
+      - screen_understanding
+    context_window: 32768
+    tier: frontier_api
+  - model_key: "openrouter"
+    provider: openrouter
+    transport: http
+    base_url_env: LLM_OPENROUTER_URL
+    api_key_env: OPEN_ROUTER_API_KEY
+    capabilities:
+      - code_generation
+      - reasoning
+      - documentation
+    context_window: 128000
+    tier: frontier_api

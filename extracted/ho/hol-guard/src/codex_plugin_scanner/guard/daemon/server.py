@@ -1,0 +1,3195 @@
+"""Local Guard daemon helpers."""
+
+from __future__ import annotations
+
+import argparse
+import base64
+import hashlib
+import hmac
+import io
+import json
+import mimetypes
+import os
+import platform
+import secrets
+import threading
+import time
+import uuid
+import webbrowser
+from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Any
+from urllib.parse import parse_qs, parse_qsl, unquote, urlencode, urlparse, urlunparse
+
+from ...version import __version__
+from ..adapters import get_adapter
+from ..adapters.base import HarnessContext
+from ..approval_gate import (
+    ApprovalGateError,
+    begin_totp_enrollment,
+    confirm_totp_enrollment,
+    disable_totp,
+    require_high_risk,
+)
+from ..approval_gate import (
+    input_from_mapping as approval_gate_input_from_mapping,
+)
+from ..approval_gate import (
+    public_config as approval_gate_public_config,
+)
+from ..approval_gate import (
+    revoke_cooldown as revoke_approval_gate_cooldown,
+)
+from ..approval_gate import (
+    update_settings as update_approval_gate_settings,
+)
+from ..approval_gate import (
+    validate_settings_update as validate_approval_gate_settings,
+)
+from ..approvals import (
+    ApprovalRequestAlreadyResolvedError,
+    ApprovalRequestNotFoundError,
+    apply_approval_resolution,
+    build_runtime_snapshot,
+)
+from ..cli.install_commands import (
+    apply_managed_install,
+    build_harness_setup_plan,
+    build_harness_verification,
+    list_harness_setup_items,
+    uninstall_confirmation_token,
+)
+from ..codex_resume import (
+    defer_request_resume_to_live_hook,
+    get_request_resume_status,
+    retry_request_resume,
+)
+from ..config import (
+    GuardConfig,
+    editable_guard_settings,
+    load_guard_config,
+    reset_guard_settings,
+    update_guard_settings,
+)
+from ..desktop_notifications import (
+    desktop_notification_setup_payload,
+    ensure_desktop_notification_setup,
+    macos_notification_guidance,
+)
+from ..local_supply_chain import build_local_supply_chain_posture
+from ..models import DECISION_SCOPE_VALUES, GUARD_ACTION_VALUES, PolicyDecision
+from ..receipts.manager import build_receipt
+from ..runtime.runner import (
+    GuardSyncNotAvailableError,
+    GuardSyncNotConfiguredError,
+    sync_receipts,
+    sync_supply_chain_bundle,
+)
+from ..runtime.surface_server import GuardSurfaceRuntime
+from ..shims import (
+    install_package_shims,
+    package_shim_status,
+    package_shim_supported_managers,
+    repair_package_shims,
+    uninstall_package_shims,
+)
+from ..store import GuardStore
+from ..store_approvals import InvalidApprovalCursorError
+from ..store_evidence import (
+    clear_evidence,
+    count_evidence,
+    evidence_record_to_dict,
+    export_evidence_csv,
+    export_evidence_json,
+    list_evidence,
+)
+from .manager import (
+    GUARD_DAEMON_COMPATIBILITY_VERSION,
+    clear_guard_daemon_state,
+    load_guard_daemon_auth_token,
+    repair_approval_center_locator,
+    write_guard_daemon_state,
+)
+
+_HEADLESS_CLOUD_SYNC_STATE_LOCK = threading.Lock()
+_HEADLESS_CLOUD_SYNC_IN_FLIGHT: set[str] = set()
+_SUPPLY_CHAIN_PACKAGE_ACTIONS = {"install", "repair", "test", "audit", "sync", "remove", "uninstall"}
+_SUPPLY_CHAIN_PAID_TIERS = {"paid", "premium", "enterprise", "guard_cloud", "guard-cloud"}
+
+
+def _headless_cloud_sync_store_key(store: GuardStore) -> str:
+    return str(store.guard_home.expanduser().resolve())
+
+
+def _build_snapshot_payload(context: HarnessContext) -> dict[str, object]:
+    """Return a lightweight snapshot dict including package manager shim coverage."""
+    status = package_shim_status(context)
+    return {
+        "package_manager_coverage": {
+            "shims_installed": status.get("active_managers", []),
+            "path_active": status.get("active_managers", []),
+            "unsupported_managers": [],
+        }
+    }
+
+
+class _GuardDaemonHttpServer(ThreadingHTTPServer):
+    store: GuardStore
+    runtime: GuardSurfaceRuntime
+    auth_token: str
+    idle_timeout_seconds: float | None
+    last_activity_monotonic: float
+    start_monotonic: float
+    active_stream_clients: int
+    active_stream_clients_lock: threading.Lock
+
+
+_STATIC_DIR = Path(__file__).with_name("static")
+_INDEX_PATH = _STATIC_DIR / "index.html"
+_ENTRY_PATH = _STATIC_DIR / "assets" / "guard-dashboard.js"
+_ROOT_STATIC_FILES = {
+    "/favicon.svg",
+    "/favicon.ico",
+    "/favicon-16x16.png",
+    "/favicon-32x32.png",
+}
+_CLAUDE_HOOK_EXECUTION_LOCK = threading.Lock()
+_DEFAULT_GUARD_DAEMON_IDLE_TIMEOUT_SECONDS = 30 * 60
+_DEFAULT_SUPPLY_CHAIN_REFRESH_BACKOFF_SECONDS = 60.0
+_DEFAULT_SUPPLY_CHAIN_REFRESH_INTERVAL_SECONDS = 15 * 60.0
+_EPHEMERAL_GUARD_DAEMON_IDLE_TIMEOUT_SECONDS = 5
+_GUARD_DAEMON_IDLE_POLL_INTERVAL_SECONDS = 0.5
+_HOSTED_GUARD_DASHBOARD_ORIGINS = frozenset({"https://hol.org", "https://www.hol.org"})
+_HEADLESS_APP_ACTIONS = {
+    "connect": ("install", "install"),
+    "repair": ("repair", "repair"),
+    "disconnect": ("remove", "uninstall"),
+    "status": ("status", "verify"),
+    "test": ("scan", "verify"),
+}
+_CLOUD_APP_DASHBOARD_SESSION_ACTIONS = {
+    "connect": frozenset({"connect", "status", "test"}),
+    "repair": frozenset({"repair", "status", "test"}),
+    "status": frozenset({"status"}),
+    "test": frozenset({"status", "test"}),
+}
+_HEADLESS_OPERATIONS = ("install", "repair", "remove", "status", "scan", "policy_sync")
+
+
+def _headless_safe_failure_reasons() -> dict[str, str]:
+    return {
+        "offline": "Local Guard daemon is unavailable.",
+        "timeout": "Local Guard daemon did not answer before the browser timeout.",
+        "unauthorized": "Dashboard session is missing or stale.",
+        "unsupported": "Harness is not supported by this daemon.",
+        "confirmation_required": "Remove actions need the harness confirmation phrase.",
+    }
+
+
+def _cloud_app_dashboard_session_actions(action_path: str) -> frozenset[str]:
+    return _CLOUD_APP_DASHBOARD_SESSION_ACTIONS.get(action_path, frozenset({action_path}))
+
+
+def _headless_detection_status_to_app_status(value: object) -> str:
+    status_map = {
+        "protected": "protected",
+        "found": "observed",
+        "not_found": "inactive",
+    }
+    return status_map.get(str(value), "unknown")
+
+
+def _headless_error_payload(
+    *,
+    code: str,
+    message: str,
+    retryable: bool,
+    detail: str | None = None,
+) -> dict[str, object]:
+    error_payload: dict[str, object] = {
+        "code": code,
+        "message": message,
+        "retryable": retryable,
+    }
+    if detail:
+        error_payload["detail"] = detail
+    payload: dict[str, object] = {
+        "status": "failed",
+        "error": error_payload,
+    }
+    return payload
+
+
+def _headless_action_error_payload(
+    *,
+    operation: str,
+    error_code: str,
+) -> tuple[int, dict[str, object]]:
+    error_details = {
+        "missing_harness": (
+            400,
+            "Choose an app before retrying.",
+            False,
+        ),
+        "unknown_harness": (
+            404,
+            "This app is not supported by local Guard.",
+            False,
+        ),
+        "confirmation_required": (
+            409,
+            "Disconnect needs the local confirmation phrase before Guard removes protection.",
+            False,
+        ),
+        "unsupported_operation": (
+            400,
+            "This version of local Guard cannot run the requested app action.",
+            False,
+        ),
+    }
+    known_error = error_details.get(error_code)
+    if known_error is not None:
+        status, message, retryable = known_error
+        return status, _headless_error_payload(
+            code=error_code,
+            message=message,
+            retryable=retryable,
+        )
+    operation_code = "proof_failed" if operation == "scan" else f"{operation}_failed"
+    operation_label = "connection check" if operation == "scan" else operation
+    return 400, _headless_error_payload(
+        code=operation_code,
+        message=f"Guard could not finish the {operation_label}.",
+        retryable=True,
+    )
+
+
+def _headless_app_status_from_result(*, operation: str, result: dict[str, object]) -> str:
+    if operation in {"install", "repair"}:
+        managed_install = result.get("managed_install")
+        if isinstance(managed_install, dict) and bool(managed_install.get("active")):
+            return "protected"
+        return "unknown"
+    if operation == "remove":
+        managed_install = result.get("managed_install")
+        if isinstance(managed_install, dict) and managed_install.get("active") is False:
+            return "inactive"
+        return "unknown"
+    verification = result.get("verification")
+    if isinstance(verification, dict):
+        if bool(verification.get("installed")):
+            return "protected"
+        if bool(verification.get("command_available")) or bool(verification.get("config_paths")):
+            return "observed"
+        return "inactive"
+    return "unknown"
+
+
+def _headless_action_state_payload(
+    *,
+    harness: str,
+    operation: str,
+    result: dict[str, object],
+    receipt: dict[str, object],
+) -> dict[str, object]:
+    app_status = _headless_app_status_from_result(operation=operation, result=result)
+    if operation == "install":
+        outcome = "app_connected"
+        message = f"{harness} is connected through local Guard."
+        proof_status = "pending"
+    elif operation == "repair":
+        outcome = "app_repaired"
+        message = f"{harness} protection was refreshed."
+        proof_status = "pending"
+    elif operation == "remove":
+        outcome = "app_disconnected"
+        message = f"{harness} protection was removed."
+        proof_status = "not_applicable"
+    elif operation == "scan":
+        proof_passed = app_status == "protected"
+        # Keep protocol values stable for Cloud clients; user-facing copy below avoids jargon.
+        outcome = "proof_passed" if proof_passed else "proof_failed"
+        message = (
+            f"{harness} connection check passed. Guard sees local protection."
+            if proof_passed
+            else f"{harness} connection check finished, but Guard does not see active local protection yet."
+        )
+        proof_status = "passed" if proof_passed else "failed"
+    else:
+        outcome = "status_checked"
+        message = f"{harness} status checked."
+        proof_status = "not_applicable"
+    return {
+        "app_status": app_status,
+        "message": message,
+        "outcome": outcome,
+        "proof_status": proof_status,
+        "receipt_summary": {
+            "id": receipt.get("id"),
+            "operation": receipt.get("operation"),
+            "status": receipt.get("status"),
+            "timestamp": receipt.get("timestamp"),
+        },
+        "retryable": operation in {"install", "repair", "scan"},
+    }
+
+
+def _run_headless_cloud_sync(
+    *,
+    store: GuardStore,
+) -> None:
+    recorded_at = _now()
+    try:
+        sync_payload = sync_receipts(store)
+        summary = {
+            "status": "synced",
+            "synced_at": sync_payload.get("synced_at"),
+            "receipts_stored": sync_payload.get("receipts_stored", 0),
+        }
+    except GuardSyncNotConfiguredError as error:
+        summary = {
+            "status": "not_configured",
+            "message": str(error),
+        }
+    except GuardSyncNotAvailableError as error:
+        summary = {
+            "status": "not_available",
+            "message": str(error),
+        }
+    except Exception as error:
+        summary = {
+            "status": "pending",
+            "message": str(error),
+        }
+    store.set_sync_payload("headless_app_sync_summary", summary, recorded_at)
+
+
+def _queue_headless_cloud_sync(
+    *,
+    store: GuardStore,
+) -> dict[str, object]:
+    if store.get_sync_credentials() is None:
+        return {
+            "status": "not_configured",
+            "message": "Guard Cloud sync is not paired on this machine.",
+        }
+    store_key = _headless_cloud_sync_store_key(store)
+    with _HEADLESS_CLOUD_SYNC_STATE_LOCK:
+        if store_key in _HEADLESS_CLOUD_SYNC_IN_FLIGHT:
+            return {
+                "status": "in_progress",
+                "message": "Guard Cloud sync already running.",
+            }
+        _HEADLESS_CLOUD_SYNC_IN_FLIGHT.add(store_key)
+
+    def _run_and_finalize() -> None:
+        try:
+            _run_headless_cloud_sync(store=store)
+        finally:
+            with _HEADLESS_CLOUD_SYNC_STATE_LOCK:
+                _HEADLESS_CLOUD_SYNC_IN_FLIGHT.discard(store_key)
+
+    threading.Thread(
+        target=_run_and_finalize,
+        daemon=True,
+        name="guard-headless-app-cloud-sync",
+    ).start()
+    return {
+        "status": "queued",
+        "message": "Guard Cloud sync started.",
+    }
+
+
+class _GuardDaemonHandler(BaseHTTPRequestHandler):
+    _MAX_BODY_BYTES = 1_000_000
+
+    def do_OPTIONS(self) -> None:
+        origin = self._normalize_origin(self.headers.get("Origin"))
+        if origin is None:
+            self._write_empty(status=400)
+            return
+        headers = self._cors_headers_for_request(
+            allow_methods="GET, POST, DELETE, OPTIONS",
+            allow_headers="Authorization, Content-Type, X-Guard-Dashboard-Session, X-Guard-Token",
+        )
+        if headers is None:
+            self._write_empty(status=403)
+            return
+        self._write_empty(status=200, extra_headers=headers)
+
+    def do_GET(self) -> None:
+        store = self.server.store  # type: ignore[attr-defined]
+        parsed = urlparse(self.path)
+        self._touch_runtime_heartbeat(parsed.path)
+        path_parts = [part for part in parsed.path.split("/") if part]
+        if not self._origin_is_allowed_for_request(parsed.path, path_parts):
+            self._write_json({"error": "forbidden_origin"}, status=403)
+            return
+        if (
+            self._is_hosted_dashboard_origin()
+            and self._is_hosted_dashboard_api_path(parsed.path, path_parts)
+            and not self._header_token_is_valid()
+        ):
+            self._write_json({"error": "unauthorized"}, status=401)
+            return
+        if parsed.path == "/healthz":
+            uptime = round(time.monotonic() - self.server.start_monotonic, 1)  # type: ignore[attr-defined]
+            self._write_json(
+                {
+                    "ok": True,
+                    "receipts": len(store.list_receipts(limit=500)),
+                    "approvals": store.count_approval_requests(),
+                    "pending_approvals": store.count_approval_requests(),
+                    "uptime_seconds": uptime,
+                    "tables": store.list_table_names(),
+                    "compatibility_version": GUARD_DAEMON_COMPATIBILITY_VERSION,
+                    "package_version": __version__,
+                    "guard_home": str(store.guard_home.resolve()),
+                }
+            )
+            return
+        if parsed.path == "/v1/capabilities":
+            self._handle_capabilities()
+            return
+        if parsed.path == "/v1/sessions":
+            self._write_json({"items": store.list_guard_sessions(limit=200)})
+            return
+        if parsed.path == "/v1/runtime":
+            config = load_guard_config(store.guard_home)
+            snapshot = build_runtime_snapshot(
+                store=store,
+                approval_center_url=f"http://{self.server.server_address[0]}:{self.server.server_address[1]}",
+                active_request_id=self._query_string(parsed.query, "active_request_id"),
+            )
+            self._write_json({**snapshot, "security_level": config.security_level})
+            return
+        if parsed.path == "/v1/harnesses":
+            context = self._harness_context({})
+            self._write_json({"items": list_harness_setup_items(context, self.server.store)})  # type: ignore[attr-defined]
+            return
+        if parsed.path == "/v1/supply-chain/package-shims":
+            self._handle_supply_chain_package_firewall_status()
+            return
+        if parsed.path == "/v1/supply-chain/entitlement":
+            self._write_json(self._supply_chain_entitlement())
+            return
+        if len(path_parts) == 4 and path_parts[:2] == ["v1", "apps"] and path_parts[3] == "cloud":
+            self._handle_cloud_app_handoff(path_parts[2], parsed.query)
+            return
+        if parsed.path == "/v1/inventory":
+            from ..adapters.contracts import HARNESS_CONTRACTS
+
+            inventory_items = store.list_inventory()
+            installed_harnesses = {str(item.get("harness", "")) for item in inventory_items}
+            contracts_index = {
+                c.harness: {
+                    "install_aliases": list(c.install_aliases),
+                    "event_surfaces": list(c.event_surfaces),
+                    "native_approval": c.native_approval,
+                    "browser_fallback": c.browser_fallback,
+                    "resume_support": c.resume_support,
+                    "known_blind_spots": c.known_blind_spots,
+                }
+                for c in HARNESS_CONTRACTS
+            }
+            enriched: list[dict[str, object]] = []
+            for item in inventory_items:
+                harness_name = str(item.get("harness", ""))
+                contract = contracts_index.get(harness_name, {})
+                enriched.append({**item, "contract": contract})
+            uninstalled = [
+                {
+                    "harness": c.harness,
+                    "status": "unknown",
+                    "contract": contracts_index[c.harness],
+                }
+                for c in HARNESS_CONTRACTS
+                if c.harness not in installed_harnesses
+            ]
+            self._write_json({"items": enriched, "available": uninstalled})
+            return
+        if parsed.path == "/v1/settings/export":
+            config = load_guard_config(store.guard_home)
+            self._write_json(_settings_export_payload(config))
+            return
+        if parsed.path == "/v1/settings":
+            config = load_guard_config(store.guard_home)
+            self._write_json(_settings_response_payload(store.guard_home, editable_guard_settings(config)))
+            return
+        if len(path_parts) == 4 and path_parts[:2] == ["v1", "sessions"] and path_parts[3] == "resume":
+            self._handle_session_resume(path_parts[2])
+            return
+        if len(path_parts) == 4 and path_parts[:2] == ["v1", "requests"] and path_parts[3] == "resume":
+            if not self._header_token_is_valid():
+                self._write_json(
+                    {"error": "unauthorized"},
+                    status=401,
+                    extra_headers=self._cors_headers_for_request(),
+                )
+                return
+            self._handle_request_resume_read(path_parts[2])
+            return
+        if len(path_parts) == 3 and path_parts[:2] == ["v1", "operations"]:
+            operation = store.get_guard_operation(path_parts[2])
+            if operation is None:
+                self._write_json({"error": "not_found"}, status=404)
+                return
+            self._write_json(operation)
+            return
+        if parsed.path == "/v1/events":
+            self._write_json({"items": store.list_events_after(_int_query_value(parsed.query, "cursor"), limit=200)})
+            return
+        if parsed.path == "/v1/requests":
+            self._handle_requests_list(parsed.query)
+            return
+        if parsed.path == "/v1/connect/state":
+            self._write_legacy_pairing_disabled()
+            return
+        if len(path_parts) == 3 and path_parts[:2] == ["v1", "requests"]:
+            approval = store.get_approval_request(path_parts[2])
+            if approval is None:
+                self._write_json(
+                    {
+                        "error": "not_found",
+                        "recovery": {
+                            "code": "request_unknown",
+                            "title": "This request is no longer waiting.",
+                            "body": "The request was either already resolved or expired. You can close this tab.",
+                            "queue_url": self._local_queue_url(),
+                        },
+                    },
+                    status=404,
+                )
+                return
+            self._write_json(approval)
+            return
+        if parsed.path == "/v1/receipts":
+            self._write_json({"items": store.list_receipts(limit=200)})
+            return
+        if parsed.path == "/v1/receipts/latest":
+            query = parse_qs(parsed.query)
+            harness = query.get("harness", [None])[-1]
+            artifact_id = query.get("artifact_id", [None])[-1]
+            if not isinstance(harness, str) or not harness or not isinstance(artifact_id, str) or not artifact_id:
+                self._write_json({"error": "missing_receipt_query"}, status=400)
+                return
+            receipt = store.get_latest_receipt(harness, artifact_id)
+            if receipt is None:
+                self._write_json({"error": "not_found"}, status=404)
+                return
+            self._write_json(receipt)
+            return
+        if len(path_parts) == 3 and path_parts[:2] == ["v1", "receipts"]:
+            receipt = store.get_receipt(path_parts[2])
+            if receipt is None:
+                self._write_json({"error": "not_found"}, status=404)
+                return
+            self._write_json(receipt)
+            return
+        if parsed.path == "/v1/policy":
+            query = parse_qs(parsed.query)
+            harness = query.get("harness", [None])[-1]
+            self._write_json(
+                {"items": store.list_policy_decisions(harness=harness if isinstance(harness, str) else None)}
+            )
+            return
+        if parsed.path == "/v1/evidence":
+            query = parse_qs(parsed.query)
+            harness_q = query.get("harness", [None])[-1]
+            category_q = query.get("category", [None])[-1]
+            severity_q = query.get("severity", [None])[-1]
+            before_q = query.get("before", [None])[-1]
+            limit_q = query.get("limit", ["100"])[-1]
+            try:
+                limit_v = min(int(limit_q), 500)
+            except (ValueError, TypeError):
+                limit_v = 100
+            with store._connect() as conn:
+                records = list_evidence(
+                    conn,
+                    harness=harness_q if isinstance(harness_q, str) else None,
+                    category=category_q if isinstance(category_q, str) else None,
+                    severity=severity_q if isinstance(severity_q, str) else None,
+                    before_cursor=before_q if isinstance(before_q, str) else None,
+                    limit=limit_v,
+                )
+                total = count_evidence(
+                    conn,
+                    harness=harness_q if isinstance(harness_q, str) else None,
+                    category=category_q if isinstance(category_q, str) else None,
+                    severity=severity_q if isinstance(severity_q, str) else None,
+                )
+            self._write_json(
+                {
+                    "items": [evidence_record_to_dict(record) for record in records],
+                    "total": total,
+                }
+            )
+            return
+        if parsed.path == "/v1/evidence/export":
+            query = parse_qs(parsed.query)
+            format_q = query.get("format", ["json"])[-1]
+            with store._connect() as conn:
+                if format_q == "json":
+                    payload = export_evidence_json(conn, limit=10_000)
+                    content_type = "application/json"
+                elif format_q == "csv":
+                    payload = export_evidence_csv(conn, limit=10_000)
+                    content_type = "text/csv; charset=utf-8"
+                else:
+                    self._write_json({"error": "invalid_export_format"}, status=400)
+                    return
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.end_headers()
+            self.wfile.write(payload.encode("utf-8"))
+            return
+        if len(path_parts) == 4 and path_parts[:3] == ["v1", "artifacts", path_parts[2]] and path_parts[3] == "diff":
+            query = parse_qs(parsed.query)
+            harness = query.get("harness", [None])[-1]
+            if not isinstance(harness, str) or not harness:
+                self._write_json({"error": "missing_harness"}, status=400)
+                return
+            diff = store.get_latest_diff(harness, unquote(path_parts[2]))
+            if diff is None:
+                self._write_json({"error": "not_found"}, status=404)
+                return
+            self._write_json(diff)
+            return
+        if parsed.path in _ROOT_STATIC_FILES:
+            self._write_static_asset(parsed.path.removeprefix("/"))
+            return
+        if parsed.path.startswith("/assets/") or parsed.path.startswith("/brand/"):
+            self._write_static_asset(parsed.path.removeprefix("/"))
+            return
+        if parsed.path == "/v1/events/stream":
+            if not self._token_is_valid(parsed.query):
+                self._write_json({"error": "unauthorized"}, status=401)
+                return
+            self._stream_events(_int_query_value(parsed.query, "cursor"))
+            return
+        if self._is_dashboard_route(parsed.path):
+            self._write_dashboard_shell()
+            return
+        self.send_response(404)
+        self.end_headers()
+
+    def do_DELETE(self) -> None:
+        parsed = urlparse(self.path)
+        self._touch_runtime_heartbeat(parsed.path)
+        path_parts = [part for part in parsed.path.split("/") if part]
+        if not self._origin_is_allowed_for_request(parsed.path, path_parts):
+            self._write_json({"error": "forbidden_origin"}, status=403)
+            return
+        if not self._header_token_is_valid():
+            self._write_json(
+                {"error": "unauthorized"},
+                status=401,
+                extra_headers=self._cors_headers_for_request(),
+            )
+            return
+        store = self.server.store  # type: ignore[attr-defined]
+        if parsed.path == "/v1/evidence":
+            with store._connect() as conn:
+                deleted = clear_evidence(conn)
+            self._write_json({"deleted": deleted})
+            return
+        self._write_json({"error": "not_found"}, status=404)
+
+    def do_POST(self) -> None:
+        parsed = urlparse(self.path)
+        self._touch_runtime_heartbeat(parsed.path)
+        path_parts = [part for part in parsed.path.split("/") if part]
+        if parsed.path in {"/v1/connect/requests", "/v1/connect/complete", "/v1/connect/result"}:
+            self._write_legacy_pairing_disabled()
+            return
+        if not self._origin_is_allowed_for_request(parsed.path, path_parts):
+            self._write_json({"error": "forbidden_origin"}, status=403)
+            return
+        payload, body_error = self._load_request_body()
+        if body_error is not None:
+            self._write_json({"error": body_error}, status=400)
+            return
+        if self._requires_header_token(parsed.path, path_parts) and not self._header_token_is_valid(payload=payload):
+            if (
+                len(path_parts) == 4
+                and path_parts[:2] == ["v1", "requests"]
+                and path_parts[3] in {"approve", "block", "resume"}
+            ):
+                host = self.server.server_address[0]  # type: ignore[attr-defined]
+                port = self.server.server_address[1]  # type: ignore[attr-defined]
+                reconnect_url = _build_local_url(host, port, "/#/reconnect")
+                self._write_json(
+                    {
+                        "error": "unauthorized",
+                        "recovery": {
+                            "code": "session_stale",
+                            "title": "Your session with the local Guard daemon has expired.",
+                            "body": "Click the link below to reconnect, then retry your approval.",
+                            "reconnect_url": reconnect_url,
+                        },
+                    },
+                    status=401,
+                    extra_headers=self._cors_headers_for_request(),
+                )
+            else:
+                self._write_json(
+                    {"error": "unauthorized"},
+                    status=401,
+                    extra_headers=self._cors_headers_for_request(),
+                )
+            return
+        if parsed.path == "/v1/initialize":
+            self._handle_initialize(payload)
+            return
+        if parsed.path == "/v1/hooks/claude-code":
+            self._handle_claude_hook(payload, parsed.query)
+            return
+        if parsed.path == "/v1/clients/attach":
+            self._handle_client_attach(payload)
+            return
+        if parsed.path == "/v1/clients/heartbeat":
+            self._handle_client_heartbeat(payload)
+            return
+        if parsed.path == "/v1/sessions/start":
+            self._handle_session_start(payload)
+            return
+        if parsed.path == "/v1/operations/start":
+            self._handle_operation_start(payload)
+            return
+        if parsed.path == "/v1/operations/block":
+            self._handle_operation_block(payload)
+            return
+        if len(path_parts) == 4 and path_parts[:2] == ["v1", "operations"] and path_parts[3] == "items":
+            self._handle_operation_item(path_parts[2], payload)
+            return
+        if len(path_parts) == 4 and path_parts[:2] == ["v1", "operations"] and path_parts[3] == "status":
+            self._handle_operation_status(path_parts[2], payload)
+            return
+        if parsed.path == "/v1/policy/decisions":
+            self._handle_policy_upsert(payload)
+            return
+        if parsed.path == "/v1/policy/clear":
+            self._handle_policy_clear(payload)
+            return
+        if parsed.path == "/v1/requests/clear":
+            self._handle_requests_clear(payload)
+            return
+        if parsed.path == "/v1/policy/sync":
+            self._handle_headless_policy_sync(payload)
+            return
+        if parsed.path == "/v1/settings":
+            self._handle_settings_update(payload)
+            return
+        if parsed.path == "/v1/settings/import":
+            self._handle_settings_import(payload)
+            return
+        if parsed.path == "/v1/settings/reset":
+            self._handle_settings_reset(payload)
+            return
+        if parsed.path == "/v1/approval-gate/cooldown/revoke":
+            self._handle_approval_gate_cooldown_revoke(payload)
+            return
+        if parsed.path == "/v1/approval-gate/totp/enroll":
+            self._handle_approval_gate_totp_enroll(payload)
+            return
+        if parsed.path == "/v1/approval-gate/totp/verify":
+            self._handle_approval_gate_totp_verify(payload)
+            return
+        if parsed.path == "/v1/approval-gate/totp/disable":
+            self._handle_approval_gate_totp_disable(payload)
+            return
+        if parsed.path == "/v1/daemon/repair":
+            result = repair_approval_center_locator(self.server.store.guard_home)  # type: ignore[attr-defined]
+            self._write_json(result)
+            return
+        if parsed.path == "/v1/notifications/setup":
+            self._handle_notification_setup(payload)
+            return
+        if (
+            len(path_parts) == 4
+            and path_parts[:3] == ["v1", "supply-chain", "package-shims"]
+            and path_parts[3] in _SUPPLY_CHAIN_PACKAGE_ACTIONS
+        ):
+            self._handle_supply_chain_package_firewall_action(path_parts[3], payload)
+            return
+        if len(path_parts) == 3 and path_parts[:2] == ["v1", "supply-chain"] and path_parts[2] in {"audit", "sync"}:
+            self._handle_supply_chain_package_firewall_action(path_parts[2], payload)
+            return
+        if len(path_parts) == 4 and path_parts[:2] == ["v1", "harnesses"]:
+            self._handle_harness_action(path_parts[2], path_parts[3], payload)
+            return
+        if len(path_parts) == 5 and path_parts[:2] == ["v1", "apps"] and path_parts[3] == "cloud":
+            self._write_legacy_cloud_handoff_disabled()
+            return
+        if len(path_parts) == 3 and path_parts[:2] == ["v1", "apps"]:
+            self._handle_headless_app_action(path_parts[2], payload)
+            return
+        if len(path_parts) == 4 and path_parts[:2] == ["v1", "requests"] and path_parts[3] == "resume":
+            self._handle_request_resume_retry(path_parts[2])
+            return
+        request_id, action, matched = self._resolve_request_action(path_parts, payload)
+        if not matched:
+            self.send_response(404)
+            self.end_headers()
+            return
+        if action is None:
+            self._write_json({"resolved": False, "error": "missing_required_fields"}, status=400)
+            return
+        scope = payload.get("scope")
+        if not isinstance(scope, str) or not scope.strip():
+            self._write_json({"resolved": False, "error": "missing_required_fields"}, status=400)
+            return
+        try:
+            updated = apply_approval_resolution(
+                store=self.server.store,  # type: ignore[attr-defined]
+                request_id=request_id,
+                action=action,
+                scope=scope.strip(),
+                workspace=self._optional_string(payload.get("workspace")),
+                reason=self._optional_string(payload.get("reason")),
+                return_queue_result=True,
+                resolve_scope_matches=False,
+                approval_gate_input=approval_gate_input_from_mapping(payload),
+            )
+        except ApprovalRequestNotFoundError:
+            self._write_json(
+                {
+                    "resolved": False,
+                    "error": "not_found",
+                    "recovery": {
+                        "code": "request_unknown",
+                        "title": "This request is no longer waiting.",
+                        "body": "The request was either already resolved or expired. You can close this tab.",
+                        "queue_url": self._local_queue_url(),
+                    },
+                },
+                status=404,
+            )
+            return
+        except ApprovalRequestAlreadyResolvedError:
+            self._write_json(
+                {
+                    "resolved": False,
+                    "error": "already_resolved",
+                    "recovery": {
+                        "code": "request_resolved",
+                        "title": "This request has already been resolved.",
+                        "body": (
+                            "If the action is blocked and you believe it should be allowed, "
+                            "you can re-submit from your AI assistant."
+                        ),
+                        "queue_url": self._local_queue_url(),
+                    },
+                },
+                status=409,
+            )
+            return
+        except ApprovalGateError as error:
+            self._write_approval_gate_error(error, resolved=False)
+            return
+        except ValueError as error:
+            self._write_json({"resolved": False, "error": str(error)}, status=400)
+            return
+        normalized_scope = scope.strip()
+        item = updated.get("item")
+        harness_str = str(item.get("harness", "")) if isinstance(item, dict) else ""
+        self.server.store.add_event(  # type: ignore[attr-defined]
+            "approval_resolved",
+            {"request_id": request_id, "action": action, "scope": normalized_scope, "harness": harness_str},
+            _now(),
+        )
+        harness = str(updated.get("harness", ""))
+        copy = _build_resolution_copy(action, harness_str or harness)
+        codex_resume = None
+        if harness_str == "codex" and action in {"allow", "block"}:
+            codex_resume = defer_request_resume_to_live_hook(
+                self.server.store,  # type: ignore[attr-defined]
+                request_id=request_id,
+                action=action,
+                now=_now(),
+            )
+            if codex_resume is None:
+                codex_resume = retry_request_resume(
+                    self.server.store,  # type: ignore[attr-defined]
+                    request_id=request_id,
+                    now=_now(),
+                )
+        if codex_resume is not None:
+            updated = self._apply_codex_resume_result(
+                updated=updated,
+                request_id=request_id,
+                action=action,
+                copy=copy,
+                codex_resume=codex_resume,
+            )
+            copy = updated["copy"]
+        updated["copy"] = copy
+        updated["retry_hint"] = copy["body"]
+        self._write_json(updated)
+
+    def log_message(self, fmt: str, *args: Any) -> None:
+        return
+
+    def _local_queue_url(self) -> str:
+        host = self.server.server_address[0]  # type: ignore[attr-defined]
+        port = self.server.server_address[1]  # type: ignore[attr-defined]
+        return _build_local_url(host, port, "/#/inbox")
+
+    def _load_request_body(self) -> tuple[dict[str, object], str | None]:
+        length = int(self.headers.get("Content-Length", "0"))
+        if length <= 0 or length > self._MAX_BODY_BYTES:
+            return {}, None
+        try:
+            raw_body = self.rfile.read(length).decode("utf-8")
+        except UnicodeDecodeError:
+            return {}, "invalid_request_body"
+        content_type = self.headers.get("Content-Type", "")
+        if "application/json" in content_type:
+            try:
+                payload = json.loads(raw_body)
+            except json.JSONDecodeError:
+                return {}, "invalid_request_body"
+            return (payload if isinstance(payload, dict) else {}), None
+        form_payload = parse_qs(raw_body)
+        return {key: values[-1] for key, values in form_payload.items() if values}, None
+
+    def _handle_capabilities(self) -> None:
+        context = self._harness_context({})
+        items = list_harness_setup_items(context, self.server.store)  # type: ignore[attr-defined]
+        supported = []
+        failure_reasons = _headless_safe_failure_reasons()
+        for item in items:
+            harness = item.get("harness")
+            if not isinstance(harness, str):
+                continue
+            supported.append(
+                {
+                    "display_name": item.get("display_name"),
+                    "harness": harness,
+                    "status": _headless_detection_status_to_app_status(item.get("status")),
+                    "command_available": bool(item.get("command_available")),
+                    "headless_actions": list(_HEADLESS_OPERATIONS[:-1]),
+                    "safe_failure_reasons": failure_reasons,
+                }
+            )
+        self._write_json(
+            {
+                "auth_state": "dashboard_session" if self._dashboard_session_token_is_valid() else "local_token",
+                "command_available": any(bool(item.get("command_available")) for item in items),
+                "daemon": {
+                    "compatibility_version": GUARD_DAEMON_COMPATIBILITY_VERSION,
+                    "package_version": __version__,
+                    "platform": platform.system().lower() or "unknown",
+                },
+                "headless_api": {
+                    "operations": list(_HEADLESS_OPERATIONS),
+                    "routes": {
+                        "install": "/v1/apps/connect",
+                        "repair": "/v1/apps/repair",
+                        "remove": "/v1/apps/disconnect",
+                        "status": "/v1/apps/status",
+                        "scan": "/v1/apps/test",
+                        "policy_sync": "/v1/policy/sync",
+                    },
+                },
+                "package_firewall_api": {
+                    "operations": ["status", "install", "repair", "test", "audit", "sync", "remove"],
+                    "routes": {
+                        "audit": "/v1/supply-chain/audit",
+                        "install": "/v1/supply-chain/package-shims/install",
+                        "remove": "/v1/supply-chain/package-shims/remove",
+                        "repair": "/v1/supply-chain/package-shims/repair",
+                        "status": "/v1/supply-chain/package-shims",
+                        "sync": "/v1/supply-chain/sync",
+                        "test": "/v1/supply-chain/package-shims/test",
+                    },
+                },
+                "safe_failure_reasons": _headless_safe_failure_reasons(),
+                "supported_harnesses": sorted(item["harness"] for item in supported),
+                "items": supported,
+            }
+        )
+
+    def _latest_cloud_sync_snapshot(self) -> dict[str, object]:
+        latest_payload = self.server.store.get_sync_payload("headless_app_sync_summary")  # type: ignore[attr-defined]
+        if not isinstance(latest_payload, dict):
+            latest_payload = self.server.store.get_sync_payload("sync_summary")  # type: ignore[attr-defined]
+        if isinstance(latest_payload, dict):
+            return dict(latest_payload)
+        return {}
+
+    def _headless_reconnect_payload(
+        self,
+        *,
+        cloud_sync: dict[str, object],
+        location_id: str | None,
+    ) -> dict[str, object]:
+        runtime_summary = self.server.store.get_sync_payload("runtime_session_summary")  # type: ignore[attr-defined]
+        runtime = runtime_summary if isinstance(runtime_summary, dict) else {}
+        latest_cloud_sync = self._latest_cloud_sync_snapshot()
+        cloud_sync_status = self._optional_string(cloud_sync.get("status")) or "unknown"
+        if cloud_sync_status in {"queued", "in_progress"}:
+            reconciliation_status = cloud_sync_status
+        elif cloud_sync_status == "not_configured":
+            reconciliation_status = "not_configured"
+        elif cloud_sync_status == "synced":
+            reconciliation_status = "synced"
+        else:
+            reconciliation_status = "pending"
+        return {
+            "correlation_id": str(uuid.uuid4()),
+            "freshness": {
+                "last_receipt_sync_at": self._optional_string(latest_cloud_sync.get("synced_at")),
+                "last_runtime_sync_at": (
+                    self._optional_string(runtime.get("runtime_session_synced_at"))
+                    or self._optional_string(runtime.get("synced_at"))
+                ),
+                "local_guard_online_at": self._optional_string(runtime.get("local_guard_online_at")),
+            },
+            "latest_cloud_sync": latest_cloud_sync,
+            "local_identity": {
+                "daemon_id": self._optional_string(runtime.get("runtime_device_id")),
+                "daemon_version": __version__,
+                "hostname": platform.node() or None,
+                "ip_address": None,
+                "private_ip_address": None,
+                "public_ip_address": None,
+            },
+            "location_id": location_id,
+            "reconciliation_status": reconciliation_status,
+        }
+
+    def _headless_app_action_payload(
+        self,
+        *,
+        action_path: str,
+        payload: dict[str, object],
+    ) -> tuple[int, dict[str, object]]:
+        try:
+            mapping = _HEADLESS_APP_ACTIONS[action_path]
+        except KeyError:
+            return _headless_action_error_payload(
+                operation=action_path,
+                error_code="unsupported_operation",
+            )
+        operation, harness_action = mapping
+        harness = self._optional_string(payload.get("harness"))
+        if harness is None:
+            return _headless_action_error_payload(
+                operation=operation,
+                error_code="missing_harness",
+            )
+        try:
+            adapter = get_adapter(harness)
+        except ValueError:
+            return _headless_action_error_payload(
+                operation=operation,
+                error_code="unknown_harness",
+            )
+        try:
+            surface = self._cursor_headless_surface(payload) if adapter.harness == "cursor" else None
+        except ValueError:
+            error_payload = _headless_error_payload(
+                code="invalid_cursor_surface",
+                message="Choose Cursor editor or CLI before retrying this local action.",
+                retryable=False,
+            )
+            error = error_payload["error"]
+            if isinstance(error, dict):
+                error["app_id"] = "cursor"
+                error["surface"] = self._optional_string(payload.get("surface")) or ""
+            return 400, error_payload
+        context = self._harness_context(payload)
+        try:
+            if harness_action == "verify":
+                verification_action = "status" if action_path == "status" else "test"
+                result = build_harness_verification(
+                    adapter.harness,
+                    context,
+                    self.server.store,  # type: ignore[attr-defined]
+                    surface=surface,
+                    action=verification_action,
+                )
+            else:
+                result = self._run_headless_managed_action(adapter.harness, harness_action, payload, context)
+        except ValueError as error:
+            return _headless_action_error_payload(
+                operation=operation,
+                error_code=str(error),
+            )
+        location_id = self._optional_string(payload.get("location_id")) or self._optional_string(
+            payload.get("locationId")
+        )
+        receipt = self._record_headless_receipt(
+            harness=adapter.harness,
+            operation=operation,
+            payload=payload,
+            result=result,
+            location_id=location_id,
+            workspace_id=self._optional_string(payload.get("workspace_id")),
+            cloud_sync={"status": "pending"},
+        )
+        cloud_sync = _queue_headless_cloud_sync(store=self.server.store)  # type: ignore[attr-defined]
+        receipt["cloud_sync"] = cloud_sync
+        return 200, {
+            "cloud_sync": cloud_sync,
+            "harness": adapter.harness,
+            "operation": operation,
+            "result": result,
+            "receipt": receipt,
+            "state": _headless_action_state_payload(
+                harness=adapter.harness,
+                operation=operation,
+                result=result,
+                receipt=receipt,
+            ),
+            "reconnect": self._headless_reconnect_payload(
+                cloud_sync=cloud_sync,
+                location_id=location_id,
+            ),
+            "status": "completed",
+        }
+
+    def _handle_cloud_app_handoff(self, harness: str, query_string: str) -> None:
+        _ = (harness, query_string)
+        self._write_legacy_cloud_handoff_disabled()
+
+    def _handle_headless_app_action(self, action_path: str, payload: dict[str, object]) -> None:
+        status, payload = self._headless_app_action_payload(action_path=action_path, payload=payload)
+        self._write_json(payload, status=status)
+
+    def _run_headless_managed_action(
+        self,
+        harness: str,
+        action: str,
+        payload: dict[str, object],
+        context: HarnessContext,
+    ) -> dict[str, object]:
+        surface = self._cursor_headless_surface(payload) if harness == "cursor" else None
+        if action == "uninstall":
+            expected_confirmation = uninstall_confirmation_token(harness)
+            confirmation = self._optional_string(payload.get("confirmation_phrase")) or self._optional_string(
+                payload.get("confirmation_token")
+            )
+            if confirmation != expected_confirmation:
+                raise ValueError("confirmation_required")
+        install_command = "uninstall" if action == "uninstall" else "install"
+        return apply_managed_install(
+            install_command,
+            harness,
+            False,
+            context,
+            self.server.store,  # type: ignore[attr-defined]
+            self._optional_string(payload.get("workspace_id")),
+            _now(),
+            surface=surface,
+        )
+
+    def _handle_headless_policy_sync(self, payload: dict[str, object]) -> None:
+        harness = self._optional_string(payload.get("harness"))
+        if harness is None:
+            self._write_json({"error": "missing_harness"}, status=400)
+            return
+        try:
+            adapter = get_adapter(harness)
+        except ValueError:
+            self._write_json({"error": "unknown_harness"}, status=404)
+            return
+        policy_memory = self._policy_memory_payload(payload.get("policy_memory"))
+        if not policy_memory:
+            self._write_json({"error": "missing_policy_memory"}, status=400)
+            return
+        scope = self._optional_string(policy_memory.get("scope"))
+        action = self._optional_string(policy_memory.get("action"))
+        if scope is None or action is None:
+            self._write_json({"error": "missing_policy_fields"}, status=400)
+            return
+        if scope not in DECISION_SCOPE_VALUES or action not in GUARD_ACTION_VALUES:
+            self._write_json({"error": "unsupported_policy_value"}, status=400)
+            return
+        if scope == "global" and action == "allow":
+            self._write_json({"error": "broad_allow_requires_narrow_scope"}, status=400)
+            return
+        artifact_id = self._optional_string(policy_memory.get("artifact_id"))
+        workspace = self._optional_string(policy_memory.get("workspace"))
+        publisher = self._optional_string(policy_memory.get("publisher"))
+        if not self._scope_target_is_valid(
+            scope,
+            artifact_id=artifact_id,
+            workspace=workspace,
+            publisher=publisher,
+        ):
+            self._write_json({"error": "missing_scope_target"}, status=400)
+            return
+        expires_at = _normalized_iso_timestamp_string(policy_memory.get("expires_at"))
+        if policy_memory.get("expires_at") is not None and expires_at is None:
+            self._write_json({"error": "invalid_policy_expiry"}, status=400)
+            return
+        decision = PolicyDecision(
+            harness=adapter.harness,
+            scope=scope,  # type: ignore[arg-type]
+            action=action,  # type: ignore[arg-type]
+            artifact_id=artifact_id,
+            artifact_hash=self._optional_string(policy_memory.get("artifact_hash")),
+            workspace=workspace,
+            publisher=publisher,
+            reason=self._optional_string(policy_memory.get("reason")) or "Guard Cloud policy memory sync",
+            source="cloud-sync",
+            expires_at=expires_at,
+        )
+        try:
+            approval_gate_grant = require_high_risk(
+                self.server.store.guard_home,  # type: ignore[attr-defined]
+                purpose="headless_policy_sync",
+                approval_gate_input=approval_gate_input_from_mapping(payload),
+            )
+            self.server.store.upsert_policy(  # type: ignore[attr-defined]
+                decision,
+                _now(),
+                approval_gate_grant=approval_gate_grant,
+            )
+        except ApprovalGateError as error:
+            self._write_approval_gate_error(error)
+            return
+        receipt = self._record_headless_receipt(
+            harness=adapter.harness,
+            operation="policy_sync",
+            payload=payload,
+            result={"decision": decision.to_dict()},
+            workspace_id=decision.workspace,
+        )
+        self._write_json(
+            {
+                "harness": adapter.harness,
+                "operation": "policy_sync",
+                "receipt": receipt,
+                "status": "completed",
+            }
+        )
+
+    def _handle_supply_chain_package_firewall_status(self) -> None:
+        entitlement = self._supply_chain_entitlement()
+        status = package_shim_status(self._harness_context({}))
+        allowed = bool(entitlement["allowed"])
+        self._write_json(
+            {
+                "actions": self._supply_chain_action_states(allowed),
+                "cli_fallback": {
+                    "install": "hol-guard package-shims install --json",
+                    "status": "hol-guard package-shims status --json",
+                    "remove": "hol-guard package-shims uninstall --json",
+                },
+                "entitlement": entitlement,
+                "operation": "status",
+                "status": "completed",
+                "supported_managers": list(package_shim_supported_managers()),
+                "package_shims": status,
+            }
+        )
+
+    def _handle_supply_chain_package_firewall_action(self, action: str, payload: dict[str, object]) -> None:
+        operation = "remove" if action == "uninstall" else action
+        entitlement = self._supply_chain_entitlement()
+        if not bool(entitlement["allowed"]):
+            self._write_json(
+                {
+                    "available_actions": ["status", "education", "cli_fallback"],
+                    "entitlement": entitlement,
+                    "error": "paid_guard_cloud_required",
+                    "message": "HOL Guard Cloud paid access is required to run package firewall actions.",
+                    "operation": operation,
+                },
+                status=402,
+            )
+            return
+        context = self._supply_chain_context(payload)
+        managers, manager_error = self._supply_chain_managers(payload)
+        if manager_error is not None:
+            self._write_json({"error": manager_error, "operation": operation}, status=400)
+            return
+        try:
+            if operation in {"install", "repair", "remove"}:
+                require_high_risk(
+                    self.server.store.guard_home,  # type: ignore[attr-defined]
+                    purpose="supply_chain_firewall",
+                    approval_gate_input=approval_gate_input_from_mapping(payload),
+                )
+            result = self._run_supply_chain_package_action(operation, context, managers)
+        except ApprovalGateError as error:
+            self._write_approval_gate_error(error)
+            return
+        except ValueError as error:
+            self._write_json({"error": str(error), "operation": operation}, status=400)
+            return
+        receipt = self._record_headless_receipt(
+            harness="package-firewall",
+            operation=operation,
+            payload=payload,
+            result=result,
+            workspace_id=self._optional_string(payload.get("workspace_id"))
+            or self.server.store.get_cloud_workspace_id(),  # type: ignore[attr-defined]
+        )
+        self._write_json(
+            {
+                "entitlement": entitlement,
+                "operation": operation,
+                "receipt": receipt,
+                "result": result,
+                "status": "completed",
+            }
+        )
+
+    def _run_supply_chain_package_action(
+        self,
+        operation: str,
+        context: HarnessContext,
+        managers: tuple[str, ...] | None,
+    ) -> dict[str, object]:
+        if operation == "install":
+            return install_package_shims(context, managers=managers)
+        if operation == "repair":
+            return repair_package_shims(context, managers=managers)
+        if operation == "remove":
+            return uninstall_package_shims(context, managers=managers)
+        if operation == "test":
+            status = package_shim_status(context)
+            installed = {str(manager) for manager in status.get("installed_managers", []) if isinstance(manager, str)}
+            tested_managers = list(managers or tuple(sorted(installed)))
+            return {
+                "blocked_execution": all(manager in installed for manager in tested_managers),
+                "package_shims": status,
+                "tested_managers": tested_managers,
+            }
+        if operation == "audit":
+            return build_local_supply_chain_posture(
+                self.server.store,  # type: ignore[attr-defined]
+                load_guard_config(self.server.store.guard_home),  # type: ignore[attr-defined]
+            )
+        if operation == "sync":
+            return sync_supply_chain_bundle(self.server.store)  # type: ignore[attr-defined]
+        raise ValueError("unsupported_supply_chain_operation")
+
+    def _supply_chain_context(self, payload: dict[str, object]) -> HarnessContext:
+        return HarnessContext(
+            home_dir=Path.home().resolve(),
+            workspace_dir=None,
+            guard_home=self.server.store.guard_home,  # type: ignore[attr-defined]
+        )
+
+    @staticmethod
+    def _supply_chain_managers(payload: dict[str, object]) -> tuple[tuple[str, ...] | None, str | None]:
+        managers_value = payload.get("managers")
+        if managers_value is None:
+            return None, None
+        if not isinstance(managers_value, list) or not all(isinstance(manager, str) for manager in managers_value):
+            return None, "invalid_managers"
+        supported = set(package_shim_supported_managers())
+        normalized = [manager.strip().lower() for manager in managers_value if manager.strip()]
+        if len(normalized) != len(set(normalized)):
+            return None, "duplicate_manager"
+        managers = tuple(normalized)
+        if not managers:
+            return None, "invalid_managers"
+        if not set(managers).issubset(supported):
+            return None, "unsupported_manager"
+        return managers, None
+
+    def _supply_chain_entitlement(self) -> dict[str, object]:
+        entitlement_payload = self.server.store.get_sync_payload("supply_chain_bundle_entitlement")  # type: ignore[attr-defined]
+        entitlement = entitlement_payload if isinstance(entitlement_payload, dict) else {}
+        tier = self._optional_string(entitlement.get("tier"))
+        normalized_tier = tier.strip().lower() if tier is not None else "free"
+        allowed = normalized_tier in _SUPPLY_CHAIN_PAID_TIERS
+        return {
+            "allowed": allowed,
+            "reason": "paid_entitlement_active" if allowed else "paid_guard_cloud_required",
+            "tier": normalized_tier,
+            "upgrade_cta": None if allowed else "Upgrade to HOL Guard Cloud to run package firewall actions.",
+        }
+
+    @staticmethod
+    def _supply_chain_action_states(allowed: bool) -> dict[str, str]:
+        state = "available" if allowed else "paid_required"
+        return {
+            "install": state,
+            "repair": state,
+            "test": state,
+            "audit": state,
+            "sync": state,
+            "remove": state,
+        }
+
+    @staticmethod
+    def _policy_memory_payload(value: object) -> dict[str, object]:
+        if isinstance(value, dict):
+            return dict(value)
+        if isinstance(value, str) and value.strip():
+            try:
+                parsed = json.loads(value)
+            except json.JSONDecodeError:
+                return {}
+            return parsed if isinstance(parsed, dict) else {}
+        return {}
+
+    def _record_headless_receipt(
+        self,
+        *,
+        harness: str,
+        location_id: str | None = None,
+        operation: str,
+        payload: dict[str, object],
+        result: dict[str, object],
+        workspace_id: str | None,
+        cloud_sync: dict[str, object] | None = None,
+    ) -> dict[str, object]:
+        cursor_receipt_context = self._cursor_receipt_context(
+            harness=harness,
+            operation=operation,
+            payload=payload,
+            result=result,
+            cloud_sync=cloud_sync,
+        )
+        material = json.dumps(
+            {
+                "harness": harness,
+                "location_id": location_id,
+                "operation": operation,
+                "result_keys": sorted(result.keys()),
+                "cursor": cursor_receipt_context,
+                "workspace_id": workspace_id,
+            },
+            sort_keys=True,
+        )
+        artifact_hash = hashlib.sha256(material.encode("utf-8")).hexdigest()
+        changed_capabilities = [] if operation in {"status", "scan"} else [operation]
+        artifact_id = f"headless:{harness}:{operation}"
+        artifact_name = f"Headless {operation}"
+        capabilities_summary = f"Guard local daemon completed headless {operation}."
+        source_scope = "local-daemon"
+        scanner_evidence: dict[str, object] = {
+            "operation": operation,
+            "location_id": location_id,
+            "workspace_id": workspace_id,
+            "status": "completed",
+        }
+        if cursor_receipt_context is not None:
+            artifact_id = str(cursor_receipt_context["action_scope"])
+            artifact_name = str(cursor_receipt_context["artifact_name"])
+            capabilities_summary = str(cursor_receipt_context["capabilities_summary"])
+            source_scope = str(cursor_receipt_context["source_scope"])
+            changed_capabilities = [str(cursor_receipt_context["changed_capability"])]
+            scanner_evidence.update(cursor_receipt_context["scanner_evidence"])
+        receipt = build_receipt(
+            harness=harness,
+            artifact_id=artifact_id,
+            artifact_hash=artifact_hash,
+            policy_decision="allow",
+            capabilities_summary=capabilities_summary,
+            changed_capabilities=changed_capabilities,
+            provenance_summary="Guard Cloud local daemon API",
+            artifact_name=artifact_name,
+            source_scope=source_scope,
+            scanner_evidence=(scanner_evidence,),
+            approval_source="guard-cloud-headless",
+        )
+        self.server.store.add_receipt(receipt)  # type: ignore[attr-defined]
+        summary = {
+            "id": receipt.receipt_id,
+            "operation": operation,
+            "status": "completed",
+            "timestamp": receipt.timestamp,
+        }
+        if cursor_receipt_context is not None:
+            summary.update(cursor_receipt_context["summary"])
+        return summary
+
+    def _cursor_headless_surface(self, payload: dict[str, object]) -> str | None:
+        surface = self._optional_string(payload.get("surface")) or self._optional_string(payload.get("editor_or_cli"))
+        if surface is None:
+            return None
+        if surface not in {"editor", "cli"}:
+            raise ValueError("invalid_cursor_surface")
+        return surface
+
+    def _cursor_receipt_context(
+        self,
+        *,
+        harness: str,
+        operation: str,
+        payload: dict[str, object],
+        result: dict[str, object],
+        cloud_sync: dict[str, object] | None,
+    ) -> dict[str, object] | None:
+        if harness != "cursor":
+            return None
+        action_payload = result.get("cursor_action")
+        action_dict = action_payload if isinstance(action_payload, dict) else {}
+        surface = (
+            self._optional_string(action_dict.get("surface"))
+            or self._optional_string(payload.get("surface"))
+            or self._optional_string(payload.get("editor_or_cli"))
+            or "editor"
+        )
+        action = self._optional_string(action_dict.get("action")) or operation
+        evidence = action_dict.get("evidence")
+        evidence_dict = evidence if isinstance(evidence, dict) else {}
+        action_scope = self._optional_string(evidence_dict.get("actionScope")) or f"cursor:{surface}:{action}"
+        cloud_sync_status = "pending"
+        if isinstance(cloud_sync, dict):
+            cloud_sync_status = self._optional_string(cloud_sync.get("status")) or cloud_sync_status
+        surface_label = "CLI" if surface == "cli" else "editor"
+        scanner_evidence = {
+            "action_scope": action_scope,
+            "cloud_sync_status": cloud_sync_status,
+            "cursor_status": self._optional_string(action_dict.get("status")) or "unknown",
+            "editor_or_cli": surface,
+            "error_reason": self._optional_string(payload.get("error_reason")),
+        }
+        return {
+            "action_scope": action_scope,
+            "artifact_name": f"Cursor {surface_label} {action}",
+            "capabilities_summary": f"Guard local daemon completed Cursor {surface_label} {action}.",
+            "changed_capability": f"{surface}:{action}",
+            "scanner_evidence": scanner_evidence,
+            "source_scope": f"cursor:{surface}",
+            "summary": {
+                "action_scope": action_scope,
+                "cloud_sync": dict(cloud_sync) if isinstance(cloud_sync, dict) else {"status": cloud_sync_status},
+                "editor_or_cli": surface,
+            },
+        }
+
+    def _handle_policy_clear(self, payload: dict[str, object]) -> None:
+        harness = self._optional_string(payload.get("harness"))
+        source = self._optional_string(payload.get("source"))
+        scope = self._optional_string(payload.get("scope"))
+        artifact_id = self._optional_string(payload.get("artifact_id"))
+        artifact_hash = self._optional_string(payload.get("artifact_hash"))
+        workspace = self._optional_string(payload.get("workspace"))
+        publisher = self._optional_string(payload.get("publisher"))
+        try:
+            clear_all = self._optional_bool(payload.get("all"), default=False)
+            artifact_id_is_null = self._optional_bool(payload.get("artifact_id_is_null"), default=False)
+            artifact_hash_is_null = self._optional_bool(payload.get("artifact_hash_is_null"), default=False)
+        except ValueError:
+            self._write_json({"error": "invalid_clear_payload", "cleared": 0}, status=400)
+            return
+        if scope is not None and scope not in {"artifact", "workspace", "publisher", "harness", "global"}:
+            self._write_json({"error": "invalid_scope", "cleared": 0, "scope": scope}, status=400)
+            return
+        if clear_all and harness is not None:
+            self._write_json(
+                {
+                    "error": "choose_all_or_harness",
+                    "cleared": 0,
+                    "harness": harness,
+                    "source": source,
+                },
+                status=400,
+            )
+            return
+        if not clear_all and harness is None:
+            self._write_json({"error": "missing_harness_or_all", "cleared": 0}, status=400)
+            return
+        try:
+            approval_gate_grant = require_high_risk(
+                self.server.store.guard_home,  # type: ignore[attr-defined]
+                purpose="policy_clear",
+                approval_gate_input=approval_gate_input_from_mapping(payload),
+            )
+            cleared = self.server.store.clear_policy_decisions(  # type: ignore[attr-defined]
+                None if clear_all else harness,
+                source,
+                scope=scope,
+                artifact_id=artifact_id,
+                artifact_hash=artifact_hash,
+                artifact_id_is_null=artifact_id_is_null,
+                artifact_hash_is_null=artifact_hash_is_null,
+                workspace=workspace,
+                publisher=publisher,
+                approval_gate_grant=approval_gate_grant,
+            )
+        except ApprovalGateError as error:
+            payload = error.to_payload()
+            payload["cleared"] = 0
+            self._write_json(payload, status=error.status)
+            return
+        self._write_json(
+            {
+                "cleared": cleared,
+                "harness": None if clear_all else harness,
+                "source": source,
+                "scope": scope,
+                "artifact_id": artifact_id,
+                "artifact_hash": artifact_hash,
+                "artifact_id_is_null": artifact_id_is_null,
+                "artifact_hash_is_null": artifact_hash_is_null,
+                "workspace": workspace,
+                "publisher": publisher,
+            }
+        )
+
+    def _handle_requests_clear(self, payload: dict[str, object]) -> None:
+        status = self._optional_string(payload.get("status")) or "pending"
+        harness = self._optional_string(payload.get("harness"))
+        if status not in {"pending", "resolved", "expired"}:
+            self._write_json({"error": "invalid_status", "cleared": 0, "status": status}, status=400)
+            return
+        try:
+            require_high_risk(
+                self.server.store.guard_home,  # type: ignore[attr-defined]
+                purpose="queue_clear",
+                approval_gate_input=approval_gate_input_from_mapping(payload),
+            )
+            cleared = self.server.store.clear_approval_requests(  # type: ignore[attr-defined]
+                harness=harness,
+                status=status,
+            )
+        except ApprovalGateError as error:
+            payload = error.to_payload()
+            payload["cleared"] = 0
+            payload["status"] = status
+            self._write_json(payload, status=error.status)
+            return
+        self._write_json({"cleared": cleared, "status": status, "harness": harness})
+
+    def _harness_context(self, payload: dict[str, object]) -> HarnessContext:
+        del payload
+        return HarnessContext(
+            home_dir=Path.home().resolve(),
+            workspace_dir=None,
+            guard_home=self.server.store.guard_home,  # type: ignore[attr-defined]
+        )
+
+    def _handle_harness_action(self, harness: str, action: str, payload: dict[str, object]) -> None:
+        if action not in {"install", "verify", "repair", "uninstall"}:
+            self._write_json({"error": "not_found"}, status=404)
+            return
+        context = self._harness_context(payload)
+        if action == "verify":
+            try:
+                self._write_json(build_harness_verification(harness, context, self.server.store))  # type: ignore[attr-defined]
+            except ValueError as error:
+                self._write_json({"error": str(error)}, status=404)
+            return
+        try:
+            dry_run = self._optional_bool(payload.get("dry_run"), default=True)
+        except ValueError:
+            self._write_json({"error": "invalid_dry_run"}, status=400)
+            return
+        try:
+            adapter = get_adapter(harness)
+        except ValueError as error:
+            self._write_json({"error": str(error)}, status=404)
+            return
+        if action == "uninstall":
+            expected_confirmation = uninstall_confirmation_token(adapter.harness)
+            confirmation = self._optional_string(payload.get("confirmation_phrase")) or self._optional_string(
+                payload.get("confirmation_token")
+            )
+            if confirmation != expected_confirmation:
+                self._write_json(
+                    {
+                        "error": "confirmation_required",
+                        "harness": adapter.harness,
+                        "confirmation_phrase": expected_confirmation,
+                        "confirm_command": (
+                            f"hol-guard apps disconnect {adapter.harness} --confirm {expected_confirmation}"
+                        ),
+                    },
+                    status=400,
+                )
+                return
+        if dry_run:
+            self._write_json(build_harness_setup_plan(action, adapter.harness, context, dry_run=True))
+            return
+        install_command = "uninstall" if action == "uninstall" else "install"
+        try:
+            result = apply_managed_install(
+                install_command,
+                adapter.harness,
+                False,
+                context,
+                self.server.store,  # type: ignore[attr-defined]
+                str(context.workspace_dir) if context.workspace_dir is not None else None,
+                _now(),
+            )
+        except ValueError as error:
+            self._write_json({"error": str(error)}, status=400)
+            return
+        self._write_json({"harness": adapter.harness, "action": action, "dry_run": False, **result})
+
+    def _handle_notification_setup(self, payload: dict[str, object]) -> None:
+        del payload
+        host = self.server.server_address[0]  # type: ignore[attr-defined]
+        port = self.server.server_address[1]  # type: ignore[attr-defined]
+        approval_url = _build_local_url(host, port, "/approvals/notification-preview")
+        try:
+            result = ensure_desktop_notification_setup(
+                self.server.store.guard_home,  # type: ignore[attr-defined]
+                approval_url=approval_url,
+                force=True,
+            )
+        except Exception as error:
+            self._write_json({"error": str(error)}, status=500)
+            return
+        guidance = macos_notification_guidance(result.notifier_path) if result.platform == "Darwin" else None
+        self._write_json(desktop_notification_setup_payload(result, guidance=guidance))
+
+    def _handle_requests_list(self, query_string: str) -> None:
+        limit = self._query_limit(query_string, default=200, maximum=200)
+        if limit is None:
+            self._write_json({"error": "invalid_limit"}, status=400)
+            return
+        status = self._query_string(query_string, "status") or "pending"
+        if status == "all":
+            status_filter = None
+        elif status in {"pending", "resolved"}:
+            status_filter = status
+        else:
+            self._write_json({"error": "invalid_status"}, status=400)
+            return
+        try:
+            page = self.server.store.list_approval_request_page(  # type: ignore[attr-defined]
+                status=status_filter,
+                limit=limit,
+                cursor=self._query_string(query_string, "cursor"),
+                harness=self._query_string(query_string, "harness"),
+                search=self._query_string(query_string, "search"),
+            )
+        except InvalidApprovalCursorError:
+            self._write_json(
+                {
+                    "error": "invalid_cursor",
+                    "recovery": {
+                        "code": "refresh_queue",
+                        "title": "Refresh the blocked action list.",
+                        "body": "The queue position expired. Refresh the Review Queue to continue.",
+                    },
+                },
+                status=400,
+            )
+            return
+        self._write_json(page)
+
+    @staticmethod
+    def _optional_bool(value: object, *, default: bool) -> bool:
+        if value is None:
+            return default
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"true", "1", "yes", "on"}:
+                return True
+            if normalized in {"false", "0", "no", "off", ""}:
+                return False
+        raise ValueError("invalid boolean value")
+
+    def _write_approval_gate_error(self, error: ApprovalGateError, *, resolved: bool | None = None) -> None:
+        payload = error.to_payload()
+        if resolved is not None:
+            payload["resolved"] = resolved
+        self._write_json(payload, status=error.status)
+
+    def _handle_settings_update(self, payload: dict[str, object]) -> None:
+        settings = payload.get("settings")
+        if not isinstance(settings, dict):
+            self._write_json({"error": "invalid_settings"}, status=400)
+            return
+        guard_home = self.server.store.guard_home  # type: ignore[attr-defined]
+        gate_payload = settings.get("approval_gate")
+        gate_input = (
+            approval_gate_input_from_mapping({"approval_gate": gate_payload})
+            if isinstance(gate_payload, dict)
+            else None
+        )
+        try:
+            approval_gate_grant = require_high_risk(
+                guard_home,
+                purpose="settings_write",
+                approval_gate_input=gate_input,
+            )
+            if isinstance(gate_payload, dict):
+                validate_approval_gate_settings(
+                    guard_home,
+                    gate_payload,
+                    approval_gate_grant=approval_gate_grant,
+                )
+            config_settings = {key: value for key, value in settings.items() if key != "approval_gate"}
+            config = update_guard_settings(guard_home, config_settings, approval_gate_grant=approval_gate_grant)
+            if isinstance(gate_payload, dict):
+                update_approval_gate_settings(
+                    guard_home,
+                    gate_payload,
+                    approval_gate_grant=approval_gate_grant,
+                )
+                config = load_guard_config(guard_home)
+        except ApprovalGateError as error:
+            self._write_approval_gate_error(error)
+            return
+        except ValueError as error:
+            self._write_json({"error": "invalid_settings", "message": str(error)}, status=400)
+            return
+        self._write_json(_settings_response_payload(guard_home, editable_guard_settings(config)))
+
+    def _handle_settings_import(self, payload: dict[str, object]) -> None:
+        settings = payload.get("settings")
+        if not isinstance(settings, dict):
+            self._write_json({"error": "invalid_settings_import"}, status=400)
+            return
+        guard_home = self.server.store.guard_home  # type: ignore[attr-defined]
+        gate_payload = settings.get("approval_gate")
+        gate_input = (
+            approval_gate_input_from_mapping({"approval_gate": gate_payload})
+            if isinstance(gate_payload, dict)
+            else None
+        )
+        try:
+            approval_gate_grant = require_high_risk(
+                guard_home,
+                purpose="settings_write",
+                approval_gate_input=gate_input,
+            )
+            if isinstance(gate_payload, dict):
+                validate_approval_gate_settings(
+                    guard_home,
+                    gate_payload,
+                    approval_gate_grant=approval_gate_grant,
+                )
+            config_settings = {key: value for key, value in settings.items() if key != "approval_gate"}
+            config = update_guard_settings(guard_home, config_settings, approval_gate_grant=approval_gate_grant)
+            if isinstance(gate_payload, dict):
+                update_approval_gate_settings(
+                    guard_home,
+                    gate_payload,
+                    approval_gate_grant=approval_gate_grant,
+                )
+                config = load_guard_config(guard_home)
+        except ApprovalGateError as error:
+            self._write_approval_gate_error(error)
+            return
+        except ValueError as error:
+            self._write_json({"error": "invalid_settings", "message": str(error)}, status=400)
+            return
+        self._write_json(_settings_response_payload(guard_home, editable_guard_settings(config)))
+
+    def _handle_settings_reset(self, payload: dict[str, object]) -> None:
+        confirm = payload.get("confirm")
+        if confirm != "reset-local-settings":
+            self._write_json({"error": "confirmation_required", "confirm": "reset-local-settings"}, status=400)
+            return
+        guard_home = self.server.store.guard_home  # type: ignore[attr-defined]
+        try:
+            approval_gate_grant = require_high_risk(
+                guard_home,
+                purpose="settings_write",
+                approval_gate_input=approval_gate_input_from_mapping(payload),
+            )
+            config = reset_guard_settings(guard_home, approval_gate_grant=approval_gate_grant)
+        except ApprovalGateError as error:
+            self._write_approval_gate_error(error)
+            return
+        self._write_json(_settings_response_payload(guard_home, editable_guard_settings(config)))
+
+    def _handle_approval_gate_cooldown_revoke(self, payload: dict[str, object]) -> None:
+        guard_home = self.server.store.guard_home  # type: ignore[attr-defined]
+        try:
+            require_high_risk(
+                guard_home,
+                purpose="settings_write",
+                approval_gate_input=approval_gate_input_from_mapping(payload),
+            )
+        except ApprovalGateError as error:
+            self._write_approval_gate_error(error)
+            return
+        gate = revoke_approval_gate_cooldown(guard_home).to_dict()
+        config = load_guard_config(guard_home)
+        settings = editable_guard_settings(config)
+        settings["approval_gate"] = gate
+        self._write_json(_settings_response_payload(guard_home, settings))
+
+    def _handle_approval_gate_totp_enroll(self, payload: dict[str, object]) -> None:
+        guard_home = self.server.store.guard_home  # type: ignore[attr-defined]
+        device_label = self._optional_string(payload.get("device_label")) or "local-device"
+        try:
+            enrollment = begin_totp_enrollment(
+                guard_home,
+                approval_gate_input=approval_gate_input_from_mapping(payload),
+                device_label=device_label,
+            )
+        except ApprovalGateError as error:
+            self._write_approval_gate_error(error)
+            return
+        config = load_guard_config(guard_home)
+        settings = editable_guard_settings(config)
+        settings["approval_gate"] = approval_gate_public_config(guard_home).to_dict()
+        response = _settings_response_payload(guard_home, settings)
+        response["enrollment"] = enrollment
+        self._write_json(response)
+
+    def _handle_approval_gate_totp_verify(self, payload: dict[str, object]) -> None:
+        guard_home = self.server.store.guard_home  # type: ignore[attr-defined]
+        try:
+            gate = confirm_totp_enrollment(
+                guard_home,
+                approval_gate_input=approval_gate_input_from_mapping(payload),
+            )
+        except ApprovalGateError as error:
+            self._write_approval_gate_error(error)
+            return
+        config = load_guard_config(guard_home)
+        settings = editable_guard_settings(config)
+        settings["approval_gate"] = gate.to_dict()
+        self._write_json(_settings_response_payload(guard_home, settings))
+
+    def _handle_approval_gate_totp_disable(self, payload: dict[str, object]) -> None:
+        guard_home = self.server.store.guard_home  # type: ignore[attr-defined]
+        try:
+            gate = disable_totp(
+                guard_home,
+                approval_gate_input=approval_gate_input_from_mapping(payload),
+            )
+        except ApprovalGateError as error:
+            self._write_approval_gate_error(error)
+            return
+        config = load_guard_config(guard_home)
+        settings = editable_guard_settings(config)
+        settings["approval_gate"] = gate.to_dict()
+        self._write_json(_settings_response_payload(guard_home, settings))
+
+    def _handle_initialize(self, payload: dict[str, object]) -> None:
+        client_name = self._optional_string(payload.get("client_name")) or "guard-client"
+        surface = self._optional_string(payload.get("surface")) or "cli"
+        capabilities = payload.get("capabilities")
+        capability_items = (
+            tuple(str(item) for item in capabilities if isinstance(item, str)) if isinstance(capabilities, list) else ()
+        )
+        supported_versions = payload.get("supported_protocol_versions")
+        try:
+            response = self.server.runtime.initialize_client(  # type: ignore[attr-defined]
+                client_name=client_name,
+                client_title=self._optional_string(payload.get("client_title")),
+                version=self._optional_string(payload.get("version")),
+                surface=surface,
+                capabilities=capability_items,
+                supported_protocol_versions=tuple(str(item) for item in supported_versions if isinstance(item, str))
+                if isinstance(supported_versions, list)
+                else (),
+            )
+        except ValueError as error:
+            self._write_json({"error": str(error)}, status=400)
+            return
+        response["auth_token"] = self.server.auth_token  # type: ignore[attr-defined]
+        self._write_json(response)
+
+    def _handle_client_attach(self, payload: dict[str, object]) -> None:
+        client_id = self._optional_string(payload.get("client_id"))
+        surface = self._optional_string(payload.get("surface"))
+        if client_id is None or surface is None:
+            self._write_json({"attached": False, "error": "missing_required_fields"}, status=400)
+            return
+        try:
+            attachment = self.server.runtime.attach_client(  # type: ignore[attr-defined]
+                client_id=client_id,
+                surface=surface,
+                session_id=self._optional_string(payload.get("session_id")),
+                metadata={"title": self._optional_string(payload.get("client_title")) or surface},
+                lease_seconds=self._optional_int(payload.get("lease_seconds")) or 60,
+            )
+        except ValueError as error:
+            self._write_json({"attached": False, "error": str(error)}, status=400)
+            return
+        self._write_json({"attached": True, "item": attachment})
+
+    def _handle_client_heartbeat(self, payload: dict[str, object]) -> None:
+        client_id = self._optional_string(payload.get("client_id"))
+        lease_id = self._optional_string(payload.get("lease_id"))
+        if client_id is None or lease_id is None:
+            self._write_json({"renewed": False, "error": "missing_required_fields"}, status=400)
+            return
+        try:
+            attachment = self.server.runtime.renew_client(  # type: ignore[attr-defined]
+                client_id=client_id,
+                lease_id=lease_id,
+                lease_seconds=self._optional_int(payload.get("lease_seconds")) or 60,
+            )
+        except ValueError as error:
+            self._write_json({"renewed": False, "error": str(error)}, status=404)
+            return
+        self._write_json({"renewed": True, "item": attachment})
+
+    def _handle_session_start(self, payload: dict[str, object]) -> None:
+        harness = self._optional_string(payload.get("harness"))
+        surface = self._optional_string(payload.get("surface"))
+        client_name = self._optional_string(payload.get("client_name"))
+        if harness is None or surface is None or client_name is None:
+            self._write_json({"error": "missing_required_fields"}, status=400)
+            return
+        capabilities = payload.get("capabilities")
+        session = self.server.runtime.start_session(  # type: ignore[attr-defined]
+            harness=harness,
+            surface=surface,
+            workspace=self._optional_string(payload.get("workspace")),
+            client_name=client_name,
+            client_title=self._optional_string(payload.get("client_title")),
+            client_version=self._optional_string(payload.get("client_version")),
+            capabilities=tuple(str(item) for item in capabilities if isinstance(item, str))
+            if isinstance(capabilities, list)
+            else (),
+        )
+        self._write_json(session)
+
+    def _handle_operation_start(self, payload: dict[str, object]) -> None:
+        session_id = self._optional_string(payload.get("session_id"))
+        operation_type = self._optional_string(payload.get("operation_type"))
+        harness = self._optional_string(payload.get("harness"))
+        if session_id is None or operation_type is None or harness is None:
+            self._write_json({"error": "missing_required_fields"}, status=400)
+            return
+        metadata = payload.get("metadata")
+        try:
+            operation = self.server.runtime.start_operation(  # type: ignore[attr-defined]
+                session_id=session_id,
+                operation_type=operation_type,
+                harness=harness,
+                metadata=metadata if isinstance(metadata, dict) else {},
+            )
+        except ValueError as error:
+            self._write_json({"error": str(error)}, status=400)
+            return
+        self._write_json(operation)
+
+    def _handle_operation_block(self, payload: dict[str, object]) -> None:
+        session_id = self._optional_string(payload.get("session_id"))
+        operation_type = self._optional_string(payload.get("operation_type"))
+        harness = self._optional_string(payload.get("harness"))
+        approval_center_url = self._optional_string(payload.get("approval_center_url"))
+        approval_surface_policy = self._optional_string(payload.get("approval_surface_policy"))
+        detection = payload.get("detection")
+        evaluation = payload.get("evaluation")
+        if not all(
+            (
+                session_id is not None,
+                operation_type is not None,
+                harness is not None,
+                approval_center_url is not None,
+                approval_surface_policy is not None,
+                isinstance(detection, dict),
+                isinstance(evaluation, dict),
+            )
+        ):
+            self._write_json({"error": "missing_required_fields"}, status=400)
+            return
+        try:
+            response = self.server.runtime.queue_blocked_operation(  # type: ignore[attr-defined]
+                session_id=session_id,
+                operation_type=operation_type,
+                harness=harness,
+                metadata=dict(payload.get("metadata")) if isinstance(payload.get("metadata"), dict) else {},
+                detection=detection,
+                evaluation=evaluation,
+                approval_center_url=approval_center_url,
+                browser_url=_approval_center_browser_url(approval_center_url, self.server.auth_token),  # type: ignore[attr-defined]
+                approval_surface_policy=approval_surface_policy,
+                open_key=self._optional_string(payload.get("open_key")),
+                opener=webbrowser.open,
+            )
+        except ValueError as error:
+            self._write_json({"error": str(error)}, status=400)
+            return
+        self._write_json(response)
+
+    def _handle_operation_item(self, operation_id: str, payload: dict[str, object]) -> None:
+        item_type = self._optional_string(payload.get("item_type"))
+        item_payload = payload.get("payload")
+        if item_type is None or not isinstance(item_payload, dict):
+            self._write_json({"error": "missing_required_fields"}, status=400)
+            return
+        try:
+            item = self.server.runtime.add_item(  # type: ignore[attr-defined]
+                operation_id=operation_id,
+                item_type=item_type,
+                payload=item_payload,
+            )
+        except ValueError as error:
+            self._write_json({"error": str(error)}, status=400)
+            return
+        self._write_json({"item": item})
+
+    def _handle_operation_status(self, operation_id: str, payload: dict[str, object]) -> None:
+        status = self._optional_string(payload.get("status"))
+        if status is None:
+            self._write_json({"error": "missing_required_fields"}, status=400)
+            return
+        request_ids = payload.get("approval_request_ids")
+        try:
+            operation = self.server.runtime.update_operation_status(  # type: ignore[attr-defined]
+                operation_id=operation_id,
+                status=status,
+                approval_request_ids=[str(item) for item in request_ids if isinstance(item, str)]
+                if isinstance(request_ids, list)
+                else [],
+            )
+        except ValueError as error:
+            self._write_json({"error": str(error)}, status=400)
+            return
+        self._write_json({"operation": operation})
+
+    def _handle_session_resume(self, session_id: str) -> None:
+        try:
+            payload = self.server.runtime.resume_session(session_id)  # type: ignore[attr-defined]
+        except ValueError:
+            self._write_json({"error": "not_found"}, status=404)
+            return
+        self._write_json(payload)
+
+    def _handle_request_resume_read(self, request_id: str) -> None:
+        if self.server.store.get_approval_request(request_id) is None:  # type: ignore[attr-defined]
+            self._write_json({"error": "not_found"}, status=404)
+            return
+        payload = get_request_resume_status(self.server.store, request_id=request_id, now=_now())  # type: ignore[attr-defined]
+        if payload is None:
+            self._write_json({"error": "not_found"}, status=404)
+            return
+        self._write_json(payload)
+
+    def _handle_request_resume_retry(self, request_id: str) -> None:
+        try:
+            payload = retry_request_resume(self.server.store, request_id=request_id, now=_now(), force=False)  # type: ignore[attr-defined]
+        except ValueError as error:
+            error_code = str(error)
+            if error_code == "not_found":
+                self._write_json({"error": "not_found"}, status=404)
+                return
+            if error_code == "not_resolved":
+                self._write_json({"error": "not_resolved"}, status=409)
+                return
+            self._write_json({"error": "resume_not_supported"}, status=400)
+            return
+        self.server.store.add_event(  # type: ignore[attr-defined]
+            "codex/thread_resume",
+            {"request_id": request_id, "action": payload.get("resolution_action"), **payload},
+            _now(),
+        )
+        self._write_json(payload)
+
+    def _apply_codex_resume_result(
+        self,
+        *,
+        updated: dict[str, object],
+        request_id: str,
+        action: str,
+        copy: dict[str, str],
+        codex_resume: dict[str, object],
+    ) -> dict[str, object]:
+        updated["codex_resume"] = codex_resume
+        self.server.store.add_event(  # type: ignore[attr-defined]
+            "codex/thread_resume",
+            {"request_id": request_id, "action": action, **codex_resume},
+            _now(),
+        )
+        status = str(codex_resume.get("status") or "")
+        message = str(codex_resume.get("message") or "")
+        if status == "sent":
+            updated["resolution_summary"] = (
+                "Decision saved. HOL Guard sent Codex a continue prompt in the original thread."
+            )
+            copy = {
+                "title": "Decision saved. Codex chat was notified.",
+                "body": message,
+            }
+        elif status in {"pending", "in_progress"}:
+            updated["resolution_summary"] = message or "Decision saved. Codex is still waiting for HOL Guard."
+            copy = {
+                "title": "Decision saved. Codex is continuing.",
+                "body": message or "Return to Codex; the original action should continue automatically.",
+            }
+        elif status == "already_sent":
+            updated["resolution_summary"] = "Decision saved. Codex was already notified for this request."
+            copy = {
+                "title": "Decision saved. Codex already notified.",
+                "body": message,
+            }
+        else:
+            updated["resolution_summary"] = message or str(updated.get("resolution_summary") or "Decision saved.")
+            copy = {
+                "title": (
+                    "Decision saved. Return to Codex."
+                    if status == "skipped"
+                    else "Decision saved. Codex chat could not be notified."
+                ),
+                "body": message or copy["body"],
+            }
+        updated["copy"] = copy
+        updated["retry_hint"] = copy["body"]
+        return updated
+
+    def _write_legacy_pairing_disabled(self) -> None:
+        self._write_json(
+            {
+                "error": "legacy_pairing_disabled",
+                "message": "Use OAuth Device Code through hol-guard connect.",
+            },
+            status=410,
+        )
+
+    def _write_legacy_cloud_handoff_disabled(self) -> None:
+        self._write_json(
+            {
+                "error": "legacy_cloud_handoff_disabled",
+                "message": "Use OAuth Device Code through hol-guard connect.",
+            },
+            status=410,
+        )
+
+    def _handle_claude_hook(self, payload: dict[str, object], query: str) -> None:
+        params = parse_qs(query)
+        home_dir = self._optional_string(params.get("home", [None])[-1])
+        guard_home = self._optional_string(params.get("guard-home", [None])[-1])
+        workspace = self._optional_string(params.get("workspace", [None])[-1])
+        args = argparse.Namespace(
+            guard_command="hook",
+            home=home_dir,
+            guard_home=guard_home,
+            workspace=workspace,
+            harness="claude-code",
+            artifact_id=None,
+            artifact_name=None,
+            policy_action=None,
+            event_file=None,
+            json=True,
+        )
+        buffer = io.StringIO()
+        with _CLAUDE_HOOK_EXECUTION_LOCK:
+            from ..cli.commands import run_guard_command
+
+            exit_code = run_guard_command(args, input_text=json.dumps(payload), output_stream=buffer)
+        raw_response = buffer.getvalue().strip()
+        if not raw_response:
+            if exit_code == 0:
+                self._write_json({})
+                return
+            self._write_json({"error": "empty_hook_response", "exit_code": exit_code}, status=502)
+            return
+        try:
+            hook_payload = json.loads(raw_response)
+        except json.JSONDecodeError:
+            self._write_json(
+                {"error": "invalid_hook_response", "raw": raw_response, "exit_code": exit_code},
+                status=502,
+            )
+            return
+        self._write_json(hook_payload)
+
+    def _token_is_valid(self, query: str) -> bool:
+        params = parse_qs(query)
+        token = params.get("token", [None])[-1]
+        return self._tokens_match(token)
+
+    def _header_token_is_valid(self, *, payload: dict[str, object] | None = None) -> bool:
+        token = self.headers.get("X-Guard-Token")
+        path = urlparse(self.path).path
+        path_parts = [part for part in path.split("/") if part]
+        return self._tokens_match(token) or (
+            self._is_hosted_dashboard_api_path(path, path_parts)
+            and self._dashboard_session_token_is_valid(payload=payload)
+        )
+
+    def _dashboard_session_token_is_valid(self, *, payload: dict[str, object] | None = None) -> bool:
+        session_token = self.headers.get("X-Guard-Dashboard-Session")
+        authorization = self.headers.get("Authorization")
+        bearer_token = None
+        if isinstance(authorization, str) and authorization.lower().startswith("bearer "):
+            bearer_token = authorization[7:].strip()
+        candidates = [
+            candidate for candidate in (session_token, bearer_token) if isinstance(candidate, str) and candidate.strip()
+        ]
+        return any(self._dashboard_session_token_matches(candidate, payload=payload) for candidate in candidates)
+
+    def _dashboard_session_token_matches(self, token: str, *, payload: dict[str, object] | None = None) -> bool:
+        if not token.startswith("gld1."):
+            return False
+        parts = token.split(".")
+        if len(parts) != 3:
+            return False
+        prefix, encoded_payload, signature = parts
+        if prefix != "gld1" or not encoded_payload or not signature:
+            return False
+        expected = _dashboard_session_signature(encoded_payload, self.server.auth_token)  # type: ignore[attr-defined]
+        if not secrets.compare_digest(signature, expected):
+            return False
+        claims = _decode_dashboard_session_payload(encoded_payload)
+        expires_at = claims.get("expires_at")
+        if not isinstance(expires_at, str):
+            return False
+        try:
+            if _parse_iso_timestamp(expires_at) <= time.time():
+                return False
+        except ValueError:
+            return False
+        return self._dashboard_session_claims_authorize_request(claims, payload=payload)
+
+    def _dashboard_session_claims_authorize_request(
+        self,
+        claims: dict[str, object],
+        *,
+        payload: dict[str, object] | None,
+    ) -> bool:
+        action_path = self._optional_string(claims.get("action_path"))
+        if action_path is None:
+            return True
+        path = urlparse(self.path).path
+        path_parts = [part for part in path.split("/") if part]
+        if path in {"/v1/capabilities", "/v1/harnesses", "/v1/inventory", "/v1/runtime"}:
+            return True
+        if (
+            len(path_parts) == 3
+            and path_parts[:2] == ["v1", "apps"]
+            and path_parts[2] in _cloud_app_dashboard_session_actions(action_path)
+        ):
+            if payload is None:
+                return False
+            harness = self._optional_string(claims.get("harness"))
+            location_id = self._optional_string(claims.get("location_id"))
+            workspace_id = self._optional_string(claims.get("workspace_id")) or ""
+            payload_harness = self._optional_string(payload.get("harness"))
+            payload_location_id = self._optional_string(payload.get("location_id")) or self._optional_string(
+                payload.get("locationId")
+            )
+            payload_workspace_id = self._optional_string(payload.get("workspace_id")) or ""
+            return (
+                harness is not None
+                and payload_harness == harness
+                and (not location_id or payload_location_id == location_id)
+                and (not workspace_id or payload_workspace_id == workspace_id)
+            )
+        supply_chain_action = self._supply_chain_claim_action_for_request(path, path_parts)
+        if supply_chain_action is not None:
+            return self._supply_chain_dashboard_claims_authorize(
+                claims,
+                payload=payload,
+                supply_chain_action=supply_chain_action,
+            )
+        return False
+
+    def _supply_chain_dashboard_claims_authorize(
+        self,
+        claims: dict[str, object],
+        *,
+        payload: dict[str, object] | None,
+        supply_chain_action: str,
+    ) -> bool:
+        action_path = self._optional_string(claims.get("action_path"))
+        allowed_claim = claims.get("allowed_action_paths")
+        allowed_actions = (
+            {item for item in allowed_claim if isinstance(item, str)} if isinstance(allowed_claim, list) else set()
+        )
+        if supply_chain_action != action_path and supply_chain_action not in allowed_actions:
+            return False
+        if payload is None:
+            return supply_chain_action == "package_shims_status"
+        workspace_id = self._optional_string(claims.get("workspace_id")) or ""
+        payload_workspace_id = self._optional_string(payload.get("workspace_id")) or ""
+        if workspace_id and payload_workspace_id != workspace_id:
+            return False
+        managers_claim = claims.get("managers")
+        if not isinstance(managers_claim, list):
+            return True
+        allowed_managers = {item for item in managers_claim if isinstance(item, str)}
+        managers_value = payload.get("managers")
+        if managers_value is None:
+            return True
+        if not isinstance(managers_value, list) or not all(isinstance(manager, str) for manager in managers_value):
+            return False
+        return set(managers_value).issubset(allowed_managers)
+
+    @staticmethod
+    def _supply_chain_claim_action_for_request(path: str, path_parts: list[str]) -> str | None:
+        if path == "/v1/supply-chain/package-shims":
+            return "package_shims_status"
+        if path == "/v1/supply-chain/entitlement":
+            return "supply_chain_entitlement"
+        if len(path_parts) == 4 and path_parts[:3] == ["v1", "supply-chain", "package-shims"]:
+            action = "remove" if path_parts[3] == "uninstall" else path_parts[3]
+            if action in {"install", "repair", "test", "remove"}:
+                return f"package_shims_{action}"
+        if len(path_parts) == 3 and path_parts[:2] == ["v1", "supply-chain"] and path_parts[2] in {"audit", "sync"}:
+            return f"package_shims_{path_parts[2]}"
+        return None
+
+    def _tokens_match(self, token: object) -> bool:
+        if not isinstance(token, str):
+            return False
+        try:
+            provided = token.encode("ascii")
+            expected = self.server.auth_token.encode("ascii")  # type: ignore[attr-defined]
+        except UnicodeEncodeError:
+            return False
+        return secrets.compare_digest(provided, expected)
+
+    def _touch_runtime_heartbeat(self, path: str) -> None:
+        if path != "/healthz" and not path.startswith("/v1/"):
+            return
+        self.server.last_activity_monotonic = time.monotonic()  # type: ignore[attr-defined]
+        self.server.store.touch_runtime_state(  # type: ignore[attr-defined]
+            session_id=self.server.runtime_session_id,  # type: ignore[attr-defined]
+            last_heartbeat_at=_now(),
+        )
+
+    def _increment_active_stream_clients(self) -> None:
+        with self.server.active_stream_clients_lock:  # type: ignore[attr-defined]
+            self.server.active_stream_clients += 1  # type: ignore[attr-defined]
+
+    def _decrement_active_stream_clients(self) -> None:
+        with self.server.active_stream_clients_lock:  # type: ignore[attr-defined]
+            self.server.active_stream_clients = max(0, self.server.active_stream_clients - 1)  # type: ignore[attr-defined]
+
+    @staticmethod
+    def _optional_int(value: object) -> int | None:
+        if isinstance(value, int):
+            return value
+        if isinstance(value, str) and value.strip():
+            try:
+                return int(value.strip())
+            except ValueError:
+                return None
+        return None
+
+    def _stream_events(self, cursor: int) -> None:
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "keep-alive")
+        self.end_headers()
+        next_cursor = cursor
+        self._increment_active_stream_clients()
+        try:
+            while True:
+                self._touch_runtime_heartbeat("/v1/events/stream")
+                items = self.server.store.list_events_after(next_cursor, limit=100)  # type: ignore[attr-defined]
+                for item in items:
+                    next_cursor = int(item["event_id"])
+                    body = json.dumps(item)
+                    try:
+                        self.wfile.write(f"data: {body}\n\n".encode())
+                        self.wfile.flush()
+                    except BrokenPipeError:
+                        return
+                time.sleep(0.5)
+        finally:
+            self._decrement_active_stream_clients()
+
+    def _origin_is_allowed_for_request(self, path: str, path_parts: list[str]) -> bool:
+        origin = self.headers.get("Origin")
+        if origin is None:
+            return True
+        normalized_origin = self._normalize_origin(origin)
+        if normalized_origin is None:
+            return False
+        parsed = urlparse(normalized_origin)
+        local_origin = parsed.hostname in {"127.0.0.1", "localhost", "::1"}
+        if local_origin:
+            return True
+        return normalized_origin in _HOSTED_GUARD_DASHBOARD_ORIGINS and self._is_hosted_dashboard_api_path(
+            path, path_parts
+        )
+
+    @staticmethod
+    def _is_hosted_dashboard_api_path(path: str, path_parts: list[str]) -> bool:
+        if path in {
+            "/v1/capabilities",
+            "/v1/connect/complete",
+            "/v1/inventory",
+            "/v1/connect/state",
+            "/v1/daemon/repair",
+            "/v1/evidence",
+            "/v1/evidence/export",
+            "/v1/harnesses",
+            "/v1/notifications/setup",
+            "/v1/policy",
+            "/v1/policy/clear",
+            "/v1/policy/sync",
+            "/v1/receipts",
+            "/v1/receipts/latest",
+            "/v1/requests",
+            "/v1/requests/clear",
+            "/v1/runtime",
+            "/v1/settings",
+            "/v1/settings/export",
+            "/v1/settings/import",
+            "/v1/settings/reset",
+        }:
+            return True
+        if len(path_parts) == 3 and path_parts[:2] in (["v1", "requests"], ["v1", "receipts"]):
+            return True
+        if len(path_parts) >= 2 and path_parts[:2] == ["v1", "supply-chain"]:
+            return True
+        if (
+            len(path_parts) == 4
+            and path_parts[:2] == ["v1", "requests"]
+            and path_parts[3] in {"approve", "block", "resume"}
+        ):
+            return True
+        if len(path_parts) == 4 and path_parts[:2] == ["v1", "approvals"] and path_parts[3] == "decision":
+            return True
+        if (
+            len(path_parts) == 5
+            and path_parts[:2] == ["v1", "apps"]
+            and path_parts[3] == "cloud"
+            and path_parts[4] == "start"
+        ):
+            return True
+        if (
+            len(path_parts) == 4
+            and path_parts[:2] == ["v1", "harnesses"]
+            and path_parts[3]
+            in {
+                "install",
+                "verify",
+                "repair",
+                "uninstall",
+            }
+        ):
+            return True
+        if len(path_parts) == 3 and path_parts[:2] == ["v1", "apps"] and path_parts[2] in _HEADLESS_APP_ACTIONS:
+            return True
+        return len(path_parts) == 4 and path_parts[:2] == ["v1", "artifacts"] and path_parts[3] == "diff"
+
+    def _is_hosted_dashboard_origin(self) -> bool:
+        origin = self._normalize_origin(self.headers.get("Origin"))
+        return origin in _HOSTED_GUARD_DASHBOARD_ORIGINS
+
+    @staticmethod
+    def _normalize_origin(origin: str | None) -> str | None:
+        if not isinstance(origin, str) or not origin.strip():
+            return None
+        parsed = urlparse(origin.strip())
+        if (
+            parsed.scheme not in {"http", "https"}
+            or parsed.hostname is None
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.path not in {"", "/"}
+            or parsed.params
+            or parsed.query
+            or parsed.fragment
+        ):
+            return None
+        host = parsed.hostname
+        if ":" in host and not host.startswith("["):
+            host = f"[{host}]"
+        default_port = 80 if parsed.scheme == "http" else 443
+        try:
+            port = parsed.port
+        except ValueError:
+            return None
+        port_suffix = f":{port}" if port not in {None, default_port} else ""
+        return f"{parsed.scheme}://{host}{port_suffix}"
+
+    @staticmethod
+    def _cors_headers(
+        origin: str,
+        *,
+        allow_methods: str = "POST, OPTIONS",
+        allow_headers: str = "Authorization, Content-Type, X-Guard-Dashboard-Session, X-Guard-Token",
+    ) -> dict[str, str]:
+        return {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Methods": allow_methods,
+            "Access-Control-Allow-Headers": allow_headers,
+            "Access-Control-Allow-Private-Network": "true",
+            "Vary": "Origin",
+        }
+
+    def _cors_headers_for_request(
+        self,
+        *,
+        allow_methods: str = "POST, OPTIONS",
+        allow_headers: str = "Authorization, Content-Type, X-Guard-Dashboard-Session, X-Guard-Token",
+    ) -> dict[str, str] | None:
+        parsed = urlparse(self.path)
+        path_parts = [part for part in parsed.path.split("/") if part]
+        origin = self._normalize_origin(self.headers.get("Origin"))
+        if origin is None or not self._origin_is_allowed_for_request(parsed.path, path_parts):
+            return None
+        return self._cors_headers(origin, allow_methods=allow_methods, allow_headers=allow_headers)
+
+    def _handle_policy_upsert(self, payload: dict[str, object]) -> None:
+        harness = payload.get("harness")
+        scope = payload.get("scope")
+        action = payload.get("action")
+        if not all(isinstance(value, str) and value.strip() for value in (harness, scope, action)):
+            self._write_json({"saved": False, "error": "missing_required_fields"}, status=400)
+            return
+        normalized_scope = str(scope).strip()
+        normalized_action = str(action).strip()
+        if normalized_scope not in DECISION_SCOPE_VALUES or normalized_action not in GUARD_ACTION_VALUES:
+            self._write_json({"saved": False, "error": "unsupported_policy_value"}, status=400)
+            return
+        if normalized_scope == "global" and normalized_action == "allow":
+            self._write_json({"saved": False, "error": "broad_allow_requires_narrow_scope"}, status=400)
+            return
+        record = {
+            "harness": str(harness).strip(),
+            "scope": normalized_scope,
+            "action": normalized_action,
+            "artifact_id": self._optional_string(payload.get("artifact_id")),
+            "workspace": self._optional_string(payload.get("workspace")),
+            "publisher": self._optional_string(payload.get("publisher")),
+            "reason": self._optional_string(payload.get("reason")),
+        }
+        if not self._scope_target_is_valid(
+            normalized_scope,
+            artifact_id=record["artifact_id"],
+            workspace=record["workspace"],
+            publisher=record["publisher"],
+        ):
+            self._write_json({"saved": False, "error": "missing_scope_target"}, status=400)
+            return
+        store = self.server.store  # type: ignore[attr-defined]
+        decision = PolicyDecision(
+            harness=record["harness"],
+            scope=record["scope"],  # type: ignore[arg-type]
+            action=record["action"],  # type: ignore[arg-type]
+            artifact_id=record["artifact_id"],
+            workspace=record["workspace"],
+            publisher=record["publisher"],
+            reason=record["reason"],
+        )
+        try:
+            approval_gate_grant = require_high_risk(
+                store.guard_home,
+                purpose="policy_write",
+                approval_gate_input=approval_gate_input_from_mapping(payload),
+            )
+            store.upsert_policy(
+                decision,
+                _now(),
+                approval_gate_grant=approval_gate_grant,
+            )
+        except ApprovalGateError as error:
+            payload = error.to_payload()
+            payload["saved"] = False
+            self._write_json(payload, status=error.status)
+            return
+        self._write_json({"saved": True, "decision": record})
+
+    @staticmethod
+    def _optional_string(value: object) -> str | None:
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        return None
+
+    @staticmethod
+    def _query_string(query_string: str, key: str) -> str | None:
+        value = parse_qs(query_string).get(key, [None])[-1]
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        return None
+
+    @staticmethod
+    def _query_limit(query_string: str, *, default: int, maximum: int) -> int | None:
+        raw_value = parse_qs(query_string).get("limit", [None])[-1]
+        if raw_value is None:
+            return default
+        try:
+            value = int(raw_value)
+        except (TypeError, ValueError):
+            return None
+        if value < 1:
+            return None
+        return min(value, maximum)
+
+    @staticmethod
+    def _scope_target_is_valid(
+        scope: str,
+        *,
+        artifact_id: str | None,
+        workspace: str | None,
+        publisher: str | None,
+    ) -> bool:
+        if scope in {"global", "harness"}:
+            return True
+        if scope == "artifact":
+            return artifact_id is not None
+        if scope == "workspace":
+            return workspace is not None
+        if scope == "publisher":
+            return publisher is not None
+        return False
+
+    @staticmethod
+    def _resolve_request_action(
+        path_parts: list[str], payload: dict[str, object]
+    ) -> tuple[str | None, str | None, bool]:
+        if len(path_parts) == 4 and path_parts[:2] == ["v1", "requests"] and path_parts[3] in {"approve", "block"}:
+            return path_parts[2], "allow" if path_parts[3] == "approve" else "block", True
+        if len(path_parts) == 3 and path_parts[0] == "approvals" and path_parts[2] == "decision":
+            action = payload.get("action")
+            if not isinstance(action, str) or not action.strip():
+                return path_parts[1], None, True
+            return path_parts[1], action.strip(), True
+        if len(path_parts) == 4 and path_parts[:2] == ["v1", "approvals"] and path_parts[3] == "decision":
+            action = payload.get("action")
+            if not isinstance(action, str) or not action.strip():
+                return path_parts[2], None, True
+            return path_parts[2], action.strip(), True
+        return None, None, False
+
+    @staticmethod
+    def _requires_header_token(path: str, path_parts: list[str]) -> bool:
+        if path in {
+            "/v1/clients/attach",
+            "/v1/clients/heartbeat",
+            "/v1/sessions/start",
+            "/v1/operations/start",
+            "/v1/connect/requests",
+            "/v1/connect/result",
+            "/v1/operations/block",
+            "/v1/policy/decisions",
+            "/v1/policy/clear",
+            "/v1/policy/sync",
+            "/v1/requests/clear",
+            "/v1/settings",
+            "/v1/settings/import",
+            "/v1/settings/reset",
+            "/v1/approval-gate/cooldown/revoke",
+            "/v1/approval-gate/totp/enroll",
+            "/v1/approval-gate/totp/verify",
+            "/v1/approval-gate/totp/disable",
+            "/v1/daemon/repair",
+            "/v1/notifications/setup",
+        }:
+            return True
+        if len(path_parts) == 3 and path_parts[:2] == ["v1", "apps"] and path_parts[2] in _HEADLESS_APP_ACTIONS:
+            return True
+        if len(path_parts) >= 2 and path_parts[:2] == ["v1", "supply-chain"]:
+            return True
+        if len(path_parts) == 4 and path_parts[:2] == ["v1", "operations"] and path_parts[3] in {"items", "status"}:
+            return True
+        if (
+            len(path_parts) == 4
+            and path_parts[:2] == ["v1", "requests"]
+            and path_parts[3] in {"approve", "block", "resume"}
+        ):
+            return True
+        if (
+            len(path_parts) == 4
+            and path_parts[:2] == ["v1", "harnesses"]
+            and path_parts[3]
+            in {
+                "install",
+                "verify",
+                "repair",
+                "uninstall",
+            }
+        ):
+            return True
+        if len(path_parts) == 5 and path_parts[:2] == ["v1", "apps"] and path_parts[3:] == ["cloud", "start"]:
+            return True
+        if len(path_parts) == 3 and path_parts[0] == "approvals" and path_parts[2] == "decision":
+            return True
+        return len(path_parts) == 4 and path_parts[:2] == ["v1", "approvals"] and path_parts[3] == "decision"
+
+    def _write_json(
+        self,
+        payload: dict[str, Any],
+        *,
+        status: int = 200,
+        extra_headers: dict[str, str] | None = None,
+    ) -> None:
+        body = json.dumps(payload).encode("utf-8")
+        headers = dict(extra_headers or {})
+        cors_headers = self._cors_headers_for_request(allow_methods="GET, POST, OPTIONS")
+        if cors_headers is not None:
+            headers = {**cors_headers, **headers}
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        for key, value in self._validated_headers(headers).items():
+            self.send_header(key, value)
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _write_empty(
+        self,
+        *,
+        status: int,
+        extra_headers: dict[str, str] | None = None,
+    ) -> None:
+        self.send_response(status)
+        for key, value in self._validated_headers(extra_headers).items():
+            self.send_header(key, value)
+        self.end_headers()
+
+    @staticmethod
+    def _validated_headers(extra_headers: dict[str, str] | None) -> dict[str, str]:
+        allowed_headers = {
+            "Access-Control-Allow-Origin",
+            "Access-Control-Allow-Methods",
+            "Access-Control-Allow-Headers",
+            "Access-Control-Allow-Private-Network",
+            "Cache-Control",
+            "Expires",
+            "Location",
+            "Pragma",
+            "Vary",
+        }
+        validated: dict[str, str] = {}
+        for key, value in (extra_headers or {}).items():
+            if key not in allowed_headers or not isinstance(value, str):
+                continue
+            if "\r" in value or "\n" in value:
+                continue
+            validated[key] = value
+        return validated
+
+    def _write_static_asset(self, relative_path: str) -> None:
+        target = (_STATIC_DIR / relative_path).resolve()
+        if not target.is_file() or _STATIC_DIR.resolve() not in target.parents:
+            self.send_response(404)
+            self.end_headers()
+            return
+        body = target.read_bytes()
+        content_type, _ = mimetypes.guess_type(str(target))
+        self.send_response(200)
+        self.send_header("Content-Type", content_type or "application/octet-stream")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store, max-age=0")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _write_dashboard_shell(self) -> None:
+        if _INDEX_PATH.is_file() and _ENTRY_PATH.is_file():
+            encoded = _INDEX_PATH.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(encoded)))
+            self.send_header("Cache-Control", "no-store, max-age=0")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Expires", "0")
+            self.end_headers()
+            self.wfile.write(encoded)
+            return
+        self._write_json({"error": "dashboard_bundle_missing"}, status=503)
+
+    @staticmethod
+    def _is_dashboard_route(path: str) -> bool:
+        if path in {
+            "/",
+            "/home",
+            "/dashboard",
+            "/inbox",
+            "/fleet",
+            "/evidence",
+            "/supply-chain",
+            "/audit",
+            "/policy",
+            "/feed-health",
+            "/settings",
+            "/requests",
+            "/approvals",
+        }:
+            return True
+        if path.startswith("/requests/"):
+            return True
+        if path.startswith("/apps/"):
+            return True
+        return path.startswith("/approvals/") and not path.endswith("/decision")
+
+
+class GuardDaemonServer:
+    """Small local daemon for health, receipts, and approval-center introspection."""
+
+    def __init__(
+        self,
+        store: GuardStore,
+        host: str = "127.0.0.1",
+        port: int = 0,
+        *,
+        bundle_refresh_backoff_seconds: float = _DEFAULT_SUPPLY_CHAIN_REFRESH_BACKOFF_SECONDS,
+        bundle_refresh_interval_seconds: float | None = _DEFAULT_SUPPLY_CHAIN_REFRESH_INTERVAL_SECONDS,
+        idle_timeout_seconds: float | None = None,
+    ) -> None:
+        _validate_dashboard_bundle()
+        self._server = _GuardDaemonHttpServer((host, port), _GuardDaemonHandler)
+        self._server.store = store
+        self._server.runtime = GuardSurfaceRuntime(store)
+        self._server.auth_token = load_guard_daemon_auth_token(store.guard_home) or uuid.uuid4().hex
+        self._server.runtime_host = host
+        self._server.runtime_session_id = uuid.uuid4().hex
+        self._server.runtime_started_at = _now()
+        self._server.idle_timeout_seconds = _guard_daemon_idle_timeout_seconds(
+            store.guard_home,
+            idle_timeout_seconds=idle_timeout_seconds,
+        )
+        self._server.last_activity_monotonic = time.monotonic()
+        self._server.start_monotonic = time.monotonic()
+        self._server.active_stream_clients = 0
+        self._server.active_stream_clients_lock = threading.Lock()
+        self.port = int(self._server.server_address[1])
+        self._bundle_refresh_backoff_seconds = bundle_refresh_backoff_seconds
+        self._bundle_refresh_interval_seconds = bundle_refresh_interval_seconds
+        self._bundle_refresh_thread: threading.Thread | None = None
+        self._thread: threading.Thread | None = None
+        self._watchdog_thread: threading.Thread | None = None
+        self._shutdown_started = threading.Event()
+
+    def start(self) -> None:
+        if self._thread is not None:
+            return
+        self._begin_service()
+        self._thread = threading.Thread(target=self._serve_forever, daemon=True)
+        self._thread.start()
+
+    def serve(self) -> None:
+        self._begin_service()
+        self._serve_forever()
+
+    def stop(self) -> None:
+        self._shutdown_started.set()
+        self._server.shutdown()
+        self._server.server_close()
+        self._finish_service()
+        if self._thread is not None:
+            self._thread.join(timeout=5)
+            self._thread = None
+        if self._watchdog_thread is not None:
+            self._watchdog_thread.join(timeout=5)
+            self._watchdog_thread = None
+        if self._bundle_refresh_thread is not None:
+            self._bundle_refresh_thread.join(timeout=5)
+            self._bundle_refresh_thread = None
+
+    def _begin_service(self) -> None:
+        self._shutdown_started.clear()
+        self._server.last_activity_monotonic = time.monotonic()
+        write_guard_daemon_state(self._server.store.guard_home, self.port, self._server.auth_token)
+        self._server.store.upsert_runtime_state(
+            session_id=self._server.runtime_session_id,
+            daemon_host=self._server.runtime_host,
+            daemon_port=self.port,
+            started_at=self._server.runtime_started_at,
+            last_heartbeat_at=_now(),
+        )
+        self._start_watchdog()
+        self._start_supply_chain_bundle_refresh()
+
+    def _serve_forever(self) -> None:
+        try:
+            self._server.serve_forever()
+        finally:
+            self._server.server_close()
+            self._finish_service()
+
+    def _finish_service(self) -> None:
+        if self._shutdown_started.is_set():
+            clear_guard_daemon_state(self._server.store.guard_home)
+            self._server.store.clear_runtime_state(session_id=self._server.runtime_session_id)
+            return
+        self._shutdown_started.set()
+        clear_guard_daemon_state(self._server.store.guard_home)
+        self._server.store.clear_runtime_state(session_id=self._server.runtime_session_id)
+
+    def _start_watchdog(self) -> None:
+        if self._watchdog_thread is not None and self._watchdog_thread.is_alive():
+            return
+        idle_timeout_seconds = self._server.idle_timeout_seconds
+        if idle_timeout_seconds is None or idle_timeout_seconds <= 0:
+            return
+        self._watchdog_thread = threading.Thread(target=self._watch_for_idle_shutdown, daemon=True)
+        self._watchdog_thread.start()
+
+    def _watch_for_idle_shutdown(self) -> None:
+        idle_timeout_seconds = self._server.idle_timeout_seconds
+        if idle_timeout_seconds is None or idle_timeout_seconds <= 0:
+            return
+        while not self._shutdown_started.is_set():
+            with self._server.active_stream_clients_lock:
+                active_stream_clients = self._server.active_stream_clients
+            if active_stream_clients > 0:
+                time.sleep(_GUARD_DAEMON_IDLE_POLL_INTERVAL_SECONDS)
+                continue
+            if time.monotonic() - self._server.last_activity_monotonic >= idle_timeout_seconds:
+                self._shutdown_started.set()
+                self._server.shutdown()
+                return
+            time.sleep(_GUARD_DAEMON_IDLE_POLL_INTERVAL_SECONDS)
+
+    def _start_supply_chain_bundle_refresh(self) -> None:
+        if self._bundle_refresh_interval_seconds is None or self._bundle_refresh_interval_seconds <= 0:
+            return
+        if self._bundle_refresh_thread is not None and self._bundle_refresh_thread.is_alive():
+            return
+        self._bundle_refresh_thread = threading.Thread(
+            target=self._refresh_supply_chain_bundle_loop,
+            daemon=True,
+        )
+        self._bundle_refresh_thread.start()
+
+    def _refresh_supply_chain_bundle_loop(self) -> None:
+        interval_seconds = self._bundle_refresh_interval_seconds
+        if interval_seconds is None or interval_seconds <= 0:
+            return
+        backoff_seconds = (
+            self._bundle_refresh_backoff_seconds if self._bundle_refresh_backoff_seconds > 0 else interval_seconds
+        )
+        while not self._shutdown_started.is_set():
+            refreshed_at = _now()
+            try:
+                summary = sync_supply_chain_bundle(self._server.store)
+                self._server.store.set_sync_payload(
+                    "supply_chain_bundle_daemon",
+                    {**summary, "status": "synced"},
+                    refreshed_at,
+                )
+                wait_seconds = interval_seconds
+            except GuardSyncNotConfiguredError:
+                self._server.store.set_sync_payload(
+                    "supply_chain_bundle_daemon",
+                    {"status": "not_configured", "refreshed_at": refreshed_at},
+                    refreshed_at,
+                )
+                wait_seconds = backoff_seconds
+            except Exception as error:
+                self._server.store.set_sync_payload(
+                    "supply_chain_bundle_daemon",
+                    {
+                        "error": str(error),
+                        "refreshed_at": refreshed_at,
+                        "status": "error",
+                    },
+                    refreshed_at,
+                )
+                wait_seconds = backoff_seconds
+            if self._shutdown_started.wait(wait_seconds):
+                return
+
+
+def _approval_center_browser_url(approval_center_url: str, auth_token: str) -> str:
+    parsed = urlparse(approval_center_url)
+    fragment_pairs = [
+        (key, value) for key, value in parse_qsl(parsed.fragment, keep_blank_values=True) if key != "guard-token"
+    ]
+    fragment_pairs.append(("guard-token", auth_token))
+    return urlunparse(parsed._replace(fragment=urlencode(fragment_pairs)))
+
+
+def _build_local_url(host: str, port: int, path: str) -> str:
+    host_part = f"[{host}]" if ":" in host else host
+    return f"http://{host_part}:{port}{path}"
+
+
+_HARNESS_RETRY_COPY: dict[str, str] = {
+    "codex": "Return to Codex and retry",
+    "claude-code": "Return to Claude and retry",
+    "opencode": "Return to OpenCode and retry",
+    "copilot": "Return to Copilot and retry",
+}
+_DEFAULT_RETRY_COPY = "Return to your AI assistant and retry"
+
+
+def _build_resolution_copy(action: str, harness: str) -> dict[str, str]:
+    title = "Approved. Retry in chat." if action == "allow" else "Blocked. Guard will remember this decision."
+    return {"title": title, "body": _HARNESS_RETRY_COPY.get(harness, _DEFAULT_RETRY_COPY)}
+
+
+def _settings_response_payload(guard_home: Path, settings: dict[str, object]) -> dict[str, object]:
+    return {
+        "guard_home": str(guard_home),
+        "config_path": str(guard_home / "config.toml"),
+        "settings": settings,
+    }
+
+
+def _settings_export_payload(config: GuardConfig) -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "privacy_warning": "Exports include local Guard preferences but not secrets or receipt evidence.",
+        "settings": editable_guard_settings(config),
+    }
+
+
+def _dashboard_session_signature(payload: str, auth_token: str) -> str:
+    digest = hmac.new(auth_token.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).digest()
+    return base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
+
+
+def _decode_dashboard_session_payload(payload: str) -> dict[str, object]:
+    padding = "=" * (-len(payload) % 4)
+    try:
+        decoded = base64.urlsafe_b64decode(f"{payload}{padding}".encode("ascii")).decode("utf-8")
+        parsed = json.loads(decoded)
+    except (UnicodeDecodeError, ValueError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _parse_iso_timestamp(value: str) -> float:
+    normalized = value.replace("Z", "+00:00")
+    return datetime.fromisoformat(normalized).timestamp()
+
+
+def _normalized_iso_timestamp_string(value: object) -> str | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc).isoformat()
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _validate_dashboard_bundle() -> None:
+    if not _INDEX_PATH.is_file() or not _ENTRY_PATH.is_file():
+        raise RuntimeError(
+            "Guard dashboard bundle is missing. Run `pnpm install && pnpm run build` in the dashboard directory."
+        )
+
+
+def _guard_daemon_idle_timeout_seconds(
+    guard_home: Path,
+    *,
+    idle_timeout_seconds: float | None = None,
+) -> float | None:
+    if idle_timeout_seconds is not None:
+        return idle_timeout_seconds if idle_timeout_seconds > 0 else None
+    configured_timeout = os.environ.get("GUARD_DAEMON_IDLE_TIMEOUT_SECONDS")
+    if isinstance(configured_timeout, str) and configured_timeout.strip():
+        try:
+            parsed_timeout = float(configured_timeout.strip())
+        except ValueError:
+            parsed_timeout = None
+        if isinstance(parsed_timeout, float) and parsed_timeout > 0:
+            return parsed_timeout
+        if parsed_timeout == 0:
+            return None
+    if _guard_home_is_ephemeral(guard_home):
+        return _EPHEMERAL_GUARD_DAEMON_IDLE_TIMEOUT_SECONDS
+    return _DEFAULT_GUARD_DAEMON_IDLE_TIMEOUT_SECONDS
+
+
+def _guard_home_is_ephemeral(guard_home: Path) -> bool:
+    resolved_parts = guard_home.resolve().parts
+    return any(part.startswith("pytest-") or "pytest-of-" in part for part in resolved_parts)
+
+
+def _int_query_value(query: str, key: str) -> int:
+    values = parse_qs(query).get(key, ["0"])
+    raw_value = values[-1]
+    try:
+        return int(str(raw_value))
+    except ValueError:
+        return 0

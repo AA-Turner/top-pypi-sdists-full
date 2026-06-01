@@ -1,0 +1,42 @@
+# Ground-truth labels for the iam-dynamic-policy eval fixture.
+#
+# Three IAM policies authored via aws_iam_policy_document data
+# sources. Exercises the agent's ability to follow data-source
+# references to evaluate the actual policy shape, not just stop
+# at `data.aws_iam_policy_document.X.json` and treat the policy
+# as opaque (the v0.1.7 fix made this resolution work; this
+# fixture pins it as a regression test at the agent-quality layer).
+#
+# Postures:
+#   1. scoped_admin    — MFA + scoped Resource (compliant subset)
+#   2. wildcard_admin  — wildcard Action + Resource + no MFA (gap)
+#   3. read_only_audit — narrow Action, no MFA but read-only
+
+fixture_id: iam-dynamic-policy
+description: |
+  Three aws_iam_policy_document data-source-backed IAM policies
+  with mixed posture. Exercises the v0.1.7-era IaC-evidence-
+  resolution path (data source -> json -> aws_iam_policy.policy)
+  the gap agent must follow. Mixed verdict expected for IAM-MFA
+  and the admin-policy KSIs.
+
+authored_by: maintainer@efterlev.com
+authored_at: 2026-05-08
+revision: 1
+frmr_version: 0.9.43-beta
+
+expected_classifications:
+  KSI-IAM-MFA: partial|not_implemented   # 1 of 3 policies enforces MFA
+  KSI-CMT-RVP: evidence_layer_inapplicable|not_applicable
+
+expected_rationale_resources:
+  KSI-IAM-MFA:
+    - scoped_admin       # the policy WITH MFA
+    - wildcard_admin     # the gap (admin without MFA)
+
+expected_manifest_quoting: {}
+
+expected_poam:
+  excluded_count_min: 0
+  excluded_count_max: 6
+  must_not_mention: []

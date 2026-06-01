@@ -1,0 +1,32 @@
+# KSI-SVC-PRR — Preventing Residual Risk
+#
+# DRAFT — this is a starter-pack template. Copy it to
+# `.efterlev/manifests/<ksi-id>.yml` (drop the `.template` suffix) and
+# fill in the DRAFT placeholders before letting it land in your
+# attestation pipeline. The `_template_help` block carries the
+# questions you should answer; remove that block once filled in.
+
+ksi: KSI-SVC-PRR
+name: "Preventing Residual Risk"
+
+_template_help:
+  description: >
+    KSI-SVC-PRR reviews plans, procedures, and the state of information resources after changes to limit residual risk. The attestation should name the post-change review process, who conducts it, and what evidence remains.
+  questions:
+      - "What post-change review process exists (post-deploy validation, security regression check)?"
+      - "Who conducts the review and on what timeline after change?"
+      - "What artifacts are produced (validation report, incident-report-if-any)?"
+      - "How are findings tracked back to remediation?"
+      - "Where is the process documented?"
+
+evidence:
+  - type: attestation
+    statement: >
+      DRAFT — Example: Post-change review per runbooks/post-deploy-review.md. SREs + SecOps validate within 24h of every production-significant change: monitor key metrics, check Security Hub for new findings, validate IAM role-set drift. Findings into Jira SEC-RESIDUAL with severity-based SLAs. Process reviewed quarterly.
+    attested_by: "DRAFT — your-vp-security@example.com"
+    attested_at: "DRAFT — YYYY-MM-DD"
+    reviewed_at: "DRAFT — YYYY-MM-DD"
+    next_review: "DRAFT — YYYY-MM-DD (recommend 6-month review cadence)"
+    supporting_docs:
+      - "DRAFT — ./policies/your-runbook.pdf"
+      - "DRAFT — https://wiki.your-company.example/path-to-relevant-docs"

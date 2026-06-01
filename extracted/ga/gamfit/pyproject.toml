@@ -1,0 +1,132 @@
+[build-system]
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
+
+[project]
+name = "gamfit"
+version = "0.1.140"
+description = "Formula-first generalized additive models with a high-performance Rust core"
+readme = "README_PYPI.md"
+requires-python = ">=3.10"
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [{ name = "SauersML" }]
+keywords = [
+  "gam",
+  "gamfit",
+  "generalized-additive-models",
+  "regression",
+  "smoothing-splines",
+  "thin-plate-spline",
+  "reml",
+  "statistics",
+  "machine-learning",
+  "rust",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: Microsoft :: Windows",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Rust",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+  "Topic :: Scientific/Engineering :: Mathematics",
+  "Typing :: Typed",
+]
+dependencies = [
+  "numpy>=1.26",
+]
+
+[project.urls]
+Homepage = "https://github.com/SauersML/gam"
+Repository = "https://github.com/SauersML/gam"
+Issues = "https://github.com/SauersML/gam/issues"
+Changelog = "https://github.com/SauersML/gam/releases"
+
+[project.optional-dependencies]
+test = [
+  "pytest>=8",
+  "numpy>=1.26",
+  "pandas>=2.0",
+  "pyarrow>=14",
+  "matplotlib>=3.8",
+  "scikit-learn>=1.4",
+]
+cuda = [
+  "nvidia-cublas-cu12>=12.0,<13; platform_system == 'Linux' and platform_machine == 'x86_64'",
+  "nvidia-cuda-nvrtc-cu12>=12.0,<13; platform_system == 'Linux' and platform_machine == 'x86_64'",
+  "nvidia-cuda-runtime-cu12>=12.0,<13; platform_system == 'Linux' and platform_machine == 'x86_64'",
+  "nvidia-cusolver-cu12>=11.0,<12; platform_system == 'Linux' and platform_machine == 'x86_64'",
+  "nvidia-cusparse-cu12>=12.0,<13; platform_system == 'Linux' and platform_machine == 'x86_64'",
+  "nvidia-nvjitlink-cu12>=12.0,<13; platform_system == 'Linux' and platform_machine == 'x86_64'",
+]
+pandas = ["pandas>=2.0", "pyarrow>=14"]
+plot = ["matplotlib>=3.8"]
+sklearn = ["scikit-learn>=1.4", "numpy>=1.26"]
+torch = ["torch>=2.0"]
+type = [
+  "mypy>=1.18",
+  "numpy>=1.26",
+  "pandas>=2.0",
+  "pandas-stubs",
+  "pyarrow>=14",
+  "polars>=1",
+  "matplotlib>=3.8",
+  "scikit-learn>=1.4",
+  "scikit-learn-stubs",
+  "scipy-stubs",
+  "pytest>=8",
+  "types-requests",
+  "vulture>=2.16",
+]
+all = [
+  "numpy>=1.26",
+  "pandas>=2.0",
+  "pyarrow>=14",
+  "matplotlib>=3.8",
+  "scikit-learn>=1.4",
+  "torch>=2.0",
+]
+
+[tool.maturin]
+manifest-path = "crates/gam-pyffi/Cargo.toml"
+module-name = "gamfit._rust"
+
+[tool.pytest.ini_options]
+# Use importlib mode so pytest does not prepend each test file's parent
+# directory to ``sys.path``. The default ``prepend`` mode would otherwise
+# make ``tests/torch/`` discoverable as a top-level package named ``torch``,
+# which silently shadows the real PyTorch library and breaks every test
+# that does ``pytest.importorskip("torch")``.
+addopts = "--import-mode=importlib"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+files = ["gamfit", "tests", "scripts", "bench"]
+mypy_path = ["bench", "tests/bench_tools"]
+explicit_package_bases = true
+exclude = [
+  "^bench/\\.venv/",
+]
+
+[[tool.mypy.overrides]]
+module = ["mgcv", "pyvista", "imageio", "imageio.v2"]
+ignore_missing_imports = true
+
+[tool.vulture]
+paths = ["gamfit", "tests", "scripts", "bench"]
+exclude = ["bench/.venv/"]
+ignore_names = [
+  "_repr_html_",
+]

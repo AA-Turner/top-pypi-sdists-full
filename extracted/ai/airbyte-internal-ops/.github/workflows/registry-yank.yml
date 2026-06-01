@@ -1,0 +1,111 @@
+name: "Registry: Yank Connector Version"
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+    inputs:
+      connector_name:
+        description: "Connector name (e.g., 'source-faker')."
+        required: true
+        type: string
+      version:
+        description: "Version to yank (e.g., '1.2.3')."
+        required: true
+        type: string
+      store:
+        description: "Store target (e.g., 'coral:dev', 'coral:prod')."
+        required: true
+        type: string
+      reason:
+        description: "Reason for yanking this version."
+        required: false
+        type: string
+        default: ""
+      unyank:
+        description: "Set to 'true' to unyank (restore) the version instead of yanking it."
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  yank-and-compile:
+    name: "${{ inputs.unyank && 'Unyank' || 'Yank' }} ${{ inputs.connector_name }}@${{ inputs.version }}"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Yank connector version
+        if: ${{ !inputs.unyank }}
+        env:
+          GCS_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS }}
+          INPUT_CONNECTOR_NAME: ${{ inputs.connector_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_STORE: ${{ inputs.store }}
+          INPUT_REASON: ${{ inputs.reason }}
+        run: |
+          uv run airbyte-ops registry connector-version yank \
+            --name "$INPUT_CONNECTOR_NAME" \
+            --version "$INPUT_VERSION" \
+            --store "$INPUT_STORE" \
+            --reason "$INPUT_REASON"
+
+      - name: Unyank connector version
+        if: ${{ inputs.unyank }}
+        env:
+          GCS_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS }}
+          INPUT_CONNECTOR_NAME: ${{ inputs.connector_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_STORE: ${{ inputs.store }}
+        run: |
+          uv run airbyte-ops registry connector-version unyank \
+            --name "$INPUT_CONNECTOR_NAME" \
+            --version "$INPUT_VERSION" \
+            --store "$INPUT_STORE"
+
+      - name: Compile registry
+        env:
+          GCS_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS }}
+          INPUT_STORE: ${{ inputs.store }}
+        run: |
+          uv run airbyte-ops registry store compile \
+            --store "$INPUT_STORE"
+
+      - name: Write summary
+        if: always()
+        env:
+          INPUT_ACTION: ${{ inputs.unyank && 'Unyank' || 'Yank' }}
+          INPUT_ACTION_PAST: ${{ inputs.unyank && 'Unyanked' || 'Yanked' }}
+          INPUT_CONNECTOR_NAME: ${{ inputs.connector_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_STORE: ${{ inputs.store }}
+          INPUT_REASON: ${{ inputs.reason }}
+        run: |
+          {
+            echo "# Registry: ${INPUT_ACTION} Connector Version"
+            echo ""
+            echo "- **Action:** ${INPUT_ACTION}"
+            echo "- **Connector:** \`${INPUT_CONNECTOR_NAME}\`"
+            echo "- **Version:** \`${INPUT_VERSION}\`"
+            echo "- **Store:** \`${INPUT_STORE}\`"
+            echo "- **Reason:** ${INPUT_REASON:-(none)}"
+            echo ""
+            echo "## Steps"
+            echo ""
+            echo "1. ${INPUT_ACTION_PAST} version \`${INPUT_VERSION}\` of \`${INPUT_CONNECTOR_NAME}\`"
+            echo "2. Compiled registry to update indexes and latest pointers"
+          } >> "$GITHUB_STEP_SUMMARY"

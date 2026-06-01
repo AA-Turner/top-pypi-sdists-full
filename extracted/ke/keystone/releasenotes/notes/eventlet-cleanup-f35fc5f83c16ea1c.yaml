@@ -1,0 +1,27 @@
+---
+upgrade:
+  - |
+    The following options have been removed.
+
+    - ``[eventlet_server] public_bind_host``
+    - ``[eventlet_server] public_bind_port``
+    - ``[eventlet_server] public_admin_host``
+    - ``[eventlet_server] public_admin_port``
+
+  - |
+    The following command line options have been removed. These options were
+    used by Keystone eventlet model which was removed in Newton release.
+
+    - ``standard-threads``
+    - ``pydev-debug-host``
+    - ``pydev-debug-port``
+
+  - |
+    Keystone no longer substitute the following string interpolations in
+    catalog information. Replace string interpolations by hard-coded strings
+    before upgrade.
+
+    - ``public_bind_host``
+    - ``public_bind_port``
+    - ``public_admin_host``
+    - ``public_admin_port``

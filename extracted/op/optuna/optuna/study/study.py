@@ -145,8 +145,20 @@ class Study:
             If your study is multi-objective,
             use :attr:`~optuna.study.Study.best_trials` instead.
 
+        .. note::
+            In constrained optimization, the best trial is selected from trials that
+            satisfy all constraints. A trial is considered feasible when all of its
+            constraint values are less than or equal to 0.0.
+
         Returns:
             A :class:`~optuna.trial.FrozenTrial` object of the best trial.
+
+        Raises:
+            RuntimeError:
+                If the study is multi-objective.
+            ValueError:
+                If no trials are completed yet, or if no feasible trials exist
+                in a constrained optimization.
 
         .. seealso::
             The :ref:`reuse_best_trial` tutorial provides a detailed example of how to use this
@@ -164,8 +176,22 @@ class Study:
         ``all(v0 <= v1) for v0, v1 in zip(t0.values, t1.values)`` and
         ``any(v0 < v1) for v0, v1 in zip(t0.values, t1.values)`` are held.
 
+        .. note::
+            In constrained optimization, the best trials are selected from trials that
+            satisfy all constraints. A trial is considered feasible when all of its
+            constraint values are less than or equal to 0.0.
+
+        .. note::
+            When optimizing many objectives, a large fraction of trials may become non-dominated
+            in general due to the curse of dimensionality in the objective space. If this makes
+            post-hoc selection difficult, consider modeling some objectives as constraints.
+            Constraints can be passed via the `constraints_func` argument at the sampler
+            initialization.
+
         Returns:
-            A list of :class:`~optuna.trial.FrozenTrial` objects.
+            A list of :class:`~optuna.trial.FrozenTrial` objects. If no trials are
+            completed or if no feasible trials exist in a constrained optimization,
+            an empty list is returned.
         """
 
         # Check whether the study is constrained optimization.
@@ -317,9 +343,9 @@ class Study:
             if len(feasible_trials) == 0:
                 raise ValueError("No feasible trials are completed yet.")
             if self.direction == StudyDirection.MAXIMIZE:
-                best_trial = max(feasible_trials, key=lambda t: cast(float, t.value))
+                best_trial = max(feasible_trials, key=lambda t: cast("float", t.value))
             else:
-                best_trial = min(feasible_trials, key=lambda t: cast(float, t.value))
+                best_trial = min(feasible_trials, key=lambda t: cast("float", t.value))
 
         return copy.deepcopy(best_trial) if deepcopy else best_trial
 
@@ -1647,9 +1673,9 @@ def get_all_study_summaries(
             directions = None
             if include_best_trial and len(completed_trials) != 0:
                 if direction == StudyDirection.MAXIMIZE:
-                    best_trial = max(completed_trials, key=lambda t: cast(float, t.value))
+                    best_trial = max(completed_trials, key=lambda t: cast("float", t.value))
                 else:
-                    best_trial = min(completed_trials, key=lambda t: cast(float, t.value))
+                    best_trial = min(completed_trials, key=lambda t: cast("float", t.value))
             else:
                 best_trial = None
         else:

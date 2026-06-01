@@ -1,0 +1,52 @@
+Metadata-Version: 2.4
+Name: bacore
+Version: 0.4.1
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Development Status :: 1 - Planning
+Classifier: Framework :: MkDocs
+Classifier: Framework :: Pydantic :: 2
+Classifier: Framework :: Pytest
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Requires-Dist: faker >=29.0.0
+Requires-Dist: hypothesis >=6.112.1
+Requires-Dist: pydantic-settings >=2.4.0
+Requires-Dist: requests-ntlm >=1.3.0
+Requires-Dist: sqlmodel >=0.0.22
+Requires-Dist: toml >=0.10.2
+Requires-Dist: bpython >=0.24 ; extra == 'dev'
+Requires-Dist: debugpy >=1.8.7 ; extra == 'dev'
+Requires-Dist: markdown-exec[ansi] >=1.7.0 ; extra == 'dev'
+Requires-Dist: maturin >=1.7.1 ; extra == 'dev'
+Requires-Dist: mkdocs-caption >=0.0.10 ; extra == 'dev'
+Requires-Dist: mkdocs-material ; extra == 'dev'
+Requires-Dist: mkdocstrings >=0.24.0 ; extra == 'dev'
+Requires-Dist: mkdocstrings-python >=1.7.5 ; extra == 'dev'
+Requires-Dist: mkdocs-git-show-history-log-plugin >=0.2 ; extra == 'dev'
+Requires-Dist: neoteroi-mkdocs >=1.0.4 ; extra == 'dev'
+Requires-Dist: pdbpp >=0.10.3 ; extra == 'dev'
+Requires-Dist: pytest >=7.4.3 ; extra == 'dev'
+Requires-Dist: pytest-testmon >=2.1.0 ; extra == 'dev'
+Requires-Dist: pytest-watch >=4.2.0 ; extra == 'dev'
+Requires-Dist: python-language-server[all] >=0.36.2 ; extra == 'dev'
+Requires-Dist: ruff >=0.5.2 ; extra == 'dev'
+Requires-Dist: python-pptx >=1.0.2 ; extra == 'ppt'
+Requires-Dist: python-fasthtml >=0.6.4 ; extra == 'web'
+Provides-Extra: dev
+Provides-Extra: ppt
+Provides-Extra: web
+License-File: LICENSE
+Summary: BACore is a framework for business analysis and test automation.
+Keywords: business analysis,test automation,testing
+Author-email: Kristian Grönberg <kristian@gronberg.org>, Jacob Dahlberg <dahlberg.jacob@gmail.com>, Jonatan Söderström <jonatan.m.soderstrom@gmail.com>
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+
+# BACcore
+Business Analysis Core (BACore) is framework around a set of tools for common business analysis work. The main focus of BACore is on documentation and testing. BACore is written in Python.
+
+## Getting Started
+
+1. Download BACore with pip: `pip install bacore`
+

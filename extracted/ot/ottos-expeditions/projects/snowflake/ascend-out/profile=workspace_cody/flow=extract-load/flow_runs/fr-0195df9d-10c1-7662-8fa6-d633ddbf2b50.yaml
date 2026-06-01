@@ -1,7 +1,0 @@
-flow_run:
-  components:
-  - read_inlinked
-  flow_name: extract-load
-  name: fr-0195df9d-10c1-7662-8fa6-d633ddbf2b50
-  parameters: {}
-  run_tests: true

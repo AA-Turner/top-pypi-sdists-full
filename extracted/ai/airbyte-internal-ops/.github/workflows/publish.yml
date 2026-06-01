@@ -1,0 +1,42 @@
+# This workflow publishes the airbyte-internal-ops package to PyPI.
+#
+# Triggers:
+# - push tags v* - When a main-package version tag is pushed (downloads pre-built assets)
+#
+# Authentication: This workflow expects GitHub OIDC for passwordless PyPI publishing.
+# For more info: https://docs.pypi.org/trusted-publishers/
+
+name: Publish Package
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish_to_pypi:
+    name: Publish airbyte-internal-ops to PyPI
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    environment:
+      name: PyPI
+      url: https://pypi.org/project/airbyte-internal-ops/
+    steps:
+      - name: Download wheel and sdist from release
+        uses: robinraju/release-downloader@v1.12
+        with:
+          tag: ${{ github.ref_name }}
+          fileName: "airbyte_internal_ops-*.whl"
+          out-file-path: dist
+
+      - name: Download sdist from release
+        uses: robinraju/release-downloader@v1.12
+        with:
+          tag: ${{ github.ref_name }}
+          fileName: "airbyte_internal_ops-*.tar.gz"
+          out-file-path: dist
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@v1.13.0

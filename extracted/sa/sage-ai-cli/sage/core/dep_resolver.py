@@ -345,13 +345,13 @@ def _pin_python(spec: str) -> str:
 
 def _pin_node(spec: str) -> str:
     """Pin a Node package to CURRENT_VERSIONS if known."""
-    if "@" in spec and not spec.startswith("@"):
+    if "@" in spec[1:]:
         return spec  # already has a version specifier
-    name = spec.lstrip("@") if spec.startswith("@") else spec
-    name = name.split("@", 1)[0].lower()
+    name = spec.lower()
     if name in _PINNABLE_NODE:
         return f"{spec}@{_PINNABLE_NODE[name]}"
     return spec
+
 
 
 def _dedupe_keep_order(items: list[str]) -> list[str]:

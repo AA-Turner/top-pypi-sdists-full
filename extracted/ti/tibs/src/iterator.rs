@@ -1,6 +1,7 @@
 use crate::core::BitCollection;
+use crate::enums::{DtypeKind, Endianness};
 use crate::helpers;
-use crate::tibs_::Tibs;
+use crate::tibs_::{Tibs, py_from_value_parts};
 use memchr::memmem;
 use pyo3::prelude::*;
 
@@ -55,7 +56,7 @@ impl FindAllIterator {
         slf
     }
 
-    fn __next__(mut slf: PyRefMut<'_, Self>) -> PyResult<Option<usize>> {
+    fn __next__(mut slf: PyRefMut<'_, Self>, py: Python<'_>) -> PyResult<Option<usize>> {
         let needle_len = slf.needle.len();
         if needle_len == 0 {
             return Ok(None);
@@ -89,8 +90,6 @@ impl FindAllIterator {
             };
         }
 
-        let py = slf.py();
-
         // Read values from slf that are needed for the find logic
         // or for updating state *after* the find.
         let current_pos = slf.current_pos;
@@ -110,13 +109,14 @@ impl FindAllIterator {
                     return Ok(None);
                 }
                 helpers::rfind_bitvec_with_lps_aligned(
+                    py,
                     haystack_rs.as_bitslice(),
                     slf.needle.as_bitslice(),
                     lps,
                     slf.start,
                     current_pos,
                     alignment_mod8,
-                )
+                )?
             } else {
                 if current_pos >= haystack_len
                     || haystack_len.saturating_sub(current_pos) < needle_len
@@ -124,13 +124,14 @@ impl FindAllIterator {
                     return Ok(None); // No space left for the needle or already past the end
                 }
                 helpers::find_bitvec_with_lps_aligned(
+                    py,
                     haystack_rs.as_bitslice(),
                     slf.needle.as_bitslice(),
                     lps,
                     current_pos,
                     slf.end,
                     alignment_mod8,
-                )
+                )?
             }
         };
 
@@ -203,5 +204,37 @@ impl ChunksIterator {
         slf.chunks_generated += 1;
 
         Ok(Some(chunk_bits))
+    }
+}
+
+#[pyclass]
+pub struct ValuesIterator {
+    pub(crate) bits_object: Py<Tibs>,
+    pub(crate) dtype_kind: DtypeKind,
+    pub(crate) dtype_length: usize,
+    pub(crate) byte_order: Endianness,
+    pub(crate) chunk_size: usize,
+    pub(crate) current_pos: usize,
+    pub(crate) end_pos: usize,
+}
+
+#[pymethods]
+impl ValuesIterator {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(mut slf: PyRefMut<'_, Self>, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+        if slf.current_pos >= slf.end_pos {
+            return Ok(None);
+        }
+
+        let value = {
+            let bits = slf.bits_object.borrow(py);
+            bits.get_slice_unchecked(slf.current_pos, slf.chunk_size)
+        };
+        slf.current_pos += slf.chunk_size;
+
+        py_from_value_parts(py, slf.dtype_kind, slf.dtype_length, slf.byte_order, &value).map(Some)
     }
 }

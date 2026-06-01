@@ -1,0 +1,53 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=82.0.1"]
+
+[project]
+name = "types-yt-dlp"
+version = "2026.3.17.20260518"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+description = "Typing stubs for yt-dlp"
+readme = { text = """\
+## Typing stubs for yt-dlp
+
+This is a [type stub package](https://typing.python.org/en/latest/tutorials/external_libraries.html)
+for the [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) package. It can be used by type checkers
+to check code that uses `yt-dlp`. This version of
+`types-yt-dlp` aims to provide accurate annotations for
+`yt-dlp==2026.3.17`.
+
+This package is part of the [typeshed project](https://github.com/python/typeshed).
+All fixes for types and metadata should be contributed there.
+See [the README](https://github.com/python/typeshed/blob/main/README.md)
+for more details. The source for this package can be found in the
+[`stubs/yt-dlp`](https://github.com/python/typeshed/tree/main/stubs/yt-dlp)
+directory.
+
+This package was tested with the following type checkers:
+* [mypy](https://github.com/python/mypy/) 2.1.0
+* [pyright](https://github.com/microsoft/pyright) 1.1.409
+
+It was generated from typeshed commit
+[`3402466d17144ed7edfc92940c6973167ba285af`](https://github.com/python/typeshed/commit/3402466d17144ed7edfc92940c6973167ba285af).
+""", content-type = "text/markdown" }
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Typing :: Stubs Only",
+]
+requires-python = ">=3.10"
+dependencies = ['websockets']
+
+[project.urls]
+"Homepage" = "https://github.com/python/typeshed"
+"GitHub" = "https://github.com/python/typeshed"
+"Changes" = "https://github.com/typeshed-internal/stub_uploader/blob/main/data/changelogs/yt-dlp.md"
+"Issue tracker" = "https://github.com/python/typeshed/issues"
+"Chat" = "https://gitter.im/python/typing"
+
+[tool.setuptools]
+packages = ['yt_dlp-stubs']
+include-package-data = false
+
+[tool.setuptools.package-data]
+'yt_dlp-stubs' = ['YoutubeDL.pyi', '__init__.pyi', 'aes.pyi', 'cache.pyi', 'compat/__init__.pyi', 'compat/compat_utils.pyi', 'compat/imghdr.pyi', 'cookies.pyi', 'downloader/__init__.pyi', 'downloader/bunnycdn.pyi', 'downloader/common.pyi', 'downloader/dash.pyi', 'downloader/external.pyi', 'downloader/f4m.pyi', 'downloader/fc2.pyi', 'downloader/fragment.pyi', 'downloader/hls.pyi', 'downloader/http.pyi', 'downloader/ism.pyi', 'downloader/mhtml.pyi', 'downloader/niconico.pyi', 'downloader/rtmp.pyi', 'downloader/rtsp.pyi', 'downloader/soop.pyi', 'downloader/websocket.pyi', 'downloader/youtube_live_chat.pyi', 'extractor/__init__.pyi', 'extractor/common.pyi', 'extractor/commonmistakes.pyi', 'extractor/commonprotocols.pyi', 'globals.pyi', 'jsinterp.pyi', 'minicurses.pyi', 'networking/__init__.pyi', 'networking/_helper.pyi', 'networking/common.pyi', 'networking/exceptions.pyi', 'networking/impersonate.pyi', 'networking/websocket.pyi', 'options.pyi', 'plugins.pyi', 'postprocessor/__init__.pyi', 'postprocessor/common.pyi', 'socks.pyi', 'update.pyi', 'utils/__init__.pyi', 'utils/_deprecated.pyi', 'utils/_jsruntime.pyi', 'utils/_legacy.pyi', 'utils/_utils.pyi', 'utils/jslib/__init__.pyi', 'utils/jslib/devalue.pyi', 'utils/networking.pyi', 'utils/progress.pyi', 'utils/traversal.pyi', 'version.pyi', 'webvtt.pyi', 'METADATA.toml', 'py.typed']

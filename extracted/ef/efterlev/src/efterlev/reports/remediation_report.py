@@ -1,0 +1,238 @@
+"""HTML + JSON rendering for `RemediationProposal` artifacts.
+
+Companion to `gap_report.py` and `documentation_report.py`. Single-KSI
+output: one card containing the proposed Terraform diff (or an empty-diff
+"procedural gap" note), the explanation, cited evidence + source files,
+and the claim record id for provenance walks.
+
+`render_remediation_proposal_html` returns a complete HTML document;
+`render_remediation_proposal_json` returns the same data as a
+JSON-serializable dict. The CLI writes both side-by-side.
+
+HTML layout:
+  1. Header + KSI id + status pill (proposed / no_terraform_fix).
+  2. "DRAFT — requires human review" banner. Diffs are Claims — the agent
+     generated them, a human applies them. Efterlev never touches the repo.
+  3. Explanation body (prose, paragraph breaks preserved).
+  4. Diff block, rendered in a monospace `<pre>` with syntax-agnostic
+     styling (leading `+`/`-`/`@@` lines get color hints via simple CSS).
+     If the diff is empty the card shows "No Terraform remediation; see
+     explanation for recommended action."
+  5. Cited evidence IDs.
+  6. Cited source files the diff touches.
+  7. Claim record id for `provenance show`.
+
+JSON schema (v1):
+  {
+    "schema_version": "1.0",
+    "report_type": "remediation",
+    "generated_at": "<iso-8601>",
+    "ksi_id": "<str>",
+    "status": "<proposed|no_terraform_fix>",
+    "diff": "<str>",
+    "explanation": "<str>",
+    "cited_evidence_ids": ["<id>", ...],
+    "cited_source_files": ["<path>", ...],
+    "claim_record_id": "<id> | null"
+  }
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any
+
+from jinja2 import Environment, select_autoescape
+
+from efterlev.agents import RemediationProposal
+from efterlev.models import Evidence
+from efterlev.reports.html import DRAFT_BANNER_HTML, render_base_document
+
+REMEDIATION_REPORT_JSON_SCHEMA_VERSION = "1.0"
+
+_BODY_TEMPLATE = """
+{{ draft_banner }}
+
+<p class="meta">
+  KSI: <span class="ksi-id">{{ proposal.ksi_id }}</span> ·
+  Status: <span class="status-pill remediation-{{ proposal.status }}">
+    {{ proposal.status | replace('_', ' ') }}
+  </span>
+</p>
+
+<div class="record claim">
+  <h2>Proposed remediation</h2>
+
+  <div class="explanation">{{ proposal.explanation }}</div>
+
+  {% if proposal.diff %}
+  <h3>Proposed diff</h3>
+  <pre class="diff"><code>{{ proposal.diff }}</code></pre>
+  {% else %}
+  <div class="no-diff">
+    <strong>No Terraform remediation proposed.</strong>
+    This gap is not closable through a Terraform change (it likely lives
+    in a procedural or runtime layer — IdP configuration, AWS console
+    settings, documented processes). See the explanation above for what
+    a human should do instead.
+  </div>
+  {% endif %}
+
+  {% if proposal.cited_source_files %}
+  <div class="citations">
+    <strong>Files touched ({{ proposal.cited_source_files | length }}):</strong>
+    <ul>
+    {% for path in proposal.cited_source_files %}
+      <li><code>{{ path }}</code></li>
+    {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if proposal.cited_evidence_ids %}
+  <div class="citations">
+    <strong>Grounded in evidence ({{ proposal.cited_evidence_ids | length }}):</strong>
+    <ul>
+    {% for eid in proposal.cited_evidence_ids %}
+      <li>
+        <code class="fence-id">{{ eid }}</code>
+        {% if detector_by_id.get(eid) == "manifest" -%}
+        <span class="source-badge source-manifest"
+              title="Human-signed procedural attestation from .efterlev/manifests/"
+              >attestation</span>
+        {%- endif %}
+      </li>
+    {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if proposal.claim_record_id %}
+  <div class="evidence-links">
+    Provenance record: <code class="record-id">{{ proposal.claim_record_id }}</code>
+  </div>
+  {% endif %}
+</div>
+
+<h2>How to apply</h2>
+<ol class="apply-steps">
+  <li>
+    <strong>Read the diff carefully</strong> — the agent proposed it; you
+    decide whether it's the right shape. Look for identifiers the diff
+    introduces but the shown source doesn't define (e.g. a new
+    <code>var.kms_key_id</code>); those are yours to wire up.
+  </li>
+  <li>
+    <strong>Save the diff to a file</strong> (e.g. <code>remediation.patch</code>)
+    and run <code>git apply --check remediation.patch</code> to verify
+    it applies cleanly. If not, fix the conflict manually — the diff is a
+    draft grounded in the scanner's view, which may lag the tree.
+  </li>
+  <li>
+    <strong>Test in a branch.</strong> Apply, run your usual Terraform plan,
+    inspect the plan output, and only merge after review.
+  </li>
+  <li>
+    <strong>Re-scan.</strong> Run <code>efterlev scan</code> and
+    <code>efterlev agent gap</code> again; confirm this KSI's status
+    improved.
+  </li>
+</ol>
+"""
+
+# Per-report CSS for diff rendering + status pills specific to remediation.
+_REMEDIATION_CSS = """
+<style>
+  .explanation {
+    white-space: pre-wrap;
+    margin-top: 10px;
+    margin-bottom: 16px;
+    color: #1a1a1a;
+    line-height: 1.55;
+  }
+  .diff {
+    background: #0d1117;
+    color: #e6edf3;
+    padding: 14px 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.5;
+    margin: 8px 0 16px 0;
+  }
+  .diff code { white-space: pre; color: inherit; background: transparent; }
+  .no-diff {
+    background: #eaeef2;
+    border-left: 4px solid #6a737d;
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin: 12px 0;
+    color: #1a1a1a;
+  }
+  .status-pill.remediation-proposed        { background: #d1f4da; color: #0a4a17; }
+  .status-pill.remediation-no_terraform_fix { background: #fff2c2; color: #6a4e00; }
+
+  .citations { margin-top: 12px; font-size: 13px; color: #4a4a4a; }
+  .citations ul { margin: 6px 0 0 0; padding-left: 20px; }
+  .citations li { margin-bottom: 3px; }
+  .apply-steps { line-height: 1.7; color: #1a1a1a; }
+  .apply-steps li { margin-bottom: 8px; }
+</style>
+"""
+
+
+def render_remediation_proposal_html(
+    proposal: RemediationProposal,
+    *,
+    evidence: list[Evidence] | None = None,
+    generated_at: datetime | None = None,
+) -> str:
+    """Return a complete HTML document rendering of a RemediationProposal.
+
+    Pass `evidence` (the records the agent reasoned over for this KSI)
+    to get per-citation source badges. Unbadged citations = scanner-
+    derived detector Evidence; "attestation"-badged = manifest-sourced.
+    """
+    env = Environment(autoescape=select_autoescape(["html", "xml"]))
+    template = env.from_string(_BODY_TEMPLATE)
+    detector_by_id: dict[str, str] = {ev.evidence_id: ev.detector_id for ev in (evidence or [])}
+    body = template.render(
+        proposal=proposal,
+        draft_banner=DRAFT_BANNER_HTML,
+        detector_by_id=detector_by_id,
+    )
+
+    when = (generated_at or datetime.now().astimezone()).isoformat(timespec="seconds")
+    return render_base_document(
+        title=f"Remediation Proposal — {proposal.ksi_id}",
+        subtitle=f"{proposal.status.replace('_', ' ').title()}",
+        body_html=_REMEDIATION_CSS + body,
+        generated_at=when,
+    )
+
+
+def render_remediation_proposal_json(
+    proposal: RemediationProposal,
+    *,
+    generated_at: datetime | None = None,
+) -> dict[str, Any]:
+    """Return the remediation proposal as a JSON-serializable dict.
+
+    Mirrors `render_remediation_proposal_html`'s data view. The diff
+    string is preserved verbatim (no escaping); downstream consumers
+    can write it to disk for `git apply` directly.
+    """
+    when = (generated_at or datetime.now().astimezone()).isoformat(timespec="seconds")
+    return {
+        "schema_version": REMEDIATION_REPORT_JSON_SCHEMA_VERSION,
+        "report_type": "remediation",
+        "generated_at": when,
+        "ksi_id": proposal.ksi_id,
+        "status": proposal.status,
+        "diff": proposal.diff,
+        "explanation": proposal.explanation,
+        "cited_evidence_ids": list(proposal.cited_evidence_ids),
+        "cited_source_files": list(proposal.cited_source_files),
+        "claim_record_id": proposal.claim_record_id,
+    }

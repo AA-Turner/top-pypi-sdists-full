@@ -11,6 +11,7 @@ Wraps Alembic's programmatic API for managing PostgreSQL schema migrations:
 """
 
 import asyncio
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,8 @@ import typer
 from rich.console import Console
 
 from dazzle.cli.utils import load_project_appspec
+
+logger = logging.getLogger(__name__)
 
 db_app = typer.Typer(
     help="Database migration commands (Alembic)",
@@ -97,6 +100,19 @@ def revision_command(
     cfg = _get_alembic_cfg()
     project_versions = str(_get_project_versions_dir())
 
+    # #1309: alembic refuses to author a revision when multiple heads exist
+    # (it can't pick a parent). Give the actionable reconcile guidance instead
+    # of the raw "Multiple head revisions" error.
+    heads = _get_heads(cfg)
+    if len(heads) > 1:
+        console.print(
+            f"[red]Cannot create a revision: {len(heads)} migration heads are "
+            f"present ({', '.join(heads)}).[/red]\n"
+            f"[dim]  Run `dazzle db reconcile-baseline` to merge them into a "
+            f"single head first (see #1309).[/dim]"
+        )
+        raise typer.Exit(1)
+
     try:
         command.revision(
             cfg,
@@ -149,6 +165,97 @@ def _validate_revision_widths(cfg: object, target: str) -> None:
         )
 
 
+#: The framework's baseline migration root (#1309). A project whose own first
+#: migration predates the framework shipping baselines has `down_revision=None`
+#: — a parallel root to this one — so chaining both version dirs yields two
+#: heads. Used to give a precise "parallel baseline roots" diagnosis.
+_FRAMEWORK_BASELINE_ROOT = "0001_framework_baseline"
+
+
+def _get_heads(cfg: object) -> list[str]:
+    """Return the current head revision ids across the chained version dirs."""
+    from alembic.script import ScriptDirectory
+
+    return list(ScriptDirectory.from_config(cfg).get_heads())  # type: ignore[arg-type]
+
+
+def _guard_single_head(cfg: object, target: str) -> None:
+    """Refuse an ambiguous ``upgrade head`` when multiple heads exist (#1309).
+
+    Shipping the framework baseline migrations (v0.80.59, #1308) added a second
+    alembic head for projects whose own baseline is a parallel root — so
+    ``upgrade head`` fails with alembic's raw "Multiple head revisions" error
+    and the Heroku release phase breaks. Intercept it here with actionable
+    guidance: run ``dazzle db reconcile-baseline`` (generates a project-side
+    merge migration → single head). Only guards the literal ``head`` target;
+    an explicit ``heads`` or a specific revision is left untouched.
+    """
+    if target != "head":
+        return
+    heads = _get_heads(cfg)
+    if len(heads) <= 1:
+        return
+    has_framework_root = _FRAMEWORK_BASELINE_ROOT in heads or any(
+        _revision_traces_to_framework_root(cfg, h) for h in heads
+    )
+    detail = (
+        "parallel baseline roots (framework + project)" if has_framework_root else "multiple heads"
+    )
+    raise RuntimeError(
+        f"Refusing to `upgrade head`: {len(heads)} {detail} are present "
+        f"({', '.join(heads)}).\n"
+        f"Run `dazzle db reconcile-baseline` to generate a merge migration "
+        f"that unifies them into a single head, commit it, then re-run "
+        f"`dazzle db upgrade head`. See #1309."
+    )
+
+
+def _revision_traces_to_framework_root(cfg: object, head: str) -> bool:
+    """True if *head*'s ancestry includes the framework baseline root."""
+    from alembic.script import ScriptDirectory
+
+    script = ScriptDirectory.from_config(cfg)  # type: ignore[arg-type]
+    try:
+        for rev in script.iterate_revisions(head, "base"):
+            if rev.revision == _FRAMEWORK_BASELINE_ROOT:
+                return True
+    except Exception:
+        logger.debug("Could not trace ancestry for head %s", head, exc_info=True)
+    return False
+
+
+def _redact_url(url: str) -> str:
+    """Mask any password in a DB URL for safe display (`user:***@host/db`)."""
+    import re
+
+    return re.sub(r"(://[^:/@]+:)[^@/]+@", r"\1***@", url)
+
+
+def _safe_current_revision(cfg: Any) -> str | None:
+    """Read the applied revision from ``alembic_version`` (None if unstamped).
+
+    Best-effort: any failure returns ``None`` so reporting never breaks the
+    upgrade itself (the upgrade is the source of truth; this is for display).
+    """
+    try:
+        from alembic.runtime.migration import MigrationContext
+        from sqlalchemy import create_engine
+
+        url = cfg.get_main_option("sqlalchemy.url")
+        if not url:
+            return None
+        engine = create_engine(url)
+        try:
+            with engine.connect() as conn:
+                return MigrationContext.configure(conn).get_current_revision()
+        finally:
+            engine.dispose()
+    except Exception:
+        # Display-only introspection — never let it break the upgrade report.
+        logger.debug("Could not read current alembic revision", exc_info=True)
+        return None
+
+
 @db_app.command(name="upgrade")
 def upgrade_command(
     revision: str = typer.Argument(
@@ -160,14 +267,80 @@ def upgrade_command(
     from alembic import command
 
     cfg = _get_alembic_cfg()
+    # #1308: surface the target DB so a misresolved connection (the bug that
+    # made `upgrade` silently hit the wrong database) is immediately visible.
+    target = cfg.get_main_option("sqlalchemy.url") or ""
+    console.print(f"[dim]Target database: {_redact_url(target)}[/dim]")
 
     try:
+        _guard_single_head(cfg, revision)  # #1309: actionable error on parallel heads
         _validate_revision_widths(cfg, revision)
+        before = _safe_current_revision(cfg)
         command.upgrade(cfg, revision)
-        console.print(f"[green]Upgraded to: {revision}[/green]")
+        after = _safe_current_revision(cfg)
+        # #1308: report the actual transition, not a blind "Upgraded to: head".
+        # A no-op (before == after) is now stated honestly rather than
+        # masquerading as success — the exact trap the issue flagged.
+        if before == after:
+            console.print(
+                f"[yellow]Already at {after or '(base)'} — no pending migrations "
+                f"to apply (database unchanged).[/yellow]"
+            )
+        else:
+            console.print(f"[green]Upgraded: {before or '(base)'} → {after or '(base)'}[/green]")
     except Exception as e:
         console.print(f"[red]Upgrade failed: {e}[/red]")
         raise typer.Exit(1)
+
+
+@db_app.command(name="reconcile-baseline")
+def reconcile_baseline_command() -> None:
+    """Merge parallel migration heads into one (#1309).
+
+    Shipping the framework baseline migrations (v0.80.59) added a second alembic
+    head for any project whose own first migration predates them (a parallel
+    root, ``down_revision = None``). That makes ``dazzle db upgrade head`` and
+    ``dazzle db revision`` fail with "Multiple head revisions".
+
+    This generates a project-side **merge migration** whose ``down_revision`` is
+    the tuple of all current heads — the canonical alembic answer — collapsing
+    the trees back to a single head so every db command works again. The merge
+    file is written to the project's ``.dazzle/migrations/versions`` dir (NOT
+    the read-only framework dir in the wheel); commit it, then run
+    ``dazzle db upgrade head``. (With ``0001`` now idempotent, applying the
+    framework chain to an already-populated DB is safe: ``0001`` skips,
+    ``0002`` no-ops, ``0003`` replaces a function, ``0004`` widens a column.)
+    """
+    from alembic.script import ScriptDirectory
+    from alembic.util import rev_id as _new_rev_id
+
+    cfg = _get_alembic_cfg()
+    script = ScriptDirectory.from_config(cfg)
+    heads = list(script.get_heads())
+
+    if len(heads) <= 1:
+        console.print(
+            f"[green]Single head ({heads[0] if heads else 'none'}) — nothing to reconcile.[/green]"
+        )
+        return
+
+    project_versions = str(_get_project_versions_dir())
+    new_rev = _new_rev_id()
+    try:
+        script.generate_revision(
+            new_rev,
+            message="merge framework + project baselines (#1309)",
+            head=tuple(heads),  # tuple of heads → a merge revision
+            version_path=project_versions,
+        )
+    except Exception as e:
+        console.print(f"[red]Reconcile failed: {e}[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"[green]Merge migration created: {new_rev}[/green] — heads unified")
+    console.print(f"[dim]  Merged heads: {', '.join(heads)}[/dim]")
+    console.print(f"[dim]  → {project_versions}/[/dim]")
+    console.print("[dim]  Commit the merge file, then run `dazzle db upgrade head`.[/dim]")
 
 
 @db_app.command(name="downgrade")
@@ -477,6 +650,43 @@ def _resolve_tenant_schema(tenant: str) -> str:
     return slug_to_schema_name(tenant)
 
 
+def _default_db_env(project_root: Path) -> str:
+    """Environment profile `dazzle db` targets when no `--env`/`DAZZLE_ENV` is set.
+
+    #1308: the CLI session env (`get_active_env`) defaults to ``""`` — "no
+    profile" — but the app and `dazzle serve` default to the ``development``
+    environment (`get_dazzle_env`). With an empty env_name, `resolve_database_url`
+    *skips the `[environments.*]` profile branch entirely* and falls through to
+    the hardcoded default DB (``postgresql://localhost:5432/dazzle``). So
+    ``dazzle db upgrade`` silently operated on a *different* database than the
+    one the dev app uses — typically already at head — and reported success
+    while applying nothing.
+
+    Fix: when no env is explicitly selected, target the SAME environment the app
+    uses (`get_dazzle_env`, which honours ``DAZZLE_ENV`` and defaults to
+    ``development``) — but ONLY when ``dazzle.toml`` actually declares that
+    ``[environments.<name>]`` profile. Otherwise return ``""`` to preserve the
+    profile-less resolution path (DATABASE_URL → ``[database].url`` → default)
+    for projects that don't use environment profiles. Fail-safe: any load error
+    returns ``""`` (existing behaviour).
+    """
+    toml_path = project_root / "dazzle.toml"
+    if not toml_path.exists():
+        return ""
+    try:
+        from dazzle.core.environment import get_dazzle_env
+        from dazzle.core.manifest import load_manifest
+
+        candidate = get_dazzle_env().value
+        manifest = load_manifest(toml_path)
+    except Exception:
+        # Fail-safe: a malformed manifest shouldn't crash url resolution —
+        # fall back to the legacy profile-less path.
+        logger.debug("Could not resolve default db env from dazzle.toml", exc_info=True)
+        return ""
+    return candidate if candidate in manifest.environments else ""
+
+
 def _resolve_url(database_url: str) -> str:
     """Resolve database URL from flag, env, or manifest.
 
@@ -484,6 +694,10 @@ def _resolve_url(database_url: str) -> str:
     values take effect without the user having to export them in their
     shell (#814). Shell exports still win because ``load_project_dotenv``
     only sets variables that aren't already set.
+
+    When no environment is explicitly selected (`--env` / ``DAZZLE_ENV``),
+    falls back to the app's default environment profile (#1308 — see
+    ``_default_db_env``) so db commands hit the same database as `serve`.
     """
     from dazzle.cli.dotenv import load_project_dotenv
     from dazzle.cli.env import get_active_env
@@ -492,10 +706,12 @@ def _resolve_url(database_url: str) -> str:
     project_root = Path.cwd().resolve()
     load_project_dotenv(project_root)
 
+    env_name = get_active_env() or _default_db_env(project_root)
+
     return resolve_db_url(
         explicit_url=database_url,
         project_root=project_root,
-        env_name=get_active_env(),
+        env_name=env_name,
     )
 
 

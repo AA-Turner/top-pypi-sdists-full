@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    The boot_volume_size label value is passed as a string from the API.
-    The validator now converts it to an integer before comparison.

@@ -1,14 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-from collections.abc import Sequence
 from typing import Any
 from typing import TYPE_CHECKING
 
-import numpy as np
-
 from optuna._experimental import experimental_class
-from optuna.distributions import BaseDistribution
 from optuna.samplers._ga import BaseGASampler
 from optuna.samplers._lazy_random_state import LazyRandomState
 from optuna.samplers._nsgaiii._elite_population_selection_strategy import (
@@ -25,6 +20,12 @@ from optuna.trial import TrialState
 
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+    from collections.abc import Sequence
+
+    import numpy as np
+
+    from optuna.distributions import BaseDistribution
     from optuna.study import Study
 
 
@@ -34,6 +35,17 @@ class NSGAIIISampler(BaseGASampler):
 
     NSGA-III stands for "Nondominated Sorting Genetic Algorithm III",
     which is a modified version of NSGA-II for many objective optimization problem.
+
+    .. note::
+        When optimizing many objectives, a large fraction of trials may become non-dominated
+        in general due to the curse of dimensionality in the objective space. If possible, consider
+        modeling some objectives as constraints. Constraints can be passed via the
+        `constraints_func` argument at the sampler initialization.
+        :class:`~optuna.samplers.NSGAIISampler`, :class:`~optuna.samplers.TPESampler`, and
+        :class:`~optuna.samplers.GPSampler` also support constrained multi-objective optimization.
+        Since Bayesian optimization is often sample efficient, it is worth considering
+        :class:`~optuna.samplers.TPESampler`, or :class:`~optuna.samplers.GPSampler` for
+        ``n_trials < 1000``.
 
     For further information about NSGA-III, please refer to the following papers:
 

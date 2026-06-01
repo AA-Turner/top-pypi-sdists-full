@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Add a validation for the case when boot_volume_size
-    label and flavor's disk are both zero.

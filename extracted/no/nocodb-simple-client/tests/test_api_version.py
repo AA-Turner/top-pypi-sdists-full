@@ -262,11 +262,17 @@ class TestPathBuilderDataAPI:
         assert path == "api/v2/storage/upload"
 
     def test_file_upload_v3(self):
-        """Test file upload path for v3."""
+        """Test file upload path for v3 targets the per-record/field endpoint."""
         builder = PathBuilder(APIVersion.V3)
-        path = builder.file_upload("table_123", "base_abc")
+        path = builder.file_upload("table_123", "base_abc", record_id="rec_1", field_id="fld_9")
 
-        assert path == "api/v3/data/base_abc/table_123/attachments"
+        assert path == "api/v3/data/base_abc/table_123/records/rec_1/fields/fld_9/upload"
+
+    def test_file_upload_v3_requires_record_and_field(self):
+        """v3 upload path requires record_id and field_id."""
+        builder = PathBuilder(APIVersion.V3)
+        with pytest.raises(ValueError, match="record_id and field_id"):
+            builder.file_upload("table_123", "base_abc")
 
 
 class TestPathBuilderMetaAPI:
@@ -279,12 +285,15 @@ class TestPathBuilderMetaAPI:
 
         assert path == "api/v2/meta/bases"
 
-    def test_bases_list_v3(self):
-        """Test bases list path for v3."""
-        builder = PathBuilder(APIVersion.V3)
-        path = builder.bases_list()
+    def test_bases_list_v3_raises(self):
+        """v3 has no flat bases endpoint (/api/v3/meta/bases returns 404 live).
 
-        assert path == "api/v3/meta/bases"
+        bases_list() must refuse rather than emit the broken path; callers use
+        NocoDBMetaClient.list_bases() which aggregates workspace-scoped listings.
+        """
+        builder = PathBuilder(APIVersion.V3)
+        with pytest.raises(ValueError, match="no flat bases endpoint"):
+            builder.bases_list()
 
     def test_base_get_v2(self):
         """Test get base path for v2."""
@@ -391,12 +400,12 @@ class TestPathBuilderMetaAPI:
 
         assert path == "api/v2/meta/hooks/hook_123"
 
-    def test_webhook_get_v3(self):
-        """Test get webhook path for v3."""
+    def test_webhook_get_v3_uses_v2_path(self):
+        """v3 reuses the v2 hook endpoint (verified live: v3 has no hook API)."""
         builder = PathBuilder(APIVersion.V3)
         path = builder.webhook_get("hook_123", "base_abc")
 
-        assert path == "api/v3/meta/bases/base_abc/hooks/hook_123"
+        assert path == "api/v2/meta/hooks/hook_123"
 
     def test_webhooks_list_v2(self):
         """Test list webhooks path for v2."""
@@ -405,12 +414,12 @@ class TestPathBuilderMetaAPI:
 
         assert path == "api/v2/meta/tables/table_123/hooks"
 
-    def test_webhooks_list_v3(self):
-        """Test list webhooks path for v3."""
+    def test_webhooks_list_v3_uses_v2_path(self):
+        """v3 reuses the v2 hooks list endpoint (v3 has no hook API)."""
         builder = PathBuilder(APIVersion.V3)
         path = builder.webhooks_list("table_123", "base_abc")
 
-        assert path == "api/v3/meta/bases/base_abc/tables/table_123/hooks"
+        assert path == "api/v2/meta/tables/table_123/hooks"
 
 
 class TestResponseAdapter:
@@ -520,16 +529,20 @@ class TestRequestAdapter:
         result = RequestAdapter.format_records(records, APIVersion.V2)
         assert result == [{"Name": "A"}, {"Name": "B"}]
 
-    def test_format_records_v3_wraps_in_records(self):
-        """Test v3 wraps in records array with fields."""
+    def test_format_records_v3_bare_array_of_fields(self):
+        """v3 bulk create/update body is a BARE ARRAY of {"fields": {...}}.
+
+        Verified live (releaseVersion 2026.05.2): the {"records": [...]} wrapper
+        silently misbehaves (bulk insert ignored, bulk update 404); the bare
+        array works and matches the spec's oneOf body. The *response* stays
+        wrapped as {"records": [...]} (handled by ResponseAdapter).
+        """
         records = [{"Name": "A"}, {"Name": "B"}]
         result = RequestAdapter.format_records(records, APIVersion.V3)
-        assert result == {
-            "records": [
-                {"fields": {"Name": "A"}},
-                {"fields": {"Name": "B"}},
-            ]
-        }
+        assert result == [
+            {"fields": {"Name": "A"}},
+            {"fields": {"Name": "B"}},
+        ]
 
     def test_format_delete_v2(self):
         """Test v2 delete format."""
@@ -547,6 +560,11 @@ class TestRequestAdapter:
         assert result == [{"Id": 1}, {"Id": 2}, {"Id": 3}]
 
     def test_format_bulk_delete_v3(self):
-        """Test v3 bulk delete format."""
+        """v3 bulk delete body is a BARE ARRAY of {"id": ...} objects.
+
+        Verified live (releaseVersion 2026.05.2): the {"records": [...]} wrapper
+        and a bare list of raw ids both return HTTP 422 ("Field 'Id' is
+        required"); a bare array of {"id": ...} objects works.
+        """
         result = RequestAdapter.format_bulk_delete([1, 2, 3], APIVersion.V3)
-        assert result == {"records": [{"id": 1}, {"id": 2}, {"id": 3}]}
+        assert result == [{"id": 1}, {"id": 2}, {"id": 3}]

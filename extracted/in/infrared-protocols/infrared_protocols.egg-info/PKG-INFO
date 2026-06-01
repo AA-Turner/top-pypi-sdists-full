@@ -1,0 +1,19 @@
+Metadata-Version: 2.4
+Name: infrared-protocols
+Version: 5.6.1
+Summary: Library to decode and encode infrared signals.
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/home-assistant-libs/infrared-protocols
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.13.0
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: prek; extra == "dev"
+Dynamic: license-file
+
+# Python Infrared Protocols for Home Assistant
+
+Python package to decode and encode infrared signals for use in Home Assistant.

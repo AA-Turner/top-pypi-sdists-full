@@ -1,0 +1,98 @@
+[build-system]
+requires = ["scikit-build-core>=0.10", "pybind11>=2.12"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "logosdb"
+version = "1.0.0"
+description = "Fast semantic vector database (HNSW + mmap) with Python bindings"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Jose", email = "jose-compu@users.noreply.github.com" }]
+requires-python = ">=3.9"
+keywords = ["vector-database", "hnsw", "embeddings", "semantic-search", "nearest-neighbor"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Programming Language :: C++",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Database",
+]
+dependencies = [
+    "numpy>=1.21",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+examples = ["sentence-transformers>=2.2"]
+langchain = ["langchain-core>=0.2", "numpy>=1.21"]
+llama-index = ["llama-index-core>=0.12", "numpy>=1.21"]
+haystack = ["haystack-ai>=2.0", "numpy>=1.21"]
+mistral = ["requests>=2.31", "numpy>=1.21"]
+openai = ["requests>=2.31", "numpy>=1.21"]
+anthropic = ["requests>=2.31", "numpy>=1.21"]
+huggingface = ["sentence-transformers>=2.2", "numpy>=1.21"]
+cohere = ["requests>=2.31", "numpy>=1.21"]
+mem0 = ["mem0ai>=0.1", "numpy>=1.21"]
+vibe = ["requests>=2.31", "numpy>=1.21"]
+cognee = ["numpy>=1.21"]
+superlinked = ["numpy>=1.21"]
+camel = ["numpy>=1.21"]
+crewai = ["numpy>=1.21"]
+
+[project.scripts]
+logosdb-vibe = "logosdb._vibe_cli:main"
+
+[project.urls]
+Homepage = "https://github.com/jose-compu/logosdb"
+Issues = "https://github.com/jose-compu/logosdb/issues"
+
+[tool.scikit-build]
+cmake.version = ">=3.15"
+cmake.build-type = "Release"
+minimum-version = "build-system.requires"
+wheel.packages = ["python/logosdb"]
+wheel.expand-macos-universal-tags = false
+
+[tool.scikit-build.cmake.define]
+LOGOSDB_BUILD_PYTHON = "ON"
+LOGOSDB_BUILD_TOOLS = "OFF"
+LOGOSDB_BUILD_TESTS = "OFF"
+
+[tool.pytest.ini_options]
+testpaths = ["tests/python"]
+
+# ─────────────────────────────────────────────────────────────────────
+# cibuildwheel: produces binary wheels for every target platform.
+# Invoked by .github/workflows/publish.yml when a v* tag is pushed.
+# ─────────────────────────────────────────────────────────────────────
+[tool.cibuildwheel]
+build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
+# Skip PyPy, 32-bit Linux, musl i686, and Windows (no Windows support yet,
+# see issue #10). Free-threaded CPython (cp3??t-*) is also skipped for now.
+skip = [
+    "pp*",
+    "*-musllinux_i686",
+    "*-manylinux_i686",
+    "*-win32",
+    "cp3??t-*",
+]
+build-verbosity = 1
+test-requires = "pytest numpy"
+test-command = "python -m pytest {project}/tests/python/test_smoke.py -v"
+
+# Linux: do not set archs here. Listing both x86_64 and aarch64 would make
+# cibuildwheel try to run the x86_64 manylinux Docker image on ARM runners
+# (exec format error). publish.yml uses ubuntu-latest (native x86_64) and
+# ubuntu-24.04-arm (native aarch64); default CIBW_ARCHS=auto builds one arch
+# per machine.
+
+[tool.cibuildwheel.macos]
+archs = ["x86_64", "arm64"]
+# Pin a stable macOS deployment target so wheels run on older hosts.
+environment = { MACOSX_DEPLOYMENT_TARGET = "11.0" }

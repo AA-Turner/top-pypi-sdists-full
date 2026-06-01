@@ -1,0 +1,60 @@
+Metadata-Version: 2.4
+Name: cafitac-agent-memory
+Version: 0.1.162
+Summary: Reusable memory runtime for AI agents
+Author: Agent Memory Contributors
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/cafitac/agent-memory#readme
+Project-URL: Repository, https://github.com/cafitac/agent-memory
+Project-URL: Issues, https://github.com/cafitac/agent-memory/issues
+Keywords: agent,memory,rag,knowledge-base,sqlite
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pydantic>=2.8
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+Dynamic: license-file
+
+# agent-memory
+
+[![CI](https://github.com/cafitac/agent-memory/actions/workflows/ci.yml/badge.svg)](https://github.com/cafitac/agent-memory/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@cafitac/agent-memory.svg)](https://www.npmjs.com/package/@cafitac/agent-memory)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+Local-first memory for AI agents.
+
+## Install
+
+```bash
+npm install -g @cafitac/agent-memory
+agent-memory bootstrap
+agent-memory doctor
+```
+
+Use without a global install:
+
+```bash
+npm exec --yes --package @cafitac/agent-memory -- agent-memory doctor
+```
+
+By default, the local SQLite database lives at `~/.agent-memory/memory.db`.
+
+## More docs
+
+- [First-run setup](docs/first-run-memory-layer.md)
+- [Install smoke recipes](docs/install-smoke.md)
+- [Privacy policy](PRIVACY.md)
+- [Security policy](SECURITY.md)
+- [Contributing](CONTRIBUTING.md)
+
+## License
+
+[MIT](LICENSE)

@@ -572,10 +572,13 @@ class OpenAICompatProvider(ProviderBase):
 
     def _build_retry_config(self) -> RetryConfig:
         """Build provider-specific retry behavior."""
+        max_attempts = 10 if self._spec.name == "openrouter" else 3
+        base_delay = 1.0 if self._spec.name == "openrouter" else 0.5
+        max_delay = 30.0 if self._spec.name == "openrouter" else 8.0
         return RetryConfig(
-            max_attempts=3,
-            base_delay=0.5,
-            max_delay=8.0,
+            max_attempts=max_attempts,
+            base_delay=base_delay,
+            max_delay=max_delay,
             exponential_base=2.0,
             jitter=0.1,
         )
@@ -705,6 +708,21 @@ class OpenAICompatProvider(ProviderBase):
 
     def _extract_response_text(self, data: dict) -> str:
         """Extract assistant text from a non-streaming OpenAI-compatible payload."""
+        if "error" in data and isinstance(data["error"], dict):
+            err = data["error"]
+            msg = err.get("message") or ""
+            code = err.get("code") or 429
+            response = httpx.Response(
+                status_code=int(code) if str(code).isdigit() else 429,
+                json=data,
+                request=httpx.Request("POST", "https://openrouter.ai/api/v1/chat/completions")
+            )
+            raise httpx.HTTPStatusError(
+                f"OpenRouter Error: {msg}",
+                request=response.request,
+                response=response
+            )
+
         choices = data.get("choices")
         if isinstance(choices, list) and choices:
             first_choice = choices[0] if isinstance(choices[0], dict) else {}
@@ -741,6 +759,21 @@ class OpenAICompatProvider(ProviderBase):
 
     def _extract_stream_text(self, chunk: dict) -> str:
         """Extract assistant text from a streaming chunk."""
+        if "error" in chunk and isinstance(chunk["error"], dict):
+            err = chunk["error"]
+            msg = err.get("message") or ""
+            code = err.get("code") or 429
+            response = httpx.Response(
+                status_code=int(code) if str(code).isdigit() else 429,
+                json=chunk,
+                request=httpx.Request("POST", "https://openrouter.ai/api/v1/chat/completions")
+            )
+            raise httpx.HTTPStatusError(
+                f"OpenRouter Stream Error: {msg}",
+                request=response.request,
+                response=response
+            )
+
         choices = chunk.get("choices")
         if isinstance(choices, list) and choices:
             first_choice = choices[0] if isinstance(choices[0], dict) else {}
@@ -794,14 +827,21 @@ class OpenAICompatProvider(ProviderBase):
                         status = exc.response.status_code
                         if status == 404:
                             break  # Try next URL
-                        if status in {429, 500, 502, 503, 504}:
+                        if status == 429 or status >= 500 or status == 408:
                             if attempt < self._retry_config.max_attempts - 1:
                                 time.sleep(self._retry_delay(attempt, exc))
                                 continue
                             break
                         raise
-                    except RuntimeError as exc:
+                    except (RuntimeError, json.JSONDecodeError, KeyError, ValueError) as exc:
                         last_exc = exc
+                        exc_msg = str(exc)
+                        if "temporarily unavailable" in exc_msg or "currently saturated" in exc_msg:
+                            break
+                        self._circuit_breaker.record_failure()
+                        if attempt < self._retry_config.max_attempts - 1:
+                            time.sleep(self._retry_delay(attempt, exc))
+                            continue
                         break
                     except (
                         httpx.ReadTimeout,
@@ -864,14 +904,21 @@ class OpenAICompatProvider(ProviderBase):
                         status = exc.response.status_code
                         if status == 404:
                             break  # Try next URL
-                        if status in {429, 500, 502, 503, 504}:
+                        if status == 429 or status >= 500 or status == 408:
                             if attempt < self._retry_config.max_attempts - 1:
                                 time.sleep(self._retry_delay(attempt, exc))
                                 continue
                             break
                         raise
-                    except RuntimeError as exc:
+                    except (RuntimeError, json.JSONDecodeError, KeyError, ValueError) as exc:
                         last_exc = exc
+                        exc_msg = str(exc)
+                        if "temporarily unavailable" in exc_msg or "currently saturated" in exc_msg:
+                            break
+                        self._circuit_breaker.record_failure()
+                        if attempt < self._retry_config.max_attempts - 1:
+                            time.sleep(self._retry_delay(attempt, exc))
+                            continue
                         break
                     except (
                         httpx.ReadTimeout,

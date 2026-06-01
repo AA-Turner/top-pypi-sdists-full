@@ -5,7 +5,7 @@ import warnings
 
 from grpc_channelz.v1 import channelz_pb2 as grpc__channelz_dot_v1_dot_channelz__pb2
 
-GRPC_GENERATED_VERSION = '1.80.0'
+GRPC_GENERATED_VERSION = '1.81.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -25,7 +25,7 @@ if _version_not_supported:
     )
 
 
-class ChannelzStub(object):
+class ChannelzStub:
     """Channelz is a service exposed by gRPC servers that provides detailed debug
     information.
     """
@@ -73,7 +73,7 @@ class ChannelzStub(object):
                 _registered_method=True)
 
 
-class ChannelzServicer(object):
+class ChannelzServicer:
     """Channelz is a service exposed by gRPC servers that provides detailed debug
     information.
     """
@@ -174,7 +174,7 @@ def add_ChannelzServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class Channelz(object):
+class Channelz:
     """Channelz is a service exposed by gRPC servers that provides detailed debug
     information.
     """

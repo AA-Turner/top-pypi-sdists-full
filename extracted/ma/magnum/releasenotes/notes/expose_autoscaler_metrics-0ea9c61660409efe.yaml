@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Expose autoscaler prometheus metrics on pod port metrics (8085).

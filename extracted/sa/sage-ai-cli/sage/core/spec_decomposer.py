@@ -346,13 +346,26 @@ def extract_stack(spec: str, generate: GenerateFn, *, max_retries: int = 3) -> S
     """Get the stack profile, retrying on bad JSON, falling back to keyword detection."""
     # Use str.replace() not .format() — see extract_features() for why.
     prompt = _STACK_PROMPT.replace("{spec}", _truncate_for_prompt(spec))
+    stack = None
     for _ in range(max_retries):
         raw = generate(prompt)
         stack = parse_stack_json(raw)
         # Accept the LLM stack only if it picked at least one tier.
         if stack.frontend or stack.backend:
-            return stack
-    return _heuristic_stack(spec)
+            break
+    else:
+        stack = _heuristic_stack(spec)
+
+    # Force overrides based on explicit prompt keywords to avoid LLM misclassification
+    spec_lower = spec.lower()
+    if any(kw in spec_lower for kw in ["react native", "react-native", "expo"]):
+        stack.frontend = "react-native-web"
+    if any(kw in spec_lower for kw in ["bun.js", " bun "]):
+        stack.js_runtime = "bun"
+    if "ssr" in spec_lower:
+        stack.ssr = True
+
+    return stack
 
 
 def decompose_spec(spec: str, generate: GenerateFn) -> ProjectPlan:

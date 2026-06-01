@@ -1,0 +1,575 @@
+Metadata-Version: 2.4
+Name: ldp
+Version: 0.46.0
+Summary: Agent framework for constructing language model agents and training on constructive tasks.
+Author-email: FutureHouse technical staff <hello@futurehouse.org>
+License:                                  Apache License
+                                   Version 2.0, January 2004
+                                http://www.apache.org/licenses/
+        
+           TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+        
+           1. Definitions.
+        
+              "License" shall mean the terms and conditions for use, reproduction,
+              and distribution as defined by Sections 1 through 9 of this document.
+        
+              "Licensor" shall mean the copyright owner or entity authorized by
+              the copyright owner that is granting the License.
+        
+              "Legal Entity" shall mean the union of the acting entity and all
+              other entities that control, are controlled by, or are under common
+              control with that entity. For the purposes of this definition,
+              "control" means (i) the power, direct or indirect, to cause the
+              direction or management of such entity, whether by contract or
+              otherwise, or (ii) ownership of fifty percent (50%) or more of the
+              outstanding shares, or (iii) beneficial ownership of such entity.
+        
+              "You" (or "Your") shall mean an individual or Legal Entity
+              exercising permissions granted by this License.
+        
+              "Source" form shall mean the preferred form for making modifications,
+              including but not limited to software source code, documentation
+              source, and configuration files.
+        
+              "Object" form shall mean any form resulting from mechanical
+              transformation or translation of a Source form, including but
+              not limited to compiled object code, generated documentation,
+              and conversions to other media types.
+        
+              "Work" shall mean the work of authorship, whether in Source or
+              Object form, made available under the License, as indicated by a
+              copyright notice that is included in or attached to the work
+              (an example is provided in the Appendix below).
+        
+              "Derivative Works" shall mean any work, whether in Source or Object
+              form, that is based on (or derived from) the Work and for which the
+              editorial revisions, annotations, elaborations, or other modifications
+              represent, as a whole, an original work of authorship. For the purposes
+              of this License, Derivative Works shall not include works that remain
+              separable from, or merely link (or bind by name) to the interfaces of,
+              the Work and Derivative Works thereof.
+        
+              "Contribution" shall mean any work of authorship, including
+              the original version of the Work and any modifications or additions
+              to that Work or Derivative Works thereof, that is intentionally
+              submitted to Licensor for inclusion in the Work by the copyright owner
+              or by an individual or Legal Entity authorized to submit on behalf of
+              the copyright owner. For the purposes of this definition, "submitted"
+              means any form of electronic, verbal, or written communication sent
+              to the Licensor or its representatives, including but not limited to
+              communication on electronic mailing lists, source code control systems,
+              and issue tracking systems that are managed by, or on behalf of, the
+              Licensor for the purpose of discussing and improving the Work, but
+              excluding communication that is conspicuously marked or otherwise
+              designated in writing by the copyright owner as "Not a Contribution."
+        
+              "Contributor" shall mean Licensor and any individual or Legal Entity
+              on behalf of whom a Contribution has been received by Licensor and
+              subsequently incorporated within the Work.
+        
+           2. Grant of Copyright License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              copyright license to reproduce, prepare Derivative Works of,
+              publicly display, publicly perform, sublicense, and distribute the
+              Work and such Derivative Works in Source or Object form.
+        
+           3. Grant of Patent License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              (except as stated in this section) patent license to make, have made,
+              use, offer to sell, sell, import, and otherwise transfer the Work,
+              where such license applies only to those patent claims licensable
+              by such Contributor that are necessarily infringed by their
+              Contribution(s) alone or by combination of their Contribution(s)
+              with the Work to which such Contribution(s) was submitted. If You
+              institute patent litigation against any entity (including a
+              cross-claim or counterclaim in a lawsuit) alleging that the Work
+              or a Contribution incorporated within the Work constitutes direct
+              or contributory patent infringement, then any patent licenses
+              granted to You under this License for that Work shall terminate
+              as of the date such litigation is filed.
+        
+           4. Redistribution. You may reproduce and distribute copies of the
+              Work or Derivative Works thereof in any medium, with or without
+              modifications, and in Source or Object form, provided that You
+              meet the following conditions:
+        
+              (a) You must give any other recipients of the Work or
+                  Derivative Works a copy of this License; and
+        
+              (b) You must cause any modified files to carry prominent notices
+                  stating that You changed the files; and
+        
+              (c) You must retain, in the Source form of any Derivative Works
+                  that You distribute, all copyright, patent, trademark, and
+                  attribution notices from the Source form of the Work,
+                  excluding those notices that do not pertain to any part of
+                  the Derivative Works; and
+        
+              (d) If the Work includes a "NOTICE" text file as part of its
+                  distribution, then any Derivative Works that You distribute must
+                  include a readable copy of the attribution notices contained
+                  within such NOTICE file, excluding those notices that do not
+                  pertain to any part of the Derivative Works, in at least one
+                  of the following places: within a NOTICE text file distributed
+                  as part of the Derivative Works; within the Source form or
+                  documentation, if provided along with the Derivative Works; or,
+                  within a display generated by the Derivative Works, if and
+                  wherever such third-party notices normally appear. The contents
+                  of the NOTICE file are for informational purposes only and
+                  do not modify the License. You may add Your own attribution
+                  notices within Derivative Works that You distribute, alongside
+                  or as an addendum to the NOTICE text from the Work, provided
+                  that such additional attribution notices cannot be construed
+                  as modifying the License.
+        
+              You may add Your own copyright statement to Your modifications and
+              may provide additional or different license terms and conditions
+              for use, reproduction, or distribution of Your modifications, or
+              for any such Derivative Works as a whole, provided Your use,
+              reproduction, and distribution of the Work otherwise complies with
+              the conditions stated in this License.
+        
+           5. Submission of Contributions. Unless You explicitly state otherwise,
+              any Contribution intentionally submitted for inclusion in the Work
+              by You to the Licensor shall be under the terms and conditions of
+              this License, without any additional terms or conditions.
+              Notwithstanding the above, nothing herein shall supersede or modify
+              the terms of any separate license agreement you may have executed
+              with Licensor regarding such Contributions.
+        
+           6. Trademarks. This License does not grant permission to use the trade
+              names, trademarks, service marks, or product names of the Licensor,
+              except as required for reasonable and customary use in describing the
+              origin of the Work and reproducing the content of the NOTICE file.
+        
+           7. Disclaimer of Warranty. Unless required by applicable law or
+              agreed to in writing, Licensor provides the Work (and each
+              Contributor provides its Contributions) on an "AS IS" BASIS,
+              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+              implied, including, without limitation, any warranties or conditions
+              of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+              PARTICULAR PURPOSE. You are solely responsible for determining the
+              appropriateness of using or redistributing the Work and assume any
+              risks associated with Your exercise of permissions under this License.
+        
+           8. Limitation of Liability. In no event and under no legal theory,
+              whether in tort (including negligence), contract, or otherwise,
+              unless required by applicable law (such as deliberate and grossly
+              negligent acts) or agreed to in writing, shall any Contributor be
+              liable to You for damages, including any direct, indirect, special,
+              incidental, or consequential damages of any character arising as a
+              result of this License or out of the use or inability to use the
+              Work (including but not limited to damages for loss of goodwill,
+              work stoppage, computer failure or malfunction, or any and all
+              other commercial damages or losses), even if such Contributor
+              has been advised of the possibility of such damages.
+        
+           9. Accepting Warranty or Additional Liability. While redistributing
+              the Work or Derivative Works thereof, You may choose to offer,
+              and charge a fee for, acceptance of support, warranty, indemnity,
+              or other liability obligations and/or rights consistent with this
+              License. However, in accepting such obligations, You may act only
+              on Your own behalf and on Your sole responsibility, not on behalf
+              of any other Contributor, and only if You agree to indemnify,
+              defend, and hold each Contributor harmless for any liability
+              incurred by, or claims asserted against, such Contributor by reason
+              of your accepting any such warranty or additional liability.
+        
+           END OF TERMS AND CONDITIONS
+        
+           APPENDIX: How to apply the Apache License to your work.
+        
+              To apply the Apache License to your work, attach the following
+              boilerplate notice, with the fields enclosed by brackets "[]"
+              replaced with your own identifying information. (Don't include
+              the brackets!)  The text should be enclosed in the appropriate
+              comment syntax for the file format. We also recommend that a
+              file or class name and description of purpose be included on the
+              same "printed page" as the copyright notice for easier
+              identification within third-party archives.
+        
+           Copyright 2025 FutureHouse
+        
+           Licensed under the Apache License, Version 2.0 (the "License");
+           you may not use this file except in compliance with the License.
+           You may obtain a copy of the License at
+        
+               http://www.apache.org/licenses/LICENSE-2.0
+        
+           Unless required by applicable law or agreed to in writing, software
+           distributed under the License is distributed on an "AS IS" BASIS,
+           WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+           See the License for the specific language governing permissions and
+           limitations under the License.
+        
+Project-URL: issues, https://github.com/Future-House/ldp/issues
+Project-URL: repository, https://github.com/Future-House/ldp
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiofiles
+Requires-Dist: fhaviary>=0.34.0
+Requires-Dist: fhlmi
+Requires-Dist: httpx-aiohttp
+Requires-Dist: numpy>=1.20
+Requires-Dist: pydantic~=2.0
+Requires-Dist: tenacity
+Requires-Dist: tqdm
+Requires-Dist: typing-extensions; python_version <= "3.11"
+Provides-Extra: dev
+Requires-Dist: deptry; extra == "dev"
+Requires-Dist: fhaviary[xml]>=0.19; extra == "dev"
+Requires-Dist: fhlmi[dev]; extra == "dev"
+Requires-Dist: httpx; extra == "dev"
+Requires-Dist: ipython>=8; extra == "dev"
+Requires-Dist: ldp[monitor,nn,rich,server,typing,visualization]; extra == "dev"
+Requires-Dist: mypy>=1.19; extra == "dev"
+Requires-Dist: prek; extra == "dev"
+Requires-Dist: pydantic~=2.9; extra == "dev"
+Requires-Dist: pylint-pydantic; extra == "dev"
+Requires-Dist: pylint>=3.2; extra == "dev"
+Requires-Dist: pytest-asyncio; extra == "dev"
+Requires-Dist: pytest-mock; extra == "dev"
+Requires-Dist: pytest-recording; extra == "dev"
+Requires-Dist: pytest-rerunfailures; extra == "dev"
+Requires-Dist: pytest-sugar; extra == "dev"
+Requires-Dist: pytest-timeout; extra == "dev"
+Requires-Dist: pytest-timer[colorama]; extra == "dev"
+Requires-Dist: pytest-xdist; extra == "dev"
+Requires-Dist: pytest>=9; extra == "dev"
+Requires-Dist: refurb>=2; extra == "dev"
+Requires-Dist: usearch>=2.13; extra == "dev"
+Requires-Dist: vcrpy>=8; extra == "dev"
+Provides-Extra: monitor
+Requires-Dist: wandb; extra == "monitor"
+Provides-Extra: nn
+Requires-Dist: accelerate; extra == "nn"
+Requires-Dist: dask-cuda<25.10.0,>=24.8.2; extra == "nn"
+Requires-Dist: dask-jobqueue; extra == "nn"
+Requires-Dist: dask[distributed]; extra == "nn"
+Requires-Dist: distributed; extra == "nn"
+Requires-Dist: ldp[scg]; extra == "nn"
+Requires-Dist: torch==2.11.0,>=2.9; extra == "nn"
+Requires-Dist: transformers<5,>=4.51; extra == "nn"
+Requires-Dist: wandb; extra == "nn"
+Provides-Extra: rich
+Requires-Dist: rich; extra == "rich"
+Requires-Dist: tqdm>=4.56; extra == "rich"
+Provides-Extra: scg
+Requires-Dist: dm-tree; python_version < "3.14" and extra == "scg"
+Requires-Dist: dm-tree>=0.1.10; python_version >= "3.14" and extra == "scg"
+Requires-Dist: networkx[default]~=3.4; extra == "scg"
+Provides-Extra: server
+Requires-Dist: fastapi>=0.109; extra == "server"
+Provides-Extra: typing
+Requires-Dist: httpx; extra == "typing"
+Requires-Dist: types-aiofiles; extra == "typing"
+Requires-Dist: types-tqdm; extra == "typing"
+Provides-Extra: visualization
+Requires-Dist: pydot>=3.0.1; extra == "visualization"
+Dynamic: license-file
+
+# Language Decision Processes (LDP)
+
+<!-- pyml disable-num-lines 10 line-length -->
+
+[![GitHub](https://img.shields.io/badge/github-%23121011.svg?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Future-House/ldp)
+[![Project Status: Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
+![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
+[![Docs](https://assets.readthedocs.org/static/projects/badges/passing-flat.svg)](https://futurehouse.gitbook.io/futurehouse-cookbook/ldp-language-decision-processes)
+[![PyPI version](https://badge.fury.io/py/ldp.svg)](https://badge.fury.io/py/ldp)
+[![tests](https://github.com/Future-House/ldp/actions/workflows/tests.yml/badge.svg)](https://github.com/Future-House/ldp)
+[![CodeFactor](https://www.codefactor.io/repository/github/future-house/ldp/badge)](https://www.codefactor.io/repository/github/future-house/ldp)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue?style=flat&logo=python&logoColor=white)](https://www.python.org)
+
+<p align="center">
+  <a href="https://arxiv.org/abs/2412.21154">
+    <img src="docs/assets/ldp_chessboard.png" width="300" alt="row playing chess" />
+  </a>
+</p>
+
+**LDP** [^1] is a framework for enabling modular interchange of language agents, environments, and optimizers.
+A language decision process (LDP)
+is a partially-observable Markov decision process (POMDP)
+where actions and observations consist of natural language.
+The full definition from the Aviary paper [^1] is:
+
+<p align="left">
+  <a href="https://arxiv.org/abs/2412.21154">
+    <img src="docs/assets/ldp_definition.png" width="600" alt="LDP definition from paper" />
+  </a>
+</p>
+
+See the following [tutorial](https://github.com/Future-House/ldp/blob/main/tutorials/creating_a_language_agent.ipynb)
+for an example of how to run an LDP agent.
+
+[Overview](#overview)
+| [Getting Started](#getting-started)
+| [Documentation](https://futurehouse.gitbook.io/futurehouse-cookbook/ldp-language-decision-processes)
+| [Paper](https://arxiv.org/abs/2412.21154)
+
+## What's New?
+
+- Check out our new [Tutorial](https://github.com/Future-House/ldp/blob/main/tutorials/creating_a_language_agent.ipynb)
+  notebook on running an LDP agent in an Aviary environment!
+- The Aviary paper has been posted to [arXiv](https://arxiv.org/abs/2412.21154)!
+  Further updates forthcoming!
+
+## Overview
+
+<p align="left">
+  <a href="https://arxiv.org/abs/2412.21154">
+    <img src="docs/assets/Aviary.png" width="800" alt="Aviary and LDP overview from paper" />
+  </a>
+</p>
+
+A pictorial overview of the language decision process (LDP) framework
+together with five implemented Aviary environments.
+
+## Getting Started
+
+To install `ldp`:
+
+```bash
+pip install -e .
+```
+
+To install `aviary` and the `nn` (neural network) module required for the tutorials:
+
+```bash
+pip install "ldp[nn]" "fhaviary[gsm8k]"
+```
+
+If you plan to export Graphviz visualizations, the `graphviz` library is required:
+
+- Linux: `apt install graphviz`
+- macOS: `brew install graphviz`
+
+## Tutorial Notebooks
+
+1. [Creating a Simple Language Agent][1]
+2. [Evaluating a Llama Agent on GSM8K][2]
+
+[1]: https://github.com/Future-House/ldp/blob/main/tutorials/creating_a_language_agent.ipynb
+[2]: https://github.com/Future-House/ldp/blob/main/tutorials/evaluating_a_llama_agent.ipynb
+
+## Running an Agent on an Aviary Environment
+
+The minimal example below illustrates how to run a language agent on an Aviary environment
+(LDP's sister library for defining language agent environments - <https://github.com/Future-House/aviary>)
+
+```py
+from ldp.agent import SimpleAgent
+from aviary.core import DummyEnv
+
+env = DummyEnv()
+agent = SimpleAgent()
+
+obs, tools = await env.reset()
+agent_state = await agent.init_state(tools=tools)
+
+done = False
+while not done:
+    action, agent_state, _ = await agent.get_asv(agent_state, obs)
+    obs, reward, done, truncated = await env.step(action.value)
+```
+
+Below we elaborate on the components of LDP.
+
+## Agent
+
+An agent is a language agent that interacts with an environment to accomplish a task.
+Agents may use tools (calls to external APIs e.g. Wolfram Alpha)
+in response to observations returned by the environment.
+Below we define LDP's `SimpleAgent` which relies on a single LLM call.
+The main bookkeeping involves appending messages received from the environment and passing tools.
+
+```py
+from ldp.agent import Agent
+from ldp.graph import LLMCallOp
+
+
+class AgentState:
+    def __init__(self, messages, tools):
+        self.messages = messages
+        self.tools = tools
+
+
+class SimpleAgent(Agent):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.llm_call_op = LLMCallOp()
+
+    async def init_state(self, tools):
+        return AgentState([], tools)
+
+    async def get_asv(self, agent_state, obs):
+        action = await self.llm_call_op(
+            config={"name": "gpt-4o", "temperature": 0.1},
+            msgs=agent_state.messages + obs,
+            tools=agent_state.tools,
+        )
+        new_state = AgentState(
+            messages=agent_state.messages + obs + [action], tools=agent_state.tools
+        )
+        return action, new_state, 0.0
+```
+
+An agent has two methods:
+
+```py
+agent_state = await agent.init_state(tools=tools)
+new_action, new_agent_state, value = await agent.get_asv(agent_state, obs)
+```
+
+- The `get_asv(agent_state, obs)` method chooses an action (`a`) conditioned on the observation messages
+  returning the next agent state (`s`) and a value estimate (`v`).
+- The first argument, `agent_state`, is an optional container for environment-specific objects such as
+  e.g. documents for PaperQA or lookup results for HotpotQA,
+- as well as more general objects such as memories which could include a list of previous actions and observations.
+  `agent_state` may be set to `None` if memories are not being used.
+- The second argument `obs` is not the complete list of all prior observations,
+  but rather the returned value from `env.step`.
+- The `value` is the agent's state/action value estimate used for reinforcment learning training. It may default to 0.
+
+## A plain python agent
+
+Want to just run python code? No problem - here's a minimal example of an Agent that is deterministic:
+
+```py
+from aviary.core import Message, Tool, ToolCall, ToolRequestMessage
+from ldp.agent import Agent
+
+
+class NoThinkAgent(Agent):
+    async def init_state(self, tools):
+        return None
+
+    async def get_asv(self, tools, obs):
+        tool_call = ToolCall.from_name("specific_tool_call", arg1="foo")
+        action = ToolRequestMessage(tool_calls=[tool_call])
+        return await Agent.wrap_action(action), None, 0.0
+```
+
+This agent has a state of `None`, just makes one specific tool call with `arg1="foo"`,
+and then converts that into an action.
+The only "magic" line of code is the `wrap_action`,
+which just converts the action constructed by plain python into a node in a compute graph - see more below.
+
+## Stochastic Computation Graph (SCG)
+
+For more advanced use-cases, LDP features a stochastic computation graph [^2]
+which enables differentiatiation with respect to agent parameters
+(including the weights of the LLM).
+
+You should install the `scg` subpackage to work with it:
+
+```bash
+pip install ldp[scg]
+```
+
+The example computation graph below illustrates the functionality
+
+```py
+from ldp.graph import FxnOp, LLMCallOp, PromptOp, compute_graph
+
+op_a = FxnOp(lambda x: 2 * x)
+
+async with compute_graph():
+    op_result = op_a(3)
+```
+
+The code cell above creates and executes a computation graph that doubles the input.
+The computation graph gradients and executions are saved in a context for later use, such as in training updates.
+For example:
+
+```py
+print(op_result.compute_grads())
+```
+
+A more complex example is given below for an agent that possesses memory.
+
+```py
+@compute_graph()
+async def get_asv(self, agent_state, obs):
+    # Update state with new observations
+    next_state = agent_state.get_next_state(obs)
+
+    # Retrieve relevant memories
+    query = await self._query_factory_op(next_state.messages)
+    memories = await self._memory_op(query, matches=self.num_memories)
+
+    # Format memories and package messages
+    formatted_memories = await self._format_memory_op(self.memory_prompt, memories)
+    memory_prompt = await self._prompt_op(memories=formatted_memories)
+    packaged_messages = await self._package_op(
+        next_state.messages, memory_prompt=memory_prompt, use_memories=bool(memories)
+    )
+
+    # Make LLM call and update state
+    config = await self._config_op()
+    result = await self._llm_call_op(
+        config, msgs=packaged_messages, tools=next_state.tools
+    )
+    next_state.messages.extend([result])
+
+    return result, next_state, 0.0
+```
+
+We use differentiable ops to ensure there is an edge in the compute graph from the LLM result (action)
+to components such as memory retrieval as well as the query used to retrieve the memory.
+
+Why use an SCG? Aside from the ability to take gradients,
+using the SCG enables tracking of all inputs/outputs to the ops
+and serialization/deserialization of the SCG such that it can be easily saved and loaded.
+Input/output tracking also makes it easier to perform fine-tuning or reinforcement learning on the underlying LLMs.
+
+## Generic Support
+
+The `Agent` (as well as classes in `agent.ops`)
+are [generics](https://en.wikipedia.org/wiki/Generic_programming),
+which means:
+
+- `Agent` is designed to support arbitrary types
+- Subclasses can precisely specify state types, making the code more readable
+
+If you are new to Python generics (`typing.Generic`),
+please read about them in [Python `typing`](https://docs.python.org/3/library/typing.html#generics).
+Below is how to specify an agent with a custom state type.
+
+```py
+from dataclasses import dataclass, field
+from datetime import datetime
+
+from ldp.agents import Agent
+
+
+@dataclass
+class MyComplexState:
+    vector: list[float]
+    timestamp: datetime = field(default_factory=datetime.now)
+
+
+class MyAgent(Agent[MyComplexState]):
+    """Some agent who is now type checked to match the custom state."""
+```
+
+## References
+
+[^1]: Narayanan, S., Braza, J.D., Griffiths, R.R., Ponnapati, M., Bou, A., Laurent, J., Kabeli, O., Wellawatte, G., Cox, S., Rodriques, S.G. and White, A.D., 2024. [Aviary: training language agents on challenging scientific tasks.](https://arxiv.org/abs/2412.21154) arXiv preprint arXiv:2412.21154.
+
+[^2]: Schulman, J., Heess, N., Weber, T. and Abbeel, P., 2015. [Gradient estimation using stochastic computation graphs.](https://proceedings.neurips.cc/paper_files/paper/2015/hash/de03beffeed9da5f3639a621bcab5dd4-Abstract.html) Advances in Neural Information Processing Systems, 28.

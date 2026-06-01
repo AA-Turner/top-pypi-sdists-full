@@ -1,0 +1,126 @@
+"""Internal attestation draft model.
+
+`AttestationDraft` is the internal shape the Documentation Agent produces
+before FRMR serialization. Per DECISIONS 2026-04-21 design call #2 the
+draft carries a `mode` flag distinguishing the trust classes:
+
+  - `scanner_only`: built entirely by the deterministic
+    `generate_frmr_skeleton` primitive. Narrative is None, status is None.
+    All citations reference real Evidence records in the provenance store.
+    This artifact is Evidence-class: a user can cite it without any LLM
+    involvement.
+
+  - `agent_drafted`: composed by the Documentation Agent on top of a
+    scanner-only skeleton. Narrative is the LLM-drafted prose and must
+    carry the "DRAFT — requires human review" banner in rendered output.
+    `status` comes from the Gap Agent classification.
+
+  - `deterministic_template`: produced by the Documentation Agent for
+    `evidence_layer_inapplicable` KSIs without an LLM call. The narrative
+    is template-filled boilerplate ("see procedural reviewer") so the
+    artifact remains FRMR-complete (all 60 KSIs covered) without paying
+    Sonnet token cost on a class of KSIs whose evidence is structurally
+    procedural. Distinct from `agent_drafted` so reviewers and downstream
+    tooling can tell template-filled entries apart from LLM-drafted ones
+    — earlier versions stamped these as `agent_drafted` which lied about
+    the mode field's role as the "what produced this prose?" signal.
+
+FRMR-schema output validation is a v1 concern — FedRAMP hasn't published
+an attestation-specific schema yet. When they do, the Pydantic-layer
+checks here will grow a `validate_frmr(artifact)` companion primitive.
+"""
+
+from __future__ import annotations
+
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field
+
+AttestationMode = Literal["scanner_only", "agent_drafted", "deterministic_template"]
+# Aggregate boundary classification across all cited evidence for a draft.
+# Per-evidence `BoundaryState` is the three-valued enum from
+# `efterlev.boundary` (`in_boundary`, `out_of_boundary`, `boundary_undeclared`).
+# A KSI's draft can cite evidence with mixed states — the aggregate adds two
+# values for the rendered artifact: `mixed` (cited evidence spans in and
+# out-of-boundary, a variance signal worth surfacing to the reviewer) and
+# `no_evidence` (nothing was cited — typical for `not_implemented` and
+# procedural `evidence_layer_inapplicable` KSIs). v0.1.11 (3PAO finding).
+AggregateBoundaryState = Literal[
+    "in_boundary",
+    "out_of_boundary",
+    "boundary_undeclared",
+    "mixed",
+    "no_evidence",
+]
+AttestationStatus = Literal[
+    "implemented",
+    "partial",
+    "not_implemented",
+    "not_applicable",
+    # Parallels the GapStatus literal — see src/efterlev/agents/gap.py.
+    # SPEC-57.1: "scanner has no path to evidence this KSI by design,"
+    # distinct from not_implemented ("CSP doesn't implement"). Reviewer
+    # action still required; the status communicates that the tool's
+    # silence is structural, not a finding.
+    "evidence_layer_inapplicable",
+]
+
+
+class AttestationCitation(BaseModel):
+    """One evidence citation inside an attestation draft.
+
+    Carries enough metadata for the rendered output to link back to both the
+    underlying source file/line and the provenance store (via `evidence_id`).
+    `source_lines` is a human-readable range like "12-24" for display; None
+    when the evidence is structural (whole-file absence of a resource).
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    evidence_id: str
+    detector_id: str
+    source_file: str
+    source_lines: str | None = None
+
+
+class AttestationDraft(BaseModel):
+    """Internal attestation draft; serialized into FRMR JSON at the output boundary."""
+
+    model_config = ConfigDict(frozen=True)
+
+    ksi_id: str
+    baseline_id: str
+    frmr_version: str
+    mode: AttestationMode
+    citations: list[AttestationCitation] = Field(default_factory=list)
+    # SPEC-57.2 (2026-04-25, 3PAO review §5): the union of
+    # `Evidence.controls_evidenced` across the cited evidence records.
+    # Always a subset of the FRMR-mapped controls list; surfaces "what was
+    # demonstrated" distinct from "what would be demonstrated by full
+    # coverage of this KSI" (the FRMR mapping). The artifact serializer
+    # combines this with `Indicator.controls` to populate the
+    # `controls_mapped` + `controls_evidenced` pair on the artifact.
+    controls_evidenced: list[str] = Field(default_factory=list)
+    # The FRMR catalog's 800-53 mapping for this KSI — what the KSI covers
+    # in principle. Populated from `Indicator.controls` (uppercase-normalized
+    # to NIST canonical form). Empty for the 9 procedural KSIs in the FRMR
+    # catalog that ship without a `controls` field (KSI-AFR-CCM, FSI, ICP,
+    # …) — emptiness is catalog reality, not a bug, and renderers should
+    # surface it explicitly so reviewers can distinguish the two.
+    # Always: `controls_evidenced` ⊆ `controls_mapped` (after uppercase).
+    # Carried on the draft (not just the artifact) so the HTML report and
+    # any draft-level consumer can render the mapped/evidenced split without
+    # re-resolving the indicator catalog. v0.1.11 (3PAO finding).
+    controls_mapped: list[str] = Field(default_factory=list)
+    # Aggregate boundary state across all cited evidence. Computed by the
+    # Documentation Agent (and `generate_frmr_skeleton` for scanner_only) so
+    # the HTML report and JSON sidecar can surface a per-KSI in/out-of-
+    # boundary signal without re-resolving Evidence records. `mixed` is the
+    # variance-signal case (the draft cites evidence both in and out of the
+    # declared boundary — by design per DECISIONS 2026-05-04, but the
+    # reviewer should see the mix flagged); `no_evidence` covers
+    # `not_implemented` and procedural KSIs with no citations.
+    boundary_state: AggregateBoundaryState = "no_evidence"
+    # scanner_only: both None. agent_drafted: both populated.
+    status: AttestationStatus | None = None
+    narrative: str | None = None

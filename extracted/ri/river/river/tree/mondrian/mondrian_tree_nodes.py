@@ -3,13 +3,19 @@ from __future__ import annotations
 import math
 
 from river import base, stats
-from river.tree.base import Branch, Leaf
-from river.tree.mondrian._mondrian_ops import (  # type: ignore[import-not-found]
-    log_sum_2_exp_c,
-    predict_scores_c,
-    range_extension_c,
-    update_ranges_c,
+from river._river_rust.tree import (
+    log_sum_2_exp as log_sum_2_exp_c,
 )
+from river._river_rust.tree import (
+    predict_scores as predict_scores_c,
+)
+from river._river_rust.tree import (
+    range_extension as range_extension_c,
+)
+from river._river_rust.tree import (
+    update_ranges as update_ranges_c,
+)
+from river.tree.base import Branch, Leaf
 
 
 class MondrianLeaf(Leaf):
@@ -155,10 +161,11 @@ class MondrianNodeClassifier(MondrianNode):
         """Transfer information from a leaf to a new branch."""
         self.weight = leaf.weight  # type: ignore
         self.log_weight_tree = leaf.log_weight_tree  # type: ignore
+        self.counts = leaf.counts.copy()
 
         if copy_all:
-            self.memory_range_min = leaf.memory_range_min
-            self.memory_range_max = leaf.memory_range_max
+            self.memory_range_min = leaf.memory_range_min.copy()
+            self.memory_range_max = leaf.memory_range_max.copy()
             self.n_samples = leaf.n_samples
 
     def score(self, y_idx: int, dirichlet: float, n_classes: int) -> float:
@@ -383,8 +390,8 @@ class MondrianNodeRegressor(MondrianNode):
         self._mean = stats.Mean._from_state(leaf._mean.n, leaf._mean.get())
 
         if copy_all:
-            self.memory_range_min = leaf.memory_range_min
-            self.memory_range_max = leaf.memory_range_max
+            self.memory_range_min = leaf.memory_range_min.copy()
+            self.memory_range_max = leaf.memory_range_max.copy()
             self.n_samples = leaf.n_samples
 
     def predict(self) -> base.typing.RegTarget:

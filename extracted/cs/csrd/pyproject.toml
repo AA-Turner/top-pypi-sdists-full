@@ -1,0 +1,27 @@
+[project]
+name = "csrd"
+version = "0.5.28"
+description = "Meta package for recommended csrd API framework components"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+dependencies = [
+    "csrd-realtime>=0.1,<1",
+    "csrd-versioning>=0.1,<1",
+]
+readme = "README.md"
+
+[project.urls]
+Repository = "https://github.com/csrd-api/fastapi-common"
+Documentation = "https://github.com/csrd-api/fastapi-common/tree/main/packages/csrd"
+Changelog = "https://github.com/csrd-api/fastapi-common/blob/main/CHANGELOG.md"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+only-include = ["README.md"]
+
+[tool.uv.sources]
+csrd-realtime = { workspace = true }
+csrd-versioning = { workspace = true }

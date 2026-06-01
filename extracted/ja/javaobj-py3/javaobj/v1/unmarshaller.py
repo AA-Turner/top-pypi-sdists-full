@@ -13,12 +13,12 @@ http://download.oracle.com/javase/6/docs/platform/serialization/spec/protocol.ht
 
 :authors: Volodymyr Buell, Thomas Calmant
 :license: Apache License 2.0
-:version: 0.4.4
+:version: 0.5.0
 :status: Alpha
 
 ..
 
-    Copyright 2024 Thomas Calmant
+    Copyright 2026 Thomas Calmant
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -35,34 +35,35 @@ http://download.oracle.com/javase/6/docs/platform/serialization/spec/protocol.ht
 
 from __future__ import absolute_import
 
-# Standard library
-from typing import Any, Union
-import os
 import struct
 
-# Javaobj modules
-from .beans import (
-    JavaClass,
-    JavaString,
-    JavaObject,
-    JavaByteArray,
-    JavaEnum,
-    JavaArray,
-)
+# Standard library
+from typing import Any, Union  # noqa: F401
+
 from ..constants import (
-    StreamConstants,
     ClassDescFlags,
+    StreamCodeDebug,
+    StreamConstants,
     TerminalCode,
     TypeCode,
-    StreamCodeDebug,
 )
 from ..utils import (
+    hexdump,
     log_debug,
     log_error,
     read_to_str,
     to_unicode,
     unicode_char,
-    hexdump,
+)
+
+# Javaobj modules
+from .beans import (
+    JavaArray,
+    JavaByteArray,
+    JavaClass,
+    JavaEnum,
+    JavaObject,
+    JavaString,
 )
 
 numpy = None  # Imported only when really used
@@ -83,7 +84,7 @@ __docformat__ = "restructuredtext en"
 # Convertion of a Java type char to its NumPy equivalent
 NUMPY_TYPE_MAP = {
     TypeCode.TYPE_BYTE: "B",
-    TypeCode.TYPE_CHAR: "b",
+    TypeCode.TYPE_CHAR: ">u2",
     TypeCode.TYPE_DOUBLE: ">d",
     TypeCode.TYPE_FLOAT: ">f",
     TypeCode.TYPE_INTEGER: ">i",
@@ -508,62 +509,58 @@ class JavaObjectUnmarshaller:
         # classdata[]
 
         if (
-            classdesc.flags & ClassDescFlags.SC_EXTERNALIZABLE
+            classdesc is not None
+            and classdesc.flags & ClassDescFlags.SC_EXTERNALIZABLE
             and not classdesc.flags & ClassDescFlags.SC_BLOCK_DATA
         ):
             # TODO:
             raise NotImplementedError("externalContents isn't implemented yet")
 
+        # Process class data for the entire hierarchy
+        self._read_serializable_data(java_object, classdesc, ident)
+
+        log_debug(">>> java_object: {0}".format(java_object), ident)
+        return java_object
+
+    def _read_serializable_data(self, java_object, classdesc, ident):
+        """
+        Read serializable data following the Java specification more closely.
+        According to the spec, for each class in the hierarchy (from super to sub):
+        1. Read primitive fields
+        2. If SC_WRITE_METHOD is set, read custom writeObject data until TC_ENDBLOCKDATA
+        """
+        if classdesc.superclass:
+            self._read_serializable_data(java_object, classdesc.superclass, ident + 1)
+
         if classdesc.flags & ClassDescFlags.SC_SERIALIZABLE:
             # TODO: look at ObjectInputStream.readSerialData()
             # FIXME: Handle the SC_WRITE_METHOD flag
 
-            # create megalist
-            tempclass = classdesc
-            megalist = []
-            megatypes = []
             log_debug("Constructing class...", ident)
-            while tempclass:
-                log_debug("Class: {0}".format(tempclass.name), ident + 1)
+            log_debug("Class: {0}".format(classdesc.name), ident + 1)
+            if classdesc.fields_names:
                 class_fields_str = " - ".join(
                     " ".join((str(field_type), field_name))
                     for field_type, field_name in zip(
-                        tempclass.fields_types, tempclass.fields_names
+                        classdesc.fields_types, classdesc.fields_names
                     )
                 )
-                if class_fields_str:
-                    log_debug(class_fields_str, ident + 2)
+                log_debug(class_fields_str, ident + 2)
 
-                fieldscopy = tempclass.fields_names[:]
-                fieldscopy.extend(megalist)
-                megalist = fieldscopy
+            log_debug("Values count: {0}".format(len(classdesc.fields_names)), ident)
+            log_debug("Prepared list of values: {0}".format(classdesc.fields_names), ident)
+            log_debug("Prepared list of types: {0}".format(classdesc.fields_types), ident)
 
-                fieldscopy = tempclass.fields_types[:]
-                fieldscopy.extend(megatypes)
-                megatypes = fieldscopy
-
-                tempclass = tempclass.superclass
-
-            log_debug("Values count: {0}".format(len(megalist)), ident)
-            log_debug("Prepared list of values: {0}".format(megalist), ident)
-            log_debug("Prepared list of types: {0}".format(megatypes), ident)
-
-            for field_name, field_type in zip(megalist, megatypes):
+            for field_name, field_type in zip(classdesc.fields_names, classdesc.fields_types):
                 log_debug(
                     "Reading field: {0} - {1}".format(field_type, field_name)
                 )
                 res = self._read_value(field_type, ident, name=field_name)
                 java_object.__setattr__(field_name, res)
 
-        if (
-            classdesc.flags & ClassDescFlags.SC_SERIALIZABLE
-            and classdesc.flags & ClassDescFlags.SC_WRITE_METHOD
-            or classdesc.flags & ClassDescFlags.SC_EXTERNALIZABLE
-            and classdesc.flags & ClassDescFlags.SC_BLOCK_DATA
-            or classdesc.superclass is not None
-            and classdesc.superclass.flags & ClassDescFlags.SC_SERIALIZABLE
-            and classdesc.superclass.flags & ClassDescFlags.SC_WRITE_METHOD
-        ):
+        has_write_method = classdesc.flags & ClassDescFlags.SC_SERIALIZABLE and classdesc.flags & ClassDescFlags.SC_WRITE_METHOD
+        has_block_data = classdesc.flags & ClassDescFlags.SC_EXTERNALIZABLE and classdesc.flags & ClassDescFlags.SC_BLOCK_DATA
+        if has_write_method or has_block_data:
             # objectAnnotation
             log_debug(
                 "java_object.annotations before: {0}".format(
@@ -572,6 +569,7 @@ class JavaObjectUnmarshaller:
                 ident,
             )
 
+            opcode = None
             while opcode != TerminalCode.TC_ENDBLOCKDATA:
                 opcode, obj = self._read_and_exec_opcode(ident=ident + 1)
                 # , expect=[self.TC_ENDBLOCKDATA, self.TC_BLOCKDATA,
@@ -592,9 +590,6 @@ class JavaObjectUnmarshaller:
         if hasattr(java_object, "__extra_loading__"):
             log_debug("Java object has extra loading capability.")
             java_object.__extra_loading__(self, ident)
-
-        log_debug(">>> java_object: {0}".format(java_object), ident)
-        return java_object
 
     def do_string(self, parent=None, ident=0):
         """
@@ -838,8 +833,9 @@ class JavaObjectUnmarshaller:
             "(2nd line is an actual position!):"
         )
 
-        # Do not use a keyword argument
-        self.object_stream.seek(-16, os.SEEK_CUR)
+        # Do not use a keyword argument; clamp to avoid seeking before start
+        current_pos = self.object_stream.tell()
+        self.object_stream.seek(max(0, current_pos - 16))
         position = self.object_stream.tell()
         the_rest = self.object_stream.read()
 

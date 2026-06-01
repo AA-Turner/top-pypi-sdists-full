@@ -11,7 +11,6 @@ from itertools import chain
 from typing import TYPE_CHECKING, cast
 
 import ahocorasick_rs
-import sentry_sdk
 from django.core.cache import cache
 from django.db.models import Prefetch, Q, Value
 from django.db.models.functions import MD5, Lower
@@ -19,6 +18,7 @@ from django.db.models.functions import MD5, Lower
 from weblate.trans.models.unit import Unit
 from weblate.utils.csv import PROHIBITED_INITIAL_CHARS
 from weblate.utils.state import STATE_TRANSLATED
+from weblate.utils.tracing import start_span
 from weblate.utils.unicodechars import CONTROLCHARS
 
 if TYPE_CHECKING:
@@ -43,7 +43,7 @@ def get_glossary_sources(component):
 def get_glossary_automaton(project: Project) -> ahocorasick_rs.AhoCorasick:
     from weblate.trans.models.component import prefetch_glossary_terms  # noqa: PLC0415
 
-    with sentry_sdk.start_span(op="glossary.automaton", name=project.slug):
+    with start_span(op="glossary.automaton", name=project.slug):
         # Chain terms
         prefetch_glossary_terms(project.glossaries)
         terms = set(
@@ -83,6 +83,7 @@ def fetch_glossary_terms(  # noqa: C901
 ) -> None:
     """Fetch glossary terms for list of units."""
     from weblate.trans.models import Component, Project  # noqa: PLC0415
+    from weblate.workspaces.models import Workspace  # noqa: PLC0415
 
     if len(units) == 0:
         return
@@ -126,7 +127,7 @@ def fetch_glossary_terms(  # noqa: C901
         ]
         terms: set[str] = set()
         # Extract terms present in the source
-        with sentry_sdk.start_span(op="glossary.match", name=project.slug):
+        with start_span(op="glossary.match", name=project.slug):
             for i, source in enumerate(sources):
                 for _termno, start, end in automaton.find_matches_as_indexes(
                     source, overlapping=True
@@ -171,6 +172,10 @@ def fetch_glossary_terms(  # noqa: C901
                         queryset=Project.objects.only(
                             "check_flags",
                         ),
+                    ),
+                    Prefetch(
+                        "translation__component__project__workspace",
+                        queryset=Workspace.objects.defer_huge(),
                     ),
                 )
 
@@ -238,7 +243,8 @@ def get_glossary_tuples(units: Iterable[Unit]) -> Generator[tuple[str, str]]:
     - source/target entry pairs are separated by a newline
     - source entries and target entries are separated by a tab
     """
-    from weblate.trans.models.component import Component  # noqa: PLC0415
+    from weblate.trans.models import Component, Project  # noqa: PLC0415
+    from weblate.workspaces.models import Workspace  # noqa: PLC0415
 
     def cleanup(text):
         """
@@ -261,6 +267,14 @@ def get_glossary_tuples(units: Iterable[Unit]) -> Generator[tuple[str, str]]:
             "source_unit",
             "translation",
             Prefetch("translation__component", queryset=Component.objects.defer_huge()),
+            Prefetch(
+                "translation__component__project",
+                queryset=Project.objects.defer_huge(),
+            ),
+            Prefetch(
+                "translation__component__project__workspace",
+                queryset=Workspace.objects.defer_huge(),
+            ),
         )
 
     included = set()

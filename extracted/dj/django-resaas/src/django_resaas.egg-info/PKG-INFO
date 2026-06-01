@@ -1,0 +1,431 @@
+Metadata-Version: 2.4
+Name: django_resaas
+Version: 0.0.324
+Summary: Django SAAS Framework
+Author-email: Dias Metano Salvador Chavana <metanochava@gmail.com>
+License: MIT License
+        
+        Copyright (c) 2025 Metano Chavana
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Project-URL: Homepage, https://github.com/metanochava/django_resaas
+Project-URL: Repository, https://github.com/metanochava/django_resaas
+Keywords: django,saas,framework
+Classifier: Framework :: Django
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: Django==5.2.10
+Requires-Dist: djangorestframework==3.16.1
+Requires-Dist: djangorestframework_simplejwt==5.5.1
+Requires-Dist: rest-framework-simplejwt==0.0.2
+Requires-Dist: drf-writable-nested==0.7.2
+Requires-Dist: Pillow
+Requires-Dist: pyotp
+Requires-Dist: qrcode[pil]>=7.4.2
+Requires-Dist: python-barcode==0.15.1
+Requires-Dist: black
+Requires-Dist: questionary==2.1.1
+Requires-Dist: rich
+Requires-Dist: gunicorn
+Requires-Dist: weasyprint
+Requires-Dist: django-money
+Requires-Dist: python-dotenv
+Requires-Dist: django-cors-headers
+Requires-Dist: psycopg[binary]
+Requires-Dist: django-filter
+Requires-Dist: django-money
+Dynamic: license-file
+
+# 🚀 django_resaas
+
+**django_resaas** é um framework modular para construção de aplicações SaaS multi-tenant em Django, com:
+
+* 🔐 Controle de permissões (RBAC)
+* 🏢 Multi-tenant (Entity / Branch)
+* 🧩 Módulos ativáveis por cliente
+* 💰 Billing por plano (SaaS ready)
+* ♻️ Soft delete + restore
+* 🔎 Busca dinâmica automática
+* ⚡ BaseAPIView inteligente (DRF)
+
+---
+
+# 🧠 Arquitetura
+
+```text
+User
+ ↓
+Person
+ ↓
+Employee (RH)
+ ↓
+Entity (tenant)
+ ↓
+Branch
+ ↓
+Groups + Permissões
+```
+
+---
+
+# 🧩 Conceitos principais
+
+## 🏢 Entity (Tenant)
+
+Representa o cliente (empresa)
+
+## 🏬 Branch
+
+Unidade da entity
+
+## 👤 Person
+
+Dados humanos (name, email, etc.)
+
+## 🔐 User
+
+Autenticação
+
+## 👥 BranchUserGroup
+
+Relaciona:
+
+* User
+* Branch
+* Group (Django)
+
+👉 Permite múltiplos groups por branch
+
+---
+
+# 🔐 Sistema de Permissões (RBAC)
+
+Baseado em:
+
+```text
+User + Group + Permission (Django)
++ contexto (Entity + Branch)
+```
+
+Headers obrigatórios:
+
+```http
+ET → entity_type
+E  → entity
+S  → branch
+G  → group
+L  → language
+```
+
+---
+
+# 🧱 BaseModel
+
+Todos os models herdam:
+
+```python
+from django_resaas import BaseModel
+```
+
+Inclui:
+
+* entity
+* branch
+* created_at / updated_at
+* soft delete
+* created_by / updated_by
+
+---
+
+# 🔁 Soft Delete
+
+```python
+obj.delete()        # soft delete
+obj.restore()       # restore
+obj.hard_delete()   # delete real
+```
+
+Managers disponíveis:
+
+```python
+Model.objects          # ativos
+Model.deleted_objects  # apagados
+Model.all_objects      # todos
+```
+
+---
+
+# ⚡ BaseAPIView
+
+CRUD automático com:
+
+* multi-tenant automático
+* permissões automáticas
+* search dinâmica
+* soft delete
+* restore
+* hard delete
+
+## Uso:
+
+```python
+from django_resaas import BaseAPIView, register_view
+
+@register_view(module="hr")
+class EmployeeView(BaseAPIView):
+    queryset = Employee.objects.all()
+    serializer_class = EmployeeSerializer
+```
+
+---
+
+# 🔍 Busca dinâmica
+
+```http
+GET /api/employees/?search=joao
+```
+
+Busca automaticamente em:
+
+* name
+* email
+* código
+* relações (FK)
+
+---
+
+# 🧩 Sistema de Módulos
+
+Permite ativar/desativar funcionalidades por cliente.
+
+## Models:
+
+* App
+* EntityApp
+
+## Exemplo:
+
+| Entity  | Módulo | Estado |
+| --------- | ------ | ------ |
+| Empresa A | RH     | ✅      |
+| Empresa A | CRM    | ❌      |
+
+---
+
+# 🔐 Proteção automática por módulo
+
+```python
+@register_view(module="hr")
+class EmployeeView(BaseAPIView):
+    ...
+```
+
+👉 Se módulo não estiver ativo → acesso bloqueado
+
+---
+
+# 💰 Billing (SaaS)
+
+## Models:
+
+* Plano
+* PlanoApp
+* EntityPlano
+
+## Fluxo:
+
+```text
+Plano → módulos → EntityPlano → ativa módulos automaticamente
+```
+
+---
+
+# 🔄 Sync automático de módulos
+
+Ao mudar plano:
+
+```python
+sync_apps_entity(entity)
+```
+
+---
+
+# 📦 BaseSerializer
+
+Proteção automática de arquivos:
+
+```python
+{
+  "file": {
+    "url": "...",
+    "name": "...",
+    "ext": "pdf",
+    "size": 12345
+  }
+}
+```
+
+---
+
+# 🌐 Middleware
+
+## TenantContextMiddleware
+
+Captura headers:
+
+```python
+request.entity_id
+request.branch_id
+request.group_id
+```
+
+---
+
+## FrontEndMiddleware
+
+Protege acesso por:
+
+* chave frontend (FEK/FEP)
+* permissões por URL
+* permissões por método HTTP
+
+---
+
+# 🧪 Exemplo completo
+
+## Model
+
+```python
+from django_resaas import BaseModel
+
+class Employee(BaseModel):
+    person = models.ForeignKey('django_resaas.Person', on_delete=models.CASCADE)
+    cargo = models.CharField(max_length=100)
+```
+
+---
+
+## Serializer
+
+```python
+from django_resaas import BaseSerializer
+
+class EmployeeSerializer(BaseSerializer):
+    class Meta:
+        model = Employee
+        fields = "__all__"
+```
+
+---
+
+## View
+
+```python
+from django_resaas import BaseAPIView, register_view
+
+@register_view(module="hr")
+class EmployeeView(BaseAPIView):
+    queryset = Employee.objects.all()
+    serializer_class = EmployeeSerializer
+```
+
+---
+
+# ⚙️ Instalação
+
+```bash
+pip install django_resaas
+```
+
+ou local:
+
+```bash
+pip install -e .
+```
+
+---
+
+# 🔧 Configuração
+
+## INSTALLED_APPS
+
+```python
+INSTALLED_APPS = [
+    "django_resaas",
+    "hr",
+]
+```
+
+---
+
+## Middleware
+
+```python
+MIDDLEWARE = [
+    "django_resaas.core.middleware.tenant.TenantContextMiddleware",
+    "django_resaas.core.middleware.frontend.FrontEndMiddleware",
+]
+```
+
+---
+
+# 🚀 Roadmap
+
+* [ ] Integração com Stripe
+* [ ] Dashboard de billing
+* [ ] Auto-router
+* [ ] Auditoria de ações
+* [ ] Logs multi-tenant
+* [ ] Cache de permissões (Redis)
+
+---
+
+# 🧠 Filosofia
+
+> "Construir SaaS não deve ser repetitivo."
+
+django_resaas resolve:
+
+* multi-tenant
+* permissões
+* módulos
+* billing
+
+👉 para você focar no negócio
+
+---
+
+# 🤝 Contribuição
+
+PRs são bem-vindos 🚀
+
+---
+
+# 📄 Licença
+
+MIT License
+
+---
+
+# 👨‍💻 Autor
+
+**Metano Chavana**

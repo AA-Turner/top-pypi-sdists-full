@@ -1,0 +1,341 @@
+Metadata-Version: 2.4
+Name: cottage
+Version: 0.5.6
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+License-File: LICENSE-APACHE
+License-File: LICENSE-MIT
+Summary: A modern git based age-encrypted secrets manager for teams.
+Keywords: age,git,secrets,cli,command-line
+Author: Arijit Basu <cottage@arijitbasu.in>
+Author-email: Arijit Basu <cottage@arijitbasu.in>
+License: MIT OR Apache-2.0
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Source Code, https://github.com/sayanarijit/cottage
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://s13.gifyu.com/images/b7mxd.webp">
+    <source media="(prefers-color-scheme: light)" srcset="https://s13.gifyu.com/images/b7mxl.webp">
+    <img alt="The cottage logo" width="600" src="https://s13.gifyu.com/images/b7mxl.webp">
+  </picture>
+</p>
+
+[![Cottage Verify](https://github.com/sayanarijit/cottage/actions/workflows/cottage-verify.yml/badge.svg)](https://github.com/sayanarijit/cottage/actions/workflows/cottage-verify.yml)
+[![Crates.io Version](https://img.shields.io/crates/v/cottage)](https://crates.io/crates/cottage)
+[![PyPI - Version](https://img.shields.io/pypi/v/cottage)](https://pypi.org/project/cottage/)
+[![Docker Image Version](https://img.shields.io/docker/v/sayanarijit/cottage?label=docker)](https://hub.docker.com/r/sayanarijit/cottage)
+
+**cott*age*** is a GitOps tool for teams to manage [age-encrypted](https://age-encryption.org/) secrets in git repositories.
+
+It provides a simple workflow to encrypt/decrypt secrets, manage recipients, and keep
+secrets out of the repo while still allowing for easy sharing via VCS. cottage also
+generates redacted previews of encrypted secrets for better visibility and supports both
+persistent and temporary decryption workflows, while ensuring secrets are never committed
+in plaintext.
+
+![Intro Demo](https://vhs.charm.sh/vhs-6P2I0IyW7AJADjAEzVjOJP.gif)
+
+1. [Features](#features)
+2. [Installation](#installation)
+3. [Quick Start](#quick-start)
+4. [GitOps](#gitops)
+5. [Git Hooks](#git-hooks)
+6. [Access Control](#access-control)
+   1. [Rules](#rules)
+   2. [Verification](#verification)
+7. [Any Provider as Upstream](#any-provider-as-upstream)
+8. [Sync with any device](#sync-with-any-device)
+9. [Learn More](#learn-more)
+10. [Troubleshooting](#troubleshooting)
+11. [Comparison](#comparison)
+    1. [age vs Other Encryption](#age-vs-other-encryption)
+    2. [cottage vs SOPS](#cottage-vs-sops)
+    3. [cottage vs dotenvx](#cottage-vs-dotenvx)
+    4. [cottage vs agebox](#cottage-vs-agebox)
+12. [License](#license)
+
+## Features
+
+- **Exposure-safe**: Uses Rust's type system to make sure bugs can never accidentally expose secrets.
+- **Team-friendly**: Share public keys (recipients) in the repo, keep private keys (identities) local.
+- **Access Control**: Simple allow/deny rules to control which secrets are encrypted for which recipients.
+- **Manages .gitignore**: Automatically updates `.gitignore` to keep unencrypted secrets out of the repo.
+- **Previews**: Generates timestamped redacted previews of encrypted secrets for better visibility.
+- **Rich diffs**: Keeps git diff clean & reviewable, while `ctg diff` shows diff of locally modified secrets with tracked encrypted counterparts.
+- **Checksum verification**: Prevents tampering by verifying that encrypted secrets and recipient lists match the metadata.
+- **Git hooks**: Easily set up git hooks to automatically check/encrypt secrets before commit and decrypt them after checkout.
+- **Persistent secrets workflow**: `ctg decrypt/edit/sync` keeps decrypted secrets on disk.
+- **Temporary secrets workflow**: `ctg run` (shortcut `ctgx`) decrypts secrets temporarily to run a command, then deletes them regardless of the command's success or failure.
+- **Environment injection workflow**: `ctg env` injects decrypted secrets as environment variables to run a command, without writing them to disk at all.
+- **Clean up**: `ctg clean` deletes all decrypted secrets from local repo to let you run your AI agents with a tiny bit less worry.
+- **Supports jj and non-git directories**: `ctg init` turns any directory into a secret store.
+- **Sync with any provider**: Lets you configure any provider with an API as the upstream, and start using `ctg pull/diff/push` like `git pull/diff/push`.
+- **Sync with any device**: Secrets encrypted with cottage and managed in a git repo can be synced across devices with [Cottage Sync](https://cottage-sync.github.io).
+
+## Installation
+
+```bash
+# rust cargo-binstall
+cargo binstall --locked cottage
+
+# rust cargo
+cargo install --locked cottage
+
+# python pip
+pip install cottage
+
+# python uv
+uv pip install cottage
+```
+
+Also available as docker images:
+
+```bash
+# Docker
+docker run --rm -v $PWD:/app sayanarijit/cottage --version
+
+# Podman
+podman run --rm -v $PWD:/app quay.io/sayanarijit/cottage --version
+```
+
+Or download the latest release from [GitHub](https://github.com/sayanarijit/cottage/releases).
+
+## Quick Start
+
+Init project:
+
+```bash
+mkdir project && cd project
+
+git init  # Optional, cottage works better with git but it's not required
+ctg init  # Sets up the .cottage directory and necessary files
+
+tree -a
+# .
+# ├ .cottage/           <- Auto-generated by `ctg init`
+# │ ├ identity        <- Your private key, keep it safe. Move it to `~/.config/cottage/identity` to use it globally, or replace it with a soft link to one of your existing private keys.
+# │ └ recipients/     <- This is where your team keeps the public keys of all the recipients.
+# │     └ sayanarijit <- Your public key. Commit it. To use an existing public key, just copy (don't softlink) that key here.
+# ├ .git/...
+# ├ .gitattributes      <- Added `*.cott.age binary export-ignore filter=cottage-encrypted -diff` to avoid polluting git diff
+# └ .gitignore          <- Added `/.cottage/identity` for obvious reasons
+
+# You can run `ctg clean --all` anytime to clean up everything cottage ever did.
+```
+
+Create or edit a secret.
+
+```bash
+ctg edit secret.yml --clean    # Opens secret.yml in $EDITOR
+ctg encrypt secret.yml --clean # Another way to encrypt secrets
+# encrypt secret.yml
+#    into secret.yml.cott.age
+#    edit secret.yml.cott.toml
+#    edit .gitignore
+# delete secret.yml
+```
+
+Run a command with temporary decrypted secrets:
+
+```bash
+cat secret.yml
+# cat: secret.yml: No such file or directory
+
+ctg run kubectl apply -f secret.yml          # decrypts secret.yml.cott.age to secret.yml and runs the command
+ctg run kubectl apply -f secret.yml.cott.age # also replaces the path argument with the decrypted file path
+ctg run kubectl apply -f .                   # decrypts all .cott.age files in . and runs the command
+ctg run ./deploy.sh                          # decrypts all .cott.age files in repo and runs the command
+
+cat secret.yml
+# cat: secret.yml: No such file or directory
+```
+
+Or use the shortcut:
+
+```bash
+ctgx ./deploy.sh  # same as ctg run -- ./deploy.sh
+```
+
+Run a command with secrets injected as environment variables, without writing to disk at all:
+
+```bash
+ctg env -- ./deploy.sh # Export secrets from .env.cott.age (default) without writing them to disk, then run deploy.sh
+ctg env -F .env.prod.cott.age -- ./deploy.sh # exports from .env.prod.cott.age instead of .env.cott.age
+ctg env -F secrets.json.cott.age -- printenv COTTAGE_SECRET # Also supports non-dotenv files.
+```
+
+## GitOps
+
+To share your secrets with team members, just push to the git repo.
+
+```bash
+git add .
+git commit -m "Add secret.yml"
+git push origin main
+```
+
+Ask your teammates to add their public keys to `.cottage/recipients` and push the
+changes. Then you can pull and re-encrypt the secrets for them.
+
+```bash
+git pull origin main
+
+ctg sync  # or `ctg decrypt && ctg encrypt`
+# encrypt secret.yml
+#    into secret.yml.cott.age
+#    edit secret.yml.cott.toml
+
+ctg clean  # optional
+# delete secret.yml
+
+# review changes, commit and push
+git add .
+git commit -m "Add new recipient to secrets"
+git push origin main
+```
+
+Now your teammates can pull the latest changes and decrypt secrets for themselves.
+
+## Git Hooks
+
+You can use [prek](https://github.com/j178/prek) or [pre-commit](https://pre-commit.com/) to set up git hooks to automatically check/encrypt secrets before commit and decrypt them after checkout.
+
+See the [example prek configuration here](examples/prek.toml).
+
+After adding the `prek.toml` file, run:
+
+```bash
+prek install
+prek install --hook-type post-checkout
+prek install --hook-type post-merge
+prek install --hook-type post-rewrite
+```
+
+## Access Control
+
+### Rules
+
+In the metadata file, you can annotate which recipients the secret should be encrypted for.
+This allows you to have different secrets for different environments (e.g. staging vs production) and only encrypt them for the relevant recipients.
+
+```toml
+# secret.yml.cott.toml
+[secret]
+allow = ["sayanarijit"]  # Only encrypt for sayanarijit
+```
+
+```toml
+# secret.yml.cott.toml
+[secret]
+deny = ["sayanarijit"]  # Encrypt for everyone except sayanarijit
+```
+
+```toml
+# secret.yml.cott.toml
+[secret]
+allow = ["env/staging/*"]  # Supports glob patterns, only encrypt for recipients in env/staging
+deny = ["env/staging/badservice"]  # Encrypt for everyone in env/staging except badservice
+```
+
+Deny rules take precedence over allow rules.
+
+See [metadata specification](./SPECIFICATION.md#secretmetadata) for more details.
+
+### Verification
+
+You can run `ctg verify` in CI to verify that the encrypted secrets and recipient lists match the metadata rules, to prevent tampering.
+
+```yaml
+# .github/workflows/cottage-verify.yml
+name: Cottage Verify
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  verify-secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Verify secrets
+        run: docker run --rm -v "${{ github.workspace }}:/app" ghcr.io/sayanarijit/cottage verify
+```
+
+## Any Provider as Upstream
+
+With cottage, you can sync secrets with any provider that has an API, not just git.
+
+For that, create a file named `cottage.toml` in the project root and configure the upstream settings.
+
+See the [example `cottage.toml` here](./cottage.toml) and the [secret specific upstream configuration here](./examples/secrets/secret.json.cott.toml).
+
+The workflow is similar to git, but instead of `git pull` and `git push`, you run `ctg pull` and `ctg push` to sync secrets with the configured upstream.
+
+Example:
+
+```bash
+# Pull latest changes into local encrypted secrets
+# Similar to `git pull origin`
+ctg pull myvault
+
+# Compare diff with local decrypted secrets
+ctg diff
+
+# Sync local decrypted secrets with local encrypted secrets
+ctg sync
+
+# Push changes from local encrypted secrets to upstream
+# Similar to `git push origin main`
+ctg push myvault
+```
+
+See [upstream configuration specification](./SPECIFICATION.md#upstreamconfig) for more details.
+
+## Sync with any device
+
+Use [Cottage Sync](https://cottage-sync.github.io) to sync your secrets across your devices and browse without needing the CLI.
+
+## Learn More
+
+See [examples](examples/) directory for more usage examples.
+
+## Troubleshooting
+
+```bash
+# See debug logs with -v, -vv or -vvv
+ctg run -vvv -- ./deploy.sh
+```
+
+## Comparison
+
+### age vs Other Encryption
+
+[age](https://age-encryption.org) uses a modern, simple algorithm optimized for secure file encryption, with a focus on usability and minimal attack surface. It also [supports SSH RSA and Ed25519 keys](https://words.filippo.io/using-ed25519-keys-for-encryption/), though it's recommended to use different keys for separate purposes and scopes.
+
+### cottage vs SOPS
+
+While [SOPS](https://getsops.io/) and cottage have many overlapping features, cottage has the following advantages:
+
+- Auto manage .gitignore to ensure unencrypted secrets are never committed to git.
+- Encrypted secrets being pure age encrypted .age files, allows for better interoperability with a wider ecosystem of tools.
+- Cleaner diffs - unlike SOPS, which generates diffs for every value of every secret, even if the actual change is just adding/removing a recipient, cottage only generates one diff per file, explicitly pointing out the change in recipients checksum.
+
+### cottage vs dotenvx
+
+cottage borrows the `ctg env` API from [dotenvx](https://dotenvx.com).
+
+- Supports any file type, not just dotenv files.
+- Manages multiple secrets in a repo.
+- Access control rules to encrypt secrets for specific recipients.
+- Cleaner diffs - see [cottage vs SOPS](#cottage-vs-sops).
+
+### cottage vs agebox
+
+[agebox](https://github.com/slok/agebox) is very similar to cottage in core philosophy but lacks many [features](#features).
+
+## License
+
+MIT OR Apache-2.0
+

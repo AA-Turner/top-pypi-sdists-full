@@ -335,6 +335,8 @@ def run_integration_check(
             continue
         rel_path, new_content = fix
         target = backend / rel_path
+        if target.name == "__init__.py":
+            new_content = ""
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(new_content, encoding="utf-8")
         py_files[rel_path] = new_content

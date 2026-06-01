@@ -33,6 +33,7 @@ from weblate.trans.actions import ActionEvents
 from weblate.trans.autotranslate import BatchAutoTranslate
 from weblate.trans.component_copy import copy_component_addons
 from weblate.trans.exceptions import FileParseError
+from weblate.trans.inherited_settings import apply_create_inheritance_defaults
 from weblate.trans.models import (
     Category,
     Change,
@@ -45,7 +46,6 @@ from weblate.trans.models import (
     Translation,
     Unit,
 )
-from weblate.trans.models.unit import fill_in_source_translation
 from weblate.trans.removal import RemovalBatch, removal_batch_context
 from weblate.utils.celery import app
 from weblate.utils.data import data_dir
@@ -59,6 +59,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
     from weblate.trans.models.change import RevertUserEditsResult
+    from weblate.workspaces.models import Workspace
 
 
 @app.task(
@@ -152,6 +153,7 @@ def perform_commit(
                 previous_head=previous_head,
                 skip_push=False,
                 user=user,
+                parse_after_update=True,
             )
             component.create_translations(force=True)
 
@@ -427,6 +429,11 @@ def cleanup_stale_repos(root: Path | None = None) -> bool:
                 empty_dir = False
             continue
 
+        component = _get_component_by_vcs_path(relative_parts)
+        if component is not None and not component.is_repo_link:
+            empty_dir = False
+            continue
+
         if not git_dir.exists() and not mercurial_dir.exists():
             # Possible project/category dir not present in the database.
             if not cleanup_stale_repos(path):
@@ -438,7 +445,6 @@ def cleanup_stale_repos(root: Path | None = None) -> bool:
             empty_dir = False
             continue
 
-        component = _get_component_by_vcs_path(relative_parts)
         if component is None:
             LOGGER.info("removing stale VCS path (not found): %s", path)
             remove_tree(path)
@@ -462,17 +468,21 @@ def repository_alerts(threshold: int = settings.REPOSITORY_ALERT_THRESHOLD) -> N
     non_linked = Component.objects.with_repo()
     for component in non_linked.iterator():
         try:
-            if component.repository.count_missing() > threshold:
-                component.add_alert("RepositoryOutdated")
-            else:
-                component.delete_alert("RepositoryOutdated")
-            if component.repository.count_outgoing() > threshold:
-                component.add_alert("RepositoryChanges")
-            else:
-                component.delete_alert("RepositoryChanges")
+            update_repository_alerts(component, threshold)
         except RepositoryError as error:
             report_error("Could not check repository status", project=component.project)
             component.add_alert("MergeFailure", error=component.error_text(error))
+
+
+def update_repository_alerts(component: Component, threshold: int) -> None:
+    if component.repository.count_missing() > threshold:
+        component.add_alert("RepositoryOutdated")
+    else:
+        component.delete_alert("RepositoryOutdated")
+    if component.repository.count_outgoing() > threshold:
+        component.add_alert("RepositoryChanges")
+    else:
+        component.delete_alert("RepositoryChanges")
 
 
 @app.task(trail=False)
@@ -716,6 +726,51 @@ def store_auto_translate_activity_log(
     return result
 
 
+def get_auto_translate_target(
+    *,
+    translation_id: int | None,
+    component_id: int | None,
+    category_id: int | None,
+    project_id: int | None,
+    language_id: int | None,
+    workspace_id: str | None = None,
+) -> tuple[
+    Translation | Component | Category | ProjectLanguage | Workspace,
+    dict[str, int | str],
+]:
+    if translation_id is not None:
+        translation = Translation.objects.get(pk=translation_id)
+        return translation, {"translation": translation.id}
+    if component_id is not None:
+        component = Component.objects.get(pk=component_id)
+        return component, {"component": component.id}
+    if category_id is not None:
+        category = Category.objects.get(pk=category_id)
+        return category, {"category": category.id}
+    if project_id is not None:
+        if language_id is None:
+            msg = "language_id must be provided when project_id is given"
+            raise ValueError(msg)
+        project_language = ProjectLanguage(
+            project=Project.objects.get(pk=project_id),
+            language=Language.objects.get(pk=language_id),
+        )
+        return project_language, {
+            "project": project_language.project.id,
+            "language": project_language.language.id,
+        }
+    if workspace_id is not None:
+        from weblate.workspaces.models import Workspace  # noqa: PLC0415
+
+        workspace = Workspace.objects.get(pk=workspace_id)
+        return workspace, {"workspace": str(workspace.pk)}
+    msg = (
+        "One of translation_id, component_id, category_id, project_id, "
+        "or workspace_id must be provided"
+    )
+    raise ValueError(msg)
+
+
 @app.task(
     trail=False,
     autoretry_for=(WeblateLockTimeoutError,),
@@ -738,40 +793,27 @@ def auto_translate(  # noqa: PLR0913
     category_id: int | None = None,
     project_id: int | None = None,
     language_id: int | None = None,
+    workspace_id: str | None = None,
     activity_log_id: int | None = None,
 ) -> dict[str, Any]:
     result: dict[str, Any] = {"warnings": []}
-    obj: Translation | Component | Category | ProjectLanguage
     user = User.objects.get(pk=user_id) if user_id else None
     with override(user.profile.language if user else "en"):
         try:
-            if translation_id is not None:
-                obj = Translation.objects.get(pk=translation_id)
-                result["translation"] = obj.id
-            elif component_id is not None:
-                obj = Component.objects.get(pk=component_id)
-                result["component"] = obj.id
-            elif category_id is not None:
-                obj = Category.objects.get(pk=category_id)
-                result["category"] = obj.id
-            elif project_id is not None:
-                if language_id is None:
-                    msg = "language_id must be provided when project_id is given"
-                    raise ValueError(msg)
-                obj = ProjectLanguage(
-                    project=Project.objects.get(pk=project_id),
-                    language=Language.objects.get(pk=language_id),
-                )
-                result["project"] = obj.project.id
-                result["language"] = obj.language.id
-            else:
-                msg = "One of translation_id, component_id, category_id, or project_id must be provided"
-                raise ValueError(msg)
+            obj, target_result = get_auto_translate_target(
+                translation_id=translation_id,
+                component_id=component_id,
+                category_id=category_id,
+                project_id=project_id,
+                language_id=language_id,
+                workspace_id=workspace_id,
+            )
         except ObjectDoesNotExist:
             result["message"] = gettext(
                 "Automatic translation skipped because the target no longer exists."
             )
             return store_auto_translate_activity_log(activity_log_id, result)
+        result.update(target_result)
         auto = BatchAutoTranslate(
             obj,
             user=user,
@@ -842,12 +884,14 @@ def auto_translate_component(
 
 @app.task(trail=False)
 def create_component(copy_from=None, copy_addons=False, in_task=False, **kwargs):
+    explicit_fields = set(kwargs)
     kwargs["project"] = Project.objects.get(pk=kwargs["project"])
     kwargs["source_language"] = Language.objects.get(pk=kwargs["source_language"])
     if "secondary_language" in kwargs and kwargs["secondary_language"] is not None:
         kwargs["secondary_language"] = Language.objects.get(
             pk=kwargs["secondary_language"]
         )
+    apply_create_inheritance_defaults(kwargs, explicit_fields)
     component = Component(**kwargs)
     # Perform validation to avoid creating duplicate components via background
     # tasks in discovery
@@ -877,7 +921,7 @@ def create_component(copy_from=None, copy_addons=False, in_task=False, **kwargs)
 @transaction.atomic
 def update_checks(pk: int, update_token: str, update_state: bool = False) -> None:
     try:
-        component = Component.objects.get(pk=pk)
+        component = Component.objects.select_related("source_language").get(pk=pk)
     except Component.DoesNotExist:
         return
 
@@ -887,21 +931,21 @@ def update_checks(pk: int, update_token: str, update_state: bool = False) -> Non
         return
 
     component.start_batched_checks()
+    source_translation = component.source_translation
     # Source translation as last
     translations = (
-        *component.translation_set.exclude(
-            pk=component.source_translation.pk
-        ).prefetch(),
-        component.source_translation,
+        *component.translation_set.exclude(pk=source_translation.pk).select_related(
+            "language", "plural"
+        ),
+        source_translation,
     )
     for translation in translations:
-        units = translation.unit_set.prefetch().prefetch_source()
+        units = translation.unit_set.prefetch_all_checks()
         if update_state:
             units = units.select_for_update()
-        fill_in_source_translation(units)
-        for unit in units.prefetch_all_checks():
+        for unit in units:
             # Reuse object to avoid fetching from the database
-            unit.source_unit.translation = component.source_translation
+            unit.source_unit.translation = source_translation
             # Mark this as a batch update to avoid stats update on each unit
             unit.is_batch_update = True
             if update_state:
@@ -990,6 +1034,44 @@ def report_restore_component_progress(completed: int, total: int) -> None:
         report_task_progress(30 + (60 * completed // total))
 
 
+def restore_project_backup(
+    project_name: str,
+    project_slug: str,
+    user_id: int,
+    filename: str,
+    billing_id: int | None,
+    workspace_id: str | None = None,
+) -> Project:
+    from weblate.trans.backups import ProjectBackup  # noqa: PLC0415
+
+    report_task_progress(5)
+    user = User.objects.get(pk=user_id)
+    billing = None
+    if billing_id is not None:
+        from weblate.billing.models import Billing  # noqa: PLC0415
+
+        billing = Billing.objects.get(pk=billing_id)
+    workspace = None
+    if workspace_id is not None:
+        from weblate.workspaces.models import Workspace  # noqa: PLC0415
+
+        workspace = Workspace.objects.get(pk=workspace_id)
+    restore = ProjectBackup(filename)
+    report_task_progress(10)
+    restore.validate()
+    report_task_progress(30)
+    project = restore.restore(
+        project_name=project_name,
+        project_slug=project_slug,
+        user=user,
+        billing=billing,
+        workspace=workspace,
+        progress_callback=report_restore_component_progress,
+    )
+    report_task_progress(95)
+    return project
+
+
 @app.task(trail=False)
 def import_project_backup(
     project_name: str,
@@ -997,29 +1079,17 @@ def import_project_backup(
     user_id: int,
     filename: str,
     billing_id: int | None = None,
+    workspace_id: str | None = None,
 ) -> dict[str, str]:
-    from weblate.trans.backups import ProjectBackup  # noqa: PLC0415
-
     try:
-        report_task_progress(5)
-        user = User.objects.get(pk=user_id)
-        billing = None
-        if billing_id is not None:
-            from weblate.billing.models import Billing  # noqa: PLC0415
-
-            billing = Billing.objects.get(pk=billing_id)
-        restore = ProjectBackup(filename)
-        report_task_progress(10)
-        restore.validate()
-        report_task_progress(30)
-        project = restore.restore(
-            project_name=project_name,
-            project_slug=project_slug,
-            user=user,
-            billing=billing,
-            progress_callback=report_restore_component_progress,
+        project = restore_project_backup(
+            project_name,
+            project_slug,
+            user_id,
+            filename,
+            billing_id,
+            workspace_id,
         )
-        report_task_progress(95)
     finally:
         with suppress(OSError):
             os.unlink(filename)

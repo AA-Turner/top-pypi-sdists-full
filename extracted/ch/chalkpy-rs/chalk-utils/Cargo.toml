@@ -1,0 +1,11 @@
+[package]
+name = "chalk-utils"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "chalk_utils"
+crate-type = ["rlib"]
+
+[dependencies]
+regex = "1"

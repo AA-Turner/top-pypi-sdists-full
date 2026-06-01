@@ -40,7 +40,7 @@ docs = [
   "mkdocstrings-python>=1.6.3,<2"
 ]
 tests = [
-  "pytest>=7,<9",
+  "pytest>=7,<10",
   "pytest-cov>=4.1.0",
   "pytest-sugar",
   "pytest-mock"
@@ -48,7 +48,7 @@ tests = [
 dev = [
   "dvc-studio-client[tests,docs]",
   "types-requests",
-  "mypy==1.17.0"
+  "mypy==1.19.0"
 ]
 
 [tool.setuptools_scm]
@@ -104,6 +104,7 @@ show-fixes = true
 [tool.ruff.lint]
 ignore = [
   "S101",  # assert
+  "PLC0415",  # import-outside-top-level
   "PLR2004",  # magic-value-comparison
   "PLW2901",  # redefined-loop-name
   "ISC001",  # single-line-implicit-string-concatenation

@@ -1,0 +1,140 @@
+name: eval-harness-cfn
+
+# CFN maintainer-validation run — the v0.1.69-equivalent step for the
+# CFN side of the Tier 5 #1 strategic arc (DECISIONS 2026-05-12).
+# Runs the gap agent against `evals/fixtures/csp-starter-cfn/` with a
+# real ANTHROPIC_API_KEY (or OPENAI_API_KEY / AWS OIDC) and uploads the
+# per-KSI verdicts so the maintainer can compare against
+# GROUND_TRUTH.yaml and update `evals/PHASE_2_LITE_CFN_VALIDATION.md`.
+#
+# Why workflow_dispatch only (no PR trigger):
+# - Runs cost real LLM spend (~$0.20-0.50 per run on Haiku 4.5 for ~25
+#   KSI verdicts; ~$2 on Sonnet 4.6, ~$5 on Opus 4.7).
+# - Not a regression gate — the e2e_smoke workflow already gates
+#   per-PR. This workflow is for the deliberate maintainer-validation
+#   measurement and follow-up label-revision sessions.
+# - The csp-starter-cfn fixture's GROUND_TRUTH.yaml revision pattern
+#   (Phase 2 lite discipline) expects intermittent re-runs as labels
+#   evolve.
+#
+# Cost: ~$0.50 default (Haiku 4.5, single run). Use the model input to
+# crank up to Sonnet or Opus when you want the v0.1.69-style "real
+# strength" reading.
+#
+# Backend selection (v0.1.211 OpenAI arc Slice 3): supports anthropic
+# (default), bedrock, or openai. For openai-backend runs, configure the
+# OPENAI_API_KEY repo secret first. For bedrock, configure
+# AWS_BEDROCK_ROLE_ARN. The first openai dispatch validates gpt-5.4
+# classification quality against the labeled fixture and graduates the
+# OpenAI backend out of "experimental" if precision/recall match the
+# Anthropic + Bedrock baselines.
+
+on:
+  workflow_dispatch:
+    inputs:
+      fixture:
+        description: "Fixture path (relative to repo root)"
+        required: false
+        default: "evals/fixtures/csp-starter-cfn"
+        type: string
+      backend:
+        description: "LLM backend"
+        required: false
+        default: "anthropic"
+        type: choice
+        options:
+          - anthropic
+          - bedrock
+          - openai
+      llm_model:
+        description: "Model ID (must match the chosen backend; e.g. claude-haiku-4-5, gpt-5.4, us.anthropic.claude-haiku-4-5-20251001-v1:0)"
+        required: false
+        default: "claude-haiku-4-5"
+        type: string
+      region:
+        description: "AWS region (required when backend=bedrock; e.g., us-east-1)"
+        required: false
+        default: "us-east-1"
+        type: string
+
+permissions:
+  contents: read
+  id-token: write  # for AWS OIDC when backend=bedrock
+
+jobs:
+  validate:
+    name: CFN eval validation (${{ inputs.backend }} ${{ inputs.llm_model }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv and Python 3.12
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Sync dependencies
+        run: uv sync --all-extras
+
+      - name: Configure AWS credentials (for backend=bedrock)
+        if: inputs.backend == 'bedrock'
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_BEDROCK_ROLE_ARN }}
+          aws-region: ${{ inputs.region }}
+
+      - name: Run eval harness against CFN fixture
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          ARGS=(
+            --fixture "${{ inputs.fixture }}"
+            --llm-backend "${{ inputs.backend }}"
+            --llm-model "${{ inputs.llm_model }}"
+          )
+          if [ "${{ inputs.backend }}" = "bedrock" ]; then
+            ARGS+=(--llm-region "${{ inputs.region }}")
+          fi
+          uv run python -m evals run "${ARGS[@]}"
+
+      - name: Print metrics + gap-report summary on success
+        if: success()
+        run: |
+          results_root="evals/results"
+          fixture_id=$(basename "${{ inputs.fixture }}")
+          latest=$(ls -td "$results_root/$fixture_id"/*/ 2>/dev/null | head -1)
+          if [ -z "$latest" ]; then
+            echo "no run directory found under $results_root/$fixture_id"
+            exit 0
+          fi
+          echo "=== run directory: $latest ==="
+          if [ -f "$latest/metrics.json" ]; then
+            echo "--- metrics.json ---"
+            cat "$latest/metrics.json"
+          fi
+          gap=$(ls -t "$latest"/workspace/.efterlev/reports/gap-*.json 2>/dev/null | head -1)
+          if [ -n "$gap" ]; then
+            echo ""
+            echo "--- KSI verdicts from $gap ---"
+            uv run python -c "
+          import json, sys
+          data = json.loads(open('$gap').read())
+          for c in data.get('ksi_classifications', []):
+              print(f\"  {c.get('ksi_id', '?')}: {c.get('status', '?')}\")
+          "
+          fi
+
+      - name: Upload run artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: eval-harness-cfn-${{ inputs.backend }}-${{ inputs.llm_model }}-${{ github.run_id }}
+          path: |
+            evals/results/**
+          retention-days: 30
+          if-no-files-found: warn

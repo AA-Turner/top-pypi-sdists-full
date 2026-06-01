@@ -1,9 +1,13 @@
 from django import forms
+from django.conf import settings
 from django.contrib.auth.forms import UserChangeForm as BaseUserChangeForm
 from django.contrib.auth.models import Group
+from django.core import signing
 from django.core.exceptions import ValidationError
 from django.forms import ModelForm
 from django.utils.translation import gettext_lazy as _
+from django_registration.backends.activation import REGISTRATION_SALT
+from django_registration.backends.activation.forms import ActivationForm as BaseActivationForm
 
 from allianceauth.authentication.models import User
 
@@ -13,6 +17,26 @@ class RegistrationForm(forms.Form):
 
     class _meta:
         model = User
+
+
+class RegistrationActivationForm(BaseActivationForm):
+    """Activation form that decodes a [username, email] pair from the signed key."""
+
+    EXPIRED_MESSAGE = _("This activation link has expired.")
+    INVALID_KEY_MESSAGE = _("This activation link is invalid.")
+
+    def clean_activation_key(self):
+        activation_key = self.cleaned_data["activation_key"]
+        try:
+            return signing.loads(
+                activation_key,
+                salt=REGISTRATION_SALT,
+                max_age=settings.ACCOUNT_ACTIVATION_DAYS * 86400,
+            )
+        except signing.SignatureExpired:
+            raise ValidationError(self.EXPIRED_MESSAGE, code="expired")
+        except signing.BadSignature:
+            raise ValidationError(self.INVALID_KEY_MESSAGE, code="invalid_key")
 
 
 class UserProfileForm(ModelForm):

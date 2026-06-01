@@ -1,0 +1,128 @@
+Metadata-Version: 2.4
+Name: taskchampion3-py-dev
+Version: 3.0.1.3
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: Rust
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Utilities
+Requires-Dist: pytest>=8.2.0 ; extra == 'test'
+Requires-Dist: mypy>=1.10.0 ; extra == 'test'
+Provides-Extra: test
+License-File: LICENSE
+Summary: Python bindings for TaskChampion 3.x (fork, updated for taskchampion=3.0.1)
+Keywords: taskwarrior,taskchampion,tasks,productivity
+Author-email: Illya Laifu <illyalaifu@gmail.com>, "Dustin J. Mitchell" <dustin@v.igoro.us>, sznicolas <sznicolas+@users.noreply.github.com>
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: changelog, https://github.com/sznicolas/taskchampion-py-dev/releases
+Project-URL: homepage, https://gothenburgbitfactory.org/taskchampion
+Project-URL: repository, https://github.com/sznicolas/taskchampion-py-dev
+
+# Python Taskchampion Bindings
+
+This package contains Python bindings for [TaskChampion](https://github.com/GothenburgBitFactory/taskchampion).
+It follows the TaskChampion API closely, with minimal adaptation for Python.
+
+## Versioning
+
+The `taskchampion-py` package version generally follows the Rust crate version. This fork publishes as `taskchampion3-py-dev` with Python package version `3.0.1.2` corresponding to TaskChampion crate `3.0.1`. The fork remains on the `3.0.1.x` line as long as upstream `taskchampion` stays on `3.0.1`; the `3.0.2.x` line will track upstream `taskchampion 3.0.2` when it ships. The fourth version component is the package-only revision (build/packaging fixes that do not change the wrapped Rust crate).
+
+## Installation
+
+Install from PyPI:
+
+```shell
+pip install taskchampion3-py-dev
+```
+
+The PyPI distribution name is `taskchampion3-py-dev`, but the importable Python module is `taskchampion`:
+
+```python
+import taskchampion
+```
+
+Pre-built wheels are published for CPython and PyPy on Python 3.9–3.13, covering Linux (glibc and musl: x86_64, aarch64, armv7, i686, s390x, ppc64le), macOS (Intel and Apple Silicon), and Windows (x86, x64). If no wheel matches your platform, pip will fall back to the sdist, which requires a Rust toolchain ≥ 1.91.1.
+
+## Usage
+
+```py
+def main():
+    r = Replica.new_on_disk("/home/username/.task/", False) 
+    tasks = r.all_tasks()
+    print(tasks)
+    for uuid in tasks.keys():
+        task = r.get_task(uuid)
+        print(f"Description: {task.get_description()}")
+        print(f"UUID: {task.get_uuid()}")
+        print(f"Status: {task.get_status()}")
+
+
+if __name__ == "__main__":
+    main()
+```
+For the Replica.new_on_disk(path), the argument is directory to your sqlite database (to match the Rust implementation). For a thorough understanding of the Rust implementation, which this Python package emulates, see the Rust documentation at: https://docs.rs/taskchampion/3.0.1/taskchampion/
+
+The output of r.all_tasks() is a dictionary. The keys are the UUIDs of the tasks. Here is an example based on a couple test tasks:
+
+```json
+{'8655d0fe-3627-43b2-933a-7703609b101e': Task { data: TaskData { uuid: 8655d0fe-3627-43b2-933a-7703609b101e, taskmap: {"modified": "1775169728", "description": "test task 2", "entry": "1775169728", "due": "1775188800", "status": "pending"} }, depmap: DependencyMap { edges: [] }, updated_modified: false },
+'f5bc3f9d-d97d-4165-863d-2e08d6b53dc9': Task { data: TaskData { uuid: f5bc3f9d-d97d-4165-863d-2e08d6b53dc9, taskmap: {"status": "pending", "entry": "1775007191", "description": "test1", "modified": "1775007191", "due": "1775016000"} }, depmap: DependencyMap { edges: [] }, updated_modified: false }}
+```
+Using the keys method on the dictionary allows for accessing the tasks by UUID. Below is the output from the Task API commands:
+
+```bash
+Description: test task 2
+UUID: 8655d0fe-3627-43b2-933a-7703609b101e
+Status: Status.Pending
+Description: test1
+UUID: f5bc3f9d-d97d-4165-863d-2e08d6b53dc9
+Status: Status.Pending
+```
+Referring back to the dictionary, notice the strange numbers under entry, modified, and due. When the Task API is used to fetch the data, it is converted into a user-friendly date/time. For example, on test 1 the task.get_entry() results in: 2026-04-01 01:33:11+00:00
+
+See the [API
+documentation](https://gothenburgbitfactory.org/taskchampion-py/taskchampion.html)
+for more information.
+
+## Development
+
+This project is built using [maturin](https://github.com/PyO3/maturin).
+
+To install:
+
+```shell
+pipx install maturin
+```
+
+To build wheels:
+```shell
+maturin build
+```
+This stores wheels in the `target/wheels` folder by default.
+
+### Testing
+
+Extra testing dependencies can be installed with pip. To run tests locally:
+
+```bash
+python3.12 -m venv .venv && source .venv/bin/activate
+python -m pip install --upgrade pip
+pip install maturin pytest mypy
+# Build and install extension in editable mode
+maturin develop --release
+# Run tests
+pytest
+```
+
+To reproduce the CI environment (ubuntu-latest) use the Docker recipe in the CONTRIBUTING or CI docs.
+

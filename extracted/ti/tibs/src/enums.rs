@@ -18,12 +18,7 @@ impl Endianness {
         }
     }
 
-    pub fn is_little_endian(optional_endianness: Option<Self>, length: i64) -> PyResult<bool> {
-        if length < 0 {
-            return Err(PyValueError::new_err(format!(
-                "Negative bit length given: {length}."
-            )));
-        }
+    pub fn is_little_endian(optional_endianness: Option<Self>, length: usize) -> PyResult<bool> {
         match optional_endianness {
             Some(Endianness::Big) => {
                 if length % 8 != 0 {
@@ -69,4 +64,30 @@ pub enum Codec {
     Raw,
     Rice,
     Zstd,
+}
+
+#[pyclass(from_py_object, module = "tibs")]
+#[derive(Clone, Copy)]
+pub enum DtypeKind {
+    Uint,
+    Int,
+    Float,
+    Bytes,
+    Bin,
+    Oct,
+    Hex,
+}
+
+impl DtypeKind {
+    pub(crate) fn repr_name(self) -> &'static str {
+        match self {
+            DtypeKind::Uint => "DtypeKind.Uint",
+            DtypeKind::Int => "DtypeKind.Int",
+            DtypeKind::Float => "DtypeKind.Float",
+            DtypeKind::Bytes => "DtypeKind.Bytes",
+            DtypeKind::Bin => "DtypeKind.Bin",
+            DtypeKind::Oct => "DtypeKind.Oct",
+            DtypeKind::Hex => "DtypeKind.Hex",
+        }
+    }
 }

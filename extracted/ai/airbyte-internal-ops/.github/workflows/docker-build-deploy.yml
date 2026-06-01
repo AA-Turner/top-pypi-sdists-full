@@ -1,0 +1,115 @@
+name: Docker Build & Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'infra/agent-message-bus/app/**'
+      - '.github/workflows/docker-build-deploy.yml'
+  pull_request:
+    paths:
+      - 'infra/agent-message-bus/app/**'
+      - '.github/workflows/docker-build-deploy.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  id-token: write  # For GCP Workload Identity Federation
+
+env:
+  GCP_PROJECT: internal-airbyte-ai-infra
+  GCP_REGION: us-central1
+  IMAGE_REPO: us-central1-docker.pkg.dev/internal-airbyte-ai-infra/agent-message-bus/agent-message-bus
+
+jobs:
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      # GCP auth needed for push to main and manual dispatch (for pushing images)
+      - name: Authenticate to GCP (WIF)
+        if: github.event_name != 'pull_request'
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/351139268520/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-actions-ci@internal-airbyte-ai-infra.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        if: github.event_name != 'pull_request'
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        if: github.event_name != 'pull_request'
+        run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
+
+      - name: Resolve short SHA
+        id: vars
+        run: echo "short_sha=$(echo '${{ github.sha }}' | cut -c1-7)" | tee -a $GITHUB_OUTPUT
+
+      - name: Compute image tag (PR)
+        if: github.event_name == 'pull_request'
+        id: tag-pr
+        run: echo "image_tag=pr-${{ github.event.pull_request.number }}-${{ steps.vars.outputs.short_sha }}" | tee -a $GITHUB_OUTPUT
+
+      - name: Compute image tag (push / dispatch)
+        if: github.event_name != 'pull_request'
+        id: tag-push
+        run: echo "image_tag=${{ steps.vars.outputs.short_sha }}" | tee -a $GITHUB_OUTPUT
+
+      - name: Set image tag
+        id: meta
+        run: echo "image_tag=${{ steps.tag-pr.outputs.image_tag || steps.tag-push.outputs.image_tag }}" | tee -a $GITHUB_OUTPUT
+
+      - name: Build Docker image
+        working-directory: infra/agent-message-bus/app
+        run: docker build -t "${{ env.IMAGE_REPO }}:${{ steps.meta.outputs.image_tag }}" .
+
+      - name: Tag Docker image as latest
+        if: github.event_name != 'pull_request'
+        run: docker tag "${{ env.IMAGE_REPO }}:${{ steps.meta.outputs.image_tag }}" "${{ env.IMAGE_REPO }}:latest"
+
+      - name: Push Docker image
+        if: github.event_name != 'pull_request'
+        run: docker push "${{ env.IMAGE_REPO }}:${{ steps.meta.outputs.image_tag }}"
+
+      - name: Push latest tag
+        if: github.event_name != 'pull_request'
+        run: docker push "${{ env.IMAGE_REPO }}:latest"
+
+  deploy:
+    name: Deploy to Cloud Run
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: "Cloud Run (agent-message-bus)"
+      url: https://internal-agent-bus-cloudrun-vuy6wf6uta-uc.a.run.app
+    steps:
+      - name: Authenticate to GCP (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/351139268520/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-actions-ci@internal-airbyte-ai-infra.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to internal-agent-bus-cloudrun
+        run: >
+          gcloud run services update internal-agent-bus-cloudrun
+          --project=${{ env.GCP_PROJECT }}
+          --region=${{ env.GCP_REGION }}
+          --image="${{ env.IMAGE_REPO }}:latest"
+
+      - name: Deploy to slack-webhook-cloudrun
+        run: >
+          gcloud run services update slack-webhook-cloudrun
+          --project=${{ env.GCP_PROJECT }}
+          --region=${{ env.GCP_REGION }}
+          --image="${{ env.IMAGE_REPO }}:latest"

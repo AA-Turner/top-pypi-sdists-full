@@ -1,0 +1,60 @@
+default_stages: [pre-commit]
+exclude: ^(\.copier-answers\.yml)|.pixi$
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-builtin-literals
+      - id: check-case-conflict
+      - id: check-docstring-first
+      - id: check-executables-have-shebangs
+      - id: check-toml
+      - id: check-json
+      - id: detect-private-key
+      - id: end-of-file-fixer
+        exclude: \.min\.js$
+      - id: trailing-whitespace
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.4
+    hooks:
+      - id: ruff
+        files: src/panel_material_ui
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.1
+    hooks:
+      - id: codespell
+        additional_dependencies:
+          - tomli
+  - repo: https://github.com/hoxbro/prettier-pre-commit
+    rev: v3.6.2
+    hooks:
+      - id: prettier
+        entry: prettier --write --ignore-unknown --no-error-on-unmatched-pattern
+        types_or: [css]
+  - repo: https://github.com/shssoichiro/oxipng
+    rev: v8.0.0
+    hooks:
+      - id: oxipng
+        stages: [manual]
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v9.39.1
+    hooks:
+      - id: eslint
+        args: ['-c', '.eslintrc.js', 'src/panel_material_ui/**/*.jsx', '--fix']
+        files: \.[jt]sx?$
+        types: [file]
+        additional_dependencies:
+          - 'eslint@8.57.0'
+          - 'eslint-plugin-react@7.37.2'
+          - '@stylistic/eslint-plugin@1.6.3'
+  - repo: local
+    hooks:
+      # ensure pixi environments are up to date
+      # workaround for https://github.com/prefix-dev/pixi/issues/1482
+      - id: pixi-install
+        name: pixi-install
+        entry: pixi install -e default -e lint
+        language: system
+        always_run: true
+        require_serial: true
+        pass_filenames: false

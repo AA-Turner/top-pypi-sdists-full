@@ -3,8 +3,8 @@ import warnings
 from AOT_biomaps.Config import config
 
 from ._mainRecon import Recon
-from .ReconEnums import ReconType, OptimizerType, ProcessType, SMatrixType, PotentialType, NoiseType, PreconditionerType
-from .AOT_Optimizers import MLEM, LS, MAPEM, DEPIERRO, PDHG, LBFGS
+from .ReconEnums import ReconType, OptimizerType, ProcessType, SMatrixType, PotentialType, PreconditionerType
+from .AOT_Optimizers import MLEM, LS, MAPEM, DEPIERRO, PDHG, PGC, PPGMLEM, LBFGS
 from .AOT_SMatrix.SMatrix_CSR import SMatrix_CSR
 from .AOT_SMatrix.SMatrix_SELL import SMatrix_SELL
 from .AOT_SMatrix.SMatrix_DENSE import SMatrix_DENSE
@@ -15,7 +15,6 @@ import subprocess
 import numpy as np
 from datetime import datetime
 from tempfile import gettempdir
-import math
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from typing import Optional, List
@@ -36,7 +35,8 @@ ALGORITHM_FORMULAS = {
             "numIterations": "> 0",
             "numSubsets": "> 0",
         },
-        "notes": "If numSubsets > 1, becomes OSEM (Ordered Subset EM)"
+        "notes": "If numSubsets > 1, becomes OSEM (Ordered Subset EM)",
+        "potentialFunction": [PotentialType.NONE]
     },
     OptimizerType.LS: {
         "formula": r"theta^(k+1) = theta^(k) - alpha * A^T * (A*theta^(k) - y)",
@@ -47,7 +47,8 @@ ALGORITHM_FORMULAS = {
             "alpha": "> 0",
             "numIterations": "> 0",
         },
-        "notes": "Convergence can be slow; consider using accelerated methods"
+        "notes": "Convergence can be slow; consider using accelerated methods",
+        "potentialFunction": [PotentialType.NONE]
     },
     OptimizerType.MAPEM: {
         "formula": r"theta^(k+1) = theta^(k) * (A^T * (y / (A*theta^(k) + epsilon))) / (A^T * 1 + lambda * diag(H_U))",
@@ -60,7 +61,8 @@ ALGORITHM_FORMULAS = {
             "denominatorThreshold": "> 0",
             "numIterations": "> 0",
         },
-        "notes": "H_U is the Hessian diagonal of the potential function"
+        "notes": "H_U is the Hessian diagonal of the potential function",
+        "potentialFunction": [PotentialType.QUADRATIC, PotentialType.HUBER, PotentialType.RELATIVE_DIFFERENCE, PotentialType.TOTAL_VARIATION]
     },
     OptimizerType.DEPIERRO: {
         "formula": r"theta^(k+1) = theta^(k) * (A^T * (y / (A*theta^(k) + epsilon))) / (A^T * 1 + sigma * beta * I)",
@@ -73,7 +75,8 @@ ALGORITHM_FORMULAS = {
             "denominatorThreshold": "> 0",
             "numIterations": "> 0",
         },
-        "notes": "Convergent for MRF penalties"
+        "notes": "Convergent for MRF penalties",
+        "potentialFunction": [PotentialType.QUADRATIC]
     },
     OptimizerType.PPGMLEM: {
         "formula": r"theta^(k+1) = theta^(k) + alpha * (A^T * (y / (A*theta^(k) + epsilon) - 1)) / (A^T * 1 + beta * diag(H_U))",
@@ -86,7 +89,8 @@ ALGORITHM_FORMULAS = {
             "denominatorThreshold": "> 0",
             "numIterations": "> 0",
         },
-        "notes": "Addresses numerical problems with large penalty strengths"
+        "notes": "Addresses numerical problems with large penalty strengths",
+        "potentialFunction": [PotentialType.QUADRATIC, PotentialType.HUBER, PotentialType.RELATIVE_DIFFERENCE]
     },
     OptimizerType.PGC: {
         "formula": r"theta^(k+1) = theta^(k) + alpha * (A^T * (y / (A*theta^(k) + epsilon) - 1)) / (A^T * 1 + beta * diag(H_U))",
@@ -99,7 +103,8 @@ ALGORITHM_FORMULAS = {
             "denominatorThreshold": "> 0",
             "numIterations": "> 0",
         },
-        "notes": "Requires penalty terms with derivative order >= 2"
+        "notes": "Requires penalty terms with derivative order >= 2",
+        "potentialFunction": [PotentialType.QUADRATIC, PotentialType.HUBER, PotentialType.RELATIVE_DIFFERENCE]
     },
     OptimizerType.PDHG: {
         "formula": r"x^(k+1) = prox_{tau*TV}(x^(k) - tau * nabla_f(x^(k))) \ y^(k+1) = y^(k) + sigma * (A*x^(k+1) - y)",
@@ -113,7 +118,8 @@ ALGORITHM_FORMULAS = {
             "k_security": "in (0, 1]",
             "numIterations": "> 0",
         },
-        "notes": "tau and sigma are step sizes; prox is the proximal operator for TV"
+        "notes": "tau and sigma are step sizes; prox is the proximal operator for TV",
+        "potentialFunction": [PotentialType.TOTAL_VARIATION]
     },
     OptimizerType.LBFGS: {
         "formula": r"theta^(k+1) = theta^(k) + alpha_k * d^(k)",
@@ -128,7 +134,8 @@ ALGORITHM_FORMULAS = {
             "sigma": ">= 0",
             "numIterations": "> 0",
         },
-        "notes": "Manual implementation without scipy dependency. Supports differentiable potentials (QUADRATIC, HUBER, RELATIVE_DIFFERENCE)"
+        "notes": "Manual implementation without scipy dependency. Supports differentiable potentials (QUADRATIC, HUBER, RELATIVE_DIFFERENCE)",
+        "potentialFunction": [PotentialType.QUADRATIC, PotentialType.HUBER, PotentialType.RELATIVE_DIFFERENCE]
     },
 }
 
@@ -184,6 +191,7 @@ class AlgebraicRecon(Recon):
         numIterations: int = 10000,
         numSubsets: int = 1,
         isSavingEachIteration: bool = True,
+        isCostFunction: bool = False,
         maxSaves: int = 5000,
         denominatorThreshold: float = 1e-6,
         smatrixType: SMatrixType = SMatrixType.SELL,
@@ -222,6 +230,7 @@ class AlgebraicRecon(Recon):
             numIterations: Maximum number of iterations (default: 10000)
             numSubsets: Number of subsets for ordered subset algorithms (default: 1)
             isSavingEachIteration: Whether to save intermediate results (default: True)
+            isCostFunction: Whether to compute cost function (default: False)
             maxSaves: Maximum number of intermediate saves (default: 5000)
             denominatorThreshold: Threshold for denominator to avoid division by zero (default: 1e-6)
             smatrixType: Type of system matrix (default: SMatrixType.SELL)
@@ -229,7 +238,7 @@ class AlgebraicRecon(Recon):
             isComplexeRecon: Whether to perform complex reconstruction (default: False)
             device: Device to use ('cpu' or 'gpu') (default: auto-detected)
             preconditionerType: Type of preconditioner (PreconditionerType.NONE or DIAGONAL, default: NONE)
-            alpha: Regularization weight for MAPEM, DEPIERRO, PPGMLEM, PGC (default: None)
+            alpha: Step size for LS (default: None)
             beta: Regularization parameter for MAPEM, DEPIERRO, PPGMLEM, PGC, PDHG (default: None)
             gamma: Preconditioning parameter for PPGMLEM (default: None)
             delta: Huber threshold for MAPEM, PPGMLEM (default: None)
@@ -270,10 +279,16 @@ class AlgebraicRecon(Recon):
         self.numIterations = numIterations
         self.numSubsets = numSubsets
         self.isSavingEachIteration = isSavingEachIteration
+        self.isCostFunction = isCostFunction
         self.maxSaves = maxSaves
         self.denominatorThreshold = denominatorThreshold
         self.isComplexeRecon = isComplexeRecon
-        self.device = device if device is not None else config.select_best_gpu()
+        if device is None:
+            device = config.select_best_gpu()
+            if device is None:
+                self.device = 'cpu'
+            else:
+                self.device = f'gpu:{device}'
         self.SMatrix = None
         self.smatrixType = smatrixType
         self.sparseThreshold = sparseThreshold
@@ -308,10 +323,7 @@ class AlgebraicRecon(Recon):
         self.MSE: Optional[List[float]] = None
         self.SSIM: Optional[List[float]] = None
         self.CRC: Optional[List[float]] = None
-        
-        # Validate hyperparameters
-        self._validate_hyperparameters()
-        
+               
         # Handle complex reconstruction
         if self.isComplexeRecon:
             if self.experiment.AOsignal_withTumor is not None:
@@ -543,6 +555,8 @@ class AlgebraicRecon(Recon):
                 raise ValueError("AO signal without tumor is not available. Please generate AO signal without tumor in the experiment first.")
             y = self.experiment.AOsignal_withoutTumor
         
+        self._validate_hyperparameters()
+
         # Dispatch to optimizer-specific method
         if self.optimizer == OptimizerType.MLEM:
             self._run_MLEM(y=y, withTumor=withTumor, show_logs=show_logs)
@@ -706,7 +720,7 @@ class AlgebraicRecon(Recon):
     def _run_MLEM(self, y, withTumor: bool = True, show_logs: bool = True):
         """Run MLEM reconstruction."""
         if withTumor:
-            self.reconPhantom, self.indices, _ = MLEM(
+            self.reconPhantom, self.indices, self.cost_historyPhantom = MLEM(
                 SMatrix=self.SMatrix,
                 y=y,
                 numIterations=self.numIterations,
@@ -720,7 +734,7 @@ class AlgebraicRecon(Recon):
                 preconditioner_type=self.preconditionerType,
             )
         else:
-            self.reconLaser, self.indices, _ = MLEM(
+            self.reconLaser, self.indices, self.cost_historyLaser = MLEM(
                 SMatrix=self.SMatrix,
                 y=y,
                 numIterations=self.numIterations,
@@ -737,218 +751,200 @@ class AlgebraicRecon(Recon):
     def _run_LS(self, y, withTumor: bool = True, show_logs: bool = True):
         """Run Least Squares reconstruction."""
         if withTumor:
-            self.reconPhantom, self.indices, _ = LS(
+            self.reconPhantom, self.indices, self.cost_historyPhantom = LS(
                 SMatrix=self.SMatrix,
                 y=y,
                 numIterations=self.numIterations,
-                isSavingEachIteration=self.isSavingEachIteration,
-                withTumor=withTumor,
-                device=self.device,
-                max_saves=self.maxSaves,
-                show_logs=show_logs,
-                smatrixType=self.smatrixType,
                 alpha=self.alpha,
                 preconditioner_type=self.preconditionerType,
+                isSavingEachIteration=self.isSavingEachIteration,
+                isCostFunction = self.isCostFunction,
+                withTumor=withTumor,
+                max_saves=self.maxSaves,
+                show_logs=show_logs,
             )
         else:
-            self.reconLaser, self.indices, _ = LS(
+            self.reconLaser, self.indices, self.cost_historyLaser = LS(
                 SMatrix=self.SMatrix,
                 y=y,
                 numIterations=self.numIterations,
-                isSavingEachIteration=self.isSavingEachIteration,
-                withTumor=withTumor,
-                device=self.device,
-                max_saves=self.maxSaves,
-                show_logs=show_logs,
-                smatrixType=self.smatrixType,
                 alpha=self.alpha,
                 preconditioner_type=self.preconditionerType,
+                isSavingEachIteration=self.isSavingEachIteration,
+                isCostFunction = self.isCostFunction,
+                withTumor=withTumor,
+                max_saves=self.maxSaves,
+                show_logs=show_logs,
             )
 
     def _run_LBFGS(self, y, withTumor: bool = True, show_logs: bool = True):
         """Run LBFGS reconstruction."""
         if withTumor:
-            self.reconPhantom, self.indices, _ = LBFGS(
+            self.reconPhantom, self.indices, self.cost_historyPhantom = LBFGS(
                 SMatrix=self.SMatrix,
                 y=y,
-                potential_type=self.potentialFunction,
-                alpha=self.alpha if self.alpha is not None else 1.0,
-                beta=self.beta if self.beta is not None else 1.0,
-                delta=self.delta if self.delta is not None else 0.01,
-                gamma=self.gamma if self.gamma is not None else 0.01,
-                sigma=self.sigma if self.sigma is not None else 0.01,
                 numIterations=self.numIterations,
+                preconditioner_type=self.preconditionerType,
+                beta=self.beta if self.beta is not None else 1.0,
+                delta=self.delta if self.delta is not None else 0.01,   
+                potential_type=self.potentialFunction,             
                 isSavingEachIteration=self.isSavingEachIteration,
+                isCostFunction = self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
-                device=self.device,
-                smatrixType=self.smatrixType,
-                preconditioner_type=self.preconditionerType,
             )
         else:
-            self.reconLaser, self.indices, _ = LBFGS(
+            self.reconLaser, self.indices, self.cost_historyLaser = LBFGS(
                 SMatrix=self.SMatrix,
                 y=y,
-                potential_type=self.potentialFunction,
-                alpha=self.alpha if self.alpha is not None else 1.0,
-                beta=self.beta if self.beta is not None else 1.0,
-                delta=self.delta if self.delta is not None else 0.01,
-                gamma=self.gamma if self.gamma is not None else 0.01,
-                sigma=self.sigma if self.sigma is not None else 0.01,
                 numIterations=self.numIterations,
+                preconditioner_type=self.preconditionerType,
+                beta=self.beta if self.beta is not None else 1.0,
+                delta=self.delta if self.delta is not None else 0.01,   
+                potential_type=self.potentialFunction,             
                 isSavingEachIteration=self.isSavingEachIteration,
+                isCostFunction = self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
-                device=self.device,
-                smatrixType=self.smatrixType,
-                preconditioner_type=self.preconditionerType,
             )
 
     def _run_MAPEM(self, y, withTumor: bool = True, show_logs: bool = True):
         """Run MAPEM reconstruction."""
         if withTumor:
-            self.reconPhantom, self.indices = MAPEM(
+            self.reconPhantom, self.indices, self.cost_historyPhantom = MAPEM(
                 SMatrix=self.SMatrix,
                 y=y,
-                potential_type=self.potentialFunction,
-                preconditioner_type=self.preconditionerType,
-                alpha=self.alpha if self.alpha is not None else 1.0,
+                numIterations=self.numIterations,
                 beta=self.beta if self.beta is not None else 1.0,
                 delta=self.delta if self.delta is not None else 0.01,
-                numIterations=self.numIterations,
+                potential_type=self.potentialFunction,
+                preconditioner_type=self.preconditionerType,
                 isSavingEachIteration=self.isSavingEachIteration,
+                isCostFunction = self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
-                device=self.device,
-                smatrixType=self.smatrixType,
+                
             )
         else:
-            self.reconLaser, self.indices = MAPEM(
+            self.reconLaser, self.indices, self.cost_historyLaser = MAPEM(
                 SMatrix=self.SMatrix,
                 y=y,
-                potential_type=self.potentialFunction,
-                preconditioner_type=self.preconditionerType,
-                alpha=self.alpha if self.alpha is not None else 1.0,
+                numIterations=self.numIterations,
                 beta=self.beta if self.beta is not None else 1.0,
                 delta=self.delta if self.delta is not None else 0.01,
-                numIterations=self.numIterations,
+                potential_type=self.potentialFunction,
+                preconditioner_type=self.preconditionerType,
                 isSavingEachIteration=self.isSavingEachIteration,
+                isCostFunction = self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
-                device=self.device,
-                smatrixType=self.smatrixType,
             )
 
     def _run_DEPIERRO(self, y, withTumor: bool = True, show_logs: bool = True):
         """Run DEPIERRO reconstruction."""
         if withTumor:
-            self.reconPhantom, self.indices = DEPIERRO(
+            self.reconPhantom, self.indices, self.cost_historyPhantom = DEPIERRO(
                 SMatrix=self.SMatrix,
                 y=y,
-                beta=self.beta if self.beta is not None else 1.0,
-                sigma=self.sigma if self.sigma is not None else 1.0,
                 numIterations=self.numIterations,
-                isSavingEachIteration=self.isSavingEachIteration,
-                withTumor=withTumor,
-                max_saves=self.maxSaves,
-                show_logs=show_logs,
-                device=self.device,
-                smatrixType=self.smatrixType,
-            )
-        else:
-            self.reconLaser, self.indices = DEPIERRO(
-                SMatrix=self.SMatrix,
-                y=y,
                 beta=self.beta if self.beta is not None else 1.0,
                 sigma=self.sigma if self.sigma is not None else 1.0,
-                delta=self.delta if self.delta is not None else 0.01,
                 potential_type=self.potentialFunction,
                 preconditioner_type=self.preconditionerType,
-                numIterations=self.numIterations,
                 isSavingEachIteration=self.isSavingEachIteration,
+                isCostFunction = self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
-                device=self.device,
-                smatrixType=self.smatrixType,
+            )
+        else:
+            self.reconLaser, self.indices, self.cost_historyLaser = DEPIERRO(
+                SMatrix=self.SMatrix,
+                y=y,
+                numIterations=self.numIterations,
+                beta=self.beta if self.beta is not None else 1.0,
+                sigma=self.sigma if self.sigma is not None else 1.0,
+                potential_type=self.potentialFunction,
+                preconditioner_type=self.preconditionerType,
+                isSavingEachIteration=self.isSavingEachIteration,
+                isCostFunction = self.isCostFunction,
+                withTumor=withTumor,
+                max_saves=self.maxSaves,
+                show_logs=show_logs,
             )
 
     def _run_PPGMLEM(self, y, withTumor: bool = True, show_logs: bool = True):
         """Run PPGMLEM reconstruction."""
         if withTumor:
-            self.reconPhantom, self.indices = MAPEM(
+            self.reconPhantom, self.indices, self.cost_historyPhantom = PPGMLEM(
                 SMatrix=self.SMatrix,
                 y=y,
-                potential_type=self.potentialFunction,
-                preconditioner_type=self.preconditionerType,
+                numIterations=self.numIterations,
                 alpha=self.alpha if self.alpha is not None else 1.0,
                 beta=self.beta if self.beta is not None else 1.0,
                 delta=self.delta if self.delta is not None else 0.01,
                 gamma=self.gamma if self.gamma is not None else 0.01,
-                numIterations=self.numIterations,
+                potential_type=self.potentialFunction,
+                preconditioner_type=self.preconditionerType,
                 isSavingEachIteration=self.isSavingEachIteration,
+                isCostFunction=self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
-                device=self.device,
-                smatrixType=self.smatrixType,
             )
         else:
-            self.reconLaser, self.indices = MAPEM(
+            self.reconLaser, self.indices, self.cost_historyLaser = PPGMLEM(
                 SMatrix=self.SMatrix,
                 y=y,
-                potential_type=self.potentialFunction,
-                preconditioner_type=self.preconditionerType,
+                numIterations=self.numIterations,
                 alpha=self.alpha if self.alpha is not None else 1.0,
                 beta=self.beta if self.beta is not None else 1.0,
                 delta=self.delta if self.delta is not None else 0.01,
                 gamma=self.gamma if self.gamma is not None else 0.01,
-                numIterations=self.numIterations,
+                potential_type=self.potentialFunction,
+                preconditioner_type=self.preconditionerType,
                 isSavingEachIteration=self.isSavingEachIteration,
+                isCostFunction=self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
-                device=self.device,
-                smatrixType=self.smatrixType,
             )
 
     def _run_PGC(self, y, withTumor: bool = True, show_logs: bool = True):
         """Run PGC reconstruction."""
         if withTumor:
-            self.reconPhantom, self.indices = MAPEM(
+            self.reconPhantom, self.indices, self.cost_historyPhantom = PGC(
                 SMatrix=self.SMatrix,
                 y=y,
-                potential_type=self.potentialFunction,
-                preconditioner_type=self.preconditionerType,
+                numIterations=self.numIterations,
                 alpha=self.alpha if self.alpha is not None else 1.0,
                 beta=self.beta if self.beta is not None else 1.0,
-                numIterations=self.numIterations,
+                potential_type=self.potentialFunction,
+                preconditioner_type=self.preconditionerType,
                 isSavingEachIteration=self.isSavingEachIteration,
+                isCostFunction=self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
-                device=self.device,
-                smatrixType=self.smatrixType,
             )
         else:
-            self.reconLaser, self.indices = MAPEM(
+            self.reconLaser, self.indices, self.cost_historyLaser = PGC(
                 SMatrix=self.SMatrix,
                 y=y,
-                potential_type=self.potentialFunction,
-                preconditioner_type=self.preconditionerType,
+                numIterations=self.numIterations,
                 alpha=self.alpha if self.alpha is not None else 1.0,
                 beta=self.beta if self.beta is not None else 1.0,
-                numIterations=self.numIterations,
+                potential_type=self.potentialFunction,
+                preconditioner_type=self.preconditionerType,
                 isSavingEachIteration=self.isSavingEachIteration,
+                isCostFunction=self.isCostFunction,
                 withTumor=withTumor,
                 max_saves=self.maxSaves,
                 show_logs=show_logs,
-                device=self.device,
-                smatrixType=self.smatrixType,
             )
 
     def _run_PDHG(self, y, withTumor: bool = True, show_logs: bool = True):

@@ -1,0 +1,107 @@
+site_name: ca9
+site_description: Open source Python package security and evidence-backed SCA triage. Analyze reachable CVEs, package inventory, supply-chain risk, malicious package behavior, and dependency policy in local CI.
+site_url: https://duriantaco.github.io/ca9/
+site_author: duriantaco
+repo_url: https://github.com/duriantaco/ca9
+repo_name: duriantaco/ca9
+
+theme:
+  name: material
+  logo: assets/ca9.png
+  favicon: assets/ca9.png
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - content.code.copy
+    - content.code.annotate
+    - search.suggest
+    - search.highlight
+    - toc.follow
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.snippets
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+
+extra_javascript:
+  - assets/structured-data.js
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quickstart.md
+  - User Guide:
+      - CLI Reference: guide/cli.md
+      - Supply-Chain Vetting: guide/supply-chain.md
+      - Supported Formats: guide/formats.md
+      - Dynamic Analysis: guide/coverage.md
+      - Proof Standards: guide/proof-standards.md
+      - Positioning: guide/positioning.md
+  - Integrations:
+      - GitHub Action: integrations/github-action.md
+      - OSV Scan: integrations/osv.md
+      - Snyk: integrations/snyk.md
+      - Dependabot: integrations/dependabot.md
+      - Trivy: integrations/trivy.md
+      - pip-audit: integrations/pip-audit.md
+      - SARIF: integrations/sarif.md
+      - OpenVEX: integrations/openvex.md
+      - SBOM: integrations/sbom.md
+      - MCP Server: integrations/mcp.md
+      - CI/CD: integrations/ci-cd.md
+  - Architecture:
+      - Overview: architecture/overview.md
+      - Evidence Layer: architecture/evidence.md
+      - Verdict Engine: architecture/engine.md
+      - Analysis Pipeline: architecture/analysis.md
+      - Parsers: architecture/parsers.md
+  - API Reference:
+      - Models: api/models.md
+      - Engine: api/engine.md
+      - Scanner: api/scanner.md
+      - Analysis: api/analysis.md
+      - Parsers: api/parsers.md
+      - Report: api/report.md
+  - Benchmarks: benchmarks.md
+  - Demo: demo.md
+  - Release Checklist: release-checklist.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/duriantaco/ca9

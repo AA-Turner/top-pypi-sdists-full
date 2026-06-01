@@ -6,6 +6,7 @@
 
 import os
 import tempfile
+from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, cast
@@ -15,12 +16,15 @@ from django.core.exceptions import ValidationError
 from django.template.loader import render_to_string
 from django.test import SimpleTestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from weblate.addons.gettext import MsgmergeAddon, SphinxAddon, XgettextAddon
 from weblate.addons.models import Addon
 from weblate.lang.models import Language
+from weblate.trans.alerts.base import AlertSeverity
+from weblate.trans.alerts.registry import update_alerts
+from weblate.trans.alerts.vcs import UpdateFailure
 from weblate.trans.models import Component, Project, Unit
-from weblate.trans.models.alert import UpdateFailure, update_alerts
 from weblate.trans.tests.test_views import ViewTestCase
 from weblate.vcs.models import VCS_REGISTRY
 
@@ -35,7 +39,7 @@ class WebsiteAlertSettingTest(ViewTestCase):
         return self._create_component("po", "po/*.po")
 
     @override_settings(WEBSITE_ALERTS_ENABLED=False)
-    @patch("weblate.trans.models.alert.get_uri_error", return_value="unreachable")
+    @patch("weblate.trans.alerts.config.get_uri_error", return_value="unreachable")
     def test_website_alerts_disabled(self, mocked_get_uri_error) -> None:
         """Test that website alerts are not created when setting is False."""
         self.project.web = "https://example.com/project"
@@ -46,7 +50,7 @@ class WebsiteAlertSettingTest(ViewTestCase):
         mocked_get_uri_error.assert_not_called()
 
     @override_settings(WEBSITE_ALERTS_ENABLED=True)
-    @patch("weblate.trans.models.alert.get_uri_error", return_value="unreachable")
+    @patch("weblate.trans.alerts.config.get_uri_error", return_value="unreachable")
     def test_website_alerts_enabled(self, mocked_get_uri_error) -> None:
         """Test that website alerts are created when setting is True."""
         self.project.web = "https://example.com/project"
@@ -59,7 +63,7 @@ class WebsiteAlertSettingTest(ViewTestCase):
         )
 
     @override_settings(WEBSITE_ALERTS_ENABLED=True)
-    @patch("weblate.trans.models.alert.get_uri_error")
+    @patch("weblate.trans.alerts.config.get_uri_error")
     def test_website_alert_uses_validator_error_without_fetch(
         self, mocked_get_uri_error
     ) -> None:
@@ -78,10 +82,10 @@ class WebsiteAlertSettingTest(ViewTestCase):
 
     @override_settings(WEBSITE_ALERTS_ENABLED=True)
     @patch(
-        "weblate.trans.models.alert.validate_request_url",
+        "weblate.trans.alerts.config.validate_request_url",
         side_effect=ValidationError("URL domain is not allowed."),
     )
-    @patch("weblate.trans.models.alert.get_uri_error")
+    @patch("weblate.trans.alerts.config.get_uri_error")
     def test_website_alert_uses_runtime_validation_without_fetch(
         self, mocked_get_uri_error, mocked_validate_request_url
     ) -> None:
@@ -105,8 +109,8 @@ class WebsiteAlertSettingTest(ViewTestCase):
         WEBSITE_ALERTS_ENABLED=True,
         PROJECT_WEB_RESTRICT_ALLOWLIST={"test"},
     )
-    @patch("weblate.trans.models.alert.get_uri_error", return_value=None)
-    @patch("weblate.trans.models.alert.validate_request_url")
+    @patch("weblate.trans.alerts.config.get_uri_error", return_value=None)
+    @patch("weblate.trans.alerts.config.validate_request_url")
     def test_website_alert_respects_project_allowlist(
         self, mocked_validate_request_url, mocked_get_uri_error
     ) -> None:
@@ -129,9 +133,23 @@ class AlertTest(ViewTestCase):
     def create_component(self):
         return self._create_component("po", "po-duplicates/*.dpo", manage_units=True)
 
+    def update_component_alerts(self, component: Component | None = None) -> Component:
+        component = Component.objects.get(pk=(component or self.component).pk)
+        with self.captureOnCommitCallbacks(execute=True):
+            component.update_alerts()
+        return component
+
+    def get_problem_alert_names(self) -> set[str]:
+        self.update_component_alerts()
+        return set(
+            self.component.alert_set.filter(
+                severity__gte=AlertSeverity.ERROR
+            ).values_list("name", flat=True)
+        )
+
     def test_duplicates(self) -> None:
         self.assertEqual(
-            set(self.component.alert_set.values_list("name", flat=True)),
+            self.get_problem_alert_names(),
             {
                 "DuplicateLanguage",
                 "DuplicateString",
@@ -150,11 +168,12 @@ class AlertTest(ViewTestCase):
             pk__in={item["unit_pk"] for item in occurrences}
         ).get()
         # Remove the unit
-        unit.translation.delete_unit(None, unit)
+        with self.captureOnCommitCallbacks(execute=True):
+            unit.translation.delete_unit(None, unit)
 
         # The alert should have been removed now
         self.assertEqual(
-            set(self.component.alert_set.values_list("name", flat=True)),
+            self.get_problem_alert_names(),
             {
                 "DuplicateLanguage",
                 "BrokenBrowserURL",
@@ -164,7 +183,7 @@ class AlertTest(ViewTestCase):
 
     def test_unused_enforced(self) -> None:
         self.assertEqual(
-            set(self.component.alert_set.values_list("name", flat=True)),
+            self.get_problem_alert_names(),
             {
                 "DuplicateLanguage",
                 "DuplicateString",
@@ -173,9 +192,10 @@ class AlertTest(ViewTestCase):
             },
         )
         self.component.enforced_checks = ["es_format"]
-        self.component.save()
+        with self.captureOnCommitCallbacks(execute=True):
+            self.component.save()
         self.assertEqual(
-            set(self.component.alert_set.values_list("name", flat=True)),
+            self.get_problem_alert_names(),
             {
                 "DuplicateLanguage",
                 "DuplicateString",
@@ -186,6 +206,7 @@ class AlertTest(ViewTestCase):
         )
 
     def test_dismiss(self) -> None:
+        self.update_component_alerts()
         self.user.is_superuser = True
         self.user.save()
         response = self.client.post(
@@ -194,6 +215,17 @@ class AlertTest(ViewTestCase):
         )
         self.assertRedirects(response, f"{self.component.get_absolute_url()}#alerts")
         self.assertTrue(self.component.alert_set.get(name="BrokenBrowserURL").dismissed)
+
+    def test_existing_alert_updates_last_seen(self) -> None:
+        self.component.add_alert("MissingLicense")
+        alert = self.component.alert_set.get(name="MissingLicense")
+        old_updated = timezone.now() - timedelta(days=1)
+        self.component.alert_set.filter(pk=alert.pk).update(updated=old_updated)
+
+        self.component.add_alert("MissingLicense")
+
+        alert.refresh_from_db()
+        self.assertGreater(alert.updated, old_updated)
 
     def test_view(self) -> None:
         response = self.client.get(self.component.get_absolute_url())
@@ -206,33 +238,33 @@ class AlertTest(ViewTestCase):
 
         # No license and public project
         component = self.component
-        component.update_alerts()
+        update_alerts(component)
         self.assertTrue(has_license_alert(component))
 
         # Private project
         component.project.access_control = component.project.ACCESS_PRIVATE
-        component.update_alerts()
+        update_alerts(component)
         self.assertFalse(has_license_alert(component))
 
         # Public, but login required
         component.project.access_control = component.project.ACCESS_PUBLIC
-        with override_settings(LOGIN_REQUIRED_URLS=["some"]):
-            component.update_alerts()
+        with override_settings(REQUIRE_LOGIN=True):
+            update_alerts(component)
             self.assertFalse(has_license_alert(component))
 
         # Filtered licenses
         with override_settings(LICENSE_FILTER=set()):
-            component.update_alerts()
+            update_alerts(component)
             self.assertFalse(has_license_alert(component))
 
         # Filtered licenses
         with override_settings(LICENSE_FILTER={"proprietary"}):
-            component.update_alerts()
+            update_alerts(component)
             self.assertTrue(has_license_alert(component))
 
         # Set license
         component.license = "license"
-        component.update_alerts()
+        update_alerts(component)
         self.assertFalse(has_license_alert(component))
 
     def test_monolingual(self) -> None:
@@ -252,11 +284,14 @@ class AlertTest(ViewTestCase):
 
         other = self.create_link_existing()
 
+        self.update_component_alerts(component)
         self.assertTrue(component.alert_set.filter(name="DuplicateFilemask").exists())
         response = self.client.get(component.get_absolute_url())
         self.assertContains(response, "The following files were found multiple times")
 
-        other.delete()
+        with self.captureOnCommitCallbacks(execute=True):
+            other.delete()
+        self.update_component_alerts(component)
 
         self.assertFalse(component.alert_set.filter(name="DuplicateFilemask").exists())
 
@@ -405,7 +440,9 @@ class ConflictingRepositorySetupAlertTest(ViewTestCase):
             other.alert_set.filter(name="ConflictingRepositorySetup").exists()
         )
 
-    def test_conflicting_repository_setup_for_git_default_push_branch(self) -> None:
+    def test_conflicting_repository_setup_ignored_for_git_default_push_branch(
+        self,
+    ) -> None:
         other = self._create_component(
             "po",
             "po/*.po",
@@ -416,11 +453,34 @@ class ConflictingRepositorySetupAlertTest(ViewTestCase):
         update_alerts(self.component, {"ConflictingRepositorySetup"})
         update_alerts(other, {"ConflictingRepositorySetup"})
 
-        alert = self.component.alert_set.get(name="ConflictingRepositorySetup")
-        self.assertEqual(alert.details["component_ids"], [other.pk])
-        self.assertTrue(
+        self.assertFalse(
+            self.component.alert_set.filter(name="ConflictingRepositorySetup").exists()
+        )
+        self.assertFalse(
             other.alert_set.filter(name="ConflictingRepositorySetup").exists()
         )
+
+    def test_conflicting_repository_setup_for_mixed_git_push_branch(self) -> None:
+        other = self._create_component(
+            "po",
+            "po/*.po",
+            project=self.project,
+            name="Test2",
+        )
+        Component.objects.filter(pk=self.component.pk).update(
+            push_branch="weblate-test"
+        )
+        Component.objects.filter(pk=other.pk).update(branch="weblate-test")
+        self.component.refresh_from_db()
+        other.refresh_from_db()
+
+        update_alerts(self.component, {"ConflictingRepositorySetup"})
+        update_alerts(other, {"ConflictingRepositorySetup"})
+
+        alert = self.component.alert_set.get(name="ConflictingRepositorySetup")
+        self.assertEqual(alert.details["component_ids"], [other.pk])
+        alert = other.alert_set.get(name="ConflictingRepositorySetup")
+        self.assertEqual(alert.details["component_ids"], [self.component.pk])
 
     def test_conflicting_repository_setup_ignored_for_different_git_branch(
         self,
@@ -453,6 +513,12 @@ class ConflictingRepositorySetupAlertTest(ViewTestCase):
             project=self.project,
             name="Test2",
         )
+        Component.objects.filter(pk=self.component.pk).update(
+            push_branch="weblate-test"
+        )
+        Component.objects.filter(pk=other.pk).update(branch="weblate-test")
+        self.component.refresh_from_db()
+        other.refresh_from_db()
 
         update_alerts(self.component, {"ConflictingRepositorySetup"})
         update_alerts(other, {"ConflictingRepositorySetup"})
@@ -462,7 +528,10 @@ class ConflictingRepositorySetupAlertTest(ViewTestCase):
 
         other.branch = "translations"
         other.filemask = "translations/*.po"
-        with patch.object(Component, "queue_background_task", return_value=None):
+        with (
+            patch.object(Component, "queue_background_task", return_value=None),
+            self.captureOnCommitCallbacks(execute=True),
+        ):
             other.save()
 
         self.assertFalse(
@@ -530,7 +599,10 @@ class ConflictingRepositorySetupAlertTest(ViewTestCase):
         )
 
         other.push_branch = "weblate-test-2"
-        with patch.object(Component, "queue_background_task", return_value=None):
+        with (
+            patch.object(Component, "queue_background_task", return_value=None),
+            self.captureOnCommitCallbacks(execute=True),
+        ):
             other.save()
 
         self.assertFalse(
@@ -570,6 +642,23 @@ class ConflictingRepositorySetupAlertTest(ViewTestCase):
             self.component.alert_set.filter(name="ConflictingRepositorySetup").exists()
         )
 
+    def test_conflicting_repository_setup_not_removed_from_peer_on_pull_branch_save(
+        self,
+    ) -> None:
+        self.configure_merge_request_component(self.component)
+        other = self.create_conflicting_component()
+
+        update_alerts(self.component, {"ConflictingRepositorySetup"})
+        update_alerts(other, {"ConflictingRepositorySetup"})
+
+        other.branch = "translations"
+        with patch.object(Component, "queue_background_task", return_value=None):
+            other.save()
+
+        self.assertTrue(
+            self.component.alert_set.filter(name="ConflictingRepositorySetup").exists()
+        )
+
     def test_conflicting_repository_setup_kept_for_remaining_peers_on_delete(
         self,
     ) -> None:
@@ -597,8 +686,11 @@ class LanguageAlertTest(ViewTestCase):
     def test_ambiguous_language(self) -> None:
         component = self.component
         self.assertFalse(component.alert_set.filter(name="AmbiguousLanguage").exists())
-        component.add_new_language(Language.objects.get(code="ku"), self.get_request())
-        component.update_alerts()
+        with self.captureOnCommitCallbacks(execute=True):
+            component.add_new_language(
+                Language.objects.get(code="ku"), self.get_request()
+            )
+        update_alerts(component)
         self.assertTrue(component.alert_set.filter(name="AmbiguousLanguage").exists())
 
 
@@ -612,17 +704,18 @@ class ExtractPotAlertTest(ViewTestCase):
         source.write_text(
             'from gettext import gettext as _\n_("Hello")\n', encoding="utf-8"
         )
-        XgettextAddon.create(
-            component=self.component,
-            run=False,
-            configuration={
-                "interval": "weekly",
-                "update_po_files": False,
-                "language": "Python",
-                "source_patterns": ["src/*.py"],
-            },
-        )
-        self.component.update_alerts()
+        with self.captureOnCommitCallbacks(execute=True):
+            XgettextAddon.create(
+                component=self.component,
+                run=False,
+                configuration={
+                    "interval": "weekly",
+                    "update_po_files": False,
+                    "language": "Python",
+                    "source_patterns": ["src/*.py"],
+                },
+            )
+        update_alerts(self.component)
 
         self.assertTrue(
             self.component.alert_set.filter(name="ExtractPotMissingMsgmerge").exists()
@@ -677,20 +770,21 @@ class ExtractPotAlertTest(ViewTestCase):
         source.write_text(
             'from gettext import gettext as _\n_("Hello")\n', encoding="utf-8"
         )
-        XgettextAddon.create(
-            component=self.component,
-            run=False,
-            configuration={
-                "interval": "weekly",
-                "language": "Python",
-                "source_patterns": ["src/*.py"],
-            },
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            XgettextAddon.create(
+                component=self.component,
+                run=False,
+                configuration={
+                    "interval": "weekly",
+                    "language": "Python",
+                    "source_patterns": ["src/*.py"],
+                },
+            )
         Addon.objects.bulk_create(
             [Addon(component=self.component, name="weblate.addon.nonexisting")]
         )
 
-        self.component.update_alerts()
+        update_alerts(self.component)
 
         self.assertTrue(
             self.component.alert_set.filter(name="ExtractPotMissingMsgmerge").exists()
@@ -707,15 +801,37 @@ class MonolingualAlertTest(ViewTestCase):
         )
 
     def test_false_bilingual(self) -> None:
-        component = self._create_component(
-            "po-mono", "po-mono/*.po", project=self.project, name="bimono"
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            component = self._create_component(
+                "po-mono", "po-mono/*.po", project=self.project, name="bimono"
+            )
+        update_alerts(component)
         self.assertTrue(
             component.alert_set.filter(name="MonolingualTranslation").exists()
         )
 
 
 class RepositoryAlertTemplateTest(SimpleTestCase):
+    def test_no_mask_matches_explains_empty_repository_state(self) -> None:
+        rendered = render_to_string(
+            "trans/alert/nomaskmatches.html",
+            {
+                "analysis": {"can_add": True},
+                "component": SimpleNamespace(filemask="po/*.po"),
+            },
+        )
+
+        self.assertIn(
+            "This is okay when the repository does not contain translations yet.",
+            rendered,
+        )
+        self.assertIn(
+            "The alert will disappear once translations are added in Weblate or "
+            "committed to the repository.",
+            rendered,
+        )
+        self.assertIn("If translations already exist", rendered)
+
     def test_broken_project_url_renders_validation_error_as_main_message(
         self,
     ) -> None:

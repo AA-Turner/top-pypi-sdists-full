@@ -1,0 +1,355 @@
+from __future__ import annotations
+
+import contextlib
+import inspect
+import json
+import locale
+import os
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+from types import MappingProxyType
+from typing import Callable, Final, Union, final
+from typing_extensions import Self
+
+root_dir: Final[Path] = Path(__file__).parent.parent / "i18n"
+WINDOWS = sys.platform.startswith("win") or (sys.platform == "cli" and os.name == "nt")
+
+
+@dataclass
+class _LangConfigData:
+    default: str | None = None
+    frozen: dict[str, bool | list[str]] | None = None
+    require: dict[str, bool | list[str]] | None = None
+    name: str | None = None
+
+    locales: set[str] = field(default_factory=set)
+
+    def __post_init__(self):
+        if isinstance(self.name, str):
+            self.name = self.name.strip()
+            if not self.name:
+                self.name = None
+
+
+def _get_win_locale_with_ctypes() -> str | None:
+    import ctypes
+
+    kernel32 = ctypes.windll.kernel32
+    # Preferred modern API
+    buf = ctypes.create_unicode_buffer(85)
+
+    if kernel32.GetUserDefaultLocaleName(buf, len(buf)):
+        return buf.value.replace("-", "_")
+
+    # Fallback
+    lcid = kernel32.GetUserDefaultUILanguage()
+    return locale.windows_locale.get(lcid)
+
+
+def _get_win_locale_from_registry() -> str | None:
+    import winreg  # noqa
+
+    with contextlib.suppress(Exception):
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Control Panel\International") as key:
+            if lcname := winreg.QueryValueEx(key, "LocaleName")[0]:
+                return lcname
+            if lcid := winreg.QueryValueEx(key, "Locale")[0]:
+                return locale.windows_locale.get(int(lcid, 16))
+
+
+def _get_posix_locale() -> str | None:
+    for key in ("LC_ALL", "LC_MESSAGES", "LANG"):
+        if value := os.environ.get(key):
+            return value.split(".")[0]
+    return locale.getlocale(locale.LC_CTYPE)[0]
+
+
+if WINDOWS:
+    try:
+        import ctypes  # noqa: F401
+
+        _get_win_locale = _get_win_locale_with_ctypes
+    except ImportError:
+        _get_win_locale = _get_win_locale_from_registry
+
+
+def get_locale() -> str | None:
+    if WINDOWS:
+        return _get_win_locale()
+    return _get_posix_locale()
+
+
+def _get_config(root: Path) -> _LangConfigData:
+    if not (root / ".config.json").exists():
+        raise FileNotFoundError(f"Config file not found in {root}")
+    with (root / ".config.json").open("r", encoding="utf-8") as f:
+        data = json.load(f)
+        if "frozen" in data and isinstance(data["frozen"], list):
+            data["frozen"] = _expand(data["frozen"])
+        if "require" in data and isinstance(data["require"], list):
+            data["require"] = _expand(data["require"])
+        return _LangConfigData(**data)
+
+
+Types = Union[str, dict[str, "Types"]]
+Raw = dict[str, dict[str, Types]]
+
+
+def convert_dictionary(data, prefix: str = ""):
+    result = {}
+    for key, value in data.items():
+        if isinstance(value, dict):
+            result.update(convert_dictionary(value, f"{prefix}{key}."))
+        else:
+            result[f"{prefix}{key}"] = value
+    return result
+
+
+def flatten(data: Raw) -> dict[str, dict[str, str]]:
+    result = {}
+    for scope, types in data.items():
+        result[scope] = {}
+        for type, value in types.items():
+            if isinstance(value, dict):
+                result[scope].update(convert_dictionary({type: value}))
+            else:
+                result[scope][type] = value
+    return result
+
+
+def merge(source: dict, target: dict) -> dict:
+    for key, value in source.items():
+        if isinstance(value, dict):
+            target[key] = merge(value, target.get(key, {}))
+        elif isinstance(value, list):
+            target[key] = value + target.get(key, [])
+        else:
+            target[key] = value
+    return target
+
+
+def _expand(data: list[str]):
+    result: dict[str, bool | list[str]] = {}
+    for i in data:
+        if ":" not in i:
+            result[i] = True
+        else:
+            scope, types = i.split(":", 1)
+            if types == "*":
+                result[scope] = True
+            elif types.strip():
+                result.setdefault(scope, []).append(types.strip())  # type: ignore
+    return result
+
+
+def _get_lang(file: Path) -> Raw:
+    if not file.exists():
+        raise FileNotFoundError(f"Lang file '{file}' not found")
+    if file.suffix.startswith(".json"):
+        with file.open("r", encoding="utf-8") as f:
+            data: Raw = json.load(f)
+        data.pop("$schema", None)
+        return data
+    try:
+        from ruamel import yaml
+    except ImportError:
+        raise ImportError("ruamel-yaml is required to load yaml file")
+    reader = yaml.YAML(typ="safe", pure=True)
+    with file.open("r", encoding="utf-8") as f:
+        data1: Raw = reader.load(f)
+    data1.pop("$schema", None)
+    return data1
+
+
+def _get_scopes(root: Path) -> dict[str, dict[str, dict[str, str]]]:
+    result = {}
+    for i in root.iterdir():
+        if not i.is_file() or i.name.startswith(".") or i.suffix not in (".json", ".yaml", ".yml"):
+            continue
+        result[i.stem] = flatten(_get_lang(i))
+    return result
+
+
+class _LangScope:
+    def __init__(self, scope: str):
+        self.scope = scope
+
+    def require(self, type: str, subtype: str | None = None, locale: str | None = None):
+        if subtype:
+            type = f"{type}.{subtype}"
+        return lang.require(self.scope, type, locale)
+
+    def set(self, type: str, content: str, locale: str | None = None):
+        return lang.set(self.scope, type, content, locale)
+
+
+@final
+class _LangConfig:
+    def __init__(self):
+        self._root_config = _get_config(root_dir)
+        self.__configs: dict[str, _LangConfigData] = {"$root": self._root_config}
+        self.__locale: str = self._root_config.default or "en-US"
+        self.__default_locale: str = self._root_config.default or "en-US"
+        self.__langs: dict[str, dict[str, dict[str, str]]] = _get_scopes(root_dir)
+        self.__locales = set(self.__langs.keys())
+        self.__frozen: dict[str, bool | list[str]] = (self._root_config.frozen or {}).copy()
+        self.callbacks: list[Callable[[str], None]] = []
+        self.select_local()
+
+    @property
+    def locales(self):
+        return set(sorted(self.__locales))  # noqa: C414
+
+    def locales_in(self, config_name: str):
+        return self.__configs[config_name].locales
+
+    @property
+    def configs(self):
+        return MappingProxyType(self.__configs)
+
+    @property
+    def current(self):
+        return self.__locale
+
+    def select_local(self):
+        """
+        依据系统语言尝试自动选择语言
+        """
+        old = self.__locale
+        if lc := get_locale():
+            lc = lc.replace("_", "-")
+            if lc in self.__langs:
+                self.__locale = lc
+            elif any((match := k).startswith(lc.split("-")[0] + "-") for k in self.__langs):
+                self.__locale = match
+            else:
+                return self
+            if old != self.__locale:
+                for i in self.callbacks:
+                    i(self.__locale)
+        return self
+
+    def select(self, locale: str) -> Self:
+        old = self.__locale
+        lc = locale.replace("_", "-")
+        if lc in self.__langs:
+            pass
+        elif any((match := k).startswith(lc.split("-")[0] + "-") for k in self.__langs):
+            lc = match
+        else:
+            raise ValueError(self.require("lang", "error.locale").format(target=lc))
+        self.__locale = lc
+        if old != self.__locale:
+            for i in self.callbacks:
+                i(self.__locale)
+        return self
+
+    def load_data(self, locale: str, data: Raw, config: _LangConfigData | None = None):
+        if config:
+            config.locales.add(locale)
+        if locale in self.__langs:
+            source = flatten(data)
+            target = self.__langs[locale]
+            for scope, ignores in self.__frozen.items():
+                if scope not in target or scope not in source:
+                    continue
+                if ignores is True:
+                    source.pop(scope)
+                elif isinstance(ignores, list):
+                    for i in ignores:
+                        source[scope] = {
+                            k: v for k, v in source[scope].items() if not (k.startswith(i) and k in target[scope])
+                        }
+            self.__langs[locale] = merge(source, target)
+        else:
+            self.__locales.add(locale)
+            self.__langs[locale] = flatten(data)
+        if not config or not config.require:
+            return
+        for scope, requires in config.require.items():
+            if requires and scope not in self.__langs[locale]:
+                raise KeyError(self.require("lang", "miss_require_scope", locale).format(locale=locale, target=scope))
+            if isinstance(requires, list):
+                for t in requires:
+                    if any(k.startswith(t) for k in self.__langs[locale][scope]):
+                        continue
+                    raise KeyError(
+                        self.require("lang", "miss_require_type", locale).format(locale=locale, scope=scope, target=t)
+                    )
+
+    def load_file(self, filepath: Path, config: _LangConfigData | None = None):
+        return self.load_data(filepath.stem, _get_lang(filepath), config)
+
+    def load_config(self, dir_path: Path, config_name: str | None = None):
+        config = _get_config(dir_path)
+        name = config.name or config_name
+        if not name:
+            raise ValueError("Config name is required")
+        if name.startswith("$"):
+            raise ValueError("Config name cannot start with '$'")
+        self.__default_locale = config.default or self.__default_locale
+        self.__configs[name] = config
+        self.__frozen = merge(config.frozen or {}, self.__frozen)
+        self.select_local()
+        return config
+
+    def load(self, root: Path) -> Self:
+        if (cf := inspect.currentframe()) and (fb := cf.f_back):
+            mod_name = fb.f_globals["__loader__"].name
+            mod_name = mod_name.removesuffix(".i18n")
+        else:
+            mod_name = None
+        config = self.load_config(root, mod_name)
+        for i in root.iterdir():
+            if not i.is_file() or i.name.startswith(".") or i.suffix not in (".json", ".yaml", ".yml"):
+                continue
+            self.load_file(i, config)
+        return self
+
+    def require(self, scope: str, type: str, locale: str | None = None) -> str:
+        lc = locale or self.__locale
+        if lc in self.__langs:
+            pass
+        elif any((match := k).startswith(lc.split("-")[0] + "-") for k in self.__langs):
+            lc = match
+        else:
+            raise ValueError(self.__langs[self.__locale]["lang"]["error.locale"].format(target=lc))
+        if scope in self.__langs[lc]:
+            _types = self.__langs[lc][scope]
+        elif scope in self.__langs[self.__locale]:
+            _types = self.__langs[self.__locale][scope]
+        elif scope in self.__langs[self.__default_locale]:
+            _types = self.__langs[self.__default_locale][scope]
+        else:
+            raise ValueError(self.__langs[lc]["lang"]["error.scope"].format(target=scope, locale=lc))
+        if type in _types:
+            return _types[type]
+        elif type in self.__langs[self.__locale][scope]:
+            return self.__langs[self.__locale][scope][type]
+        elif type in self.__langs[self.__default_locale][scope]:
+            return self.__langs[self.__default_locale][scope][type]
+        else:
+            raise ValueError(self.__langs[lc]["lang"]["error.type"].format(target=type, locale=lc, scope=scope))
+
+    def set(self, scope: str, type: str, content: str, locale: str | None = None):
+        lc = locale or self.__locale
+        if lc not in self.__langs:
+            raise ValueError(self.__langs[self.__locale]["lang"]["error.locale"].format(target=lc))
+        if scope in self.__frozen:
+            if self.__frozen[scope] is True:
+                raise ValueError(self.__langs[lc]["lang"]["frozen.scope"].format(target=scope))
+            elif isinstance(frozens := self.__frozen[scope], list) and any(type.startswith(t) for t in frozens):
+                raise ValueError(self.__langs[lc]["lang"]["frozen.type"].format(target=type, scope=scope))
+        self.__langs[lc].setdefault(scope, {})[type] = content
+
+    def dispatch(self, scope: str) -> _LangScope:
+        return _LangScope(scope)
+
+    def __repr__(self):
+        return f"<LangConfig: {self.__locale}>"
+
+
+lang: _LangConfig = _LangConfig()
+
+__all__ = ["lang"]

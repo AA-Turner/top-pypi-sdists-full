@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    Fixes a regression which left behind trustee user accounts and certificates
-    when a cluster is deleted.

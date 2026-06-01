@@ -96,6 +96,8 @@ linkcheck_allow_redirects = True
 # Use legacy class-based autodoc implementation
 autodoc_use_legacy_class_based = True
 
+latex_engine = "xelatex"
+
 
 def pypi_role(name, rawtext, text, lineno, inliner, options={}, content=[]):
     from docutils import nodes
@@ -115,4 +117,10 @@ def setup(app):
     )
 
     roles.register_local_role("pypi", pypi_role)
+    
+    def flatten_tabs(app):
+        if app.builder.name == "latex":
+            app.config.sphinx_tabs_disable_tab_closing = True
+
+    app.connect("builder-inited", flatten_tabs)
     return app

@@ -14,9 +14,7 @@ from typing import (
     Annotated,
     Any,
     Literal,
-    NamedTuple,
     Optional,
-    TypedDict,
     TypeVar,
     Union,
     cast,
@@ -24,12 +22,13 @@ from typing import (
 )
 from uuid import UUID
 
-from litestar.di import Provide
-from litestar.params import Dependency, FromQuery, QueryParameter
-from typing_extensions import NotRequired
+from litestar.di import NamedDependency, Provide
+from litestar.params import FromQuery, QueryParameter, SkipValidation
 
 from advanced_alchemy.filters import (
     BeforeAfter,
+    BooleanFilter,
+    ChoicesFilter,
     CollectionFilter,
     FilterTypes,
     LimitOffset,
@@ -45,6 +44,16 @@ from advanced_alchemy.service import (
     ModelT,
     SQLAlchemyAsyncRepositoryService,
     SQLAlchemySyncRepositoryService,
+)
+from advanced_alchemy.utils.dependencies import (
+    ChoiceField,
+    DependencyCache,
+    FieldNameType,
+    FilterConfig,
+    make_hashable,
+    normalize_choice_field_types,
+    normalize_field_name_types,
+    normalize_sort_field,
 )
 from advanced_alchemy.utils.singleton import SingletonMeta
 from advanced_alchemy.utils.text import camelize
@@ -66,8 +75,22 @@ SortOrder = Literal["asc", "desc"]
 SortOrderOrNone = Optional[SortOrder]
 AsyncServiceT_co = TypeVar("AsyncServiceT_co", bound=SQLAlchemyAsyncRepositoryService[Any, Any], covariant=True)
 SyncServiceT_co = TypeVar("SyncServiceT_co", bound=SQLAlchemySyncRepositoryService[Any, Any], covariant=True)
-HashableValue = Union[str, int, float, bool, None]
-HashableType = Union[HashableValue, tuple[Any, ...], tuple[tuple[str, Any], ...], tuple[HashableValue, ...]]
+
+__all__ = (
+    "DEPENDENCY_DEFAULTS",
+    "ChoiceField",
+    "DependencyCache",
+    "DependencyDefaults",
+    "FieldNameType",
+    "FilterConfig",
+    "SingletonMeta",
+    "create_filter_dependencies",
+    "create_service_dependencies",
+    "create_service_provider",
+    "dep_cache",
+)
+
+_CACHE_NAMESPACE = "advanced_alchemy.extensions.litestar.providers"
 
 
 class DependencyDefaults:
@@ -90,60 +113,6 @@ class DependencyDefaults:
 
 
 DEPENDENCY_DEFAULTS = DependencyDefaults()
-
-
-class FieldNameType(NamedTuple):
-    """Type for field name and associated type information.
-
-    This allows for specifying both the field name and the expected type for filter values.
-    """
-
-    name: str
-    """Name of the field to filter on."""
-    type_hint: type[Any] = str
-    """Type of the filter value. Defaults to str."""
-
-
-class FilterConfig(TypedDict):
-    """Configuration for generating dynamic filters."""
-
-    id_filter: NotRequired[type[Union[UUID, int, str]]]
-    """Indicates that the id filter should be enabled.  When set, the type specified will be used for the :class:`CollectionFilter`."""
-    id_field: NotRequired[str]
-    """The field on the model that stored the primary key or identifier."""
-    sort_field: NotRequired[str]
-    """The default field to use for the sort filter."""
-    sort_order: NotRequired[SortOrder]
-    """The default order to use for the sort filter."""
-    pagination_type: NotRequired[Literal["limit_offset"]]
-    """When set, pagination is enabled based on the type specified."""
-    pagination_size: NotRequired[int]
-    """The size of the pagination. Defaults to `DEFAULT_PAGINATION_SIZE`."""
-    search: NotRequired[Union[str, set[str], list[str]]]
-    """Fields to enable search on. Can be a comma-separated string or a set of field names."""
-    search_ignore_case: NotRequired[bool]
-    """When set, search is case insensitive by default."""
-    created_at: NotRequired[bool]
-    """When set, created_at filter is enabled."""
-    updated_at: NotRequired[bool]
-    """When set, updated_at filter is enabled."""
-    not_in_fields: NotRequired[Union[FieldNameType, set[FieldNameType], list[Union[str, FieldNameType]]]]
-    """Fields that support not-in collection filters. Can be a single field or a set of fields with type information."""
-    in_fields: NotRequired[Union[FieldNameType, set[FieldNameType], list[Union[str, FieldNameType]]]]
-    """Fields that support in-collection filters. Can be a single field or a set of fields with type information."""
-
-
-class DependencyCache(metaclass=SingletonMeta):
-    """Simple dependency cache for the application.  This is used to help memoize dependencies that are generated dynamically."""
-
-    def __init__(self) -> None:
-        self.dependencies: dict[Union[int, str], dict[str, Provide]] = {}
-
-    def add_dependencies(self, key: Union[int, str], dependencies: dict[str, Provide]) -> None:
-        self.dependencies[key] = dependencies
-
-    def get_dependencies(self, key: Union[int, str]) -> Optional[dict[str, Provide]]:
-        return self.dependencies.get(key)
 
 
 dep_cache = DependencyCache()
@@ -207,7 +176,7 @@ def create_service_provider(
     session_dependency_key = config.session_dependency_key if config else "db_session"
 
     if issubclass(service_class, SQLAlchemyAsyncRepositoryService) or service_class is SQLAlchemyAsyncRepositoryService:  # type: ignore[comparison-overlap]
-        session_type_annotation = "Optional[AsyncSession]"
+        async_session_type_annotation = NamedDependency[SkipValidation[Optional["AsyncSession"]]]
         return_type_annotation = AsyncGenerator[service_class, None]  # type: ignore[valid-type]
 
         async def provide_service_async(*args: Any, **kwargs: Any) -> "AsyncGenerator[AsyncServiceT_co, None]":
@@ -227,8 +196,7 @@ def create_service_provider(
         session_param = inspect.Parameter(
             name=session_dependency_key,
             kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-            default=Dependency(skip_validation=True),
-            annotation=session_type_annotation,
+            annotation=async_session_type_annotation,
         )
 
         provider_signature = inspect.Signature(
@@ -237,11 +205,12 @@ def create_service_provider(
         )
         provide_service_async.__signature__ = provider_signature  # type: ignore[attr-defined]
         provide_service_async.__annotations__ = {
-            session_dependency_key: session_type_annotation,
+            session_dependency_key: async_session_type_annotation,
             "return": return_type_annotation,
         }
         return provide_service_async
-    session_type_annotation = "Optional[Session]"
+
+    sync_session_type_annotation = NamedDependency[SkipValidation[Optional["Session"]]]
     return_type_annotation = Generator[service_class, None, None]  # type: ignore[misc,assignment,valid-type]
 
     def provide_service_sync(*args: Any, **kwargs: Any) -> "Generator[SyncServiceT_co, None, None]":
@@ -261,8 +230,7 @@ def create_service_provider(
     session_param = inspect.Parameter(
         name=session_dependency_key,
         kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-        default=Dependency(skip_validation=True),
-        annotation=session_type_annotation,
+        annotation=sync_session_type_annotation,
     )
 
     provider_signature = inspect.Signature(
@@ -271,7 +239,7 @@ def create_service_provider(
     )
     provide_service_sync.__signature__ = provider_signature  # type: ignore[attr-defined]
     provide_service_sync.__annotations__ = {
-        session_dependency_key: session_type_annotation,
+        session_dependency_key: sync_session_type_annotation,
         "return": return_type_annotation,
     }
     return provide_service_sync
@@ -351,8 +319,8 @@ def create_filter_dependencies(
     Returns:
         A dependency provider function for the combined filter function.
     """
-    cache_key = hash(_make_hashable(config))
-    deps = dep_cache.get_dependencies(cache_key)
+    cache_key = hash((_CACHE_NAMESPACE, make_hashable(config)))
+    deps = cast("Optional[dict[str, Provide]]", dep_cache.get_dependencies(cache_key))
     if deps is not None:
         return deps
     deps = _create_statement_filters(config, dep_defaults)
@@ -360,38 +328,34 @@ def create_filter_dependencies(
     return deps
 
 
-def _make_hashable(value: Any) -> HashableType:
-    """Convert a value into a hashable type.
+def _create_order_by_filter_provider(
+    sort_field: Union[str, set[str], list[str]],
+    sort_order_default: SortOrder = "desc",
+) -> Callable[..., OrderBy]:
+    sort_field_default = normalize_sort_field(sort_field)
 
-    This function converts any value into a hashable type by:
-    - Converting dictionaries to sorted tuples of (key, value) pairs
-    - Converting lists and sets to sorted tuples
-    - Preserving primitive types (str, int, float, bool, None)
-    - Converting any other type to its string representation
+    def provide_order_by(
+        field_name: Annotated[
+            StringOrNone,
+            QueryParameter(
+                title="Order by field",
+                name="orderBy",
+            ),
+        ] = sort_field_default,
+        sort_order: Annotated[
+            SortOrderOrNone,
+            QueryParameter(
+                title="Field to search",
+                name="sortOrder",
+            ),
+        ] = sort_order_default,
+    ) -> OrderBy:
+        return OrderBy(field_name=field_name, sort_order=sort_order or sort_order_default)  # type: ignore[arg-type]
 
-    Args:
-        value: Any value that needs to be made hashable.
-
-    Returns:
-        A hashable version of the value.
-    """
-    if isinstance(value, dict):
-        # Convert dict to tuple of tuples with sorted keys
-        items = []
-        for k in sorted(value.keys()):  # pyright: ignore
-            v = value[k]  # pyright: ignore
-            items.append((str(k), _make_hashable(v)))  # pyright: ignore
-        return tuple(items)  # pyright: ignore
-    if isinstance(value, (list, set)):
-        hashable_items = [_make_hashable(item) for item in value]  # pyright: ignore
-        filtered_items = [item for item in hashable_items if item is not None]  # pyright: ignore
-        return tuple(sorted(filtered_items, key=str))
-    if isinstance(value, (str, int, float, bool, type(None))):
-        return value
-    return str(value)
+    return provide_order_by
 
 
-def _create_statement_filters(  # noqa: C901
+def _create_statement_filters(  # noqa: C901, PLR0915
     config: FilterConfig, dep_defaults: DependencyDefaults = DEPENDENCY_DEFAULTS
 ) -> dict[str, Provide]:
     """Create filter dependencies based on configuration.
@@ -482,26 +446,10 @@ def _create_statement_filters(  # noqa: C901
         filters[dep_defaults.SEARCH_FILTER_DEPENDENCY_KEY] = Provide(provide_search_filter, sync_to_thread=False)
 
     if sort_field := config.get("sort_field"):
-
-        def provide_order_by(
-            field_name: Annotated[
-                StringOrNone,
-                QueryParameter(
-                    title="Order by field",
-                    name="orderBy",
-                ),
-            ] = sort_field,
-            sort_order: Annotated[
-                SortOrderOrNone,
-                QueryParameter(
-                    title="Field to search",
-                    name="sortOrder",
-                ),
-            ] = config.get("sort_order", "desc"),
-        ) -> OrderBy:
-            return OrderBy(field_name=field_name, sort_order=sort_order)  # type: ignore[arg-type]
-
-        filters[dep_defaults.ORDER_BY_FILTER_DEPENDENCY_KEY] = Provide(provide_order_by, sync_to_thread=False)
+        filters[dep_defaults.ORDER_BY_FILTER_DEPENDENCY_KEY] = Provide(
+            _create_order_by_filter_provider(sort_field, config.get("sort_order", "desc")),
+            sync_to_thread=False,
+        )
 
     # Add not_in filter providers
     if not_in_fields := config.get("not_in_fields"):
@@ -605,6 +553,84 @@ def _create_statement_filters(  # noqa: C901
             provider = create_in_filter_provider(field_def)  # type: ignore
             filters[f"{field_def.name}_in_filter"] = Provide(provider, sync_to_thread=False)  # pyright: ignore
 
+    if boolean_fields := config.get("boolean_fields"):
+        for boolean_field_def in normalize_field_name_types(boolean_fields):
+
+            def create_boolean_filter_provider(
+                field_name: FieldNameType = boolean_field_def,
+            ) -> Callable[..., Optional[BooleanFilter]]:
+                param_name = f"{field_name.name}_boolean"
+
+                def provide_boolean_filter(**kwargs: Any) -> Optional[BooleanFilter]:
+                    value = kwargs.get(param_name)
+                    return BooleanFilter(field_name=field_name.name, value=value) if value is not None else None
+
+                annotation = Annotated[
+                    BooleanOrNone,
+                    QueryParameter(name=camelize(field_name.name)),
+                ]
+                provide_boolean_filter.__name__ = f"provide_boolean_filter_{field_name.name}"
+                provide_boolean_filter.__signature__ = inspect.Signature(  # type: ignore[attr-defined]
+                    parameters=[
+                        inspect.Parameter(
+                            name=param_name,
+                            kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                            default=None,
+                            annotation=annotation,
+                        )
+                    ],
+                    return_annotation=Optional[BooleanFilter],
+                )
+                provide_boolean_filter.__annotations__ = {
+                    param_name: annotation,
+                    "return": Optional[BooleanFilter],
+                }
+                return provide_boolean_filter
+
+            boolean_provider = create_boolean_filter_provider(boolean_field_def)
+            filters[f"{boolean_field_def.name}_boolean_filter"] = Provide(boolean_provider, sync_to_thread=False)
+
+    if choice_fields := config.get("choice_fields"):
+        for choice_field_def in normalize_choice_field_types(choice_fields):
+
+            def create_choices_filter_provider(
+                field_name: FieldNameType = choice_field_def,
+            ) -> Callable[..., Optional[ChoicesFilter[Any]]]:
+                param_name = f"{field_name.name}_choices"
+
+                def provide_choices_filter(**kwargs: Any) -> Optional[ChoicesFilter[Any]]:
+                    values = kwargs.get(param_name)
+                    return (
+                        ChoicesFilter[field_name.type_hint](field_name=field_name.name, values=values)  # type: ignore
+                        if values
+                        else None
+                    )
+
+                annotation = Annotated[
+                    Optional[list[field_name.type_hint]],  # type: ignore
+                    QueryParameter(name=camelize(field_name.name)),
+                ]
+                provide_choices_filter.__name__ = f"provide_choices_filter_{field_name.name}"
+                provide_choices_filter.__signature__ = inspect.Signature(  # type: ignore[attr-defined]
+                    parameters=[
+                        inspect.Parameter(
+                            name=param_name,
+                            kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                            default=None,
+                            annotation=annotation,
+                        )
+                    ],
+                    return_annotation=Optional[ChoicesFilter[Any]],
+                )
+                provide_choices_filter.__annotations__ = {
+                    param_name: annotation,
+                    "return": Optional[ChoicesFilter[Any]],
+                }
+                return provide_choices_filter
+
+            choices_provider = create_choices_filter_provider(choice_field_def)
+            filters[f"{choice_field_def.name}_choices_filter"] = Provide(choices_provider, sync_to_thread=False)
+
     if filters:
         filters[dep_defaults.FILTERS_DEPENDENCY_KEY] = Provide(
             _create_filter_aggregate_function(config), sync_to_thread=False
@@ -631,8 +657,7 @@ def _create_filter_aggregate_function(config: FilterConfig) -> Callable[..., lis
         parameters["id_filter"] = inspect.Parameter(
             name="id_filter",
             kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-            default=Dependency(skip_validation=True),
-            annotation=CollectionFilter[cls],  # type: ignore[valid-type]
+            annotation=NamedDependency[SkipValidation[CollectionFilter[cls]]],  # type: ignore[valid-type]
         )
         annotations["id_filter"] = CollectionFilter[cls]  # type: ignore[valid-type]
 
@@ -640,8 +665,7 @@ def _create_filter_aggregate_function(config: FilterConfig) -> Callable[..., lis
         parameters["created_filter"] = inspect.Parameter(
             name="created_filter",
             kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-            default=Dependency(skip_validation=True),
-            annotation=BeforeAfter,
+            annotation=NamedDependency[SkipValidation[BeforeAfter]],
         )
         annotations["created_filter"] = BeforeAfter
 
@@ -649,8 +673,7 @@ def _create_filter_aggregate_function(config: FilterConfig) -> Callable[..., lis
         parameters["updated_filter"] = inspect.Parameter(
             name="updated_filter",
             kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-            default=Dependency(skip_validation=True),
-            annotation=BeforeAfter,
+            annotation=NamedDependency[SkipValidation[BeforeAfter]],
         )
         annotations["updated_filter"] = BeforeAfter
 
@@ -658,8 +681,7 @@ def _create_filter_aggregate_function(config: FilterConfig) -> Callable[..., lis
         parameters["search_filter"] = inspect.Parameter(
             name="search_filter",
             kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-            default=Dependency(skip_validation=True),
-            annotation=SearchFilter,
+            annotation=NamedDependency[SkipValidation[SearchFilter]],
         )
         annotations["search_filter"] = SearchFilter
 
@@ -667,8 +689,7 @@ def _create_filter_aggregate_function(config: FilterConfig) -> Callable[..., lis
         parameters["limit_offset_filter"] = inspect.Parameter(
             name="limit_offset_filter",
             kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-            default=Dependency(skip_validation=True),
-            annotation=LimitOffset,
+            annotation=NamedDependency[SkipValidation[LimitOffset]],
         )
         annotations["limit_offset_filter"] = LimitOffset
 
@@ -676,36 +697,52 @@ def _create_filter_aggregate_function(config: FilterConfig) -> Callable[..., lis
         parameters["order_by_filter"] = inspect.Parameter(
             name="order_by_filter",
             kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-            default=Dependency(skip_validation=True),
-            annotation=OrderBy,
+            annotation=NamedDependency[SkipValidation[OrderBy,]],
         )
         annotations["order_by_filter"] = OrderBy
 
     # Add parameters for not_in filters
     if not_in_fields := config.get("not_in_fields"):
-        for field_def in not_in_fields:
-            field_def = FieldNameType(name=field_def, type_hint=str) if isinstance(field_def, str) else field_def
+        for field_def in normalize_field_name_types(not_in_fields):
+            annotation = NamedDependency[SkipValidation[NotInCollectionFilter[field_def.type_hint]]]  # type: ignore[name-defined]
             parameters[f"{field_def.name}_not_in_filter"] = inspect.Parameter(
                 name=f"{field_def.name}_not_in_filter",
                 kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                default=Dependency(skip_validation=True),
-                annotation=NotInCollectionFilter[field_def.type_hint],  # type: ignore
+                annotation=annotation,
             )
-            annotations[f"{field_def.name}_not_in_filter"] = NotInCollectionFilter[field_def.type_hint]  # type: ignore
+            annotations[f"{field_def.name}_not_in_filter"] = annotation
 
     # Add parameters for in filters
     if in_fields := config.get("in_fields"):
-        for field_def in in_fields:
-            field_def = FieldNameType(name=field_def, type_hint=str) if isinstance(field_def, str) else field_def
-            parameters[f"{field_def.name}_in_filter"] = inspect.Parameter(
-                name=f"{field_def.name}_in_filter",
-                kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                default=Dependency(skip_validation=True),
-                annotation=CollectionFilter[field_def.type_hint],  # type: ignore
-            )
-            annotations[f"{field_def.name}_in_filter"] = CollectionFilter[field_def.type_hint]  # type: ignore
+        for field_def in normalize_field_name_types(in_fields):
+            annotation = CollectionFilter[field_def.type_hint]  # type: ignore
 
-    def provide_filters(**kwargs: FilterTypes) -> list[FilterTypes]:
+            parameters[f"{field_def.name}_in_filter"] = inspect.Parameter(
+                name=f"{field_def.name}_in_filter", kind=inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=annotation
+            )
+            annotations[f"{field_def.name}_in_filter"] = annotation
+
+    if boolean_fields := config.get("boolean_fields"):
+        for boolean_field_def in normalize_field_name_types(boolean_fields):
+            boolean_annotation = NamedDependency[SkipValidation[BooleanFilter]]
+            parameters[f"{boolean_field_def.name}_boolean_filter"] = inspect.Parameter(
+                name=f"{boolean_field_def.name}_boolean_filter",
+                kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                annotation=boolean_annotation,
+            )
+            annotations[f"{boolean_field_def.name}_boolean_filter"] = boolean_annotation
+
+    if choice_fields := config.get("choice_fields"):
+        for choice_field_def in normalize_choice_field_types(choice_fields):
+            choices_annotation = NamedDependency[SkipValidation[ChoicesFilter[choice_field_def.type_hint]]]  # type: ignore[name-defined]
+            parameters[f"{choice_field_def.name}_choices_filter"] = inspect.Parameter(
+                name=f"{choice_field_def.name}_choices_filter",
+                kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                annotation=choices_annotation,
+            )
+            annotations[f"{choice_field_def.name}_choices_filter"] = choices_annotation
+
+    def provide_filters(**kwargs: FilterTypes) -> list[FilterTypes]:  # noqa: C901
         """Provide filter dependencies based on configuration.
 
         Args:
@@ -739,21 +776,25 @@ def _create_filter_aggregate_function(config: FilterConfig) -> Callable[..., lis
 
         # Add not_in filters
         if not_in_fields := config.get("not_in_fields"):
-            # Get all field names, handling both strings and FieldNameType objects
-            not_in_fields = {not_in_fields} if isinstance(not_in_fields, (str, FieldNameType)) else not_in_fields
-            for field_def in not_in_fields:
-                field_def = FieldNameType(name=field_def, type_hint=str) if isinstance(field_def, str) else field_def
+            for field_def in normalize_field_name_types(not_in_fields):
                 filter_ = kwargs.get(f"{field_def.name}_not_in_filter")
                 if filter_ is not None:
                     filters.append(filter_)
 
         # Add in filters
         if in_fields := config.get("in_fields"):
-            # Get all field names, handling both strings and FieldNameType objects
-            in_fields = {in_fields} if isinstance(in_fields, (str, FieldNameType)) else in_fields
-            for field_def in in_fields:
-                field_def = FieldNameType(name=field_def, type_hint=str) if isinstance(field_def, str) else field_def
+            for field_def in normalize_field_name_types(in_fields):
                 filter_ = kwargs.get(f"{field_def.name}_in_filter")
+                if filter_ is not None:
+                    filters.append(filter_)
+        if boolean_fields := config.get("boolean_fields"):
+            for field_def in normalize_field_name_types(boolean_fields):
+                filter_ = kwargs.get(f"{field_def.name}_boolean_filter")
+                if filter_ is not None:
+                    filters.append(filter_)
+        if choice_fields := config.get("choice_fields"):
+            for field_def in normalize_choice_field_types(choice_fields):
+                filter_ = kwargs.get(f"{field_def.name}_choices_filter")
                 if filter_ is not None:
                     filters.append(filter_)
         return filters

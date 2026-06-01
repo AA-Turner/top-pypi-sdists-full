@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    Now the resize and upgrade action of cluster will return cluster ID to be
-    consistent with other actions of Magnum cluster.

@@ -16,14 +16,15 @@ from __future__ import annotations
 
 import functools
 import inspect
-import polars as pl
-import numpy as np
-from typing import List, Tuple, Literal
-from .typing import LRSolverMethods, NullPolicy, PolarsFrame, TypeAlias
-
-from polars_ds._polars_ds import PyLR, PyGLM, PyElasticNet, PyOnlineLR
-
 import sys
+from typing import List, Literal, Tuple
+
+import numpy as np
+import polars as pl
+
+from polars_ds._polars_ds import PyElasticNet, PyGLM, PyLR, PyOnlineLR
+
+from .typing import LRSolverMethods, NullPolicy, PolarsFrame, TypeAlias
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -40,12 +41,8 @@ def _handle_nulls_in_df(
     if null_policy == "ignore":
         return df
     elif null_policy == "raise":
-        total_null_count = (
-            df.lazy().select(*features, target).null_count().collect().sum_horizontal()[0]
-        )
-        if total_null_count > 0:
-            raise ValueError("Nulls found in Dataframe.")
-        return df
+        # Return the lazy frame; the check will be performed efficiently after collection in the caller.
+        return df.lazy()
     elif null_policy == "skip":
         return df.drop_nulls(subset=features + [target])
     elif null_policy == "zero":
@@ -293,6 +290,9 @@ class LR:
             .select(*features, target)
             .collect()
         )
+        if null_policy == "raise" and any(df2[c].has_nulls() for c in df2.columns):
+            raise ValueError("Nulls found in Dataframe.")
+
         X = df2.select(features).to_numpy()
         y = df2.select(target).to_numpy()
         self.feature_names_in_.clear()
@@ -500,6 +500,9 @@ class ElasticNet:
             .select(*features, target)
             .collect()
         )
+        if null_policy == "raise" and any(df2[c].has_nulls() for c in df2.columns):
+            raise ValueError("Nulls found in Dataframe.")
+
         X = df2.select(features).to_numpy()
         y = df2.select(target).to_numpy()
         self.feature_names_in_.clear()
@@ -879,13 +882,17 @@ class GLM:
             fill nulls with 1.25. If the string cannot be converted to a float, an error will be thrown. Note: if
             the target column has null, the rows with nulls will always be dropped. Null-fill only applies to non-target
             columns. If target has null, then the row will still be dropped.
-
+        show_report
+            Whether to print out a regression report.
         """
         df2 = (
             _handle_nulls_in_df(df.lazy(), features, target, null_policy)
             .select(*features, target)
             .collect()
         )
+        if null_policy == "raise" and any(df2[c].has_nulls() for c in df2.columns):
+            raise ValueError("Nulls found in Dataframe.")
+
         X = df2.select(features).to_numpy()
         y = df2.select(target).to_numpy()
         self.feature_names_in_.clear()

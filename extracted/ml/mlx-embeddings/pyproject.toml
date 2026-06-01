@@ -1,0 +1,75 @@
+[project]
+name = "mlx-embeddings"
+dynamic = [
+    "version",
+    "dependencies",
+]
+description = "MLX-Embeddings is a package for running Vision and Language Embedding models locally on your Mac using MLX."
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = [
+    "mlx-embeddings",
+]
+license = {text = "GNU General Public License v3"}
+authors = [
+  {name = "Prince Canuma", email = "prince.gdt@gmail.com"},
+]
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+[project.entry-points."console_scripts"]
+mlx_embeddings = "mlx_embeddings.cli:main"
+
+[project.optional-dependencies]
+all = [
+    "mlx-embeddings[extra]",
+]
+
+extra = [
+    "pandas",
+]
+
+dev = [
+    "pytest",
+    "psutil",
+    "rich",
+]
+
+[tool]
+[tool.setuptools.packages.find]
+include = ["mlx_embeddings*"]
+exclude = ["docs*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "mlx_embeddings.version.__version__"}
+dependencies = {file = ["requirements.txt"]}
+
+
+[tool.distutils.bdist_wheel]
+universal = true
+
+
+[tool.pytest.ini_options]
+# test_smoke.py is a CLI integration script, not a pytest module
+addopts = "--ignore=mlx_embeddings/tests/test_smoke.py"
+
+[tool.flake8]
+exclude = [
+    "docs",
+]
+max-line-length = 88
+
+
+[project.urls]
+Homepage = "https://github.com/Blaizzy/mlx-embeddings"
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"

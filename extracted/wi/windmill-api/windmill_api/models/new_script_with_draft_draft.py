@@ -62,6 +62,8 @@ class NewScriptWithDraftDraft:
         modules (Union[Unset, None, NewScriptWithDraftDraftModules]): Additional script modules keyed by relative file
             path
         labels (Union[Unset, List[str]]):
+        skip_draft_deletion (Union[Unset, bool]): When true (set by the CLI / git sync), deploying this script does not
+            delete an existing user draft at the same path.
     """
 
     path: str
@@ -103,6 +105,7 @@ class NewScriptWithDraftDraft:
     assets: Union[Unset, List["NewScriptWithDraftDraftAssetsItem"]] = UNSET
     modules: Union[Unset, None, "NewScriptWithDraftDraftModules"] = UNSET
     labels: Union[Unset, List[str]] = UNSET
+    skip_draft_deletion: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -170,6 +173,8 @@ class NewScriptWithDraftDraft:
         labels: Union[Unset, List[str]] = UNSET
         if not isinstance(self.labels, Unset):
             labels = self.labels
+
+        skip_draft_deletion = self.skip_draft_deletion
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -251,6 +256,8 @@ class NewScriptWithDraftDraft:
             field_dict["modules"] = modules
         if labels is not UNSET:
             field_dict["labels"] = labels
+        if skip_draft_deletion is not UNSET:
+            field_dict["skip_draft_deletion"] = skip_draft_deletion
 
         return field_dict
 
@@ -361,6 +368,8 @@ class NewScriptWithDraftDraft:
 
         labels = cast(List[str], d.pop("labels", UNSET))
 
+        skip_draft_deletion = d.pop("skip_draft_deletion", UNSET)
+
         new_script_with_draft_draft = cls(
             path=path,
             summary=summary,
@@ -401,6 +410,7 @@ class NewScriptWithDraftDraft:
             assets=assets,
             modules=modules,
             labels=labels,
+            skip_draft_deletion=skip_draft_deletion,
         )
 
         new_script_with_draft_draft.additional_properties = d

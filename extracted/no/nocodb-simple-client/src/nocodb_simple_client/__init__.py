@@ -28,9 +28,10 @@ from typing import TYPE_CHECKING
 
 from .api_version import APIVersion, PathBuilder, QueryParamAdapter, RequestAdapter, ResponseAdapter
 from .base_resolver import BaseIdResolver
-from .cache import CacheManager
+from .cache import CacheManager, NocoDBCache
 from .client import NocoDBClient
 from .columns import NocoDBColumns, TableColumns
+from .config import NocoDBConfig, load_config
 from .exceptions import AuthenticationError  # noqa: F401 (alias for compatibility)
 from .exceptions import FileOperationError  # noqa: F401
 from .exceptions import NocoDBError  # noqa: F401
@@ -81,7 +82,7 @@ else:
                 raise ImportError("Async support not available. Install aiohttp and aiofiles.")
 
 
-__version__ = "1.3.2"
+__version__ = "1.3.6"
 __author__ = "BAUER GROUP (Karl Bauer)"
 __email__ = "karl.bauer@bauer-group.com"
 
@@ -90,6 +91,9 @@ __all__ = [
     "NocoDBClient",
     "NocoDBTable",
     "NocoDBMetaClient",
+    # Configuration
+    "NocoDBConfig",
+    "load_config",
     # API Version support
     "APIVersion",
     "PathBuilder",
@@ -137,7 +141,6 @@ __all__ = [
     # Caching
     "CacheManager",
     "NocoDBCache",
-    "InMemoryCache",
     # Async support (if available)
     "AsyncNocoDBClient",
     "AsyncNocoDBTable",

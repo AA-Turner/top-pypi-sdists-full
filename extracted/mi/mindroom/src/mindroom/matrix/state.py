@@ -1,0 +1,258 @@
+"""Pydantic models for Matrix state."""
+
+import os
+from datetime import UTC, datetime
+from functools import lru_cache
+from pathlib import Path
+from tempfile import NamedTemporaryFile
+
+import yaml
+from pydantic import BaseModel, Field, field_serializer
+
+from mindroom import constants
+
+
+class MatrixAccount(BaseModel):
+    """Represents a Matrix account (user or agent)."""
+
+    username: str
+    password: str
+    requested_username: str | None = None
+    domain: str | None = None
+    device_id: str | None = None
+    access_token: str | None = None
+
+
+class MatrixRoom(BaseModel):
+    """Represents a Matrix room state."""
+
+    room_id: str
+    alias: str
+    name: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @field_serializer("created_at")
+    def serialize_datetime(self, dt: datetime) -> str:
+        """Serialize datetime to ISO format string."""
+        return dt.isoformat()
+
+
+class MatrixState(BaseModel):
+    """Complete Matrix state including accounts and rooms."""
+
+    accounts: dict[str, MatrixAccount] = Field(default_factory=dict)
+    rooms: dict[str, MatrixRoom] = Field(default_factory=dict)
+    space_room_id: str | None = None
+
+    @classmethod
+    def load(cls, runtime_paths: constants.RuntimePaths) -> "MatrixState":
+        """Load state from file.
+
+        Reads come from a process-wide cache keyed by the state file's
+        ``(path, st_mtime_ns, st_size)`` so repeated calls against an unchanged
+        file skip the YAML parse. A deep copy is returned so callers may safely
+        mutate the result before ``save`` without polluting the cache.
+        """
+        return matrix_state_for_runtime(runtime_paths).model_copy(deep=True)
+
+    def save(self, runtime_paths: constants.RuntimePaths) -> None:
+        """Save state to file."""
+        # Use Pydantic's model_dump with custom serializer for datetime
+        data = self.model_dump(mode="json")
+
+        state_file = constants.matrix_state_file(runtime_paths=runtime_paths)
+        _write_matrix_state_file(state_file, data)
+
+    def get_account(self, key: str) -> MatrixAccount | None:
+        """Get an account by key."""
+        return self.accounts.get(key)
+
+    def add_account(
+        self,
+        key: str,
+        username: str,
+        password: str,
+        *,
+        requested_username: str | None = None,
+        domain: str | None = None,
+        device_id: str | None = None,
+        access_token: str | None = None,
+    ) -> None:
+        """Add or update an account."""
+        existing_account = self.accounts.get(key)
+        effective_domain = domain if domain is not None else existing_account.domain if existing_account else None
+        effective_requested_username = (
+            requested_username
+            if requested_username is not None
+            else existing_account.requested_username
+            if existing_account
+            else None
+        )
+        self.accounts[key] = MatrixAccount(
+            username=username,
+            password=password,
+            requested_username=effective_requested_username,
+            domain=effective_domain,
+            device_id=device_id,
+            access_token=access_token,
+        )
+
+    def get_room(self, key: str) -> MatrixRoom | None:
+        """Get a room by key."""
+        return self.rooms.get(key)
+
+    def add_room(self, key: str, room_id: str, alias: str, name: str) -> None:
+        """Add or update a room."""
+        self.rooms[key] = MatrixRoom(room_id=room_id, alias=alias, name=name, created_at=datetime.now(tz=UTC))
+
+    def get_room_aliases(self) -> dict[str, str]:
+        """Get mapping of room aliases to room IDs."""
+        return {key: room.room_id for key, room in self.rooms.items()}
+
+    def set_space_room_id(self, room_id: str | None) -> None:
+        """Persist the root Matrix Space room ID."""
+        self.space_room_id = room_id
+
+
+def matrix_state_for_runtime(runtime_paths: constants.RuntimePaths) -> MatrixState:
+    """Return persisted Matrix state for one runtime, cached by file mtime/size.
+
+    The returned object is shared across callers; **read-only callers** should
+    prefer this helper for the lowest overhead. Callers that intend to mutate
+    the result must use :py:meth:`MatrixState.load`, which returns a deep copy
+    backed by the same cache.
+    """
+    state_file = constants.matrix_state_file(runtime_paths=runtime_paths)
+    return _load_matrix_state_file_cached(
+        *_matrix_state_cache_key(state_file),
+        current_domain=_current_runtime_domain(runtime_paths),
+    )
+
+
+def load_rooms(runtime_paths: constants.RuntimePaths) -> dict[str, MatrixRoom]:
+    """Load room state from YAML file.
+
+    Returns an isolated copy of the rooms map so callers may mutate the dict
+    or its ``MatrixRoom`` values without corrupting cached state used by other
+    readers.
+    """
+    return MatrixState.load(runtime_paths=runtime_paths).rooms
+
+
+def _room_aliases(runtime_paths: constants.RuntimePaths) -> dict[str, str]:
+    """Get mapping of room aliases to room IDs."""
+    return matrix_state_for_runtime(runtime_paths).get_room_aliases()
+
+
+def get_room_id(room_key: str, runtime_paths: constants.RuntimePaths) -> str | None:
+    """Get room ID for a given room key/alias."""
+    room = matrix_state_for_runtime(runtime_paths).get_room(room_key)
+    return room.room_id if room else None
+
+
+def resolve_room_aliases(
+    room_list: list[str],
+    runtime_paths: constants.RuntimePaths,
+) -> list[str]:
+    """Resolve room aliases to room IDs."""
+    aliases = _room_aliases(runtime_paths)
+    return [aliases.get(room, room) for room in room_list]
+
+
+def get_room_alias_from_id(room_id: str, runtime_paths: constants.RuntimePaths) -> str | None:
+    """Get room alias from room ID."""
+    for alias, resolved_room_id in _room_aliases(runtime_paths).items():
+        if resolved_room_id == room_id:
+            return alias
+    return None
+
+
+def _matrix_state_cache_key(state_file: Path) -> tuple[Path, int | None, int | None]:
+    """Return one cache key that invalidates when the state file changes."""
+    if not state_file.exists():
+        return state_file, None, None
+    stat = state_file.stat()
+    return state_file, stat.st_mtime_ns, stat.st_size
+
+
+@lru_cache(maxsize=64)
+def _load_matrix_state_file_cached(
+    state_file: Path,
+    mtime_ns: int | None,
+    size: int | None,
+    *,
+    current_domain: str,
+) -> MatrixState:
+    """Load Matrix state through a file-change-sensitive cache."""
+    del mtime_ns, size
+    return _load_matrix_state_file(state_file, current_domain=current_domain)
+
+
+def _current_runtime_domain(runtime_paths: constants.RuntimePaths) -> str:
+    """Return the current Matrix server name for one runtime context."""
+    if server_name := constants.runtime_matrix_server_name(runtime_paths):
+        return server_name
+
+    homeserver = constants.runtime_matrix_homeserver(runtime_paths)
+    server_part = homeserver.split("://", 1)[1] if "://" in homeserver else homeserver
+    return server_part.split(":", 1)[0]
+
+
+def _migrate_accounts_to_current_schema(state: MatrixState, *, current_domain: str) -> bool:
+    """Normalize persisted accounts to the current on-disk schema."""
+    changed = False
+    for account in state.accounts.values():
+        if account.domain is None:
+            account.domain = current_domain
+            changed = True
+    return changed
+
+
+def _load_matrix_state_file(state_file: Path, *, current_domain: str) -> MatrixState:
+    """Load one Matrix state file from disk."""
+    if not state_file.exists():
+        return MatrixState()
+    with state_file.open(encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+    state = MatrixState.model_validate(data)
+    migrated = _migrate_accounts_to_current_schema(state, current_domain=current_domain)
+    normalized_data = state.model_dump(mode="json")
+    if migrated or data != normalized_data:
+        _write_matrix_state_file(state_file, normalized_data)
+    return state
+
+
+def _write_matrix_state_file(state_file: Path, data: dict[str, object]) -> None:
+    """Atomically persist Matrix state without cross-process advisory locking."""
+    state_file.parent.mkdir(parents=True, exist_ok=True)
+    temp_path: Path | None = None
+    try:
+        with NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=state_file.parent,
+            prefix=f".{state_file.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as temp_file:
+            temp_path = Path(temp_file.name)
+            yaml.safe_dump(data, temp_file, default_flow_style=False, sort_keys=False)
+            temp_file.flush()
+            os.fsync(temp_file.fileno())
+        temp_path.replace(state_file)
+        _fsync_directory(state_file.parent)
+    finally:
+        if temp_path is not None and temp_path.exists():
+            temp_path.unlink()
+
+
+def _fsync_directory(path: Path) -> None:
+    """Flush a directory entry after an atomic file replacement."""
+    try:
+        directory_fd = os.open(path, os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        os.fsync(directory_fd)
+    finally:
+        os.close(directory_fd)

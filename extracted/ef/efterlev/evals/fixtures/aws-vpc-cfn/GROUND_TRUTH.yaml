@@ -1,0 +1,140 @@
+# Ground-truth labels for the aws-vpc-cfn eval fixture.
+#
+# v0.1.97 (CFN graduation arc step 2) — ships the maintainer-draft
+# labels mirroring the structure used for aws-vpc-tfm (the TF-side
+# equivalent). Both fixtures are real-shape AWS VPC reference
+# architectures published by AWS (Terraform via terraform-aws-modules,
+# CFN via aws-quickstart). Same conceptual shape — VPC + multi-tier
+# subnets + NACLs + flow logs + routing — different IaC source.
+#
+# Pre-v0.1.97 status: empty labels per v0.1.72 plumbing-only note.
+# Property mapping shipped via PR gamma + gamma.2 batches 1-9
+# (v0.1.73-v0.1.96), so detectors now read CFN-translated bodies
+# equivalently to TF. Labels can land.
+#
+# v0.1.97 ships maintainer-DRAFT labels. The maintainer-validation
+# LLM-call dispatch (the v0.1.81-equivalent step where we run gap
+# agent with a real ANTHROPIC_API_KEY or Bedrock against this
+# fixture and compare verdicts to labels) is the next graduation
+# arc step (v0.1.98 candidate).
+#
+# === Why the labels mirror aws-vpc-tfm so closely ===
+#
+# Both fixtures are the same canonical AWS VPC architecture in two
+# different IaC syntaxes. The detector verdicts SHOULD be equivalent
+# at the KSI level — that's the whole point of the property-mapping
+# layer. Per-detector deltas (counts, specific findings) may differ
+# slightly because the CFN template has different Conditions /
+# Parameters than the TF module's variable defaults, but the
+# qualitative classification (full/partial/not_implemented) should
+# match for the network-layer KSIs.
+#
+# This expectation IS the regression instrument the maintainer-
+# validation dispatch will test. If aws-vpc-cfn classifies
+# differently from aws-vpc-tfm on any of CNA-MAT/CNA-RNT/CNA-ULN/
+# PIY-GIV, that's a CFN-side bug worth investigating — not a
+# fixture-quality issue.
+
+fixture_id: aws-vpc-cfn
+description: |
+  AWS Quick Start aws-vpc CloudFormation template
+  (aws-quickstart/quickstart-aws-vpc, main commit e7ab8614)
+  vendored verbatim. Real-shape, parameter-driven,
+  condition-conditional CFN networking from the AWS-published
+  reference architecture used by thousands of FedRAMP-pursuing
+  customers. ~80 raw AWS::EC2::* resources across VPC, subnets
+  (4 tiers), routing, NAT gateways, network ACLs, flow logs,
+  plus the full CFN Conditions / Mappings / Parameters apparatus.
+
+  CFN companion to aws-vpc-tfm on the Terraform side. Same
+  conceptual shape, different IaC source — designed to validate
+  that detector verdicts are invariant under IaC syntax once the
+  property-mapping table translates CFN bodies to TF shape.
+
+authored_by: maintainer@efterlev.com
+authored_at: 2026-05-14
+# revision: 1 → 2 in v0.1.98 — maintainer-validation dispatch on
+# Anthropic API + Haiku 4.5 hit 21/21 = 100% precision + 100% recall
+# against revision-1 labels. Bumped to record the validation pass;
+# label content unchanged from revision 1. See
+# evals/PHASE_2_LITE_CFN_VALIDATION.md "Results — v0.1.98" section.
+revision: 2
+frmr_version: 0.9.43-beta
+
+# v0.1.97 (claude-drafted, evidence-mirror-of-aws-vpc-tfm):
+# These labels are authored by:
+# (a) inspecting the CFN template under infra/ + the property-mapping
+#     table to determine which detectors fire on the translated body
+# (b) mirroring aws-vpc-tfm's GROUND_TRUTH.yaml KSI selection (the TF
+#     companion shipped with maintainer-validated labels at v0.1.69
+#     and second-pass review at v0.1.67 — those labels are the
+#     authoritative "what an honest maintainer expects from a real-
+#     shape VPC fixture")
+# (c) applying conservative-labeling discipline per Phase 1
+#     GROUND_TRUTH_FORMAT.md: only KSIs where evidence-vs-statement
+#     mapping is unambiguous get labeled; all others stay unlabeled
+#     (the harness skips them, no penalty)
+#
+# Maintainer-validation dispatch (v0.1.98 candidate): run the harness
+# against this fixture with a real LLM backend, compare each label
+# below against the agent's actual verdict, override any label where
+# the dispatch surfaces a real CFN-side classification gap (vs the TF
+# baseline). Bump revision and re-run.
+#
+# KSIs WITH detector evidence in this fixture (mirrors aws-vpc-tfm):
+#   - KSI-CNA-MAT, KSI-CNA-RNT: NACLs in the AWS Quick Start VPC are
+#     the AWS-default permissive shape — `posture_state =
+#     partially_restrictive` per aws.nacl_restrictiveness (no explicit
+#     deny rules). Honest verdict: `partial`. Alternation to
+#     `not_implemented` because the missing-explicit-deny gap could
+#     defensibly be weighted that way (per aws-vpc-tfm v0.1.67 second-
+#     pass review, also tracked in evals/PHASE_2_LITE_LABEL_REVIEW.md).
+#   - KSI-CNA-ULN: aws.vpc_logical_segmentation fires on the VPC + 4
+#     subnet tiers. CFN's parameter-driven CIDRs may resolve at parse
+#     time better than TF's variable-driven ones (CFN parameters have
+#     defaults in the Mappings; TF variables in this fixture had
+#     unresolvable interpolations). Honest verdict: `partial` (VPC
+#     declared) or `not_implemented` (segmentation not fully
+#     verifiable) — alternation captures both.
+#   - KSI-PIY-GIV: aws.terraform_inventory (despite the name) fires on
+#     ANY aws_* resources, including CFN-translated ones. Inventory_state
+#     = tracked, ~25-30 distinct resource types after CFN→TF
+#     translation. Honest verdict: `partial` — IaC layer evidences
+#     "we use IaC for inventory" but full CM-8 implementation requires
+#     procedural process which is out of IaC scope.
+#
+# KSIs without IaC surface (procedural-only) — `evidence_layer_inapplicable
+# |not_applicable` is honest because the fixture has no Evidence
+# Manifests attesting to operational implementation. Identical to
+# aws-vpc-tfm because the underlying KSIs are layer-class procedural.
+expected_classifications:
+  # --- KSIs WITH detector evidence ---
+  KSI-CNA-MAT: partial|not_implemented
+  KSI-CNA-RNT: partial|not_implemented
+  KSI-CNA-ULN: partial|not_implemented
+  KSI-PIY-GIV: partial
+
+  # --- AFR procedural-only (no IaC surface in this fixture) ---
+  KSI-AFR-ADS: evidence_layer_inapplicable|not_applicable
+  KSI-AFR-CCM: evidence_layer_inapplicable|not_applicable
+  KSI-AFR-FSI: evidence_layer_inapplicable|not_applicable
+  KSI-AFR-ICP: evidence_layer_inapplicable|not_applicable
+  KSI-AFR-MAS: evidence_layer_inapplicable|not_applicable
+  KSI-AFR-PVA: evidence_layer_inapplicable|not_applicable
+  KSI-AFR-SCG: evidence_layer_inapplicable|not_applicable
+  KSI-AFR-SCN: evidence_layer_inapplicable|not_applicable
+  KSI-AFR-VDR: evidence_layer_inapplicable|not_applicable
+
+  # --- CED procedural-only ---
+  KSI-CED-DET: evidence_layer_inapplicable|not_applicable
+  KSI-CED-RGT: evidence_layer_inapplicable|not_applicable
+  KSI-CED-RRT: evidence_layer_inapplicable|not_applicable
+  KSI-CED-RST: evidence_layer_inapplicable|not_applicable
+
+  # --- INR procedural-only ---
+  KSI-INR-AAR: evidence_layer_inapplicable|not_applicable
+  KSI-INR-RIR: evidence_layer_inapplicable|not_applicable
+  KSI-INR-RPI: evidence_layer_inapplicable|not_applicable
+
+  # --- PIY-RSD (workflow surface skipped via --allow-subdir-target) ---
+  KSI-PIY-RSD: not_implemented|evidence_layer_inapplicable

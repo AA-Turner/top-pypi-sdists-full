@@ -186,6 +186,15 @@ class GPSampler(BaseSampler):
         constraints_func: Callable[[FrozenTrial], Sequence[float]] | None = None,
         warn_independent_sampling: bool = True,
     ) -> None:
+        # NOTE(nabenabe): These features are missing.
+        # - input constraints (use SLSQP),
+        # - constant noise insertion (replace minimum_noise directly and use deterministic=True),
+        # - q-batch (closed PR available),
+        # - input warping (cf. https://arxiv.org/pdf/2012.03826),
+        # - output warping (cf. https://arxiv.org/pdf/2012.03826).
+        # - output de-correlation (for multi-objective GP) (cf. https://arxiv.org/abs/1909.13595)
+        # - kernel hyperparameter prior enhancement
+        #     - cf. https://github.com/optuna/optuna/issues/6255#issuecomment-4357841010
         self._rng = LazyRandomState(seed)
         self._independent_sampler = independent_sampler or optuna.samplers.RandomSampler(seed=seed)
         self._intersection_search_space = optuna.search_space.IntersectionSearchSpace()
@@ -305,23 +314,6 @@ class GPSampler(BaseSampler):
         chosen_indices = self._rng.rng.choice(n_pareto_sols, size=size, replace=False)
         return pareto_params[chosen_indices]
 
-    def _get_normalized_params_of_running_trials(
-        self,
-        trials: list[FrozenTrial],
-        internal_search_space: gp_search_space.SearchSpace,
-    ) -> np.ndarray | None:
-        running_trials = [
-            t
-            for t in trials
-            if internal_search_space._optuna_search_space.keys() <= _get_params(t).keys()
-            and t.state == TrialState.RUNNING
-        ]
-        if len(running_trials) == 0:
-            return None
-        return internal_search_space.get_normalized_params(
-            running_trials, [_get_params(t) for t in running_trials]
-        )
-
     def sample_relative(
         self, study: Study, trial: FrozenTrial, search_space: dict[str, BaseDistribution]
     ) -> dict[str, Any]:
@@ -329,11 +321,13 @@ class GPSampler(BaseSampler):
             return {}
 
         states = (TrialState.COMPLETE, TrialState.RUNNING)
-        # At present, running trials are taken into account only in single-objective
-        # unconstrained optimization.
-        use_cache = len(study.directions) > 1 or self._constraints_func is not None
-        trials = study._get_trials(deepcopy=False, states=states, use_cache=use_cache)
+        trials = study._get_trials(deepcopy=False, states=states, use_cache=False)
         completed_trials = [t for t in trials if t.state == TrialState.COMPLETE]
+        running_trials = [
+            t
+            for t in trials
+            if t.state == TrialState.RUNNING and search_space.keys() <= _get_params(t).keys()
+        ]
 
         if len(completed_trials) < self._n_startup_trials:
             return {}
@@ -341,7 +335,9 @@ class GPSampler(BaseSampler):
         # Force CPU device for all torch operations to avoid issues when
         # torch.set_default_device("cuda") is set globally (issue #6113).
         with torch.device("cpu"):
-            params = self._sample_relative_impl(study, completed_trials, trials, search_space)
+            params = self._sample_relative_impl(
+                study, completed_trials, running_trials, search_space
+            )
 
         if params != {}:
             # Share the params obtained by the relative sampling with the other processes.
@@ -359,11 +355,18 @@ class GPSampler(BaseSampler):
         self,
         study: Study,
         completed_trials: list[FrozenTrial],
-        trials: list[FrozenTrial],
+        running_trials: list[FrozenTrial],
         search_space: dict[str, BaseDistribution],
     ) -> dict[str, Any]:
         internal_search_space = gp_search_space.SearchSpace(search_space)
         normalized_params = internal_search_space.get_normalized_params(completed_trials)
+        normalized_params_of_running_trials = (
+            internal_search_space.get_normalized_params(
+                running_trials, [_get_params(t) for t in running_trials]
+            )
+            if len(running_trials) > 0
+            else None
+        )
 
         _sign = np.array([-1.0 if d == StudyDirection.MINIMIZE else 1.0 for d in study.directions])
         standardized_score_vals, _, _ = _standardize_values(
@@ -405,11 +408,7 @@ class GPSampler(BaseSampler):
                     gpr=gprs_list[0],
                     search_space=internal_search_space,
                     threshold=standardized_score_vals[:, 0].max(),
-                    normalized_params_of_running_trials=(
-                        self._get_normalized_params_of_running_trials(
-                            trials, internal_search_space
-                        )
-                    ),
+                    normalized_params_of_running_trials=normalized_params_of_running_trials,
                 )
                 best_params = normalized_params[np.argmax(standardized_score_vals), np.newaxis]
             else:
@@ -419,6 +418,7 @@ class GPSampler(BaseSampler):
                     Y_train=torch.from_numpy(standardized_score_vals),
                     n_qmc_samples=128,  # NOTE(nabenabe): The BoTorch default value.
                     qmc_seed=self._rng.rng.randint(1 << 30),
+                    normalized_params_of_running_trials=normalized_params_of_running_trials,
                 )
                 best_params = self._get_best_params_for_multi_objective(
                     normalized_params, standardized_score_vals
@@ -446,6 +446,7 @@ class GPSampler(BaseSampler):
                     threshold=best_feasible_y,
                     constraints_gpr_list=constr_gpr_list,
                     constraints_threshold_list=constr_threshold_list,
+                    normalized_params_of_running_trials=normalized_params_of_running_trials,
                 )
                 assert normalized_params.shape[:-1] == y_with_neginf.shape
                 best_params = (
@@ -471,6 +472,7 @@ class GPSampler(BaseSampler):
                     qmc_seed=self._rng.rng.randint(1 << 30),
                     constraints_gpr_list=constr_gpr_list,
                     constraints_threshold_list=constr_threshold_list,
+                    normalized_params_of_running_trials=normalized_params_of_running_trials,
                 )
                 best_params = (
                     self._get_best_params_for_multi_objective(

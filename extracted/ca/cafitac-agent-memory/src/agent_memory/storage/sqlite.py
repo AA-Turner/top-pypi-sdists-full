@@ -1,0 +1,1780 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import math
+import sqlite3
+from datetime import datetime
+from importlib.resources import files
+from pathlib import Path
+from typing import Any, Callable, Literal, TypeVar
+
+from agent_memory.core.models import (
+    Episode,
+    ExperienceTrace,
+    Fact,
+    MemoryActivation,
+    MemoryStatus,
+    MemoryStatusTransition,
+    Procedure,
+    Relation,
+    RetrievalObservation,
+    RetrievalTraceEntry,
+    SourceRecord,
+)
+
+T = TypeVar("T")
+MemoryType = Literal["fact", "procedure", "episode"]
+
+TABLE_NAME_BY_MEMORY_TYPE: dict[MemoryType, str] = {
+    "fact": "facts",
+    "procedure": "procedures",
+    "episode": "episodes",
+}
+
+ROW_PARSER_BY_MEMORY_TYPE: dict[MemoryType, Callable[[sqlite3.Row], Any]] = {
+    "fact": lambda row: fact_from_row(row),
+    "procedure": lambda row: procedure_from_row(row),
+    "episode": lambda row: episode_from_row(row),
+}
+
+RANK_COLUMN_BY_TABLE: dict[str, str] = {
+    "facts": "confidence",
+    "procedures": "success_rate",
+    "episodes": "importance_score",
+}
+
+SCOPE_COLUMN_BY_TABLE: dict[str, str | None] = {
+    "facts": "scope",
+    "procedures": "scope",
+    "episodes": "scope",
+}
+
+
+def _schema_path() -> Path:
+    return Path(__file__).with_name("schema.sql")
+
+
+def _schema_sql() -> str:
+    resource = files("agent_memory.storage").joinpath("schema.sql")
+    return resource.read_text()
+
+
+def connect(db_path: Path | str) -> sqlite3.Connection:
+    path = Path(db_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(path)
+    connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA foreign_keys = ON")
+    return connection
+
+
+def initialize_database(db_path: Path | str) -> None:
+    with connect(db_path) as connection:
+        connection.executescript(_schema_sql())
+        _ensure_memory_table_columns(
+            connection,
+            table_name="facts",
+            required_columns={
+                "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
+                "updated_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
+                "approved_at": "TEXT",
+                "last_accessed_at": "TEXT",
+                "retrieval_count": "INTEGER NOT NULL DEFAULT 0",
+                "reinforcement_count": "REAL NOT NULL DEFAULT 0.0",
+            },
+        )
+        _ensure_memory_table_columns(
+            connection,
+            table_name="procedures",
+            required_columns={
+                "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
+                "updated_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
+                "approved_at": "TEXT",
+                "last_accessed_at": "TEXT",
+                "retrieval_count": "INTEGER NOT NULL DEFAULT 0",
+                "reinforcement_count": "REAL NOT NULL DEFAULT 0.0",
+            },
+        )
+        _ensure_memory_table_columns(
+            connection,
+            table_name="episodes",
+            required_columns={
+                "scope": "TEXT NOT NULL DEFAULT 'global'",
+                "created_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
+                "updated_at": "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
+                "approved_at": "TEXT",
+                "last_accessed_at": "TEXT",
+                "retrieval_count": "INTEGER NOT NULL DEFAULT 0",
+                "reinforcement_count": "REAL NOT NULL DEFAULT 0.0",
+            },
+        )
+        _ensure_memory_table_columns(
+            connection,
+            table_name="relations",
+            required_columns={
+                "review_actor": "TEXT",
+                "review_reason": "TEXT",
+                "reviewed_at": "TEXT",
+            },
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_episodes_status_scope_importance ON episodes(status, scope, importance_score)"
+        )
+        _ensure_memory_status_transitions_schema(connection)
+        _ensure_retrieval_observations_schema(connection)
+        _ensure_experience_traces_schema(connection)
+        _ensure_memory_activations_schema(connection)
+
+
+def _ensure_memory_status_transitions_schema(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS memory_status_transitions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            memory_type TEXT NOT NULL CHECK (memory_type IN ('fact', 'procedure', 'episode')),
+            memory_id INTEGER NOT NULL,
+            from_status TEXT NOT NULL CHECK (from_status IN ('candidate', 'approved', 'disputed', 'deprecated')),
+            to_status TEXT NOT NULL CHECK (to_status IN ('candidate', 'approved', 'disputed', 'deprecated')),
+            reason TEXT,
+            actor TEXT,
+            evidence_ids_json TEXT NOT NULL DEFAULT '[]',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_memory_status_transitions_memory ON memory_status_transitions(memory_type, memory_id, id)"
+    )
+
+
+def _ensure_retrieval_observations_schema(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS retrieval_observations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            surface TEXT NOT NULL,
+            query_sha256 TEXT NOT NULL,
+            query_preview TEXT,
+            preferred_scope TEXT,
+            limit_value INTEGER NOT NULL,
+            statuses_json TEXT NOT NULL DEFAULT '["approved"]',
+            retrieved_memory_refs_json TEXT NOT NULL DEFAULT '[]',
+            top_memory_ref TEXT,
+            response_mode TEXT CHECK (response_mode IN ('direct', 'cautious', 'verify_first')),
+            metadata_json TEXT NOT NULL DEFAULT '{}'
+        )
+        """
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_retrieval_observations_created_at ON retrieval_observations(created_at, id)"
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_retrieval_observations_surface ON retrieval_observations(surface, created_at)"
+    )
+
+
+def _ensure_experience_traces_schema(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS experience_traces (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            surface TEXT NOT NULL,
+            event_kind TEXT NOT NULL,
+            scope TEXT,
+            session_ref TEXT,
+            content_sha256 TEXT NOT NULL,
+            summary TEXT,
+            salience REAL NOT NULL DEFAULT 0.0,
+            user_emphasis REAL NOT NULL DEFAULT 0.0,
+            related_memory_refs_json TEXT NOT NULL DEFAULT '[]',
+            related_observation_ids_json TEXT NOT NULL DEFAULT '[]',
+            retention_policy TEXT NOT NULL CHECK (retention_policy IN ('ephemeral', 'short', 'review', 'archive')) DEFAULT 'ephemeral',
+            expires_at TEXT,
+            metadata_json TEXT NOT NULL DEFAULT '{}'
+        )
+        """
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_experience_traces_created_at ON experience_traces(created_at, id)"
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_experience_traces_surface_kind ON experience_traces(surface, event_kind, created_at)"
+    )
+
+
+def _ensure_memory_activations_schema(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS memory_activations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            surface TEXT NOT NULL,
+            activation_kind TEXT NOT NULL CHECK (activation_kind IN ('retrieved', 'empty_retrieval')),
+            memory_ref TEXT,
+            observation_id INTEGER,
+            trace_id INTEGER,
+            scope TEXT,
+            strength REAL NOT NULL DEFAULT 0.0,
+            metadata_json TEXT NOT NULL DEFAULT '{}'
+        )
+        """
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_memory_activations_created_at ON memory_activations(created_at, id)"
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_memory_activations_memory ON memory_activations(memory_ref, created_at)"
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_memory_activations_observation ON memory_activations(observation_id)"
+    )
+
+
+def _ensure_memory_table_columns(
+    connection: sqlite3.Connection,
+    *,
+    table_name: str,
+    required_columns: dict[str, str],
+) -> None:
+    existing_columns = {row["name"] for row in connection.execute(f"PRAGMA table_info({table_name})").fetchall()}
+    for column_name, column_sql in required_columns.items():
+        if column_name in existing_columns:
+            continue
+        connection.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_sql}")
+
+
+def insert_source_record(
+    db_path: Path | str,
+    *,
+    source_type: str,
+    content: str,
+    checksum: str,
+    metadata: dict[str, Any],
+    adapter: str | None = None,
+    external_ref: str | None = None,
+) -> SourceRecord:
+    with connect(db_path) as connection:
+        cursor = connection.execute(
+            """
+            INSERT INTO source_records (
+                source_type,
+                adapter,
+                external_ref,
+                content,
+                checksum,
+                metadata_json
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (source_type, adapter, external_ref, content, checksum, json.dumps(metadata, sort_keys=True)),
+        )
+        row = connection.execute(
+            "SELECT * FROM source_records WHERE id = ?",
+            (cursor.lastrowid,),
+        ).fetchone()
+    return source_record_from_row(row)
+
+
+def insert_fact(
+    db_path: Path | str,
+    *,
+    subject_ref: str,
+    predicate: str,
+    object_ref_or_value: str,
+    evidence_ids: list[int],
+    scope: str,
+    status: MemoryStatus = "candidate",
+    confidence: float = 0.5,
+    valid_from: str | None = None,
+    valid_to: str | None = None,
+) -> Fact:
+    searchable_text = " ".join([subject_ref, predicate.replace("_", " "), object_ref_or_value])
+    with connect(db_path) as connection:
+        cursor = connection.execute(
+            """
+            INSERT INTO facts (
+                subject_ref,
+                predicate,
+                object_ref_or_value,
+                evidence_ids_json,
+                confidence,
+                valid_from,
+                valid_to,
+                scope,
+                status,
+                searchable_text
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                subject_ref,
+                predicate,
+                object_ref_or_value,
+                json.dumps(evidence_ids),
+                confidence,
+                valid_from,
+                valid_to,
+                scope,
+                status,
+                searchable_text,
+            ),
+        )
+        row = connection.execute("SELECT * FROM facts WHERE id = ?", (cursor.lastrowid,)).fetchone()
+    return fact_from_row(row)
+
+
+def insert_procedure(
+    db_path: Path | str,
+    *,
+    name: str,
+    trigger_context: str,
+    preconditions: list[str],
+    steps: list[str],
+    evidence_ids: list[int],
+    scope: str,
+    status: MemoryStatus = "candidate",
+    success_rate: float = 0.0,
+) -> Procedure:
+    searchable_text = " ".join([name, trigger_context, *preconditions, *steps])
+    with connect(db_path) as connection:
+        cursor = connection.execute(
+            """
+            INSERT INTO procedures (
+                name,
+                trigger_context,
+                preconditions_json,
+                steps_json,
+                evidence_ids_json,
+                success_rate,
+                scope,
+                status,
+                searchable_text
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                name,
+                trigger_context,
+                json.dumps(preconditions),
+                json.dumps(steps),
+                json.dumps(evidence_ids),
+                success_rate,
+                scope,
+                status,
+                searchable_text,
+            ),
+        )
+        row = connection.execute("SELECT * FROM procedures WHERE id = ?", (cursor.lastrowid,)).fetchone()
+    return procedure_from_row(row)
+
+
+def insert_episode(
+    db_path: Path | str,
+    *,
+    title: str,
+    summary: str,
+    source_ids: list[int],
+    tags: list[str],
+    importance_score: float,
+    scope: str,
+    status: MemoryStatus = "candidate",
+    started_at: str | None = None,
+    ended_at: str | None = None,
+) -> Episode:
+    searchable_text = " ".join([title, summary, *tags])
+    with connect(db_path) as connection:
+        cursor = connection.execute(
+            """
+            INSERT INTO episodes (
+                title,
+                summary,
+                started_at,
+                ended_at,
+                source_ids_json,
+                tags_json,
+                importance_score,
+                scope,
+                status,
+                searchable_text
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                title,
+                summary,
+                started_at,
+                ended_at,
+                json.dumps(source_ids),
+                json.dumps(tags),
+                importance_score,
+                scope,
+                status,
+                searchable_text,
+            ),
+        )
+        row = connection.execute("SELECT * FROM episodes WHERE id = ?", (cursor.lastrowid,)).fetchone()
+    return episode_from_row(row)
+
+
+def insert_relation(
+    db_path: Path | str,
+    *,
+    from_ref: str,
+    relation_type: str,
+    to_ref: str,
+    evidence_ids: list[int],
+    weight: float = 1.0,
+    confidence: float = 0.5,
+    valid_from: str | None = None,
+    valid_to: str | None = None,
+    review_actor: str | None = None,
+    review_reason: str | None = None,
+) -> Relation:
+    with connect(db_path) as connection:
+        cursor = connection.execute(
+            """
+            INSERT INTO relations (
+                from_ref,
+                relation_type,
+                to_ref,
+                weight,
+                evidence_ids_json,
+                confidence,
+                valid_from,
+                valid_to,
+                review_actor,
+                review_reason,
+                reviewed_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? IS NULL AND ? IS NULL THEN NULL ELSE CURRENT_TIMESTAMP END)
+            """,
+            (
+                from_ref,
+                relation_type,
+                to_ref,
+                weight,
+                json.dumps(evidence_ids),
+                confidence,
+                valid_from,
+                valid_to,
+                review_actor,
+                review_reason,
+                review_actor,
+                review_reason,
+            ),
+        )
+        row = connection.execute("SELECT * FROM relations WHERE id = ?", (cursor.lastrowid,)).fetchone()
+    return relation_from_row(row)
+
+
+def get_memory_status(db_path: Path | str, *, memory_type: MemoryType, memory_id: int) -> MemoryStatus:
+    table_name = TABLE_NAME_BY_MEMORY_TYPE[memory_type]
+    with connect(db_path) as connection:
+        row = connection.execute(f"SELECT status FROM {table_name} WHERE id = ?", (memory_id,)).fetchone()
+    if row is None:
+        raise ValueError(f"No {memory_type} memory found with id {memory_id}")
+    return row["status"]
+
+
+def get_fact(db_path: Path | str, *, fact_id: int) -> Fact:
+    with connect(db_path) as connection:
+        row = connection.execute("SELECT * FROM facts WHERE id = ?", (fact_id,)).fetchone()
+    if row is None:
+        raise ValueError(f"No fact memory found with id {fact_id}")
+    return fact_from_row(row)
+
+
+def list_relations_for_node(db_path: Path | str, *, node_ref: str) -> list[Relation]:
+    with connect(db_path) as connection:
+        rows = connection.execute(
+            """
+            SELECT *
+            FROM relations
+            WHERE from_ref = ? OR to_ref = ?
+            ORDER BY id ASC
+            """,
+            (node_ref, node_ref),
+        ).fetchall()
+    return [relation_from_row(row) for row in rows]
+
+
+def list_fact_replacement_relations(db_path: Path | str, *, fact_id: int) -> list[Relation]:
+    fact_ref = f"fact:{fact_id}"
+    with connect(db_path) as connection:
+        rows = connection.execute(
+            """
+            SELECT *
+            FROM relations
+            WHERE relation_type IN ('superseded_by', 'replaces')
+              AND (from_ref = ? OR to_ref = ?)
+            ORDER BY id ASC
+            """,
+            (fact_ref, fact_ref),
+        ).fetchall()
+    return [relation_from_row(row) for row in rows]
+
+
+def list_fact_conflict_relations(db_path: Path | str, *, fact_id: int) -> list[Relation]:
+    fact_ref = f"fact:{fact_id}"
+    with connect(db_path) as connection:
+        rows = connection.execute(
+            """
+            SELECT *
+            FROM relations
+            WHERE relation_type = 'conflicts_with'
+              AND (from_ref = ? OR to_ref = ?)
+            ORDER BY id ASC
+            """,
+            (fact_ref, fact_ref),
+        ).fetchall()
+    return [relation_from_row(row) for row in rows]
+
+
+def update_memory_status(
+    db_path: Path | str,
+    *,
+    memory_type: MemoryType,
+    memory_id: int,
+    status: MemoryStatus,
+    reason: str | None = None,
+    actor: str | None = None,
+    evidence_ids: list[int] | None = None,
+) -> Fact | Procedure | Episode:
+    table_name = TABLE_NAME_BY_MEMORY_TYPE[memory_type]
+    row_parser = ROW_PARSER_BY_MEMORY_TYPE[memory_type]
+    return _update_status(
+        db_path,
+        table_name=table_name,
+        memory_type=memory_type,
+        object_id=memory_id,
+        status=status,
+        row_parser=row_parser,
+        reason=reason,
+        actor=actor,
+        evidence_ids=evidence_ids or [],
+    )
+
+
+def list_memory_status_history(
+    db_path: Path | str,
+    *,
+    memory_type: MemoryType,
+    memory_id: int,
+) -> list[MemoryStatusTransition]:
+    with connect(db_path) as connection:
+        _ensure_memory_status_transitions_schema(connection)
+        rows = connection.execute(
+            """
+            SELECT *
+            FROM memory_status_transitions
+            WHERE memory_type = ? AND memory_id = ?
+            ORDER BY id ASC
+            """,
+            (memory_type, memory_id),
+        ).fetchall()
+    return [memory_status_transition_from_row(row) for row in rows]
+
+
+def search_approved_facts(
+    db_path: Path | str,
+    *,
+    query: str,
+    limit: int = 5,
+    preferred_scope: str | None = None,
+) -> list[Fact]:
+    return [
+        model
+        for model, _trace in search_ranked_approved_facts(
+            db_path,
+            query=query,
+            limit=limit,
+            preferred_scope=preferred_scope,
+        )
+    ]
+
+
+def search_ranked_facts(
+    db_path: Path | str,
+    *,
+    query: str,
+    limit: int = 5,
+    preferred_scope: str | None = None,
+    statuses: tuple[MemoryStatus, ...] = ("approved",),
+) -> list[tuple[Fact, RetrievalTraceEntry]]:
+    return _search_model_rows_with_trace(
+        db_path=db_path,
+        table_name="facts",
+        memory_type="fact",
+        query=query,
+        limit=limit,
+        row_parser=fact_from_row,
+        preferred_scope=preferred_scope,
+        statuses=statuses,
+    )
+
+
+def search_ranked_approved_facts(
+    db_path: Path | str,
+    *,
+    query: str,
+    limit: int = 5,
+    preferred_scope: str | None = None,
+) -> list[tuple[Fact, RetrievalTraceEntry]]:
+    return search_ranked_facts(
+        db_path,
+        query=query,
+        limit=limit,
+        preferred_scope=preferred_scope,
+        statuses=("approved",),
+    )
+
+
+def search_approved_procedures(
+    db_path: Path | str,
+    *,
+    query: str,
+    limit: int = 5,
+    preferred_scope: str | None = None,
+) -> list[Procedure]:
+    return [
+        model
+        for model, _trace in search_ranked_approved_procedures(
+            db_path,
+            query=query,
+            limit=limit,
+            preferred_scope=preferred_scope,
+        )
+    ]
+
+
+def search_ranked_procedures(
+    db_path: Path | str,
+    *,
+    query: str,
+    limit: int = 5,
+    preferred_scope: str | None = None,
+    statuses: tuple[MemoryStatus, ...] = ("approved",),
+) -> list[tuple[Procedure, RetrievalTraceEntry]]:
+    return _search_model_rows_with_trace(
+        db_path=db_path,
+        table_name="procedures",
+        memory_type="procedure",
+        query=query,
+        limit=limit,
+        row_parser=procedure_from_row,
+        preferred_scope=preferred_scope,
+        statuses=statuses,
+    )
+
+
+def search_ranked_approved_procedures(
+    db_path: Path | str,
+    *,
+    query: str,
+    limit: int = 5,
+    preferred_scope: str | None = None,
+) -> list[tuple[Procedure, RetrievalTraceEntry]]:
+    return search_ranked_procedures(
+        db_path,
+        query=query,
+        limit=limit,
+        preferred_scope=preferred_scope,
+        statuses=("approved",),
+    )
+
+
+def search_approved_episodes(
+    db_path: Path | str,
+    *,
+    query: str,
+    limit: int = 5,
+    preferred_scope: str | None = None,
+) -> list[Episode]:
+    return [
+        model
+        for model, _trace in search_ranked_approved_episodes(
+            db_path,
+            query=query,
+            limit=limit,
+            preferred_scope=preferred_scope,
+        )
+    ]
+
+
+def search_ranked_episodes(
+    db_path: Path | str,
+    *,
+    query: str,
+    limit: int = 5,
+    preferred_scope: str | None = None,
+    statuses: tuple[MemoryStatus, ...] = ("approved",),
+) -> list[tuple[Episode, RetrievalTraceEntry]]:
+    return _search_model_rows_with_trace(
+        db_path=db_path,
+        table_name="episodes",
+        memory_type="episode",
+        query=query,
+        limit=limit,
+        row_parser=episode_from_row,
+        preferred_scope=preferred_scope,
+        statuses=statuses,
+    )
+
+
+def search_ranked_approved_episodes(
+    db_path: Path | str,
+    *,
+    query: str,
+    limit: int = 5,
+    preferred_scope: str | None = None,
+) -> list[tuple[Episode, RetrievalTraceEntry]]:
+    return search_ranked_episodes(
+        db_path,
+        query=query,
+        limit=limit,
+        preferred_scope=preferred_scope,
+        statuses=("approved",),
+    )
+
+
+def search_relations_for_refs(db_path: Path | str, *, refs: list[str], limit: int = 10) -> list[Relation]:
+    unique_refs = sorted({ref for ref in refs if ref})
+    if not unique_refs:
+        return []
+
+    placeholders = ", ".join("?" for _ in unique_refs)
+    params = [*unique_refs, *unique_refs, limit]
+    sql = f"""
+        SELECT *
+        FROM relations
+        WHERE from_ref IN ({placeholders}) OR to_ref IN ({placeholders})
+        ORDER BY confidence DESC, weight DESC, id ASC
+        LIMIT ?
+    """
+    with connect(db_path) as connection:
+        rows = connection.execute(sql, params).fetchall()
+    return [relation_from_row(row) for row in rows]
+
+
+def search_relations_matching_query(db_path: Path | str, *, query: str, limit: int = 20) -> list[Relation]:
+    tokens = _tokenize_query(query)
+    if not tokens:
+        return []
+
+    sql = "SELECT * FROM relations WHERE "
+    clauses: list[str] = []
+    params: list[Any] = []
+    for token in tokens:
+        clauses.append("(LOWER(from_ref) LIKE ? OR LOWER(to_ref) LIKE ? OR LOWER(relation_type) LIKE ?)")
+        params.extend([f"%{token}%", f"%{token}%", f"%{token}%"])
+    sql += " OR ".join(clauses)
+    sql += " ORDER BY confidence DESC, weight DESC, id ASC LIMIT ?"
+    params.append(limit)
+
+    with connect(db_path) as connection:
+        rows = connection.execute(sql, params).fetchall()
+    return [relation_from_row(row) for row in rows]
+
+
+def list_candidate_facts(db_path: Path | str, limit: int = 50) -> list[Fact]:
+    return _list_by_status(db_path, table_name="facts", status="candidate", limit=limit, row_parser=fact_from_row)
+
+
+def list_candidate_procedures(db_path: Path | str, limit: int = 50) -> list[Procedure]:
+    return _list_by_status(
+        db_path,
+        table_name="procedures",
+        status="candidate",
+        limit=limit,
+        row_parser=procedure_from_row,
+    )
+
+
+def list_candidate_episodes(db_path: Path | str, limit: int = 50) -> list[Episode]:
+    return _list_by_status(db_path, table_name="episodes", status="candidate", limit=limit, row_parser=episode_from_row)
+
+
+def list_facts_by_claim_slot(
+    db_path: Path | str,
+    *,
+    subject_ref: str,
+    predicate: str,
+    scope: str | None = None,
+) -> list[Fact]:
+    params: list[Any] = [subject_ref, predicate]
+    scope_clause = ""
+    if scope is not None:
+        scope_clause = " AND scope = ?"
+        params.append(scope)
+    sql = f"""
+        SELECT *
+        FROM facts
+        WHERE subject_ref = ? AND predicate = ?{scope_clause}
+        ORDER BY
+            CASE status
+                WHEN 'approved' THEN 0
+                WHEN 'candidate' THEN 1
+                WHEN 'disputed' THEN 2
+                WHEN 'deprecated' THEN 3
+                ELSE 4
+            END,
+            confidence DESC,
+            id ASC
+    """
+    with connect(db_path) as connection:
+        rows = connection.execute(sql, params).fetchall()
+    return [fact_from_row(row) for row in rows]
+
+
+def list_approved_facts(db_path: Path | str, scope: str | None = None) -> list[Fact]:
+    return _list_approved_by_scope(db_path, table_name="facts", scope=scope, row_parser=fact_from_row)
+
+
+def list_approved_procedures(db_path: Path | str, scope: str | None = None) -> list[Procedure]:
+    return _list_approved_by_scope(db_path, table_name="procedures", scope=scope, row_parser=procedure_from_row)
+
+
+def list_approved_episodes(db_path: Path | str, scope: str | None = None) -> list[Episode]:
+    return _list_approved_by_scope(db_path, table_name="episodes", scope=scope, row_parser=episode_from_row)
+
+
+def get_source_records_by_ids(db_path: Path | str, source_ids: list[int]) -> list[SourceRecord]:
+    unique_ids = sorted({source_id for source_id in source_ids})
+    if not unique_ids:
+        return []
+    placeholders = ", ".join("?" for _ in unique_ids)
+    sql = f"SELECT * FROM source_records WHERE id IN ({placeholders}) ORDER BY id ASC"
+    with connect(db_path) as connection:
+        rows = connection.execute(sql, unique_ids).fetchall()
+    return [source_record_from_row(row) for row in rows]
+
+
+def _update_status(
+    db_path: Path | str,
+    *,
+    table_name: str,
+    memory_type: MemoryType,
+    object_id: int,
+    status: MemoryStatus,
+    row_parser: Callable[[sqlite3.Row], T],
+    reason: str | None,
+    actor: str | None,
+    evidence_ids: list[int],
+) -> T:
+    with connect(db_path) as connection:
+        _ensure_memory_status_transitions_schema(connection)
+        current_row = connection.execute(f"SELECT * FROM {table_name} WHERE id = ?", (object_id,)).fetchone()
+        if current_row is None:
+            raise ValueError(f"No {memory_type} memory found with id {object_id}")
+        from_status = current_row["status"]
+        if status == "approved":
+            connection.execute(
+                f"""
+                UPDATE {table_name}
+                SET status = ?,
+                    updated_at = CURRENT_TIMESTAMP,
+                    approved_at = COALESCE(approved_at, CURRENT_TIMESTAMP)
+                WHERE id = ?
+                """,
+                (status, object_id),
+            )
+        else:
+            connection.execute(
+                f"UPDATE {table_name} SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (status, object_id),
+            )
+        connection.execute(
+            """
+            INSERT INTO memory_status_transitions (
+                memory_type,
+                memory_id,
+                from_status,
+                to_status,
+                reason,
+                actor,
+                evidence_ids_json
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (memory_type, object_id, from_status, status, reason, actor, json.dumps(evidence_ids)),
+        )
+        row = connection.execute(f"SELECT * FROM {table_name} WHERE id = ?", (object_id,)).fetchone()
+    return row_parser(row)
+
+
+def record_memory_retrieval(
+    db_path: Path | str,
+    *,
+    memory_type: MemoryType,
+    memory_id: int,
+) -> None:
+    table_name = TABLE_NAME_BY_MEMORY_TYPE[memory_type]
+    with connect(db_path) as connection:
+        connection.execute(
+            f"""
+            UPDATE {table_name}
+            SET retrieval_count = COALESCE(retrieval_count, 0) + 1,
+                reinforcement_count = COALESCE(reinforcement_count, 0.0) + 1.0,
+                last_accessed_at = CURRENT_TIMESTAMP,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (memory_id,),
+        )
+
+
+def _memory_ref(memory_type: str, memory_id: int) -> str:
+    return f"{memory_type}:{memory_id}"
+
+
+_RAW_ACTIVATION_METADATA_KEYS = {
+    "content",
+    "prompt",
+    "query",
+    "query_preview",
+    "raw_content",
+    "raw_prompt",
+    "raw_query",
+    "raw_user_message",
+    "transcript",
+    "user_message",
+}
+
+
+def _sanitize_activation_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: value
+        for key, value in metadata.items()
+        if key.lower() not in _RAW_ACTIVATION_METADATA_KEYS
+    }
+
+
+def _insert_memory_activation_row(
+    connection: sqlite3.Connection,
+    *,
+    surface: str,
+    activation_kind: Literal["retrieved", "empty_retrieval"],
+    memory_ref: str | None,
+    observation_id: int | None,
+    trace_id: int | None = None,
+    scope: str | None,
+    strength: float,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    _ensure_memory_activations_schema(connection)
+    connection.execute(
+        """
+        INSERT INTO memory_activations (
+            surface,
+            activation_kind,
+            memory_ref,
+            observation_id,
+            trace_id,
+            scope,
+            strength,
+            metadata_json
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            surface,
+            activation_kind,
+            memory_ref,
+            observation_id,
+            trace_id,
+            scope,
+            strength,
+            json.dumps(_sanitize_activation_metadata(metadata or {}), sort_keys=True),
+        ),
+    )
+
+
+def record_retrieval_observation(
+    db_path: Path | str,
+    *,
+    surface: str,
+    query: str,
+    preferred_scope: str | None,
+    limit: int,
+    statuses: tuple[MemoryStatus, ...],
+    retrieval_trace: list[RetrievalTraceEntry],
+    response_mode: str | None,
+    metadata: dict[str, Any] | None = None,
+) -> RetrievalObservation:
+    retrieved_memory_refs = [_memory_ref(trace.memory_type, trace.memory_id) for trace in retrieval_trace]
+    top_memory_ref = retrieved_memory_refs[0] if retrieved_memory_refs else None
+    query_sha256 = hashlib.sha256(query.encode("utf-8")).hexdigest()
+    activation_metadata = _sanitize_activation_metadata(
+        {
+            **(metadata or {}),
+            "response_mode": response_mode,
+        }
+    )
+    with connect(db_path) as connection:
+        _ensure_retrieval_observations_schema(connection)
+        _ensure_memory_activations_schema(connection)
+        cursor = connection.execute(
+            """
+            INSERT INTO retrieval_observations (
+                surface,
+                query_sha256,
+                query_preview,
+                preferred_scope,
+                limit_value,
+                statuses_json,
+                retrieved_memory_refs_json,
+                top_memory_ref,
+                response_mode,
+                metadata_json
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                surface,
+                query_sha256,
+                None,
+                preferred_scope,
+                limit,
+                json.dumps(list(statuses)),
+                json.dumps(retrieved_memory_refs),
+                top_memory_ref,
+                response_mode,
+                json.dumps(metadata or {}, sort_keys=True),
+            ),
+        )
+        observation_id = cursor.lastrowid
+        if retrieved_memory_refs:
+            for memory_ref in retrieved_memory_refs:
+                _insert_memory_activation_row(
+                    connection,
+                    surface=surface,
+                    activation_kind="retrieved",
+                    memory_ref=memory_ref,
+                    observation_id=observation_id,
+                    scope=preferred_scope,
+                    strength=1.0,
+                    metadata=activation_metadata,
+                )
+        else:
+            _insert_memory_activation_row(
+                connection,
+                surface=surface,
+                activation_kind="empty_retrieval",
+                memory_ref=None,
+                observation_id=observation_id,
+                scope=preferred_scope,
+                strength=0.0,
+                metadata=activation_metadata,
+            )
+        row = connection.execute("SELECT * FROM retrieval_observations WHERE id = ?", (observation_id,)).fetchone()
+    return retrieval_observation_from_row(row)
+
+
+def list_retrieval_observations(db_path: Path | str, *, limit: int = 50) -> list[RetrievalObservation]:
+    with connect(db_path) as connection:
+        _ensure_retrieval_observations_schema(connection)
+        rows = connection.execute(
+            """
+            SELECT *
+            FROM retrieval_observations
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    return [retrieval_observation_from_row(row) for row in rows]
+
+
+def list_memory_activations(db_path: Path | str, *, limit: int = 50) -> list[MemoryActivation]:
+    with connect(db_path) as connection:
+        _ensure_memory_activations_schema(connection)
+        rows = connection.execute(
+            """
+            SELECT *
+            FROM memory_activations
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    return [memory_activation_from_row(row) for row in rows]
+
+
+_RAW_TRACE_METADATA_KEYS = {
+    "content",
+    "prompt",
+    "query",
+    "query_preview",
+    "raw_content",
+    "raw_prompt",
+    "raw_query",
+    "raw_user_message",
+    "transcript",
+    "user_message",
+}
+
+
+def _sanitize_trace_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: value
+        for key, value in metadata.items()
+        if key.lower() not in _RAW_TRACE_METADATA_KEYS
+    }
+
+
+def insert_experience_trace(
+    db_path: Path | str,
+    *,
+    surface: str,
+    event_kind: str,
+    content_sha256: str,
+    summary: str | None = None,
+    scope: str | None = None,
+    session_ref: str | None = None,
+    salience: float = 0.0,
+    user_emphasis: float = 0.0,
+    related_memory_refs: list[str] | None = None,
+    related_observation_ids: list[int] | None = None,
+    retention_policy: Literal["ephemeral", "short", "review", "archive"] = "ephemeral",
+    expires_at: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> ExperienceTrace:
+    sanitized_metadata = _sanitize_trace_metadata(metadata or {})
+    with connect(db_path) as connection:
+        _ensure_experience_traces_schema(connection)
+        cursor = connection.execute(
+            """
+            INSERT INTO experience_traces (
+                surface,
+                event_kind,
+                scope,
+                session_ref,
+                content_sha256,
+                summary,
+                salience,
+                user_emphasis,
+                related_memory_refs_json,
+                related_observation_ids_json,
+                retention_policy,
+                expires_at,
+                metadata_json
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                surface,
+                event_kind,
+                scope,
+                session_ref,
+                content_sha256,
+                summary,
+                salience,
+                user_emphasis,
+                json.dumps(related_memory_refs or []),
+                json.dumps(related_observation_ids or []),
+                retention_policy,
+                expires_at,
+                json.dumps(sanitized_metadata, sort_keys=True),
+            ),
+        )
+        row = connection.execute("SELECT * FROM experience_traces WHERE id = ?", (cursor.lastrowid,)).fetchone()
+    return experience_trace_from_row(row)
+
+
+def list_experience_traces(
+    db_path: Path | str,
+    *,
+    limit: int = 50,
+    surface: str | None = None,
+    event_kind: str | None = None,
+    scope: str | None = None,
+) -> list[ExperienceTrace]:
+    where_clauses: list[str] = []
+    params: list[Any] = []
+    if surface is not None:
+        where_clauses.append("surface = ?")
+        params.append(surface)
+    if event_kind is not None:
+        where_clauses.append("event_kind = ?")
+        params.append(event_kind)
+    if scope is not None:
+        where_clauses.append("scope = ?")
+        params.append(scope)
+
+    sql = "SELECT * FROM experience_traces"
+    if where_clauses:
+        sql += " WHERE " + " AND ".join(where_clauses)
+    sql += " ORDER BY id DESC LIMIT ?"
+    params.append(limit)
+
+    with connect(db_path) as connection:
+        _ensure_experience_traces_schema(connection)
+        rows = connection.execute(sql, params).fetchall()
+    return [experience_trace_from_row(row) for row in rows]
+
+
+def _trace_retention_item(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "created_at": row["created_at"],
+        "surface": row["surface"],
+        "event_kind": row["event_kind"],
+        "scope": row["scope"],
+        "retention_policy": row["retention_policy"],
+        "expires_at": row["expires_at"],
+    }
+
+
+def build_trace_retention_report(
+    db_path: Path | str,
+    *,
+    now: str | None = None,
+    max_trace_count: int = 10000,
+    expired_limit: int = 50,
+    missing_expiry_limit: int = 50,
+) -> dict[str, Any]:
+    effective_now = now or datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+    policies = ["ephemeral", "short", "review", "archive"]
+    with connect(db_path) as connection:
+        _ensure_experience_traces_schema(connection)
+        trace_count = connection.execute("SELECT COUNT(*) AS count FROM experience_traces").fetchone()["count"]
+        policy_counts = {policy: 0 for policy in policies}
+        for row in connection.execute(
+            "SELECT retention_policy, COUNT(*) AS count FROM experience_traces GROUP BY retention_policy"
+        ).fetchall():
+            policy_counts[row["retention_policy"]] = row["count"]
+        expired_count = connection.execute(
+            """
+            SELECT COUNT(*) AS count
+            FROM experience_traces
+            WHERE expires_at IS NOT NULL AND expires_at <= ?
+            """,
+            (effective_now,),
+        ).fetchone()["count"]
+        expired_rows = connection.execute(
+            """
+            SELECT * FROM experience_traces
+            WHERE expires_at IS NOT NULL AND expires_at <= ?
+            ORDER BY expires_at ASC, id ASC
+            LIMIT ?
+            """,
+            (effective_now, expired_limit),
+        ).fetchall()
+        missing_expiry_count = connection.execute(
+            """
+            SELECT COUNT(*) AS count
+            FROM experience_traces
+            WHERE retention_policy IN ('ephemeral', 'short') AND expires_at IS NULL
+            """
+        ).fetchone()["count"]
+        missing_expiry_rows = connection.execute(
+            """
+            SELECT * FROM experience_traces
+            WHERE retention_policy IN ('ephemeral', 'short') AND expires_at IS NULL
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (missing_expiry_limit,),
+        ).fetchall()
+
+    warnings = []
+    if trace_count > max_trace_count:
+        warnings.append("trace_count_exceeds_budget")
+    if missing_expiry_count:
+        warnings.append("expirable_trace_without_expires_at")
+
+    return {
+        "kind": "trace_retention_report",
+        "read_only": True,
+        "generated_at": effective_now,
+        "trace_count": trace_count,
+        "max_trace_count": max_trace_count,
+        "policy_counts": policy_counts,
+        "expired": {
+            "count": expired_count,
+            "limit": expired_limit,
+            "traces": [_trace_retention_item(row) for row in expired_rows],
+        },
+        "missing_expiry": {
+            "count": missing_expiry_count,
+            "limit": missing_expiry_limit,
+            "traces": [_trace_retention_item(row) for row in missing_expiry_rows],
+        },
+        "warnings": warnings,
+        "suggested_next_steps": [
+            "Review expired ephemeral/short traces before enabling any mutating cleanup.",
+            "Add expires_at for expirable trace policies during recording when possible.",
+            "Keep this report read-only until retention deletion semantics are explicitly approved.",
+        ],
+    }
+
+
+def _search_model_rows_with_trace(
+    db_path: Path | str,
+    *,
+    table_name: str,
+    memory_type: Literal["fact", "procedure", "episode"],
+    query: str,
+    limit: int,
+    row_parser: Callable[[sqlite3.Row], T],
+    preferred_scope: str | None,
+    statuses: tuple[MemoryStatus, ...] = ("approved",),
+) -> list[tuple[T, RetrievalTraceEntry]]:
+    tokens = _tokenize_query(query)
+    query_relations = search_relations_matching_query(db_path, query=query, limit=max(limit * 3, 10))
+
+    if not statuses:
+        return []
+    status_placeholders = ", ".join("?" for _ in statuses)
+    with connect(db_path) as connection:
+        rows = connection.execute(
+            f"SELECT * FROM {table_name} WHERE status IN ({status_placeholders})",
+            statuses,
+        ).fetchall()
+        non_approved_rows = (
+            connection.execute(f"SELECT * FROM {table_name} WHERE status IN ('disputed', 'deprecated')").fetchall()
+            if table_name == "facts"
+            else []
+        )
+
+    recency_values = [_row_recency_value(row) for row in rows]
+    recency_min = min(recency_values) if recency_values else None
+    recency_max = max(recency_values) if recency_values else None
+    approved_rows = [row for row in rows if row["status"] == "approved"]
+    approved_conflicts = _approved_fact_conflict_map(approved_rows) if table_name == "facts" else {}
+    hidden_alternatives = _hidden_fact_alternative_map(approved_rows, non_approved_rows) if table_name == "facts" else {}
+
+    scored_rows: list[tuple[tuple[Any, ...], T, RetrievalTraceEntry]] = []
+    for row in rows:
+        model = row_parser(row)
+        text_matches = _count_text_matches(row["searchable_text"], tokens)
+        relation_match_count, matched_terms, supporting_relation_ids = _relation_support_for_model(
+            table_name,
+            model,
+            query_relations,
+            tokens,
+        )
+        if tokens and text_matches == 0 and relation_match_count == 0:
+            continue
+
+        scope_priority = _scope_priority(preferred_scope=preferred_scope, candidate_scope=_model_scope(model))
+        rank_value = float(getattr(model, RANK_COLUMN_BY_TABLE[table_name]))
+        scope_score = _scope_score(scope_priority)
+        lexical_score = float(text_matches)
+        relation_score = float(relation_match_count)
+        recency_score = _recency_score(_row_recency_value(row), minimum=recency_min, maximum=recency_max)
+        reinforcement_score = _reinforcement_score(row)
+        conflict_count = approved_conflicts.get(model.id, 0)
+        conflict_penalty = _conflict_penalty(conflict_count)
+        hidden_disputed_alternatives_count, hidden_deprecated_alternatives_count = hidden_alternatives.get(
+            model.id,
+            (0, 0),
+        )
+        hidden_alternative_count = hidden_disputed_alternatives_count + hidden_deprecated_alternatives_count
+        rank_signal_score = rank_value
+        total_score = (
+            scope_score
+            + lexical_score
+            + relation_score
+            + recency_score
+            + reinforcement_score
+            + conflict_penalty
+            + rank_signal_score
+        )
+        score_tuple = (
+            scope_priority,
+            -total_score,
+            -max(text_matches, relation_match_count),
+            -relation_match_count,
+            -recency_score,
+            -reinforcement_score,
+            -rank_value,
+            model.id,
+        )
+        trace = RetrievalTraceEntry(
+            memory_type=memory_type,
+            memory_id=model.id,
+            label=_model_label(table_name, model),
+            scope=_model_scope(model),
+            scope_priority=scope_priority,
+            text_match_count=text_matches,
+            relation_match_count=relation_match_count,
+            matched_terms=matched_terms,
+            supporting_relation_ids=supporting_relation_ids,
+            rank_value=rank_value,
+            scope_score=scope_score,
+            lexical_score=lexical_score,
+            relation_score=relation_score,
+            recency_score=recency_score,
+            reinforcement_score=reinforcement_score,
+            conflict_count=conflict_count,
+            conflict_penalty=conflict_penalty,
+            hidden_disputed_alternatives_count=hidden_disputed_alternatives_count,
+            hidden_deprecated_alternatives_count=hidden_deprecated_alternatives_count,
+            hidden_alternative_count=hidden_alternative_count,
+            rank_signal_score=rank_signal_score,
+            total_score=total_score,
+        )
+        scored_rows.append((score_tuple, model, trace))
+
+    scored_rows.sort(key=lambda item: item[0])
+
+    if (
+        table_name in {"facts", "procedures"}
+        and statuses == ("approved",)
+        and preferred_scope
+        and any(trace.scope_priority == 0 for _score, _model, trace in scored_rows)
+    ):
+        scored_rows = [item for item in scored_rows if item[2].scope_priority == 0]
+
+    if table_name == "facts" and statuses == ("approved",):
+        deduplicated_rows: list[tuple[tuple[Any, ...], T, RetrievalTraceEntry]] = []
+        seen_claim_slots: set[tuple[str, str, str]] = set()
+        for item in scored_rows:
+            model = item[1]
+            claim_slot = (model.subject_ref, model.predicate, model.scope)
+            if claim_slot in seen_claim_slots:
+                continue
+            seen_claim_slots.add(claim_slot)
+            deduplicated_rows.append(item)
+        scored_rows = deduplicated_rows
+
+    return [(model, trace) for _, model, trace in scored_rows[:limit]]
+
+
+def _tokenize_query(query: str) -> list[str]:
+    return [token.lower() for token in query.replace("?", " ").replace(".", " ").split() if token.strip()]
+
+
+def _count_text_matches(searchable_text: str, tokens: list[str]) -> int:
+    lowered = searchable_text.lower()
+    return sum(1 for token in tokens if token in lowered)
+
+
+def _row_recency_value(row: sqlite3.Row) -> float:
+    for column_name in ("approved_at", "updated_at", "ended_at", "started_at", "created_at", "last_accessed_at"):
+        parsed = _parse_timestamp(row[column_name]) if column_name in row.keys() else None
+        if parsed is not None:
+            return parsed.timestamp()
+    return 0.0
+
+
+def _recency_score(value: float, *, minimum: float | None, maximum: float | None) -> float:
+    if minimum is None or maximum is None:
+        return 0.0
+    if maximum <= minimum:
+        return 1.0
+    return max(0.0, min(1.0, (value - minimum) / (maximum - minimum)))
+
+
+def _reinforcement_score(row: sqlite3.Row) -> float:
+    reinforcement_count = float(row["reinforcement_count"]) if "reinforcement_count" in row.keys() else 0.0
+    retrieval_count = float(row["retrieval_count"]) if "retrieval_count" in row.keys() else 0.0
+    return math.log1p(max(reinforcement_count, retrieval_count))
+
+
+def _approved_fact_conflict_map(rows: list[sqlite3.Row]) -> dict[int, int]:
+    grouped_values: dict[tuple[str, str, str], set[str]] = {}
+    row_keys: dict[int, tuple[str, str, str]] = {}
+    for row in rows:
+        key = (row["subject_ref"], row["predicate"], row["scope"])
+        row_keys[row["id"]] = key
+        grouped_values.setdefault(key, set()).add(row["object_ref_or_value"])
+    return {
+        row_id: max(0, len(grouped_values[key]) - 1)
+        for row_id, key in row_keys.items()
+    }
+
+
+def _hidden_fact_alternative_map(
+    approved_rows: list[sqlite3.Row],
+    non_approved_rows: list[sqlite3.Row],
+) -> dict[int, tuple[int, int]]:
+    grouped_hidden_counts: dict[tuple[str, str, str], dict[str, int]] = {}
+    for row in non_approved_rows:
+        key = (row["subject_ref"], row["predicate"], row["scope"])
+        status_counts = grouped_hidden_counts.setdefault(key, {"disputed": 0, "deprecated": 0})
+        if row["status"] in status_counts:
+            status_counts[row["status"]] += 1
+
+    result: dict[int, tuple[int, int]] = {}
+    for row in approved_rows:
+        key = (row["subject_ref"], row["predicate"], row["scope"])
+        status_counts = grouped_hidden_counts.get(key, {"disputed": 0, "deprecated": 0})
+        result[row["id"]] = (status_counts["disputed"], status_counts["deprecated"])
+    return result
+
+
+def _conflict_penalty(conflict_count: int) -> float:
+    if conflict_count <= 0:
+        return 0.0
+    return -0.20 * float(conflict_count)
+
+
+def _parse_timestamp(value: Any) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _relation_support_for_model(
+    table_name: str,
+    model: Fact | Procedure | Episode,
+    relations: list[Relation],
+    tokens: list[str],
+) -> tuple[int, list[str], list[int]]:
+    refs = _model_refs(table_name, model)
+    matched_terms: set[str] = set()
+    supporting_relation_ids: list[int] = []
+    for relation in relations:
+        relation_text = f"{relation.from_ref} {relation.relation_type} {relation.to_ref}".lower()
+        relation_terms = sorted({token for token in tokens if token in relation_text})
+        if not relation_terms:
+            continue
+        if relation.from_ref in refs or relation.to_ref in refs:
+            matched_terms.update(relation_terms)
+            supporting_relation_ids.append(relation.id)
+    supporting_relation_ids = sorted(set(supporting_relation_ids))
+    return len(supporting_relation_ids), sorted(matched_terms), supporting_relation_ids
+
+
+def _model_label(table_name: str, model: Fact | Procedure | Episode) -> str:
+    if table_name == "facts":
+        return model.subject_ref
+    if table_name == "procedures":
+        return model.name
+    return model.title
+
+
+def _model_refs(table_name: str, model: Fact | Procedure | Episode) -> set[str]:
+    if table_name == "facts":
+        return {model.subject_ref}
+    if table_name == "procedures":
+        return {model.name}
+    return {model.title, *model.tags}
+
+
+def _model_scope(model: Fact | Procedure | Episode) -> str | None:
+    return getattr(model, "scope", None)
+
+
+def _scope_priority(*, preferred_scope: str | None, candidate_scope: str | None) -> int:
+    if not preferred_scope or not candidate_scope:
+        return 50
+    if candidate_scope == preferred_scope:
+        return 0
+
+    preferred_kind = _scope_kind(preferred_scope)
+    candidate_kind = _scope_kind(candidate_scope)
+    fallback_order: dict[str, list[str]] = {
+        "project": ["workspace", "user", "global", "cwd", "project", "other"],
+        "workspace": ["user", "global", "project", "cwd", "workspace", "other"],
+        "user": ["cwd", "global", "workspace", "project", "user", "other"],
+        "cwd": ["user", "global", "workspace", "project", "cwd", "other"],
+        "global": ["user", "workspace", "project", "cwd", "global", "other"],
+    }
+    ordered_kinds = fallback_order.get(preferred_kind, ["user", "global", "workspace", "project", "cwd", "other"])
+    try:
+        return 1 + ordered_kinds.index(candidate_kind)
+    except ValueError:
+        return 99
+
+
+def _scope_score(scope_priority: int) -> float:
+    if scope_priority <= 0:
+        return 10.0
+    return max(0.0, 10.0 - float(scope_priority))
+
+
+def _scope_kind(scope: str) -> str:
+    if scope == "global":
+        return "global"
+    if ":" not in scope:
+        return "other"
+    kind = scope.split(":", 1)[0]
+    if kind in {"project", "workspace", "user", "cwd"}:
+        return kind
+    return "other"
+
+
+def _list_by_status(
+    db_path: Path | str,
+    *,
+    table_name: str,
+    status: MemoryStatus,
+    limit: int,
+    row_parser: Callable[[sqlite3.Row], T],
+) -> list[T]:
+    with connect(db_path) as connection:
+        rows = connection.execute(
+            f"SELECT * FROM {table_name} WHERE status = ? ORDER BY id ASC LIMIT ?",
+            (status, limit),
+        ).fetchall()
+    return [row_parser(row) for row in rows]
+
+
+def _list_approved_by_scope(
+    db_path: Path | str,
+    *,
+    table_name: str,
+    scope: str | None,
+    row_parser: Callable[[sqlite3.Row], T],
+) -> list[T]:
+    sql = f"SELECT * FROM {table_name} WHERE status = ?"
+    params: list[Any] = ["approved"]
+    if scope is not None:
+        sql += " AND scope = ?"
+        params.append(scope)
+    sql += " ORDER BY id ASC"
+    with connect(db_path) as connection:
+        rows = connection.execute(sql, params).fetchall()
+    return [row_parser(row) for row in rows]
+
+
+def source_record_from_row(row: sqlite3.Row) -> SourceRecord:
+    return SourceRecord(
+        id=row["id"],
+        source_type=row["source_type"],
+        adapter=row["adapter"],
+        external_ref=row["external_ref"],
+        created_at=row["created_at"],
+        content=row["content"],
+        checksum=row["checksum"],
+        metadata=json.loads(row["metadata_json"]),
+    )
+
+
+def fact_from_row(row: sqlite3.Row) -> Fact:
+    return Fact(
+        id=row["id"],
+        subject_ref=row["subject_ref"],
+        predicate=row["predicate"],
+        object_ref_or_value=row["object_ref_or_value"],
+        evidence_ids=json.loads(row["evidence_ids_json"]),
+        confidence=row["confidence"],
+        valid_from=row["valid_from"],
+        valid_to=row["valid_to"],
+        scope=row["scope"],
+        status=row["status"],
+        searchable_text=row["searchable_text"],
+    )
+
+
+def procedure_from_row(row: sqlite3.Row) -> Procedure:
+    return Procedure(
+        id=row["id"],
+        name=row["name"],
+        trigger_context=row["trigger_context"],
+        preconditions=json.loads(row["preconditions_json"]),
+        steps=json.loads(row["steps_json"]),
+        evidence_ids=json.loads(row["evidence_ids_json"]),
+        success_rate=row["success_rate"],
+        scope=row["scope"],
+        status=row["status"],
+        searchable_text=row["searchable_text"],
+    )
+
+
+def episode_from_row(row: sqlite3.Row) -> Episode:
+    return Episode(
+        id=row["id"],
+        title=row["title"],
+        summary=row["summary"],
+        started_at=row["started_at"],
+        ended_at=row["ended_at"],
+        source_ids=json.loads(row["source_ids_json"]),
+        tags=json.loads(row["tags_json"]),
+        importance_score=row["importance_score"],
+        scope=row["scope"],
+        status=row["status"],
+        searchable_text=row["searchable_text"],
+    )
+
+
+def memory_status_transition_from_row(row: sqlite3.Row) -> MemoryStatusTransition:
+    return MemoryStatusTransition(
+        id=row["id"],
+        memory_type=row["memory_type"],
+        memory_id=row["memory_id"],
+        from_status=row["from_status"],
+        to_status=row["to_status"],
+        reason=row["reason"],
+        actor=row["actor"],
+        evidence_ids=json.loads(row["evidence_ids_json"]),
+        created_at=row["created_at"],
+    )
+
+
+def retrieval_observation_from_row(row: sqlite3.Row) -> RetrievalObservation:
+    return RetrievalObservation(
+        id=row["id"],
+        created_at=row["created_at"],
+        surface=row["surface"],
+        query_sha256=row["query_sha256"],
+        query_preview=None,
+        preferred_scope=row["preferred_scope"],
+        limit=row["limit_value"],
+        statuses=json.loads(row["statuses_json"]),
+        retrieved_memory_refs=json.loads(row["retrieved_memory_refs_json"]),
+        top_memory_ref=row["top_memory_ref"],
+        response_mode=row["response_mode"],
+        metadata=json.loads(row["metadata_json"]),
+    )
+
+
+def memory_activation_from_row(row: sqlite3.Row) -> MemoryActivation:
+    return MemoryActivation(
+        id=row["id"],
+        created_at=row["created_at"],
+        surface=row["surface"],
+        activation_kind=row["activation_kind"],
+        memory_ref=row["memory_ref"],
+        observation_id=row["observation_id"],
+        trace_id=row["trace_id"],
+        scope=row["scope"],
+        strength=row["strength"],
+        metadata=json.loads(row["metadata_json"]),
+    )
+
+
+def experience_trace_from_row(row: sqlite3.Row) -> ExperienceTrace:
+    return ExperienceTrace(
+        id=row["id"],
+        created_at=row["created_at"],
+        surface=row["surface"],
+        event_kind=row["event_kind"],
+        scope=row["scope"],
+        session_ref=row["session_ref"],
+        content_sha256=row["content_sha256"],
+        summary=row["summary"],
+        salience=row["salience"],
+        user_emphasis=row["user_emphasis"],
+        related_memory_refs=json.loads(row["related_memory_refs_json"]),
+        related_observation_ids=json.loads(row["related_observation_ids_json"]),
+        retention_policy=row["retention_policy"],
+        expires_at=row["expires_at"],
+        metadata=json.loads(row["metadata_json"]),
+    )
+
+
+def relation_from_row(row: sqlite3.Row) -> Relation:
+    return Relation(
+        id=row["id"],
+        from_ref=row["from_ref"],
+        relation_type=row["relation_type"],
+        to_ref=row["to_ref"],
+        weight=row["weight"],
+        evidence_ids=json.loads(row["evidence_ids_json"]),
+        confidence=row["confidence"],
+        valid_from=row["valid_from"],
+        valid_to=row["valid_to"],
+        review_actor=row["review_actor"],
+        review_reason=row["review_reason"],
+        reviewed_at=row["reviewed_at"],
+    )

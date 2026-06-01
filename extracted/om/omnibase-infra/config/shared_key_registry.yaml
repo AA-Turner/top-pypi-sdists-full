@@ -1,0 +1,241 @@
+# shared_key_registry.yaml
+#
+# Authoritative list of keys shared across all OmniNode repos.
+# Keys come from ~/.omnibase/.env (shell env) at dev time,
+# and from Infisical /shared/<transport>/ at runtime.
+#
+# Semantics:
+#   shared            — eligible for Infisical seeding + repo .env stripping;
+#                       loaded by _load_registry() in scripts/register-repo.py.
+#                       A shared key represents the canonical platform-wide value.
+#                       Keys may also be seeded per-service under /services/<repo>/
+#                       via REPO_SECRET_KEYS — those per-service entries are
+#                       intentional overrides that take precedence at runtime.
+#   bootstrap_only    — excluded from Infisical seeding (circular bootstrap dep);
+#                       listed here for awareness only; must never be in any repo
+#                       .env; loaded by _bootstrap_keys() in register-repo.py
+#   identity_defaults — never in any .env; hardcoded as default= in Settings
+#                       classes; loaded by _identity_defaults() in
+#                       register-repo.py
+#
+# Used by:
+#   - ~/.omnibase/scripts/onboard-repo.py  (strip shared keys from repo .env)
+#   - scripts/register-repo.py seed-shared  (seed /shared/* in Infisical)
+#
+# version: increment minor when adding keys, major on breaking structural changes.
+# 1.2 (OMN-10563): adds top-level `services:` section for per-service key
+# declarations. Loader: `_services_keys()` in scripts/register-repo.py.
+version: "1.2"
+# Keys written to /shared/<transport>/ in Infisical.
+shared:
+  "/shared/db/":
+    - POSTGRES_HOST
+    - POSTGRES_PORT
+    - POSTGRES_USER
+    # POSTGRES_DSN intentionally removed — a shared DSN with a hardcoded
+    # database name silently routes all services to the wrong database.
+    # Each repo sets POSTGRES_DATABASE and builds its own connection string.
+    - POSTGRES_POOL_MIN_SIZE
+    - POSTGRES_POOL_MAX_SIZE
+    - POSTGRES_TIMEOUT_MS
+    # Shared default; override per-service at /services/<repo>/db/
+    - QUERY_TIMEOUT_SECONDS
+  "/shared/kafka/":
+    # KAFKA_HOST_SERVERS intentionally excluded — removed as dead code (see commit 45f6ae65)
+    #
+    # WARNING: PLACEHOLDER ONLY — DO NOT USE IN PRODUCTION.
+    # KAFKA_GROUP_ID is seeded to /shared/kafka/ solely as a platform-wide placeholder.
+    # Each service MUST override this at /services/<repo>/kafka/KAFKA_GROUP_ID via onboard-repo
+    # before the service starts. Shared consumer groups cause unintended load-balancing across
+    # topics — relying on this shared value in production is a misconfiguration.
+    #
+    # Policy: missing per-service override is an advisory warning (not a hard error) to avoid
+    # blocking onboard-repo when the override has already been set via other means (e.g. manual
+    # Infisical UI). A hard error would be a false positive in that case and would prevent valid
+    # onboarding runs from completing. The warning is sufficient to alert operators who have
+    # not yet set the override.
+    - KAFKA_GROUP_ID
+    - KAFKA_ACKS
+    - KAFKA_REQUEST_TIMEOUT_MS
+  # NOTE: No VAULT transport type in EnumInfraTransportType yet — VAULT_ADDR is seeded
+  # but cannot be prefetched via ConfigPrefetcher until VAULT is added to the enum.
+  # TODO: add VAULT to EnumInfraTransportType and transport_config_map.py to enable ConfigPrefetcher support
+  # NOT prefetched by ConfigPrefetcher — no EnumInfraTransportType.VAULT entry; keys resolved via shell env fallback.
+  "/shared/vault/":
+    # NOTE: VAULT_TOKEN intentionally excluded — it is per-service and must be
+    # provisioned per repo under /services/<repo>/vault/VAULT_TOKEN, not shared
+    # platform-wide. Sharing a single token would grant every service the same
+    # Vault policy, violating least-privilege. Each service gets its own token
+    # scoped to its required paths.
+    - VAULT_ADDR
+  "/shared/llm/":
+    # IP of the remote GPU/inference server (used to construct LLM endpoint URLs).
+    - REMOTE_SERVER_IP
+    # Canonical LLM endpoint keys (defined in CLAUDE.md LLM topology):
+    #   LLM_CODER_URL        — Qwen3-Coder-30B-A3B AWQ-4bit (RTX 5090, 64K ctx, port 8000)
+    #   LLM_CODER_FAST_URL   — Qwen3-14B-AWQ (RTX 4090, 40K ctx, port 8001)
+    #   LLM_EMBEDDING_URL    — Qwen3-Embedding-8B-4bit (M2 Ultra, port 8100)
+    #   LLM_DEEPSEEK_R1_URL  — DeepSeek-R1-14B AWQ (RTX 4090, .201, port 8001) — .200:8101 down
+    - LLM_CODER_URL
+    - LLM_CODER_FAST_URL
+    - LLM_EMBEDDING_URL
+    - LLM_DEEPSEEK_R1_URL
+    # - LLM_SMALL_URL  # Port TBD — add when port is assigned (Qwen2.5-Coder-7B MLX)
+    # ONEX platform service URLs (not LLM models — kept here as they are co-located
+    # on the same inference infrastructure and share the REMOTE_SERVER_IP base).
+    # TODO: move ONEX_TREE_SERVICE_URL and METADATA_STAMPING_SERVICE_URL to a
+    # /shared/platform/ or /shared/services/ folder in a future cleanup ticket.
+    # They are ONEX microservice URLs, not LLM inference endpoints, and belong in
+    # a dedicated platform transport rather than /shared/llm/.
+    - ONEX_TREE_SERVICE_URL
+    - METADATA_STAMPING_SERVICE_URL
+    # HMAC signing key for local LLM inference requests — shared across all services
+    # that call the inference server. Rotate regularly. (OMN-8778)
+    - LOCAL_LLM_SHARED_SECRET
+  # NOT prefetched by ConfigPrefetcher — no EnumInfraTransportType.AUTH entry; keys resolved via shell env fallback.
+  "/shared/auth/":
+    - OPENAI_API_KEY
+    - GOOGLE_API_KEY
+    - GEMINI_API_KEY
+    - Z_AI_API_KEY
+    - Z_AI_API_URL
+    - SERVICE_AUTH_TOKEN
+    - GH_PAT
+    # Anthropic API key — used by omniclaude and any service invoking Claude directly.
+    # Note: Claude Code itself uses OAuth (not this key), but services calling the
+    # Anthropic API programmatically (e.g. omniintelligence, omnimarket LLM nodes)
+    # require this key. (OMN-8778)
+    - ANTHROPIC_API_KEY
+  # NOT prefetched by ConfigPrefetcher — the prefetch pipeline is not yet wired
+  # to call prefetch_for_contracts() at runtime, so VALKEY keys resolve via shell
+  # env fallback only.  (EnumInfraTransportType.VALKEY and the transport_config_map
+  # entry exist; the gap is in the runtime wiring, not the enum or map.)
+  "/shared/valkey/":
+    - VALKEY_HOST
+    - VALKEY_PORT
+    - VALKEY_PASSWORD
+    - VALKEY_DB
+  "/shared/qdrant/":
+    - QDRANT_HOST
+    - QDRANT_PORT
+    - QDRANT_API_KEY
+    - QDRANT_URL
+  # NOT prefetched by ConfigPrefetcher — no EnumInfraTransportType.ENV entry; keys resolved via shell env fallback.
+  # SLACK_WEBHOOK_URL removed (OMN-3332) — Web API-only mode enforced.
+  "/shared/env/":
+    - SLACK_BOT_TOKEN
+    - SLACK_CHANNEL_ID
+    # Linear API key — used by omniclaude, omnimarket, and CI scripts to query/update tickets.
+    # Previously seeded at /shared/env/ (OMN-3898); now formally registered. (OMN-8778)
+    - LINEAR_API_KEY
+    # CI callback token — used by the ci-relay service to authenticate CI status callbacks.
+    - CI_CALLBACK_TOKEN
+    # MCP API key — used by omniclaude MCP server for authenticated MCP client connections.
+    - MCP_API_KEY
+    # Logfire telemetry token — used by omnidash for LLM trace/eval ingestion.
+    # Infisical is secret storage only; injection pattern unchanged (env var at runtime).
+    - LOGFIRE_TOKEN
+# Keys that must NEVER be seeded into Infisical.
+# These live OUTSIDE repos (home dir or deployment secrets) and must never
+# appear in any repo .env file. Two distinct reasons apply — see subcategories:
+#
+# [circular-startup-dep] These keys are required BY Infisical (or its upstream
+# dependencies) during container boot. Storing them in Infisical would create a
+# chicken-and-egg deadlock: Infisical needs Postgres/Kafka to start, so those
+# credentials must be available BEFORE Infisical is reachable. Lives in
+# ~/.omnibase/.env (dev) or an external secrets manager (prod).
+#
+# [infisical-internal] These are Infisical's own service secrets — the credentials
+# that the Infisical container itself uses for internal encryption and auth.
+# Storing them inside Infisical would be circular at a different level: if Infisical
+# lost or rotated these, it could no longer decrypt its own data. Lives in
+# ~/.omnibase/.env (dev) or deployment secrets (prod). Never in any repo.
+bootstrap_only:
+  # [circular-startup-dep] Postgres password — Infisical depends on Postgres to start;
+  # this must exist before Infisical is reachable.
+  - POSTGRES_PASSWORD
+  # [circular-startup-dep] Kafka bootstrap address — containers need this BEFORE
+  # Infisical is reachable. Moved from shared/kafka to bootstrap_only (OMN-2287).
+  # If upgrading from a prior Infisical seed: delete the stale
+  # /shared/kafka/KAFKA_BOOTSTRAP_SERVERS entry from Infisical manually
+  # (one-time cleanup; tracked in docs/plans/2026-02-21-zero-repo-env-files.md).
+  # Infisical path to delete if migrating to bootstrap-only: /shared/kafka/KAFKA_BOOTSTRAP_SERVERS
+  - KAFKA_BOOTSTRAP_SERVERS
+  # [circular-startup-dep] Infisical connection details — needed to reach Infisical
+  # itself; cannot be fetched from Infisical.
+  - INFISICAL_ADDR
+  - INFISICAL_CLIENT_ID
+  - INFISICAL_CLIENT_SECRET
+  - INFISICAL_PROJECT_ID
+  # [infisical-internal] Infisical's own service secrets — used for internal data
+  # encryption and authentication. Rotating or losing these would prevent Infisical
+  # from decrypting its own stored secrets. Must live outside Infisical entirely.
+  - INFISICAL_ENCRYPTION_KEY
+  - INFISICAL_AUTH_SECRET
+# Keys that are per-repo identity config.
+# Must NEVER appear in any .env file — hardcoded as default= in Settings classes.
+identity_defaults:
+  - POSTGRES_DATABASE
+# Keys that exist in /shared/ as platform-wide defaults but MUST be overridden
+# per-service under /services/<repo>/<transport>/<KEY> before the service starts.
+# Relying on the shared value in production is a misconfiguration.
+# register-repo.py onboard-repo will warn if any of these are absent from the plan.
+service_override_required:
+  # Each service must set its own consumer group ID to avoid unintended
+  # load-balancing across topics when multiple services share a group.
+  - KAFKA_GROUP_ID
+# Per-service key declarations.
+#
+# Schema (added in 1.2, OMN-10563):
+#   services:
+#     <repo>:
+#       <transport>:
+#         - KEY1
+#         - KEY2
+#
+# Each entry maps to Infisical path /services/<repo>/<transport>/<KEY>. These
+# are the per-service override paths that take precedence over /shared/<transport>/<KEY>
+# at runtime. A key may appear in both /shared and /services/<repo>; the
+# per-service override is the authoritative value when both exist.
+#
+# Used by:
+#   - scripts/register-repo.py onboard-repo (plan validation; per-service seeding)
+#   - omnimarket / other services' Settings classes (declare what they will read)
+services:
+  omnimarket:
+    # Per-service consumer group; required override per service_override_required above.
+    kafka:
+      - KAFKA_GROUP_ID
+    # Per-service LLM endpoint + model overrides. The flat path convention is
+    # /services/omnimarket/llm/<KEY> — no nested role paths (ChatGPT review §9).
+    # LLM_<ROLE>_URL points the role's coder/reasoner at a specific endpoint;
+    # LLM_<ROLE>_MODEL_ID names the model id served by that endpoint. Task 19
+    # (OMN-10568) wires bridge_config_loader to resolve these via
+    # ProtocolSecretStore.
+    llm:
+      - LLM_CODER_URL
+      - LLM_CODER_MODEL_ID
+      - LLM_REASONER_URL
+      - LLM_REASONER_MODEL_ID
+    # Per-service database config. POSTGRES_DATABASE is in identity_defaults
+    # globally (each repo bakes its own value as a Settings default), but is
+    # also enumerated here so omnimarket's per-service path is explicit and
+    # the onboard-repo plan can verify it. POSTGRES_HOST / POSTGRES_PORT /
+    # POSTGRES_USER are in /shared/db/ globally; the per-service entries here
+    # allow omnimarket to override them if deployed against a dedicated DB.
+    # POSTGRES_PASSWORD is listed per-service so the onboard-repo plan can
+    # seed a service-scoped credential when omnimarket uses a dedicated role.
+    db:
+      - POSTGRES_DATABASE
+      - POSTGRES_HOST
+      - POSTGRES_PORT
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+    # Per-service Infisical project declaration. INFISICAL_ADDR and
+    # INFISICAL_PROJECT_ID are bootstrap_only globally (they must be available
+    # before Infisical can be reached). Listing them here as a per-service
+    # entry allows omnimarket to declare its own project scope and enables
+    # onboard-repo plan validation to confirm the per-service override exists.
+    infisical:
+      - INFISICAL_ADDR
+      - INFISICAL_PROJECT_ID

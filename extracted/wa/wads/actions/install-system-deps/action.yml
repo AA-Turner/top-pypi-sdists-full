@@ -1,0 +1,57 @@
+name: Install System Dependencies
+description: 'Install system dependencies from [tool.wads.ops.*] in pyproject.toml'
+
+inputs:
+  pyproject-path:
+    description: 'Path to pyproject.toml file or directory containing it'
+    required: false
+    default: '.'
+  platform:
+    description: 'Platform to install for (linux, macos, windows). Auto-detected if not specified.'
+    required: false
+  skip-check:
+    description: 'Skip checking if dependencies are already installed'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - name:  Ensure tomli is installed (Python < 3.11)
+      shell: bash
+      run: |
+        if python3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)"; then
+          echo "Python 3.11+, tomllib available"
+        else
+          echo "Python < 3.11, installing tomli"
+          python3 -m pip install --quiet tomli
+        fi
+    
+    - name: Install wads
+      shell: bash
+      run: |
+        echo "Installing wads package..."
+        python3 -m pip install --quiet wads
+    
+    - name: Install System Dependencies from pyproject.toml
+      shell: bash
+      run: |
+        echo "::group::Installing system dependencies"
+
+        # Build arguments
+        ARGS="${{ inputs.pyproject-path }}"
+
+        if [ -n "${{ inputs.platform }}" ]; then
+          ARGS="$ARGS --platform ${{ inputs.platform }}"
+        fi
+
+        if [ "${{ inputs.skip-check }}" = "true" ]; then
+          ARGS="$ARGS --skip-check"
+        fi
+
+        # Run the installer script
+        python3 -m wads.install_system_deps $ARGS
+
+        EXIT_CODE=$?
+        echo "::endgroup::"
+        exit $EXIT_CODE

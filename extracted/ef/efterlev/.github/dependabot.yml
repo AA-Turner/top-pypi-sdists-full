@@ -1,0 +1,67 @@
+# Dependabot configuration — three ecosystems, weekly cadence, grouped
+# minor/patch updates per ecosystem so the maintainer review queue
+# doesn't drown in PRs.
+#
+# See SPEC-30.6 for the design rationale.
+
+version: 2
+updates:
+
+  # Python deps. Project deps live in pyproject.toml; uv lockfile lives
+  # in uv.lock — Dependabot watches both via the pip ecosystem.
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: "America/Los_Angeles"
+    labels:
+      - dependencies
+      - python
+    groups:
+      python-minor-patch:
+        update-types:
+          - minor
+          - patch
+    open-pull-requests-limit: 5
+
+  # GitHub Actions versions — every workflow gets refreshed dependencies.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: "America/Los_Angeles"
+    labels:
+      - dependencies
+      - github-actions
+    groups:
+      # v0.1.60: SHA-pinning landed across all third-party Actions.
+      # With SHA pins, every dependabot detection (whether semver-major,
+      # semver-minor, semver-patch, or just a re-tag of the same version
+      # to a new SHA) emits a separate PR by default — would generate
+      # ~10 PRs per cycle even when only one action moved. Wildcard
+      # patterns collapses that into a review-friendly grouped PR.
+      # Major bumps still get split out per dependabot's default
+      # major-vs-minor handling so breaking changes land for individual
+      # review.
+      gha-all:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 3
+
+  # Container base image. Dockerfile pins python:3.12-slim-bookworm; this
+  # config picks up new tags on the same minor line.
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: "America/Los_Angeles"
+    labels:
+      - dependencies
+      - docker
+    open-pull-requests-limit: 2

@@ -1105,6 +1105,8 @@ def _auto_upgrade_model_if_possible(
 ) -> str:
     if explicit_model:
         return chosen_model
+    if chosen_model.startswith("cloud:"):
+        return chosen_model
     if cfg.default_model != SageConfig.default_model:
         return chosen_model
     if last_used_model and last_used_model != cfg.default_model:

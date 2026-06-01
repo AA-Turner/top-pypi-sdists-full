@@ -1,0 +1,59 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "panta-sim"
+version = "0.6.7"
+description = "Full Rust core quantum circuit simulator with Python bindings"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+authors = [{ name = "quantumfia" }]
+keywords = ["quantum", "simulator", "quantum-computing", "rust", "pyo3"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+dependencies = ["numpy>=1.20"]
+
+[project.optional-dependencies]
+viz = ["matplotlib>=3.5"]
+qiskit = ["qiskit>=1.0"]
+pennylane = ["pennylane>=0.35"]
+cirq = ["cirq-core>=1.3"]
+dev = [
+    "pytest>=7",
+    "matplotlib>=3.5",
+    "qiskit>=1.0",
+    "qiskit-aer>=0.13",
+    "pennylane>=0.35",
+    "cirq-core>=1.3",
+]
+
+[project.entry-points."pennylane.plugins"]
+"panta-sim" = "panta_sim.pennylane_device:PantaDevice"
+
+[project.urls]
+Repository = "https://github.com/quantumfia/quantum-sim"
+Issues = "https://github.com/quantumfia/quantum-sim/issues"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "python"
+module-name = "panta_sim.qsim_python"
+manifest-path = "crates/python-binding/Cargo.toml"
+include = [{ path = "LICENSE", format = "sdist" }]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

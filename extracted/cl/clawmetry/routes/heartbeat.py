@@ -1,0 +1,530 @@
+"""
+routes/heartbeat.py — Heartbeat liveness panel API endpoint (#686).
+
+Owns the single route registered on bp_heartbeat:
+
+  GET  /api/heartbeat  — liveness summary with cadence, ok/action ratio,
+                         and last 10 beat outcomes, computed from session
+                         transcripts in SESSIONS_DIR.
+
+Session transcripts are scanned for "heartbeat" sessions (name contains
+"heartbeat") and their assistant replies classified:
+  - "ok"     : assistant replied exactly "HEARTBEAT_OK"
+  - "action" : any other assistant reply in a heartbeat session
+
+All shared helpers (``SESSIONS_DIR``) stay in ``dashboard.py`` and are
+reached via late ``import dashboard as _d`` to avoid circular imports.
+"""
+
+import difflib
+import json
+import os
+import time
+from datetime import datetime, timezone
+
+from flask import Blueprint, jsonify
+from clawmetry.config import is_local_store_read_enabled
+
+bp_heartbeat = Blueprint("heartbeat", __name__)
+
+
+def _parse_iso_ts(ts_str):
+    """Parse an ISO-8601 timestamp string to a Unix float; return 0 on error."""
+    if not ts_str or not isinstance(ts_str, str):
+        return 0.0
+    try:
+        return datetime.fromisoformat(ts_str.replace("Z", "+00:00")).timestamp()
+    except Exception:
+        return 0.0
+
+
+def _compute_heartbeat_data(sessions_dir):
+    """
+    Scan *sessions_dir* for heartbeat sessions and return a dict with:
+      last_heartbeat_ts, cadence_24h, ok_vs_action_24h, recent_beats
+    Returns sensible zero-state if the directory is missing or unreadable.
+    """
+    now = time.time()
+    cutoff_24h = now - 86400  # 24 hours ago
+
+    # Collect all .jsonl files, skip deleted/reset artefacts
+    try:
+        all_files = [
+            f
+            for f in os.listdir(sessions_dir)
+            if f.endswith(".jsonl")
+            and ".deleted." not in f
+            and ".reset." not in f
+        ]
+    except OSError:
+        all_files = []
+
+    beats = []  # list of {"ts": float, "outcome": "ok"|"action"}
+
+    for fname in all_files:
+        # Quick name-level filter — only open files whose name hints "heartbeat"
+        sid_lower = fname.lower()
+        fpath = os.path.join(sessions_dir, fname)
+        name_is_heartbeat = "heartbeat" in sid_lower
+
+        # We also need to scan content for sessions that aren't named that way
+        # but may still contain HEARTBEAT_OK replies.  For performance we skip
+        # content scanning unless the name already indicates it; the spec says
+        # "check name first".
+        if not name_is_heartbeat:
+            continue
+
+        session_ts = None  # timestamp of the session's first assistant turn
+        outcomes_in_file = []  # all assistant-reply outcomes in this file
+
+        try:
+            with open(fpath, "r", errors="replace") as fh:
+                for raw in fh:
+                    raw = raw.strip()
+                    if not raw:
+                        continue
+                    try:
+                        ev = json.loads(raw)
+                    except Exception:
+                        continue
+
+                    if ev.get("type") != "message":
+                        continue
+
+                    msg = ev.get("message") or {}
+                    role = msg.get("role", "")
+                    if role != "assistant":
+                        continue
+
+                    ev_ts = _parse_iso_ts(ev.get("timestamp", ""))
+                    if ev_ts <= 0:
+                        continue
+
+                    if session_ts is None:
+                        session_ts = ev_ts
+
+                    # Collect assistant text content
+                    content = msg.get("content") or []
+                    if not isinstance(content, list):
+                        continue
+
+                    reply_text = ""
+                    for blk in content:
+                        if isinstance(blk, dict) and blk.get("type") == "text":
+                            reply_text += (blk.get("text") or "")
+                        elif isinstance(blk, str):
+                            reply_text += blk
+
+                    reply_text = reply_text.strip()
+                    outcome = "ok" if reply_text == "HEARTBEAT_OK" else "action"
+                    outcomes_in_file.append({"ts": ev_ts, "outcome": outcome})
+
+        except Exception:
+            continue
+
+        # Use the last (most recent) assistant turn as the beat timestamp,
+        # falling back to the first if we only have one.
+        if outcomes_in_file:
+            beat_ts = outcomes_in_file[-1]["ts"]
+            # Determine overall outcome for this session: if any turn is
+            # "action", the session is "action"; otherwise "ok".
+            final_outcome = (
+                "action"
+                if any(o["outcome"] == "action" for o in outcomes_in_file)
+                else "ok"
+            )
+            beats.append({"ts": beat_ts, "outcome": final_outcome})
+
+    # Sort by timestamp descending
+    beats.sort(key=lambda b: b["ts"], reverse=True)
+
+    last_heartbeat_ts = beats[0]["ts"] if beats else 0.0
+
+    # 24h window
+    beats_24h = [b for b in beats if b["ts"] >= cutoff_24h]
+    ok_count = sum(1 for b in beats_24h if b["outcome"] == "ok")
+    action_count = sum(1 for b in beats_24h if b["outcome"] == "action")
+    total_24h = ok_count + action_count
+
+    ok_ratio = round(ok_count / total_24h, 3) if total_24h > 0 else 1.0
+
+    # 10 most recent beats (already sorted desc, reverse to show oldest first)
+    recent_beats = list(reversed(beats[:10]))
+
+    return {
+        "last_heartbeat_ts": last_heartbeat_ts,
+        "beats_24h": beats_24h,
+        "ok_count": ok_count,
+        "action_count": action_count,
+        "ok_ratio": ok_ratio,
+        "recent_beats": recent_beats,
+    }
+
+
+# ── Heartbeat-loop detector (issue #2009) ────────────────────────────────────
+
+_HB_LOOP_SIM = 0.7  # minimum pairwise text-similarity to flag a loop
+_HB_LOOP_MIN = 3    # minimum consecutive similar action beats to flag
+
+
+def _detect_heartbeat_loops(sessions_dir):
+    """Detect repetitive action-beat patterns across heartbeat sessions.
+
+    Scans heartbeat JSONL files for consecutive sessions whose last action
+    reply shares >= _HB_LOOP_SIM similarity with its neighbours.  Three or
+    more such consecutive beats is the named ``heartbeat_respond`` runaway
+    signature (issue #2009).
+
+    Returns a list of loop-hit dicts:
+      {"session_ids": [...], "start_ts": float, "end_ts": float,
+       "repeat_count": int, "excerpt": str}
+    """
+    try:
+        fnames = [
+            f for f in os.listdir(sessions_dir)
+            if f.endswith(".jsonl")
+            and ".deleted." not in f
+            and ".reset." not in f
+            and "heartbeat" in f.lower()
+        ]
+    except OSError:
+        return []
+
+    # Collect the last action reply per heartbeat session
+    action_beats = []  # (ts_float, session_id, reply_text)
+    for fname in fnames:
+        sid = os.path.splitext(fname)[0]
+        fpath = os.path.join(sessions_dir, fname)
+        last_action = None
+        try:
+            with open(fpath, "r", errors="replace") as fh:
+                for raw in fh:
+                    raw = raw.strip()
+                    if not raw:
+                        continue
+                    try:
+                        ev = json.loads(raw)
+                    except Exception:
+                        continue
+                    if ev.get("type") != "message":
+                        continue
+                    msg = ev.get("message") or {}
+                    if msg.get("role") != "assistant":
+                        continue
+                    ev_ts = _parse_iso_ts(ev.get("timestamp", ""))
+                    if ev_ts <= 0:
+                        continue
+                    content = msg.get("content") or []
+                    if not isinstance(content, list):
+                        continue
+                    text = ""
+                    for blk in content:
+                        if isinstance(blk, dict) and blk.get("type") == "text":
+                            text += blk.get("text") or ""
+                        elif isinstance(blk, str):
+                            text += blk
+                    text = text.strip()
+                    if text and text != "HEARTBEAT_OK":
+                        last_action = (ev_ts, text)
+        except Exception:
+            continue
+        if last_action is not None:
+            action_beats.append((last_action[0], sid, last_action[1]))
+
+    if len(action_beats) < _HB_LOOP_MIN:
+        return []
+
+    action_beats.sort(key=lambda x: x[0])
+    loops = []
+    n = len(action_beats)
+    i = 0
+    while i <= n - _HB_LOOP_MIN:
+        window = action_beats[i : i + _HB_LOOP_MIN]
+        texts = [b[2] for b in window]
+        all_sim = all(
+            difflib.SequenceMatcher(None, texts[j], texts[j + 1]).ratio() >= _HB_LOOP_SIM
+            for j in range(len(texts) - 1)
+        )
+        if all_sim:
+            end = i + _HB_LOOP_MIN
+            while end < n:
+                sim = difflib.SequenceMatcher(
+                    None, action_beats[end - 1][2], action_beats[end][2]
+                ).ratio()
+                if sim >= _HB_LOOP_SIM:
+                    end += 1
+                else:
+                    break
+            hit = action_beats[i:end]
+            loops.append({
+                "session_ids": [b[1] for b in hit],
+                "start_ts": hit[0][0],
+                "end_ts": hit[-1][0],
+                "repeat_count": len(hit),
+                "excerpt": hit[0][2][:300],
+            })
+            i = end
+        else:
+            i += 1
+    return loops
+
+
+def _try_local_store_heartbeat(interval, now):
+    """Epic #964 phase 1b fast path. When CLAWMETRY_LOCAL_STORE_READ=1 AND
+    the local DuckDB ``heartbeats`` table has rows, build the same response
+    shape as the legacy session-transcript scanner. Returns ``None`` to
+    defer to the JSONL scanner if:
+
+      - the local_store module isn't importable
+      - the heartbeats table is empty
+      - any unexpected error happens (we'd rather degrade than 500)
+
+    Daemon-emitted heartbeats are pure liveness pings — there is no
+    "action taken" notion at the daemon layer, so every beat is treated
+    as outcome="ok". The session-transcript fallback retains its richer
+    ok/action classification when the daemon isn't writing local rows.
+    """
+    # Issue #1291 cliff #5 (final): route through daemon HTTP proxy. The
+    # previous direct ``local_store.get_store()`` open collided with the
+    # sync daemon's exclusive DuckDB lock under standard installs (per
+    # memory `reference_duckdb_process_lock.md`), forcing fall-through to
+    # the legacy session-transcript scanner → 2.9s p95 the latency probe
+    # (#1287) surfaced for ``heartbeat.api_heartbeat``.
+    rows = None
+    try:
+        from routes.local_query import local_store_via_daemon
+        rows = local_store_via_daemon("query_heartbeats", limit=500)
+    except Exception:
+        rows = None
+    if rows is None:
+        try:
+            from clawmetry import local_store
+            store = local_store.get_store(read_only=True)
+            rows = store.query_heartbeats(limit=500)
+        except Exception:
+            return None
+    if not rows:
+        # Empty heartbeats table is a legitimate "daemon hasn't pinged
+        # yet" — don't fall through to the legacy scanner; surface "never"
+        # via the populated shell so the UI knows to show no-data state.
+        return {
+            "status":            "never",
+            "interval_seconds":  interval,
+            "last_heartbeat_ts": 0,
+            "age_seconds":       None,
+            "last_outcome":      None,
+            "expected_beats":    max(1, 86400 // interval) if interval > 0 else 48,
+            "actual_beats":      0,
+            "on_time_ratio":     0.0,
+            "beats_24h":         0,
+            "ok_count":          0,
+            "action_count":      0,
+            "ok_ratio":          1.0,
+            "recent_beats":      [],
+            "_source":           "local_store",
+        }
+
+    cutoff_24h = now - 86400
+    beats = []
+    for r in rows:
+        ts = _parse_iso_ts(r.get("ts", ""))
+        if ts <= 0:
+            continue
+        beats.append({"ts": ts, "outcome": "ok"})
+    if not beats:
+        return None
+
+    beats.sort(key=lambda b: b["ts"], reverse=True)
+    last_heartbeat_ts = beats[0]["ts"]
+    beats_24h = [b for b in beats if b["ts"] >= cutoff_24h]
+    ok_count = sum(1 for b in beats_24h if b["outcome"] == "ok")
+    action_count = sum(1 for b in beats_24h if b["outcome"] == "action")
+    total_24h = ok_count + action_count
+    ok_ratio = round(ok_count / total_24h, 3) if total_24h > 0 else 1.0
+    recent_beats = list(reversed(beats[:10]))
+
+    age_seconds = int(now - last_heartbeat_ts) if last_heartbeat_ts > 0 else None
+    if last_heartbeat_ts == 0:
+        status = "never"
+    else:
+        gap = now - last_heartbeat_ts
+        if gap <= interval:
+            status = "healthy"
+        elif gap <= interval * 1.5:
+            status = "drifting"
+        else:
+            status = "missed"
+
+    window_seconds = 86400
+    expected_beats = max(1, window_seconds // interval) if interval > 0 else 48
+    actual_beats = len(beats_24h)
+    on_time_ratio = round(actual_beats / expected_beats, 3) if expected_beats > 0 else 0.0
+    on_time_ratio = min(on_time_ratio, 1.0)
+
+    return {
+        "last_heartbeat_ts": last_heartbeat_ts,
+        "last_heartbeat_age_seconds": age_seconds,
+        "expected_interval_seconds": interval,
+        "status": status,
+        "cadence_24h": {
+            "expected_beats": expected_beats,
+            "actual_beats": actual_beats,
+            "on_time_ratio": on_time_ratio,
+        },
+        "ok_vs_action_24h": {
+            "heartbeat_ok_count": ok_count,
+            "action_taken_count": action_count,
+            "ok_ratio": ok_ratio,
+        },
+        "recent_beats": recent_beats,
+        "_source": "local_store",
+    }
+
+
+@bp_heartbeat.route("/api/heartbeat")
+def api_heartbeat():
+    """
+    Return a comprehensive heartbeat liveness summary.
+
+    Response shape:
+    {
+      "last_heartbeat_ts": <unix float>,
+      "last_heartbeat_age_seconds": <int|null>,
+      "expected_interval_seconds": <int>,
+      "status": "healthy"|"drifting"|"missed"|"never",
+      "cadence_24h": {
+        "expected_beats": <int>,
+        "actual_beats": <int>,
+        "on_time_ratio": <float>
+      },
+      "ok_vs_action_24h": {
+        "heartbeat_ok_count": <int>,
+        "action_taken_count": <int>,
+        "ok_ratio": <float>
+      },
+      "recent_beats": [{"ts": <float>, "outcome": "ok"|"action"}, ...]
+    }
+    """
+    import dashboard as _d
+
+    now = time.time()
+    interval = int(_d._heartbeat_interval_sec)
+    # Epic #964 phase 1b: opt-in local-store fast path. When
+    # CLAWMETRY_LOCAL_STORE_READ=1 AND the local DuckDB heartbeats table has
+    # rows, serve directly from DuckDB. Falls through to JSONL scan otherwise
+    # (so a fresh install with no local store sees the same data as before —
+    # zero-change default).
+    if is_local_store_read_enabled():
+        fast = _try_local_store_heartbeat(interval, now)
+        if fast is not None:
+            return jsonify(fast)
+    sessions_dir = _d.SESSIONS_DIR or os.path.expanduser(
+        "~/.openclaw/agents/main/sessions"
+    )
+
+    data = {
+        "last_heartbeat_ts": 0.0,
+        "beats_24h": [],
+        "ok_count": 0,
+        "action_count": 0,
+        "ok_ratio": 1.0,
+        "recent_beats": [],
+    }
+
+    if os.path.isdir(sessions_dir):
+        try:
+            data = _compute_heartbeat_data(sessions_dir)
+        except Exception:
+            pass  # keep zero-state defaults
+
+    last_ts = data["last_heartbeat_ts"]
+
+    # Also incorporate the in-memory global (which may be more recent than
+    # what's persisted to disk if the session JSONL hasn't been flushed yet).
+    gw_last_ts = float(_d._last_heartbeat_ts or 0)
+    if gw_last_ts > last_ts:
+        last_ts = gw_last_ts
+
+    # Compute age
+    if last_ts > 0:
+        age_seconds = int(now - last_ts)
+    else:
+        age_seconds = None
+
+    # Determine status
+    if last_ts == 0:
+        status = "never"
+    else:
+        gap = now - last_ts
+        if gap <= interval:
+            status = "healthy"
+        elif gap <= interval * 1.5:
+            status = "drifting"
+        else:
+            status = "missed"
+
+    # Expected beats in 24h window
+    window_seconds = 86400
+    expected_beats = max(1, window_seconds // interval) if interval > 0 else 48
+    actual_beats = len(data["beats_24h"])
+    on_time_ratio = round(actual_beats / expected_beats, 3) if expected_beats > 0 else 0.0
+    on_time_ratio = min(on_time_ratio, 1.0)  # cap at 1.0
+
+    return jsonify({
+        "last_heartbeat_ts": last_ts,
+        "last_heartbeat_age_seconds": age_seconds,
+        "expected_interval_seconds": interval,
+        "status": status,
+        "cadence_24h": {
+            "expected_beats": expected_beats,
+            "actual_beats": actual_beats,
+            "on_time_ratio": on_time_ratio,
+        },
+        "ok_vs_action_24h": {
+            "heartbeat_ok_count": data["ok_count"],
+            "action_taken_count": data["action_count"],
+            "ok_ratio": data["ok_ratio"],
+        },
+        "recent_beats": data["recent_beats"],
+    })
+
+
+@bp_heartbeat.route("/api/heartbeat-loops")
+def api_heartbeat_loops():
+    """Return detected heartbeat-loop signals (issue #2009).
+
+    Scans heartbeat session files for consecutive action beats whose reply
+    texts share >= 70% similarity — the named OpenClaw ``heartbeat_respond``
+    runaway signature.  Filters to the last 7 days and returns a flat
+    token-burn estimate (500 tokens per redundant beat).
+
+    Response shape:
+      {
+        "week_count": <int>,
+        "loops": [{"session_ids": [...], "start_ts": float, "end_ts": float,
+                   "repeat_count": int, "excerpt": str}],
+        "estimated_token_burn": <int>
+      }
+    """
+    import dashboard as _d
+
+    sessions_dir = _d.SESSIONS_DIR or os.path.expanduser(
+        "~/.openclaw/agents/main/sessions"
+    )
+    loops = []
+    if os.path.isdir(sessions_dir):
+        try:
+            loops = _detect_heartbeat_loops(sessions_dir)
+        except Exception:
+            pass
+
+    now = time.time()
+    cutoff = now - 7 * 86400
+    week_loops = [lp for lp in loops if lp["end_ts"] >= cutoff]
+    estimated_burn = sum(max(0, lp["repeat_count"] - 1) * 500 for lp in week_loops)
+
+    return jsonify({
+        "week_count": len(week_loops),
+        "loops": week_loops,
+        "estimated_token_burn": estimated_burn,
+    })

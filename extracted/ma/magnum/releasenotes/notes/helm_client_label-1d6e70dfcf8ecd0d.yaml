@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Added label helm_client_tag to allow user to specify helm client container version.

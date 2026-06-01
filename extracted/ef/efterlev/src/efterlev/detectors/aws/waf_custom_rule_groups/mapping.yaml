@@ -1,0 +1,48 @@
+detector_id: aws.waf_custom_rule_groups
+
+ksis:
+  - id: KSI-CNA-RVP
+    name: "Reviewing Protections"
+    coverage: partial
+    notes: >
+      Cross-resource detector: walks both `aws_wafv2_web_acl` AND
+      `aws_wafv2_rule_group` resources. For each Web ACL, walks
+      rules looking for `statement.rule_group_reference_statement.arn`
+      references; emits per Web ACL whether any references exist.
+      The `defined_rule_groups` inventory in the evidence content
+      lists the aws_wafv2_rule_group resource names found in the
+      same plan/repo regardless of whether the Web ACL references
+      them, so the Gap Agent can flag the "defined but unreferenced"
+      anti-pattern from the absent state. 9th detector evidencing
+      KSI-CNA-RVP -- closes the WAF family at 7/7 v0/v1 dimensions
+      shipped (joins rule_count, managed_rule_groups, rate_limiting,
+      action_types, ip_set_blocking, geo_blocking from prior tiers).
+      Per DECISIONS Decision #3 carry-forward, no cross-resource
+      VALIDATION at the detector layer -- ARN strings (Terraform
+      interpolations) emitted as-is; Gap Agent handles resolution.
+
+controls:
+  - id: SI-3
+    evidence_type: infrastructure
+    coverage: partial
+    notes: >
+      Malicious Code Protection at L7. Custom rule groups are the
+      customer-curated complement to managed groups -- in mature
+      WAF deployments customers ship workload-specific rule sets
+      that managed groups do not cover (application-specific
+      malicious-pattern rules, per-tenant access controls, etc.).
+      Joins SI-3 evidence from `aws.waf_rule_count`,
+      `aws.waf_managed_rule_groups`, `aws.waf_action_types`. The
+      WAF family arc closes with this detector covering both bulk
+      (managed) and curated (custom) rule-set dimensions on SI-3.
+  - id: SC-7
+    evidence_type: infrastructure
+    coverage: partial
+    notes: >
+      Boundary Protection. Shares the perimeter-control rationale
+      with `aws.waf_geo_blocking` and `aws.waf_ip_set_blocking` --
+      custom rule groups can encode workload-specific perimeter
+      rules (e.g. blocking known-bad request signatures, scoped
+      tenant IP allowlists). Widens the SC-7 evidence base across
+      the WAF family to its full 3-dimensional perimeter coverage
+      (geo / IP / custom).

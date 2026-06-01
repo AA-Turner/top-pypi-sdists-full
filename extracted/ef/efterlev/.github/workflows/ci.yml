@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  # v0.1.87: dropped `push: branches: ['**']` trigger.
+  # The PR trigger covers all PR-bound work, and the concurrency
+  # group below didn't dedup push vs PR (different `github.ref`
+  # values: `refs/heads/<branch>` vs `refs/pull/<N>/merge`), so
+  # every PR was double-firing the lint/type-check/test job — once
+  # on push, once on PR. ~3 min wasted per PR.
+  # Push-to-main still runs CI (covered by `pull_request` since
+  # all merges to main go through PRs in this repo's protected-
+  # branch posture). Direct pushes to feature branches that aren't
+  # PRs simply don't get CI — the developer is on their own to run
+  # gates locally before opening the PR. That's the right tradeoff
+  # for the GH Actions minute budget the project's been running at.
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: lint, type-check, test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv and Python 3.12
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Sync dependencies (runtime + dev extras)
+        run: uv sync --all-extras
+
+      - name: ruff check
+        run: uv run ruff check .
+
+      - name: ruff format --check
+        run: uv run ruff format --check .
+
+      - name: mypy
+        run: uv run mypy src/efterlev
+
+      - name: pytest
+        run: uv run pytest

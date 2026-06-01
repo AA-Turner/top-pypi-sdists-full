@@ -1,0 +1,334 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "visionservex"
+version = "2.58.0"
+description = "A permissive-license-aware framework for serving modern computer vision models locally and over Cloudflare Tunnel."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [
+    { name = "Arash Sajjadi", email = "arash.sajjadi@usask.ca" },
+]
+maintainers = [
+    { name = "Arash Sajjadi", email = "arash.sajjadi@usask.ca" },
+]
+keywords = [
+    "computer-vision",
+    "object-detection",
+    "segmentation",
+    "fastapi",
+    "cloudflare-tunnel",
+    "inference",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Image Recognition",
+]
+
+dependencies = [
+    "pydantic>=2.5",
+    "pydantic-settings>=2.1",
+    "typer>=0.12",
+    "rich>=13.7",
+    "PyYAML>=6.0",
+    "platformdirs>=4.2",
+    "httpx>=0.27",
+    "Pillow>=10.0",
+    "numpy>=1.24",
+    "psutil>=5.9",
+]
+
+[project.optional-dependencies]
+server = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "python-multipart>=0.0.9",
+    "slowapi>=0.1.9",
+]
+cloudflare = [
+    "PyYAML>=6.0",
+]
+torch = [
+    "torch>=2.1",
+    "torchvision>=0.16",
+]
+hf = [
+    "huggingface_hub>=0.24",
+    "transformers>=4.40",
+    "torch>=2.1",
+    "torchvision>=0.16",
+    "safetensors>=0.4",
+    # scipy is required by OneFormer via HF Transformers (OneFormerLoss).
+    "scipy>=1.10",
+]
+rfdetr = [
+    "rfdetr>=1.6",
+    "supervision>=0.22",
+    "torch>=2.1",
+    "torchvision>=0.16",
+]
+libreyolo = [
+    "libreyolo>=1.1.1",
+    "torch>=2.1",
+    "torchvision>=0.16",
+]
+dfine = [
+    "torch>=2.1",
+    "torchvision>=0.16",
+    "huggingface_hub>=0.24",
+]
+onnx = [
+    "onnxruntime>=1.17",
+]
+tensorrt = [
+    # The TensorRT Python wheel must be installed manually per NVIDIA's docs.
+    "onnx>=1.15",
+]
+openmmlab = [
+    # Installed via openmim per upstream docs; listed as a marker only.
+]
+sam2 = [
+    "torch>=2.1",
+    "torchvision>=0.16",
+    "opencv-python-headless>=4.8",
+    "huggingface_hub>=0.24",
+]
+grounding = [
+    "torch>=2.1",
+    "torchvision>=0.16",
+    "transformers>=4.40",
+    "huggingface_hub>=0.24",
+]
+anomaly = [
+    # Anomalib pulls heavy deps (torch, lightning, kornia). Optional extra so
+    # baseline VisionServeX install stays light.
+    "anomalib>=1.0",
+]
+florence2 = [
+    # Florence-2 requires transformers < 5.0 due to multiple API removals in 5.x.
+    # Install this extra in a dedicated environment: conda create -n vsrv-f2 python=3.11
+    "transformers>=4.40,<5.0",
+    "torch>=2.1",
+    "torchvision>=0.16",
+    "huggingface_hub>=0.24",
+]
+video = [
+    # Optional video-search support: cv2 for video-file ingestion.
+    "opencv-python-headless>=4.8",
+]
+medical = [
+    # Optional medical I/O — NIfTI volume parsing for TotalSegmentator/nnU-Net.
+    "nibabel>=5.0",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "httpx>=0.27",
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "types-PyYAML>=6.0",
+    "pre-commit>=3.7",
+]
+notebook = [
+    "jupyter>=1.0",
+    "nbconvert>=7.0",
+    "ipykernel>=6.0",
+    "matplotlib>=3.7",
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "pillow>=10.0",
+    "pycocotools>=2.0",
+    "tqdm>=4.64",
+]
+benchmark = [
+    "torch>=2.1",
+    "torchvision>=0.16",
+    "pycocotools>=2.0",
+    "matplotlib>=3.7",
+    "pandas>=2.0",
+    "tqdm>=4.64",
+]
+segmentation = [
+    "rfdetr>=1.6",
+    "supervision>=0.22",
+    "pycocotools>=2.0",
+    "torch>=2.1",
+    "torchvision>=0.16",
+    "pillow>=10.0",
+]
+"segmentation-full" = [
+    "rfdetr>=1.6",
+    "supervision>=0.22",
+    "pycocotools>=2.0",
+    "torch>=2.1",
+    "torchvision>=0.16",
+    "transformers>=4.40",
+    "huggingface_hub>=0.24",
+    "pillow>=10.0",
+]
+promptable = [
+    "torch>=2.1",
+    "torchvision>=0.16",
+    "transformers>=4.40",
+    "huggingface_hub>=0.24",
+    "pycocotools>=2.0",
+    "pillow>=10.0",
+]
+tracking = [
+    # Install tracking backends manually; these are optional heavy deps.
+    # bytetracker: pip install bytetracker
+    # ocsort: pip install ocsort
+    # torchreid: pip install torchreid
+    "opencv-python-headless>=4.8",
+]
+"vlm-legacy" = [
+    # Florence-2 requires transformers < 5.0. Install in a dedicated venv.
+    "transformers>=4.40,<5.0",
+    "torch>=2.1",
+    "torchvision>=0.16",
+    "huggingface_hub>=0.24",
+    "safetensors>=0.4",
+    "accelerate>=0.28",
+]
+detection = [
+    "rfdetr>=1.6",
+    "supervision>=0.22",
+    "huggingface_hub>=0.24",
+    "timm>=0.9",
+    "transformers>=4.40",
+    "safetensors>=0.4",
+    "accelerate>=0.28",
+    "torch>=2.1",
+    "torchvision>=0.16",
+]
+foundation = [
+    "timm>=0.9",
+    "transformers>=4.40",
+    "huggingface_hub>=0.24",
+    "safetensors>=0.4",
+    "accelerate>=0.28",
+]
+dino = [
+    # DINOv3 needs transformers>=4.56 — may conflict with Florence-2; install in
+    # a fresh env or via the dinov3 sidecar.
+    "transformers>=4.56",
+    "timm>=1.0.20",
+    "huggingface_hub>=0.24",
+    "safetensors>=0.4",
+    "accelerate>=0.28",
+]
+"open-vocab" = [
+    "torch>=2.1",
+    "torchvision>=0.16",
+    "transformers>=4.40",
+    "huggingface_hub>=0.24",
+    "pillow>=10.0",
+]
+vlm = [
+    "torch>=2.1",
+    "transformers>=4.40",
+    "huggingface_hub>=0.24",
+    "safetensors>=0.4",
+    "accelerate>=0.28",
+    "pillow>=10.0",
+]
+"all-benchmark" = [
+    "visionservex[server,hf,rfdetr,libreyolo,sam2,grounding,anomaly,video,notebook,benchmark,segmentation,promptable,detection,foundation,open-vocab]",
+]
+all = [
+    "visionservex[server,cloudflare,onnx,hf]",
+]
+
+[project.scripts]
+visionservex = "visionservex.cli.main:app"
+
+[project.urls]
+Homepage = "https://github.com/example/visionservex"
+Documentation = "https://github.com/example/visionservex/tree/main/docs"
+Issues = "https://github.com/example/visionservex/issues"
+Author = "https://cs.usask.ca/"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/visionservex"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/visionservex",
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "SECURITY.md",
+    "CHANGELOG.md",
+    "CITATION.cff",
+    "pyproject.toml",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+# Notebooks are user-facing copy-paste examples; their style is set by Colab,
+# not by our linter (free-form imports per cell, etc.).
+extend-exclude = ["examples/colab/*.ipynb", "notebook/*.ipynb"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "RUF", "SIM", "C4"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]
+# Typer/Click require function calls in argument defaults (B008) — this is
+# the standard pattern for the framework and cannot be refactored away.
+# B904: CLI raise-without-from is intentional when translating third-party
+# errors (ImportError, subprocess errors) into user-friendly typer exits.
+# SIM105: try/except/pass in CLI helpers is clearer than contextlib.suppress.
+"src/visionservex/cli/*" = ["B008", "B904", "SIM105"]
+# FastAPI/Starlette File() calls in endpoint signatures are also standard.
+# B904: the server deliberately does not chain HTTP-layer exceptions — raising
+# without `from` is intentional to hide internal details from HTTP clients.
+"src/visionservex/server/*" = ["B008", "B904"]
+# docker/ scripts run standalone inside the container, not part of the package.
+"docker/*" = ["B008", "B904", "F841", "E501"]
+
+[tool.mypy]
+python_version = "3.10"
+strict_optional = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+no_implicit_optional = true
+show_error_codes = true
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    # Fast development markers
+    "fast: unit test, no model load, no network, no GPU, no sidecar (runs in quick mode)",
+    "integration: CLI/registry/manifest integration without heavy resources",
+    # Resource markers — ALL excluded from quick mode by default
+    "slow: test takes more than ~2s; opt in: VISIONSERVEX_RUN_REAL_MODEL_TESTS=1",
+    "real_model: requires real model weights; opt in: VISIONSERVEX_RUN_REAL_MODEL_TESTS=1",
+    "gpu: requires a GPU device; opt in: VISIONSERVEX_RUN_GPU_TESTS=1",
+    "network: requires live network; opt in: VISIONSERVEX_RUN_NETWORK_TESTS=1",
+    "sidecar: requires heavy sidecar (Docker, OpenMMLab, Detectron2); opt in: VISIONSERVEX_RUN_SIDECAR_TESTS=1",
+    "release: only run as part of release validation",
+    "benchmark: benchmark test; opt in: VISIONSERVEX_RUN_BENCHMARK_TESTS=1",
+    "memory: memory-intensive test; opt in: VISIONSERVEX_RUN_DISK_HEAVY_TESTS=1",
+    "disk_heavy: disk-intensive test; opt in: VISIONSERVEX_RUN_DISK_HEAVY_TESTS=1",
+    "download: downloads large assets; opt in: VISIONSERVEX_RUN_DOWNLOAD_TESTS=1",
+    "smoke: small smoke-only variant of real_model or gpu test; always paired with real_model or gpu marker",
+    "notebook: notebook execution test; opt in: manually",
+]

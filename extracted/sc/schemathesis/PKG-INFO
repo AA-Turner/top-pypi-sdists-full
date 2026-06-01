@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: schemathesis
-Version: 4.20.3
+Version: 4.21.0
 Summary: Adaptive API testing for OpenAPI and GraphQL
 Project-URL: Documentation, https://schemathesis.readthedocs.io/en/stable/
 Project-URL: Changelog, https://github.com/schemathesis/schemathesis/blob/master/CHANGELOG.md
@@ -30,9 +30,9 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Testing
 Requires-Python: >=3.10
 Requires-Dist: click<9,>=8.0
-Requires-Dist: harfile<1.0,>=0.4.0
+Requires-Dist: harfile<1.0,>=0.5.0
 Requires-Dist: httpx<1.0,>=0.22.0
-Requires-Dist: hypothesis-graphql<1,>=0.12.0
+Requires-Dist: hypothesis-graphql<1,>=0.13.0
 Requires-Dist: hypothesis-jsonschema<0.24,>=0.23.1
 Requires-Dist: hypothesis<7,>=6.108.0
 Requires-Dist: jsonschema-rs>=0.46.4

@@ -1,0 +1,120 @@
+[build-system]
+requires = ["setuptools>=61.0", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+
+[project]
+name = "tobler"
+dynamic = ["version"]
+authors = [
+    { name = "Eli Knaap", email = "ek@knaaptime.com" },
+    { name = "Serge Rey", email = "sjsrey@gmail.com" },
+]
+maintainers = [{ name = "pysal contributors" }]
+license = { text = "BSD 3-Clause" }
+description = "Tobler is a Python library for areal interpolation."
+keywords = [
+    "dasymetric mapping, spatial analysis, interpolation, change of support"
+]
+readme = { text = """\
+Spatial interpolation, Dasymetric Mapping, & Change of Support"
+
+""", content-type = "text/x-rst" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+requires-python = ">=3.12"
+dependencies = [
+    "geopandas>=1.0",
+    "joblib>=1.4",
+    "libpysal>=4.10",
+    "numpy>=2.0",
+    "pandas>=2.2",
+    "rasterio>=1.4",
+    "rasterstats>=0.20",
+    "scipy>=1.13",
+    "statsmodels>=0.14",
+    "tqdm>=4.67",
+]
+
+[project.urls]
+Home = "https://github.com/pysal/tobler/"
+Repository = "https://github.com/pysal/tobler"
+
+[project.optional-dependencies]
+plus = [
+    "astropy",
+    "dask-geopandas",
+    "h3",
+    "pointpats",
+]
+dev = [
+    "pre-commit",
+    "ruff",
+]
+docs = [
+    "nbsphinx",
+    "numpydoc",
+    "pandoc",
+    "sphinx",
+    "sphinxcontrib-bibtex",
+    "sphinx_bootstrap_theme",
+    "mkdocs-jupyter",
+    "myst-parser",
+    "sphinx-immaterial",
+    "myst_nb",
+    "sphinx-copybutton"
+]
+tests = [
+    "codecov",
+    "coverage",
+    "pytest",
+    "pytest-mpl",
+    "pytest-cov",
+    "pytest-xdist",
+    "watermark",
+
+]
+all = ["tobler[plus,dev,docs,tests]"]
+
+[tool.setuptools.packages.find]
+include = ["tobler", "tobler.*"]
+
+[tool.ruff]
+line-length = 88
+lint.select = ["E", "F", "W", "I", "UP", "N", "B", "A", "C4", "SIM", "ARG"]
+include = ["*.py", "*.ipynb"]
+
+[tool.ruff.lint.per-file-ignores]
+"tobler/**/__init__.py" = [
+    "F401",  # ... imported but unused; consider removing, adding to `__all__`, or using a redundant alias
+    "F403",  # ... used; unable to detect undefined names
+    "F405",  # ... may be undefined, or defined from star imports
+]
+
+[tool.coverage.run]
+source = ["./tobler"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "if self.debug:",
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "except ModuleNotFoundError:",
+    "except ImportError",
+]
+ignore_errors = true
+omit = ["tobler/tests/*", "docs/conf.py"]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    # internal warning thrown from ``pyogrio/__init__.py``
+    "ignore:The 'shapely.geos' module is deprecated*:DeprecationWarning",
+    # thrown in testing and can be ignored -- user's responsibility to ensure CRS
+    "ignore:Geometry is in a geographic CRS*:UserWarning",
+]

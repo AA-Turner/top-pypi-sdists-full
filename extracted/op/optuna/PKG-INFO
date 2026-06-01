@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: optuna
-Version: 4.8.0
+Version: 4.9.0
 Summary: A hyperparameter optimization framework
 Author: Takuya Akiba
 Project-URL: homepage, https://optuna.org/
@@ -36,21 +36,11 @@ Requires-Dist: packaging>=20.0
 Requires-Dist: sqlalchemy>=1.4.2
 Requires-Dist: tqdm
 Requires-Dist: PyYAML
-Provides-Extra: checking
-Requires-Dist: mypy; extra == "checking"
-Requires-Dist: mypy_boto3_s3; extra == "checking"
-Requires-Dist: ruff; extra == "checking"
-Requires-Dist: scipy-stubs; python_version >= "3.10" and extra == "checking"
-Requires-Dist: types-PyYAML; extra == "checking"
-Requires-Dist: types-redis; extra == "checking"
-Requires-Dist: types-setuptools; extra == "checking"
-Requires-Dist: types-tqdm; extra == "checking"
-Requires-Dist: typing_extensions>=3.10.0.0; extra == "checking"
 Provides-Extra: document
 Requires-Dist: ase; extra == "document"
 Requires-Dist: cmaes>=0.12.0; extra == "document"
 Requires-Dist: fvcore; extra == "document"
-Requires-Dist: kaleido<0.4; extra == "document"
+Requires-Dist: kaleido!=0.2.1.post1,<0.4; extra == "document"
 Requires-Dist: lightgbm; extra == "document"
 Requires-Dist: matplotlib!=3.6.0; extra == "document"
 Requires-Dist: pandas; extra == "document"
@@ -78,17 +68,6 @@ Requires-Dist: torch; extra == "optional"
 Requires-Dist: greenlet; extra == "optional"
 Requires-Dist: grpcio; extra == "optional"
 Requires-Dist: protobuf>=5.28.1; extra == "optional"
-Provides-Extra: test
-Requires-Dist: fakeredis[lua]; extra == "test"
-Requires-Dist: kaleido<0.4; extra == "test"
-Requires-Dist: moto; extra == "test"
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: pytest-xdist; extra == "test"
-Requires-Dist: scipy>=1.9.2; extra == "test"
-Requires-Dist: torch; extra == "test"
-Requires-Dist: greenlet; extra == "test"
-Requires-Dist: grpcio; extra == "test"
-Requires-Dist: protobuf>=5.28.1; extra == "test"
 Dynamic: license-file
 
 <div align="center"><img src="https://raw.githubusercontent.com/optuna/optuna/master/docs/image/optuna-logo.png" width="800"/></div>
@@ -116,20 +95,14 @@ for machine learning. It features an imperative, *define-by-run* style user API.
 Optuna can dynamically construct the search spaces for the hyperparameters.
 
 ## :loudspeaker: News
-Help us create the next version of Optuna!
-
-Optuna 5.0 Roadmap published for review. Please take a look at [the planned improvements to Optuna](https://medium.com/optuna/optuna-v5-roadmap-ac7d6935a878), and share your feedback in [the github issues](https://github.com/optuna/optuna/labels/v5). PR contributions also welcome!
-
-Please take a few minutes to fill in [this survey](https://forms.gle/wVwLCQ9g6st6AXuq9), and let us know how you use Optuna now and what improvements you'd like.🤔
-All questions are optional. 🙇‍♂️
 
 <!-- TODO: when you add a new line, please delete the oldest line -->
+* **Mar 16, 2026**: Optuna 4.8.0 is out! Check out [the release note](https://github.com/optuna/optuna/releases/tag/v4.8.0) for details.
 * **Jan 19, 2026**: Optuna 4.7.0 is out! Check out [the release note](https://github.com/optuna/optuna/releases/tag/v4.7.0) for details.
 * **Nov 10, 2025**: A new article [Announcing Optuna 4.6](https://medium.com/optuna/announcing-optuna-4-6-a9e82183ab07) has been published.
 * **Oct 28, 2025**: A new article [AutoSampler: Full Support for Multi-Objective & Constrained Optimization](https://medium.com/optuna/autosampler-full-support-for-multi-objective-constrained-optimization-c1c4fc957ba2) has been published.
 * **Sep 22, 2025**: A new article [[Optuna v4.5] Gaussian Process-Based Sampler (GPSampler) Can Now Perform Constrained Multi-Objective Optimization](https://medium.com/optuna/optuna-v4-5-81e78d8e077a) has been published.
 * **Jun 16, 2025**: Optuna 4.4.0 has been released! Check out [the release blog](https://medium.com/optuna/announcing-optuna-4-4-ece661493126).
-* **May 26, 2025**: Optuna 5.0 roadmap has been published! See [the blog](https://medium.com/optuna/optuna-v5-roadmap-ac7d6935a878) for more details.
 
 ## :fire: Key Features
 
@@ -218,8 +191,6 @@ $ conda install -c conda-forge optuna
 
 > [!IMPORTANT]
 > Optuna supports Python 3.9 or newer.
->
-> Also, we provide Optuna docker images on [DockerHub](https://hub.docker.com/r/optuna/optuna).
 
 ## Integrations
 
@@ -233,14 +204,11 @@ Optuna has integration features with various third-party libraries. Integrations
 * [fastai](https://github.com/optuna/optuna-examples/tree/main/fastai/fastai_simple.py)
 * [Keras](https://github.com/optuna/optuna-examples/tree/main/keras/keras_integration.py)
 * [LightGBM](https://github.com/optuna/optuna-examples/tree/main/lightgbm/lightgbm_integration.py)
-* [MLflow](https://github.com/optuna/optuna-examples/tree/main/mlflow/keras_mlflow.py)
 * [PyTorch](https://github.com/optuna/optuna-examples/tree/main/pytorch/pytorch_simple.py)
 * [PyTorch Ignite](https://github.com/optuna/optuna-examples/tree/main/pytorch/pytorch_ignite_simple.py)
 * [PyTorch Lightning](https://github.com/optuna/optuna-examples/tree/main/pytorch/pytorch_lightning_simple.py)
-* [TensorBoard](https://github.com/optuna/optuna-examples/tree/main/tensorboard/tensorboard_simple.py)
 * [TensorFlow](https://github.com/optuna/optuna-examples/tree/main/tensorflow/tensorflow_estimator_integration.py)
 * [tf.keras](https://github.com/optuna/optuna-examples/tree/main/tfkeras/tfkeras_integration.py)
-* [Weights & Biases](https://github.com/optuna/optuna-examples/tree/main/wandb/wandb_integration.py)
 * [XGBoost](https://github.com/optuna/optuna-examples/tree/main/xgboost/xgboost_integration.py)
 </details>
 

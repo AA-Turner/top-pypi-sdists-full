@@ -1,0 +1,10 @@
+[files]
+extend-exclude = [
+    ".git/",
+    "test/",
+]
+ignore-hidden = false
+
+
+[default.extend-words]
+typ = "typ"

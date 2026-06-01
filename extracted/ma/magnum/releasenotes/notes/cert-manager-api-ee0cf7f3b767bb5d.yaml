@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Add new label 'cert_manager_api' enabling the kubernetes certificate
-    manager api.

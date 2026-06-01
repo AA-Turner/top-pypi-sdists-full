@@ -1,0 +1,3429 @@
+"""Voice status + models + setup endpoints.
+
+Phase 5.D (v0.32.7 — commits ``aee85844..f277ba19``) migrated 14
+endpoints from raw ``JSONResponse(dict)`` to typed
+``Model | JSONResponse`` unions. Every ``Model.model_validate(
+helper_dict)`` call site in this module MUST have a corresponding
+round-trip regression test under ``tests/dashboard/`` that
+exercises the producer's actual prod shape (see Mission C2 §T2.7
+— anti-pattern #40: typed boundary drifts from producer dict
+shape when both evolve independently). The shared helper
+``tests.dashboard._boundary_helpers.assert_boundary_accepts`` is
+the canonical pattern; current cohort coverage lives in
+``tests/dashboard/test_voice_status_boundary.py`` (the C2 site)
++ ``tests/dashboard/test_voice_boundary_cohort.py`` (the 4 sibling
+sites). When adding a new ``.model_validate(...)`` call here,
+also add the matching boundary test BEFORE merging; the v0.45.0
+STRICT-flip static checker (mission §T4.1) will enforce this.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Literal
+
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+from starlette.status import HTTP_503_SERVICE_UNAVAILABLE
+
+from sovyx.dashboard.routes._deps import verify_token
+from sovyx.engine._lock_dict import LRULockDict
+from sovyx.observability.logging import get_logger
+from sovyx.voice.health._bypass_tier_state import snapshot as _bypass_tier_snapshot
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from sovyx.engine.config import EngineConfig
+    from sovyx.voice.cognitive_bridge import VoiceCognitiveBridge
+    from sovyx.voice.health.contract import MixerCardSnapshot
+
+logger = get_logger(__name__)
+
+router = APIRouter(prefix="/api/voice", dependencies=[Depends(verify_token)])
+
+
+# v0.31.6 T3.4 — race-free (idempotent-check + register) atomic for
+# ``POST /api/voice/enable``. Pre-v0.31.6 the ~330 LOC between the
+# ``is_registered(VoicePipeline)`` check and ``replace_instance`` were
+# unguarded; two concurrent POSTs (operator double-click + slow
+# network) could both pass the idempotent check before either
+# registered, build full pipelines in parallel, and each
+# ``replace_instance`` call would then await teardown of the OTHER's
+# fresh registration — producing zombie ``audio-capture-consumer``
+# tasks and chaotic VAD. Mirrors the per-mind ``_START_LOCKS`` pattern
+# in ``voice_calibration.py``. Anti-pattern #15: LRULockDict, never
+# raw ``defaultdict(asyncio.Lock)``.
+_ENABLE_LOCKS: LRULockDict[str] = LRULockDict(maxsize=64)
+# Mission H4 §T2.4 — register module-level lock-dict for cohort observability.
+from sovyx.observability._resource_registry import (  # noqa: PLC0415, E402 — module-level registration
+    register_lock_dict,
+)
+
+register_lock_dict(owner_id="dashboard.routes.voice.enable_locks", dict_ref=_ENABLE_LOCKS)
+
+
+# v0.31.7 CR1 — bound on how long ``_on_perception`` waits for the
+# previous turn's cogloop task to actually finish its ``finally``
+# block before starting turn N+1. The await is critical because
+# without it the previous task's ``finally`` races to null the cancel
+# hook AFTER turn N+1 has registered its own (companion: identity
+# check in ``cognitive_bridge.VoiceCognitiveBridge.process`` finally).
+# 1 second is comfortably above the typical cogloop teardown latency
+# (~10-50 ms in the streaming path, dominated by ``flush_stream``)
+# while keeping perceived response time bounded if the previous task
+# is genuinely stuck.
+_TURN_CANCELLATION_TIMEOUT_S = 1.0
+
+
+# ── T6.20 — aggregated voice service health ──────────────────────────
+
+
+_ServiceHealthReason = Literal[
+    "ok",
+    "voice_disabled",
+    "engine_not_running",
+    "voice_pipeline_not_registered",
+    "last_diagnosis_unhealthy",
+]
+"""Stable reason codes for monitoring tooling.
+
+Operators consume the ``reason`` field via Prometheus / cron / log
+aggregators and route on its value (alerting, dashboarding). Adding
+new values is fine; renaming or repurposing existing values is a
+breaking change to monitoring contracts. Documented as a closed enum
+on the wire so the ``ServiceHealthResponse`` schema rejects typos
+at request time rather than letting drift propagate.
+"""
+
+
+class ServiceHealthResponse(BaseModel):
+    """T6.20 aggregated readiness snapshot.
+
+    Distinct shape from the existing ``GET /api/voice/health``
+    snapshot endpoint (``HealthSnapshotResponse`` — combo-store +
+    overrides + quarantine count + data_dir + voice_enabled). This
+    endpoint serves Prometheus/cron-style monitoring: a tight,
+    stable, low-cost readiness probe.
+
+    Fields:
+
+    * ``ready``: ``True`` iff the engine is running, the voice
+      pipeline is registered, AND the most recent probe diagnosis
+      (when any exists) is HEALTHY.
+    * ``reason``: stable code describing the verdict. ``"ok"`` when
+      ready; one of the failure codes otherwise. See
+      :data:`_ServiceHealthReason`.
+    * ``last_diagnosis``: most-recently-validated combo-store entry's
+      :class:`Diagnosis` value (the ``"healthy"``-style string), or
+      ``None`` when the store has no validated entries yet (fresh
+      install / no probe has run).
+    * ``watchdog_state``: :class:`WatchdogState` value or ``None``.
+      ``None`` is the current production state because
+      :class:`VoiceCaptureWatchdog` is not yet wired in
+      (``MISSION-voice-runtime-listener-wireup-2026-04-30.md`` §4.3
+      explicitly defers the wire-up). The field is held in the wire
+      contract so monitoring tooling that already consumes it
+      doesn't need a schema migration when the wire-up lands.
+    * ``user_remediation``: T6.12 — operator-facing hint string when
+      :func:`sovyx.voice.health._user_remediation.diagnosis_user_remediation`
+      maps the ``last_diagnosis`` to a known remediation. ``None``
+      when the diagnosis has no user-actionable hint
+      (``healthy`` / ``unknown`` / mixer-sanity family) OR the
+      diagnosis is not yet stored. Dashboard banner consumes this;
+      cron / Prometheus tooling can also route on it.
+    """
+
+    ready: bool
+    reason: _ServiceHealthReason
+    last_diagnosis: str | None = None
+    watchdog_state: str | None = None
+    user_remediation: str | None = None
+
+
+# ── Phase 5.D — Typed responses for ``/status`` family ───────────────
+
+
+class VoiceStatusPipeline(BaseModel):
+    """Voice pipeline runtime state for ``/api/voice/status``."""
+
+    running: bool
+    state: str
+    latency_ms: float | None = None
+
+
+class VoiceStatusCapture(BaseModel):
+    """Capture-task heartbeat snapshot for ``/api/voice/status``.
+
+    Fields beyond the explicit ones are accepted to match the
+    open-ended ``capture.status_snapshot()`` contract — the snapshot
+    grows over time as new SLIs are added and the response model must
+    not reject forward-additive shapes.
+    """
+
+    model_config = {"extra": "allow"}
+
+    running: bool = False
+    # Mission C2 — accept both PortAudio int device-handles (the
+    # ``info.device_index`` shape rebound at ``_capture_task.py:694``
+    # on every stream open) and operator-picked str device names. The
+    # producer constructor at ``_capture_task.py:279`` types this as
+    # ``int | str | None`` and the frontend zod twin at
+    # ``dashboard/src/types/schemas.ts:1757`` matches; pre-mission this
+    # boundary narrowed to ``str | None`` and 500'd every poll once
+    # capture opened against a real device. Anti-pattern #40.
+    input_device: int | str | None = None
+    host_api: str | None = None
+    sample_rate: int | None = None
+    frames_delivered: int = 0
+    last_rms_db: float | None = None
+
+    # Mission H2 §T2.10 (ADR-D15) — last bypass-coordinator event's
+    # platform metadata. Optional + None-default so legacy clients +
+    # pre-mission status snapshots round-trip unchanged. Producers
+    # populate from the latest ``voice.capture_integrity.bypass*`` event
+    # via the C4 composite store's metadata channel; consumers
+    # (dashboard banner action chips, ``sovyx doctor voice``) render
+    # platform-specific operator copy when populated. Promoted to
+    # required at v0.51.0 STRICT after one minor cycle of telemetry
+    # calibration per anti-pattern #29.
+    last_bypass_event_platform: str | None = None
+    last_bypass_event_family: str | None = None
+
+
+# LIVE-2 Phase 3 (P0-1) — voice-subsystem health vocabulary. The producer
+# (``sovyx.dashboard.voice_status``) is the SSoT for the value set; this is
+# a plain ``str`` (not a closed Literal) so a forward-additive value never
+# breaks the boundary round-trip. Default "unavailable" = subsystem not
+# registered. "healthy" is emitted ONLY when a real readiness signal
+# confirms usability — never from registration alone.
+_VOICE_HEALTH_DEFAULT = "unavailable"
+
+
+class VoiceStatusSTT(BaseModel):
+    """STT-engine state for ``/api/voice/status``."""
+
+    engine: str | None = None
+    model: str | None = None
+    state: str | None = None
+    health: str = _VOICE_HEALTH_DEFAULT
+
+
+class VoiceStatusTTS(BaseModel):
+    """TTS-engine state for ``/api/voice/status``."""
+
+    engine: str | None = None
+    model: str | None = None
+    initialized: bool = False
+    health: str = _VOICE_HEALTH_DEFAULT
+
+
+class VoiceStatusWakeWord(BaseModel):
+    """Wake-word detector state for ``/api/voice/status``."""
+
+    enabled: bool = False
+    phrase: str | None = None
+    health: str = _VOICE_HEALTH_DEFAULT
+
+
+class VoiceStatusVAD(BaseModel):
+    """VAD state for ``/api/voice/status``."""
+
+    enabled: bool = False
+    health: str = _VOICE_HEALTH_DEFAULT
+
+
+class VoiceStatusWyoming(BaseModel):
+    """Wyoming-server state for ``/api/voice/status``."""
+
+    # LIVE-2 P1-10: True only when a ``SovyxWyomingServer`` is registered.
+    # The dashboard hides the Wyoming card unless this is True, so the
+    # default (server never wired) never shows a misleading "Disconnected".
+    configured: bool = False
+    connected: bool = False
+    endpoint: str | None = None
+
+
+class VoiceStatusHardware(BaseModel):
+    """Hardware-tier auto-select snapshot for ``/api/voice/status``."""
+
+    tier: str | None = None
+    ram_mb: int | None = None
+
+
+class VoiceStatusDegraded(BaseModel):
+    """Voice-subsystem degraded-mode marker.
+
+    Mission C3 §T2.8 — server-side surface of the failover ladder's
+    terminal state. The dashboard widget at
+    ``voice-health.tsx::FailoverHistorySection`` consumes this so
+    the UI can render an actionable banner ("Failover exhausted —
+    reconnect your USB or restart Sovyx") instead of leaving the
+    operator to correlate three log streams as in the v0.43.1
+    operator session.
+
+    ``model_config = {"extra": "allow"}`` keeps the forward-additive
+    policy of the parent :class:`VoiceStatusResponse` — future C4
+    work may add ``last_error_class``, ``ack_at_monotonic``, etc.
+    without a route schema migration. The frontend zod twin
+    (``VoiceStatusDegradedSchema``) passes through unknown keys via
+    ``.passthrough()`` to match.
+
+    A pre-mission consumer that ignores the ``degraded`` block sees
+    no change: the default-factory yields
+    ``VoiceStatusDegraded(degraded=False, reason=None, candidates_tried=0,
+    candidates_unreachable=[], last_ladder_complete_monotonic=None)``.
+    Mission C3 boundary contract pinned by Quality Gate 8 round-trip
+    test at ``tests/dashboard/test_voice_status_degraded_boundary.py``.
+    """
+
+    model_config = {"extra": "allow"}
+
+    degraded: bool = False
+    """``True`` iff the most recent failover ladder exited with
+    ``verdict=exhausted`` AND no subsequent recovery has cleared the
+    flag. ``False`` on pre-mission consumers + on every healthy
+    pipeline state."""
+
+    reason: str | None = None
+    """Human / machine-readable reason token. Mission C3 emits
+    ``"failover_ladder_exhausted"`` on the exhausted path; future C4
+    work may add ``"capture_dead"``, ``"vad_frontend_dead"``,
+    etc. ``None`` when ``degraded=False``."""
+
+    candidates_tried: int = 0
+    """Count of candidates dispatched in the most recent ladder run."""
+
+    candidates_unreachable: list[str] = Field(default_factory=list)
+    """Canonical endpoint names of candidates that failed
+    (engaged=False) in the most recent ladder. Bounded by
+    ``failover_candidate_max_attempts_per_ladder`` (default 5)."""
+
+    last_ladder_complete_monotonic: float | None = None
+    """``time.monotonic()`` timestamp of the most recent ladder
+    completion (success or exhaustion). ``None`` before the first
+    ladder run."""
+
+    # Mission C4 §T1.5 — composite degraded surface fields.
+    # All optional + default-empty so legacy consumers see no behavior
+    # change. Populated by the producer at ``voice_status.py`` from
+    # the composite :class:`sovyx.engine._degraded_store.EngineDegradedStore`.
+
+    composite_axes: list[str] = Field(default_factory=list)
+    """Sorted list of distinct degraded axes across the engine — subset
+    of ``{"voice", "llm", "stt", ...}``. Empty when no axis is
+    degraded; populated from
+    :func:`sovyx.engine._degraded_store.EngineDegradedStore.distinct_axes`.
+
+    Mission C4 §T1.5 — drives the global ``<DegradedBannerGlobalMount>``
+    decision (banner renders iff non-empty).
+    """
+
+    composite_severity: str | None = None
+    """Aggregate severity per the amended ADR-D6 Hybrid rule (Mission
+    D.1 / D-P0-1, 2026-05-21):
+    ``max(max(entry.severity), count_tier(distinct_axes))`` under the
+    ordering ``None < "warn" < "error" < "critical"``. Pure count-tier
+    rollback when
+    ``EngineConfig.tuning.dashboard.composite_severity_by_max=False``.
+    ``None`` when no axis is degraded.
+
+    Mission C4 §T1.5 — drives the banner palette + escalation animation.
+    """
+
+    ack_at_monotonic: float | None = None
+    """Server-side operator-ack timestamp (Phase 3 — ``operator_acks``
+    SQLite table). ``None`` until first ack. Forward-additive so the
+    Phase 1 frontend can read it as ``null`` without breakage.
+
+    Mission C4 §T1.5 (field declaration) + §T3.3 (write site).
+    """
+
+    ack_ttl_sec: int | None = None
+    """Operator-chosen ack TTL in seconds. Bounded ``[60, 86400]`` per
+    ADR-D9. ``None`` until first ack.
+
+    Mission C4 §T1.5 (field declaration) + §T3.3 (write site).
+    """
+
+    ack_operator_id: str | None = None
+    """Best-effort identification of the acking operator (typically
+    derived from the dashboard auth token hash). Empty string when
+    unidentifiable; ``None`` before first ack.
+
+    Mission C4 §T1.5 (field declaration) + §T3.3 (write site).
+    """
+
+    last_resurfaced_monotonic: float | None = None
+    """Timestamp of the most recent TTL-expiry re-surface event. ``None``
+    before the first re-surface.
+
+    Mission C4 §T1.5 (field declaration) + §T3.5 (write site).
+    """
+
+
+class VoiceStatusResponse(BaseModel):
+    """Top-level ``/api/voice/status`` payload.
+
+    Phase 5.D v0.32.7 typed-response migration. Mirrors the dict shape
+    the dashboard's voice page has consumed since v0.6.x; the explicit
+    schema makes the contract enforceable at request-time and lets the
+    frontend's zod schemas validate against a single canonical source.
+
+    Mission C3 §T2.8 — added ``degraded: VoiceStatusDegraded`` field
+    to surface the runtime-failover ladder's terminal state to the
+    dashboard.
+
+    ``preflight_warnings`` carries Linux-only mixer-sanity boot
+    warnings (always empty on non-Linux); each entry is the raw
+    ``BootPreflightWarningsStore`` snapshot dict — its shape lives in
+    ``voice/health/_preflight_warnings.py`` and is intentionally
+    typed as ``dict[str, Any]`` here because the warning catalogue
+    grows through KB profile authorship and we do not gate
+    forward-additive fields on a route schema migration.
+    """
+
+    # All 9 nested blocks are optional with default factories: the
+    # production helper always populates the full dict (see
+    # ``dashboard/voice_status.py::get_voice_status`` initial dict),
+    # but tests mock partial shapes and downstream consumers may
+    # legitimately omit blocks they don't care about.
+    pipeline: VoiceStatusPipeline = Field(
+        default_factory=lambda: VoiceStatusPipeline(running=False, state="not_configured")
+    )
+    capture: VoiceStatusCapture = Field(default_factory=VoiceStatusCapture)
+    stt: VoiceStatusSTT = Field(default_factory=VoiceStatusSTT)
+    tts: VoiceStatusTTS = Field(default_factory=VoiceStatusTTS)
+    wake_word: VoiceStatusWakeWord = Field(default_factory=VoiceStatusWakeWord)
+    vad: VoiceStatusVAD = Field(default_factory=VoiceStatusVAD)
+    wyoming: VoiceStatusWyoming = Field(default_factory=VoiceStatusWyoming)
+    hardware: VoiceStatusHardware = Field(default_factory=VoiceStatusHardware)
+    degraded: VoiceStatusDegraded = Field(default_factory=VoiceStatusDegraded)
+    preflight_warnings: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class VoiceBypassTierStatusResponse(BaseModel):
+    """``/api/voice/bypass-tier-status`` payload.
+
+    Mirrors ``BypassTierSnapshot`` (the in-memory mirror dataclass at
+    ``voice/health/_bypass_tier_state.py``) one-for-one. Frontend zod
+    schema ``VoiceBypassTierStatusResponseSchema`` is the wire-side
+    twin.
+    """
+
+    current_bypass_tier: int | None = None
+    tier1_raw_attempted: int = 0
+    tier1_raw_succeeded: int = 0
+    tier2_host_api_rotate_attempted: int = 0
+    tier2_host_api_rotate_succeeded: int = 0
+    tier3_wasapi_exclusive_attempted: int = 0
+    tier3_wasapi_exclusive_succeeded: int = 0
+
+
+class VoiceQualityNoiseFloor(BaseModel):
+    """Noise-floor sub-payload for ``/api/voice/quality-snapshot``."""
+
+    short_avg_db: float | None = None
+    long_avg_db: float | None = None
+    drift_db: float | None = None
+    ready: bool = False
+    short_sample_count: int = 0
+    long_sample_count: int = 0
+
+
+class VoiceQualityAGC2(BaseModel):
+    """AGC2 sub-payload for ``/api/voice/quality-snapshot``.
+
+    ``None`` at the parent level when AGC2 is not wired (foundation
+    default); when wired, every field is present (the orchestrator
+    populates them on every frame).
+    """
+
+    frames_processed: int
+    frames_silenced: int
+    frames_vad_silenced: int
+    current_gain_db: float
+    speech_level_dbfs: float
+
+
+_QualityVerdict = Literal["excellent", "good", "degraded", "poor", "no_signal"]
+"""Closed enum of SNR verdict labels — dashboard renders one badge per
+verdict; adding new values requires a frontend schema migration."""
+
+
+class VoiceQualitySnapshotResponse(BaseModel):
+    """``/api/voice/quality-snapshot`` payload.
+
+    Source-of-truth shape for the dashboard's voice-quality panel + the
+    ``VoiceQualitySnapshotResponseSchema`` zod twin in
+    ``dashboard/src/types/schemas.ts``.
+    """
+
+    snr_p50_db: float | None = None
+    snr_sample_count: int = 0
+    snr_verdict: _QualityVerdict
+    noise_floor: VoiceQualityNoiseFloor
+    agc2: VoiceQualityAGC2 | None = None
+    dnsmos_extras_installed: bool = False
+    # LIVE-2 DNSMOS wire-up — SSoT for which MOS the panel may claim:
+    # * ``dnsmos_unavailable`` — speechmos extras not installed.
+    # * ``dnsmos_inactive``    — installed but not producing live scores
+    #   (engine off, estimator still building, or no recent audio); the
+    #   panel shows the SNR-derived proxy.
+    # * ``dnsmos_live``        — a real DNSMOS overall MOS is in
+    #   ``dnsmos_ovrl_mos``; only THEN may the panel claim live inference.
+    quality_mode: Literal["dnsmos_unavailable", "dnsmos_inactive", "dnsmos_live"] = (
+        "dnsmos_unavailable"
+    )
+    dnsmos_ovrl_mos: float | None = None
+
+
+# ── Phase 5.D group B — Typed responses for ``/models`` family ──────
+
+
+class VoiceModelSelectionPayload(BaseModel):
+    """One auto-select model selection block, per hardware tier.
+
+    Mirrors :func:`sovyx.dashboard.voice_status._selection_to_dict`
+    output one-for-one (``ModelSelection`` → flat dict shape).
+    Production helper always populates every field; defaults to ``""``
+    so partial test mocks + downstream-omitted fields validate cleanly
+    (same tolerance pattern as :class:`VoiceStatusResponse`).
+    """
+
+    stt_primary: str = ""
+    stt_streaming: str = ""
+    tts_primary: str = ""
+    tts_quality: str = ""
+    wake: str = ""
+    vad: str = ""
+
+
+class VoiceModelsResponse(BaseModel):
+    """``/api/voice/models`` payload.
+
+    ``detected_tier`` is the runtime auto-selector verdict (``None`` when
+    the selector is not yet wired); ``active`` is the corresponding
+    selection dict (``None`` when no selection has been made);
+    ``available_tiers`` is the static map of every tier → its selection,
+    used by the wizard to render the operator-selectable list.
+    """
+
+    detected_tier: str | None = None
+    active: VoiceModelSelectionPayload | None = None
+    available_tiers: dict[str, VoiceModelSelectionPayload] = Field(default_factory=dict)
+
+
+class VoiceModelDiskEntry(BaseModel):
+    """One disk-state entry inside ``/api/voice/models/status`` payload.
+
+    Mirrors :class:`sovyx.voice.model_status.VoiceModelDiskStatus`.
+    """
+
+    name: str
+    category: str
+    description: str
+    installed: bool
+    path: str
+    size_mb: float
+    expected_size_mb: float
+    download_available: bool
+
+
+class VoiceModelsDiskStatusResponse(BaseModel):
+    """``/api/voice/models/status`` payload — per-model on-disk presence.
+
+    Drives the setup wizard's "model installed" green check.
+    Mirrors :class:`sovyx.voice.model_status.VoiceModelsStatus`
+    one-for-one via the ``check_voice_models_status`` helper.
+    """
+
+    model_dir: str
+    all_installed: bool
+    missing_count: int
+    missing_download_mb: float
+    models: list[VoiceModelDiskEntry] = Field(default_factory=list)
+
+
+class VoiceCatalogEntry(BaseModel):
+    """One voice in the Kokoro catalog returned by ``/api/voice/voices``."""
+
+    id: str
+    display_name: str
+    language: str
+    gender: str
+
+
+class VoiceCatalogResponse(BaseModel):
+    """``/api/voice/voices`` payload — Kokoro catalog grouped by language.
+
+    ``recommended_per_language`` keys to the default voice ID the wizard
+    should pick whenever the operator changes language but hasn't yet
+    selected a voice explicitly. ``by_language`` is the full dropdown
+    population.
+    """
+
+    supported_languages: list[str] = Field(default_factory=list)
+    by_language: dict[str, list[VoiceCatalogEntry]] = Field(default_factory=dict)
+    recommended_per_language: dict[str, str] = Field(default_factory=dict)
+    # Mission LIVE-2 Phase 4 — the STT (Moonshine) supported-language set,
+    # distinct from the TTS ``supported_languages`` (Kokoro) above. Lets
+    # the setup/onboarding UI disclose truthfully that a chosen companion
+    # language (e.g. pt-BR) works for the LLM + TTS voice but will fall
+    # back to English for speech recognition. Additive/LENIENT: older
+    # dashboards ignore it.
+    stt_supported_languages: list[str] = Field(default_factory=list)
+
+
+_DownloadStatus = Literal["running", "done", "error"]
+"""Stable closed enum for ``ModelDownloadProgress.status``. Adding new
+values requires a frontend zod migration."""
+
+
+class VoiceModelDownloadProgressResponse(BaseModel):
+    """Shared payload for ``POST /api/voice/models/download`` and
+    ``GET /api/voice/models/download/{task_id}``.
+
+    Mirrors :class:`sovyx.voice.model_status.ModelDownloadProgress`
+    one-for-one. ``error_code`` is the low-cardinality categorical the
+    frontend maps to i18n; ``error`` is the raw diagnostic string;
+    ``retry_after_seconds`` is set when ``error_code == "cooldown"`` so
+    the UI renders a countdown without parsing the error text.
+    """
+
+    task_id: str
+    status: _DownloadStatus
+    total_models: int
+    completed_models: int
+    current_model: str | None = None
+    error: str | None = None
+    error_code: str | None = None
+    retry_after_seconds: int | None = None
+
+
+# ── Phase 5.D group C — Typed responses for ``*-history`` family ─────
+
+
+class VoiceFrameHistoryResponse(BaseModel):
+    """``/api/voice/frame-history`` payload — typed-frame ring buffer slice.
+
+    ``frames`` carries the serialised ring-buffer entries in oldest-first
+    order. Each entry is a dict produced by
+    :func:`sovyx.voice.pipeline._frame_types._frame_to_dict` (which
+    delegates to :func:`dataclasses.asdict`); the dict shape is
+    intentionally variant because the ring stores 8+ frame subclasses
+    (UserStartedSpeakingFrame, TranscriptionFrame,
+    BargeInInterruptionFrame, …) — a closed model on each entry would
+    grow with every frame-type addition. Frontend zod schemas
+    discriminate at use-time on ``frame_type``.
+    """
+
+    frames: list[dict[str, Any]] = Field(default_factory=list)
+    total_recorded: int = 0
+    limit_applied: int
+
+
+class VoiceRestartHistoryResponse(BaseModel):
+    """``/api/voice/restart-history`` payload — capture-restart ring slice.
+
+    Same wire shape conventions as :class:`VoiceFrameHistoryResponse`,
+    but only ``CaptureRestartFrame`` subclass entries are included
+    (filtered by the route). Newest-first order so the dashboard
+    timeline renders top-down. ``total`` is the FULL count of restart
+    frames in the bounded ring (≤ 256 by default); ``limit`` is the
+    cap applied to ``frames``.
+    """
+
+    frames: list[dict[str, Any]] = Field(default_factory=list)
+    total: int = 0
+    limit: int
+
+
+# ── Phase 5.D group D — Typed responses for diagnostics family ─────
+
+
+class VoiceCaptureDiagnosticsResponse(BaseModel):
+    """``/api/voice/capture-diagnostics`` payload — Windows APO scan + L10 grab.
+
+    Top-level shape is fully typed; the deeply nested per-endpoint
+    dict + the session-manager-grab payload are kept as
+    ``dict[str, Any]`` because both grow with new APO categories +
+    detector verdicts (forward-compat: the dashboard's zod schemas
+    discriminate at use-time on ``known_apos`` / ``detection_method``).
+    """
+
+    model_config = {"extra": "allow"}
+
+    platform_supported: bool = False
+    active_device_name: str | None = None
+    active_endpoint: dict[str, Any] | None = None
+    voice_clarity_active: bool = False
+    any_voice_clarity_active: bool = False
+    endpoints: list[dict[str, Any]] = Field(default_factory=list)
+    session_manager_grab: dict[str, Any] = Field(default_factory=dict)
+    fix_suggestion: str | None = None
+    error: str | None = None
+
+
+class VoiceLinuxMixerDiagnosticsResponse(BaseModel):
+    """``/api/voice/linux-mixer-diagnostics`` payload — ALSA card snapshots.
+
+    Top-level fields fully typed; ``snapshots`` items kept as
+    ``dict[str, Any]`` because the per-control field set grows with
+    new mixer-role categories + KB profile additions.
+    """
+
+    platform_supported: bool = False
+    amixer_available: bool = False
+    snapshots: list[dict[str, Any]] = Field(default_factory=list)
+    aggregated_boost_db_ceiling: float
+    saturation_ratio_ceiling: float
+    reset_enabled_by_default: bool
+
+
+class VoiceHardwareInfo(BaseModel):
+    """Hardware sub-payload for ``/api/voice/hardware-detect``."""
+
+    cpu_cores: int = 0
+    ram_mb: int = 0
+    has_gpu: bool = False
+    gpu_vram_mb: int = 0
+    tier: str = "DESKTOP_CPU"
+
+
+class VoiceDeviceEntry(BaseModel):
+    """One audio device entry inside ``/api/voice/hardware-detect``."""
+
+    index: int
+    name: str
+    is_default: bool = False
+    host_api: str | None = None
+
+
+class VoiceAudioInfo(BaseModel):
+    """Audio sub-payload for ``/api/voice/hardware-detect``."""
+
+    available: bool = False
+    input_devices: list[VoiceDeviceEntry] = Field(default_factory=list)
+    output_devices: list[VoiceDeviceEntry] = Field(default_factory=list)
+
+
+class VoiceRecommendedModel(BaseModel):
+    """Recommended model entry for ``/api/voice/hardware-detect``."""
+
+    name: str
+    category: str
+    size_mb: float
+    download_available: bool
+    description: str = ""
+
+
+class VoiceHardwareDetectResponse(BaseModel):
+    """``/api/voice/hardware-detect`` payload — CPU/RAM/GPU + recommended models."""
+
+    hardware: VoiceHardwareInfo = Field(default_factory=VoiceHardwareInfo)
+    audio: VoiceAudioInfo = Field(default_factory=VoiceAudioInfo)
+    recommended_models: list[VoiceRecommendedModel] = Field(default_factory=list)
+    total_download_mb: float = 0.0
+
+
+# ── Phase 5.D group E — Typed responses for action family ──────────
+
+
+class VoiceCaptureExclusiveResponse(BaseModel):
+    """``POST /api/voice/capture-exclusive`` payload — persist + hot-apply
+    the WASAPI-exclusive capture flag.
+
+    ``applied_immediately`` reflects whether WASAPI actually granted
+    exclusive mode (post-v0.20.2 / Bug C — pre-v0.20.2 the field
+    only signalled "the restart code path ran"). ``verdict`` +
+    ``detail`` are populated when the orchestrator emits them so the
+    UI can surface a warning banner when the reopen landed in shared
+    mode (device held by another app, policy denied).
+    """
+
+    ok: bool = True
+    enabled: bool
+    persisted: bool = False
+    applied_immediately: bool = False
+    verdict: str | None = None
+    detail: str | None = None
+
+
+_LinuxMixerResetReason = Literal[
+    "not_linux",
+    "amixer_unavailable",
+    "no_snapshots",
+    "ambiguous_card",
+    "card_not_found",
+    "not_saturating",
+    "no_controls_to_reset",
+    "apply_failed",
+    "invalid_card_index",
+]
+"""Closed enum of failure reasons for ``POST /api/voice/linux-mixer-reset``.
+Adding new values requires a frontend i18n key + zod migration."""
+
+
+class VoiceLinuxMixerResetResponse(BaseModel):
+    """``POST /api/voice/linux-mixer-reset`` envelope — success + all failures.
+
+    Single envelope with ``ok`` + closed-enum ``reason`` for failures.
+    Success path populates ``card_index`` / ``card_id`` / ``card_longname``
+    + the applied / reverted control tuples; failure paths populate
+    ``reason`` + ``detail`` + (where applicable) ``card_index`` /
+    ``card_id`` / ``reason_code`` (BypassApplyError) /
+    ``candidate_card_indexes`` (ambiguous_card disambiguation).
+    """
+
+    ok: bool
+    reason: _LinuxMixerResetReason | None = None
+    reason_code: str | None = None
+    detail: str | None = None
+    card_index: int | None = None
+    card_id: str | None = None
+    card_longname: str | None = None
+    applied_controls: list[tuple[str, int]] | None = None
+    reverted_controls: list[tuple[str, int]] | None = None
+    candidate_card_indexes: list[int] | None = None
+
+
+class VoiceEnableResponse(BaseModel):
+    """``POST /api/voice/enable`` envelope — success + all error variants.
+
+    Phase 5.D group E pragmatic envelope: ``/enable`` is a 700+ LOC
+    orchestration endpoint with 6+ documented error variants
+    (missing_deps, voice/language validation, factory failure,
+    capture_inoperative, capture_silence, capture_device_contended)
+    each carrying its own diagnostic payload. Modelling each as a
+    discriminated union would multiply the OpenAPI spec without
+    improving operator/frontend ergonomics; the dashboard already
+    discriminates at use-time on ``error`` (the closed-enum-like
+    string), so a single envelope with all known fields optional is
+    the enterprise-grade compromise. ``model_config extra="allow"``
+    preserves forward-additive diagnostic fields.
+    """
+
+    model_config = {"extra": "allow"}
+
+    ok: bool
+    status: str | None = None
+    error: str | None = None
+    tts_engine: str | None = None
+    host_api: str | None = None
+    detail: str | None = None
+    # ``device`` may be either an integer PortAudio index (int) or a
+    # friendly device name (str) depending on which exception path
+    # populated it (CaptureSilenceError carries ``device: str``;
+    # CaptureInoperativeError carries ``device: int | str | None``).
+    device: int | str | None = None
+    reason: str | None = None
+    # ``attempts`` is the number of cascade attempts an inoperative
+    # capture made before giving up (CaptureInoperativeError.attempts).
+    # Wider Any tolerates future shape (e.g. list of attempt records).
+    attempts: Any = None
+    missing_deps: list[Any] | None = None
+    install_command: str | None = None
+    missing_models: list[Any] | None = None
+    observed_peak_rms_db: float | None = None
+    suggested_actions: list[Any] | None = None
+    contending_process_hint: str | None = None
+    alternative_devices: list[dict[str, Any]] | None = None
+
+
+class VoiceDisableResponse(BaseModel):
+    """``POST /api/voice/disable`` envelope — success + 503 no-mind-yaml.
+
+    Trivial shape: ``ok=True`` on success, ``ok=False, error=str`` on
+    503 (no mind.yaml path resolvable for the active mind).
+    """
+
+    ok: bool
+    error: str | None = None
+
+
+def _resolve_engine_config(request: Request) -> EngineConfig | None:
+    """Pull EngineConfig from the FastAPI app state (best-effort)."""
+    return getattr(request.app.state, "engine_config", None)
+
+
+def _resolve_data_dir_for_health(request: Request) -> Path:
+    """Return the data directory from EngineConfig or the default."""
+    engine_config = _resolve_engine_config(request)
+    if engine_config is not None:
+        return engine_config.database.data_dir
+    return Path.home() / ".sovyx"
+
+
+# ── LIVE-2 DNSMOS live-scoring (opt-in, gated, non-blocking) ──────────
+#
+# Seconds of recent capture audio scored per poll. DNSMOS is calibrated
+# for 5-10 s windows; shorter windows give noisy estimates.
+_DNSMOS_WINDOW_S = 6.0
+# Require >=1 s of 16 kHz audio before scoring (a cold ring isn't worth it).
+_DNSMOS_MIN_SAMPLES = 16_000
+
+
+async def _build_dnsmos_estimator_bg(app_state: Any) -> None:  # noqa: ANN401
+    """One-time background build of the DNSMOS estimator.
+
+    The ``speechmos`` import (librosa + numba, ~100 MB) and ONNX model
+    load are heavy, so the build runs in a thread (anti-pattern #14) and
+    NEVER on the request path. The result — or a ``False`` failure
+    sentinel — is cached on app state so the cost is paid once.
+    """
+    try:
+        from sovyx.voice._quality_metrics import DnsmosQualityEstimator
+
+        estimator = await asyncio.to_thread(DnsmosQualityEstimator)
+        app_state.voice_dnsmos_estimator = estimator
+    except Exception:  # noqa: BLE001 — opt-in path must never crash the daemon
+        app_state.voice_dnsmos_estimator = False  # failure sentinel (no retry-thrash)
+        logger.debug("voice_dnsmos_estimator_build_failed")
+
+
+async def _resolve_live_dnsmos_ovrl(
+    app_state: Any,  # noqa: ANN401
+    capture_task: Any,  # noqa: ANN401
+) -> float | None:
+    """Return a live DNSMOS overall MOS, or ``None`` when not (yet) available.
+
+    Non-blocking: the heavy estimator build runs once in the background;
+    until it's ready (or if it failed) this returns ``None`` → the caller
+    reports ``dnsmos_inactive``. Once ready, taps the most recent capture
+    window (read-only — no capture-pipeline change) and scores it in a
+    thread. Returns ``None`` on too-little audio or a NaN score.
+    """
+    import math
+
+    estimator = getattr(app_state, "voice_dnsmos_estimator", None)
+    if estimator is False:
+        return None  # prior build failed — stay inactive
+    if estimator is None:
+        if getattr(app_state, "voice_dnsmos_build_task", None) is None:
+            app_state.voice_dnsmos_build_task = asyncio.create_task(
+                _build_dnsmos_estimator_bg(app_state),
+            )
+        return None  # building — inactive this poll
+    frames_i16 = await capture_task.tap_recent_frames(_DNSMOS_WINDOW_S)
+    if getattr(frames_i16, "shape", (0,))[0] < _DNSMOS_MIN_SAMPLES:
+        return None  # not enough recent audio for a meaningful score
+    import numpy as np
+
+    frames_f32 = frames_i16.astype(np.float32) / 32768.0
+    score = await asyncio.to_thread(
+        lambda: estimator.score(frames_f32, sample_rate=16_000),
+    )
+    ovrl = float(score.ovrl)
+    return None if math.isnan(ovrl) else ovrl
+
+
+def _voice_pipeline_registered(request: Request) -> bool:
+    """Whether the VoicePipeline is registered in the engine registry."""
+    registry = getattr(request.app.state, "registry", None)
+    if registry is None:
+        return False
+    try:
+        from sovyx.voice.pipeline._orchestrator import VoicePipeline  # noqa: PLC0415
+
+        return bool(registry.is_registered(VoicePipeline))
+    except Exception:  # noqa: BLE001 — registry introspection is best-effort
+        return False
+
+
+def _read_last_combo_diagnosis_sync(data_dir: Path) -> str | None:
+    """Read the most-recently-validated combo entry's diagnosis.
+
+    Sync helper — wrapped in :func:`asyncio.to_thread` by the caller.
+    Returns ``None`` when the store is empty, missing, corrupt, or
+    when any entry parsing fails. Best-effort by design — the
+    monitoring endpoint must never 5xx because of a transient
+    filesystem hiccup.
+    """
+    try:
+        from sovyx.voice.health._factory_integration import (  # noqa: PLC0415
+            resolve_combo_store_path,
+        )
+        from sovyx.voice.health.combo_store import ComboStore  # noqa: PLC0415
+
+        store = ComboStore(resolve_combo_store_path(data_dir))
+        store.load()
+        entries = list(store.entries())
+    except Exception:  # noqa: BLE001 — best-effort; absence is reportable as None
+        return None
+    if not entries:
+        return None
+    # Sort by last_boot_validated descending; an entry with a missing
+    # / malformed timestamp sorts last (stable for empty strings).
+    entries.sort(key=lambda e: e.last_boot_validated, reverse=True)
+    return entries[0].last_boot_diagnosis.value
+
+
+@router.get("/service-health", response_model=ServiceHealthResponse)
+async def get_voice_service_health(request: Request) -> ServiceHealthResponse:
+    """Return the aggregated voice service readiness snapshot.
+
+    T6.20 — operators monitoring via Prometheus / cron / external
+    health-check tooling consume this endpoint. The 4-field response
+    is the smallest stable contract that lets a monitor:
+
+    * Page on ``ready=False`` immediately (single bool).
+    * Route alerts by ``reason`` (closed enum; stable codes).
+    * Include ``last_diagnosis`` + ``watchdog_state`` in alert
+      payloads for first-line triage without opening the dashboard.
+
+    Distinct path from the existing ``GET /api/voice/health``
+    snapshot endpoint (which serves the dashboard's voice-health
+    page with combo-store + overrides + quarantine details). The
+    snapshot endpoint stays unchanged — this is the new tight
+    monitoring surface.
+
+    Always returns 200 with a populated ``ServiceHealthResponse``.
+    Failure modes degrade gracefully via the ``reason`` field
+    (e.g., ``engine_not_running`` during boot, ``voice_pipeline_not_registered``
+    when voice failed to construct). Never raises HTTP errors —
+    monitors that page on 5xx would false-fire on benign boot
+    transients.
+    """
+    return await _compose_service_health(request)
+
+
+async def _compose_service_health(request: Request) -> ServiceHealthResponse:
+    """Compose the aggregated readiness verdict from authoritative sources.
+
+    Decision tree (ordered — first match wins):
+
+    1. No engine registry on app.state → ``engine_not_running``.
+    2. Engine present but VoicePipeline not registered →
+       ``voice_pipeline_not_registered``.
+    3. Pipeline registered + last combo-store diagnosis is HEALTHY
+       (or no diagnosis yet — fresh install) → ``ok``.
+    4. Pipeline registered + last diagnosis is non-HEALTHY →
+       ``last_diagnosis_unhealthy`` (the value stays in
+       ``last_diagnosis`` for triage).
+
+    The ``voice_disabled`` reason is reserved for a future wire-up
+    that surfaces operator-disabled voice via a config flag. Today
+    the closest signal is "pipeline not registered", which collapses
+    into ``voice_pipeline_not_registered`` — the more precise
+    distinction lands when there's an authoritative
+    ``engine_config.voice.enabled`` to read.
+    """
+    registry = getattr(request.app.state, "registry", None)
+    if registry is None:
+        return ServiceHealthResponse(
+            ready=False,
+            reason="engine_not_running",
+            last_diagnosis=None,
+            watchdog_state=None,
+            user_remediation=None,
+        )
+
+    if not _voice_pipeline_registered(request):
+        return ServiceHealthResponse(
+            ready=False,
+            reason="voice_pipeline_not_registered",
+            last_diagnosis=None,
+            watchdog_state=None,
+            user_remediation=None,
+        )
+
+    data_dir = _resolve_data_dir_for_health(request)
+    last_diagnosis = await asyncio.to_thread(_read_last_combo_diagnosis_sync, data_dir)
+
+    if last_diagnosis is None or last_diagnosis == "healthy":
+        return ServiceHealthResponse(
+            ready=True,
+            reason="ok",
+            last_diagnosis=last_diagnosis,
+            watchdog_state=None,
+            user_remediation=None,
+        )
+
+    # T6.12 — surface the user-facing remediation hint when the
+    # last_diagnosis maps to a known one. ``None`` for diagnoses
+    # without a hint (mixer-sanity, unknown). Dashboard banner
+    # consumes this directly.
+    from sovyx.voice.health._user_remediation import (  # noqa: PLC0415
+        diagnosis_user_remediation,
+    )
+
+    return ServiceHealthResponse(
+        ready=False,
+        reason="last_diagnosis_unhealthy",
+        last_diagnosis=last_diagnosis,
+        watchdog_state=None,
+        user_remediation=diagnosis_user_remediation(last_diagnosis),
+    )
+
+
+# ── Phase 7 / T7.39 — Right-to-erasure endpoint ────────────────────────
+
+
+class ForgetVoiceDataRequest(BaseModel):
+    """Body for ``POST /api/voice/forget`` — wipes one user's voice data."""
+
+    user_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=256,
+        description=(
+            "Stable opaque identifier for the user (caller hashes / "
+            "pseudonymises before passing). Empty string is rejected — "
+            "would match every empty-id record."
+        ),
+    )
+
+
+class ForgetVoiceDataResponse(BaseModel):
+    """Response for ``POST /api/voice/forget``."""
+
+    purged_count: int = Field(
+        ...,
+        description="Number of ConsentLedger records purged. ≥ 0; idempotent.",
+    )
+    user_id: str = Field(
+        ...,
+        description="Echo of the request's user_id for confirmation.",
+    )
+
+
+@router.post("/forget", response_model=ForgetVoiceDataResponse)
+async def post_voice_forget(
+    request: Request,
+    body: ForgetVoiceDataRequest,
+) -> ForgetVoiceDataResponse:
+    """Right-to-erasure for voice data — wipes one user's ConsentLedger.
+
+    Phase 7 / T7.39 — companion to the ``sovyx voice forget`` CLI.
+    Either path produces identical effects; the ledger's atomic
+    JSONL writes guarantee no race between the two.
+
+    GDPR Art. 17 (Right to Erasure) + LGPD Art. 18 VI. Purges every
+    record matching ``user_id`` from the active ledger segment plus
+    every rotated segment, then writes a tombstone DELETE record so
+    the audit trail survives the deletion.
+
+    Returns the number of records purged for client-side confirmation.
+    Idempotent — running twice on the same user is safe; the second
+    call finds no records to purge but still writes a fresh tombstone.
+
+    Authentication: requires the dashboard's standard
+    ``Authorization: Bearer ...`` header (via the router's
+    ``verify_token`` dependency). Voice data deletion is a
+    privileged operation that no anonymous caller should be able
+    to perform.
+    """
+    # Resolve the canonical ledger path the same way the CLI does
+    # — via EngineConfig.data_dir — so both surfaces operate on the
+    # same file. Falls back to the home-dir default if no engine
+    # config is registered (pre-init / dashboard-only deployments).
+    data_dir = _resolve_data_dir_for_health(request)
+    ledger_path = data_dir / "voice" / "consent.jsonl"
+
+    from sovyx.voice._consent_ledger import ConsentLedger  # noqa: PLC0415
+
+    ledger = ConsentLedger(path=ledger_path)
+    purged_count = await asyncio.to_thread(ledger.forget, user_id=body.user_id)
+    logger.info(
+        "voice.consent_ledger.forget_via_dashboard",
+        **{
+            "voice.user_id_hash_prefix": body.user_id[:8],
+            "voice.purged_count": purged_count,
+            "voice.ledger_path": str(ledger_path),
+        },
+    )
+    return ForgetVoiceDataResponse(
+        purged_count=purged_count,
+        user_id=body.user_id,
+    )
+
+
+@router.get(
+    "/frame-history",
+    response_model=VoiceFrameHistoryResponse,
+    responses={HTTP_503_SERVICE_UNAVAILABLE: {"description": "Engine not running"}},
+)
+async def get_voice_frame_history(
+    request: Request,
+    limit: int = 100,
+) -> VoiceFrameHistoryResponse | JSONResponse:
+    """Return the recent typed frames recorded by the voice pipeline.
+
+    Mission §1.1 Hybrid Option C — Pipecat-aligned typed frames
+    (UserStartedSpeakingFrame, TranscriptionFrame, etc.) recorded at
+    the 5 transition sites + the BargeInInterruptionFrame emitted at
+    every cancel_speech_chain exit. The dashboard's call-flow widget
+    consumes this endpoint to render the per-utterance frame timeline.
+
+    Args:
+        limit: Maximum number of frames to return. Bounds: 1-256.
+            Out-of-range values are clamped at the boundary.
+
+    Returns:
+        JSON: ``{"frames": [{frame_type, timestamp_monotonic,
+        utterance_id, ...}, ...], "total_recorded": int}``.
+
+        ``total_recorded`` is the size of the bounded ring buffer at
+        snapshot time (≤ 256 by default); ``frames`` is the newest
+        ``limit`` frames in oldest-first order.
+
+        Returns 503 when the pipeline registry is not yet available
+        (boot in progress or voice disabled).
+    """
+    bounded_limit = max(1, min(256, limit))
+    registry = getattr(request.app.state, "registry", None)
+    if registry is None:
+        return JSONResponse(
+            {"error": "Engine not running"},
+            status_code=HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    try:
+        from sovyx.voice.pipeline._frame_types import _frame_to_dict
+        from sovyx.voice.pipeline._orchestrator import VoicePipeline
+
+        pipeline = registry.get(VoicePipeline)
+    except (KeyError, LookupError):
+        return JSONResponse(
+            {"error": "Voice pipeline not registered"},
+            status_code=HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    history = pipeline.frame_history
+    total = len(history)
+    # Newest-first slice: tail of the deque is newest, take last
+    # ``bounded_limit`` frames.
+    selected = history[-bounded_limit:] if bounded_limit < total else history
+    serialised = [_frame_to_dict(f) for f in selected]
+    return VoiceFrameHistoryResponse(
+        frames=serialised,
+        total_recorded=total,
+        limit_applied=bounded_limit,
+    )
+
+
+@router.get(
+    "/restart-history",
+    response_model=VoiceRestartHistoryResponse,
+    responses={HTTP_503_SERVICE_UNAVAILABLE: {"description": "Engine not running"}},
+)
+async def get_voice_restart_history(
+    request: Request,
+    limit: int = 50,
+) -> VoiceRestartHistoryResponse | JSONResponse:
+    """Return recent ``CaptureRestartFrame`` entries from the pipeline ring buffer.
+
+    Voice Windows Paranoid Mission §C — capture-task restart events
+    (substrate change, APO bypass engaged, overflow, manual). The
+    dashboard's restart-history widget renders one timeline of "what
+    happened on the mic" for post-incident forensics.
+
+    Wired-up in T33 (v0.25.0) — emitters in
+    :class:`sovyx.voice.capture.RestartMixin` populate the ring
+    buffer at every successful restart (T32 wire-up). Frames are
+    filtered to ``CaptureRestartFrame`` subclass instances and
+    serialised via :func:`_frame_to_dict` (which delegates to
+    :func:`dataclasses.asdict`) so every dataclass field reaches
+    the wire — the dashboard's
+    ``VoiceRestartHistoryResponseSchema`` pins the contract.
+
+    Args:
+        limit: Maximum number of restart frames to return. Bounds:
+            1-256. Out-of-range values are clamped at the boundary.
+
+    Returns:
+        JSON: ``{"frames": [...CaptureRestartFrame...], "total": int,
+        "limit": int}``. ``total`` is the FULL count of restart
+        frames in the bounded ring buffer (≤ 256 by default);
+        ``frames`` is the newest ``limit`` frames in newest-first
+        order so the dashboard's timeline can render top-down.
+
+        Returns 200 with ``frames=[], total=0`` when no restart has
+        occurred since the daemon started OR the pipeline is not
+        yet registered (boot still in progress).
+
+        Returns 503 when the engine registry is not yet available
+        (boot in progress or voice disabled).
+    """
+    bounded_limit = max(1, min(256, limit))
+    registry = getattr(request.app.state, "registry", None)
+    if registry is None:
+        return JSONResponse(
+            {"error": "Engine not running"},
+            status_code=HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    # T33 — wire-up to the real payload. Filters
+    # ``VoicePipeline.frame_history`` for ``CaptureRestartFrame``
+    # subclass instances (T32 emitters land them as the substrate
+    # mutates), serialises via the canonical ``_frame_to_dict``
+    # helper, and returns the most recent ``bounded_limit`` entries.
+    #
+    # Empty-frame-history fallback: when the pipeline isn't
+    # registered yet (boot in progress) OR when no restart has
+    # occurred since the daemon started, ``frames`` is the empty
+    # list and ``total`` is 0. The dashboard's restart-history
+    # widget renders the empty-state placeholder in that case.
+    from sovyx.voice.pipeline._frame_types import (
+        CaptureRestartFrame,
+        _frame_to_dict,
+    )
+    from sovyx.voice.pipeline._orchestrator import VoicePipeline
+
+    if not registry.is_registered(VoicePipeline):
+        return VoiceRestartHistoryResponse(
+            frames=[],
+            total=0,
+            limit=bounded_limit,
+        )
+    pipeline = registry.get(VoicePipeline)
+    restart_frames = [f for f in pipeline.frame_history if isinstance(f, CaptureRestartFrame)]
+    total = len(restart_frames)
+    # Most recent first — the dashboard's timeline renders newest at
+    # the top by default. ``frame_history`` is a deque ordered by
+    # insertion (oldest first), so we take the tail and reverse.
+    selected = list(reversed(restart_frames[-bounded_limit:]))
+    return VoiceRestartHistoryResponse(
+        frames=[_frame_to_dict(f) for f in selected],
+        total=total,
+        limit=bounded_limit,
+    )
+
+
+@router.get(
+    "/bypass-tier-status",
+    response_model=VoiceBypassTierStatusResponse,
+    responses={HTTP_503_SERVICE_UNAVAILABLE: {"description": "Engine not running"}},
+)
+async def get_voice_bypass_tier_status(
+    request: Request,
+) -> VoiceBypassTierStatusResponse | JSONResponse:
+    """Return current bypass-tier health snapshot (Tier 1 / 2 / 3).
+
+    Voice Windows Paranoid Mission §B — a single snapshot of which
+    bypass tier is currently engaged on the active capture endpoint
+    plus per-tier attempt / success counters since pipeline start.
+    The dashboard renders a "current bypass tier" badge + a per-tier
+    success-rate widget for operator validation pilots.
+
+    v0.26.0 wire-up: reads the in-memory counter mirror at
+    :mod:`sovyx.voice.health._bypass_tier_state`. The mirror is updated
+    synchronously inside every ``record_tier*_*`` and
+    ``record_bypass_strategy_verdict`` helper (see
+    :mod:`sovyx.voice.health._metrics`) so the dashboard observes the
+    same counts that flow to the OTel exporter. ``current_bypass_tier``
+    remains ``None`` for v0.26.0 — coordinator-side engaged-tier
+    tracking is staged for a follow-up commit per the
+    ``feedback_staged_adoption`` rule (don't bundle "foundation +
+    coordinator state machine" in one commit). Shape matches
+    ``VoiceBypassTierStatusResponseSchema``
+    (``dashboard/src/types/schemas.ts``).
+
+    Returns:
+        JSON: ``{"current_bypass_tier": null|1|2|3,
+        "tier1_raw_attempted": int, "tier1_raw_succeeded": int,
+        "tier2_host_api_rotate_attempted": int,
+        "tier2_host_api_rotate_succeeded": int,
+        "tier3_wasapi_exclusive_attempted": int,
+        "tier3_wasapi_exclusive_succeeded": int}``.
+
+        Returns 503 when the engine registry is not yet available.
+    """
+    registry = getattr(request.app.state, "registry", None)
+    if registry is None:
+        return JSONResponse(
+            {"error": "Engine not running"},
+            status_code=HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    return VoiceBypassTierStatusResponse.model_validate(_bypass_tier_snapshot())
+
+
+@router.get(
+    "/quality-snapshot",
+    response_model=VoiceQualitySnapshotResponse,
+    responses={HTTP_503_SERVICE_UNAVAILABLE: {"description": "Engine not running"}},
+)
+async def get_voice_quality_snapshot(
+    request: Request,
+) -> VoiceQualitySnapshotResponse | JSONResponse:
+    """Return a single snapshot of the voice-quality observables.
+
+    Phase 4 / T4.26 + T4.37 dashboard backing endpoint. Reads the
+    same in-memory aggregators the orchestrator's heartbeat path
+    consumes (single source of truth):
+
+    * Recent SNR rolling window (T4.36 — ``voice/health/_recent_snr``).
+    * Noise-floor drift state (T4.38 — ``voice/health/_noise_floor_trending``).
+    * Per-window AGC2 verdict counters (read off the configured
+      AGC2 instance when one is wired; ``None`` when AGC2 is
+      disabled).
+
+    The snapshot is intentionally a one-shot read — the dashboard
+    panels poll on a 5 s cadence which the rolling buffers
+    accommodate without contention. Histograms / time-series live
+    in the OTel pipeline; this endpoint is the small "current
+    state" view operators check while validating a pilot.
+
+    Returns:
+        JSON shape (matches ``VoiceQualitySnapshotResponseSchema``
+        in dashboard/src/types/schemas.ts):
+        ``{"snr_p50_db": float|null, "snr_sample_count": int,
+        "snr_verdict": "excellent"|"good"|"degraded"|"poor"|"no_signal",
+        "noise_floor": {"short_avg_db": float|null,
+                        "long_avg_db": float|null,
+                        "drift_db": float|null,
+                        "ready": bool},
+        "agc2": {"frames_processed": int, "frames_silenced": int,
+                 "frames_vad_silenced": int,
+                 "current_gain_db": float, "speech_level_dbfs": float}|null,
+        "dnsmos_extras_installed": bool}``.
+
+        ``dnsmos_extras_installed`` lets the dashboard distinguish
+        "true MOS available" (T4.21+ extras) from "SNR-proxy MOS
+        only" (foundation default).
+
+        Returns 503 when the engine registry is not yet
+        available.
+    """
+    registry = getattr(request.app.state, "registry", None)
+    if registry is None:
+        return JSONResponse(
+            {"error": "Engine not running"},
+            status_code=HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    from sovyx.voice.health._noise_floor_trending import compute_drift
+    from sovyx.voice.health._recent_snr import window_summary
+
+    # Phase 5.A.2 — multi-mind keying: read under the active pipeline's
+    # configured-at-startup mind_id (the producer's key). Resolve via the
+    # registered VoicePipeline; fall back to legacy ``"default"`` key
+    # when no pipeline is registered (boot in progress) so the endpoint
+    # never 5xx-s on a transient registry-empty window.
+    drain_mind_id = "default"
+    try:
+        from sovyx.voice.pipeline._orchestrator import VoicePipeline
+
+        if registry.is_registered(VoicePipeline):
+            pipeline = await registry.resolve(VoicePipeline)
+            drain_mind_id = pipeline.config.mind_id
+    except Exception:  # noqa: BLE001 — best-effort; degrade to default key
+        pass
+    snr = window_summary(mind_id=drain_mind_id)
+    drift = compute_drift(mind_id=drain_mind_id)
+
+    snr_p50: float | None
+    if snr.count == 0:
+        snr_p50 = None
+        snr_verdict = "no_signal"
+    else:
+        snr_p50 = round(snr.p50_db, 2)
+        if snr.p50_db >= 17.0:
+            snr_verdict = "excellent"
+        elif snr.p50_db >= 9.0:
+            snr_verdict = "good"
+        elif snr.p50_db >= 3.0:
+            snr_verdict = "degraded"
+        else:
+            snr_verdict = "poor"
+
+    # Drift: ready=False maps to "no_signal" semantically — the
+    # dashboard renders "warming up" for the first 5 minutes.
+    noise_floor: dict[str, Any]
+    if drift.ready:
+        noise_floor = {
+            "short_avg_db": round(drift.short_avg_db, 2),
+            "long_avg_db": round(drift.long_avg_db, 2),
+            "drift_db": round(drift.drift_db, 2),
+            "ready": True,
+            "short_sample_count": drift.short_count,
+            "long_sample_count": drift.long_count,
+        }
+    else:
+        noise_floor = {
+            "short_avg_db": None,
+            "long_avg_db": None,
+            "drift_db": None,
+            "ready": False,
+            "short_sample_count": drift.short_count,
+            "long_sample_count": drift.long_count,
+        }
+
+    # AGC2 state — read from the active capture task's normalizer if one
+    # is wired. LIVE-2 P1-6: resolve the REGISTERED ``AudioCaptureTask``
+    # service (the prior ``registry.voice_capture_task`` attribute was
+    # never set in production, so this panel always reported "not active"
+    # even with AGC2 running). Best-effort: voice off / AGC2 disabled in
+    # config / no normalizer all yield ``None`` — a truthful "not active".
+    agc2_payload: dict[str, Any] | None = None
+    capture_task: Any = None
+    try:
+        from sovyx.voice._capture_task import AudioCaptureTask
+
+        if registry.is_registered(AudioCaptureTask):
+            capture_task = await registry.resolve(AudioCaptureTask)
+    except Exception:  # noqa: BLE001 — best-effort observability read
+        capture_task = None
+    if capture_task is not None:
+        normalizer = getattr(capture_task, "_normalizer", None)
+        if normalizer is not None:
+            agc2 = getattr(normalizer, "agc2", None)
+            if agc2 is not None:
+                agc2_payload = {
+                    "frames_processed": int(agc2.frames_processed),
+                    "frames_silenced": int(agc2.frames_silenced),
+                    "frames_vad_silenced": int(agc2.frames_vad_silenced),
+                    "current_gain_db": round(float(agc2.current_gain_db), 2),
+                    "speech_level_dbfs": round(float(agc2.speech_level_dbfs), 2),
+                }
+
+    # DNSMOS quality mode — truthfully classify which MOS the panel may
+    # claim (LIVE-2 DNSMOS wire-up). Three mutually-exclusive states:
+    #   * dnsmos_unavailable — ``speechmos`` extras not installed (P1-4:
+    #     probe the real package name, not the non-existent top-level
+    #     ``dnsmos`` module).
+    #   * dnsmos_inactive    — installed but not producing live scores
+    #     (engine off / estimator still building / too little audio).
+    #   * dnsmos_live         — a real DNSMOS overall MOS was produced.
+    # Live scoring is opt-in (``tuning.voice.voice_quality_metrics_enabled``
+    # + ``voice_quality_engine == "dnsmos"``, both default-OFF per
+    # feedback_staged_adoption) so the default install does no heavy import
+    # and no inference — the SNR-proxy path is unchanged.
+    quality_mode = "dnsmos_unavailable"
+    dnsmos_ovrl_mos: float | None = None
+    speechmos_installed = False
+    try:
+        import importlib.util
+
+        speechmos_installed = importlib.util.find_spec("speechmos") is not None
+    except Exception:  # noqa: BLE001 — probe is observability-only
+        speechmos_installed = False
+
+    if speechmos_installed:
+        quality_mode = "dnsmos_inactive"
+        cfg = _resolve_engine_config(request)
+        live_enabled = bool(
+            cfg is not None
+            and cfg.tuning.voice.voice_quality_metrics_enabled
+            and cfg.tuning.voice.voice_quality_engine == "dnsmos"
+        )
+        if live_enabled and capture_task is not None:
+            try:
+                ovrl = await _resolve_live_dnsmos_ovrl(request.app.state, capture_task)
+                if ovrl is not None:
+                    dnsmos_ovrl_mos = round(ovrl, 2)
+                    quality_mode = "dnsmos_live"
+            except Exception:  # noqa: BLE001 — never let live scoring break the panel
+                logger.debug("voice_quality_dnsmos_live_failed")
+
+    return VoiceQualitySnapshotResponse.model_validate(
+        {
+            "snr_p50_db": snr_p50,
+            "snr_sample_count": snr.count,
+            "snr_verdict": snr_verdict,
+            "noise_floor": noise_floor,
+            "agc2": agc2_payload,
+            "dnsmos_extras_installed": speechmos_installed,
+            "quality_mode": quality_mode,
+            "dnsmos_ovrl_mos": dnsmos_ovrl_mos,
+        }
+    )
+
+
+@router.get(
+    "/status",
+    response_model=VoiceStatusResponse,
+    responses={HTTP_503_SERVICE_UNAVAILABLE: {"description": "Engine not running"}},
+)
+async def get_voice_status_endpoint(
+    request: Request,
+) -> VoiceStatusResponse | JSONResponse:
+    """Voice pipeline status — running state, models, hardware tier.
+
+    Phase 5.D v0.32.7 — migrated from raw ``JSONResponse(dict)`` to a
+    typed :class:`VoiceStatusResponse`. The 503 path keeps emitting a
+    ``JSONResponse`` (FastAPI uses the type-union return to dispatch
+    the 503 envelope distinctly from the success body).
+    """
+    registry = getattr(request.app.state, "registry", None)
+    if registry is None:
+        return JSONResponse(
+            {"error": "Engine not running"},
+            status_code=HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    from sovyx.dashboard.voice_status import get_voice_status
+
+    status = await get_voice_status(registry)
+    # ``get_voice_status`` keeps returning ``dict[str, Any]`` so legacy
+    # callers (and the broader dict-shape contract that dashboards already
+    # consume) stay stable; the validation step is the route boundary.
+    return VoiceStatusResponse.model_validate(status)
+
+
+@router.get(
+    "/models",
+    response_model=VoiceModelsResponse,
+    responses={HTTP_503_SERVICE_UNAVAILABLE: {"description": "Engine not running"}},
+)
+async def get_voice_models_endpoint(
+    request: Request,
+) -> VoiceModelsResponse | JSONResponse:
+    """Available voice models by hardware tier, with detected/active info."""
+    registry = getattr(request.app.state, "registry", None)
+    if registry is None:
+        return JSONResponse(
+            {"error": "Engine not running"},
+            status_code=HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    from sovyx.dashboard.voice_status import get_voice_models
+
+    models = await get_voice_models(registry)
+    return VoiceModelsResponse.model_validate(models)
+
+
+@router.get("/models/status", response_model=VoiceModelsDiskStatusResponse)
+async def get_voice_models_disk_status(
+    request: Request,
+) -> VoiceModelsDiskStatusResponse:
+    """Return per-model disk presence + aggregate missing-size.
+
+    Drives the setup-wizard's "model installed" green check — unlike
+    :func:`get_voice_models_endpoint` (which serves the static tier
+    matrix), this endpoint stats the filesystem and reports what's
+    actually on disk.
+    """
+    from sovyx.voice.model_status import check_voice_models_status
+
+    status = await asyncio.to_thread(check_voice_models_status)
+    return VoiceModelsDiskStatusResponse(
+        model_dir=status.model_dir,
+        all_installed=status.all_installed,
+        missing_count=status.missing_count,
+        missing_download_mb=status.missing_download_mb,
+        models=[
+            VoiceModelDiskEntry(
+                name=m.name,
+                category=m.category,
+                description=m.description,
+                installed=m.installed,
+                path=m.path,
+                size_mb=m.size_mb,
+                expected_size_mb=m.expected_size_mb,
+                download_available=m.download_available,
+            )
+            for m in status.models
+        ],
+    )
+
+
+def _get_model_download_tracker(request: Request) -> dict[str, object]:
+    """Lazy-init the per-app download tracker dict."""
+    tracker = getattr(request.app.state, "voice_model_download_tracker", None)
+    if tracker is None:
+        tracker = {}
+        request.app.state.voice_model_download_tracker = tracker
+    assert isinstance(tracker, dict)  # noqa: S101  # invariant: always dict[str, _DownloadEntry]
+    return tracker
+
+
+@router.get("/voices", response_model=VoiceCatalogResponse)
+async def list_voice_catalog() -> VoiceCatalogResponse:
+    """List every voice the Kokoro v1.0 model exposes, grouped by language.
+
+    Drives the setup-wizard's language + voice picker. The wizard uses
+    ``recommended_per_language`` as the default pick whenever the user
+    changes language but hasn't yet picked a voice explicitly, and falls
+    back to ``by_language`` to populate the per-language voice dropdown.
+
+    The response shape is intentionally flat — no pagination, no
+    filtering — because the catalog is 54 entries total and static
+    across a release. Fetching once at wizard mount is cheap.
+    """
+    from sovyx.voice.stt import MOONSHINE_SUPPORTED_LANGUAGES
+    from sovyx.voice.voice_catalog import (
+        SUPPORTED_LANGUAGES,
+        all_voices,
+        recommended_voice,
+    )
+
+    by_language: dict[str, list[VoiceCatalogEntry]] = {lang: [] for lang in SUPPORTED_LANGUAGES}
+    for v in all_voices():
+        by_language[v.language].append(
+            VoiceCatalogEntry(
+                id=v.id,
+                display_name=v.display_name,
+                language=v.language,
+                gender=v.gender,
+            ),
+        )
+
+    recommended_per_language: dict[str, str] = {}
+    for lang in SUPPORTED_LANGUAGES:
+        info = recommended_voice(lang)
+        if info is not None:
+            recommended_per_language[lang] = info.id
+
+    return VoiceCatalogResponse(
+        supported_languages=sorted(SUPPORTED_LANGUAGES),
+        by_language=by_language,
+        recommended_per_language=recommended_per_language,
+        stt_supported_languages=sorted(MOONSHINE_SUPPORTED_LANGUAGES),
+    )
+
+
+@router.post("/models/download", response_model=VoiceModelDownloadProgressResponse)
+async def start_voice_models_download(
+    request: Request,
+) -> VoiceModelDownloadProgressResponse:
+    """Start a background download of all missing voice models.
+
+    Returns the task_id immediately so the UI can poll
+    ``GET /api/voice/models/download/{task_id}`` for progress. Parallel
+    clicks return the existing task — the downloader is single-flight.
+    """
+    from sovyx.voice.model_status import (
+        prune_finished,
+        start_download,
+    )
+
+    tracker = _get_model_download_tracker(request)
+    prune_finished(tracker)  # type: ignore[arg-type]
+    entry = start_download(tracker)  # type: ignore[arg-type]
+    p = entry.progress
+    return VoiceModelDownloadProgressResponse.model_validate(
+        {
+            "task_id": p.task_id,
+            "status": p.status,
+            "total_models": p.total_models,
+            "completed_models": p.completed_models,
+            "current_model": p.current_model,
+            "error": p.error,
+            "error_code": p.error_code,
+            "retry_after_seconds": p.retry_after_seconds,
+        }
+    )
+
+
+@router.get(
+    "/models/download/{task_id}",
+    response_model=VoiceModelDownloadProgressResponse,
+    responses={404: {"description": "Task not found"}},
+)
+async def get_voice_models_download_status(
+    request: Request, task_id: str
+) -> VoiceModelDownloadProgressResponse | JSONResponse:
+    """Poll the progress of a background download task."""
+    from sovyx.voice.model_status import prune_finished
+
+    tracker = _get_model_download_tracker(request)
+    prune_finished(tracker)  # type: ignore[arg-type]
+    entry = tracker.get(task_id)
+    if entry is None:
+        return JSONResponse(
+            {"error": "task_not_found", "detail": f"Task {task_id} not found or expired"},
+            status_code=404,
+        )
+    p = entry.progress  # type: ignore[attr-defined]
+    return VoiceModelDownloadProgressResponse.model_validate(
+        {
+            "task_id": p.task_id,
+            "status": p.status,
+            "total_models": p.total_models,
+            "completed_models": p.completed_models,
+            "current_model": p.current_model,
+            "error": p.error,
+            "error_code": p.error_code,
+            "retry_after_seconds": p.retry_after_seconds,
+        }
+    )
+
+
+@router.get("/capture-diagnostics", response_model=VoiceCaptureDiagnosticsResponse)
+async def capture_diagnostics(request: Request) -> VoiceCaptureDiagnosticsResponse:
+    """Report the Windows capture-APO chain attached to the active mic.
+
+    Surfaces the same data that powers the pipeline's auto-bypass logic:
+    every active capture endpoint, its friendly name, the list of known
+    APOs loaded by the Windows audio engine, and a single
+    ``voice_clarity_active`` bit per endpoint. The setup wizard and the
+    "voice not hearing me" troubleshooting panel call this to decide
+    whether to offer the "enable WASAPI exclusive" action.
+
+    On non-Windows platforms the underlying detector returns an empty
+    list, so ``endpoints`` is ``[]`` and ``voice_clarity_active`` is
+    ``False`` — the endpoint is safe to call unconditionally.
+
+    The response also echoes the currently-resolved input device name
+    (from an already-running pipeline, when one is registered) so the
+    UI can highlight the *active* endpoint without re-running device
+    resolution from the frontend.
+    """
+    from sovyx.voice._apo_detector import detect_capture_apos, find_endpoint_report
+
+    try:
+        reports = await asyncio.to_thread(detect_capture_apos)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("voice_apo_detection_failed", error=str(exc))
+        return VoiceCaptureDiagnosticsResponse(
+            error=f"Capture-APO scan failed: {exc}",
+            endpoints=[],
+            voice_clarity_active=False,
+        )
+
+    # Prefer the device name from the running capture task; fall back to
+    # the mind.yaml-persisted name so diagnostics still work before enable.
+    active_device_name: str | None = None
+    registry = getattr(request.app.state, "registry", None)
+    if registry is not None:
+        with contextlib.suppress(Exception):
+            from sovyx.voice._capture_task import AudioCaptureTask
+
+            if registry.is_registered(AudioCaptureTask):
+                capture = await registry.resolve(AudioCaptureTask)
+                active_device_name = getattr(capture, "input_device_name", None)
+
+    active_report = find_endpoint_report(reports, device_name=active_device_name)
+
+    endpoints = [
+        {
+            "endpoint_id": r.endpoint_id,
+            "endpoint_name": r.endpoint_name,
+            "device_interface_name": r.device_interface_name,
+            "enumerator": r.enumerator,
+            "fx_binding_count": r.fx_binding_count,
+            "known_apos": list(r.known_apos),
+            "raw_clsids": list(r.raw_clsids),
+            "voice_clarity_active": r.voice_clarity_active,
+            "is_active_device": active_report is not None
+            and r.endpoint_id == active_report.endpoint_id,
+        }
+        for r in reports
+    ]
+
+    any_clarity = any(r.voice_clarity_active for r in reports)
+    active_clarity = bool(active_report is not None and active_report.voice_clarity_active)
+
+    # T10 — Linux session-manager grab report. No-op on Windows/macOS
+    # (the detector itself returns has_grab=None with
+    # detection_method="unavailable" on those platforms).
+    session_manager_grab = await _collect_session_manager_grab_report()
+
+    return VoiceCaptureDiagnosticsResponse(
+        platform_supported=bool(reports) or _is_windows(),
+        active_device_name=active_device_name,
+        active_endpoint=(
+            {
+                "endpoint_id": active_report.endpoint_id,
+                "endpoint_name": active_report.endpoint_name,
+                "device_interface_name": active_report.device_interface_name,
+                "known_apos": list(active_report.known_apos),
+                "voice_clarity_active": active_report.voice_clarity_active,
+            }
+            if active_report is not None
+            else None
+        ),
+        voice_clarity_active=active_clarity,
+        any_voice_clarity_active=any_clarity,
+        endpoints=endpoints,
+        session_manager_grab=session_manager_grab,
+        fix_suggestion=(
+            "Open the mic in WASAPI exclusive mode to bypass the APO chain. "
+            "Set SOVYX_TUNING__VOICE__CAPTURE_WASAPI_EXCLUSIVE=true, or leave "
+            "voice_clarity_autofix enabled (default) and Sovyx will switch "
+            "automatically after the pipeline goes deaf."
+        )
+        if active_clarity
+        else None,
+    )
+
+
+async def _collect_session_manager_grab_report() -> dict[str, object]:
+    """Invoke the Linux session-manager detector and return a JSON-safe payload.
+
+    Never raises. On non-Linux platforms the detector returns
+    ``has_grab=None`` with ``detection_method="unavailable"`` which
+    we surface verbatim — the dashboard renders a neutral "not
+    applicable" state.
+    """
+    import dataclasses as _dc
+
+    from sovyx.engine.config import VoiceTuningConfig
+    from sovyx.voice._session_manager_detector import detect_session_manager_grab
+
+    try:
+        report = await detect_session_manager_grab(tuning=VoiceTuningConfig())
+    except Exception as exc:  # noqa: BLE001 — diagnostics endpoint must never 500
+        logger.debug("voice_capture_diagnostics_detector_failed", exc_info=True)
+        return {
+            "has_grab": None,
+            "detection_method": "unavailable",
+            "grabbing_processes": [],
+            "evidence": f"detector invocation failed: {exc}",
+        }
+    return {
+        "has_grab": report.has_grab,
+        "detection_method": report.detection_method,
+        "grabbing_processes": [_dc.asdict(p) for p in report.grabbing_processes],
+        "evidence": report.evidence,
+    }
+
+
+def _is_windows() -> bool:
+    """Return True when running on Windows (module-level for patchability)."""
+    import sys as _sys
+
+    return _sys.platform == "win32"
+
+
+def _enumerate_alternative_devices() -> list[dict[str, object]]:
+    """Return session-manager-virtual / OS-default inputs for the UI banner.
+
+    Used by the ``CaptureDeviceContendedError`` handler (T7) so the
+    dashboard can render clickable "try this device instead" chips.
+    Fails soft: returns ``[]`` when enumeration fails (no ``sounddevice``,
+    headless CI) — the UI just shows the suggested-action tokens
+    without device-specific chips.
+    """
+    try:
+        from sovyx.voice.device_enum import DeviceKind, enumerate_devices
+    except Exception:  # noqa: BLE001 — import failure on exotic builds
+        return []
+
+    try:
+        devices = enumerate_devices()
+    except Exception:  # noqa: BLE001
+        return []
+
+    alternatives: list[dict[str, object]] = []
+    for entry in devices:
+        if entry.max_input_channels <= 0:
+            continue
+        if entry.kind not in {DeviceKind.SESSION_MANAGER_VIRTUAL, DeviceKind.OS_DEFAULT}:
+            continue
+        alternatives.append(
+            {
+                "index": entry.index,
+                "name": entry.name,
+                "host_api": entry.host_api_name,
+                "kind": str(entry.kind),
+                "max_input_channels": entry.max_input_channels,
+                "default_samplerate": entry.default_samplerate,
+            }
+        )
+    return alternatives
+
+
+@router.post("/capture-exclusive", response_model=VoiceCaptureExclusiveResponse)
+async def set_capture_exclusive(request: Request) -> VoiceCaptureExclusiveResponse:
+    """Persist + hot-apply the WASAPI-exclusive capture flag.
+
+    Body: ``{"enabled": bool}`` (default ``True``).
+
+    Flow:
+        1. Persist ``tuning.voice.capture_wasapi_exclusive`` to
+           ``system.yaml`` via :class:`ConfigEditor` so the choice
+           survives restart.
+        2. Mutate the in-memory ``EngineConfig`` so any code path that
+           reads the live config sees the new value immediately.
+        3. If ``enabled=True`` and a capture task is running, call
+           :meth:`AudioCaptureTask.request_exclusive_restart` to
+           re-open the mic in exclusive mode *without* a full pipeline
+           restart — same code path the auto-bypass uses.
+        4. If ``enabled=False`` while the pipeline is running, we
+           persist but do not tear down the current stream (that
+           requires a full pipeline restart). The response reports
+           ``applied_immediately=False`` so the UI can prompt the user.
+
+    Returns:
+        ``{"ok": True, "enabled": bool, "persisted": bool,
+        "applied_immediately": bool}``.
+    """
+    try:
+        body = await request.json()
+    except (ValueError, UnicodeDecodeError):
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+    enabled = bool(body.get("enabled", True))
+
+    # 1. Persist to system.yaml
+    persisted = False
+    config_path = getattr(request.app.state, "config_path", None)
+    if config_path is not None:
+        from pathlib import Path
+
+        from sovyx.engine.config_editor import ConfigEditor
+
+        try:
+            editor = ConfigEditor()
+            await editor.update_section(
+                Path(config_path),
+                "tuning.voice",
+                {"capture_wasapi_exclusive": enabled},
+            )
+            persisted = True
+        except Exception:  # noqa: BLE001
+            logger.warning("capture_exclusive_persist_failed", exc_info=True)
+
+    # 2. Hot-update in-memory config so live readers see the change.
+    engine_config = getattr(request.app.state, "engine_config", None)
+    if engine_config is not None:
+        with contextlib.suppress(Exception):
+            engine_config.tuning.voice.capture_wasapi_exclusive = enabled
+
+    # 3. Apply immediately if enabling and pipeline is running.
+    # v0.20.2 / Bug C — ``applied_immediately`` now reflects whether
+    # WASAPI actually granted exclusive mode, not merely whether the
+    # restart code path ran. ``engaged`` and ``verdict`` let the UI
+    # surface a warning banner when the reopen landed in shared mode
+    # (device held by another app, policy denied) — in which case the
+    # APO chain is still in the signal path and the user has to close
+    # the competing app or disable the APO manually.
+    applied_immediately = False
+    restart_verdict: str | None = None
+    restart_detail: str | None = None
+    if enabled:
+        registry = getattr(request.app.state, "registry", None)
+        if registry is not None:
+            with contextlib.suppress(Exception):
+                from sovyx.voice._capture_task import AudioCaptureTask
+
+                if registry.is_registered(AudioCaptureTask):
+                    capture = await registry.resolve(AudioCaptureTask)
+                    result = await capture.request_exclusive_restart()
+                    applied_immediately = result.engaged
+                    restart_verdict = result.verdict.value
+                    restart_detail = result.detail
+
+    logger.info(
+        "capture_exclusive_updated",
+        enabled=enabled,
+        persisted=persisted,
+        applied_immediately=applied_immediately,
+        verdict=restart_verdict,
+    )
+    return VoiceCaptureExclusiveResponse(
+        ok=True,
+        enabled=enabled,
+        persisted=persisted,
+        applied_immediately=applied_immediately,
+        verdict=restart_verdict,
+        detail=restart_detail,
+    )
+
+
+def _is_linux() -> bool:
+    """Return True when running on Linux (module-level for patchability)."""
+    import sys as _sys
+
+    return _sys.platform == "linux"
+
+
+def _amixer_available() -> bool:
+    """Return True when ``amixer`` is resolvable on ``PATH``.
+
+    Extracted to a module-level helper so tests can patch it without
+    shelling out to the real filesystem. Used by both diagnostics and
+    reset endpoints to distinguish "Linux host without alsa-utils"
+    (graceful no-op) from "Linux host with alsa-utils but nothing
+    saturating" (healthy state).
+    """
+    import shutil
+
+    return shutil.which("amixer") is not None
+
+
+def _serialize_mixer_snapshots(
+    snapshots: Sequence[MixerCardSnapshot],
+) -> list[dict[str, object]]:
+    """Render :class:`MixerCardSnapshot` list for JSON transport.
+
+    Keeps field names aligned with
+    ``dashboard/src/types/schemas.ts::LinuxMixerCardSchema`` — a rename
+    here requires a matching rename on the zod schema and the card
+    component's prop type.
+    """
+    payload: list[dict[str, object]] = []
+    for snap in snapshots:
+        controls_payload: list[dict[str, object]] = []
+        for ctl in snap.controls:
+            controls_payload.append(
+                {
+                    "name": ctl.name,
+                    "min_raw": ctl.min_raw,
+                    "max_raw": ctl.max_raw,
+                    "current_raw": ctl.current_raw,
+                    "current_db": ctl.current_db,
+                    "max_db": ctl.max_db,
+                    "is_boost_control": ctl.is_boost_control,
+                    "saturation_risk": ctl.saturation_risk,
+                    "asymmetric": ctl.asymmetric,
+                }
+            )
+        payload.append(
+            {
+                "card_index": snap.card_index,
+                "card_id": snap.card_id,
+                "card_longname": snap.card_longname,
+                "aggregated_boost_db": round(snap.aggregated_boost_db, 2),
+                "saturation_warning": snap.saturation_warning,
+                "controls": controls_payload,
+            }
+        )
+    return payload
+
+
+@router.get("/linux-mixer-diagnostics", response_model=VoiceLinuxMixerDiagnosticsResponse)
+async def linux_mixer_diagnostics(request: Request) -> VoiceLinuxMixerDiagnosticsResponse:
+    """Snapshot of every ALSA card's gain state — Linux-only.
+
+    Drives the dashboard's ``LinuxMicGainCard`` component. Non-Linux
+    hosts receive ``platform_supported=False`` so the UI can render a
+    disabled card with an explanatory tooltip rather than erroring.
+
+    Response shape (Linux):
+        ``{"platform_supported": True, "amixer_available": bool,
+        "snapshots": [MixerCardSchema], "aggregated_boost_db_ceiling":
+        float, "saturation_ratio_ceiling": float,
+        "reset_enabled_by_default": bool}``
+
+    Side-effect-free: calls
+    :func:`sovyx.voice.health._linux_mixer_probe.enumerate_alsa_mixer_snapshots`
+    behind :func:`asyncio.to_thread` so the subprocess fan-out never
+    blocks the event loop. Runs unauthenticated-free because the router
+    already enforces ``verify_token``.
+    """
+    del request  # unused — kept for FastAPI dependency resolution parity
+
+    from sovyx.engine.config import VoiceTuningConfig
+
+    tuning = VoiceTuningConfig()
+
+    if not _is_linux():
+        return VoiceLinuxMixerDiagnosticsResponse(
+            platform_supported=False,
+            amixer_available=False,
+            snapshots=[],
+            aggregated_boost_db_ceiling=tuning.linux_mixer_aggregated_boost_db_ceiling,
+            saturation_ratio_ceiling=tuning.linux_mixer_saturation_ratio_ceiling,
+            reset_enabled_by_default=tuning.linux_alsa_mixer_reset_enabled,
+        )
+
+    from sovyx.voice.health._linux_mixer_probe import (
+        enumerate_alsa_mixer_snapshots,
+    )
+
+    amixer_available = _amixer_available()
+    try:
+        snapshots = await asyncio.to_thread(enumerate_alsa_mixer_snapshots)
+    except Exception:  # noqa: BLE001
+        logger.warning("linux_mixer_diagnostics_probe_failed", exc_info=True)
+        snapshots = []
+
+    return VoiceLinuxMixerDiagnosticsResponse(
+        platform_supported=True,
+        amixer_available=amixer_available,
+        snapshots=_serialize_mixer_snapshots(snapshots),
+        aggregated_boost_db_ceiling=tuning.linux_mixer_aggregated_boost_db_ceiling,
+        saturation_ratio_ceiling=tuning.linux_mixer_saturation_ratio_ceiling,
+        reset_enabled_by_default=tuning.linux_alsa_mixer_reset_enabled,
+    )
+
+
+@router.post("/linux-mixer-reset", response_model=VoiceLinuxMixerResetResponse)
+async def linux_mixer_reset(request: Request) -> VoiceLinuxMixerResetResponse:
+    """Reset saturated ALSA gain controls on one card — user-initiated.
+
+    Body (all fields optional)::
+
+        {"card_index": int}
+
+    When ``card_index`` is omitted, the endpoint auto-selects the
+    saturating card if exactly one card has
+    :attr:`MixerCardSnapshot.saturation_warning=True`; multiple
+    saturating cards produce ``ok=False`` with ``reason="ambiguous_card"``
+    so the user can retry with an explicit index.
+
+    Applied controls are the ones flagged
+    :attr:`MixerControlSnapshot.saturation_risk=True` on the target
+    card — never the full control list. The write is atomic:
+    :func:`apply_mixer_reset` rolls back every successful mutation if
+    any individual ``amixer sset`` call fails.
+
+    Response (success)::
+
+        {"ok": True, "card_index": int, "card_id": str,
+         "card_longname": str, "applied_controls": [[name, raw], ...],
+         "reverted_controls": [[name, raw], ...]}
+
+    Response (failure modes)::
+
+        {"ok": False, "reason":
+            "not_linux" | "amixer_unavailable" | "no_snapshots" |
+            "ambiguous_card" | "card_not_found" | "not_saturating" |
+            "no_controls_to_reset" | "apply_failed",
+         "detail": str, "reason_code": str (from BypassApplyError when
+         applicable)}
+
+    The ALSA mixer change persists until reboot or manual override.
+    The endpoint does not persist anything to ``system.yaml`` — this is
+    a one-shot remediation, independent of the coordinator-driven
+    auto-bypass (governed by
+    :attr:`VoiceTuningConfig.linux_alsa_mixer_reset_enabled`).
+    """
+    from sovyx.engine.config import VoiceTuningConfig
+    from sovyx.voice.health._linux_mixer_apply import apply_mixer_reset
+    from sovyx.voice.health._linux_mixer_probe import (
+        enumerate_alsa_mixer_snapshots,
+    )
+    from sovyx.voice.health.bypass._strategy import BypassApplyError
+
+    if not _is_linux():
+        return VoiceLinuxMixerResetResponse(
+            ok=False,
+            reason="not_linux",
+            detail="Linux ALSA mixer reset is only available on Linux hosts.",
+        )
+    if not _amixer_available():
+        return VoiceLinuxMixerResetResponse(
+            ok=False,
+            reason="amixer_unavailable",
+            detail=(
+                "`amixer` not found on PATH — install the alsa-utils "
+                "package to enable mixer remediation."
+            ),
+        )
+
+    try:
+        body = await request.json()
+    except (ValueError, UnicodeDecodeError):
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+    raw_card_index = body.get("card_index")
+    requested_card_index: int | None
+    if raw_card_index is None:
+        requested_card_index = None
+    else:
+        try:
+            requested_card_index = int(raw_card_index)
+        except (TypeError, ValueError):
+            return VoiceLinuxMixerResetResponse(
+                ok=False,
+                reason="invalid_card_index",
+                detail="card_index must be an integer from /proc/asound/cards.",
+            )
+
+    snapshots = await asyncio.to_thread(enumerate_alsa_mixer_snapshots)
+    if not snapshots:
+        return VoiceLinuxMixerResetResponse(
+            ok=False,
+            reason="no_snapshots",
+            detail=(
+                "amixer returned no cards — the audio subsystem may be "
+                "unreachable or no card exposes a mixer."
+            ),
+        )
+
+    target = None
+    if requested_card_index is not None:
+        for snap in snapshots:
+            if snap.card_index == requested_card_index:
+                target = snap
+                break
+        if target is None:
+            return VoiceLinuxMixerResetResponse(
+                ok=False,
+                reason="card_not_found",
+                detail=(f"No ALSA card with index {requested_card_index} was reported by amixer."),
+            )
+    else:
+        saturating = [s for s in snapshots if s.saturation_warning]
+        if not saturating:
+            return VoiceLinuxMixerResetResponse(
+                ok=False,
+                reason="not_saturating",
+                detail=("No ALSA card currently reports a saturation warning — nothing to reset."),
+            )
+        if len(saturating) > 1:
+            return VoiceLinuxMixerResetResponse(
+                ok=False,
+                reason="ambiguous_card",
+                detail=(
+                    "Multiple cards report saturation — re-submit with an explicit card_index."
+                ),
+                candidate_card_indexes=[s.card_index for s in saturating],
+            )
+        target = saturating[0]
+
+    controls_to_reset = [c for c in target.controls if c.saturation_risk]
+    if not controls_to_reset:
+        return VoiceLinuxMixerResetResponse(
+            ok=False,
+            reason="no_controls_to_reset",
+            detail=(
+                f"Card {target.card_index} ({target.card_id}) has no "
+                "individual control flagged as saturating — nothing to "
+                "reset."
+            ),
+            card_index=target.card_index,
+            card_id=target.card_id,
+        )
+
+    tuning = VoiceTuningConfig()
+    try:
+        result = await apply_mixer_reset(
+            card_index=target.card_index,
+            controls_to_reset=controls_to_reset,
+            tuning=tuning,
+        )
+    except BypassApplyError as exc:
+        logger.warning(
+            "linux_mixer_reset_apply_failed",
+            card_index=target.card_index,
+            reason=exc.reason,
+            detail=str(exc),
+        )
+        return VoiceLinuxMixerResetResponse(
+            ok=False,
+            reason="apply_failed",
+            reason_code=exc.reason,
+            detail=str(exc),
+            card_index=target.card_index,
+            card_id=target.card_id,
+        )
+
+    logger.info(
+        "linux_mixer_reset_applied",
+        card_index=result.card_index,
+        controls_reset=[name for name, _ in result.applied_controls],
+        controls_count=len(result.applied_controls),
+    )
+    return VoiceLinuxMixerResetResponse(
+        ok=True,
+        card_index=result.card_index,
+        card_id=target.card_id,
+        card_longname=target.card_longname,
+        applied_controls=[(name, raw) for name, raw in result.applied_controls],
+        reverted_controls=[(name, raw) for name, raw in result.reverted_controls],
+    )
+
+
+@router.get(
+    "/hardware-detect",
+    response_model=VoiceHardwareDetectResponse,
+    responses={500: {"description": "Hardware detection failed"}},
+)
+async def hardware_detect(
+    request: Request,
+) -> VoiceHardwareDetectResponse | JSONResponse:
+    """Detect hardware capabilities for voice pipeline.
+
+    Returns CPU, RAM, GPU info, detected hardware tier, recommended
+    models with sizes, and whether audio I/O devices are available.
+    """
+    from sovyx.voice.auto_select import detect_hardware
+    from sovyx.voice.model_registry import get_models_for_tier
+
+    try:
+        hw = await asyncio.to_thread(detect_hardware)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("hardware_detection_failed", error=str(exc))
+        return JSONResponse({"error": f"Hardware detection failed: {exc}"}, status_code=500)
+
+    # Audio device detection — dedup by canonical name, prefer WASAPI over
+    # MME/DirectSound/WDM-KS on Windows. See device_enum.py for *why* MME
+    # gets demoted (silent-mic bug with non-native sample rates).
+    audio_available = False
+    input_devices: list[VoiceDeviceEntry] = []
+    output_devices: list[VoiceDeviceEntry] = []
+    try:
+        from sovyx.voice.device_enum import enumerate_devices, pick_preferred
+
+        entries = await asyncio.to_thread(enumerate_devices)
+        in_preferred = pick_preferred(entries, kind="input")
+        out_preferred = pick_preferred(entries, kind="output")
+        input_devices = [
+            VoiceDeviceEntry(
+                index=e.index,
+                name=e.name,
+                is_default=e.is_os_default,
+                host_api=e.host_api_name,
+            )
+            for e in in_preferred
+        ]
+        output_devices = [
+            VoiceDeviceEntry(
+                index=e.index,
+                name=e.name,
+                is_default=e.is_os_default,
+                host_api=e.host_api_name,
+            )
+            for e in out_preferred
+        ]
+        audio_available = bool(input_devices and output_devices)
+    except ImportError:
+        logger.debug("sounddevice_not_installed")
+    except Exception:  # noqa: BLE001
+        logger.warning("audio_device_detection_failed", exc_info=True)
+
+    # Recommended models for detected tier
+    tier_name = hw.tier.name if hasattr(hw, "tier") else "DESKTOP_CPU"
+    models = get_models_for_tier(tier_name)
+
+    total_download_mb = sum(m.size_mb for m in models if m.download_available)
+
+    return VoiceHardwareDetectResponse(
+        hardware=VoiceHardwareInfo(
+            cpu_cores=hw.cpu_cores,
+            ram_mb=hw.ram_mb,
+            has_gpu=hw.has_gpu,
+            gpu_vram_mb=hw.gpu_vram_mb,
+            tier=tier_name,
+        ),
+        audio=VoiceAudioInfo(
+            available=audio_available,
+            input_devices=input_devices,
+            output_devices=output_devices,
+        ),
+        recommended_models=[
+            VoiceRecommendedModel(
+                name=m.name,
+                category=m.category,
+                size_mb=m.size_mb,
+                download_available=m.download_available,
+                description=m.description,
+            )
+            for m in models
+        ],
+        total_download_mb=round(total_download_mb, 1),
+    )
+
+
+@router.post(
+    "/enable",
+    response_model=VoiceEnableResponse,
+    responses={
+        400: {"description": "Voice deps missing or audio devices unavailable"},
+        500: {"description": "Pipeline creation failed"},
+        503: {"description": "Capture inoperative / silent / contended"},
+    },
+)
+async def enable_voice(request: Request) -> VoiceEnableResponse | JSONResponse:
+    """Enable the voice pipeline (hot-enable, no restart needed).
+
+    Flow:
+        1. Check Python voice deps (moonshine-voice, sounddevice).
+        2. Check audio hardware availability.
+        3. Check if pipeline already running (idempotent).
+        4. Instantiate all components (VAD, STT, TTS, WakeWord).
+        5. Register in ServiceRegistry.
+        6. Persist to mind.yaml.
+        7. Return active status.
+    """
+    # 0. Parse optional device selection + voice/language override
+    try:
+        body = await request.json()
+    except (ValueError, UnicodeDecodeError):
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+    raw_input = body.get("input_device")
+    raw_output = body.get("output_device")
+    input_device: int | None = raw_input if isinstance(raw_input, int) else None
+    output_device: int | None = raw_output if isinstance(raw_output, int) else None
+
+    # Stable device identity — prefer name + host_api over index because
+    # PortAudio indices are unstable across reboots / USB replugs.
+    raw_input_name = body.get("input_device_name")
+    raw_input_host_api = body.get("input_device_host_api")
+    input_device_name: str | None = (
+        raw_input_name if isinstance(raw_input_name, str) and raw_input_name else None
+    )
+    input_device_host_api: str | None = (
+        raw_input_host_api if isinstance(raw_input_host_api, str) and raw_input_host_api else None
+    )
+
+    # voice_id + language come from the wizard's VoiceTestPicker. When
+    # either is present, validate it against the catalog BEFORE we spin
+    # up any models — a bad id here would otherwise surface as an opaque
+    # ONNX error at first synthesis.
+    raw_voice = body.get("voice_id")
+    raw_language = body.get("language")
+    request_voice_id: str | None = raw_voice if isinstance(raw_voice, str) and raw_voice else None
+    request_language: str | None = (
+        raw_language if isinstance(raw_language, str) and raw_language else None
+    )
+
+    # Issue #39 — operator's TTS engine preference. Restricted to the
+    # known set so a misconfigured wizard payload can't slip arbitrary
+    # values into mind.yaml.
+    raw_tts_engine = body.get("tts_engine")
+    request_tts_engine: str | None = (
+        raw_tts_engine
+        if isinstance(raw_tts_engine, str) and raw_tts_engine in {"auto", "piper", "kokoro"}
+        else None
+    )
+
+    if request_voice_id is not None or request_language is not None:
+        from sovyx.voice import voice_catalog
+
+        if request_voice_id is not None and voice_catalog.voice_info(request_voice_id) is None:
+            return JSONResponse(
+                VoiceEnableResponse(
+                    ok=False, error=f"Unknown voice id: {request_voice_id}"
+                ).model_dump(exclude_none=True),
+                status_code=400,
+            )
+        if request_language is not None:
+            canonical = voice_catalog.normalize_language(request_language)
+            if canonical not in voice_catalog.SUPPORTED_LANGUAGES:
+                return JSONResponse(
+                    VoiceEnableResponse(
+                        ok=False,
+                        error=(
+                            f"Unsupported language: {request_language!r}. "
+                            f"Supported: {sorted(voice_catalog.SUPPORTED_LANGUAGES)}"
+                        ),
+                    ).model_dump(exclude_none=True),
+                    status_code=400,
+                )
+
+    # 1. Check deps
+    from sovyx.voice.model_registry import check_voice_deps, detect_tts_engine
+
+    _installed, missing = check_voice_deps()
+    tts_engine = detect_tts_engine()
+    if missing:
+        return JSONResponse(
+            VoiceEnableResponse(
+                ok=False,
+                error="missing_deps",
+                missing_deps=missing,
+                install_command="pip install sovyx[voice]",
+            ).model_dump(exclude_none=True),
+            status_code=400,
+        )
+    if tts_engine == "none":
+        return JSONResponse(
+            VoiceEnableResponse(
+                ok=False,
+                error="missing_deps",
+                missing_deps=[
+                    {"module": "piper_phonemize or kokoro_onnx", "package": "piper-tts"}
+                ],
+                install_command="pip install piper-tts",
+            ).model_dump(exclude_none=True),
+            status_code=400,
+        )
+
+    # 2. Check audio
+    audio_ok = False
+    try:
+        import sounddevice as sd  # noqa: PLC0415
+
+        devices = sd.query_devices()
+        has_in = any(d.get("max_input_channels", 0) > 0 for d in devices if isinstance(d, dict))
+        has_out = any(d.get("max_output_channels", 0) > 0 for d in devices if isinstance(d, dict))
+        audio_ok = has_in and has_out
+    except ImportError:
+        pass
+    except Exception:  # noqa: BLE001
+        logger.warning("audio_device_check_failed", exc_info=True)
+
+    if not audio_ok:
+        return JSONResponse(
+            VoiceEnableResponse(
+                ok=False,
+                error="No audio devices detected (microphone + speaker required)",
+            ).model_dump(exclude_none=True),
+            status_code=400,
+        )
+
+    # v0.31.6 T3.4 — resolve the per-mind id BEFORE the idempotent
+    # check + lock acquire. The lock key MUST be the resolved mind_id
+    # (post-resolver), not the raw request mind_id, so the sentinel
+    # ``"default"`` doesn't bypass the lock for any operator that
+    # actually has a real mind active. The resolver is also the source
+    # of provenance the rest of the route already logs.
+    from sovyx.dashboard._shared import resolve_active_mind_id_for_request
+
+    resolved_mind_id, mind_id_source = await resolve_active_mind_id_for_request(
+        request,
+    )
+    logger.info(
+        "voice.dashboard.voice_enable_mind_resolved",
+        **{
+            "voice.mind_id": resolved_mind_id,
+            "voice.source": mind_id_source,
+        },
+    )
+
+    async with _ENABLE_LOCKS.acquire(resolved_mind_id):
+        return await _enable_voice_locked(
+            request=request,
+            resolved_mind_id=resolved_mind_id,
+            input_device=input_device,
+            output_device=output_device,
+            input_device_name=input_device_name,
+            input_device_host_api=input_device_host_api,
+            request_voice_id=request_voice_id,
+            request_language=request_language,
+            tts_engine=tts_engine,
+            request_tts_engine=request_tts_engine,
+        )
+
+
+async def _enable_voice_locked(
+    *,
+    request: Request,
+    resolved_mind_id: str,
+    input_device: int | None,
+    output_device: int | None,
+    input_device_name: str | None,
+    input_device_host_api: str | None,
+    request_voice_id: str | None,
+    request_language: str | None,
+    tts_engine: str,
+    request_tts_engine: str | None = None,
+) -> VoiceEnableResponse | JSONResponse:
+    """Body of :func:`enable_voice` executed under ``_ENABLE_LOCKS``.
+
+    Split out as a separate coroutine so the lock-guarded section is a
+    single ``async with`` + single call site at the route handler. All
+    request validation + dep checks happen in :func:`enable_voice`
+    BEFORE the lock is acquired (cheap fast-fail for already-active /
+    bad-input cases). This function owns the (idempotent-check +
+    register) atomic that pre-v0.31.6 raced.
+    """
+    # 3. Idempotent check (under the lock — second concurrent request
+    # blocks here until the first one has registered, then sees the
+    # registration and short-circuits to ``already_active``).
+    registry = getattr(request.app.state, "registry", None)
+    if registry is not None:
+        from sovyx.voice.pipeline._orchestrator import VoicePipeline
+
+        if registry.is_registered(VoicePipeline):
+            return VoiceEnableResponse(ok=True, status="already_active")
+
+    # 3.5 v0.20.2 / Bug B + voice-linux-cascade-root-fix T8 — close AND
+    # AWAIT any live voice_test meter sessions BEFORE the factory probes
+    # the mic. ``SessionRegistry.close_all`` is a cooperative shutdown:
+    # it stops each session, waits up to
+    # ``tuning.device_test_force_close_grace_s`` for the PortAudio stream
+    # to drain, then force-closes on timeout. The await is what makes
+    # the next probe reliable — without it the session's ``stream.close``
+    # would race the cascade's reopen on the same ``hw:X,Y`` node and
+    # produce spurious ``DEVICE_BUSY`` on the first candidate.
+    voice_test_registry = getattr(request.app.state, "voice_test_registry", None)
+    if voice_test_registry is not None:
+        from sovyx.voice.device_test import CloseReason, SessionRegistry
+
+        if isinstance(voice_test_registry, SessionRegistry):
+            logger.info("voice_enable_test_session_handoff_begin")
+            with contextlib.suppress(Exception):
+                await voice_test_registry.close_all(reason=CloseReason.SERVER_SHUTDOWN)
+            logger.info("voice_enable_test_session_handoff_done")
+
+    # 4. Create pipeline
+    from sovyx.voice.factory import VoiceFactoryError, create_voice_pipeline
+
+    event_bus = None
+    cognitive_loop = None
+    if registry is not None:
+        from sovyx.cognitive.loop import CognitiveLoop
+        from sovyx.engine.events import EventBus
+
+        if registry.is_registered(EventBus):
+            event_bus = await registry.resolve(EventBus)
+        if registry.is_registered(CognitiveLoop):
+            cognitive_loop = await registry.resolve(CognitiveLoop)
+
+    # Closure holder — the bridge needs the pipeline, the pipeline needs the
+    # callback. Fill the holder after the bundle is built.
+    bridge_ref: list[VoiceCognitiveBridge | None] = [None]
+    # Gap 2 — track the most-recent in-flight cogloop task so the
+    # capture consumer is freed (it would otherwise block on
+    # ``await bridge.process(...)`` for the entire LLM + TTS duration,
+    # making barge-in detection structurally impossible because
+    # ``feed_frame`` cannot reach ``_handle_speaking`` while parked
+    # deep in the perception await chain). The orchestrator can now
+    # process the next frames during streaming, which is exactly when
+    # the user might barge in.
+    cogloop_task_ref: list[asyncio.Task[Any] | None] = [None]
+
+    async def _on_perception(text: str, mind_id_str: str) -> None:
+        """Feed a transcription into the cognitive loop via the bridge.
+
+        Spawns the bridge call as a fire-and-forget task and returns
+        immediately so the orchestrator's capture consumer is freed
+        between turns. The spawned task is tracked in
+        ``cogloop_task_ref`` so :func:`disable_voice` can wait / cancel
+        it on shutdown, and so tests can assert on completion.
+        """
+        bridge = bridge_ref[0]
+        if bridge is None or not text.strip():
+            return
+        from uuid import uuid4
+
+        from sovyx.cognitive.gate import CognitiveRequest
+        from sovyx.cognitive.perceive import Perception
+        from sovyx.engine.types import ConversationId, MindId, PerceptionType
+
+        cog_request = CognitiveRequest(
+            perception=Perception(
+                id=str(uuid4()),
+                type=PerceptionType.USER_MESSAGE,
+                source="voice",
+                content=text,
+            ),
+            mind_id=MindId(mind_id_str),
+            conversation_id=ConversationId(f"voice-{mind_id_str}"),
+            conversation_history=[],
+            person_name=None,
+        )
+
+        async def _run_bridge_isolated() -> None:
+            try:
+                await bridge.process(cog_request)
+            except asyncio.CancelledError:
+                # Expected on barge-in (bridge.process converts to a
+                # sentinel internally; this branch only fires if the
+                # task was cancelled BEFORE bridge.process registered
+                # its own internal handler — defensive belt).
+                logger.info(
+                    "voice_cognitive_bridge_task_cancelled",
+                    mind_id=mind_id_str,
+                )
+            except Exception:  # noqa: BLE001
+                logger.exception("voice_cognitive_bridge_failed")
+
+        # If a previous turn's task is somehow still in flight (the
+        # user spoke a new utterance before the prior LLM/TTS finished
+        # AND the orchestrator did NOT trigger cancel_speech_chain —
+        # rare but possible on degraded streams), stop it explicitly so
+        # we never accumulate orphaned tasks. cancel() is idempotent
+        # against a done task.
+        #
+        # v0.31.7 CR1 — cancel-hook null race between turns.
+        #
+        # Pre-v0.31.7 we did not ``await`` the cancellation. The
+        # previous task's ``finally`` block (in
+        # ``VoiceCognitiveBridge.process``) used to unconditionally
+        # null the pipeline's cancel hook — but the new task we're
+        # about to spawn would race ahead and register its OWN hook
+        # FIRST. When the previous task's ``finally`` finally got CPU
+        # time, it would null the hook the new turn just registered,
+        # leaving the new turn's LLM stream un-cancellable by
+        # barge-in. Symptom: ``llm_cancel="no_hook_registered"`` in
+        # the ``cancel_speech_chain`` audit even with a live LLM.
+        #
+        # Two-part fix:
+        #  - Identity-check guard in the bridge's ``finally``
+        #    (cognitive_bridge.py): only null the hook if it is STILL
+        #    the local hook this turn registered.
+        #  - Await-with-timeout HERE so the previous task's ``finally``
+        #    completes BEFORE we proceed to spawn turn N+1 — keeps the
+        #    common path simple and gives the identity check a much
+        #    smaller race window to defend.
+        #
+        # If the await exceeds the timeout (genuinely stuck previous
+        # task), we proceed anyway: the identity check on the bridge
+        # side guarantees correctness even when the previous task's
+        # ``finally`` runs after turn N+1 registers its hook.
+        previous_task = cogloop_task_ref[0]
+        if previous_task is not None and not previous_task.done():
+            previous_task.cancel()
+            try:
+                await asyncio.wait_for(previous_task, timeout=_TURN_CANCELLATION_TIMEOUT_S)
+            except (TimeoutError, asyncio.CancelledError) as exc:
+                logger.info(
+                    "voice_perception_previous_turn_cancellation",
+                    reason=type(exc).__name__,
+                    timeout_s=_TURN_CANCELLATION_TIMEOUT_S,
+                )
+            except Exception as exc:  # noqa: BLE001
+                # Defensive: any other exception during the await is a
+                # bridge-internal failure (already logged inside
+                # _run_bridge_isolated). Don't let it block turn N+1.
+                logger.info(
+                    "voice_perception_previous_turn_cancellation",
+                    reason=type(exc).__name__,
+                )
+
+        new_task = asyncio.create_task(
+            _run_bridge_isolated(),
+            name=f"voice-perception-{mind_id_str}",
+        )
+        cogloop_task_ref[0] = new_task
+
+        # v0.31.7 T3.2 (M5) — register the cogloop task with the
+        # orchestrator so :meth:`cancel_speech_chain`'s step 2.5 can
+        # cancel it as a fallback when ``_llm_cancel_hook`` is None
+        # (CR1 race window — closed in T1.1, but belt-and-suspenders
+        # ensures a future regression doesn't leak LLM tokens past a
+        # barge-in). The bridge holds a reference to the pipeline so
+        # we resolve it once here at task-creation time.
+        # ``getattr`` defends test-stub bridges that don't model the
+        # full ``VoiceCognitiveBridge`` surface; production bridges
+        # always carry ``_pipeline``.
+        bridge_local = bridge_ref[0]
+        pipeline_local = getattr(bridge_local, "_pipeline", None) if bridge_local else None
+        if pipeline_local is not None and hasattr(pipeline_local, "register_cogloop_task"):
+            pipeline_local.register_cogloop_task(new_task)
+
+    on_perception_cb = _on_perception if cognitive_loop is not None else None
+
+    # Resolve per-mind language + voice so the pipeline TTS matches the
+    # user's personality picks. Precedence: request body (wizard live
+    # pick) > MindConfig (persisted from a previous /enable) > English
+    # defaults. The dashboard-only "no mind loaded" branch keeps the
+    # pipeline bootable on a fresh install before mind.yaml exists.
+    mind_language = "en"
+    mind_voice_id = ""
+    # T07 (Mission pre-wake-word-hardening 2026-05-02): wake_word_enabled
+    # is now per-mind config (``MindConfig.wake_word_enabled``) instead
+    # of being hardcoded False in this route. Default False preserves
+    # the v0.27.x always-listening UX (no behaviour change for existing
+    # operators); operators opt in to wake-word gating per mind via
+    # ``mind.yaml: wake_word_enabled: true``.
+    mind_wake_word_enabled = False
+    mind_device_name = ""
+    mind_device_host_api = ""
+    mind_tts_engine = "auto"
+    mind_config_obj = getattr(request.app.state, "mind_config", None)
+    if mind_config_obj is not None:
+        mind_language = getattr(mind_config_obj, "language", "en") or "en"
+        mind_voice_id = getattr(mind_config_obj, "voice_id", "") or ""
+        mind_device_name = getattr(mind_config_obj, "voice_input_device_name", "") or ""
+        mind_device_host_api = getattr(mind_config_obj, "voice_input_device_host_api", "") or ""
+        mind_wake_word_enabled = bool(getattr(mind_config_obj, "wake_word_enabled", False))
+        mind_tts_engine = getattr(mind_config_obj, "voice_tts_engine", "auto") or "auto"
+
+    effective_language = request_language or mind_language
+    effective_voice_id = request_voice_id if request_voice_id is not None else mind_voice_id
+    effective_tts_engine = (
+        request_tts_engine if request_tts_engine is not None else mind_tts_engine
+    )
+    # Prefer stable (name, host_api) over index. Request > MindConfig > index-only.
+    effective_device_name = input_device_name or mind_device_name or None
+    effective_device_host_api = input_device_host_api or mind_device_host_api or None
+
+    # Mission ``MISSION-voice-linux-silent-mic-remediation-2026-05-04.md``
+    # §Phase 1 T1.2 — resolved_mind_id is now passed in by ``enable_voice``
+    # which performs the resolve BEFORE acquiring ``_ENABLE_LOCKS`` (so
+    # the lock key matches the real per-mind serialisation contract,
+    # not the sentinel ``"default"``).
+    from sovyx.voice._capture_task import CaptureInoperativeError
+
+    try:
+        bundle = await create_voice_pipeline(
+            event_bus=event_bus,
+            on_perception=on_perception_cb,
+            language=effective_language,
+            voice_id=effective_voice_id,
+            wake_word_enabled=mind_wake_word_enabled,
+            mind_id=resolved_mind_id,
+            input_device=input_device,
+            input_device_name=effective_device_name,
+            input_device_host_api=effective_device_host_api,
+            output_device=output_device,
+            tts_engine_preference=effective_tts_engine,
+        )
+    except VoiceFactoryError as exc:
+        return JSONResponse(
+            VoiceEnableResponse(
+                ok=False,
+                error=str(exc),
+                missing_models=exc.missing_models,
+            ).model_dump(exclude_none=True),
+            status_code=400,
+        )
+    except CaptureInoperativeError as exc:
+        # v0.20.2 / Bug D — the VCHL boot cascade exhausted every viable
+        # combo (or kernel-invalidated fail-over found no alternative
+        # endpoint). Return 503 with the structured reason so the UI can
+        # show a real "no working microphone" prompt instead of the
+        # generic 500 stack-trace path.
+        logger.error(
+            "voice_enable_capture_inoperative",
+            device=exc.device,
+            host_api=exc.host_api,
+            reason=exc.reason,
+            attempts=exc.attempts,
+        )
+        return JSONResponse(
+            VoiceEnableResponse(
+                ok=False,
+                error="capture_inoperative",
+                detail=str(exc),
+                device=exc.device,
+                host_api=exc.host_api,
+                reason=exc.reason,
+                attempts=exc.attempts,
+            ).model_dump(exclude_none=True),
+            status_code=503,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("voice_enable_failed")
+        return JSONResponse(
+            VoiceEnableResponse(ok=False, error=f"Pipeline creation failed: {exc}").model_dump(
+                exclude_none=True
+            ),
+            status_code=500,
+        )
+
+    # 5. Start capture + register. Capture start is the step that can
+    # actually fail with a device error — if it does, tear the pipeline
+    # down so we don't leave a half-wired registry.
+    #
+    # The unified :mod:`sovyx.voice._stream_opener` pyramid walks every
+    # host-API sibling of the selected device automatically, so a silent
+    # MME variant falls through to WASAPI (or DirectSound) without any
+    # caller-side retry bookkeeping. ``CaptureSilenceError`` is only
+    # raised when *every* viable variant delivered zeros.
+    from sovyx.voice._capture_task import (
+        CaptureDeviceContendedError,
+        CaptureSilenceError,
+    )
+
+    try:
+        await bundle.capture_task.start()
+    except CaptureSilenceError as exc:
+        logger.error(
+            "voice_capture_all_host_apis_silent",
+            device=exc.device,
+            host_api=exc.host_api,
+            observed_peak_rms_db=exc.observed_peak_rms_db,
+        )
+        with contextlib.suppress(Exception):
+            await bundle.pipeline.stop()
+        return JSONResponse(
+            VoiceEnableResponse(
+                ok=False,
+                error="capture_silence",
+                detail=str(exc),
+                device=exc.device,
+                host_api=exc.host_api,
+                observed_peak_rms_db=exc.observed_peak_rms_db,
+            ).model_dump(exclude_none=True),
+            status_code=503,
+        )
+    except CaptureDeviceContendedError as exc:
+        # T7 — session-manager contention pattern detected. Return a
+        # 503 with actionable alternatives so the frontend can render
+        # clickable chips instead of a generic "Audio capture failed"
+        # banner.
+        logger.error(
+            "voice_capture_device_contended",
+            device=exc.device,
+            host_api=exc.host_api,
+            suggested_actions=exc.suggested_actions,
+            contending_process_hint=exc.contending_process_hint,
+        )
+        with contextlib.suppress(Exception):
+            await bundle.pipeline.stop()
+        alternatives = _enumerate_alternative_devices()
+        return JSONResponse(
+            VoiceEnableResponse(
+                ok=False,
+                error="capture_device_contended",
+                detail=str(exc),
+                device=exc.device,
+                host_api=exc.host_api,
+                suggested_actions=exc.suggested_actions,
+                contending_process_hint=exc.contending_process_hint,
+                alternative_devices=alternatives,
+            ).model_dump(exclude_none=True),
+            status_code=503,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("voice_capture_start_failed")
+        with contextlib.suppress(Exception):
+            await bundle.pipeline.stop()
+        return JSONResponse(
+            VoiceEnableResponse(
+                ok=False, error=f"Audio capture failed to start: {exc}"
+            ).model_dump(exclude_none=True),
+            status_code=500,
+        )
+
+    # 5.5 Wire the cognitive bridge now that the pipeline exists. Streaming
+    # (Jarvis illusion) defaults to the mind's LLM setting.
+    if cognitive_loop is not None:
+        from sovyx.voice.cognitive_bridge import (
+            VoiceCognitiveBridge as _VoiceCognitiveBridge,
+        )
+
+        streaming = True
+        mind_config = getattr(request.app.state, "mind_config", None)
+        if mind_config is not None:
+            llm_cfg = getattr(mind_config, "llm", None)
+            if llm_cfg is not None:
+                streaming = bool(getattr(llm_cfg, "streaming", True))
+        bridge_ref[0] = _VoiceCognitiveBridge(
+            cognitive_loop,
+            bundle.pipeline,
+            streaming=streaming,
+        )
+
+    if registry is not None:
+        from sovyx.voice._capture_task import AudioCaptureTask
+        from sovyx.voice.cognitive_bridge import VoiceCognitiveBridge
+        from sovyx.voice.health import BootPreflightWarningsStore
+        from sovyx.voice.pipeline._orchestrator import VoicePipeline
+        from sovyx.voice.stt import STTEngine
+        from sovyx.voice.tts_piper import TTSEngine
+        from sovyx.voice.vad import SileroVAD
+        from sovyx.voice.wake_word import WakeWordDetector
+
+        # v0.31.4 GAP 3 closure: use ``replace_instance`` (async — awaits
+        # teardown method on the OLD instance before overwriting). Pre-
+        # v0.31.4 ``register_instance`` overwrote silently, leaking the
+        # old ``AudioCaptureTask`` as a zombie when the operator clicked
+        # "Set up Voice" twice (or hit /api/voice/enable twice from
+        # parallel UI surfaces). Direct evidence in operator's
+        # ``menu_teste.txt`` log: 2 ``audio-capture-consumer`` tasks
+        # ran in parallel feeding the same orchestrator queue,
+        # producing 4× frame drops + chaotic VAD. The new contract
+        # awaits ``stop()``/``cancel()``/``aclose()`` on the old
+        # instance before swap.
+        await registry.replace_instance(VoicePipeline, bundle.pipeline)
+        await registry.replace_instance(AudioCaptureTask, bundle.capture_task)
+        # Register each sub-component so /api/voice/status can report real
+        # engine names instead of "No engine configured".
+        await registry.replace_instance(SileroVAD, bundle.pipeline.vad)
+        await registry.replace_instance(STTEngine, bundle.pipeline.stt)
+        await registry.replace_instance(TTSEngine, bundle.pipeline.tts)
+        if bundle.pipeline.config.wake_word_enabled:
+            await registry.replace_instance(WakeWordDetector, bundle.pipeline.wake_word)
+        if bridge_ref[0] is not None:
+            await registry.replace_instance(VoiceCognitiveBridge, bridge_ref[0])
+
+        # v1.3 §4.6 L6 — publish the factory's boot preflight warnings
+        # through a ``BootPreflightWarningsStore`` service. Callers
+        # (``get_voice_status``) access it via ``registry.resolve``,
+        # keeping parity with every other voice component. Re-enable
+        # lifecycle: if a store is already registered (user disabled
+        # then re-enabled), we refresh the snapshot in place rather
+        # than append — disable_voice will deregister if stopped
+        # cleanly; a crash-and-re-enable also converges to a fresh
+        # snapshot without accumulating state.
+        if registry.is_registered(BootPreflightWarningsStore):
+            preflight_store = await registry.resolve(BootPreflightWarningsStore)
+        else:
+            preflight_store = BootPreflightWarningsStore()
+            registry.register_instance(BootPreflightWarningsStore, preflight_store)
+        preflight_store.set_warnings(list(bundle.boot_preflight_warnings))
+
+        # v1.3 §4.6 L6 — WebSocket push mirrors the status-endpoint
+        # payload so dashboards listening live (not polling) receive
+        # the same signal. Best-effort: a WS failure never blocks the
+        # enable handshake.
+        ws_manager = getattr(request.app.state, "ws_manager", None)
+        if ws_manager is not None and bundle.boot_preflight_warnings:
+            for warning in bundle.boot_preflight_warnings:
+                with contextlib.suppress(Exception):
+                    await ws_manager.broadcast(
+                        channel="voice",
+                        event="voice_preflight_warning",
+                        payload=warning,
+                    )
+
+    # 6. Persist config
+    #
+    # Three writes happen here:
+    #
+    # * ``voice:`` section — legacy device metadata (kept for UI state).
+    # * top-level ``voice_id`` / ``language`` — the real MindConfig
+    #   fields consumed by the factory on next boot. Without this the
+    #   wizard's voice pick evaporates when the daemon restarts.
+    # * top-level ``voice_input_device_name`` / ``voice_input_device_host_api``
+    #   — stable identity so a USB replug / reboot doesn't re-break the
+    #   MME-silent-mic bug the wizard just worked around. We read what
+    #   the capture task *actually* landed on (post-fallback), which may
+    #   differ from the caller's request if a sibling host API rescued
+    #   the open.
+    #
+    # We also update ``app.state.mind_config`` in place so the next
+    # ``/enable`` (or any route that reads ``mind_config.voice_id``) sees
+    # the new values without needing a restart.
+    # On a real capture task ``host_api_name`` is ``str | None``; coerce here
+    # so a mocked value can never leak into YAML / JSON serialisation.
+    captured_host_api = bundle.capture_task.host_api_name
+    persisted_host_api = (
+        captured_host_api if isinstance(captured_host_api, str) else None
+    ) or effective_device_host_api
+    persisted_device_name = effective_device_name
+
+    # Per-request mind_yaml_path resolution (Phase 3.A Layer B). The route
+    # already has ``resolved_mind_id`` (post-resolver, post-lock); pass it
+    # as the explicit override so the helper can skip the resolver redo.
+    from sovyx.dashboard._shared import resolve_mind_yaml_path_for_request
+
+    _, mind_yaml_path, _ = await resolve_mind_yaml_path_for_request(
+        request,
+        explicit_mind_id=resolved_mind_id,
+    )
+    if mind_yaml_path is not None:
+        from sovyx.engine.config_editor import ConfigEditor
+
+        editor = ConfigEditor()
+        # v0.31.4 GAP 2 closure: persist ``voice_enabled`` as a
+        # top-level MindConfig scalar that bootstrap reads on the
+        # next daemon start for auto-resume (GAP 4). Pre-v0.31.4 only
+        # the ``voice:`` nested section was written, but bootstrap
+        # NEVER read that section — voice.enabled=true was a phantom
+        # field. The nested ``voice:`` section is still written below
+        # as legacy back-compat (operator-side tooling may read
+        # ``voice.input_device``).
+        await editor.set_scalar(mind_yaml_path, "voice_enabled", True)
+        voice_cfg: dict[str, object] = {"enabled": True}
+        if input_device is not None:
+            voice_cfg["input_device"] = input_device
+        if output_device is not None:
+            voice_cfg["output_device"] = output_device
+        await editor.update_section(mind_yaml_path, "voice", voice_cfg)
+
+        if request_voice_id is not None:
+            await editor.set_scalar(mind_yaml_path, "voice_id", request_voice_id)
+        if request_language is not None:
+            await editor.set_scalar(mind_yaml_path, "language", request_language)
+        if request_tts_engine is not None:
+            await editor.set_scalar(mind_yaml_path, "voice_tts_engine", request_tts_engine)
+        if persisted_device_name:
+            # Phase 2.T2.3 — paired (name + host_api) persistence + in-memory
+            # mirror live in the shared helper now. Calls into this site
+            # used to issue two separate ``editor.set_scalar`` writes plus
+            # a ``contextlib.suppress``-guarded mirror block; the helper
+            # consolidates both halves under a single audit-logged
+            # operation that the CLI also consumes.
+            from sovyx.voice.calibration._persist_device import (  # noqa: PLC0415
+                persist_voice_input_device,
+            )
+
+            await persist_voice_input_device(
+                mind_yaml_path=mind_yaml_path,
+                device_name=persisted_device_name,
+                host_api=persisted_host_api or None,
+                mind_config=mind_config_obj,
+            )
+
+    if mind_config_obj is not None:
+        if request_voice_id is not None:
+            with contextlib.suppress(Exception):
+                mind_config_obj.voice_id = request_voice_id
+        if request_language is not None:
+            with contextlib.suppress(Exception):
+                mind_config_obj.language = request_language
+        if request_tts_engine is not None:
+            with contextlib.suppress(Exception):
+                mind_config_obj.voice_tts_engine = request_tts_engine
+
+    # ``host_api_name`` is ``str | None`` on a real :class:`AudioCaptureTask`
+    # but tests pass bare ``MagicMock()`` stand-ins, so coerce to a JSON-safe
+    # type before returning — a response body is never the right place to
+    # leak a mock object into.
+    host_api_for_response = (
+        bundle.capture_task.host_api_name
+        if isinstance(bundle.capture_task.host_api_name, str)
+        else None
+    )
+    logger.info(
+        "voice_pipeline_hot_enabled",
+        tts=tts_engine,
+        language=effective_language,
+        voice_id=effective_voice_id or "<auto>",
+        host_api=host_api_for_response or "unknown",
+    )
+    return VoiceEnableResponse(
+        ok=True,
+        status="active",
+        tts_engine=tts_engine,
+        host_api=host_api_for_response,
+    )
+
+
+@router.post(
+    "/disable",
+    response_model=VoiceDisableResponse,
+    responses={503: {"description": "No mind.yaml path resolvable"}},
+)
+async def disable_voice(request: Request) -> VoiceDisableResponse | JSONResponse:
+    """Disable the voice pipeline (graceful shutdown).
+
+    Order of operations:
+        1. Stop the audio capture task (closes mic stream).
+        2. Stop the pipeline (drains TTS, resets state).
+        3. Deregister both so the next enable creates fresh instances.
+    """
+    registry = getattr(request.app.state, "registry", None)
+    if registry is not None:
+        from sovyx.voice._capture_task import AudioCaptureTask
+        from sovyx.voice.cognitive_bridge import VoiceCognitiveBridge
+        from sovyx.voice.health import BootPreflightWarningsStore
+        from sovyx.voice.pipeline._orchestrator import VoicePipeline
+        from sovyx.voice.stt import STTEngine
+        from sovyx.voice.tts_piper import TTSEngine
+        from sovyx.voice.vad import SileroVAD
+        from sovyx.voice.wake_word import WakeWordDetector
+
+        if registry.is_registered(AudioCaptureTask):
+            try:
+                capture = await registry.resolve(AudioCaptureTask)
+                await capture.stop()
+                logger.info("voice_capture_stopped")
+            except Exception:  # noqa: BLE001
+                logger.warning("voice_capture_stop_failed", exc_info=True)
+            finally:
+                registry.deregister(AudioCaptureTask)
+
+        if registry.is_registered(VoicePipeline):
+            try:
+                pipeline = await registry.resolve(VoicePipeline)
+                await pipeline.stop()
+                logger.info("voice_pipeline_stopped")
+            except Exception:  # noqa: BLE001
+                logger.warning("voice_pipeline_stop_failed", exc_info=True)
+            finally:
+                registry.deregister(VoicePipeline)
+
+        # Deregister sub-components so the next enable re-registers fresh
+        # instances bound to the new pipeline. ``BootPreflightWarningsStore``
+        # is part of this set: disabling voice invalidates the prior
+        # boot-warning snapshot, and the next enable rebuilds it from a
+        # fresh ``_run_boot_preflight`` call (v1.3 §4.6.7).
+        for interface in (
+            SileroVAD,
+            STTEngine,
+            TTSEngine,
+            WakeWordDetector,
+            VoiceCognitiveBridge,
+            BootPreflightWarningsStore,
+        ):
+            if registry.is_registered(interface):
+                registry.deregister(interface)
+
+    # Persist config (Phase 3.A Layer B — per-request mind_yaml_path).
+    # Pre-Phase-3.A this read ``app.state.mind_yaml_path`` set at boot to
+    # ``data_dir / "aria" / "mind.yaml"``, so multi-mind disable always
+    # returned 503 for any mind ≠ "aria". The new resolver routes the
+    # disable persistence to the active mind's YAML.
+    from sovyx.dashboard._shared import resolve_mind_yaml_path_for_request
+
+    _, mind_yaml_path, _ = await resolve_mind_yaml_path_for_request(request)
+    if mind_yaml_path is not None:
+        from sovyx.engine.config_editor import ConfigEditor
+
+        editor = ConfigEditor()
+        await editor.update_section(
+            mind_yaml_path,
+            "voice",
+            {"enabled": False},
+        )
+        # v0.31.4 GAP 2 mirror — also flip the top-level scalar that
+        # bootstrap reads for auto-resume (the enable path persists it
+        # as ``voice_enabled = True``; disable must persist as False so
+        # the next daemon start doesn't auto-resume voice for a mind
+        # the operator just turned it off on).
+        await editor.set_scalar(mind_yaml_path, "voice_enabled", False)
+        logger.info("voice_disabled_via_wizard")
+        return VoiceDisableResponse(ok=True)
+
+    return JSONResponse(
+        VoiceDisableResponse(ok=False, error="No mind.yaml path available").model_dump(
+            exclude_none=True
+        ),
+        status_code=503,
+    )
+
+
+# ── Per-mind wake-word status — MISSION-wake-word-ui-2026-05-03 §T1 ──
+
+
+class WakeWordPerMindStatusItem(BaseModel):
+    """One mind's wake-word health snapshot.
+
+    Mission ``MISSION-wake-word-ui-2026-05-03.md`` §T1 (D2). Mirrors
+    :class:`sovyx.voice.factory._wake_word_wire_up.WakeWordPerMindStatusEntry`
+    1:1; rendered by the dashboard's per-mind wake-word section
+    (``dashboard/src/pages/voice.tsx``).
+    """
+
+    mind_id: str
+    wake_word: str
+    voice_language: str
+    wake_word_enabled: bool = Field(
+        description=(
+            "What ``mind.yaml`` says (operator's persisted intent). "
+            "Distinct from ``runtime_registered`` — operators can be "
+            "in a 'configured but not registered' state when the "
+            "v0.28.3 T2 boot tolerance caught a stale-config error."
+        ),
+    )
+    runtime_registered: bool = Field(
+        description=(
+            "Whether a detector for this mind is currently in the "
+            "live ``WakeWordRouter``. Always ``False`` when the "
+            "voice subsystem is not running OR when the v0.28.3 T2 "
+            "boot tolerance degraded to ``router=None``."
+        ),
+    )
+    model_path: str | None = Field(
+        default=None,
+        description=(
+            "Resolved ``.onnx`` path on EXACT/PHONETIC strategy. "
+            "``None`` on NONE strategy or when ``wake_word_enabled`` "
+            "is False (resolution skipped to save ~5ms cost)."
+        ),
+    )
+    resolution_strategy: Literal["exact", "phonetic", "none"] | None = Field(
+        default=None,
+        description=(
+            "Discriminated union from "
+            ":class:`WakeWordResolutionStrategy`. ``None`` when "
+            "``wake_word_enabled`` is False."
+        ),
+    )
+    matched_name: str | None = Field(
+        default=None,
+        description=(
+            "Registry name that matched. For ``EXACT``, the ASCII-"
+            "folded wake word (typically same as the file stem in "
+            "lowercase). For ``PHONETIC``, the actual matched-file "
+            'name (e.g., ``"lucia"`` for a wake_word ``"Lúcia"``). '
+            "``None`` on NONE strategy or when resolution was skipped "
+            "(disabled mind). Mission "
+            "``MISSION-v0.29.1-tightening-2026-05-03.md`` §T1 surfaces "
+            "this signal that was log-only pre-v0.29.1 — the dashboard "
+            "renders it for PHONETIC matches so operators can see "
+            "which file matched their diacritic / phonetic wake word."
+        ),
+    )
+    phoneme_distance: int | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Levenshtein-on-phonemes distance for PHONETIC matches. "
+            "``0`` for EXACT (no phonetic step ran). ``None`` on NONE "
+            "strategy or when resolution was skipped. The resolver's "
+            "internal ``-1`` sentinel is converted to ``None`` at the "
+            "dataclass boundary so the wire format only carries non-"
+            "negative int | None values (the frontend's zod "
+            "``nonnegative().nullable()`` schema rejects negatives "
+            "explicitly)."
+        ),
+    )
+    last_error: str | None = Field(
+        default=None,
+        description=(
+            "Operator-facing remediation text when "
+            "``resolution_strategy == 'none'``. ``None`` on the "
+            "happy path. Surfaced directly to the dashboard "
+            "error-details disclosure."
+        ),
+    )
+
+
+class WakeWordPerMindStatusResponse(BaseModel):
+    """Response for ``GET /api/voice/wake-word/status``."""
+
+    minds: list[WakeWordPerMindStatusItem] = Field(
+        description=(
+            "One entry per mind on disk (enabled + disabled). Empty "
+            "list when no mind directories exist OR the daemon is "
+            "still booting (registry not ready)."
+        ),
+    )
+
+
+@router.get("/wake-word/status", response_model=WakeWordPerMindStatusResponse)
+async def get_wake_word_per_mind_status(
+    request: Request,
+) -> WakeWordPerMindStatusResponse:
+    """Return per-mind wake-word health for the dashboard.
+
+    Mission ``MISSION-wake-word-ui-2026-05-03.md`` §T1 (D1+D2).
+
+    Idempotent + stateless: the endpoint runs the wake-word resolver
+    on demand for each ``wake_word_enabled=True`` mind and
+    cross-references with the live :class:`WakeWordRouter`. Disabled
+    minds are still returned (with ``model_path=None``,
+    ``resolution_strategy=None``) so the dashboard can render them as
+    "OFF, click to enable" cards. The resolver is the SAME code path
+    the boot helper uses, so dashboard-time and boot-time outcomes
+    are bit-exact for the same inputs.
+
+    Response shape: ``{"minds": [...]}``. Empty list when (a) the
+    daemon is still booting (registry / engine_config not ready),
+    (b) no mind directories exist on disk.
+
+    Closes the v0.28.3 silent-degradation observability gap: an
+    operator who persisted ``wake_word_enabled: true`` for a mind
+    whose ONNX is missing now sees ``runtime_registered=false``
+    + ``last_error=<remediation>`` even when the v0.28.3 T2 factory
+    boot tolerance degraded to ``router=None``.
+
+    Auth: existing ``verify_token`` dependency on the router prefix.
+    """
+    from sovyx.voice.factory._wake_word_wire_up import (  # noqa: PLC0415
+        query_per_mind_wake_word_status,
+    )
+    from sovyx.voice.pipeline._orchestrator import (  # noqa: PLC0415
+        VoicePipeline,
+    )
+
+    engine_config = _resolve_engine_config(request)
+    if engine_config is None:
+        # Daemon still booting (engine_config not on app.state yet) —
+        # return empty list with 200 instead of 503 so the dashboard
+        # can render the "no minds yet" state cleanly.
+        return WakeWordPerMindStatusResponse(minds=[])
+
+    data_dir = engine_config.database.data_dir
+
+    # Resolve the live router via the registry. When the voice
+    # subsystem isn't running OR the T2 boot tolerance degraded to
+    # router=None, the helper still returns per-mind entries; just
+    # all with ``runtime_registered=False``.
+    router_obj: object | None = None
+    registry = getattr(request.app.state, "registry", None)
+    if registry is not None and registry.is_registered(VoicePipeline):
+        try:
+            pipeline = await registry.resolve(VoicePipeline)
+            router_obj = pipeline._wake_word_router  # noqa: SLF001
+        except Exception:  # noqa: BLE001
+            logger.debug("voice.wake_word.status.pipeline_resolve_failed")
+
+    voice_tuning = engine_config.tuning.voice
+    entries = await asyncio.to_thread(
+        query_per_mind_wake_word_status,
+        data_dir=data_dir,
+        router=router_obj,  # type: ignore[arg-type]
+        phonetic_max_distance=voice_tuning.wake_word_phonetic_max_distance,
+        phonetic_fallback_enabled=voice_tuning.wake_word_phonetic_fallback_enabled,
+    )
+
+    items = [
+        WakeWordPerMindStatusItem(
+            mind_id=entry.mind_id,
+            wake_word=entry.wake_word,
+            voice_language=entry.voice_language,
+            wake_word_enabled=entry.wake_word_enabled,
+            runtime_registered=entry.runtime_registered,
+            model_path=str(entry.model_path) if entry.model_path is not None else None,
+            resolution_strategy=entry.resolution_strategy,  # type: ignore[arg-type]
+            matched_name=entry.matched_name,
+            phoneme_distance=entry.phoneme_distance,
+            last_error=entry.last_error,
+        )
+        for entry in entries
+    ]
+    return WakeWordPerMindStatusResponse(minds=items)

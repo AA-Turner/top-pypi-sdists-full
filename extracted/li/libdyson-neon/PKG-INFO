@@ -1,0 +1,21 @@
+Metadata-Version: 2.1
+Name: libdyson-neon
+Version: 1.6.0
+Summary: A Python library for Dyson devices.
+Home-page: https://github.com/libdyson-wg/libdyson-neon
+Author: The libdyson Working Group
+Author-email: ben+libdyson-wg@vez.email
+License: MIT License
+Description: # Dyson Python Library
+        
+        [![codecov](https://codecov.io/gh/libdyson-wg/libdyson-neon/branch/main/graph/badge.svg?token=v2OypI2WaI)](https://codecov.io/gh/libdyson-wg/libdyson-neon)
+        
+        This library is meant to continue the development of [libdyson](https://github.com/shenxn/libdyson) by a community of maintainers. Thanks to [@shenxn](https://github.com/shenxn) for their initial work making this possible.
+        
+Keywords: dyson
+Platform: any
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.8
+Description-Content-Type: text/markdown

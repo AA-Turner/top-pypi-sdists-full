@@ -1,0 +1,449 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+# Copyright (c) 2025 OmniNode Team
+#
+# bootstrap-infisical.sh -- Codified bootstrap sequence for ONEX Infrastructure
+# with Infisical secrets management.
+#
+# Bootstrap Startup Chain (OMN-2287):
+#   Step 1:   PostgreSQL starts (POSTGRES_PASSWORD from .env)
+#   Step 1b:  Pending migrations applied (run-migrations.py, OMN-3528)
+#   Step 1c:  Cross-repo tables provisioned in omniintelligence DB (OMN-3531)
+#             Skipped if OMNIINTELLIGENCE_DB_URL is not set
+#   Step 1d:  Omnidash read-model migrations (OMN-3748)
+#             Non-fatal — skipped if OMNIDASH_DIR or OMNIDASH_ANALYTICS_DB_URL not set
+#   Step 2:   Valkey starts
+#   Step 3:   Infisical starts (depends_on: postgres + valkey healthy)
+#   Step 3.5: Keycloak starts (--profile auth) + provision-keycloak.py runs
+#             Skip with: --skip-keycloak or SKIP_KEYCLOAK=1
+#   Step 4:   Identity provisioning (first-time only)
+#   Step 5:   Seed runs (populates Infisical from contracts + .env values)
+#   Step 6:   Runtime services start (prefetch from Infisical)
+#
+# Usage:
+#   ./scripts/bootstrap-infisical.sh                   # Full bootstrap
+#   ./scripts/bootstrap-infisical.sh --skip-seed       # Skip seed step
+#   ./scripts/bootstrap-infisical.sh --skip-identity   # Skip identity setup
+#   ./scripts/bootstrap-infisical.sh --skip-keycloak   # Skip Keycloak start + provisioning
+#   ./scripts/bootstrap-infisical.sh --dry-run         # Show what would happen
+#
+# Env opt-outs:
+#   SKIP_KEYCLOAK=1  ./scripts/bootstrap-infisical.sh  # Same as --skip-keycloak
+#
+# Prerequisites:
+#   - Docker Compose v2.20+
+#   - The repo .env file is REQUIRED: POSTGRES_PASSWORD must be present there so
+#     PostgreSQL can start before Infisical is available (circular bootstrap dep).
+#   - ~/.omnibase/.env holds Infisical credentials and is sourced automatically
+#     via ~/.zshrc once provisioning has run.
+#   - docker/docker-compose.infra.yml present
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+COMPOSE_FILE="${PROJECT_ROOT}/docker/docker-compose.infra.yml"
+ENV_FILE="${PROJECT_ROOT}/.env"
+OMNIBASE_ENV="${HOME}/.omnibase/.env"
+
+# Defaults
+SKIP_SEED=false
+SKIP_IDENTITY=false
+# SKIP_KEYCLOAK can be set via env (SKIP_KEYCLOAK=1) or --skip-keycloak flag.
+# Normalise "1" → "true" so the if-check below is consistent.
+if [[ "${SKIP_KEYCLOAK:-0}" == "1" ]]; then
+    SKIP_KEYCLOAK=true
+else
+    SKIP_KEYCLOAK=false
+fi
+DRY_RUN=false
+COMPOSE_CMD="docker compose"
+POSTGRES_DB="${POSTGRES_DB:-omnibase_infra}"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+log_step() {
+    echo -e "\n${BLUE}=== Step $1: $2 ===${NC}"
+}
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --skip-seed)
+            SKIP_SEED=true
+            shift
+            ;;
+        --skip-identity)
+            SKIP_IDENTITY=true
+            shift
+            ;;
+        --skip-keycloak)
+            SKIP_KEYCLOAK=true
+            shift
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        --help|-h)
+            echo "Usage: $0 [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --skip-seed       Skip the Infisical seed step"
+            echo "  --skip-identity   Skip identity provisioning"
+            echo "  --skip-keycloak   Skip Keycloak start + provisioning (or set SKIP_KEYCLOAK=1)"
+            echo "  --dry-run         Show what would happen without executing"
+            echo "  --help, -h        Show this help message"
+            exit 0
+            ;;
+        *)
+            log_error "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
+
+# Validate prerequisites
+if [[ ! -f "${COMPOSE_FILE}" ]]; then
+    log_error "Docker Compose file not found: ${COMPOSE_FILE}"
+    exit 1
+fi
+
+# The repo .env file is required here even though it is gitignored.
+# It holds POSTGRES_PASSWORD (and the Infisical service secrets for the
+# infra repo), which PostgreSQL needs before Infisical is available —
+# a circular dependency that prevents storing this value in Infisical itself.
+# New developers: copy .env.example to .env and fill in the required values.
+# Note: validate_clean_root.py does NOT flag .env as a violation because
+# git check-ignore recognises it as gitignored, so it is silently skipped.
+if [[ ! -f "${ENV_FILE}" ]]; then
+    log_error ".env file not found: ${ENV_FILE}"
+    log_error "Copy .env.example to .env and configure POSTGRES_PASSWORD"
+    exit 1
+fi
+
+# Source .env for variable access
+set -a
+# shellcheck source=/dev/null
+source "${ENV_FILE}"
+set +a
+
+if [[ -z "${POSTGRES_PASSWORD:-}" ]]; then
+    log_error "POSTGRES_PASSWORD is not set in .env"
+    exit 1
+fi
+
+# Verify Docker Compose version
+COMPOSE_VERSION=$($COMPOSE_CMD version --short 2>/dev/null || echo "0.0.0")
+log_info "Docker Compose version: ${COMPOSE_VERSION}"
+
+run_cmd() {
+    if [[ "${DRY_RUN}" == "true" ]]; then
+        echo "  [DRY-RUN] $*"
+    else
+        "$@"
+    fi
+}
+
+# ============================================================================
+# Step 1: Start PostgreSQL
+# ============================================================================
+log_step "1" "Start PostgreSQL (POSTGRES_PASSWORD from .env)"
+
+run_cmd $COMPOSE_CMD -f "${COMPOSE_FILE}" up -d postgres
+if [[ "${DRY_RUN}" != "true" ]]; then
+    log_info "Waiting for PostgreSQL to be healthy..."
+    pg_max_attempts=30
+    pg_attempt=0
+    until $COMPOSE_CMD -f "${COMPOSE_FILE}" exec postgres pg_isready -U "${POSTGRES_USER:-postgres}" -d "$POSTGRES_DB" --timeout=2 2>/dev/null; do
+        pg_attempt=$((pg_attempt + 1))
+        if [[ $pg_attempt -ge $pg_max_attempts ]]; then
+            log_error "PostgreSQL failed to become healthy after ${pg_max_attempts} attempts"
+            exit 1
+        fi
+        sleep 2
+    done
+    log_info "PostgreSQL is healthy"
+fi
+
+# ============================================================================
+# Step 1b: Apply pending database migrations
+# ============================================================================
+log_step "1b" "Apply pending database migrations"
+
+if [[ "${DRY_RUN}" != "true" ]]; then
+    if uv run python "${SCRIPT_DIR}/run-migrations.py" --db-url "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_EXTERNAL_PORT:-5436}/${POSTGRES_DB:-omnibase_infra}"; then
+        log_info "Migrations applied."
+    else
+        log_error "Migration runner failed. Aborting bootstrap."
+        exit 1
+    fi
+else
+    log_info "[DRY-RUN] Would run: uv run python ${SCRIPT_DIR}/run-migrations.py --db-url postgresql://${POSTGRES_USER:-postgres}:***@localhost:${POSTGRES_EXTERNAL_PORT:-5436}/${POSTGRES_DB:-omnibase_infra}"
+fi
+
+# ============================================================================
+# Step 1c: Provision cross-repo tables into omniintelligence DB (OMN-3531)
+# ============================================================================
+if [ -n "${OMNIINTELLIGENCE_DB_URL:-}" ]; then
+    log_step "1c" "Provisioning cross-repo tables in omniintelligence DB"
+    if [[ "${DRY_RUN}" != "true" ]]; then
+        if uv run python "${SCRIPT_DIR}/provision-cross-repo-tables.py" \
+            --target-db "${OMNIINTELLIGENCE_DB_URL}"; then
+            log_info "Cross-repo tables provisioned."
+        else
+            log_warn "Cross-repo provisioning failed (omniintelligence DB may not be available yet — non-fatal)"
+        fi
+    else
+        log_info "[DRY-RUN] Would run: uv run python ${SCRIPT_DIR}/provision-cross-repo-tables.py --target-db \${OMNIINTELLIGENCE_DB_URL}"
+    fi
+else
+    log_info "Skipping cross-repo provisioning (OMNIINTELLIGENCE_DB_URL not set)"
+fi
+
+# ============================================================================
+# Step 1d: Apply omnidash read-model migrations (OMN-3748)
+# ============================================================================
+# Non-fatal: local dev may not have the omnidash_analytics DB or omnidash
+# checkout available yet. Bootstrap is advisory; deploy-time init is
+# authoritative (see docs/runbooks/apply-migrations.md).
+if [ -n "${OMNIDASH_ANALYTICS_DB_URL:-}" ] && [ -n "${OMNIDASH_DIR:-}" ]; then
+    log_step "1d" "Apply omnidash read-model migrations"
+    if [[ "${DRY_RUN}" != "true" ]]; then
+        if [ -d "${OMNIDASH_DIR}" ] && [ -f "${OMNIDASH_DIR}/scripts/run-migrations.ts" ]; then
+            if (cd "${OMNIDASH_DIR}" && npx tsx scripts/run-migrations.ts); then
+                log_info "Omnidash read-model migrations applied."
+            else
+                log_warn "Omnidash migration runner failed — continuing (read-model may be stale)"
+            fi
+        else
+            log_warn "OMNIDASH_DIR=${OMNIDASH_DIR} does not contain scripts/run-migrations.ts — skipping"
+        fi
+    else
+        log_info "[DRY-RUN] Would run: cd ${OMNIDASH_DIR} && npx tsx scripts/run-migrations.ts"
+    fi
+else
+    log_info "Skipping omnidash migrations (OMNIDASH_ANALYTICS_DB_URL or OMNIDASH_DIR not set)"
+fi
+
+# ============================================================================
+# Step 2: Start Valkey
+# ============================================================================
+log_step "2" "Start Valkey (Redis-compatible cache)"
+
+run_cmd $COMPOSE_CMD -f "${COMPOSE_FILE}" up -d valkey
+if [[ "${DRY_RUN}" != "true" ]]; then
+    log_info "Waiting for Valkey to be healthy..."
+    valkey_max_attempts=20
+    valkey_attempt=0
+    until $COMPOSE_CMD -f "${COMPOSE_FILE}" exec valkey valkey-cli ping 2>/dev/null | grep -q PONG; do
+        valkey_attempt=$((valkey_attempt + 1))
+        if [[ $valkey_attempt -ge $valkey_max_attempts ]]; then
+            log_error "Valkey failed to become healthy after ${valkey_max_attempts} attempts"
+            exit 1
+        fi
+        sleep 1
+    done
+    log_info "Valkey is healthy"
+fi
+
+# ============================================================================
+# Step 3: Start Infisical (depends on postgres + valkey)
+# ============================================================================
+log_step "3" "Start Infisical (secrets management)"
+
+run_cmd $COMPOSE_CMD -f "${COMPOSE_FILE}" up -d infisical
+if [[ "${DRY_RUN}" != "true" ]]; then
+    log_info "Waiting for Infisical to be healthy..."
+    # Infisical has a 60s start_period, so be patient
+    max_attempts=30
+    attempt=0
+    while [[ $attempt -lt $max_attempts ]]; do
+        if $COMPOSE_CMD -f "${COMPOSE_FILE}" exec infisical wget -q --spider --timeout=5 http://localhost:8080/api/status 2>/dev/null; then
+            break
+        fi
+        attempt=$((attempt + 1))
+        sleep 5
+    done
+    if [[ $attempt -eq $max_attempts ]]; then
+        log_error "Infisical failed to become healthy after ${max_attempts} attempts"
+        exit 1
+    fi
+    log_info "Infisical is healthy"
+fi
+
+# ============================================================================
+# Step 3.5: Start Keycloak (auth profile) + provision service clients
+# ============================================================================
+if [[ "${SKIP_KEYCLOAK}" != "true" ]]; then
+    log_step "3.5a" "Starting Keycloak (--profile auth)"
+
+    run_cmd $COMPOSE_CMD -f "${COMPOSE_FILE}" --profile auth up -d keycloak
+
+    log_step "3.5b" "Provisioning Keycloak clients"
+
+    PROVISION_KC_SCRIPT="${SCRIPT_DIR}/provision-keycloak.py"
+    if [[ -f "${PROVISION_KC_SCRIPT}" ]]; then
+        # Export all vars to child process so provision-keycloak.py sees .env values.
+        set -a; source "${ENV_FILE}"; set +a
+        if [[ -f "${OMNIBASE_ENV}" ]]; then
+            set -a; source "${OMNIBASE_ENV}"; set +a
+        fi
+        if [[ "${DRY_RUN}" == "true" ]]; then
+            run_cmd uv run python "${PROVISION_KC_SCRIPT}" \
+                --kc-url "http://localhost:28080" \
+                --realm "omninode" \
+                --admin-username "${KEYCLOAK_ADMIN_USERNAME:-admin}" \
+                --admin-password "${KEYCLOAK_ADMIN_PASSWORD:-keycloak-dev-password}" \
+                --env-file "${OMNIBASE_ENV}" \
+                --dry-run
+        else
+            run_cmd uv run python "${PROVISION_KC_SCRIPT}" \
+                --kc-url "http://localhost:28080" \
+                --realm "omninode" \
+                --admin-username "${KEYCLOAK_ADMIN_USERNAME:-admin}" \
+                --admin-password "${KEYCLOAK_ADMIN_PASSWORD:-keycloak-dev-password}" \
+                --env-file "${OMNIBASE_ENV}"
+
+            # Re-source so KEYCLOAK_* vars are present in the environment for
+            # runtime containers started in step 6.
+            if [[ -f "${OMNIBASE_ENV}" ]]; then
+                set -a; source "${OMNIBASE_ENV}"; set +a
+                log_info "Sourced ${OMNIBASE_ENV} (KEYCLOAK_* vars now in environment)"
+            fi
+        fi
+    else
+        log_warn "provision-keycloak.py not found: ${PROVISION_KC_SCRIPT}"
+        log_warn "Skipping Keycloak client provisioning (will be available after OMN-3362 merges)"
+    fi
+else
+    log_info "Skipping Keycloak (--skip-keycloak / SKIP_KEYCLOAK=1)"
+fi
+
+# ============================================================================
+# Step 4: Identity provisioning (first-time only)
+# ============================================================================
+if [[ "${SKIP_IDENTITY}" != "true" ]]; then
+    log_step "4" "Identity provisioning (first-time only)"
+
+    PROVISION_SCRIPT="${SCRIPT_DIR}/provision-infisical.py"
+    if [[ -f "${PROVISION_SCRIPT}" ]]; then
+        log_info "Running automated provisioning (idempotent)..."
+        if [[ "${DRY_RUN}" == "true" ]]; then
+            run_cmd uv run python "${PROVISION_SCRIPT}" \
+                --addr "${INFISICAL_ADDR:?INFISICAL_ADDR required}" \
+                --env-file "${OMNIBASE_ENV}" \
+                --dry-run
+        else
+            run_cmd uv run python "${PROVISION_SCRIPT}" \
+                --addr "${INFISICAL_ADDR:?INFISICAL_ADDR required}" \
+                --env-file "${OMNIBASE_ENV}"
+            # Re-source ~/.omnibase/.env so the newly-written INFISICAL_* credentials
+            # are visible to subsequent steps (seed, runtime service startup).
+            if [[ -f "${OMNIBASE_ENV}" ]]; then
+                set -a; source "${OMNIBASE_ENV}"; set +a
+                log_info "Sourced ${OMNIBASE_ENV} (Infisical credentials now in environment)"
+            else
+                log_warn "${OMNIBASE_ENV} not found after provisioning; seed step may fail"
+            fi
+        fi
+    else
+        log_warn "Provision script not found: ${PROVISION_SCRIPT}"
+        log_warn "Skipping identity provisioning"
+    fi
+else
+    log_info "Skipping identity provisioning (--skip-identity)"
+fi
+
+# ============================================================================
+# Step 5: Seed Infisical from contracts + .env
+# ============================================================================
+if [[ "${SKIP_SEED}" != "true" ]]; then
+    log_step "5" "Seed Infisical from contracts + .env values"
+
+    SEED_SCRIPT="${SCRIPT_DIR}/seed-infisical.py"
+    FULL_ENV_REFERENCE="${PROJECT_ROOT}/docs/env-example-full.txt"
+    if [[ -f "${SEED_SCRIPT}" ]]; then
+        log_info "Running seed script (dry-run first)..."
+        # Re-source ~/.omnibase/.env so provision-infisical credentials are visible.
+        # Guard with a file-existence check: provision-infisical.py writes
+        # credentials to OMNIBASE_ENV, but if it ran in --dry-run mode or failed,
+        # the file may not yet exist.
+        if [[ -f "${OMNIBASE_ENV}" ]]; then
+            set -a; source "${OMNIBASE_ENV}"; set +a
+        else
+            log_warn "OMNIBASE_ENV not found (${OMNIBASE_ENV}); skipping re-source before seed"
+        fi
+        run_cmd uv run python "${SEED_SCRIPT}" \
+            --contracts-dir "${PROJECT_ROOT}/src/omnibase_infra/nodes" \
+            --dry-run
+
+        if [[ "${DRY_RUN}" != "true" ]]; then
+            log_info "Executing seed (create missing keys + values from env-example-full)..."
+            extra_args=()
+            [[ -f "${FULL_ENV_REFERENCE}" ]] && extra_args+=(--import-env "${FULL_ENV_REFERENCE}")
+            run_cmd uv run python "${SEED_SCRIPT}" \
+                --contracts-dir "${PROJECT_ROOT}/src/omnibase_infra/nodes" \
+                --create-missing-keys \
+                --set-values \
+                "${extra_args[@]}" \
+                --execute
+        fi
+    else
+        log_warn "Seed script not found: ${SEED_SCRIPT}"
+        log_warn "Skipping seed step"
+    fi
+else
+    log_info "Skipping seed (--skip-seed)"
+fi
+
+# ============================================================================
+# Step 6: Start runtime services (prefetch from Infisical)
+# ============================================================================
+log_step "6" "Start runtime services (with config prefetch from Infisical)"
+
+run_cmd $COMPOSE_CMD -f "${COMPOSE_FILE}" --profile runtime up -d
+if [[ "${DRY_RUN}" != "true" ]]; then
+    log_info "Runtime services starting..."
+    sleep 5
+    $COMPOSE_CMD -f "${COMPOSE_FILE}" ps
+fi
+
+# ============================================================================
+# Summary
+# ============================================================================
+echo ""
+log_info "Bootstrap complete!"
+echo ""
+echo "Services:"
+echo "  PostgreSQL:  localhost:${POSTGRES_EXTERNAL_PORT:-5436}"
+echo "  Valkey:      localhost:${VALKEY_EXTERNAL_PORT:-16379}"
+echo "  Infisical:   localhost:${INFISICAL_EXTERNAL_PORT:-8880}"
+if [[ "${SKIP_KEYCLOAK}" != "true" ]]; then
+echo "  Keycloak:    localhost:28080"
+fi
+echo "  Runtime:     localhost:${RUNTIME_MAIN_PORT:-8085}"
+echo ""
+echo "Infisical UI:  http://localhost:${INFISICAL_EXTERNAL_PORT:-8880}"
+if [[ "${SKIP_KEYCLOAK}" != "true" ]]; then
+echo "Keycloak UI:   http://localhost:28080"
+fi

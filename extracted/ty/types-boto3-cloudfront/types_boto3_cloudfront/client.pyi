@@ -1,0 +1,2497 @@
+"""
+Type annotations for cloudfront service Client.
+
+[Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/)
+
+Copyright 2026 Vlad Emelianov
+
+Usage::
+
+    ```python
+    from boto3.session import Session
+    from types_boto3_cloudfront.client import CloudFrontClient
+
+    session = Session()
+    client: CloudFrontClient = session.client("cloudfront")
+    ```
+"""
+
+from __future__ import annotations
+
+import sys
+from collections.abc import Mapping
+from typing import Any, overload
+
+from botocore.client import BaseClient, ClientMeta
+from botocore.errorfactory import BaseClientExceptions
+from botocore.exceptions import ClientError as BotocoreClientError
+
+from .paginator import (
+    ListCloudFrontOriginAccessIdentitiesPaginator,
+    ListConnectionFunctionsPaginator,
+    ListConnectionGroupsPaginator,
+    ListDistributionsByConnectionFunctionPaginator,
+    ListDistributionsByConnectionModePaginator,
+    ListDistributionsByTrustStorePaginator,
+    ListDistributionsPaginator,
+    ListDistributionTenantsByCustomizationPaginator,
+    ListDistributionTenantsPaginator,
+    ListDomainConflictsPaginator,
+    ListInvalidationsForDistributionTenantPaginator,
+    ListInvalidationsPaginator,
+    ListKeyValueStoresPaginator,
+    ListOriginAccessControlsPaginator,
+    ListPublicKeysPaginator,
+    ListStreamingDistributionsPaginator,
+    ListTrustStoresPaginator,
+)
+from .type_defs import (
+    AssociateAliasRequestTypeDef,
+    AssociateDistributionTenantWebACLRequestTypeDef,
+    AssociateDistributionTenantWebACLResultTypeDef,
+    AssociateDistributionWebACLRequestTypeDef,
+    AssociateDistributionWebACLResultTypeDef,
+    CopyDistributionRequestTypeDef,
+    CopyDistributionResultTypeDef,
+    CreateAnycastIpListRequestTypeDef,
+    CreateAnycastIpListResultTypeDef,
+    CreateCachePolicyRequestTypeDef,
+    CreateCachePolicyResultTypeDef,
+    CreateCloudFrontOriginAccessIdentityRequestTypeDef,
+    CreateCloudFrontOriginAccessIdentityResultTypeDef,
+    CreateConnectionFunctionRequestTypeDef,
+    CreateConnectionFunctionResultTypeDef,
+    CreateConnectionGroupRequestTypeDef,
+    CreateConnectionGroupResultTypeDef,
+    CreateContinuousDeploymentPolicyRequestTypeDef,
+    CreateContinuousDeploymentPolicyResultTypeDef,
+    CreateDistributionRequestTypeDef,
+    CreateDistributionResultTypeDef,
+    CreateDistributionTenantRequestTypeDef,
+    CreateDistributionTenantResultTypeDef,
+    CreateDistributionWithTagsRequestTypeDef,
+    CreateDistributionWithTagsResultTypeDef,
+    CreateFieldLevelEncryptionConfigRequestTypeDef,
+    CreateFieldLevelEncryptionConfigResultTypeDef,
+    CreateFieldLevelEncryptionProfileRequestTypeDef,
+    CreateFieldLevelEncryptionProfileResultTypeDef,
+    CreateFunctionRequestTypeDef,
+    CreateFunctionResultTypeDef,
+    CreateInvalidationForDistributionTenantRequestTypeDef,
+    CreateInvalidationForDistributionTenantResultTypeDef,
+    CreateInvalidationRequestTypeDef,
+    CreateInvalidationResultTypeDef,
+    CreateKeyGroupRequestTypeDef,
+    CreateKeyGroupResultTypeDef,
+    CreateKeyValueStoreRequestTypeDef,
+    CreateKeyValueStoreResultTypeDef,
+    CreateMonitoringSubscriptionRequestTypeDef,
+    CreateMonitoringSubscriptionResultTypeDef,
+    CreateOriginAccessControlRequestTypeDef,
+    CreateOriginAccessControlResultTypeDef,
+    CreateOriginRequestPolicyRequestTypeDef,
+    CreateOriginRequestPolicyResultTypeDef,
+    CreatePublicKeyRequestTypeDef,
+    CreatePublicKeyResultTypeDef,
+    CreateRealtimeLogConfigRequestTypeDef,
+    CreateRealtimeLogConfigResultTypeDef,
+    CreateResponseHeadersPolicyRequestTypeDef,
+    CreateResponseHeadersPolicyResultTypeDef,
+    CreateStreamingDistributionRequestTypeDef,
+    CreateStreamingDistributionResultTypeDef,
+    CreateStreamingDistributionWithTagsRequestTypeDef,
+    CreateStreamingDistributionWithTagsResultTypeDef,
+    CreateTrustStoreRequestTypeDef,
+    CreateTrustStoreResultTypeDef,
+    CreateVpcOriginRequestTypeDef,
+    CreateVpcOriginResultTypeDef,
+    DeleteAnycastIpListRequestTypeDef,
+    DeleteCachePolicyRequestTypeDef,
+    DeleteCloudFrontOriginAccessIdentityRequestTypeDef,
+    DeleteConnectionFunctionRequestTypeDef,
+    DeleteConnectionGroupRequestTypeDef,
+    DeleteContinuousDeploymentPolicyRequestTypeDef,
+    DeleteDistributionRequestTypeDef,
+    DeleteDistributionTenantRequestTypeDef,
+    DeleteFieldLevelEncryptionConfigRequestTypeDef,
+    DeleteFieldLevelEncryptionProfileRequestTypeDef,
+    DeleteFunctionRequestTypeDef,
+    DeleteKeyGroupRequestTypeDef,
+    DeleteKeyValueStoreRequestTypeDef,
+    DeleteMonitoringSubscriptionRequestTypeDef,
+    DeleteOriginAccessControlRequestTypeDef,
+    DeleteOriginRequestPolicyRequestTypeDef,
+    DeletePublicKeyRequestTypeDef,
+    DeleteRealtimeLogConfigRequestTypeDef,
+    DeleteResourcePolicyRequestTypeDef,
+    DeleteResponseHeadersPolicyRequestTypeDef,
+    DeleteStreamingDistributionRequestTypeDef,
+    DeleteTrustStoreRequestTypeDef,
+    DeleteVpcOriginRequestTypeDef,
+    DeleteVpcOriginResultTypeDef,
+    DescribeConnectionFunctionRequestTypeDef,
+    DescribeConnectionFunctionResultTypeDef,
+    DescribeFunctionRequestTypeDef,
+    DescribeFunctionResultTypeDef,
+    DescribeKeyValueStoreRequestTypeDef,
+    DescribeKeyValueStoreResultTypeDef,
+    DisassociateDistributionTenantWebACLRequestTypeDef,
+    DisassociateDistributionTenantWebACLResultTypeDef,
+    DisassociateDistributionWebACLRequestTypeDef,
+    DisassociateDistributionWebACLResultTypeDef,
+    EmptyResponseMetadataTypeDef,
+    GetAnycastIpListRequestTypeDef,
+    GetAnycastIpListResultTypeDef,
+    GetCachePolicyConfigRequestTypeDef,
+    GetCachePolicyConfigResultTypeDef,
+    GetCachePolicyRequestTypeDef,
+    GetCachePolicyResultTypeDef,
+    GetCloudFrontOriginAccessIdentityConfigRequestTypeDef,
+    GetCloudFrontOriginAccessIdentityConfigResultTypeDef,
+    GetCloudFrontOriginAccessIdentityRequestTypeDef,
+    GetCloudFrontOriginAccessIdentityResultTypeDef,
+    GetConnectionFunctionRequestTypeDef,
+    GetConnectionFunctionResultTypeDef,
+    GetConnectionGroupByRoutingEndpointRequestTypeDef,
+    GetConnectionGroupByRoutingEndpointResultTypeDef,
+    GetConnectionGroupRequestTypeDef,
+    GetConnectionGroupResultTypeDef,
+    GetContinuousDeploymentPolicyConfigRequestTypeDef,
+    GetContinuousDeploymentPolicyConfigResultTypeDef,
+    GetContinuousDeploymentPolicyRequestTypeDef,
+    GetContinuousDeploymentPolicyResultTypeDef,
+    GetDistributionConfigRequestTypeDef,
+    GetDistributionConfigResultTypeDef,
+    GetDistributionRequestTypeDef,
+    GetDistributionResultTypeDef,
+    GetDistributionTenantByDomainRequestTypeDef,
+    GetDistributionTenantByDomainResultTypeDef,
+    GetDistributionTenantRequestTypeDef,
+    GetDistributionTenantResultTypeDef,
+    GetFieldLevelEncryptionConfigRequestTypeDef,
+    GetFieldLevelEncryptionConfigResultTypeDef,
+    GetFieldLevelEncryptionProfileConfigRequestTypeDef,
+    GetFieldLevelEncryptionProfileConfigResultTypeDef,
+    GetFieldLevelEncryptionProfileRequestTypeDef,
+    GetFieldLevelEncryptionProfileResultTypeDef,
+    GetFieldLevelEncryptionRequestTypeDef,
+    GetFieldLevelEncryptionResultTypeDef,
+    GetFunctionRequestTypeDef,
+    GetFunctionResultTypeDef,
+    GetInvalidationForDistributionTenantRequestTypeDef,
+    GetInvalidationForDistributionTenantResultTypeDef,
+    GetInvalidationRequestTypeDef,
+    GetInvalidationResultTypeDef,
+    GetKeyGroupConfigRequestTypeDef,
+    GetKeyGroupConfigResultTypeDef,
+    GetKeyGroupRequestTypeDef,
+    GetKeyGroupResultTypeDef,
+    GetManagedCertificateDetailsRequestTypeDef,
+    GetManagedCertificateDetailsResultTypeDef,
+    GetMonitoringSubscriptionRequestTypeDef,
+    GetMonitoringSubscriptionResultTypeDef,
+    GetOriginAccessControlConfigRequestTypeDef,
+    GetOriginAccessControlConfigResultTypeDef,
+    GetOriginAccessControlRequestTypeDef,
+    GetOriginAccessControlResultTypeDef,
+    GetOriginRequestPolicyConfigRequestTypeDef,
+    GetOriginRequestPolicyConfigResultTypeDef,
+    GetOriginRequestPolicyRequestTypeDef,
+    GetOriginRequestPolicyResultTypeDef,
+    GetPublicKeyConfigRequestTypeDef,
+    GetPublicKeyConfigResultTypeDef,
+    GetPublicKeyRequestTypeDef,
+    GetPublicKeyResultTypeDef,
+    GetRealtimeLogConfigRequestTypeDef,
+    GetRealtimeLogConfigResultTypeDef,
+    GetResourcePolicyRequestTypeDef,
+    GetResourcePolicyResultTypeDef,
+    GetResponseHeadersPolicyConfigRequestTypeDef,
+    GetResponseHeadersPolicyConfigResultTypeDef,
+    GetResponseHeadersPolicyRequestTypeDef,
+    GetResponseHeadersPolicyResultTypeDef,
+    GetStreamingDistributionConfigRequestTypeDef,
+    GetStreamingDistributionConfigResultTypeDef,
+    GetStreamingDistributionRequestTypeDef,
+    GetStreamingDistributionResultTypeDef,
+    GetTrustStoreRequestTypeDef,
+    GetTrustStoreResultTypeDef,
+    GetVpcOriginRequestTypeDef,
+    GetVpcOriginResultTypeDef,
+    ListAnycastIpListsRequestTypeDef,
+    ListAnycastIpListsResultTypeDef,
+    ListCachePoliciesRequestTypeDef,
+    ListCachePoliciesResultTypeDef,
+    ListCloudFrontOriginAccessIdentitiesRequestTypeDef,
+    ListCloudFrontOriginAccessIdentitiesResultTypeDef,
+    ListConflictingAliasesRequestTypeDef,
+    ListConflictingAliasesResultTypeDef,
+    ListConnectionFunctionsRequestTypeDef,
+    ListConnectionFunctionsResultTypeDef,
+    ListConnectionGroupsRequestTypeDef,
+    ListConnectionGroupsResultTypeDef,
+    ListContinuousDeploymentPoliciesRequestTypeDef,
+    ListContinuousDeploymentPoliciesResultTypeDef,
+    ListDistributionsByAnycastIpListIdRequestTypeDef,
+    ListDistributionsByAnycastIpListIdResultTypeDef,
+    ListDistributionsByCachePolicyIdRequestTypeDef,
+    ListDistributionsByCachePolicyIdResultTypeDef,
+    ListDistributionsByConnectionFunctionRequestTypeDef,
+    ListDistributionsByConnectionFunctionResultTypeDef,
+    ListDistributionsByConnectionModeRequestTypeDef,
+    ListDistributionsByConnectionModeResultTypeDef,
+    ListDistributionsByKeyGroupRequestTypeDef,
+    ListDistributionsByKeyGroupResultTypeDef,
+    ListDistributionsByOriginRequestPolicyIdRequestTypeDef,
+    ListDistributionsByOriginRequestPolicyIdResultTypeDef,
+    ListDistributionsByOwnedResourceRequestTypeDef,
+    ListDistributionsByOwnedResourceResultTypeDef,
+    ListDistributionsByRealtimeLogConfigRequestTypeDef,
+    ListDistributionsByRealtimeLogConfigResultTypeDef,
+    ListDistributionsByResponseHeadersPolicyIdRequestTypeDef,
+    ListDistributionsByResponseHeadersPolicyIdResultTypeDef,
+    ListDistributionsByTrustStoreRequestTypeDef,
+    ListDistributionsByTrustStoreResultTypeDef,
+    ListDistributionsByVpcOriginIdRequestTypeDef,
+    ListDistributionsByVpcOriginIdResultTypeDef,
+    ListDistributionsByWebACLIdRequestTypeDef,
+    ListDistributionsByWebACLIdResultTypeDef,
+    ListDistributionsRequestTypeDef,
+    ListDistributionsResultTypeDef,
+    ListDistributionTenantsByCustomizationRequestTypeDef,
+    ListDistributionTenantsByCustomizationResultTypeDef,
+    ListDistributionTenantsRequestTypeDef,
+    ListDistributionTenantsResultTypeDef,
+    ListDomainConflictsRequestTypeDef,
+    ListDomainConflictsResultTypeDef,
+    ListFieldLevelEncryptionConfigsRequestTypeDef,
+    ListFieldLevelEncryptionConfigsResultTypeDef,
+    ListFieldLevelEncryptionProfilesRequestTypeDef,
+    ListFieldLevelEncryptionProfilesResultTypeDef,
+    ListFunctionsRequestTypeDef,
+    ListFunctionsResultTypeDef,
+    ListInvalidationsForDistributionTenantRequestTypeDef,
+    ListInvalidationsForDistributionTenantResultTypeDef,
+    ListInvalidationsRequestTypeDef,
+    ListInvalidationsResultTypeDef,
+    ListKeyGroupsRequestTypeDef,
+    ListKeyGroupsResultTypeDef,
+    ListKeyValueStoresRequestTypeDef,
+    ListKeyValueStoresResultTypeDef,
+    ListOriginAccessControlsRequestTypeDef,
+    ListOriginAccessControlsResultTypeDef,
+    ListOriginRequestPoliciesRequestTypeDef,
+    ListOriginRequestPoliciesResultTypeDef,
+    ListPublicKeysRequestTypeDef,
+    ListPublicKeysResultTypeDef,
+    ListRealtimeLogConfigsRequestTypeDef,
+    ListRealtimeLogConfigsResultTypeDef,
+    ListResponseHeadersPoliciesRequestTypeDef,
+    ListResponseHeadersPoliciesResultTypeDef,
+    ListStreamingDistributionsRequestTypeDef,
+    ListStreamingDistributionsResultTypeDef,
+    ListTagsForResourceRequestTypeDef,
+    ListTagsForResourceResultTypeDef,
+    ListTrustStoresRequestTypeDef,
+    ListTrustStoresResultTypeDef,
+    ListVpcOriginsRequestTypeDef,
+    ListVpcOriginsResultTypeDef,
+    PublishConnectionFunctionRequestTypeDef,
+    PublishConnectionFunctionResultTypeDef,
+    PublishFunctionRequestTypeDef,
+    PublishFunctionResultTypeDef,
+    PutResourcePolicyRequestTypeDef,
+    PutResourcePolicyResultTypeDef,
+    TagResourceRequestTypeDef,
+    TestConnectionFunctionRequestTypeDef,
+    TestConnectionFunctionResultTypeDef,
+    TestFunctionRequestTypeDef,
+    TestFunctionResultTypeDef,
+    UntagResourceRequestTypeDef,
+    UpdateAnycastIpListRequestTypeDef,
+    UpdateAnycastIpListResultTypeDef,
+    UpdateCachePolicyRequestTypeDef,
+    UpdateCachePolicyResultTypeDef,
+    UpdateCloudFrontOriginAccessIdentityRequestTypeDef,
+    UpdateCloudFrontOriginAccessIdentityResultTypeDef,
+    UpdateConnectionFunctionRequestTypeDef,
+    UpdateConnectionFunctionResultTypeDef,
+    UpdateConnectionGroupRequestTypeDef,
+    UpdateConnectionGroupResultTypeDef,
+    UpdateContinuousDeploymentPolicyRequestTypeDef,
+    UpdateContinuousDeploymentPolicyResultTypeDef,
+    UpdateDistributionRequestTypeDef,
+    UpdateDistributionResultTypeDef,
+    UpdateDistributionTenantRequestTypeDef,
+    UpdateDistributionTenantResultTypeDef,
+    UpdateDistributionWithStagingConfigRequestTypeDef,
+    UpdateDistributionWithStagingConfigResultTypeDef,
+    UpdateDomainAssociationRequestTypeDef,
+    UpdateDomainAssociationResultTypeDef,
+    UpdateFieldLevelEncryptionConfigRequestTypeDef,
+    UpdateFieldLevelEncryptionConfigResultTypeDef,
+    UpdateFieldLevelEncryptionProfileRequestTypeDef,
+    UpdateFieldLevelEncryptionProfileResultTypeDef,
+    UpdateFunctionRequestTypeDef,
+    UpdateFunctionResultTypeDef,
+    UpdateKeyGroupRequestTypeDef,
+    UpdateKeyGroupResultTypeDef,
+    UpdateKeyValueStoreRequestTypeDef,
+    UpdateKeyValueStoreResultTypeDef,
+    UpdateOriginAccessControlRequestTypeDef,
+    UpdateOriginAccessControlResultTypeDef,
+    UpdateOriginRequestPolicyRequestTypeDef,
+    UpdateOriginRequestPolicyResultTypeDef,
+    UpdatePublicKeyRequestTypeDef,
+    UpdatePublicKeyResultTypeDef,
+    UpdateRealtimeLogConfigRequestTypeDef,
+    UpdateRealtimeLogConfigResultTypeDef,
+    UpdateResponseHeadersPolicyRequestTypeDef,
+    UpdateResponseHeadersPolicyResultTypeDef,
+    UpdateStreamingDistributionRequestTypeDef,
+    UpdateStreamingDistributionResultTypeDef,
+    UpdateTrustStoreRequestTypeDef,
+    UpdateTrustStoreResultTypeDef,
+    UpdateVpcOriginRequestTypeDef,
+    UpdateVpcOriginResultTypeDef,
+    VerifyDnsConfigurationRequestTypeDef,
+    VerifyDnsConfigurationResultTypeDef,
+)
+from .waiter import (
+    DistributionDeployedWaiter,
+    InvalidationCompletedWaiter,
+    InvalidationForDistributionTenantCompletedWaiter,
+    StreamingDistributionDeployedWaiter,
+)
+
+if sys.version_info >= (3, 12):
+    from typing import Literal, Unpack
+else:
+    from typing_extensions import Literal, Unpack
+
+__all__ = ("CloudFrontClient",)
+
+class Exceptions(BaseClientExceptions):
+    AccessDenied: type[BotocoreClientError]
+    BatchTooLarge: type[BotocoreClientError]
+    CNAMEAlreadyExists: type[BotocoreClientError]
+    CachePolicyAlreadyExists: type[BotocoreClientError]
+    CachePolicyInUse: type[BotocoreClientError]
+    CannotChangeImmutablePublicKeyFields: type[BotocoreClientError]
+    CannotDeleteEntityWhileInUse: type[BotocoreClientError]
+    CannotUpdateEntityWhileInUse: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    CloudFrontOriginAccessIdentityAlreadyExists: type[BotocoreClientError]
+    CloudFrontOriginAccessIdentityInUse: type[BotocoreClientError]
+    ContinuousDeploymentPolicyAlreadyExists: type[BotocoreClientError]
+    ContinuousDeploymentPolicyInUse: type[BotocoreClientError]
+    DistributionAlreadyExists: type[BotocoreClientError]
+    DistributionNotDisabled: type[BotocoreClientError]
+    EntityAlreadyExists: type[BotocoreClientError]
+    EntityLimitExceeded: type[BotocoreClientError]
+    EntityNotFound: type[BotocoreClientError]
+    EntitySizeLimitExceeded: type[BotocoreClientError]
+    FieldLevelEncryptionConfigAlreadyExists: type[BotocoreClientError]
+    FieldLevelEncryptionConfigInUse: type[BotocoreClientError]
+    FieldLevelEncryptionProfileAlreadyExists: type[BotocoreClientError]
+    FieldLevelEncryptionProfileInUse: type[BotocoreClientError]
+    FieldLevelEncryptionProfileSizeExceeded: type[BotocoreClientError]
+    FunctionAlreadyExists: type[BotocoreClientError]
+    FunctionInUse: type[BotocoreClientError]
+    FunctionSizeLimitExceeded: type[BotocoreClientError]
+    IllegalDelete: type[BotocoreClientError]
+    IllegalFieldLevelEncryptionConfigAssociationWithCacheBehavior: type[BotocoreClientError]
+    IllegalOriginAccessConfiguration: type[BotocoreClientError]
+    IllegalUpdate: type[BotocoreClientError]
+    InconsistentQuantities: type[BotocoreClientError]
+    InvalidArgument: type[BotocoreClientError]
+    InvalidAssociation: type[BotocoreClientError]
+    InvalidDefaultRootObject: type[BotocoreClientError]
+    InvalidDomainNameForOriginAccessControl: type[BotocoreClientError]
+    InvalidErrorCode: type[BotocoreClientError]
+    InvalidForwardCookies: type[BotocoreClientError]
+    InvalidFunctionAssociation: type[BotocoreClientError]
+    InvalidGeoRestrictionParameter: type[BotocoreClientError]
+    InvalidHeadersForS3Origin: type[BotocoreClientError]
+    InvalidIfMatchVersion: type[BotocoreClientError]
+    InvalidLambdaFunctionAssociation: type[BotocoreClientError]
+    InvalidLocationCode: type[BotocoreClientError]
+    InvalidMinimumProtocolVersion: type[BotocoreClientError]
+    InvalidOrigin: type[BotocoreClientError]
+    InvalidOriginAccessControl: type[BotocoreClientError]
+    InvalidOriginAccessIdentity: type[BotocoreClientError]
+    InvalidOriginKeepaliveTimeout: type[BotocoreClientError]
+    InvalidOriginReadTimeout: type[BotocoreClientError]
+    InvalidProtocolSettings: type[BotocoreClientError]
+    InvalidQueryStringParameters: type[BotocoreClientError]
+    InvalidRelativePath: type[BotocoreClientError]
+    InvalidRequiredProtocol: type[BotocoreClientError]
+    InvalidResponseCode: type[BotocoreClientError]
+    InvalidTTLOrder: type[BotocoreClientError]
+    InvalidTagging: type[BotocoreClientError]
+    InvalidViewerCertificate: type[BotocoreClientError]
+    InvalidWebACLId: type[BotocoreClientError]
+    KeyGroupAlreadyExists: type[BotocoreClientError]
+    MissingBody: type[BotocoreClientError]
+    MonitoringSubscriptionAlreadyExists: type[BotocoreClientError]
+    NoSuchCachePolicy: type[BotocoreClientError]
+    NoSuchCloudFrontOriginAccessIdentity: type[BotocoreClientError]
+    NoSuchContinuousDeploymentPolicy: type[BotocoreClientError]
+    NoSuchDistribution: type[BotocoreClientError]
+    NoSuchFieldLevelEncryptionConfig: type[BotocoreClientError]
+    NoSuchFieldLevelEncryptionProfile: type[BotocoreClientError]
+    NoSuchFunctionExists: type[BotocoreClientError]
+    NoSuchInvalidation: type[BotocoreClientError]
+    NoSuchMonitoringSubscription: type[BotocoreClientError]
+    NoSuchOrigin: type[BotocoreClientError]
+    NoSuchOriginAccessControl: type[BotocoreClientError]
+    NoSuchOriginRequestPolicy: type[BotocoreClientError]
+    NoSuchPublicKey: type[BotocoreClientError]
+    NoSuchRealtimeLogConfig: type[BotocoreClientError]
+    NoSuchResource: type[BotocoreClientError]
+    NoSuchResponseHeadersPolicy: type[BotocoreClientError]
+    NoSuchStreamingDistribution: type[BotocoreClientError]
+    OriginAccessControlAlreadyExists: type[BotocoreClientError]
+    OriginAccessControlInUse: type[BotocoreClientError]
+    OriginRequestPolicyAlreadyExists: type[BotocoreClientError]
+    OriginRequestPolicyInUse: type[BotocoreClientError]
+    PreconditionFailed: type[BotocoreClientError]
+    PublicKeyAlreadyExists: type[BotocoreClientError]
+    PublicKeyInUse: type[BotocoreClientError]
+    QueryArgProfileEmpty: type[BotocoreClientError]
+    RealtimeLogConfigAlreadyExists: type[BotocoreClientError]
+    RealtimeLogConfigInUse: type[BotocoreClientError]
+    RealtimeLogConfigOwnerMismatch: type[BotocoreClientError]
+    ResourceInUse: type[BotocoreClientError]
+    ResourceNotDisabled: type[BotocoreClientError]
+    ResponseHeadersPolicyAlreadyExists: type[BotocoreClientError]
+    ResponseHeadersPolicyInUse: type[BotocoreClientError]
+    StagingDistributionInUse: type[BotocoreClientError]
+    StreamingDistributionAlreadyExists: type[BotocoreClientError]
+    StreamingDistributionNotDisabled: type[BotocoreClientError]
+    TestFunctionFailed: type[BotocoreClientError]
+    TooLongCSPInResponseHeadersPolicy: type[BotocoreClientError]
+    TooManyCacheBehaviors: type[BotocoreClientError]
+    TooManyCachePolicies: type[BotocoreClientError]
+    TooManyCertificates: type[BotocoreClientError]
+    TooManyCloudFrontOriginAccessIdentities: type[BotocoreClientError]
+    TooManyContinuousDeploymentPolicies: type[BotocoreClientError]
+    TooManyCookieNamesInWhiteList: type[BotocoreClientError]
+    TooManyCookiesInCachePolicy: type[BotocoreClientError]
+    TooManyCookiesInOriginRequestPolicy: type[BotocoreClientError]
+    TooManyCustomHeadersInResponseHeadersPolicy: type[BotocoreClientError]
+    TooManyDistributionCNAMEs: type[BotocoreClientError]
+    TooManyDistributions: type[BotocoreClientError]
+    TooManyDistributionsAssociatedToCachePolicy: type[BotocoreClientError]
+    TooManyDistributionsAssociatedToFieldLevelEncryptionConfig: type[BotocoreClientError]
+    TooManyDistributionsAssociatedToKeyGroup: type[BotocoreClientError]
+    TooManyDistributionsAssociatedToOriginAccessControl: type[BotocoreClientError]
+    TooManyDistributionsAssociatedToOriginRequestPolicy: type[BotocoreClientError]
+    TooManyDistributionsAssociatedToResponseHeadersPolicy: type[BotocoreClientError]
+    TooManyDistributionsWithFunctionAssociations: type[BotocoreClientError]
+    TooManyDistributionsWithLambdaAssociations: type[BotocoreClientError]
+    TooManyDistributionsWithSingleFunctionARN: type[BotocoreClientError]
+    TooManyFieldLevelEncryptionConfigs: type[BotocoreClientError]
+    TooManyFieldLevelEncryptionContentTypeProfiles: type[BotocoreClientError]
+    TooManyFieldLevelEncryptionEncryptionEntities: type[BotocoreClientError]
+    TooManyFieldLevelEncryptionFieldPatterns: type[BotocoreClientError]
+    TooManyFieldLevelEncryptionProfiles: type[BotocoreClientError]
+    TooManyFieldLevelEncryptionQueryArgProfiles: type[BotocoreClientError]
+    TooManyFunctionAssociations: type[BotocoreClientError]
+    TooManyFunctions: type[BotocoreClientError]
+    TooManyHeadersInCachePolicy: type[BotocoreClientError]
+    TooManyHeadersInForwardedValues: type[BotocoreClientError]
+    TooManyHeadersInOriginRequestPolicy: type[BotocoreClientError]
+    TooManyInvalidationsInProgress: type[BotocoreClientError]
+    TooManyKeyGroups: type[BotocoreClientError]
+    TooManyKeyGroupsAssociatedToDistribution: type[BotocoreClientError]
+    TooManyLambdaFunctionAssociations: type[BotocoreClientError]
+    TooManyOriginAccessControls: type[BotocoreClientError]
+    TooManyOriginCustomHeaders: type[BotocoreClientError]
+    TooManyOriginGroupsPerDistribution: type[BotocoreClientError]
+    TooManyOriginRequestPolicies: type[BotocoreClientError]
+    TooManyOrigins: type[BotocoreClientError]
+    TooManyPublicKeys: type[BotocoreClientError]
+    TooManyPublicKeysInKeyGroup: type[BotocoreClientError]
+    TooManyQueryStringParameters: type[BotocoreClientError]
+    TooManyQueryStringsInCachePolicy: type[BotocoreClientError]
+    TooManyQueryStringsInOriginRequestPolicy: type[BotocoreClientError]
+    TooManyRealtimeLogConfigs: type[BotocoreClientError]
+    TooManyRemoveHeadersInResponseHeadersPolicy: type[BotocoreClientError]
+    TooManyResponseHeadersPolicies: type[BotocoreClientError]
+    TooManyStreamingDistributionCNAMEs: type[BotocoreClientError]
+    TooManyStreamingDistributions: type[BotocoreClientError]
+    TooManyTrustedSigners: type[BotocoreClientError]
+    TrustedKeyGroupDoesNotExist: type[BotocoreClientError]
+    TrustedSignerDoesNotExist: type[BotocoreClientError]
+    UnsupportedOperation: type[BotocoreClientError]
+
+class CloudFrontClient(BaseClient):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront.html#CloudFront.Client)
+    [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/)
+    """
+
+    meta: ClientMeta
+
+    @property
+    def exceptions(self) -> Exceptions:
+        """
+        CloudFrontClient exceptions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront.html#CloudFront.Client)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#exceptions)
+        """
+
+    def can_paginate(self, operation_name: str) -> bool:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/can_paginate.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#can_paginate)
+        """
+
+    def generate_presigned_url(
+        self,
+        ClientMethod: str,
+        Params: Mapping[str, Any] = ...,
+        ExpiresIn: int = 3600,
+        HttpMethod: str = ...,
+    ) -> str:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/generate_presigned_url.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#generate_presigned_url)
+        """
+
+    def associate_alias(
+        self, **kwargs: Unpack[AssociateAliasRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        <note> <p>The <code>AssociateAlias</code> API operation only supports standard
+        distributions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/associate_alias.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#associate_alias)
+        """
+
+    def associate_distribution_tenant_web_acl(
+        self, **kwargs: Unpack[AssociateDistributionTenantWebACLRequestTypeDef]
+    ) -> AssociateDistributionTenantWebACLResultTypeDef:
+        """
+        Associates the WAF web ACL with a distribution tenant.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/associate_distribution_tenant_web_acl.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#associate_distribution_tenant_web_acl)
+        """
+
+    def associate_distribution_web_acl(
+        self, **kwargs: Unpack[AssociateDistributionWebACLRequestTypeDef]
+    ) -> AssociateDistributionWebACLResultTypeDef:
+        """
+        Associates the WAF web ACL with a distribution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/associate_distribution_web_acl.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#associate_distribution_web_acl)
+        """
+
+    def copy_distribution(
+        self, **kwargs: Unpack[CopyDistributionRequestTypeDef]
+    ) -> CopyDistributionResultTypeDef:
+        """
+        Creates a staging distribution using the configuration of the provided primary
+        distribution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/copy_distribution.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#copy_distribution)
+        """
+
+    def create_anycast_ip_list(
+        self, **kwargs: Unpack[CreateAnycastIpListRequestTypeDef]
+    ) -> CreateAnycastIpListResultTypeDef:
+        """
+        Creates an Anycast static IP list.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_anycast_ip_list.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#create_anycast_ip_list)
+        """
+
+    def create_cache_policy(
+        self, **kwargs: Unpack[CreateCachePolicyRequestTypeDef]
+    ) -> CreateCachePolicyResultTypeDef:
+        """
+        Creates a cache policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_cache_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#create_cache_policy)
+        """
+
+    def create_cloud_front_origin_access_identity(
+        self, **kwargs: Unpack[CreateCloudFrontOriginAccessIdentityRequestTypeDef]
+    ) -> CreateCloudFrontOriginAccessIdentityResultTypeDef:
+        """
+        Creates a new origin access identity.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_cloud_front_origin_access_identity.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#create_cloud_front_origin_access_identity)
+        """
+
+    def create_connection_function(
+        self, **kwargs: Unpack[CreateConnectionFunctionRequestTypeDef]
+    ) -> CreateConnectionFunctionResultTypeDef:
+        """
+        Creates a connection function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_connection_function.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#create_connection_function)
+        """
+
+    def create_connection_group(
+        self, **kwargs: Unpack[CreateConnectionGroupRequestTypeDef]
+    ) -> CreateConnectionGroupResultTypeDef:
+        """
+        Creates a connection group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_connection_group.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#create_connection_group)
+        """
+
+    def create_continuous_deployment_policy(
+        self, **kwargs: Unpack[CreateContinuousDeploymentPolicyRequestTypeDef]
+    ) -> CreateContinuousDeploymentPolicyResultTypeDef:
+        """
+        Creates a continuous deployment policy that distributes traffic for a custom
+        domain name to two different CloudFront distributions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_continuous_deployment_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#create_continuous_deployment_policy)
+        """
+
+    def create_distribution(
+        self, **kwargs: Unpack[CreateDistributionRequestTypeDef]
+    ) -> CreateDistributionResultTypeDef:
+        """
+        Creates a CloudFront distribution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_distribution.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#create_distribution)
+        """
+
+    def create_distribution_tenant(
+        self, **kwargs: Unpack[CreateDistributionTenantRequestTypeDef]
+    ) -> CreateDistributionTenantResultTypeDef:
+        """
+        Creates a distribution tenant.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_distribution_tenant.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#create_distribution_tenant)
+        """
+
+    def create_distribution_with_tags(
+        self, **kwargs: Unpack[CreateDistributionWithTagsRequestTypeDef]
+    ) -> CreateDistributionWithTagsResultTypeDef:
+        """
+        Create a new distribution with tags.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_distribution_with_tags.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#create_distribution_with_tags)
+        """
+
+    def create_field_level_encryption_config(
+        self, **kwargs: Unpack[CreateFieldLevelEncryptionConfigRequestTypeDef]
+    ) -> CreateFieldLevelEncryptionConfigResultTypeDef:
+        """
+        Create a new field-level encryption configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_field_level_encryption_config.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#create_field_level_encryption_config)
+        """
+
+    def create_field_level_encryption_profile(
+        self, **kwargs: Unpack[CreateFieldLevelEncryptionProfileRequestTypeDef]
+    ) -> CreateFieldLevelEncryptionProfileResultTypeDef:
+        """
+        Create a field-level encryption profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_field_level_encryption_profile.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#create_field_level_encryption_profile)
+        """
+
+    def create_function(
+        self, **kwargs: Unpack[CreateFunctionRequestTypeDef]
+    ) -> CreateFunctionResultTypeDef:
+        """
+        Creates a CloudFront function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_function.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#create_function)
+        """
+
+    def create_invalidation(
+        self, **kwargs: Unpack[CreateInvalidationRequestTypeDef]
+    ) -> CreateInvalidationResultTypeDef:
+        """
+        Create a new invalidation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_invalidation.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#create_invalidation)
+        """
+
+    def create_invalidation_for_distribution_tenant(
+        self, **kwargs: Unpack[CreateInvalidationForDistributionTenantRequestTypeDef]
+    ) -> CreateInvalidationForDistributionTenantResultTypeDef:
+        """
+        Creates an invalidation for a distribution tenant.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_invalidation_for_distribution_tenant.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#create_invalidation_for_distribution_tenant)
+        """
+
+    def create_key_group(
+        self, **kwargs: Unpack[CreateKeyGroupRequestTypeDef]
+    ) -> CreateKeyGroupResultTypeDef:
+        """
+        Creates a key group that you can use with <a
+        href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/PrivateContent.html">CloudFront
+        signed URLs and signed cookies</a>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_key_group.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#create_key_group)
+        """
+
+    def create_key_value_store(
+        self, **kwargs: Unpack[CreateKeyValueStoreRequestTypeDef]
+    ) -> CreateKeyValueStoreResultTypeDef:
+        """
+        Specifies the key value store resource to add to your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_key_value_store.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#create_key_value_store)
+        """
+
+    def create_monitoring_subscription(
+        self, **kwargs: Unpack[CreateMonitoringSubscriptionRequestTypeDef]
+    ) -> CreateMonitoringSubscriptionResultTypeDef:
+        """
+        Enables or disables additional Amazon CloudWatch metrics for the specified
+        CloudFront distribution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_monitoring_subscription.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#create_monitoring_subscription)
+        """
+
+    def create_origin_access_control(
+        self, **kwargs: Unpack[CreateOriginAccessControlRequestTypeDef]
+    ) -> CreateOriginAccessControlResultTypeDef:
+        """
+        Creates a new origin access control in CloudFront.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_origin_access_control.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#create_origin_access_control)
+        """
+
+    def create_origin_request_policy(
+        self, **kwargs: Unpack[CreateOriginRequestPolicyRequestTypeDef]
+    ) -> CreateOriginRequestPolicyResultTypeDef:
+        """
+        Creates an origin request policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_origin_request_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#create_origin_request_policy)
+        """
+
+    def create_public_key(
+        self, **kwargs: Unpack[CreatePublicKeyRequestTypeDef]
+    ) -> CreatePublicKeyResultTypeDef:
+        """
+        Uploads a public key to CloudFront that you can use with <a
+        href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/PrivateContent.html">signed
+        URLs and signed cookies</a>, or with <a
+        href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/field-level-encryption....
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_public_key.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#create_public_key)
+        """
+
+    def create_realtime_log_config(
+        self, **kwargs: Unpack[CreateRealtimeLogConfigRequestTypeDef]
+    ) -> CreateRealtimeLogConfigResultTypeDef:
+        """
+        Creates a real-time log configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_realtime_log_config.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#create_realtime_log_config)
+        """
+
+    def create_response_headers_policy(
+        self, **kwargs: Unpack[CreateResponseHeadersPolicyRequestTypeDef]
+    ) -> CreateResponseHeadersPolicyResultTypeDef:
+        """
+        Creates a response headers policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_response_headers_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#create_response_headers_policy)
+        """
+
+    def create_streaming_distribution(
+        self, **kwargs: Unpack[CreateStreamingDistributionRequestTypeDef]
+    ) -> CreateStreamingDistributionResultTypeDef:
+        """
+        This API is deprecated.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_streaming_distribution.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#create_streaming_distribution)
+        """
+
+    def create_streaming_distribution_with_tags(
+        self, **kwargs: Unpack[CreateStreamingDistributionWithTagsRequestTypeDef]
+    ) -> CreateStreamingDistributionWithTagsResultTypeDef:
+        """
+        This API is deprecated.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_streaming_distribution_with_tags.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#create_streaming_distribution_with_tags)
+        """
+
+    def create_trust_store(
+        self, **kwargs: Unpack[CreateTrustStoreRequestTypeDef]
+    ) -> CreateTrustStoreResultTypeDef:
+        """
+        Creates a trust store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_trust_store.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#create_trust_store)
+        """
+
+    def create_vpc_origin(
+        self, **kwargs: Unpack[CreateVpcOriginRequestTypeDef]
+    ) -> CreateVpcOriginResultTypeDef:
+        """
+        Create an Amazon CloudFront VPC origin.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_vpc_origin.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#create_vpc_origin)
+        """
+
+    def delete_anycast_ip_list(
+        self, **kwargs: Unpack[DeleteAnycastIpListRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes an Anycast static IP list.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_anycast_ip_list.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#delete_anycast_ip_list)
+        """
+
+    def delete_cache_policy(
+        self, **kwargs: Unpack[DeleteCachePolicyRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a cache policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_cache_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#delete_cache_policy)
+        """
+
+    def delete_cloud_front_origin_access_identity(
+        self, **kwargs: Unpack[DeleteCloudFrontOriginAccessIdentityRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Delete an origin access identity.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_cloud_front_origin_access_identity.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#delete_cloud_front_origin_access_identity)
+        """
+
+    def delete_connection_function(
+        self, **kwargs: Unpack[DeleteConnectionFunctionRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a connection function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_connection_function.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#delete_connection_function)
+        """
+
+    def delete_connection_group(
+        self, **kwargs: Unpack[DeleteConnectionGroupRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a connection group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_connection_group.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#delete_connection_group)
+        """
+
+    def delete_continuous_deployment_policy(
+        self, **kwargs: Unpack[DeleteContinuousDeploymentPolicyRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a continuous deployment policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_continuous_deployment_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#delete_continuous_deployment_policy)
+        """
+
+    def delete_distribution(
+        self, **kwargs: Unpack[DeleteDistributionRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Delete a distribution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_distribution.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#delete_distribution)
+        """
+
+    def delete_distribution_tenant(
+        self, **kwargs: Unpack[DeleteDistributionTenantRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a distribution tenant.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_distribution_tenant.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#delete_distribution_tenant)
+        """
+
+    def delete_field_level_encryption_config(
+        self, **kwargs: Unpack[DeleteFieldLevelEncryptionConfigRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Remove a field-level encryption configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_field_level_encryption_config.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#delete_field_level_encryption_config)
+        """
+
+    def delete_field_level_encryption_profile(
+        self, **kwargs: Unpack[DeleteFieldLevelEncryptionProfileRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Remove a field-level encryption profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_field_level_encryption_profile.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#delete_field_level_encryption_profile)
+        """
+
+    def delete_function(
+        self, **kwargs: Unpack[DeleteFunctionRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a CloudFront function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_function.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#delete_function)
+        """
+
+    def delete_key_group(
+        self, **kwargs: Unpack[DeleteKeyGroupRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a key group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_key_group.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#delete_key_group)
+        """
+
+    def delete_key_value_store(
+        self, **kwargs: Unpack[DeleteKeyValueStoreRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Specifies the key value store to delete.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_key_value_store.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#delete_key_value_store)
+        """
+
+    def delete_monitoring_subscription(
+        self, **kwargs: Unpack[DeleteMonitoringSubscriptionRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Disables additional CloudWatch metrics for the specified CloudFront
+        distribution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_monitoring_subscription.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#delete_monitoring_subscription)
+        """
+
+    def delete_origin_access_control(
+        self, **kwargs: Unpack[DeleteOriginAccessControlRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a CloudFront origin access control.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_origin_access_control.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#delete_origin_access_control)
+        """
+
+    def delete_origin_request_policy(
+        self, **kwargs: Unpack[DeleteOriginRequestPolicyRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes an origin request policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_origin_request_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#delete_origin_request_policy)
+        """
+
+    def delete_public_key(
+        self, **kwargs: Unpack[DeletePublicKeyRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Remove a public key you previously added to CloudFront.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_public_key.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#delete_public_key)
+        """
+
+    def delete_realtime_log_config(
+        self, **kwargs: Unpack[DeleteRealtimeLogConfigRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a real-time log configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_realtime_log_config.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#delete_realtime_log_config)
+        """
+
+    def delete_resource_policy(
+        self, **kwargs: Unpack[DeleteResourcePolicyRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes the resource policy attached to the CloudFront resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_resource_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#delete_resource_policy)
+        """
+
+    def delete_response_headers_policy(
+        self, **kwargs: Unpack[DeleteResponseHeadersPolicyRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a response headers policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_response_headers_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#delete_response_headers_policy)
+        """
+
+    def delete_streaming_distribution(
+        self, **kwargs: Unpack[DeleteStreamingDistributionRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Delete a streaming distribution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_streaming_distribution.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#delete_streaming_distribution)
+        """
+
+    def delete_trust_store(
+        self, **kwargs: Unpack[DeleteTrustStoreRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a trust store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_trust_store.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#delete_trust_store)
+        """
+
+    def delete_vpc_origin(
+        self, **kwargs: Unpack[DeleteVpcOriginRequestTypeDef]
+    ) -> DeleteVpcOriginResultTypeDef:
+        """
+        Delete an Amazon CloudFront VPC origin.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_vpc_origin.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#delete_vpc_origin)
+        """
+
+    def describe_connection_function(
+        self, **kwargs: Unpack[DescribeConnectionFunctionRequestTypeDef]
+    ) -> DescribeConnectionFunctionResultTypeDef:
+        """
+        Describes a connection function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/describe_connection_function.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#describe_connection_function)
+        """
+
+    def describe_function(
+        self, **kwargs: Unpack[DescribeFunctionRequestTypeDef]
+    ) -> DescribeFunctionResultTypeDef:
+        """
+        Gets configuration information and metadata about a CloudFront function, but
+        not the function's code.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/describe_function.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#describe_function)
+        """
+
+    def describe_key_value_store(
+        self, **kwargs: Unpack[DescribeKeyValueStoreRequestTypeDef]
+    ) -> DescribeKeyValueStoreResultTypeDef:
+        """
+        Specifies the key value store and its configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/describe_key_value_store.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#describe_key_value_store)
+        """
+
+    def disassociate_distribution_tenant_web_acl(
+        self, **kwargs: Unpack[DisassociateDistributionTenantWebACLRequestTypeDef]
+    ) -> DisassociateDistributionTenantWebACLResultTypeDef:
+        """
+        Disassociates a distribution tenant from the WAF web ACL.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/disassociate_distribution_tenant_web_acl.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#disassociate_distribution_tenant_web_acl)
+        """
+
+    def disassociate_distribution_web_acl(
+        self, **kwargs: Unpack[DisassociateDistributionWebACLRequestTypeDef]
+    ) -> DisassociateDistributionWebACLResultTypeDef:
+        """
+        Disassociates a distribution from the WAF web ACL.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/disassociate_distribution_web_acl.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#disassociate_distribution_web_acl)
+        """
+
+    def get_anycast_ip_list(
+        self, **kwargs: Unpack[GetAnycastIpListRequestTypeDef]
+    ) -> GetAnycastIpListResultTypeDef:
+        """
+        Gets an Anycast static IP list.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_anycast_ip_list.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_anycast_ip_list)
+        """
+
+    def get_cache_policy(
+        self, **kwargs: Unpack[GetCachePolicyRequestTypeDef]
+    ) -> GetCachePolicyResultTypeDef:
+        """
+        Gets a cache policy, including the following metadata:.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_cache_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_cache_policy)
+        """
+
+    def get_cache_policy_config(
+        self, **kwargs: Unpack[GetCachePolicyConfigRequestTypeDef]
+    ) -> GetCachePolicyConfigResultTypeDef:
+        """
+        Gets a cache policy configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_cache_policy_config.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_cache_policy_config)
+        """
+
+    def get_cloud_front_origin_access_identity(
+        self, **kwargs: Unpack[GetCloudFrontOriginAccessIdentityRequestTypeDef]
+    ) -> GetCloudFrontOriginAccessIdentityResultTypeDef:
+        """
+        Get the information about an origin access identity.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_cloud_front_origin_access_identity.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_cloud_front_origin_access_identity)
+        """
+
+    def get_cloud_front_origin_access_identity_config(
+        self, **kwargs: Unpack[GetCloudFrontOriginAccessIdentityConfigRequestTypeDef]
+    ) -> GetCloudFrontOriginAccessIdentityConfigResultTypeDef:
+        """
+        Get the configuration information about an origin access identity.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_cloud_front_origin_access_identity_config.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_cloud_front_origin_access_identity_config)
+        """
+
+    def get_connection_function(
+        self, **kwargs: Unpack[GetConnectionFunctionRequestTypeDef]
+    ) -> GetConnectionFunctionResultTypeDef:
+        """
+        Gets a connection function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_connection_function.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_connection_function)
+        """
+
+    def get_connection_group(
+        self, **kwargs: Unpack[GetConnectionGroupRequestTypeDef]
+    ) -> GetConnectionGroupResultTypeDef:
+        """
+        Gets information about a connection group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_connection_group.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_connection_group)
+        """
+
+    def get_connection_group_by_routing_endpoint(
+        self, **kwargs: Unpack[GetConnectionGroupByRoutingEndpointRequestTypeDef]
+    ) -> GetConnectionGroupByRoutingEndpointResultTypeDef:
+        """
+        Gets information about a connection group by using the endpoint that you
+        specify.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_connection_group_by_routing_endpoint.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_connection_group_by_routing_endpoint)
+        """
+
+    def get_continuous_deployment_policy(
+        self, **kwargs: Unpack[GetContinuousDeploymentPolicyRequestTypeDef]
+    ) -> GetContinuousDeploymentPolicyResultTypeDef:
+        """
+        Gets a continuous deployment policy, including metadata (the policy's
+        identifier and the date and time when the policy was last modified).
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_continuous_deployment_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_continuous_deployment_policy)
+        """
+
+    def get_continuous_deployment_policy_config(
+        self, **kwargs: Unpack[GetContinuousDeploymentPolicyConfigRequestTypeDef]
+    ) -> GetContinuousDeploymentPolicyConfigResultTypeDef:
+        """
+        Gets configuration information about a continuous deployment policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_continuous_deployment_policy_config.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_continuous_deployment_policy_config)
+        """
+
+    def get_distribution(
+        self, **kwargs: Unpack[GetDistributionRequestTypeDef]
+    ) -> GetDistributionResultTypeDef:
+        """
+        Get the information about a distribution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_distribution.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_distribution)
+        """
+
+    def get_distribution_config(
+        self, **kwargs: Unpack[GetDistributionConfigRequestTypeDef]
+    ) -> GetDistributionConfigResultTypeDef:
+        """
+        Get the configuration information about a distribution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_distribution_config.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_distribution_config)
+        """
+
+    def get_distribution_tenant(
+        self, **kwargs: Unpack[GetDistributionTenantRequestTypeDef]
+    ) -> GetDistributionTenantResultTypeDef:
+        """
+        Gets information about a distribution tenant.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_distribution_tenant.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_distribution_tenant)
+        """
+
+    def get_distribution_tenant_by_domain(
+        self, **kwargs: Unpack[GetDistributionTenantByDomainRequestTypeDef]
+    ) -> GetDistributionTenantByDomainResultTypeDef:
+        """
+        Gets information about a distribution tenant by the associated domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_distribution_tenant_by_domain.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_distribution_tenant_by_domain)
+        """
+
+    def get_field_level_encryption(
+        self, **kwargs: Unpack[GetFieldLevelEncryptionRequestTypeDef]
+    ) -> GetFieldLevelEncryptionResultTypeDef:
+        """
+        Get the field-level encryption configuration information.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_field_level_encryption.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_field_level_encryption)
+        """
+
+    def get_field_level_encryption_config(
+        self, **kwargs: Unpack[GetFieldLevelEncryptionConfigRequestTypeDef]
+    ) -> GetFieldLevelEncryptionConfigResultTypeDef:
+        """
+        Get the field-level encryption configuration information.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_field_level_encryption_config.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_field_level_encryption_config)
+        """
+
+    def get_field_level_encryption_profile(
+        self, **kwargs: Unpack[GetFieldLevelEncryptionProfileRequestTypeDef]
+    ) -> GetFieldLevelEncryptionProfileResultTypeDef:
+        """
+        Get the field-level encryption profile information.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_field_level_encryption_profile.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_field_level_encryption_profile)
+        """
+
+    def get_field_level_encryption_profile_config(
+        self, **kwargs: Unpack[GetFieldLevelEncryptionProfileConfigRequestTypeDef]
+    ) -> GetFieldLevelEncryptionProfileConfigResultTypeDef:
+        """
+        Get the field-level encryption profile configuration information.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_field_level_encryption_profile_config.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_field_level_encryption_profile_config)
+        """
+
+    def get_function(self, **kwargs: Unpack[GetFunctionRequestTypeDef]) -> GetFunctionResultTypeDef:
+        """
+        Gets the code of a CloudFront function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_function.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_function)
+        """
+
+    def get_invalidation(
+        self, **kwargs: Unpack[GetInvalidationRequestTypeDef]
+    ) -> GetInvalidationResultTypeDef:
+        """
+        Get the information about an invalidation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_invalidation.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_invalidation)
+        """
+
+    def get_invalidation_for_distribution_tenant(
+        self, **kwargs: Unpack[GetInvalidationForDistributionTenantRequestTypeDef]
+    ) -> GetInvalidationForDistributionTenantResultTypeDef:
+        """
+        Gets information about a specific invalidation for a distribution tenant.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_invalidation_for_distribution_tenant.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_invalidation_for_distribution_tenant)
+        """
+
+    def get_key_group(
+        self, **kwargs: Unpack[GetKeyGroupRequestTypeDef]
+    ) -> GetKeyGroupResultTypeDef:
+        """
+        Gets a key group, including the date and time when the key group was last
+        modified.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_key_group.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_key_group)
+        """
+
+    def get_key_group_config(
+        self, **kwargs: Unpack[GetKeyGroupConfigRequestTypeDef]
+    ) -> GetKeyGroupConfigResultTypeDef:
+        """
+        Gets a key group configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_key_group_config.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_key_group_config)
+        """
+
+    def get_managed_certificate_details(
+        self, **kwargs: Unpack[GetManagedCertificateDetailsRequestTypeDef]
+    ) -> GetManagedCertificateDetailsResultTypeDef:
+        """
+        Gets details about the CloudFront managed ACM certificate.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_managed_certificate_details.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_managed_certificate_details)
+        """
+
+    def get_monitoring_subscription(
+        self, **kwargs: Unpack[GetMonitoringSubscriptionRequestTypeDef]
+    ) -> GetMonitoringSubscriptionResultTypeDef:
+        """
+        Gets information about whether additional CloudWatch metrics are enabled for
+        the specified CloudFront distribution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_monitoring_subscription.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_monitoring_subscription)
+        """
+
+    def get_origin_access_control(
+        self, **kwargs: Unpack[GetOriginAccessControlRequestTypeDef]
+    ) -> GetOriginAccessControlResultTypeDef:
+        """
+        Gets a CloudFront origin access control, including its unique identifier.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_origin_access_control.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_origin_access_control)
+        """
+
+    def get_origin_access_control_config(
+        self, **kwargs: Unpack[GetOriginAccessControlConfigRequestTypeDef]
+    ) -> GetOriginAccessControlConfigResultTypeDef:
+        """
+        Gets a CloudFront origin access control configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_origin_access_control_config.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_origin_access_control_config)
+        """
+
+    def get_origin_request_policy(
+        self, **kwargs: Unpack[GetOriginRequestPolicyRequestTypeDef]
+    ) -> GetOriginRequestPolicyResultTypeDef:
+        """
+        Gets an origin request policy, including the following metadata:.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_origin_request_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_origin_request_policy)
+        """
+
+    def get_origin_request_policy_config(
+        self, **kwargs: Unpack[GetOriginRequestPolicyConfigRequestTypeDef]
+    ) -> GetOriginRequestPolicyConfigResultTypeDef:
+        """
+        Gets an origin request policy configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_origin_request_policy_config.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_origin_request_policy_config)
+        """
+
+    def get_public_key(
+        self, **kwargs: Unpack[GetPublicKeyRequestTypeDef]
+    ) -> GetPublicKeyResultTypeDef:
+        """
+        Gets a public key.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_public_key.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_public_key)
+        """
+
+    def get_public_key_config(
+        self, **kwargs: Unpack[GetPublicKeyConfigRequestTypeDef]
+    ) -> GetPublicKeyConfigResultTypeDef:
+        """
+        Gets a public key configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_public_key_config.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_public_key_config)
+        """
+
+    def get_realtime_log_config(
+        self, **kwargs: Unpack[GetRealtimeLogConfigRequestTypeDef]
+    ) -> GetRealtimeLogConfigResultTypeDef:
+        """
+        Gets a real-time log configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_realtime_log_config.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_realtime_log_config)
+        """
+
+    def get_resource_policy(
+        self, **kwargs: Unpack[GetResourcePolicyRequestTypeDef]
+    ) -> GetResourcePolicyResultTypeDef:
+        """
+        Retrieves the resource policy for the specified CloudFront resource that you
+        own and have shared.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_resource_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_resource_policy)
+        """
+
+    def get_response_headers_policy(
+        self, **kwargs: Unpack[GetResponseHeadersPolicyRequestTypeDef]
+    ) -> GetResponseHeadersPolicyResultTypeDef:
+        """
+        Gets a response headers policy, including metadata (the policy's identifier and
+        the date and time when the policy was last modified).
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_response_headers_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_response_headers_policy)
+        """
+
+    def get_response_headers_policy_config(
+        self, **kwargs: Unpack[GetResponseHeadersPolicyConfigRequestTypeDef]
+    ) -> GetResponseHeadersPolicyConfigResultTypeDef:
+        """
+        Gets a response headers policy configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_response_headers_policy_config.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_response_headers_policy_config)
+        """
+
+    def get_streaming_distribution(
+        self, **kwargs: Unpack[GetStreamingDistributionRequestTypeDef]
+    ) -> GetStreamingDistributionResultTypeDef:
+        """
+        Gets information about a specified RTMP distribution, including the
+        distribution configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_streaming_distribution.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_streaming_distribution)
+        """
+
+    def get_streaming_distribution_config(
+        self, **kwargs: Unpack[GetStreamingDistributionConfigRequestTypeDef]
+    ) -> GetStreamingDistributionConfigResultTypeDef:
+        """
+        Get the configuration information about a streaming distribution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_streaming_distribution_config.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_streaming_distribution_config)
+        """
+
+    def get_trust_store(
+        self, **kwargs: Unpack[GetTrustStoreRequestTypeDef]
+    ) -> GetTrustStoreResultTypeDef:
+        """
+        Gets a trust store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_trust_store.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_trust_store)
+        """
+
+    def get_vpc_origin(
+        self, **kwargs: Unpack[GetVpcOriginRequestTypeDef]
+    ) -> GetVpcOriginResultTypeDef:
+        """
+        Get the details of an Amazon CloudFront VPC origin.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_vpc_origin.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_vpc_origin)
+        """
+
+    def list_anycast_ip_lists(
+        self, **kwargs: Unpack[ListAnycastIpListsRequestTypeDef]
+    ) -> ListAnycastIpListsResultTypeDef:
+        """
+        Lists your Anycast static IP lists.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_anycast_ip_lists.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_anycast_ip_lists)
+        """
+
+    def list_cache_policies(
+        self, **kwargs: Unpack[ListCachePoliciesRequestTypeDef]
+    ) -> ListCachePoliciesResultTypeDef:
+        """
+        Gets a list of cache policies.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_cache_policies.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_cache_policies)
+        """
+
+    def list_cloud_front_origin_access_identities(
+        self, **kwargs: Unpack[ListCloudFrontOriginAccessIdentitiesRequestTypeDef]
+    ) -> ListCloudFrontOriginAccessIdentitiesResultTypeDef:
+        """
+        Lists origin access identities.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_cloud_front_origin_access_identities.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_cloud_front_origin_access_identities)
+        """
+
+    def list_conflicting_aliases(
+        self, **kwargs: Unpack[ListConflictingAliasesRequestTypeDef]
+    ) -> ListConflictingAliasesResultTypeDef:
+        """
+        <note> <p>The <code>ListConflictingAliases</code> API operation only supports
+        standard distributions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_conflicting_aliases.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_conflicting_aliases)
+        """
+
+    def list_connection_functions(
+        self, **kwargs: Unpack[ListConnectionFunctionsRequestTypeDef]
+    ) -> ListConnectionFunctionsResultTypeDef:
+        """
+        Lists connection functions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_connection_functions.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_connection_functions)
+        """
+
+    def list_connection_groups(
+        self, **kwargs: Unpack[ListConnectionGroupsRequestTypeDef]
+    ) -> ListConnectionGroupsResultTypeDef:
+        """
+        Lists the connection groups in your Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_connection_groups.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_connection_groups)
+        """
+
+    def list_continuous_deployment_policies(
+        self, **kwargs: Unpack[ListContinuousDeploymentPoliciesRequestTypeDef]
+    ) -> ListContinuousDeploymentPoliciesResultTypeDef:
+        """
+        Gets a list of the continuous deployment policies in your Amazon Web Services
+        account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_continuous_deployment_policies.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_continuous_deployment_policies)
+        """
+
+    def list_distribution_tenants(
+        self, **kwargs: Unpack[ListDistributionTenantsRequestTypeDef]
+    ) -> ListDistributionTenantsResultTypeDef:
+        """
+        Lists the distribution tenants in your Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_distribution_tenants.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_distribution_tenants)
+        """
+
+    def list_distribution_tenants_by_customization(
+        self, **kwargs: Unpack[ListDistributionTenantsByCustomizationRequestTypeDef]
+    ) -> ListDistributionTenantsByCustomizationResultTypeDef:
+        """
+        Lists distribution tenants by the customization that you specify.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_distribution_tenants_by_customization.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_distribution_tenants_by_customization)
+        """
+
+    def list_distributions(
+        self, **kwargs: Unpack[ListDistributionsRequestTypeDef]
+    ) -> ListDistributionsResultTypeDef:
+        """
+        List CloudFront distributions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_distributions.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_distributions)
+        """
+
+    def list_distributions_by_anycast_ip_list_id(
+        self, **kwargs: Unpack[ListDistributionsByAnycastIpListIdRequestTypeDef]
+    ) -> ListDistributionsByAnycastIpListIdResultTypeDef:
+        """
+        Lists the distributions in your account that are associated with the specified
+        <code>AnycastIpListId</code>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_distributions_by_anycast_ip_list_id.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_distributions_by_anycast_ip_list_id)
+        """
+
+    def list_distributions_by_cache_policy_id(
+        self, **kwargs: Unpack[ListDistributionsByCachePolicyIdRequestTypeDef]
+    ) -> ListDistributionsByCachePolicyIdResultTypeDef:
+        """
+        Gets a list of distribution IDs for distributions that have a cache behavior
+        that's associated with the specified cache policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_distributions_by_cache_policy_id.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_distributions_by_cache_policy_id)
+        """
+
+    def list_distributions_by_connection_function(
+        self, **kwargs: Unpack[ListDistributionsByConnectionFunctionRequestTypeDef]
+    ) -> ListDistributionsByConnectionFunctionResultTypeDef:
+        """
+        Lists distributions by connection function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_distributions_by_connection_function.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_distributions_by_connection_function)
+        """
+
+    def list_distributions_by_connection_mode(
+        self, **kwargs: Unpack[ListDistributionsByConnectionModeRequestTypeDef]
+    ) -> ListDistributionsByConnectionModeResultTypeDef:
+        """
+        Lists the distributions by the connection mode that you specify.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_distributions_by_connection_mode.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_distributions_by_connection_mode)
+        """
+
+    def list_distributions_by_key_group(
+        self, **kwargs: Unpack[ListDistributionsByKeyGroupRequestTypeDef]
+    ) -> ListDistributionsByKeyGroupResultTypeDef:
+        """
+        Gets a list of distribution IDs for distributions that have a cache behavior
+        that references the specified key group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_distributions_by_key_group.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_distributions_by_key_group)
+        """
+
+    def list_distributions_by_origin_request_policy_id(
+        self, **kwargs: Unpack[ListDistributionsByOriginRequestPolicyIdRequestTypeDef]
+    ) -> ListDistributionsByOriginRequestPolicyIdResultTypeDef:
+        """
+        Gets a list of distribution IDs for distributions that have a cache behavior
+        that's associated with the specified origin request policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_distributions_by_origin_request_policy_id.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_distributions_by_origin_request_policy_id)
+        """
+
+    def list_distributions_by_owned_resource(
+        self, **kwargs: Unpack[ListDistributionsByOwnedResourceRequestTypeDef]
+    ) -> ListDistributionsByOwnedResourceResultTypeDef:
+        """
+        Lists the CloudFront distributions that are associated with the specified
+        resource that you own.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_distributions_by_owned_resource.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_distributions_by_owned_resource)
+        """
+
+    def list_distributions_by_realtime_log_config(
+        self, **kwargs: Unpack[ListDistributionsByRealtimeLogConfigRequestTypeDef]
+    ) -> ListDistributionsByRealtimeLogConfigResultTypeDef:
+        """
+        Gets a list of distributions that have a cache behavior that's associated with
+        the specified real-time log configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_distributions_by_realtime_log_config.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_distributions_by_realtime_log_config)
+        """
+
+    def list_distributions_by_response_headers_policy_id(
+        self, **kwargs: Unpack[ListDistributionsByResponseHeadersPolicyIdRequestTypeDef]
+    ) -> ListDistributionsByResponseHeadersPolicyIdResultTypeDef:
+        """
+        Gets a list of distribution IDs for distributions that have a cache behavior
+        that's associated with the specified response headers policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_distributions_by_response_headers_policy_id.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_distributions_by_response_headers_policy_id)
+        """
+
+    def list_distributions_by_trust_store(
+        self, **kwargs: Unpack[ListDistributionsByTrustStoreRequestTypeDef]
+    ) -> ListDistributionsByTrustStoreResultTypeDef:
+        """
+        Lists distributions by trust store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_distributions_by_trust_store.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_distributions_by_trust_store)
+        """
+
+    def list_distributions_by_vpc_origin_id(
+        self, **kwargs: Unpack[ListDistributionsByVpcOriginIdRequestTypeDef]
+    ) -> ListDistributionsByVpcOriginIdResultTypeDef:
+        """
+        List CloudFront distributions by their VPC origin ID.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_distributions_by_vpc_origin_id.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_distributions_by_vpc_origin_id)
+        """
+
+    def list_distributions_by_web_acl_id(
+        self, **kwargs: Unpack[ListDistributionsByWebACLIdRequestTypeDef]
+    ) -> ListDistributionsByWebACLIdResultTypeDef:
+        """
+        List the distributions that are associated with a specified WAF web ACL.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_distributions_by_web_acl_id.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_distributions_by_web_acl_id)
+        """
+
+    def list_domain_conflicts(
+        self, **kwargs: Unpack[ListDomainConflictsRequestTypeDef]
+    ) -> ListDomainConflictsResultTypeDef:
+        """
+        <note> <p>We recommend that you use the <code>ListDomainConflicts</code> API
+        operation to check for domain conflicts, as it supports both standard
+        distributions and distribution tenants.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_domain_conflicts.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_domain_conflicts)
+        """
+
+    def list_field_level_encryption_configs(
+        self, **kwargs: Unpack[ListFieldLevelEncryptionConfigsRequestTypeDef]
+    ) -> ListFieldLevelEncryptionConfigsResultTypeDef:
+        """
+        List all field-level encryption configurations that have been created in
+        CloudFront for this account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_field_level_encryption_configs.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_field_level_encryption_configs)
+        """
+
+    def list_field_level_encryption_profiles(
+        self, **kwargs: Unpack[ListFieldLevelEncryptionProfilesRequestTypeDef]
+    ) -> ListFieldLevelEncryptionProfilesResultTypeDef:
+        """
+        Request a list of field-level encryption profiles that have been created in
+        CloudFront for this account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_field_level_encryption_profiles.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_field_level_encryption_profiles)
+        """
+
+    def list_functions(
+        self, **kwargs: Unpack[ListFunctionsRequestTypeDef]
+    ) -> ListFunctionsResultTypeDef:
+        """
+        Gets a list of all CloudFront functions in your Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_functions.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_functions)
+        """
+
+    def list_invalidations(
+        self, **kwargs: Unpack[ListInvalidationsRequestTypeDef]
+    ) -> ListInvalidationsResultTypeDef:
+        """
+        Lists invalidation batches.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_invalidations.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_invalidations)
+        """
+
+    def list_invalidations_for_distribution_tenant(
+        self, **kwargs: Unpack[ListInvalidationsForDistributionTenantRequestTypeDef]
+    ) -> ListInvalidationsForDistributionTenantResultTypeDef:
+        """
+        Lists the invalidations for a distribution tenant.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_invalidations_for_distribution_tenant.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_invalidations_for_distribution_tenant)
+        """
+
+    def list_key_groups(
+        self, **kwargs: Unpack[ListKeyGroupsRequestTypeDef]
+    ) -> ListKeyGroupsResultTypeDef:
+        """
+        Gets a list of key groups.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_key_groups.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_key_groups)
+        """
+
+    def list_key_value_stores(
+        self, **kwargs: Unpack[ListKeyValueStoresRequestTypeDef]
+    ) -> ListKeyValueStoresResultTypeDef:
+        """
+        Specifies the key value stores to list.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_key_value_stores.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_key_value_stores)
+        """
+
+    def list_origin_access_controls(
+        self, **kwargs: Unpack[ListOriginAccessControlsRequestTypeDef]
+    ) -> ListOriginAccessControlsResultTypeDef:
+        """
+        Gets the list of CloudFront origin access controls (OACs) in this Amazon Web
+        Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_origin_access_controls.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_origin_access_controls)
+        """
+
+    def list_origin_request_policies(
+        self, **kwargs: Unpack[ListOriginRequestPoliciesRequestTypeDef]
+    ) -> ListOriginRequestPoliciesResultTypeDef:
+        """
+        Gets a list of origin request policies.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_origin_request_policies.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_origin_request_policies)
+        """
+
+    def list_public_keys(
+        self, **kwargs: Unpack[ListPublicKeysRequestTypeDef]
+    ) -> ListPublicKeysResultTypeDef:
+        """
+        List all public keys that have been added to CloudFront for this account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_public_keys.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_public_keys)
+        """
+
+    def list_realtime_log_configs(
+        self, **kwargs: Unpack[ListRealtimeLogConfigsRequestTypeDef]
+    ) -> ListRealtimeLogConfigsResultTypeDef:
+        """
+        Gets a list of real-time log configurations.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_realtime_log_configs.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_realtime_log_configs)
+        """
+
+    def list_response_headers_policies(
+        self, **kwargs: Unpack[ListResponseHeadersPoliciesRequestTypeDef]
+    ) -> ListResponseHeadersPoliciesResultTypeDef:
+        """
+        Gets a list of response headers policies.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_response_headers_policies.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_response_headers_policies)
+        """
+
+    def list_streaming_distributions(
+        self, **kwargs: Unpack[ListStreamingDistributionsRequestTypeDef]
+    ) -> ListStreamingDistributionsResultTypeDef:
+        """
+        List streaming distributions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_streaming_distributions.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_streaming_distributions)
+        """
+
+    def list_tags_for_resource(
+        self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
+    ) -> ListTagsForResourceResultTypeDef:
+        """
+        List tags for a CloudFront resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_tags_for_resource.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_tags_for_resource)
+        """
+
+    def list_trust_stores(
+        self, **kwargs: Unpack[ListTrustStoresRequestTypeDef]
+    ) -> ListTrustStoresResultTypeDef:
+        """
+        Lists trust stores.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_trust_stores.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_trust_stores)
+        """
+
+    def list_vpc_origins(
+        self, **kwargs: Unpack[ListVpcOriginsRequestTypeDef]
+    ) -> ListVpcOriginsResultTypeDef:
+        """
+        List the CloudFront VPC origins in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_vpc_origins.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_vpc_origins)
+        """
+
+    def publish_connection_function(
+        self, **kwargs: Unpack[PublishConnectionFunctionRequestTypeDef]
+    ) -> PublishConnectionFunctionResultTypeDef:
+        """
+        Publishes a connection function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/publish_connection_function.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#publish_connection_function)
+        """
+
+    def publish_function(
+        self, **kwargs: Unpack[PublishFunctionRequestTypeDef]
+    ) -> PublishFunctionResultTypeDef:
+        """
+        Publishes a CloudFront function by copying the function code from the
+        <code>DEVELOPMENT</code> stage to <code>LIVE</code>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/publish_function.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#publish_function)
+        """
+
+    def put_resource_policy(
+        self, **kwargs: Unpack[PutResourcePolicyRequestTypeDef]
+    ) -> PutResourcePolicyResultTypeDef:
+        """
+        Creates a resource control policy for a given CloudFront resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/put_resource_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#put_resource_policy)
+        """
+
+    def tag_resource(
+        self, **kwargs: Unpack[TagResourceRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Add tags to a CloudFront resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/tag_resource.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#tag_resource)
+        """
+
+    def test_connection_function(
+        self, **kwargs: Unpack[TestConnectionFunctionRequestTypeDef]
+    ) -> TestConnectionFunctionResultTypeDef:
+        """
+        Tests a connection function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/test_connection_function.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#test_connection_function)
+        """
+
+    def test_function(
+        self, **kwargs: Unpack[TestFunctionRequestTypeDef]
+    ) -> TestFunctionResultTypeDef:
+        """
+        Tests a CloudFront function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/test_function.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#test_function)
+        """
+
+    def untag_resource(
+        self, **kwargs: Unpack[UntagResourceRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Remove tags from a CloudFront resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/untag_resource.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#untag_resource)
+        """
+
+    def update_anycast_ip_list(
+        self, **kwargs: Unpack[UpdateAnycastIpListRequestTypeDef]
+    ) -> UpdateAnycastIpListResultTypeDef:
+        """
+        Updates an Anycast static IP list.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_anycast_ip_list.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#update_anycast_ip_list)
+        """
+
+    def update_cache_policy(
+        self, **kwargs: Unpack[UpdateCachePolicyRequestTypeDef]
+    ) -> UpdateCachePolicyResultTypeDef:
+        """
+        Updates a cache policy configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_cache_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#update_cache_policy)
+        """
+
+    def update_cloud_front_origin_access_identity(
+        self, **kwargs: Unpack[UpdateCloudFrontOriginAccessIdentityRequestTypeDef]
+    ) -> UpdateCloudFrontOriginAccessIdentityResultTypeDef:
+        """
+        Update an origin access identity.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_cloud_front_origin_access_identity.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#update_cloud_front_origin_access_identity)
+        """
+
+    def update_connection_function(
+        self, **kwargs: Unpack[UpdateConnectionFunctionRequestTypeDef]
+    ) -> UpdateConnectionFunctionResultTypeDef:
+        """
+        Updates a connection function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_connection_function.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#update_connection_function)
+        """
+
+    def update_connection_group(
+        self, **kwargs: Unpack[UpdateConnectionGroupRequestTypeDef]
+    ) -> UpdateConnectionGroupResultTypeDef:
+        """
+        Updates a connection group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_connection_group.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#update_connection_group)
+        """
+
+    def update_continuous_deployment_policy(
+        self, **kwargs: Unpack[UpdateContinuousDeploymentPolicyRequestTypeDef]
+    ) -> UpdateContinuousDeploymentPolicyResultTypeDef:
+        """
+        Updates a continuous deployment policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_continuous_deployment_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#update_continuous_deployment_policy)
+        """
+
+    def update_distribution(
+        self, **kwargs: Unpack[UpdateDistributionRequestTypeDef]
+    ) -> UpdateDistributionResultTypeDef:
+        """
+        Updates the configuration for a CloudFront distribution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_distribution.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#update_distribution)
+        """
+
+    def update_distribution_tenant(
+        self, **kwargs: Unpack[UpdateDistributionTenantRequestTypeDef]
+    ) -> UpdateDistributionTenantResultTypeDef:
+        """
+        Updates a distribution tenant.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_distribution_tenant.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#update_distribution_tenant)
+        """
+
+    def update_distribution_with_staging_config(
+        self, **kwargs: Unpack[UpdateDistributionWithStagingConfigRequestTypeDef]
+    ) -> UpdateDistributionWithStagingConfigResultTypeDef:
+        """
+        Copies the staging distribution's configuration to its corresponding primary
+        distribution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_distribution_with_staging_config.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#update_distribution_with_staging_config)
+        """
+
+    def update_domain_association(
+        self, **kwargs: Unpack[UpdateDomainAssociationRequestTypeDef]
+    ) -> UpdateDomainAssociationResultTypeDef:
+        """
+        <note> <p>We recommend that you use the <code>UpdateDomainAssociation</code>
+        API operation to move a domain association, as it supports both standard
+        distributions and distribution tenants.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_domain_association.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#update_domain_association)
+        """
+
+    def update_field_level_encryption_config(
+        self, **kwargs: Unpack[UpdateFieldLevelEncryptionConfigRequestTypeDef]
+    ) -> UpdateFieldLevelEncryptionConfigResultTypeDef:
+        """
+        Update a field-level encryption configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_field_level_encryption_config.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#update_field_level_encryption_config)
+        """
+
+    def update_field_level_encryption_profile(
+        self, **kwargs: Unpack[UpdateFieldLevelEncryptionProfileRequestTypeDef]
+    ) -> UpdateFieldLevelEncryptionProfileResultTypeDef:
+        """
+        Update a field-level encryption profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_field_level_encryption_profile.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#update_field_level_encryption_profile)
+        """
+
+    def update_function(
+        self, **kwargs: Unpack[UpdateFunctionRequestTypeDef]
+    ) -> UpdateFunctionResultTypeDef:
+        """
+        Updates a CloudFront function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_function.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#update_function)
+        """
+
+    def update_key_group(
+        self, **kwargs: Unpack[UpdateKeyGroupRequestTypeDef]
+    ) -> UpdateKeyGroupResultTypeDef:
+        """
+        Updates a key group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_key_group.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#update_key_group)
+        """
+
+    def update_key_value_store(
+        self, **kwargs: Unpack[UpdateKeyValueStoreRequestTypeDef]
+    ) -> UpdateKeyValueStoreResultTypeDef:
+        """
+        Specifies the key value store to update.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_key_value_store.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#update_key_value_store)
+        """
+
+    def update_origin_access_control(
+        self, **kwargs: Unpack[UpdateOriginAccessControlRequestTypeDef]
+    ) -> UpdateOriginAccessControlResultTypeDef:
+        """
+        Updates a CloudFront origin access control.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_origin_access_control.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#update_origin_access_control)
+        """
+
+    def update_origin_request_policy(
+        self, **kwargs: Unpack[UpdateOriginRequestPolicyRequestTypeDef]
+    ) -> UpdateOriginRequestPolicyResultTypeDef:
+        """
+        Updates an origin request policy configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_origin_request_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#update_origin_request_policy)
+        """
+
+    def update_public_key(
+        self, **kwargs: Unpack[UpdatePublicKeyRequestTypeDef]
+    ) -> UpdatePublicKeyResultTypeDef:
+        """
+        Update public key information.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_public_key.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#update_public_key)
+        """
+
+    def update_realtime_log_config(
+        self, **kwargs: Unpack[UpdateRealtimeLogConfigRequestTypeDef]
+    ) -> UpdateRealtimeLogConfigResultTypeDef:
+        """
+        Updates a real-time log configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_realtime_log_config.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#update_realtime_log_config)
+        """
+
+    def update_response_headers_policy(
+        self, **kwargs: Unpack[UpdateResponseHeadersPolicyRequestTypeDef]
+    ) -> UpdateResponseHeadersPolicyResultTypeDef:
+        """
+        Updates a response headers policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_response_headers_policy.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#update_response_headers_policy)
+        """
+
+    def update_streaming_distribution(
+        self, **kwargs: Unpack[UpdateStreamingDistributionRequestTypeDef]
+    ) -> UpdateStreamingDistributionResultTypeDef:
+        """
+        Update a streaming distribution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_streaming_distribution.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#update_streaming_distribution)
+        """
+
+    def update_trust_store(
+        self, **kwargs: Unpack[UpdateTrustStoreRequestTypeDef]
+    ) -> UpdateTrustStoreResultTypeDef:
+        """
+        Updates a trust store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_trust_store.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#update_trust_store)
+        """
+
+    def update_vpc_origin(
+        self, **kwargs: Unpack[UpdateVpcOriginRequestTypeDef]
+    ) -> UpdateVpcOriginResultTypeDef:
+        """
+        Update an Amazon CloudFront VPC origin in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_vpc_origin.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#update_vpc_origin)
+        """
+
+    def verify_dns_configuration(
+        self, **kwargs: Unpack[VerifyDnsConfigurationRequestTypeDef]
+    ) -> VerifyDnsConfigurationResultTypeDef:
+        """
+        Verify the DNS configuration for your domain names.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/verify_dns_configuration.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#verify_dns_configuration)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_cloud_front_origin_access_identities"]
+    ) -> ListCloudFrontOriginAccessIdentitiesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_connection_functions"]
+    ) -> ListConnectionFunctionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_connection_groups"]
+    ) -> ListConnectionGroupsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_distribution_tenants_by_customization"]
+    ) -> ListDistributionTenantsByCustomizationPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_distribution_tenants"]
+    ) -> ListDistributionTenantsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_distributions_by_connection_function"]
+    ) -> ListDistributionsByConnectionFunctionPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_distributions_by_connection_mode"]
+    ) -> ListDistributionsByConnectionModePaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_distributions_by_trust_store"]
+    ) -> ListDistributionsByTrustStorePaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_distributions"]
+    ) -> ListDistributionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_domain_conflicts"]
+    ) -> ListDomainConflictsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_invalidations_for_distribution_tenant"]
+    ) -> ListInvalidationsForDistributionTenantPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_invalidations"]
+    ) -> ListInvalidationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_key_value_stores"]
+    ) -> ListKeyValueStoresPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_origin_access_controls"]
+    ) -> ListOriginAccessControlsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_public_keys"]
+    ) -> ListPublicKeysPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_streaming_distributions"]
+    ) -> ListStreamingDistributionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_trust_stores"]
+    ) -> ListTrustStoresPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["distribution_deployed"]
+    ) -> DistributionDeployedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_waiter.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["invalidation_completed"]
+    ) -> InvalidationCompletedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_waiter.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["invalidation_for_distribution_tenant_completed"]
+    ) -> InvalidationForDistributionTenantCompletedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_waiter.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["streaming_distribution_deployed"]
+    ) -> StreamingDistributionDeployedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_waiter.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#get_waiter)
+        """

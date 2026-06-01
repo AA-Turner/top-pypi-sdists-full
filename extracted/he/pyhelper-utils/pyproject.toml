@@ -1,0 +1,77 @@
+[project]
+name = "pyhelper-utils"
+version = "2.0.3"
+description = "Collective utility functions for python projects"
+requires-python = ">=3.10"
+readme = "README.md"
+license = "Apache-2.0"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent"
+]
+dependencies = [
+  "python-simple-logger>=2.0.0,<3",
+  "requests>=2.31.0,<3",
+  "rich>=15,<16",
+  "ipdb>=0.13.13,<0.14",
+  "python-rrmngmnt>=0.1.32",
+  "paramiko>=5,<6",
+  "timeout-sampler>=0.0.29",
+]
+
+  [[project.authors]]
+  name = "Meni Yakove"
+  email = "myakove@gmail.com"
+
+  [[project.authors]]
+  name = "Ruth Netser"
+  email = "rnetser@gmail.com"
+
+  [[project.authors]]
+  name = "Debarati Basu-Nag"
+  email = "dbasunag@redhat.com"
+
+  [project.urls]
+  Homepage = "https://github.com/RedHatQE/pyhelper-utils"
+  Repository = "https://github.com/RedHatQE/pyhelper-utils"
+  Documentation = "https://github.com/RedHatQE/pyhelper-utils/blob/main/README.md"
+
+[tool.coverage.run]
+omit = [ "tests/*" ]
+
+[tool.coverage.report]
+fail_under = 90
+skip_empty = true
+
+[tool.coverage.html]
+directory = ".tests_coverage"
+
+[tool.uv]
+default-groups = [ "tests", "dev" ]
+
+[tool.hatch.build.targets.sdist]
+include = [ "pyhelper_utils" ]
+
+[tool.hatch.build.targets.wheel]
+include = [ "pyhelper_utils" ]
+
+[tool.ruff]
+preview = true
+line-length = 120
+fix = true
+output-format = "grouped"
+
+  [tool.ruff.format]
+  exclude = [ ".git", ".venv", ".mypy_cache", ".tox", "__pycache__" ]
+
+[dependency-groups]
+tests = [
+  "pytest>=9.0.0,<10",
+  "pytest-cov>=7,<8",
+  "pytest-mock>=3.14.0,<4"
+]
+dev = [ "ipython" ]
+
+[build-system]
+requires = [ "hatchling" ]
+build-backend = "hatchling.build"

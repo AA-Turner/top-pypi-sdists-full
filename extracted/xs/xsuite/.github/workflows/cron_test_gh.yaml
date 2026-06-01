@@ -1,0 +1,20 @@
+# This is a workflow that should run daily
+name: Daily test (GitHub, CPU)
+
+# Controls when the action will run.
+on:
+  schedule:
+    - cron: '00 19 * * *'  # run at 19:00 UTC daily
+
+# This workflow calls the test_gh.yaml workflow passing the default
+# branches as inputs
+jobs:
+  run-tests-cron-gh:
+    uses: ./.github/workflows/test_gh.yaml
+    with:
+      xobjects_test_contexts: "ContextCpu"
+  run-tests-cron-gh-precompiled:
+    uses: ./.github/workflows/test_gh.yaml
+    with:
+      precompile_kernels: true
+      xobjects_test_contexts: "ContextCpu"

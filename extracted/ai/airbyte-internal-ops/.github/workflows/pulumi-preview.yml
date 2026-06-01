@@ -1,0 +1,219 @@
+name: Pulumi Preview
+
+on:
+  pull_request:
+    paths:
+      - 'infra/**'
+      - '.github/workflows/pulumi-preview.yml'
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write
+  id-token: write  # For GCP Workload Identity Federation
+
+jobs:
+  detect-changes:
+    name: Detect Changed Stacks
+    runs-on: ubuntu-latest
+    outputs:
+      stacks: ${{ steps.detect.outputs.stacks }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Detect changed paths
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            sentry:
+              - 'infra/sentry/**'
+            agent-message-bus:
+              - 'infra/agent-message-bus/**'
+            workflow:
+              - '.github/workflows/pulumi-preview.yml'
+
+      - name: Build stack matrix
+        id: detect
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const stacks = [];
+            const workflowChanged = ${{ steps.changes.outputs.workflow }};
+            if (${{ steps.changes.outputs.sentry }} || workflowChanged) {
+              stacks.push({name: 'sentry', dir: 'infra/sentry'});
+            }
+            if (${{ steps.changes.outputs['agent-message-bus'] }} || workflowChanged) {
+              stacks.push({name: 'agent-message-bus', dir: 'infra/agent-message-bus'});
+            }
+            const result = JSON.stringify(stacks);
+            core.setOutput('stacks', result);
+            core.info(`Detected stacks: ${result}`);
+
+  preview:
+    name: "Preview: ${{ matrix.stack.name }}"
+    needs: detect-changes
+    if: needs.detect-changes.outputs.stacks != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: ${{ fromJson(needs.detect-changes.outputs.stacks) }}
+    defaults:
+      run:
+        working-directory: ${{ matrix.stack.dir }}
+    steps:
+      - name: Authenticate as GitHub App
+        uses: actions/create-github-app-token@v2
+        id: get-app-token
+        with:
+          app-id: ${{ secrets.OCTAVIA_BOT_APP_ID }}
+          private-key: ${{ secrets.OCTAVIA_BOT_PRIVATE_KEY }}
+
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install Pulumi CLI
+        uses: pulumi/setup-pulumi@v2
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      # ---------- Stack-specific setup ----------
+
+      # Sentry: generate the Terraform-bridged provider SDK
+      - name: Generate Sentry provider SDK
+        if: matrix.stack.name == 'sentry'
+        env:
+          GITHUB_TOKEN: ${{ steps.get-app-token.outputs.token }}
+        run: pulumi package add terraform-provider jianyuan/sentry 0.14.13
+
+      # GCP stacks: authenticate via Workload Identity Federation
+      - name: Authenticate to GCP (WIF)
+        if: matrix.stack.name == 'agent-message-bus'
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/351139268520/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-actions-ci@internal-airbyte-ai-infra.iam.gserviceaccount.com
+
+      # ---------- Install dependencies into the Pulumi venv ----------
+      # Pulumi.yaml sets 'virtualenv: venv', so Pulumi runs code from venv/.
+      # We pre-install deps here; for sentry the venv may already exist
+      # (created by 'pulumi package add'), so we tolerate that.
+      - name: Install Python dependencies
+        run: |
+          uv venv venv 2>/dev/null || true
+          VIRTUAL_ENV=venv uv pip install -r requirements.txt
+
+      # ---------- State backend: artifact-based (Sentry) ----------
+
+      - name: Download state artifact
+        if: matrix.stack.name == 'sentry'
+        id: download-state
+        continue-on-error: true
+        uses: dawidd6/action-download-artifact@v13
+        with:
+          name: pulumi-${{ matrix.stack.name }}-state
+          path: ${{ github.workspace }}/${{ matrix.stack.dir }}/.pulumi-state
+          workflow: pulumi-apply-command.yml
+          branch: main
+          workflow_conclusion: success
+          search_artifacts: true
+          if_no_artifact_found: warn
+
+      - name: Initialize artifact backend
+        if: matrix.stack.name == 'sentry'
+        env:
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+        run: |
+          BACKEND_DIR="${{ github.workspace }}/${{ matrix.stack.dir }}/.pulumi-state"
+          mkdir -p "$BACKEND_DIR"
+          pulumi login "file://$BACKEND_DIR"
+          [ -d "$BACKEND_DIR/.pulumi/stacks" ] && echo "State restored from artifact" || echo "No existing state found, starting fresh"
+
+      # ---------- State backend: GCS (agent-message-bus) ----------
+
+      - name: Initialize GCS backend
+        if: matrix.stack.name == 'agent-message-bus'
+        run: pulumi login gs://internal-airbyte-ai-infra-pulumi-state
+
+      # ---------- Select stack and preview ----------
+
+      - name: Select stack
+        env:
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+        run: pulumi stack select prod --create
+
+      - name: Pulumi Preview (Summary)
+        id: preview
+        env:
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+          # Sentry auth (only used by sentry stack)
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN_READONLY }}
+        run: |
+          pulumi preview --stack prod 2>&1 | tee /tmp/pulumi-preview.txt
+          echo "preview_output<<EOF" >> $GITHUB_OUTPUT
+          cat /tmp/pulumi-preview.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Pulumi Preview (Detailed Diff)
+        id: preview_diff
+        env:
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN_READONLY }}
+        run: |
+          pulumi preview --stack prod --diff 2>&1 | tee /tmp/pulumi-preview-diff.txt
+          echo "preview_diff_output<<EOF" >> $GITHUB_OUTPUT
+          cat /tmp/pulumi-preview-diff.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      # ---------- PR comment ----------
+
+      - name: Find existing preview comment
+        uses: peter-evans/find-comment@v4
+        id: find-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'octavia-bot[bot]'
+          body-includes: '<!-- pulumi-preview-${{ matrix.stack.name }} -->'
+          token: ${{ steps.get-app-token.outputs.token }}
+
+      - name: Create or update preview comment
+        uses: peter-evans/create-or-update-comment@v5
+        with:
+          token: ${{ steps.get-app-token.outputs.token }}
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          edit-mode: replace
+          body: |
+            <!-- pulumi-preview-${{ matrix.stack.name }} -->
+            #### 🔮 Pulumi Preview: `${{ matrix.stack.name }}`
+
+            <details><summary>📋 Summary (readable overview)</summary>
+
+            ```
+            ${{ steps.preview.outputs.preview_output }}
+            ```
+
+            </details>
+
+            <details><summary>🔍 Detailed Diff (property-level changes for audit)</summary>
+
+            ```diff
+            ${{ steps.preview_diff.outputs.preview_diff_output }}
+            ```
+
+            </details>
+
+            *Pushed by: @${{ github.actor }}, Action: `${{ github.event_name }}`*
+
+            ---
+            🚀 These changes will be applied when this PR is merged to `main`. Alternatively, you can run `/pulumi-apply` to apply these changes now, before merging.

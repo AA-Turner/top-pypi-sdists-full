@@ -1,0 +1,147 @@
+name: Devin Session Triage
+run-name: "Triage Devin Session (${{ inputs.session_url }})"
+
+on:
+  workflow_dispatch:
+    inputs:
+      session_url:
+        description: >
+          Devin session URL to triage (e.g., https://app.devin.ai/sessions/abc123).
+          This session will be linked via the v3 API so the triage session can
+          inspect its full conversation history.
+        required: true
+        type: string
+      feedback_context:
+        description: >
+          Feedback context to include in the triage prompt. This is the
+          structured feedback message from the session_feedback tool.
+        required: true
+        type: string
+      reporting_user:
+        description: >
+          The person who reported the feedback. Accepts an email address,
+          a GitHub handle, or a Slack user ID.
+        required: false
+        type: string
+      session_playbook:
+        description: >
+          Devin playbook ID associated with the session, or 'none' when no
+          playbook is associated.
+        required: true
+        type: string
+      related_skill_name:
+        description: >
+          Optional skill ID associated with the feedback when a related skill
+          needs updates or is suspected of having issues.
+        required: false
+        type: string
+      cc_persons:
+        description: >
+          Comma-separated additional people to tag in the Slack notification.
+        required: false
+        type: string
+      header_emoji:
+        description: >
+          Emoji for the Slack message header (e.g. ':warning:').
+        required: false
+        type: string
+      header_label:
+        description: >
+          Label for the Slack message header (e.g. 'Devin Session Feedback (Negative)').
+        required: false
+        type: string
+      context_footer:
+        description: >
+          Footer text for the Slack message.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  triage-session:
+    name: Triage Devin Session (v3 Analyze)
+    runs-on: ubuntu-latest
+    outputs:
+      triage-session-url: ${{ steps.launch-triage.outputs.session-url }}
+      additional-actions: ${{ steps.build-actions.outputs.additional_actions }}
+    steps:
+      - name: Launch Devin triage session
+        id: launch-triage
+        uses: aaronsteers/devin-action@main
+        with:
+          devin-token: ${{ secrets.DEVIN_AI_ADMIN_SERVICE_TOKEN }}
+          api-version: v3
+          prompt-text: |
+            !devin_feedback_triage
+
+            ## Session Under Review
+
+            ${{ inputs.session_url }}
+
+            ## Feedback Context
+
+            Reported by: ${{ inputs.reporting_user }}
+            Session playbook: ${{ inputs.session_playbook }}
+            Related skill name: ${{ inputs.related_skill_name || 'none' }}
+
+            ${{ inputs.feedback_context }}
+          advanced-mode: analyze
+          session-links: ${{ inputs.session_url }}
+          org-id: ${{ vars.DEVIN_AI_ORG_ID }}
+          max-acu-limit: 5
+          tags: |
+            session-triage
+            automated-feedback-triage
+
+      - name: Build additional actions JSON
+        id: build-actions
+        if: steps.launch-triage.outputs.session-url != ''
+        env:
+          TRIAGE_URL: ${{ steps.launch-triage.outputs.session-url }}
+        shell: bash
+        run: |
+          additional_actions=$(jq -cn --arg url "$TRIAGE_URL" '{"View Auto-Triage Session": $url}')
+          {
+            echo "additional_actions<<EOF"
+            echo "$additional_actions"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+  notify-slack:
+    name: Notify Slack via HITL
+    needs: triage-session
+    if: needs.triage-session.outputs.triage-session-url != ''
+    uses: ./.github/workflows/human-in-the-loop.yml
+    with:
+      target_person: ${{ inputs.reporting_user || 'aaronsteers' }}
+      cc_persons: ${{ inputs.cc_persons }}
+      message: ${{ inputs.feedback_context }}
+      agent_session_url: ${{ inputs.session_url }}
+      additional_actions: ${{ needs.triage-session.outputs.additional-actions }}
+      channel_override: "C0ACUHRP6B1"
+      header_emoji: ${{ inputs.header_emoji || ':mag:' }}
+      header_label: ${{ inputs.header_label || 'Auto-Triage In Progress' }}
+      context_footer: ${{ inputs.context_footer || 'This feedback is being automatically triaged. Results will appear in the linked triage session.' }}
+    secrets: inherit
+
+  forward-thread-to-triage:
+    name: Forward Slack Thread URL to Triage Session
+    needs: [triage-session, notify-slack]
+    if: >-
+      needs.triage-session.outputs.triage-session-url != '' &&
+      needs.notify-slack.outputs.thread_url != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send thread URL to triage session
+        uses: aaronsteers/devin-action@main
+        with:
+          devin-token: ${{ secrets.DEVIN_AI_ADMIN_SERVICE_TOKEN }}
+          reuse-session: ${{ needs.triage-session.outputs.triage-session-url }}
+          org-id: ${{ vars.DEVIN_AI_ORG_ID }}
+          prompt-text: >-
+            Post your triage findings as a reply to this Slack thread using the
+            devin_session_feedback_followup MCP tool on the airbyte-ops-mcp
+            server: ${{ needs.notify-slack.outputs.thread_url }}

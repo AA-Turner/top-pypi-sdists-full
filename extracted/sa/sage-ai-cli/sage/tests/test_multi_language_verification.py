@@ -153,3 +153,35 @@ def test_prompt_enhancements_and_stack_profile(tmp_path):
         assert "Self-Assessment Post-Mortem" in prompt
         assert "Root-Level Configuration Guardrails" in prompt
 
+
+def test_bun_and_pythonpath_verification(tmp_path, monkeypatch):
+    """Verify Bun detection and PYTHONPATH environment generation in verifiers."""
+    monkeypatch.setattr(shutil, "which", lambda cmd: f"/usr/bin/{cmd}" if cmd in {"bun", "python", "pytest"} else None)
+
+    # 1. Node/Bun project
+    node_dir = tmp_path / "node_proj"
+    node_dir.mkdir()
+    (node_dir / "package.json").write_text('{"name": "test", "scripts": {"test": "bun test"}}')
+    (node_dir / "bun.lockb").write_text("")
+
+    node_project = DiscoveredProject(kind="node", root=node_dir)
+    steps = verify_project(node_project)
+    
+    assert any(s.name == "bun install" for s in steps)
+    assert any(s.name == "bun test" for s in steps)
+
+    # 2. Python project with nested app folder
+    py_dir = tmp_path / "py_proj"
+    py_dir.mkdir()
+    (py_dir / "requirements.txt").write_text("")
+    (py_dir / "app").mkdir()
+    (py_dir / "app" / "main.py").write_text("")
+
+    py_project = DiscoveredProject(kind="python", root=py_dir)
+    steps = verify_project(py_project)
+
+    assert len(steps) >= 4
+    assert any(s.name == "python compile" for s in steps)
+    assert any(s.name == "python import check" for s in steps)
+
+

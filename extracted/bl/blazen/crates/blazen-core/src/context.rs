@@ -1,0 +1,1205 @@
+//! Shared workflow state accessible by all steps.
+//!
+//! [`Context`] wraps an `Arc<RwLock<ContextInner>>` so it can be cheaply
+//! cloned and shared across concurrent step executions. It provides:
+//!
+//! - Typed key/value state storage (backed by JSON for serializability)
+//! - Event emission to the internal routing queue
+//! - Fan-in event collection
+//! - Publishing events to the external streaming channel
+//! - Workflow metadata (e.g. run ID)
+//! - State snapshotting and restoration for pause/resume/checkpoint
+
+use std::any::Any;
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use blazen_events::{AnyEvent, Event, EventEnvelope};
+use blazen_llm::retry::{RetryConfig, RetryStack};
+use serde::Serialize;
+use serde::de::DeserializeOwned;
+use tokio::sync::{RwLock, broadcast, mpsc};
+use uuid::Uuid;
+
+use crate::value::{BytesWrapper, StateValue};
+
+/// Type alias for the state map (supports both JSON and binary values).
+type StateMap = HashMap<String, StateValue>;
+
+/// Internal state behind the `Arc<RwLock<_>>`.
+struct ContextInner {
+    /// JSON-serialized key/value store shared across all steps.
+    state: StateMap,
+    /// Sender side of the internal event routing channel.
+    event_tx: mpsc::UnboundedSender<EventEnvelope>,
+    /// Sender side of the external broadcast channel for streaming.
+    stream_tx: broadcast::Sender<Box<dyn AnyEvent>>,
+    /// Fan-in accumulator keyed by event type string. Holds LIVE events
+    /// (not pre-serialized JSON) so native handles survive collection;
+    /// serialization happens lazily only at [`Context::snapshot_collected`].
+    collected: HashMap<String, Vec<Box<dyn AnyEvent>>>,
+    /// Arbitrary JSON metadata (e.g. `run_id`, workflow name).
+    metadata: HashMap<String, serde_json::Value>,
+    /// String-keyed index into [`Self::session_refs`] for objects
+    /// inserted via [`Context::set_object`]. Folds the former
+    /// string-keyed `objects` bag into the unified session-ref store:
+    /// the live value lives in `session_refs` under
+    /// [`crate::session_ref::RefLifetime::UntilContextDrop`] (so it is
+    /// excluded from snapshots and drained on termination exactly as
+    /// before), and this map preserves the string-key API.
+    object_keys: HashMap<String, crate::session_ref::RegistryKey>,
+    /// Session-scoped live reference registry. Auto-routed values from
+    /// event payloads land here, keyed by Uuid. Excluded from snapshots
+    /// in the same way `objects` is.
+    session_refs: Arc<crate::session_ref::SessionRefRegistry>,
+    /// Per-workflow snapshot policy for session refs.
+    session_pause_policy: crate::session_ref::SessionPausePolicy,
+    /// Optional handle to a peer client for distributed workflow RPCs.
+    /// Only available when the `distributed` feature is enabled.
+    #[cfg(feature = "distributed")]
+    peer_client: Option<Arc<dyn crate::distributed::PeerClient>>,
+    /// Whether this `Context` owns its session ref registry or borrows
+    /// one supplied by a parent workflow (pipeline or distributed
+    /// caller). Borrowed registries MUST NOT have their default-lifetime
+    /// refs drained by this context — the parent still needs to resolve
+    /// refs emitted by this child.
+    ///
+    /// Set to `true` for contexts created via [`Context::new`] (fresh
+    /// registry) and `false` for contexts created via
+    /// [`Context::new_with_session_refs`] (borrowed registry).
+    ///
+    /// Phase 11.2's `RefLifetime::UntilParentFinish` now supersedes
+    /// the tactical `owns_registry` flag semantically. The flag is
+    /// retained internally to make
+    /// [`crate::session_ref::SessionRefRegistry::clear_on_context_drop`]
+    /// compute the right default behavior for `UntilParentFinish`
+    /// refs (only the owning side actually purges them), but
+    /// user-facing lifetime control flows through the
+    /// [`crate::session_ref::RefLifetime`] enum.
+    owns_registry: bool,
+}
+
+/// Shared workflow context.
+///
+/// Cheaply clonable handle to the shared state. Every step receives a
+/// `Context` and can read/write state, emit events, and publish to the
+/// external stream.
+///
+/// State values are stored as JSON internally, enabling serialization for
+/// pause/resume/checkpoint functionality. Users can still use ergonomic
+/// typed accessors (`set`/`get`) as long as their types implement
+/// `Serialize`/`DeserializeOwned`.
+#[derive(Clone)]
+pub struct Context {
+    inner: Arc<RwLock<ContextInner>>,
+    /// Per-clone retry stack. Lives outside the inner lock so concurrent
+    /// step clones can carry different stacks without contention. Cloned
+    /// (Arc-bumped) cheaply when cloning Context.
+    retry_stack: RetryStack,
+}
+
+impl Context {
+    // -----------------------------------------------------------------
+    // Construction (crate-internal)
+    // -----------------------------------------------------------------
+
+    /// Create a new context wired to the given channels with a freshly
+    /// created empty registry. The returned context OWNS its registry
+    /// and will drain it on `clear_session_refs()`.
+    pub(crate) fn new(
+        event_tx: mpsc::UnboundedSender<EventEnvelope>,
+        stream_tx: broadcast::Sender<Box<dyn AnyEvent>>,
+    ) -> Self {
+        Self {
+            inner: Arc::new(RwLock::new(ContextInner {
+                state: HashMap::new(),
+                event_tx,
+                stream_tx,
+                collected: HashMap::new(),
+                metadata: HashMap::new(),
+                object_keys: HashMap::new(),
+                session_refs: Arc::new(crate::session_ref::SessionRefRegistry::new()),
+                session_pause_policy: crate::session_ref::SessionPausePolicy::default(),
+                #[cfg(feature = "distributed")]
+                peer_client: None,
+                owns_registry: true,
+            })),
+            retry_stack: RetryStack::default(),
+        }
+    }
+
+    /// Create a new context wired to the given channels with an
+    /// externally-supplied session-ref registry.
+    ///
+    /// Used by the pipeline crate and by parent workflows that invoke
+    /// sub-workflows via `run_with_registry` to share one registry
+    /// across multiple workflow runs so cross-workflow
+    /// `__blazen_session_ref__` markers remain resolvable.
+    ///
+    /// The returned context BORROWS the registry. Its
+    /// [`Context::clear_session_refs`] is a no-op — the parent owns the
+    /// registry's lifetime and is responsible for draining it.
+    pub(crate) fn new_with_session_refs(
+        event_tx: mpsc::UnboundedSender<EventEnvelope>,
+        stream_tx: broadcast::Sender<Box<dyn AnyEvent>>,
+        session_refs: Arc<crate::session_ref::SessionRefRegistry>,
+    ) -> Self {
+        Self {
+            inner: Arc::new(RwLock::new(ContextInner {
+                state: HashMap::new(),
+                event_tx,
+                stream_tx,
+                collected: HashMap::new(),
+                metadata: HashMap::new(),
+                object_keys: HashMap::new(),
+                session_refs,
+                session_pause_policy: crate::session_ref::SessionPausePolicy::default(),
+                #[cfg(feature = "distributed")]
+                peer_client: None,
+                owns_registry: false,
+            })),
+            retry_stack: RetryStack::default(),
+        }
+    }
+
+    /// Create a new context with a pre-wired peer client for distributed
+    /// RPCs. The context borrows the supplied session-ref registry (same
+    /// semantics as [`new_with_session_refs`](Self::new_with_session_refs)).
+    #[cfg(feature = "distributed")]
+    #[allow(dead_code)]
+    pub(crate) fn new_with_peer(
+        event_tx: mpsc::UnboundedSender<EventEnvelope>,
+        stream_tx: broadcast::Sender<Box<dyn AnyEvent>>,
+        session_refs: Arc<crate::session_ref::SessionRefRegistry>,
+        peer_client: Arc<dyn crate::distributed::PeerClient>,
+    ) -> Self {
+        Self {
+            inner: Arc::new(RwLock::new(ContextInner {
+                state: HashMap::new(),
+                event_tx,
+                stream_tx,
+                collected: HashMap::new(),
+                metadata: HashMap::new(),
+                object_keys: HashMap::new(),
+                session_refs,
+                session_pause_policy: crate::session_ref::SessionPausePolicy::default(),
+                peer_client: Some(peer_client),
+                owns_registry: false,
+            })),
+            retry_stack: RetryStack::default(),
+        }
+    }
+
+    // -----------------------------------------------------------------
+    // Distributed peer access
+    // -----------------------------------------------------------------
+
+    /// Get a clone of the peer client handle, if one was configured.
+    ///
+    /// Returns `None` when the context was constructed without a peer
+    /// client (i.e. for non-distributed workflows).
+    #[cfg(feature = "distributed")]
+    pub async fn peer_client(&self) -> Option<Arc<dyn crate::distributed::PeerClient>> {
+        let inner = self.inner.read().await;
+        inner.peer_client.clone()
+    }
+
+    /// Attach a peer client to an already-constructed context.
+    ///
+    /// Used by the distributed runtime to inject the client after initial
+    /// context creation (e.g. when the peer connection is established
+    /// after the workflow is built).
+    #[cfg(feature = "distributed")]
+    #[allow(dead_code)]
+    pub(crate) async fn set_peer_client(&self, client: Arc<dyn crate::distributed::PeerClient>) {
+        let mut inner = self.inner.write().await;
+        inner.peer_client = Some(client);
+    }
+
+    // -----------------------------------------------------------------
+    // Retry stack accessors
+    // -----------------------------------------------------------------
+
+    /// Returns a reference to this context's per-clone retry stack.
+    #[must_use]
+    pub fn retry_stack(&self) -> &RetryStack {
+        &self.retry_stack
+    }
+
+    /// Resolve the effective retry config given an optional per-call override.
+    ///
+    /// The resolver walks `call > step > workflow > pipeline > provider`,
+    /// falling back to [`RetryConfig::default`] when every scope is `None`.
+    #[must_use]
+    pub fn resolved_retry(&self, call: Option<&Arc<RetryConfig>>) -> Arc<RetryConfig> {
+        self.retry_stack.resolve(call)
+    }
+
+    /// Return a clone of this context with the pipeline-scope retry set.
+    /// Use this when a pipeline runtime is dispatching into a workflow.
+    #[must_use]
+    pub fn with_pipeline_retry(mut self, cfg: Option<Arc<RetryConfig>>) -> Self {
+        self.retry_stack.pipeline = cfg;
+        self
+    }
+
+    /// Return a clone of this context with the workflow-scope retry set.
+    #[must_use]
+    pub fn with_workflow_retry(mut self, cfg: Option<Arc<RetryConfig>>) -> Self {
+        self.retry_stack.workflow = cfg;
+        self
+    }
+
+    /// Return a clone of this context with the step-scope retry set.
+    #[must_use]
+    pub fn with_step_retry(mut self, cfg: Option<Arc<RetryConfig>>) -> Self {
+        self.retry_stack.step = cfg;
+        self
+    }
+
+    /// Return a clone of this context with the provider-scope default retry.
+    /// Useful when a step is wrapping an external provider whose
+    /// `retry_config()` getter is `None` and the user wants to inject one.
+    #[must_use]
+    pub fn with_provider_retry(mut self, cfg: Option<Arc<RetryConfig>>) -> Self {
+        self.retry_stack.provider = cfg;
+        self
+    }
+
+    // -----------------------------------------------------------------
+    // Public state accessors
+    // -----------------------------------------------------------------
+
+    /// Store a typed value under `key`.
+    ///
+    /// The value is serialized to JSON before storage. Overwrites any
+    /// previous value stored under the same key regardless of its type.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the value cannot be serialized to JSON. In practice this
+    /// should never happen for well-formed serde types.
+    pub async fn set<T: Serialize + Send + Sync + 'static>(&self, key: &str, value: T) {
+        let json_value =
+            serde_json::to_value(&value).expect("Context::set: value must be JSON-serializable");
+        let mut inner = self.inner.write().await;
+        inner
+            .state
+            .insert(key.to_owned(), StateValue::Json(json_value));
+    }
+
+    /// Retrieve a typed value previously stored under `key`.
+    ///
+    /// The stored JSON is deserialized back into type `T`. Returns `None`
+    /// if the key does not exist or the stored JSON cannot be deserialized
+    /// into `T`.
+    pub async fn get<T: DeserializeOwned + Send + Sync + Clone + 'static>(
+        &self,
+        key: &str,
+    ) -> Option<T> {
+        let inner = self.inner.read().await;
+        inner.state.get(key).and_then(|sv| match sv {
+            StateValue::Json(v) => serde_json::from_value::<T>(v.clone()).ok(),
+            StateValue::Bytes(_) | StateValue::Native(_) => None,
+        })
+    }
+
+    /// Retrieve a typed value, falling back to `default` if the key is
+    /// missing or the stored value cannot be deserialized into `T`.
+    ///
+    /// Convenience wrapper around [`get`](Self::get).
+    pub async fn get_or<T: DeserializeOwned + Send + Sync + Clone + 'static>(
+        &self,
+        key: &str,
+        default: T,
+    ) -> T {
+        self.get::<T>(key).await.unwrap_or(default)
+    }
+
+    /// Store a raw [`StateValue`] directly.
+    ///
+    /// Used by language bindings for polymorphic dispatch (e.g. storing
+    /// platform-serialized opaque objects via [`StateValue::Native`]).
+    pub async fn set_value(&self, key: &str, value: StateValue) {
+        let mut inner = self.inner.write().await;
+        inner.state.insert(key.to_owned(), value);
+    }
+
+    /// Retrieve the raw [`StateValue`] stored under `key`.
+    ///
+    /// Returns `None` if the key does not exist. Unlike [`get`](Self::get),
+    /// this returns the value regardless of its variant.
+    pub async fn get_value(&self, key: &str) -> Option<StateValue> {
+        let inner = self.inner.read().await;
+        inner.state.get(key).cloned()
+    }
+
+    // -----------------------------------------------------------------
+    // Opaque object storage (non-serializable, in-process only)
+    // -----------------------------------------------------------------
+
+    /// Store a live in-process object under `key`.
+    ///
+    /// The object is NOT serialized and will NOT survive snapshots or
+    /// pause/resume. Use this for DB connections, file handles, and other
+    /// resources that must be shared across steps within a single run.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the session-ref registry is at capacity
+    /// (`MAX_SESSION_REFS_PER_RUN`) — a runaway-guard a well-behaved
+    /// workflow never reaches.
+    pub async fn set_object<T: Any + Send + Sync + 'static>(&self, key: &str, value: T) {
+        // Fold the former string-keyed `objects` bag into the unified
+        // session-ref store. The live value is inserted under
+        // `UntilContextDrop` (so it is snapshot-excluded and drained on
+        // termination exactly as `objects` was), and `object_keys`
+        // preserves the string-key API.
+        let (refs, old_key) = {
+            let mut inner = self.inner.write().await;
+            let old = inner.object_keys.remove(key);
+            (inner.session_refs.clone(), old)
+        };
+        if let Some(old) = old_key {
+            refs.remove(old).await;
+        }
+        // `insert_with_lifetime` wraps the value in `Arc::new(value)`,
+        // matching the old `Box::new(value)` storage so `get_object::<T>`
+        // downcasts identically.
+        let id = refs
+            .insert_with_lifetime(value, crate::session_ref::RefLifetime::UntilContextDrop)
+            .await
+            .expect("session ref registry capacity exceeded in set_object");
+        let mut inner = self.inner.write().await;
+        inner.object_keys.insert(key.to_owned(), id);
+    }
+
+    /// Retrieve a live in-process object previously stored under `key`.
+    ///
+    /// Returns `None` if the key does not exist or the stored type does
+    /// not match `T`.
+    pub async fn get_object<T: Any + Send + Sync + Clone + 'static>(&self, key: &str) -> Option<T> {
+        let (refs, id) = {
+            let inner = self.inner.read().await;
+            let id = *inner.object_keys.get(key)?;
+            (inner.session_refs.clone(), id)
+        };
+        // `get::<T>` returns `Arc<T>`; clone the inner `T` to match the
+        // old `downcast_ref::<T>().cloned()` semantics.
+        refs.get::<T>(id).await.map(|arc| (*arc).clone())
+    }
+
+    /// Remove a live in-process object stored under `key`.
+    pub async fn remove_object(&self, key: &str) {
+        let (refs, id) = {
+            let mut inner = self.inner.write().await;
+            match inner.object_keys.remove(key) {
+                Some(id) => (inner.session_refs.clone(), id),
+                None => return,
+            }
+        };
+        refs.remove(id).await;
+    }
+
+    /// Check whether an opaque object exists under `key`.
+    pub async fn has_object(&self, key: &str) -> bool {
+        let inner = self.inner.read().await;
+        inner.object_keys.contains_key(key)
+    }
+
+    // -----------------------------------------------------------------
+    // Session ref registry
+    // -----------------------------------------------------------------
+
+    /// Get a clone of the session ref registry handle for use by language bindings.
+    pub async fn session_refs_arc(&self) -> Arc<crate::session_ref::SessionRefRegistry> {
+        let inner = self.inner.read().await;
+        inner.session_refs.clone()
+    }
+
+    /// Purge session refs from the registry whose
+    /// [`crate::session_ref::RefLifetime`] policy says they should be
+    /// dropped at this point. Called on workflow termination by the
+    /// language bindings to release platform-specific live refs
+    /// (`Py<PyAny>`, `napi::Ref<JsObject>`, etc.) back to their
+    /// respective garbage collectors.
+    ///
+    /// Per-lifetime semantics (delegated to
+    /// [`crate::session_ref::SessionRefRegistry::clear_on_context_drop`]):
+    /// - [`crate::session_ref::RefLifetime::UntilContextDrop`] (default) —
+    ///   purged when **this** [`Context`] owns the registry (i.e. it
+    ///   was constructed via [`Context::new`]). For child contexts
+    ///   that borrow a parent registry via
+    ///   [`Context::new_with_session_refs`], default-lifetime refs
+    ///   are NOT purged because the parent still needs to resolve
+    ///   them — this preserves the pre-Phase-11.2 borrowed-registry
+    ///   no-op behavior.
+    /// - [`crate::session_ref::RefLifetime::UntilExplicitDrop`] — never
+    ///   purged. The caller must invoke
+    ///   [`crate::session_ref::SessionRefRegistry::remove`] explicitly.
+    /// - [`crate::session_ref::RefLifetime::UntilSnapshot`] — never
+    ///   purged here; the snapshot walker handles them.
+    /// - [`crate::session_ref::RefLifetime::UntilParentFinish`] — purged
+    ///   only when **this** [`Context`] owns the registry. For child
+    ///   contexts that borrow a parent registry, these refs survive
+    ///   the child's termination so the parent can still resolve them.
+    ///
+    /// Returns the number of refs actually removed.
+    pub async fn clear_session_refs(&self) -> usize {
+        let inner = self.inner.read().await;
+        inner
+            .session_refs
+            .clear_on_context_drop(inner.owns_registry)
+            .await
+    }
+
+    /// Get the configured session pause policy.
+    pub async fn session_pause_policy(&self) -> crate::session_ref::SessionPausePolicy {
+        let inner = self.inner.read().await;
+        inner.session_pause_policy
+    }
+
+    /// Set the session pause policy. Called by the workflow builder.
+    pub(crate) async fn set_session_pause_policy(
+        &self,
+        policy: crate::session_ref::SessionPausePolicy,
+    ) {
+        let mut inner = self.inner.write().await;
+        inner.session_pause_policy = policy;
+    }
+
+    /// Store raw binary data under `key`.
+    ///
+    /// Useful for files, images, audio, and other binary artifacts that
+    /// should not be JSON-serialized.
+    pub async fn set_bytes(&self, key: &str, data: Vec<u8>) {
+        let mut inner = self.inner.write().await;
+        inner
+            .state
+            .insert(key.to_owned(), StateValue::Bytes(BytesWrapper(data)));
+    }
+
+    /// Retrieve raw binary data previously stored under `key`.
+    ///
+    /// Returns `None` if the key does not exist or the stored value is
+    /// a JSON variant rather than bytes.
+    pub async fn get_bytes(&self, key: &str) -> Option<Vec<u8>> {
+        let inner = self.inner.read().await;
+        inner.state.get(key).and_then(|sv| match sv {
+            StateValue::Bytes(b) => Some(b.0.clone()),
+            StateValue::Json(_) | StateValue::Native(_) => None,
+        })
+    }
+
+    /// Retrieve raw binary data, falling back to `default` if the key is
+    /// missing or the stored value is not a `Bytes` variant.
+    ///
+    /// Convenience wrapper around [`get_bytes`](Self::get_bytes).
+    pub async fn get_bytes_or(&self, key: &str, default: Vec<u8>) -> Vec<u8> {
+        self.get_bytes(key).await.unwrap_or(default)
+    }
+
+    // -----------------------------------------------------------------
+    // Event emission
+    // -----------------------------------------------------------------
+
+    /// Emit an event into the internal routing queue.
+    ///
+    /// The event will be picked up by the event loop and routed to any
+    /// step whose `accepts` list includes its event type.
+    pub async fn send_event<E: Event + Serialize>(&self, event: E) {
+        let inner = self.inner.read().await;
+        let envelope = EventEnvelope::new(Box::new(event), None);
+        // Ignore send errors -- the receiver may have been dropped if the
+        // workflow already terminated.
+        let _ = inner.event_tx.send(envelope);
+    }
+
+    /// Publish an event to the external broadcast stream.
+    ///
+    /// Consumers that called [`crate::WorkflowHandler::stream_events`] will
+    /// receive this event. Unlike [`send_event`](Self::send_event), this does
+    /// **not** route the event through the internal step registry.
+    pub async fn write_event_to_stream<E: Event + Serialize>(&self, event: E) {
+        let inner = self.inner.read().await;
+        // Ignore send errors -- there may be no active subscribers.
+        let _ = inner.stream_tx.send(Box::new(event));
+    }
+
+    /// Emit a [`UsageEvent`](blazen_events::UsageEvent) on this workflow's
+    /// broadcast stream so consumers (`Pipeline` rollups, telemetry, callers
+    /// via [`stream_events`](crate::WorkflowHandler::stream_events)) can
+    /// aggregate cost / token usage across the run.
+    ///
+    /// The workflow runtime spawns an internal accumulator that subscribes
+    /// to this same stream and folds every emitted `UsageEvent` into the
+    /// running totals exposed via
+    /// [`WorkflowHandler::usage_total`](crate::WorkflowHandler::usage_total)
+    /// and
+    /// [`WorkflowHandler::cost_total_usd`](crate::WorkflowHandler::cost_total_usd),
+    /// and surfaced on [`WorkflowResult`](crate::WorkflowResult) once the
+    /// run completes.
+    pub async fn emit_usage(&self, event: blazen_events::UsageEvent) {
+        self.write_event_to_stream(event).await;
+    }
+
+    // -----------------------------------------------------------------
+    // Fan-in collection
+    // -----------------------------------------------------------------
+
+    /// Accumulate events of type `E` until `expected_count` are available.
+    ///
+    /// Returns `Some(Vec<E>)` when exactly `expected_count` events have been
+    /// collected, or `None` if not enough have arrived yet.
+    ///
+    /// Once the threshold is reached the internal buffer for this type is
+    /// cleared automatically so a subsequent call starts fresh.
+    pub async fn collect_events<E: Event + DeserializeOwned>(
+        &self,
+        expected_count: usize,
+    ) -> Option<Vec<E>> {
+        let mut inner = self.inner.write().await;
+        let type_key = E::event_type().to_owned();
+
+        let collected = inner.collected.entry(type_key).or_default();
+        if collected.len() >= expected_count {
+            let drained: Vec<Box<dyn AnyEvent>> = collected.drain(..expected_count).collect();
+            let mut results = Vec::with_capacity(drained.len());
+            for ev in drained {
+                // Fast path: live downcast (preserves native identity, no
+                // JSON round-trip).
+                if let Some(concrete) = ev.as_any().downcast_ref::<E>() {
+                    results.push(concrete.clone());
+                } else if let Ok(concrete) = serde_json::from_value::<E>(ev.to_json()) {
+                    // Fallback for post-resume DynamicEvents that wrap E's
+                    // payload.
+                    results.push(concrete);
+                }
+                // else: silent drop (preserve current semantics).
+            }
+            Some(results)
+        } else {
+            None
+        }
+    }
+
+    /// Push a type-erased event into the fan-in accumulator.
+    ///
+    /// Stores the LIVE event (via `clone_boxed`) under its event type
+    /// string (obtained via `AnyEvent::event_type_id`). Serialization is
+    /// deferred to [`Context::snapshot_collected`], the only place
+    /// collected events are turned into JSON.
+    pub(crate) async fn push_collected(&self, event: &dyn AnyEvent) {
+        let mut inner = self.inner.write().await;
+        let type_key = event.event_type_id().to_owned();
+        inner
+            .collected
+            .entry(type_key)
+            .or_default()
+            .push(event.clone_boxed());
+    }
+
+    /// Clear the collection buffer for a specific event type.
+    #[allow(dead_code)]
+    pub(crate) async fn clear_collected<E: Event>(&self) {
+        let mut inner = self.inner.write().await;
+        let type_key = E::event_type().to_owned();
+        inner.collected.remove(&type_key);
+    }
+
+    // -----------------------------------------------------------------
+    // Snapshotting & restoration
+    // -----------------------------------------------------------------
+
+    /// Returns a clone of the entire state map.
+    ///
+    /// Useful for checkpointing or pausing a workflow so it can be
+    /// resumed later.
+    pub async fn snapshot_state(&self) -> HashMap<String, StateValue> {
+        let inner = self.inner.read().await;
+        inner.state.clone()
+    }
+
+    /// Replace the state map wholesale.
+    ///
+    /// Used to restore state from a previous checkpoint. Any existing
+    /// state is discarded.
+    pub async fn restore_state(&self, state: HashMap<String, StateValue>) {
+        let mut inner = self.inner.write().await;
+        inner.state = state;
+    }
+
+    /// Returns a clone of the collected events map (serialized as JSON).
+    ///
+    /// Useful for checkpointing fan-in state alongside the main state map.
+    pub async fn snapshot_collected(&self) -> HashMap<String, Vec<serde_json::Value>> {
+        // THE ONLY place collected events are serialized to JSON.
+        let inner = self.inner.read().await;
+        inner
+            .collected
+            .iter()
+            .map(|(k, evs)| (k.clone(), evs.iter().map(|e| e.to_json()).collect()))
+            .collect()
+    }
+
+    /// Replace the collected events map wholesale.
+    ///
+    /// Used to restore fan-in state from a previous checkpoint. Any existing
+    /// collected events are discarded.
+    ///
+    /// Rebuilds LIVE events from the JSON wire form: each entry is
+    /// reconstructed via [`blazen_events::try_deserialize_event`] (so the
+    /// concrete type's `downcast_ref` keeps working), falling back to a
+    /// [`blazen_events::DynamicEvent`] with `native = None` — the native
+    /// identity is intentionally dropped after resume, NOT errored.
+    pub async fn restore_collected(&self, collected: HashMap<String, Vec<serde_json::Value>>) {
+        let mut inner = self.inner.write().await;
+        inner.collected = collected
+            .into_iter()
+            .map(|(type_key, jsons)| {
+                let live: Vec<Box<dyn AnyEvent>> = jsons
+                    .into_iter()
+                    .map(|json| {
+                        blazen_events::try_deserialize_event(&type_key, &json).unwrap_or_else(
+                            || {
+                                Box::new(blazen_events::DynamicEvent::from_json(
+                                    type_key.clone(),
+                                    json,
+                                ))
+                            },
+                        )
+                    })
+                    .collect();
+                (type_key, live)
+            })
+            .collect();
+    }
+
+    /// Returns a clone of the metadata map.
+    ///
+    /// Useful for checkpointing metadata alongside the main state map.
+    pub async fn snapshot_metadata(&self) -> HashMap<String, serde_json::Value> {
+        let inner = self.inner.read().await;
+        inner.metadata.clone()
+    }
+
+    /// Replace the metadata map wholesale.
+    ///
+    /// Used to restore metadata from a previous checkpoint. Any existing
+    /// metadata is discarded.
+    pub(crate) async fn restore_metadata(&self, metadata: HashMap<String, serde_json::Value>) {
+        let mut inner = self.inner.write().await;
+        inner.metadata = metadata;
+    }
+
+    // -----------------------------------------------------------------
+    // Metadata
+    // -----------------------------------------------------------------
+
+    /// Get the workflow run ID from metadata.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `run_id` metadata key was never set (this is always
+    /// set by the workflow engine before any step executes).
+    pub async fn run_id(&self) -> Uuid {
+        let inner = self.inner.read().await;
+        inner
+            .metadata
+            .get("run_id")
+            .and_then(|v| v.as_str())
+            .and_then(|s| Uuid::parse_str(s).ok())
+            .expect("run_id must be set in workflow metadata")
+    }
+
+    /// Store a metadata key/value pair.
+    pub(crate) async fn set_metadata(&self, key: &str, value: serde_json::Value) {
+        let mut inner = self.inner.write().await;
+        inner.metadata.insert(key.to_owned(), value);
+    }
+
+    /// Send a sentinel event through the broadcast stream to signal that
+    /// no more events will be published.
+    ///
+    /// Consumers that check for `"blazen::StreamEnd"` can use this to
+    /// terminate their iteration.
+    pub(crate) async fn signal_stream_end(&self) {
+        self.write_event_to_stream(blazen_events::DynamicEvent::from_json(
+            "blazen::StreamEnd",
+            serde_json::Value::Null,
+        ))
+        .await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Helper to build a context with throw-away channels.
+    fn test_context() -> Context {
+        let (event_tx, _event_rx) = mpsc::unbounded_channel();
+        let (stream_tx, _stream_rx) = broadcast::channel(16);
+        Context::new(event_tx, stream_tx)
+    }
+
+    #[tokio::test]
+    async fn set_and_get_typed_value() {
+        let ctx = test_context();
+        ctx.set("counter", 42_u64).await;
+        assert_eq!(ctx.get::<u64>("counter").await, Some(42));
+    }
+
+    #[tokio::test]
+    async fn get_wrong_type_returns_none() {
+        let ctx = test_context();
+        ctx.set("counter", 42_u64).await;
+        // JSON number 42 can be deserialized as a String? No -- serde_json
+        // will fail to parse a number as a String, so this returns None.
+        assert_eq!(ctx.get::<String>("counter").await, None);
+    }
+
+    #[tokio::test]
+    async fn get_missing_key_returns_none() {
+        let ctx = test_context();
+        assert_eq!(ctx.get::<u64>("nope").await, None);
+    }
+
+    #[tokio::test]
+    async fn get_or_returns_value_when_present() {
+        let ctx = test_context();
+        ctx.set("k", 42_u64).await;
+        assert_eq!(ctx.get_or::<u64>("k", 0).await, 42);
+    }
+
+    #[tokio::test]
+    async fn get_or_returns_default_when_missing() {
+        let ctx = test_context();
+        assert_eq!(ctx.get_or::<u64>("nope", 7).await, 7);
+    }
+
+    #[tokio::test]
+    async fn get_or_returns_default_when_wrong_type() {
+        let ctx = test_context();
+        ctx.set("k", "not a number".to_string()).await;
+        assert_eq!(ctx.get_or::<u64>("k", 99).await, 99);
+    }
+
+    #[tokio::test]
+    async fn get_or_returns_default_when_native_variant() {
+        let ctx = test_context();
+        ctx.set_value("k", StateValue::Native(BytesWrapper(vec![0x80])))
+            .await;
+        assert_eq!(ctx.get_or::<u64>("k", 5).await, 5);
+    }
+
+    #[tokio::test]
+    async fn get_or_returns_default_for_stored_null() {
+        // Stored JSON null is indistinguishable from missing.
+        let ctx = test_context();
+        ctx.set("k", serde_json::Value::Null).await;
+        assert_eq!(ctx.get_or::<u64>("k", 17).await, 17);
+    }
+
+    #[tokio::test]
+    async fn get_bytes_or_returns_value_when_present() {
+        let ctx = test_context();
+        ctx.set_bytes("k", vec![1, 2, 3]).await;
+        assert_eq!(ctx.get_bytes_or("k", vec![]).await, vec![1, 2, 3]);
+    }
+
+    #[tokio::test]
+    async fn get_bytes_or_returns_default_when_missing() {
+        let ctx = test_context();
+        assert_eq!(ctx.get_bytes_or("nope", vec![9]).await, vec![9]);
+    }
+
+    #[tokio::test]
+    async fn get_bytes_or_returns_default_when_json_variant() {
+        let ctx = test_context();
+        ctx.set("k", "string".to_string()).await;
+        assert_eq!(ctx.get_bytes_or("k", vec![0xFF]).await, vec![0xFF]);
+    }
+
+    #[tokio::test]
+    async fn run_id_roundtrip() {
+        let ctx = test_context();
+        let id = Uuid::new_v4();
+        ctx.set_metadata("run_id", serde_json::Value::String(id.to_string()))
+            .await;
+        assert_eq!(ctx.run_id().await, id);
+    }
+
+    #[tokio::test]
+    async fn collect_events_accumulation() {
+        use blazen_events::StartEvent;
+
+        let ctx = test_context();
+        let e1 = StartEvent {
+            data: serde_json::json!(1),
+        };
+        let e2 = StartEvent {
+            data: serde_json::json!(2),
+        };
+
+        ctx.push_collected(&e1).await;
+        // Not enough yet.
+        assert!(ctx.collect_events::<StartEvent>(2).await.is_none());
+
+        ctx.push_collected(&e2).await;
+        // Now we have 2.
+        let events = ctx.collect_events::<StartEvent>(2).await.unwrap();
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0].data, serde_json::json!(1));
+        assert_eq!(events[1].data, serde_json::json!(2));
+    }
+
+    #[tokio::test]
+    async fn collected_downcast_first_then_json_fallback() {
+        use blazen_events::{DynamicEvent, StartEvent};
+        let ctx = test_context();
+        // Ensure the StartEvent deserializer is registered (idempotent).
+        let _ = StartEvent::event_type();
+        // Live StartEvent → downcast-first path.
+        ctx.push_collected(&StartEvent {
+            data: serde_json::json!(1),
+        })
+        .await;
+        // DynamicEvent wrapping a StartEvent payload → JSON-fallback path.
+        ctx.push_collected(&DynamicEvent::from_json(
+            "blazen::StartEvent",
+            serde_json::json!({"data": 2}),
+        ))
+        .await;
+        let got = ctx.collect_events::<StartEvent>(2).await.unwrap();
+        assert_eq!(got.len(), 2);
+        assert_eq!(got[0].data, serde_json::json!(1)); // downcast
+        assert_eq!(got[1].data, serde_json::json!(2)); // json fallback
+    }
+
+    #[tokio::test]
+    async fn snapshot_and_restore_state() {
+        let ctx = test_context();
+        ctx.set("name", "alice".to_string()).await;
+        ctx.set("count", 10_u32).await;
+
+        // Snapshot
+        let snap = ctx.snapshot_state().await;
+        assert_eq!(snap.len(), 2);
+        assert_eq!(
+            snap.get("name").unwrap(),
+            &StateValue::Json(serde_json::json!("alice"))
+        );
+        assert_eq!(
+            snap.get("count").unwrap(),
+            &StateValue::Json(serde_json::json!(10))
+        );
+
+        // Modify state
+        ctx.set("name", "bob".to_string()).await;
+        assert_eq!(ctx.get::<String>("name").await, Some("bob".to_string()));
+
+        // Restore
+        ctx.restore_state(snap).await;
+        assert_eq!(ctx.get::<String>("name").await, Some("alice".to_string()));
+        assert_eq!(ctx.get::<u32>("count").await, Some(10));
+    }
+
+    #[tokio::test]
+    async fn set_and_get_bytes() {
+        let ctx = test_context();
+        let data = vec![0xDE, 0xAD, 0xBE, 0xEF];
+        ctx.set_bytes("binary", data.clone()).await;
+
+        assert_eq!(ctx.get_bytes("binary").await, Some(data));
+        // get<T> should return None for bytes values.
+        assert_eq!(ctx.get::<String>("binary").await, None);
+    }
+
+    #[tokio::test]
+    async fn get_bytes_returns_none_for_json() {
+        let ctx = test_context();
+        ctx.set("key", "value".to_string()).await;
+        assert_eq!(ctx.get_bytes("key").await, None);
+    }
+
+    #[tokio::test]
+    async fn get_bytes_returns_none_for_missing_key() {
+        let ctx = test_context();
+        assert_eq!(ctx.get_bytes("nope").await, None);
+    }
+
+    #[tokio::test]
+    async fn snapshot_collected() {
+        use blazen_events::StartEvent;
+
+        let ctx = test_context();
+        let e1 = StartEvent {
+            data: serde_json::json!("a"),
+        };
+        ctx.push_collected(&e1).await;
+
+        let snap = ctx.snapshot_collected().await;
+        assert_eq!(snap.len(), 1);
+        let start_events = snap.get("blazen::StartEvent").unwrap();
+        assert_eq!(start_events.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn set_value_and_get_value() {
+        let ctx = test_context();
+        let native = StateValue::native(vec![0x80, 0x04, 0x95]);
+        ctx.set_value("pickled", native.clone()).await;
+
+        let retrieved = ctx.get_value("pickled").await;
+        assert_eq!(retrieved, Some(native));
+    }
+
+    #[tokio::test]
+    async fn get_value_returns_all_variants() {
+        let ctx = test_context();
+        ctx.set("json_key", "hello".to_string()).await;
+        ctx.set_bytes("bytes_key", vec![1, 2, 3]).await;
+        ctx.set_value("native_key", StateValue::native(vec![4, 5, 6]))
+            .await;
+
+        assert!(ctx.get_value("json_key").await.unwrap().is_json());
+        assert!(ctx.get_value("bytes_key").await.unwrap().is_bytes());
+        assert!(ctx.get_value("native_key").await.unwrap().is_native());
+        assert!(ctx.get_value("missing").await.is_none());
+    }
+
+    #[tokio::test]
+    async fn get_returns_none_for_native() {
+        let ctx = test_context();
+        ctx.set_value("key", StateValue::native(vec![0x80, 0x04]))
+            .await;
+        assert_eq!(ctx.get::<String>("key").await, None);
+    }
+
+    #[tokio::test]
+    async fn get_bytes_returns_none_for_native() {
+        let ctx = test_context();
+        ctx.set_value("key", StateValue::native(vec![0x80, 0x04]))
+            .await;
+        assert_eq!(ctx.get_bytes("key").await, None);
+    }
+
+    #[tokio::test]
+    async fn set_and_get_object() {
+        let ctx = test_context();
+        ctx.set_object("counter", 42_i32).await;
+        assert_eq!(ctx.get_object::<i32>("counter").await, Some(42));
+    }
+
+    #[tokio::test]
+    async fn get_object_wrong_type_returns_none() {
+        let ctx = test_context();
+        ctx.set_object("counter", 42_i32).await;
+        assert_eq!(ctx.get_object::<String>("counter").await, None);
+    }
+
+    #[tokio::test]
+    async fn get_object_missing_key_returns_none() {
+        let ctx = test_context();
+        assert_eq!(ctx.get_object::<i32>("nope").await, None);
+    }
+
+    #[tokio::test]
+    async fn remove_object() {
+        let ctx = test_context();
+        ctx.set_object("key", "value".to_string()).await;
+        assert!(ctx.has_object("key").await);
+        ctx.remove_object("key").await;
+        assert!(!ctx.has_object("key").await);
+    }
+
+    #[tokio::test]
+    async fn objects_excluded_from_snapshot() {
+        let ctx = test_context();
+        ctx.set_object("live", 42_i32).await;
+        ctx.set("json_key", "hello".to_string()).await;
+        let snap = ctx.snapshot_state().await;
+        // Snapshot only contains state map entries, not objects
+        assert!(snap.contains_key("json_key"));
+        assert!(!snap.contains_key("live"));
+    }
+
+    #[tokio::test]
+    async fn snapshot_includes_bytes_and_native() {
+        let ctx = test_context();
+        ctx.set("json_key", "hello".to_string()).await;
+        ctx.set_bytes("bytes_key", vec![0xDE, 0xAD]).await;
+        ctx.set_value("native_key", StateValue::native(vec![0x80, 0x04]))
+            .await;
+
+        let snap = ctx.snapshot_state().await;
+        assert!(snap.get("json_key").unwrap().is_json());
+        assert!(snap.get("bytes_key").unwrap().is_bytes());
+        assert!(snap.get("native_key").unwrap().is_native());
+
+        // Restore into a fresh context and verify
+        let ctx2 = test_context();
+        ctx2.restore_state(snap).await;
+        assert_eq!(
+            ctx2.get::<String>("json_key").await,
+            Some("hello".to_string())
+        );
+        assert_eq!(ctx2.get_bytes("bytes_key").await, Some(vec![0xDE, 0xAD]));
+        assert_eq!(
+            ctx2.get_value("native_key").await.unwrap().as_native(),
+            Some([0x80, 0x04].as_slice())
+        );
+    }
+
+    #[tokio::test]
+    async fn set_overwrites_previous_value() {
+        let ctx = test_context();
+        ctx.set("key", 1_u64).await;
+        assert_eq!(ctx.get::<u64>("key").await, Some(1));
+        ctx.set("key", 2_u64).await;
+        assert_eq!(ctx.get::<u64>("key").await, Some(2));
+        // Overwrite JSON with bytes
+        ctx.set_bytes("key", vec![1, 2, 3]).await;
+        assert_eq!(ctx.get::<u64>("key").await, None);
+        assert_eq!(ctx.get_bytes("key").await, Some(vec![1, 2, 3]));
+    }
+
+    #[tokio::test]
+    async fn session_refs_excluded_from_snapshot() {
+        let ctx = test_context();
+        let reg = ctx.session_refs_arc().await;
+        let _ = reg.insert(42_i32).await.unwrap();
+        let _ = reg.insert("hello".to_owned()).await.unwrap();
+        assert_eq!(reg.len().await, 2);
+
+        // snapshot_state only clones the JSON state map; session_refs are
+        // deliberately excluded.
+        let snap = ctx.snapshot_state().await;
+        assert!(snap.is_empty());
+
+        // The registry itself still has the entries.
+        assert_eq!(reg.len().await, 2);
+    }
+
+    #[tokio::test]
+    async fn clear_session_refs_drains_registry() {
+        let ctx = test_context();
+        let reg = ctx.session_refs_arc().await;
+        let _ = reg.insert(1_i32).await.unwrap();
+        let _ = reg.insert(2_i32).await.unwrap();
+        let dropped = ctx.clear_session_refs().await;
+        assert_eq!(dropped, 2);
+        assert_eq!(reg.len().await, 0);
+    }
+
+    #[tokio::test]
+    async fn session_pause_policy_default_and_set() {
+        use crate::session_ref::SessionPausePolicy;
+        let ctx = test_context();
+        assert_eq!(
+            ctx.session_pause_policy().await,
+            SessionPausePolicy::PickleOrError
+        );
+        ctx.set_session_pause_policy(SessionPausePolicy::WarnDrop)
+            .await;
+        assert_eq!(
+            ctx.session_pause_policy().await,
+            SessionPausePolicy::WarnDrop
+        );
+    }
+
+    /// Phase 0.5: a `Context` constructed via `new_with_session_refs`
+    /// borrows the registry and must NOT drain it on `clear_session_refs`.
+    #[tokio::test]
+    async fn clear_session_refs_is_noop_for_borrowed_registry() {
+        let parent_registry = Arc::new(crate::session_ref::SessionRefRegistry::new());
+        let _ = parent_registry.insert(1_i32).await.unwrap();
+        let _ = parent_registry.insert(2_i32).await.unwrap();
+        assert_eq!(parent_registry.len().await, 2);
+
+        let (event_tx, _event_rx) = mpsc::unbounded_channel();
+        let (stream_tx, _stream_rx) = broadcast::channel(16);
+        let child_ctx =
+            Context::new_with_session_refs(event_tx, stream_tx, Arc::clone(&parent_registry));
+
+        // The child ctx sees the inherited entries...
+        assert_eq!(child_ctx.session_refs_arc().await.len().await, 2);
+
+        // ...but clear_session_refs is a no-op because the child does
+        // not own the registry.
+        let dropped = child_ctx.clear_session_refs().await;
+        assert_eq!(dropped, 0, "child context must not drain parent registry");
+        assert_eq!(
+            parent_registry.len().await,
+            2,
+            "parent registry must still contain its entries"
+        );
+
+        // Drop the child context entirely. Parent registry is still
+        // intact because its Arc is held externally.
+        drop(child_ctx);
+        assert_eq!(parent_registry.len().await, 2);
+    }
+
+    /// And the inverse: a `Context::new` DOES drain because it owns the
+    /// registry.
+    #[tokio::test]
+    async fn clear_session_refs_drains_owned_registry() {
+        let ctx = test_context();
+        let reg = ctx.session_refs_arc().await;
+        let _ = reg.insert(10_i32).await.unwrap();
+        let _ = reg.insert(20_i32).await.unwrap();
+        assert_eq!(reg.len().await, 2);
+
+        let dropped = ctx.clear_session_refs().await;
+        assert_eq!(dropped, 2);
+        assert_eq!(reg.len().await, 0);
+    }
+
+    // -----------------------------------------------------------------
+    // Retry stack
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn context_default_retry_stack_resolves_to_default_config() {
+        let (event_tx, _event_rx) = mpsc::unbounded_channel();
+        let (stream_tx, _) = broadcast::channel(8);
+        let ctx = Context::new(event_tx, stream_tx);
+        let resolved = ctx.resolved_retry(None);
+        let default_cfg = RetryConfig::default();
+        assert_eq!(resolved.max_retries, default_cfg.max_retries);
+    }
+
+    #[test]
+    fn context_with_step_retry_overrides_workflow_retry() {
+        let (event_tx, _event_rx) = mpsc::unbounded_channel();
+        let (stream_tx, _) = broadcast::channel(8);
+        let ctx = Context::new(event_tx, stream_tx)
+            .with_workflow_retry(Some(Arc::new(RetryConfig {
+                max_retries: 7,
+                ..RetryConfig::default()
+            })))
+            .with_step_retry(Some(Arc::new(RetryConfig {
+                max_retries: 3,
+                ..RetryConfig::default()
+            })));
+        let resolved = ctx.resolved_retry(None);
+        assert_eq!(resolved.max_retries, 3);
+    }
+
+    #[test]
+    fn context_call_override_beats_everything() {
+        let (event_tx, _event_rx) = mpsc::unbounded_channel();
+        let (stream_tx, _) = broadcast::channel(8);
+        let ctx = Context::new(event_tx, stream_tx).with_step_retry(Some(Arc::new(RetryConfig {
+            max_retries: 3,
+            ..RetryConfig::default()
+        })));
+        let call = Arc::new(RetryConfig {
+            max_retries: 1,
+            ..RetryConfig::default()
+        });
+        assert_eq!(ctx.resolved_retry(Some(&call)).max_retries, 1);
+    }
+}

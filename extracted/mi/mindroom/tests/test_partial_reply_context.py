@@ -1,0 +1,885 @@
+"""Tests for metadata-driven partial reply context handling."""
+
+from __future__ import annotations
+
+import tempfile
+from itertools import count
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import nio
+import pytest
+
+from mindroom.config.main import Config
+from mindroom.constants import (
+    COMPACTION_NOTICE_CONTENT_KEY,
+    STREAM_STATUS_CANCELLED,
+    STREAM_STATUS_COMPLETED,
+    STREAM_STATUS_ERROR,
+    STREAM_STATUS_INTERRUPTED,
+    STREAM_STATUS_KEY,
+    STREAM_STATUS_PENDING,
+    STREAM_STATUS_STREAMING,
+)
+from mindroom.execution_preparation import (
+    _build_unseen_context_messages,
+    _classify_partial_reply,
+    _clean_partial_reply_body,
+    _get_unseen_event_ids_for_metadata,
+    _get_unseen_messages_for_sender,
+    _PartialReplyKind,
+    _sanitize_thread_history_for_replay,
+)
+from mindroom.history.interrupted_replay import (
+    _INTERRUPTED_RESPONSE_MARKER,
+    InterruptedReplaySnapshot,
+    _render_interrupted_replay_content,
+)
+from mindroom.matrix.client import ResolvedVisibleMessage
+from mindroom.matrix.client_thread_history import fetch_thread_history
+from mindroom.matrix.client_visible_messages import _stream_status_from_content
+from mindroom.message_target import MessageTarget
+from mindroom.streaming import (
+    _CANCELLED_RESPONSE_NOTE,
+    _INTERRUPTED_RESPONSE_NOTE,
+    _PROGRESS_PLACEHOLDER,
+    RESTART_INTERRUPTED_RESPONSE_NOTE,
+    StreamingResponse,
+)
+from tests.conftest import (
+    bind_runtime_paths,
+    delivered_matrix_event,
+    make_event_cache_mock,
+    runtime_paths_for,
+    test_runtime_paths,
+)
+from tests.identity_helpers import entity_ids
+
+_VISIBLE_MESSAGE_IDS = count(1)
+
+
+def _make_config() -> Config:
+    """Return a minimal runtime-bound config for partial-reply tests."""
+    config = Config.model_validate(
+        {
+            "agents": {"helper": {"display_name": "Helper", "role": "test"}},
+            "models": {"default": {"provider": "openai", "id": "gpt-4"}},
+        },
+    )
+    return bind_runtime_paths(config, test_runtime_paths(Path(tempfile.mkdtemp())))
+
+
+def _get_unseen_messages(
+    thread_history: list[ResolvedVisibleMessage],
+    agent_name: str,
+    config: Config,
+    runtime_paths: object,
+    *,
+    seen_event_ids: set[str],
+    current_event_id: str | None,
+    active_event_ids: set[str],
+) -> tuple[list[ResolvedVisibleMessage], set[_PartialReplyKind], set[str]]:
+    response_sender_id = entity_ids(config, runtime_paths).get(agent_name)
+    response_sender = response_sender_id.full_id if response_sender_id is not None else None
+    return _get_unseen_messages_for_sender(
+        thread_history,
+        sender_id=response_sender,
+        seen_event_ids=seen_event_ids,
+        current_event_id=current_event_id,
+        active_event_ids=active_event_ids,
+    )
+
+
+def _render_normalized_interrupted_replay(body: str) -> str:
+    return _render_interrupted_replay_content(
+        InterruptedReplaySnapshot(
+            user_message="",
+            partial_text=_clean_partial_reply_body(body),
+            completed_tools=(),
+            interrupted_tools=(),
+            seen_event_ids=(),
+            source_event_id=None,
+            source_event_ids=(),
+            source_event_prompts=(),
+            response_event_id=None,
+        ),
+    )
+
+
+def _make_visible_message(
+    *,
+    sender: str = "@user:localhost",
+    body: str = "",
+    event_id: str | None = None,
+    timestamp: int | None = None,
+    stream_status: str | None = None,
+    content: dict[str, object] | None = None,
+) -> ResolvedVisibleMessage:
+    resolved_content = dict(content) if isinstance(content, dict) else {}
+    if stream_status is not None:
+        resolved_content[STREAM_STATUS_KEY] = stream_status
+    resolved_content.setdefault("body", body)
+    return ResolvedVisibleMessage.synthetic(
+        sender=sender,
+        body=body,
+        event_id=event_id or f"e{next(_VISIBLE_MESSAGE_IDS)}",
+        timestamp=timestamp or 0,
+        content=resolved_content,
+    )
+
+
+def _make_text_event(
+    *,
+    event_id: str,
+    sender: str,
+    body: str,
+    server_timestamp: int,
+    source_content: dict[str, object],
+) -> MagicMock:
+    normalized_content = dict(source_content)
+    normalized_content.setdefault("msgtype", "m.text")
+    event = MagicMock(spec=nio.RoomMessageText)
+    event.event_id = event_id
+    event.sender = sender
+    event.body = body
+    event.server_timestamp = server_timestamp
+    event.source = {
+        "type": "m.room.message",
+        "content": normalized_content,
+    }
+    return event
+
+
+class TestClassifyPartialReply:
+    """Test metadata-first partial reply classification."""
+
+    def test_completed_metadata_is_not_partial(self) -> None:
+        """Treat completed messages as fully delivered, even if the body looks partial."""
+        assert (
+            _classify_partial_reply(
+                _make_visible_message(body="Final answer", stream_status=STREAM_STATUS_COMPLETED),
+                active_event_ids=set(),
+            )
+            is None
+        )
+
+    def test_cancelled_metadata_is_interrupted(self) -> None:
+        """Treat cancelled messages as interrupted partial replies."""
+        assert (
+            _classify_partial_reply(
+                _make_visible_message(body="Partial answer", stream_status=STREAM_STATUS_CANCELLED),
+                active_event_ids=set(),
+            )
+            is _PartialReplyKind.INTERRUPTED
+        )
+
+    def test_error_metadata_is_interrupted(self) -> None:
+        """Treat errored messages as interrupted partial replies."""
+        assert (
+            _classify_partial_reply(
+                _make_visible_message(body="Partial answer", stream_status=STREAM_STATUS_ERROR),
+                active_event_ids=set(),
+            )
+            is _PartialReplyKind.INTERRUPTED
+        )
+
+    def test_interrupted_metadata_is_interrupted(self) -> None:
+        """Treat generic interrupted messages as interrupted partial replies."""
+        assert (
+            _classify_partial_reply(
+                _make_visible_message(body="Partial answer", stream_status=STREAM_STATUS_INTERRUPTED),
+                active_event_ids=set(),
+            )
+            is _PartialReplyKind.INTERRUPTED
+        )
+
+    def test_pending_metadata_is_in_progress(self) -> None:
+        """Treat initial sent-but-not-finalized messages as still in progress."""
+        assert (
+            _classify_partial_reply(
+                _make_visible_message(
+                    event_id="e_pending",
+                    body="Thinking...",
+                    stream_status=STREAM_STATUS_PENDING,
+                ),
+                active_event_ids={"e_pending"},
+            )
+            is _PartialReplyKind.IN_PROGRESS
+        )
+
+    def test_streaming_metadata_is_in_progress(self) -> None:
+        """Treat actively edited streaming messages as still in progress."""
+        assert (
+            _classify_partial_reply(
+                _make_visible_message(
+                    event_id="e_streaming",
+                    body="Partial answer",
+                    stream_status=STREAM_STATUS_STREAMING,
+                ),
+                active_event_ids={"e_streaming"},
+            )
+            is _PartialReplyKind.IN_PROGRESS
+        )
+
+    def test_streaming_metadata_with_live_event_id_is_in_progress_even_when_old(self) -> None:
+        """Prefer the live active-event set over any stale timestamp in the event body."""
+        assert (
+            _classify_partial_reply(
+                _make_visible_message(
+                    event_id="e1",
+                    body="Partial answer",
+                    stream_status=STREAM_STATUS_STREAMING,
+                    timestamp=1_000,
+                ),
+                active_event_ids={"e1"},
+            )
+            is _PartialReplyKind.IN_PROGRESS
+        )
+
+    def test_streaming_metadata_without_live_event_id_is_interrupted_immediately(self) -> None:
+        """Treat non-live streaming events as interrupted when the bot has no active task for them."""
+        assert (
+            _classify_partial_reply(
+                _make_visible_message(
+                    event_id="e1",
+                    body="Partial answer",
+                    stream_status=STREAM_STATUS_STREAMING,
+                    timestamp=599_000,
+                ),
+                active_event_ids=set(),
+            )
+            is _PartialReplyKind.INTERRUPTED
+        )
+
+    def test_completed_metadata_wins_over_trailing_marker(self) -> None:
+        """Prefer persisted completion metadata over stale visible marker text."""
+        assert (
+            _classify_partial_reply(
+                _make_visible_message(body="Finished text", stream_status=STREAM_STATUS_COMPLETED),
+                active_event_ids=set(),
+            )
+            is None
+        )
+
+    def test_trailing_marker_without_metadata_is_not_partial(self) -> None:
+        """Messages without stream_status metadata are not classified as partial."""
+        assert (
+            _classify_partial_reply(
+                _make_visible_message(body="Legacy partial"),
+                active_event_ids=set(),
+            )
+            is None
+        )
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            f"Legacy partial\n\n{_CANCELLED_RESPONSE_NOTE}",
+            f"Legacy partial\n\n{_INTERRUPTED_RESPONSE_NOTE}",
+            f"Legacy partial\n\n{RESTART_INTERRUPTED_RESPONSE_NOTE}",
+            "Legacy partial\n\n**[Response interrupted by an error: boom]**",
+            "Legacy partial [cancelled]",
+            "Legacy partial [error]",
+        ],
+    )
+    def test_legacy_interrupted_markers_without_metadata_are_interrupted(self, body: str) -> None:
+        """Fallback to interrupted classification for legacy cancelled/error/restart bodies."""
+        assert (
+            _classify_partial_reply(
+                _make_visible_message(body=body),
+                active_event_ids=set(),
+            )
+            is _PartialReplyKind.INTERRUPTED
+        )
+
+    def test_no_metadata_and_no_marker_is_not_partial(self) -> None:
+        """Ignore messages that have neither metadata nor partial markers."""
+        assert (
+            _classify_partial_reply(
+                _make_visible_message(body="Completed response"),
+                active_event_ids=set(),
+            )
+            is None
+        )
+
+
+class TestCleanPartialReplyBody:
+    """Test marker stripping and preserved partial-draft cleanup."""
+
+    @pytest.mark.parametrize(
+        ("body", "expected"),
+        [
+            (f"Partial answer\n\n{_CANCELLED_RESPONSE_NOTE}", "Partial answer"),
+            (f"Partial answer\n\n{_INTERRUPTED_RESPONSE_NOTE}", "Partial answer"),
+            (f"Partial answer\n\n{RESTART_INTERRUPTED_RESPONSE_NOTE}", "Partial answer"),
+            ("Partial answer [cancelled]", "Partial answer"),
+            ("Partial answer [error]", "Partial answer"),
+            ("Partial answer\n\n**[Response interrupted by an error: boom]**", "Partial answer"),
+            (_PROGRESS_PLACEHOLDER, ""),
+        ],
+    )
+    def test_clean_partial_reply_body_strips_markers(self, body: str, expected: str) -> None:
+        """Remove terminal status notes from preserved text."""
+        assert _clean_partial_reply_body(body) == expected
+
+    def test_clean_partial_reply_body_preserves_long_content(self) -> None:
+        """Keep long partial-reply content once markers are removed."""
+        result = _clean_partial_reply_body("x" * 5000)
+        assert result == "x" * 5000
+
+    def test_replay_text_byte_identical_across_cancel_sources(self) -> None:
+        """Canonical interrupted replay text must stay byte-identical across cancel sources."""
+        rendered = [
+            _render_normalized_interrupted_replay(f"Partial answer\n\n{_CANCELLED_RESPONSE_NOTE}").encode("utf-8"),
+            _render_normalized_interrupted_replay(f"Partial answer\n\n{_INTERRUPTED_RESPONSE_NOTE}").encode("utf-8"),
+            _render_normalized_interrupted_replay(
+                f"Partial answer\n\n{RESTART_INTERRUPTED_RESPONSE_NOTE}",
+            ).encode("utf-8"),
+        ]
+
+        assert rendered[0] == rendered[1] == rendered[2]
+        assert rendered[0] == f"Partial answer\n\n{_INTERRUPTED_RESPONSE_MARKER}".encode()
+
+
+class TestUnseenMessagesPartialReplies:
+    """Test unseen-context extraction for self-authored partial replies."""
+
+    def test_skips_interrupted_self_reply_when_it_should_come_from_persisted_history(self) -> None:
+        """Interrupted self replies should no longer be reconstructed through unseen Matrix context."""
+        config = _make_config()
+        runtime_paths = runtime_paths_for(config)
+        agent_id = entity_ids(config, runtime_paths)["helper"].full_id
+
+        thread_history = [
+            _make_visible_message(
+                event_id="e1",
+                sender=agent_id,
+                body=f"Partial answer\n\n{_CANCELLED_RESPONSE_NOTE}",
+                stream_status=STREAM_STATUS_CANCELLED,
+            ),
+            _make_visible_message(event_id="e2", sender="@user:localhost", body="Continue"),
+        ]
+
+        unseen, partial_reply_kinds, in_progress_event_ids = _get_unseen_messages(
+            thread_history,
+            "helper",
+            config,
+            runtime_paths,
+            seen_event_ids=set(),
+            current_event_id="e2",
+            active_event_ids=set(),
+        )
+
+        assert unseen == []
+        assert partial_reply_kinds == set()
+        assert in_progress_event_ids == set()
+
+    def test_includes_streaming_self_reply_with_cleaned_body_and_header(self) -> None:
+        """Inject still-streaming self replies with the non-duplication warning header."""
+        config = _make_config()
+        runtime_paths = runtime_paths_for(config)
+        agent_id = entity_ids(config, runtime_paths)["helper"].full_id
+
+        thread_history = [
+            _make_visible_message(event_id="e1", sender="@user:localhost", body="Hello"),
+            _make_visible_message(
+                event_id="e2",
+                sender=agent_id,
+                body="Partial reply",
+                stream_status=STREAM_STATUS_STREAMING,
+            ),
+            _make_visible_message(event_id="e3", sender="@user:localhost", body="New question"),
+        ]
+
+        context_messages, unseen_event_ids = _build_unseen_context_messages(
+            "Answer the new question.",
+            thread_history,
+            seen_event_ids={"e1"},
+            current_event_id="e3",
+            active_event_ids={"e2"},
+            response_sender_id=agent_id,
+            config=config,
+        )
+
+        assert unseen_event_ids == []
+        assert [message.role for message in context_messages] == ["user", "user", "user"]
+        assert "Your previous response is still being delivered." in str(context_messages[0].content)
+        assert "Do NOT repeat or redo that work." in str(context_messages[0].content)
+        assert context_messages[1].content == "You (reply still streaming): Partial reply"
+        assert context_messages[2].content == "Answer the new question."
+
+    def test_replay_fallback_sanitizer_matches_unseen_context_rules(self) -> None:
+        """Full-thread fallback replay should not reintroduce synthetic notices or stale partial replies."""
+        config = _make_config()
+        runtime_paths = runtime_paths_for(config)
+        agent_id = entity_ids(config, runtime_paths)["helper"].full_id
+
+        sanitized = _sanitize_thread_history_for_replay(
+            [
+                _make_visible_message(
+                    event_id="e1",
+                    sender=agent_id,
+                    body="Compacting...",
+                    content={COMPACTION_NOTICE_CONTENT_KEY: True},
+                ),
+                _make_visible_message(
+                    event_id="e2",
+                    sender=agent_id,
+                    body=f"Interrupted answer\n\n{_CANCELLED_RESPONSE_NOTE}",
+                    stream_status=STREAM_STATUS_CANCELLED,
+                ),
+                _make_visible_message(
+                    event_id="e3",
+                    sender=agent_id,
+                    body="Live answer",
+                    stream_status=STREAM_STATUS_STREAMING,
+                ),
+                _make_visible_message(event_id="e4", sender="@user:localhost", body="Follow-up"),
+            ],
+            response_sender_id=agent_id,
+            active_event_ids={"e3"},
+        )
+
+        assert [message.event_id for message in sanitized] == ["e3", "e4"]
+        assert sanitized[0].sender == "You (reply still streaming)"
+        assert sanitized[0].body == "Live answer"
+
+    def test_interrupted_self_reply_leaves_only_newer_external_messages_in_unseen_prompt(self) -> None:
+        """Interrupted self replies should not trigger unseen-context continuation headers anymore."""
+        config = _make_config()
+        runtime_paths = runtime_paths_for(config)
+        agent_id = entity_ids(config, runtime_paths)["helper"].full_id
+
+        thread_history = [
+            _make_visible_message(
+                event_id="e1",
+                sender=agent_id,
+                body=f"Partial answer\n\n{_CANCELLED_RESPONSE_NOTE}",
+                stream_status=STREAM_STATUS_CANCELLED,
+            ),
+            _make_visible_message(event_id="e2", sender="@user:localhost", body="Continue"),
+        ]
+
+        context_messages, unseen_event_ids = _build_unseen_context_messages(
+            "Continue.",
+            thread_history,
+            seen_event_ids=set(),
+            current_event_id="e2",
+            active_event_ids=set(),
+            response_sender_id=agent_id,
+            config=config,
+        )
+
+        assert unseen_event_ids == []
+        assert [message.role for message in context_messages] == ["user"]
+        assert context_messages[0].content == "Continue."
+
+    def test_in_progress_partial_reply_event_ids_are_excluded_from_seen_metadata(self) -> None:
+        """Keep live self partial replies out of seen metadata until they become terminal."""
+        config = _make_config()
+        runtime_paths = runtime_paths_for(config)
+        agent_id = entity_ids(config, runtime_paths)["helper"].full_id
+
+        unseen, partial_reply_kinds, in_progress_event_ids = _get_unseen_messages(
+            [
+                _make_visible_message(
+                    event_id="e1",
+                    sender=agent_id,
+                    body="Partial reply",
+                    stream_status=STREAM_STATUS_STREAMING,
+                ),
+                _make_visible_message(event_id="e2", sender="@user:localhost", body="Question"),
+            ],
+            "helper",
+            config,
+            runtime_paths,
+            seen_event_ids=set(),
+            current_event_id=None,
+            active_event_ids={"e1"},
+        )
+
+        assert [msg.event_id for msg in unseen] == ["e1", "e2"]
+        assert partial_reply_kinds == {_PartialReplyKind.IN_PROGRESS}
+        assert _get_unseen_event_ids_for_metadata(unseen, in_progress_event_ids=in_progress_event_ids) == ["e2"]
+
+    def test_recent_streaming_reply_without_live_event_id_is_skipped_from_unseen_context(self) -> None:
+        """After restart, stale self-streaming output should not be reconstructed from Matrix history."""
+        config = _make_config()
+        runtime_paths = runtime_paths_for(config)
+        agent_id = entity_ids(config, runtime_paths)["helper"].full_id
+
+        unseen, partial_reply_kinds, in_progress_event_ids = _get_unseen_messages(
+            [
+                _make_visible_message(
+                    event_id="e1",
+                    sender=agent_id,
+                    body=f"Partial reply\n\n{RESTART_INTERRUPTED_RESPONSE_NOTE}",
+                    stream_status=STREAM_STATUS_STREAMING,
+                    timestamp=599_000,
+                ),
+                _make_visible_message(event_id="e2", sender="@user:localhost", body="Question"),
+            ],
+            "helper",
+            config,
+            runtime_paths,
+            seen_event_ids=set(),
+            current_event_id="e2",
+            active_event_ids=set(),
+        )
+
+        assert partial_reply_kinds == set()
+        assert in_progress_event_ids == set()
+        assert unseen == []
+
+    def test_placeholder_only_self_reply_is_not_injected(self) -> None:
+        """Do not inject placeholder-only self replies as meaningful unseen context."""
+        config = _make_config()
+        runtime_paths = runtime_paths_for(config)
+        agent_id = entity_ids(config, runtime_paths)["helper"].full_id
+
+        unseen, partial_reply_kinds, _in_progress_event_ids = _get_unseen_messages(
+            [
+                _make_visible_message(
+                    event_id="e1",
+                    sender=agent_id,
+                    body=_PROGRESS_PLACEHOLDER,
+                    stream_status=STREAM_STATUS_STREAMING,
+                ),
+                _make_visible_message(event_id="e2", sender="@user:localhost", body="Question"),
+            ],
+            "helper",
+            config,
+            runtime_paths,
+            seen_event_ids=set(),
+            current_event_id="e2",
+            active_event_ids={"e1"},
+        )
+
+        assert unseen == []
+        assert partial_reply_kinds == set()
+
+    def test_interrupted_partial_reply_event_id_is_not_added_to_unseen_metadata(self) -> None:
+        """Interrupted self replies should not participate in unseen-context seen-ID bookkeeping."""
+        config = _make_config()
+        runtime_paths = runtime_paths_for(config)
+        agent_id = entity_ids(config, runtime_paths)["helper"].full_id
+
+        initial_unseen, initial_kinds, initial_in_progress_event_ids = _get_unseen_messages(
+            [
+                _make_visible_message(
+                    event_id="e1",
+                    sender=agent_id,
+                    body=f"Partial reply\n\n{_CANCELLED_RESPONSE_NOTE}",
+                    stream_status=STREAM_STATUS_CANCELLED,
+                ),
+                _make_visible_message(event_id="e2", sender="@user:localhost", body="Continue"),
+            ],
+            "helper",
+            config,
+            runtime_paths,
+            seen_event_ids=set(),
+            current_event_id="e2",
+            active_event_ids=set(),
+        )
+        seen_event_ids = set(
+            _get_unseen_event_ids_for_metadata(
+                initial_unseen,
+                in_progress_event_ids=initial_in_progress_event_ids,
+            ),
+        ) | {"e2"}
+
+        repeated_unseen, repeated_kinds, _repeated_in_progress_event_ids = _get_unseen_messages(
+            [
+                _make_visible_message(
+                    event_id="e1",
+                    sender=agent_id,
+                    body=f"Partial reply\n\n{_CANCELLED_RESPONSE_NOTE}",
+                    stream_status=STREAM_STATUS_CANCELLED,
+                ),
+                _make_visible_message(event_id="e3", sender="@user:localhost", body="New question"),
+            ],
+            "helper",
+            config,
+            runtime_paths,
+            seen_event_ids=seen_event_ids,
+            current_event_id="e3",
+            active_event_ids=set(),
+        )
+
+        assert initial_unseen == []
+        assert initial_kinds == set()
+        assert (
+            _get_unseen_event_ids_for_metadata(
+                initial_unseen,
+                in_progress_event_ids=initial_in_progress_event_ids,
+            )
+            == []
+        )
+        assert repeated_unseen == []
+        assert repeated_kinds == set()
+
+    def test_same_partial_event_is_not_reintroduced_after_status_change(self) -> None:
+        """Self partial replies should stay out of unseen context once interrupted replay is persisted elsewhere."""
+        config = _make_config()
+        runtime_paths = runtime_paths_for(config)
+        agent_id = entity_ids(config, runtime_paths)["helper"].full_id
+
+        initial_unseen, _initial_kinds, initial_in_progress_event_ids = _get_unseen_messages(
+            [
+                _make_visible_message(
+                    event_id="e1",
+                    sender=agent_id,
+                    body="Partial reply",
+                    stream_status=STREAM_STATUS_STREAMING,
+                ),
+                _make_visible_message(event_id="e2", sender="@user:localhost", body="Question"),
+            ],
+            "helper",
+            config,
+            runtime_paths,
+            seen_event_ids=set(),
+            current_event_id="e2",
+            active_event_ids={"e1"},
+        )
+        seen_event_ids = set(
+            _get_unseen_event_ids_for_metadata(
+                initial_unseen,
+                in_progress_event_ids=initial_in_progress_event_ids,
+            ),
+        ) | {"e2"}
+
+        updated_unseen, updated_kinds, updated_in_progress_event_ids = _get_unseen_messages(
+            [
+                _make_visible_message(
+                    event_id="e1",
+                    sender=agent_id,
+                    body=f"Partial reply\n\n{_CANCELLED_RESPONSE_NOTE}",
+                    stream_status=STREAM_STATUS_CANCELLED,
+                ),
+                _make_visible_message(event_id="e3", sender="@user:localhost", body="Continue"),
+            ],
+            "helper",
+            config,
+            runtime_paths,
+            seen_event_ids=seen_event_ids,
+            current_event_id="e3",
+            active_event_ids=set(),
+        )
+
+        assert updated_kinds == set()
+        assert updated_in_progress_event_ids == set()
+        assert updated_unseen == []
+
+
+class TestThreadHistoryStreamStatus:
+    """Test stream-status propagation through thread history reconstruction."""
+
+    def test_stream_status_from_content_reads_current_namespace(self) -> None:
+        """Read persisted stream status from the io.mindroom namespace."""
+        assert _stream_status_from_content({STREAM_STATUS_KEY: STREAM_STATUS_STREAMING}) == STREAM_STATUS_STREAMING
+        assert _stream_status_from_content({STREAM_STATUS_KEY: STREAM_STATUS_COMPLETED}) == STREAM_STATUS_COMPLETED
+        assert _stream_status_from_content(None) is None
+        assert _stream_status_from_content({}) is None
+        assert _stream_status_from_content({"unrelated": "key"}) is None
+
+    @pytest.mark.asyncio
+    async def test_fetch_thread_history_includes_status_from_latest_edit(self) -> None:
+        """Apply the latest edit body and stream status to the synthesized history entry."""
+        client = AsyncMock()
+
+        root_event = _make_text_event(
+            event_id="$thread_root",
+            sender="@user:localhost",
+            body="Question",
+            server_timestamp=1000,
+            source_content={"body": "Question"},
+        )
+        partial_event = _make_text_event(
+            event_id="$agent_msg",
+            sender="@agent:localhost",
+            body="Partial answer",
+            server_timestamp=2000,
+            source_content={
+                "body": "Partial answer",
+                STREAM_STATUS_KEY: STREAM_STATUS_PENDING,
+                "m.relates_to": {
+                    "rel_type": "m.thread",
+                    "event_id": "$thread_root",
+                },
+            },
+        )
+        edit_event = _make_text_event(
+            event_id="$edit1",
+            sender="@agent:localhost",
+            body="* Final answer",
+            server_timestamp=3000,
+            source_content={
+                "body": "* Final answer",
+                "m.new_content": {
+                    "body": "Final answer",
+                    STREAM_STATUS_KEY: STREAM_STATUS_COMPLETED,
+                    "m.relates_to": {
+                        "rel_type": "m.thread",
+                        "event_id": "$thread_root",
+                    },
+                },
+                "m.relates_to": {
+                    "rel_type": "m.replace",
+                    "event_id": "$agent_msg",
+                },
+            },
+        )
+
+        response = MagicMock(spec=nio.RoomMessagesResponse)
+        response.chunk = [edit_event, partial_event, root_event]
+        response.end = None
+        client.room_messages.return_value = response
+
+        history = await fetch_thread_history(
+            client,
+            "!room:localhost",
+            "$thread_root",
+            event_cache=make_event_cache_mock(),
+        )
+
+        assert history[1].body == "Final answer"
+        assert history[1].stream_status == "completed"
+        assert history[1].content[STREAM_STATUS_KEY] == "completed"
+
+
+class TestStreamingFinalizeStatuses:
+    """Test persisted stream-status values on finalize paths."""
+
+    @pytest.mark.asyncio
+    async def test_finalize_sets_completed_status(self) -> None:
+        """Persist completed status on the final successful edit."""
+        config = _make_config()
+        runtime_paths = runtime_paths_for(config)
+        client = AsyncMock()
+
+        with (
+            patch("mindroom.streaming.send_message_result", new_callable=AsyncMock) as mock_send_message,
+            patch("mindroom.streaming.edit_message_result", new_callable=AsyncMock) as mock_edit_message,
+        ):
+            mock_send_message.return_value = delivered_matrix_event("$event1")
+            mock_edit_message.return_value = delivered_matrix_event("$edit1")
+
+            streaming = StreamingResponse(
+                target=MessageTarget.resolve("!room:localhost", None, None),
+                config=config,
+                runtime_paths=runtime_paths,
+            )
+
+            await streaming.update_content("Partial answer", client)
+            await streaming.finalize(client)
+
+        initial_content = mock_send_message.await_args.args[2]
+        final_content = mock_edit_message.await_args.args[3]
+        assert initial_content[STREAM_STATUS_KEY] == STREAM_STATUS_PENDING
+        assert final_content[STREAM_STATUS_KEY] == STREAM_STATUS_COMPLETED
+
+    @pytest.mark.asyncio
+    async def test_cancelled_finalize_sets_cancelled_status(self) -> None:
+        """Persist cancelled status on the final cancellation edit."""
+        config = _make_config()
+        runtime_paths = runtime_paths_for(config)
+        client = AsyncMock()
+
+        with (
+            patch("mindroom.streaming.send_message_result", new_callable=AsyncMock) as mock_send_message,
+            patch("mindroom.streaming.edit_message_result", new_callable=AsyncMock) as mock_edit_message,
+        ):
+            mock_send_message.return_value = delivered_matrix_event("$event1")
+            mock_edit_message.return_value = delivered_matrix_event("$edit1")
+
+            streaming = StreamingResponse(
+                target=MessageTarget.resolve("!room:localhost", None, None),
+                config=config,
+                runtime_paths=runtime_paths,
+            )
+
+            await streaming.update_content("Partial answer", client)
+            await streaming.finalize(client, cancelled=True)
+
+        final_content = mock_edit_message.await_args.args[3]
+        assert final_content[STREAM_STATUS_KEY] == STREAM_STATUS_CANCELLED
+
+    @pytest.mark.asyncio
+    async def test_error_finalize_sets_error_status(self) -> None:
+        """Persist error status on the final error edit."""
+        config = _make_config()
+        runtime_paths = runtime_paths_for(config)
+        client = AsyncMock()
+
+        with (
+            patch("mindroom.streaming.send_message_result", new_callable=AsyncMock) as mock_send_message,
+            patch("mindroom.streaming.edit_message_result", new_callable=AsyncMock) as mock_edit_message,
+        ):
+            mock_send_message.return_value = delivered_matrix_event("$event1")
+            mock_edit_message.return_value = delivered_matrix_event("$edit1")
+
+            streaming = StreamingResponse(
+                target=MessageTarget.resolve("!room:localhost", None, None),
+                config=config,
+                runtime_paths=runtime_paths,
+            )
+
+            await streaming.update_content("Partial answer", client)
+            await streaming.finalize(client, error=RuntimeError("boom"))
+
+        final_content = mock_edit_message.await_args.args[3]
+        assert final_content[STREAM_STATUS_KEY] == STREAM_STATUS_ERROR
+
+    @pytest.mark.asyncio
+    async def test_finalize_retries_terminal_edit_once(self) -> None:
+        """Retry the terminal edit once before giving up on persisting the status."""
+        config = _make_config()
+        runtime_paths = runtime_paths_for(config)
+        client = AsyncMock()
+
+        with (
+            patch("mindroom.streaming.send_message_result", new_callable=AsyncMock) as mock_send_message,
+            patch("mindroom.streaming.edit_message_result", new_callable=AsyncMock) as mock_edit_message,
+        ):
+            mock_send_message.return_value = delivered_matrix_event("$event1")
+            mock_edit_message.side_effect = [None, delivered_matrix_event("$edit2")]
+
+            streaming = StreamingResponse(
+                target=MessageTarget.resolve("!room:localhost", None, None),
+                config=config,
+                runtime_paths=runtime_paths,
+            )
+
+            await streaming.update_content("Partial answer", client)
+            await streaming.finalize(client, cancelled=True)
+
+        assert mock_edit_message.await_count == 2
+        for call in mock_edit_message.await_args_list:
+            assert call.args[3][STREAM_STATUS_KEY] == STREAM_STATUS_CANCELLED
+
+    @pytest.mark.asyncio
+    async def test_finalize_retries_terminal_edit_after_exception(self) -> None:
+        """Retry terminal edits when the first edit attempt raises."""
+        config = _make_config()
+        runtime_paths = runtime_paths_for(config)
+        client = AsyncMock()
+
+        with (
+            patch("mindroom.streaming.send_message_result", new_callable=AsyncMock) as mock_send_message,
+            patch("mindroom.streaming.edit_message_result", new_callable=AsyncMock) as mock_edit_message,
+        ):
+            mock_send_message.return_value = delivered_matrix_event("$event1")
+            mock_edit_message.side_effect = [RuntimeError("transport boom"), delivered_matrix_event("$edit2")]
+
+            streaming = StreamingResponse(
+                target=MessageTarget.resolve("!room:localhost", None, None),
+                config=config,
+                runtime_paths=runtime_paths,
+            )
+
+            await streaming.update_content("Partial answer", client)
+            await streaming.finalize(client, cancelled=True)
+
+        assert mock_edit_message.await_count == 2
+        for call in mock_edit_message.await_args_list:
+            assert call.args[3][STREAM_STATUS_KEY] == STREAM_STATUS_CANCELLED

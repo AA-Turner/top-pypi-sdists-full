@@ -1,0 +1,81 @@
+# Copyright 2021-2022 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# -----------------------------------------------------------------------------
+# Imports
+# -----------------------------------------------------------------------------
+import asyncio
+import sys
+
+import bumble.logging
+from bumble.colors import color
+from bumble.core import DeviceClass
+from bumble.device import Device
+from bumble.hci import Address
+from bumble.transport import open_transport
+
+
+# -----------------------------------------------------------------------------
+class DiscoveryListener(Device.Listener):
+    def on_inquiry_result(self, address, class_of_device, data, rssi):
+        (
+            service_classes,
+            major_device_class,
+            minor_device_class,
+        ) = DeviceClass.split_class_of_device(class_of_device)
+        separator = '\n  '
+        print(f'>>> {color(address, "yellow")}:')
+        print(f'  Device Class (raw): {class_of_device:06X}')
+        major_class_name = DeviceClass.major_device_class_name(major_device_class)
+        print(f'  Device Major Class: {major_class_name}')
+        minor_class_name = DeviceClass.minor_device_class_name(
+            major_device_class, minor_device_class
+        )
+        print(f'  Device Minor Class: {minor_class_name}')
+        print(
+            '  Device Services: '
+            f'{", ".join(DeviceClass.service_class_labels(service_classes))}'
+        )
+        print(f'  RSSI: {rssi}')
+        if data.ad_structures:
+            print(f'  {data.to_string(separator)}')
+
+
+# -----------------------------------------------------------------------------
+async def main() -> None:
+    if len(sys.argv) != 2:
+        print('Usage: run_classic_discovery.py <transport-spec>')
+        print('example: run_classic_discovery.py usb:04b4:f901')
+        return
+
+    print('<<< connecting to HCI...')
+    async with await open_transport(sys.argv[1]) as hci_transport:
+        print('<<< connected')
+
+        device = Device.with_hci(
+            'Bumble',
+            Address('F0:F1:F2:F3:F4:F5'),
+            hci_transport.source,
+            hci_transport.sink,
+        )
+        device.listener = DiscoveryListener()
+        await device.power_on()
+        await device.start_discovery()
+
+        await hci_transport.source.terminated
+
+
+# -----------------------------------------------------------------------------
+bumble.logging.setup_basic_logging('DEBUG')
+asyncio.run(main())

@@ -1,0 +1,98 @@
+name: 'Read CI Config from pyproject.toml'
+description: 'Extract CI configuration from pyproject.toml and export as outputs and env vars'
+branding:
+  icon: 'settings'
+  color: 'blue'
+
+inputs:
+  pyproject-path:
+    description: 'Path to pyproject.toml file or directory containing it'
+    required: false
+    default: '.'
+
+outputs:
+  project-name:
+    description: 'Project name'
+    value: ${{ steps.config.outputs.project-name }}
+  python-versions:
+    description: 'Python versions as JSON array'
+    value: ${{ steps.config.outputs.python-versions }}
+  pytest-args:
+    description: 'Pytest arguments as space-separated string'
+    value: ${{ steps.config.outputs.pytest-args }}
+  coverage-enabled:
+    description: 'Whether coverage is enabled (true/false)'
+    value: ${{ steps.config.outputs.coverage-enabled }}
+  exclude-paths:
+    description: 'Paths to exclude from tests'
+    value: ${{ steps.config.outputs.exclude-paths }}
+  test-on-windows:
+    description: 'Whether to test on Windows (true/false)'
+    value: ${{ steps.config.outputs.test-on-windows }}
+  tests-enabled:
+    description: 'Whether the CI test step should run (true/false). Defaults to true; set [tool.wads.ci.testing].enabled = false in pyproject.toml to skip the pytest/doctest step.'
+    value: ${{ steps.config.outputs.tests-enabled }}
+  build-sdist:
+    description: 'Whether to build source distribution (true/false)'
+    value: ${{ steps.config.outputs.build-sdist }}
+  build-wheel:
+    description: 'Whether to build wheel (true/false)'
+    value: ${{ steps.config.outputs.build-wheel }}
+  install-extras:
+    description: 'Comma-separated extras for CI to install via pip''s .[extras] syntax (from [tool.wads.ci.install].extras). Empty installs only core deps.'
+    value: ${{ steps.config.outputs.install-extras }}
+  metrics-enabled:
+    description: 'Whether code metrics tracking is enabled (true/false)'
+    value: ${{ steps.config.outputs.metrics-enabled }}
+  metrics-config-path:
+    description: 'Path to umpyre config file'
+    value: ${{ steps.config.outputs.metrics-config-path }}
+  metrics-storage-branch:
+    description: 'Git branch to store metrics data'
+    value: ${{ steps.config.outputs.metrics-storage-branch }}
+  metrics-python-version:
+    description: 'Python version for metrics collection'
+    value: ${{ steps.config.outputs.metrics-python-version }}
+  metrics-force-run:
+    description: 'Run metrics even if workflow failed (true/false)'
+    value: ${{ steps.config.outputs.metrics-force-run }}
+  ruff-enabled:
+    description: 'Whether Ruff lint+format steps should run in CI (true/false). Defaults to true; set [tool.wads.ci.quality.ruff].enabled = false in pyproject.toml to disable.'
+    value: ${{ steps.config.outputs.ruff-enabled }}
+  black-enabled:
+    description: 'Whether the Black formatter step should run in CI (true/false). Defaults to false; set [tool.wads.ci.quality.black].enabled = true in pyproject.toml to opt in.'
+    value: ${{ steps.config.outputs.black-enabled }}
+  mypy-enabled:
+    description: 'Whether the Mypy type-check step should run in CI (true/false). Defaults to false; set [tool.wads.ci.quality.mypy].enabled = true in pyproject.toml to opt in.'
+    value: ${{ steps.config.outputs.mypy-enabled }}
+  docs-enabled:
+    description: 'Whether the GitHub Pages docs publishing job should run (true/false). Defaults to true; set [tool.wads.ci.docs].enabled = false in pyproject.toml to disable.'
+    value: ${{ steps.config.outputs.docs-enabled }}
+  publish-enabled:
+    description: 'Whether the publish job should run (true/false). Defaults to true; set [tool.wads.ci.publish].enabled = false in pyproject.toml to disable. Can be overridden per-commit via publish-marker.'
+    value: ${{ steps.config.outputs.publish-enabled }}
+  skip-ci-marker:
+    description: 'Commit-message substring that suppresses the publish job when publishing is enabled. Defaults to "[skip ci]". Set via [tool.wads.ci.publish].skip_ci_marker.'
+    value: ${{ steps.config.outputs.skip-ci-marker }}
+  publish-marker:
+    description: 'Commit-message substring that forces the publish job even when publishing is disabled. Defaults to "[publish]". Set via [tool.wads.ci.publish].publish_marker.'
+    value: ${{ steps.config.outputs.publish-marker }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python for config reading
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.11'
+
+    - name: Install wads (for CI config utilities)
+      shell: bash
+      run: |
+        python -m pip install --quiet 'wads>=0.1.48'
+
+    - name: Read CI Configuration
+      id: config
+      shell: bash
+      run: |
+        python3 -m wads.scripts.read_ci_config "${{ inputs.pyproject-path }}"

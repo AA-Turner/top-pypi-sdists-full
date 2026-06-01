@@ -1,0 +1,74 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "blazen"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+description = "Python bindings for the Blazen workflow engine"
+readme = "README.md"
+license = { text = "MPL-2.0" }
+authors = [{ name = "Zach Handley", email = "zachhandley@gmail.com" }]
+dynamic = ["version"]
+
+[tool.maturin]
+features = ["extension-module"]
+module-name = "blazen"
+manifest-path = "crates/blazen-py/Cargo.toml"
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.38.3",
+    "mypy>=1.19.1",
+    "ruff>=0.15.6",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F",    # pycodestyle + pyflakes
+    "I",               # isort
+    "UP",              # pyupgrade
+    "N",               # pep8-naming
+    "S",               # bandit (security)
+    "B",               # bugbear
+    "A",               # builtins shadowing
+    "COM",             # commas
+    "C4",              # comprehensions
+    "ISC",             # implicit string concat
+    "PIE",             # misc lints
+    "PT",              # pytest style
+    "SIM",             # simplify
+    "TCH",             # type-checking imports
+    "PL",              # pylint
+]
+ignore = ["COM812", "ISC001"]  # conflicts with formatter
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+[tool.basedpyright]
+pythonVersion = "3.10"
+typeCheckingMode = "standard"
+
+[tool.mypy]
+python_version = "3.10"
+strict = true

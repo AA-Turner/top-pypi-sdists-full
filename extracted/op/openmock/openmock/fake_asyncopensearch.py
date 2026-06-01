@@ -1,0 +1,1235 @@
+"""
+This module provides a fake implementation of the OpenSearch client that can be used for testing purposes.
+"""
+
+# pylint: disable=duplicate-code
+
+import datetime
+import json
+from collections import defaultdict
+from typing import Any, Optional
+
+import opensearchpy
+from opensearchpy import AsyncTransport
+from opensearchpy.client.utils import query_params
+from opensearchpy.exceptions import ConflictError, NotFoundError, RequestError
+
+from openmock.behaviour.server_failure import server_failure
+from openmock.fake_asyncindices import FakeAsyncIndicesClient
+from openmock.fake_cluster import FakeClusterClient
+from openmock.fake_opensearch import FakeQueryCondition, MetricType, QueryType
+from openmock.normalize_hosts import _normalize_hosts
+from openmock.utilities import (
+    extract_ignore_as_iterable,
+    get_random_id,
+    get_random_scroll_id,
+)
+from openmock.utilities.decorator import for_all_methods
+
+
+@for_all_methods([server_failure])
+class AsyncFakeOpenSearch(opensearchpy.AsyncOpenSearch):
+    # __documents_dict = None
+
+    # pylint: disable=super-init-not-called
+    def __init__(self, hosts=None, transport_class=None, **kwargs):
+        # self.__documents_dict = {}
+        self._FakeAsyncIndicesClient__documents_dict = {}
+        self._FakeAsyncIndicesClient__aliases_dict = {}
+        self.__scrolls = {}
+        self._seq_no_counter = {}
+        self.transport = AsyncTransport(_normalize_hosts(hosts), **kwargs)
+
+        # This blows up if I call the real base.
+        # super(FakeOpenSearch, self).__init__()
+
+    @property
+    def __documents_dict(self):
+        return self._FakeAsyncIndicesClient__documents_dict
+
+    @property
+    # pylint: disable=unused-private-member
+    def __aliases_dict(self):
+        return self._FakeAsyncIndicesClient__aliases_dict
+
+    @property
+    def indices(self):
+        return FakeAsyncIndicesClient(self)
+
+    @property
+    def cluster(self):
+        return FakeClusterClient(self)
+
+    def _next_seq_no(self, index):
+        current = self._seq_no_counter.get(index, -1) + 1
+        self._seq_no_counter[index] = current
+        return current
+
+    @query_params()
+    async def ping(self, params=None, headers=None):
+        return True
+
+    @query_params()
+    async def info(self, params=None, headers=None):
+        return {
+            "cluster_name": "openmock",
+            "cluster_uuid": "openmock-cluster-uuid",
+            "version": {
+                "distribution": "opensearch",
+                "number": "3.1.0",
+                "build_type": "tar",
+                "build_hash": "00f95f4ffca6de89d68b7ccaf80d148f1f70e4d4",
+                "build_date": "2016-02-02T09:55:30Z",
+                "build_snapshot": False,
+                "lucene_version": "4.10.4",
+                "minimum_wire_compatibility_version": "1.0.0",
+                "minimum_index_compatibility_version": "1.0.0",
+            },
+            "name": "Nightwatch",
+            "tagline": "The OpenSearch Project: https://opensearch.org/",
+        }
+
+    @query_params(
+        "consistency",
+        "op_type",
+        "parent",
+        "refresh",
+        "replication",
+        "routing",
+        "timeout",
+        "timestamp",
+        "ttl",
+        "version",
+        "version_type",
+    )
+    # def create(self, index, body, doc_type="_doc", id=None, params=None, headers=None):
+    async def create(
+        self,
+        index: Any,
+        id: Any,
+        body: Any,
+        params: Any = None,
+        headers: Any = None,
+    ) -> Any:
+        doc_type = "_doc"
+        if await self.exists(index, id, doc_type=doc_type, params=params):
+            raise ConflictError(
+                409,
+                "action_request_validation_exception",
+                "Validation Failed: 1: no documents to get;",
+            )
+
+        if index not in self.__documents_dict:
+            self.__documents_dict[index] = []
+
+        if id is None:
+            id = get_random_id()
+
+        seq_no = self._next_seq_no(index)
+        self.__documents_dict[index].append(
+            {
+                "_type": doc_type,
+                "_id": id,
+                "_source": body,
+                "_index": index,
+                "_version": 1,
+                "_seq_no": seq_no,
+                "_primary_term": 1,
+            }
+        )
+
+        return {
+            "_index": index,
+            "_id": id,
+            "_version": 1,
+            "result": "created",
+            "_shards": {"total": 2, "successful": 1, "failed": 0},
+            "_seq_no": seq_no,
+            "_primary_term": 1,
+        }
+
+    @query_params(
+        "consistency",
+        "op_type",
+        "parent",
+        "refresh",
+        "replication",
+        "routing",
+        "timeout",
+        "timestamp",
+        "ttl",
+        "version",
+        "version_type",
+    )
+    # def index(self, index, body, doc_type="_doc", id=None, params=None, headers=None):
+    async def index(
+        self,
+        index: Any,
+        body: Any,
+        id: Any = None,
+        params: Any = None,
+        headers: Any = None,
+        **kwargs,
+    ) -> Any:
+        doc_type = "_doc"
+        if index not in self.__documents_dict:
+            self.__documents_dict[index] = []
+
+        version = 1
+
+        result = "created"
+        if id is None:
+            id = get_random_id()
+
+        if await self.exists(index, id, doc_type=doc_type, params=params):
+            doc = await self.get(index, id, doc_type=doc_type, params=params)
+            version = doc["_version"] + 1
+            await self.delete(index, id, doc_type=doc_type)
+            result = "updated"
+
+        seq_no = self._next_seq_no(index)
+        self.__documents_dict[index].append(
+            {
+                "_type": doc_type,
+                "_id": id,
+                "_source": body,
+                "_index": index,
+                "_version": version,
+                "_seq_no": seq_no,
+                "_primary_term": 1,
+            }
+        )
+
+        return {
+            "_index": index,
+            "_id": id,
+            "_version": version,
+            "result": result,
+            "_shards": {"total": 2, "successful": 1, "failed": 0},
+            "_seq_no": seq_no,
+            "_primary_term": 1,
+        }
+
+    @query_params(
+        "consistency",
+        "op_type",
+        "parent",
+        "refresh",
+        "replication",
+        "routing",
+        "timeout",
+        "timestamp",
+        "ttl",
+        "version",
+        "version_type",
+    )
+    # pylint: disable=too-many-statements
+    async def bulk(
+        self,
+        body: Any,
+        index: Any = None,
+        params: Any = None,
+        headers: Any = None,
+        **kwargs,
+    ) -> Any:
+        doc_type = None
+        items = []
+        errors = False
+
+        if isinstance(body, (bytes, bytearray)):
+            body = body.decode("utf-8")
+
+        if isinstance(body, str):
+            lines = body.splitlines()
+        elif isinstance(body, list):
+            lines = body
+        else:
+            raise TypeError("bulk body must be str, bytes or list")
+
+        it = iter(lines)
+        for line in it:
+            if isinstance(line, str):
+                if len(line.strip()) == 0:
+                    continue
+                line = json.loads(line)
+
+            if any(
+                action in line for action in ["index", "create", "update", "delete"]
+            ):
+                action = next(iter(line.keys()))
+
+                version = 1
+                index = line[action].get("_index") or index
+                doc_type = line[action].get("_type", "_doc")
+
+                if action in ["delete", "update"] and not line[action].get("_id"):
+                    raise RequestError(
+                        400, "action_request_validation_exception", "missing id"
+                    )
+
+                document_id = line[action].get("_id", get_random_id())
+
+                if action == "delete":
+                    status, result, error = await self._validate_action(
+                        action, index, document_id, doc_type, params=params
+                    )
+                    item = {
+                        action: {
+                            "_type": doc_type,
+                            "_id": document_id,
+                            "_index": index,
+                            "_version": version,
+                            "status": status,
+                        }
+                    }
+                    if error:
+                        errors = True
+                        item[action]["error"] = result
+                    else:
+                        await self.delete(
+                            index, document_id, doc_type=doc_type, params=params
+                        )
+                        item[action]["result"] = result
+                    items.append(item)
+                    continue
+
+                if index not in self.__documents_dict:
+                    self.__documents_dict[index] = []
+
+                # If it's not delete, we need the source from the next line
+                try:
+                    source_line = next(it)
+                except StopIteration as exc:
+                    raise RequestError(
+                        400, "action_request_validation_exception", "missing source"
+                    ) from exc
+
+                if isinstance(source_line, str):
+                    source = json.loads(source_line)
+                else:
+                    source = source_line
+
+                if "doc" in source and action == "update":
+                    source = source["doc"]
+
+                status, result, error = await self._validate_action(
+                    action, index, document_id, doc_type, params=params
+                )
+                item = {
+                    action: {
+                        "_type": doc_type,
+                        "_id": document_id,
+                        "_index": index,
+                        "_version": version,
+                        "status": status,
+                    }
+                }
+                if not error:
+                    if action == "update" and await self.exists(
+                        index, document_id, doc_type=doc_type, params=params
+                    ):
+                        existing = await self.get(
+                            index, document_id, doc_type=doc_type, params=params
+                        )
+                        existing_source = existing.get("_source", {})
+                        merged = {**existing_source, **source}
+                        if merged == existing_source:
+                            item[action]["result"] = "noop"
+                            item[action]["_version"] = existing.get("_version", 1)
+                            items.append(item)
+                            continue
+                        source = merged
+                        version = existing.get("_version", 1) + 1
+                        await self.delete(
+                            index, document_id, doc_type=doc_type, params=params
+                        )
+                    elif await self.exists(
+                        index, document_id, doc_type=doc_type, params=params
+                    ):
+                        doc = await self.get(
+                            index, document_id, doc_type=doc_type, params=params
+                        )
+                        version = doc["_version"] + 1
+                        await self.delete(
+                            index, document_id, doc_type=doc_type, params=params
+                        )
+
+                    item[action]["result"] = result
+                    item[action]["_version"] = version
+                    seq_no = self._next_seq_no(index)
+                    self.__documents_dict[index].append(
+                        {
+                            "_type": doc_type,
+                            "_id": document_id,
+                            "_source": source,
+                            "_index": index,
+                            "_version": version,
+                            "_seq_no": seq_no,
+                            "_primary_term": 1,
+                        }
+                    )
+                else:
+                    errors = True
+                    item[action]["error"] = result
+                items.append(item)
+        return {"errors": errors, "items": items}
+
+    async def _validate_action(self, action, index, document_id, doc_type, params=None):
+        if action in ["index", "update"] and await self.exists(
+            index, id=document_id, doc_type=doc_type, params=params
+        ):
+            return 200, "updated", False
+        if action == "create" and await self.exists(
+            index, id=document_id, doc_type=doc_type, params=params
+        ):
+            return 409, "version_conflict_engine_exception", True
+        if action in ["index", "create"] and not await self.exists(
+            index, id=document_id, doc_type=doc_type, params=params
+        ):
+            return 201, "created", False
+        if action == "delete" and await self.exists(
+            index, id=document_id, doc_type=doc_type, params=params
+        ):
+            return 200, "deleted", False
+        if action == "update" and not await self.exists(
+            index, id=document_id, doc_type=doc_type, params=params
+        ):
+            return 404, "document_missing_exception", True
+        if action == "delete" and not await self.exists(
+            index, id=document_id, doc_type=doc_type, params=params
+        ):
+            return 404, "not_found", True
+        raise NotImplementedError(f"{action} behaviour hasn't been implemented")
+
+    @query_params("parent", "preference", "realtime", "refresh", "routing")
+    # def exists(self, index, id, doc_type=None, params=None, headers=None):
+    async def exists(
+        self,
+        index: Any,
+        id: Any,
+        params: Any = None,
+        headers: Any = None,
+        **kwargs,
+    ) -> Any:
+        doc_type = None
+        result = False
+        if index in self.__documents_dict:
+            for document in self.__documents_dict[index]:
+                if document.get("_id") == id and (
+                    document.get("_type") == doc_type or doc_type is None
+                ):
+                    result = True
+                    break
+        return result
+
+    @query_params(
+        "_source",
+        "_source_exclude",
+        "_source_include",
+        "fields",
+        "parent",
+        "preference",
+        "realtime",
+        "refresh",
+        "routing",
+        "version",
+        "version_type",
+    )
+    # def get(self, index, id, doc_type="_all", params=None, headers=None):
+    async def get(
+        self, index: Any, id: Any, params: Any = None, headers: Any = None, **kwargs
+    ) -> Any:
+        doc_type = "_all"
+        ignore = extract_ignore_as_iterable(params)
+        result = None
+
+        if index in self.__documents_dict:
+            for document in self.__documents_dict[index]:
+                if document.get("_id") == id:
+                    if doc_type == "_all":
+                        result = document
+                        break
+                    if document.get("_type") == doc_type:
+                        result = document
+                        break
+
+        if result:
+            result["found"] = True
+            return result
+        if params and 404 in ignore:
+            return {"found": False}
+        error_data = {"_index": index, "_type": doc_type, "_id": id, "found": False}
+        raise NotFoundError(404, json.dumps(error_data))
+
+    @query_params(
+        "_source",
+        "_source_excludes",
+        "_source_includes",
+        "if_primary_term",
+        "if_seq_no",
+        "lang",
+        "refresh",
+        "require_alias",
+        "retry_on_conflict",
+        "routing",
+        "timeout",
+        "wait_for_active_shards",
+    )
+    async def update(self, index, id, body, params=None, headers=None):
+        if not body:
+            raise RequestError(
+                400,
+                "action_request_validation_exception",
+                "Validation Failed: 1: script or doc is missing;",
+            )
+        if "doc" not in body and "script" not in body:
+            field = list(body.keys())
+            raise RequestError(
+                400,
+                "x_content_parse_exception",
+                f"[1:2] [UpdateRequest] unknown field [{field[0]}]",
+            )
+        if "doc" in body and "script" in body:
+            raise RequestError(
+                400,
+                "action_request_validation_exception",
+                "Validation Failed: 1: can't provide both script and doc;",
+            )
+
+        result = None
+
+        if index in self.__documents_dict:
+            for document in self.__documents_dict[index]:
+                if document.get("_id") == id:
+                    if "doc" in body:
+                        merged = {**document["_source"], **body["doc"]}
+                        changed = merged != document["_source"]
+                        if changed:
+                            document["_source"] = merged
+                            document["_version"] += 1
+                            document["_seq_no"] = self._next_seq_no(index)
+                            document["_primary_term"] = 1
+                            op_result = "updated"
+                        else:
+                            op_result = "noop"
+
+                        result = {
+                            "_index": index,
+                            "_id": id,
+                            "_version": document["_version"],
+                            "result": op_result,
+                            "_shards": {"total": 2, "successful": 1, "failed": 0},
+                            "_seq_no": document.get("_seq_no", 0),
+                            "_primary_term": document.get("_primary_term", 1),
+                        }
+                    elif "script" in body:
+                        # TODO: Add pain(ful)less language support
+                        raise NotImplementedError(
+                            "Using script is currently not supported."
+                        )
+
+        if result:
+            return result
+        raise NotFoundError(
+            404, "document_missing_exception", f"[{id}]: document missing"
+        )
+
+    @query_params(
+        "_source",
+        "_source_excludes",
+        "_source_includes",
+        "allow_no_indices",
+        "analyze_wildcard",
+        "analyzer",
+        "conflicts",
+        "default_operator",
+        "df",
+        "expand_wildcards",
+        "from_",
+        "ignore_unavailable",
+        "lenient",
+        "max_docs",
+        "pipeline",
+        "preference",
+        "q",
+        "refresh",
+        "request_cache",
+        "requests_per_second",
+        "routing",
+        "scroll",
+        "scroll_size",
+        "search_timeout",
+        "search_type",
+        "size",
+        "slices",
+        "sort",
+        "stats",
+        "terminate_after",
+        "timeout",
+        "version",
+        "version_type",
+        "wait_for_active_shards",
+        "wait_for_completion",
+    )
+    async def update_by_query(
+        self,
+        index: Any,
+        body: Any = None,
+        params: Any = None,
+        headers: Any = None,
+    ) -> Any:
+        # def update_by_query(
+        #     self, index, body=None, doc_type=None, params=None, headers=None
+        # ):
+        doc_type = None
+        # Actually it only supports script equal operations
+        # TODO: Full support from painless language
+        total_updated = 0
+        if isinstance(index, list):
+            (index,) = index
+        new_values = {}
+        script_params = body["script"]["params"]
+        script_source = body["script"]["source"].replace("ctx._source.", "").split(";")
+        for sentence in script_source:
+            if sentence:
+                field, _, value = sentence.split()
+                if value.startswith("params."):
+                    _, key = value.split(".")
+                    value = script_params.get(key)
+                new_values[field] = value
+
+        matches = await self.search(
+            index=index, doc_type=doc_type, body=body, params=params, headers=headers
+        )
+        if matches["hits"]["total"]:
+            for hit in matches["hits"]["hits"]:
+                body = hit["_source"]
+                body.update(new_values)
+                await self.index(index, body, doc_type=hit["_type"], id=hit["_id"])
+                total_updated += 1
+
+        return {
+            "took": 1,
+            "time_out": False,
+            "total": matches["hits"]["total"],
+            "updated": total_updated,
+            "deleted": 0,
+            "batches": 1,
+            "version_conflicts": 0,
+            "noops": 0,
+            "retries": 0,
+            "throttled_millis": 100,
+            "requests_per_second": 100,
+            "throttled_until_millis": 0,
+            "failures": [],
+        }
+
+    @query_params(
+        "_source",
+        "_source_excludes",
+        "_source_includes",
+        "allow_no_indices",
+        "analyze_wildcard",
+        "analyzer",
+        "conflicts",
+        "default_operator",
+        "df",
+        "expand_wildcards",
+        "from_",
+        "ignore_unavailable",
+        "lenient",
+        "max_docs",
+        "preference",
+        "q",
+        "refresh",
+        "request_cache",
+        "requests_per_second",
+        "routing",
+        "scroll",
+        "scroll_size",
+        "search_timeout",
+        "search_type",
+        "slices",
+        "sort",
+        "stats",
+        "terminate_after",
+        "timeout",
+        "version",
+        "wait_for_active_shards",
+        "wait_for_completion",
+    )
+    async def delete_by_query(
+        self,
+        index: Any,
+        body: Any = None,
+        params: Any = None,
+        headers: Any = None,
+    ) -> Any:
+        matches = await self.search(
+            index=index, body=body, params=params, headers=headers
+        )
+        total_deleted = 0
+        for hit in matches["hits"]["hits"]:
+            await self.delete(hit["_index"], hit["_id"])
+            total_deleted += 1
+        return {
+            "took": 1,
+            "timed_out": False,
+            "total": total_deleted,
+            "deleted": total_deleted,
+            "batches": 1,
+            "version_conflicts": 0,
+            "noops": 0,
+            "retries": {"bulk": 0, "search": 0},
+            "throttled_millis": 0,
+            "requests_per_second": -1,
+            "throttled_until_millis": 0,
+            "failures": [],
+        }
+
+    @query_params(
+        "_source",
+        "_source_exclude",
+        "_source_include",
+        "preference",
+        "realtime",
+        "refresh",
+        "routing",
+        "stored_fields",
+    )
+    async def mget(
+        self,
+        body: Any,
+        index: Any = None,
+        params: Any = None,
+        headers: Any = None,
+    ) -> Any:
+        doc_type = "_all"
+        docs = body.get("docs")
+        if docs:
+            items = [(doc.get("_index") or index, doc["_id"]) for doc in docs]
+        else:
+            ids = body.get("ids")
+            if ids:
+                items = [(index, doc_id) for doc_id in ids]
+            else:
+                items = []
+
+        results = []
+        for doc_index, doc_id in items:
+            # pylint: disable=bare-except
+            try:
+                results.append(
+                    await self.get(
+                        doc_index,
+                        doc_id,
+                        doc_type=doc_type,
+                        params=params,
+                        headers=headers,
+                    )
+                )
+            except:  # noqa
+                results.append(
+                    {
+                        "_index": doc_index,
+                        "_type": doc_type,
+                        "_id": doc_id,
+                        "found": False,
+                    }
+                )
+        if not results:
+            raise RequestError(
+                400,
+                "action_request_validation_exception",
+                "Validation Failed: 1: no documents to get;",
+            )
+        return {"docs": results}
+
+    @query_params(
+        "_source",
+        "_source_exclude",
+        "_source_include",
+        "parent",
+        "preference",
+        "realtime",
+        "refresh",
+        "routing",
+        "version",
+        "version_type",
+    )
+    # def get_source(self, index, doc_type, id, params=None, headers=None):
+    async def get_source(
+        self,
+        index: Any,
+        id: Any,
+        params: Any = None,
+        headers: Any = None,
+    ) -> Any:
+        doc_type = None
+        document = await self.get(index=index, doc_type=doc_type, id=id, params=params)
+        return document.get("_source")
+
+    @query_params(
+        "_source",
+        "_source_exclude",
+        "_source_include",
+        "allow_no_indices",
+        "analyze_wildcard",
+        "analyzer",
+        "default_operator",
+        "df",
+        "expand_wildcards",
+        "explain",
+        "fielddata_fields",
+        "fields",
+        "from_",
+        "ignore_unavailable",
+        "lenient",
+        "lowercase_expanded_terms",
+        "min_score",
+        "preference",
+        "q",
+        "request_cache",
+        "routing",
+        "scroll",
+        "search_type",
+        "size",
+        "sort",
+        "stats",
+        "suggest_field",
+        "suggest_mode",
+        "suggest_size",
+        "suggest_text",
+        "terminate_after",
+        "timeout",
+        "track_scores",
+        "version",
+    )
+    # def count(self, index=None, doc_type=None, body=None, params=None, headers=None):
+    async def count(
+        self,
+        body: Any = None,
+        index: Any = None,
+        params: Any = None,
+        headers: Any = None,
+    ) -> Any:
+        contents = await self.search(
+            index=index, body=body, params=params, headers=headers
+        )
+        return {"count": len(contents["hits"]["hits"]), "_shards": contents["_shards"]}
+
+    def _get_fake_query_condition(self, query_type_str, condition):
+        return FakeQueryCondition(QueryType.get_query_type(query_type_str), condition)
+
+    @query_params(
+        "ccs_minimize_roundtrips",
+        "max_concurrent_searches",
+        "max_concurrent_shard_requests",
+        "pre_filter_shard_size",
+        "rest_total_hits_as_int",
+        "search_type",
+        "typed_keys",
+    )
+    # def msearch(self, body, index=None, doc_type=None, params=None, headers=None):
+    async def msearch(
+        self,
+        body: Any,
+        index: Any = None,
+        params: Any = None,
+        headers: Any = None,
+    ) -> Any:
+        def grouped(iterable):
+            if len(iterable) % 2 != 0:
+                # pylint: disable=broad-exception-raised
+                raise Exception("Malformed body")
+            iterator = iter(iterable)
+            while True:
+                try:
+                    yield (next(iterator)["index"], next(iterator))
+                except StopIteration:
+                    break
+
+        responses = []
+        took = 0
+        for ind, query in grouped(body):
+            response = await self.search(index=ind, body=query)
+            took += response["took"]
+            responses.append(response)
+        result = {"took": took, "responses": responses}
+        return result
+
+    @query_params(
+        "_source",
+        "_source_exclude",
+        "_source_include",
+        "allow_no_indices",
+        "analyze_wildcard",
+        "analyzer",
+        "default_operator",
+        "df",
+        "expand_wildcards",
+        "explain",
+        "fielddata_fields",
+        "fields",
+        "from_",
+        "ignore_unavailable",
+        "lenient",
+        "lowercase_expanded_terms",
+        "preference",
+        "q",
+        "request_cache",
+        "routing",
+        "scroll",
+        "search_type",
+        "size",
+        "sort",
+        "stats",
+        "suggest_field",
+        "suggest_mode",
+        "suggest_size",
+        "suggest_text",
+        "terminate_after",
+        "timeout",
+        "track_scores",
+        "track_total_hits",
+        "version",
+    )
+    async def search(
+        self,
+        body: Any = None,
+        index: Any = None,
+        params: Any = None,
+        headers: Any = None,
+        **kwargs,
+    ) -> Any:
+        # def search(self, index=None, doc_type=None, body=None, params=None, headers=None):
+        doc_type: Optional[list] = None
+        searchable_indexes = self._normalize_index_to_list(index)
+
+        matches = []
+        conditions = []
+
+        if body and "query" in body:
+            query = body["query"]
+            for query_type_str, condition in query.items():
+                conditions.append(
+                    self._get_fake_query_condition(query_type_str, condition)
+                )
+        for searchable_index in searchable_indexes:
+            for document in self.__documents_dict[searchable_index]:
+                if doc_type:
+                    # pylint: disable=unsupported-membership-test
+                    if (
+                        isinstance(doc_type, list)
+                        and document.get("_type") not in doc_type
+                    ):
+                        continue
+                    if isinstance(doc_type, str) and document.get("_type") != doc_type:
+                        continue
+                if conditions:
+                    for condition in conditions:
+                        if condition.evaluate(document):
+                            matches.append(document)
+                            break
+                else:
+                    matches.append(document)
+
+        for match in matches:
+            self._find_and_convert_data_types(match["_source"])
+
+        result = {
+            "hits": {
+                "total": {"value": len(matches), "relation": "eq"},
+                "max_score": 1.0,
+            },
+            "_shards": {
+                # Simulate indexes with 1 shard each
+                "successful": len(searchable_indexes),
+                "skipped": 0,
+                "failed": 0,
+                "total": len(searchable_indexes),
+            },
+            "took": 1,
+            "timed_out": False,
+        }
+
+        hits = []
+        for match in matches:
+            match["_score"] = 1.0
+            hits.append(match)
+
+        # build aggregations
+        if body is not None and "aggs" in body:
+            aggregations = {}
+
+            for aggregation, definition in body["aggs"].items():
+                aggregations[aggregation] = {
+                    "doc_count_error_upper_bound": 0,
+                    "sum_other_doc_count": 0,
+                    "buckets": self.make_aggregation_buckets(definition, matches),
+                }
+
+            if aggregations:
+                result["aggregations"] = aggregations
+
+        if body is not None and "sort" in body:
+            for key in body["sort"][0]:
+                if body["sort"][0][key]["order"] == "desc":
+                    hits = sorted(
+                        hits,
+                        key=lambda k, key=key: (
+                            k["_source"].get(key) is None,
+                            k["_source"].get(key),
+                        ),
+                        reverse=True,
+                    )
+                else:
+                    hits = sorted(
+                        hits,
+                        key=lambda k, key=key: (
+                            k["_source"].get(key) is None,
+                            k["_source"].get(key),
+                        ),
+                    )
+
+        if body is not None and "size" in body:
+            start = body.get("from", 0)
+            hits = hits[start : start + body["size"]]
+        elif body is not None and "from" in body:
+            hits = hits[body["from"] :]
+
+        if "scroll" in params:
+            result["_scroll_id"] = str(get_random_scroll_id())
+            params["size"] = int(params.get("size", 10))
+            params["from"] = int(
+                params.get("from") + params.get("size") if "from" in params else 0
+            )
+            self.__scrolls[result.get("_scroll_id")] = {
+                "index": index,
+                "doc_type": doc_type,
+                "body": body,
+                "params": params,
+            }
+            hits = hits[params.get("from") : params.get("from") + params.get("size")]
+        elif "size" in params:
+            hits = hits[: int(params["size"])]
+        elif body and "size" in body:
+            hits = hits[: int(body["size"])]
+
+        result["hits"]["hits"] = hits
+
+        return result
+
+    @query_params("scroll")
+    # def scroll(self, scroll_id, params=None, headers=None):
+    async def scroll(
+        self,
+        body: Any = None,
+        scroll_id: Any = None,
+        params: Any = None,
+        headers: Any = None,
+    ) -> Any:
+        scroll = self.__scrolls.pop(scroll_id)
+        result = await self.search(
+            index=scroll.get("index"),
+            doc_type=scroll.get("doc_type"),
+            body=scroll.get("body"),
+            params=scroll.get("params"),
+        )
+        return result
+
+    @query_params(
+        "consistency",
+        "parent",
+        "refresh",
+        "replication",
+        "routing",
+        "timeout",
+        "version",
+        "version_type",
+    )
+    # def delete(self, index, id, doc_type=None, params=None, headers=None):
+    async def delete(
+        self, index: Any, id: Any, params: Any = None, headers: Any = None, **kwargs
+    ) -> Any:
+        doc_type = None
+        found = False
+        existing_version = 1
+        ignore = extract_ignore_as_iterable(params)
+
+        if index in self.__documents_dict:
+            for document in self.__documents_dict[index]:
+                if document.get("_id") == id:
+                    found = True
+                    if doc_type and document.get("_type") != doc_type:
+                        found = False
+                    if found:
+                        existing_version = document.get("_version", 1)
+                        self.__documents_dict[index].remove(document)
+                        break
+
+        if found:
+            seq_no = self._next_seq_no(index)
+            return {
+                "_index": index,
+                "_id": id,
+                "_version": existing_version + 1,
+                "result": "deleted",
+                "_shards": {"total": 2, "successful": 1, "failed": 0},
+                "_seq_no": seq_no,
+                "_primary_term": 1,
+                "found": True,
+            }
+        if params and 404 in ignore:
+            return {
+                "_index": index,
+                "_id": id,
+                "_version": 1,
+                "result": "not_found",
+                "_shards": {"total": 2, "successful": 1, "failed": 0},
+                "_seq_no": 0,
+                "_primary_term": 1,
+                "found": False,
+            }
+        raise NotFoundError(
+            404,
+            json.dumps(
+                {"_index": index, "_id": id, "found": False, "result": "not_found"}
+            ),
+        )
+
+    @query_params(
+        "allow_no_indices",
+        "expand_wildcards",
+        "ignore_unavailable",
+        "preference",
+        "routing",
+    )
+    def suggest(self, body, index=None, params=None, headers=None):
+        if index is not None and index not in self.__documents_dict:
+            raise NotFoundError(404, f"IndexMissingException[[{index}] missing]")
+
+        result_dict = {}
+        for key, value in body.items():
+            text = value.get("text")
+            suggestion = (
+                int(text) + 1 if isinstance(text, int) else f"{text}_suggestion"
+            )
+            result_dict[key] = [
+                {
+                    "text": text,
+                    "length": 1,
+                    "options": [{"text": suggestion, "freq": 1, "score": 1.0}],
+                    "offset": 0,
+                }
+            ]
+        return result_dict
+
+    def _normalize_index_to_list(self, index):
+        # Ensure to have a list of index
+        if index is None or index == "*" or index == "_all":
+            searchable_indexes = list(self.__documents_dict.keys())
+        elif isinstance(index, str):
+            searchable_indexes = [index]
+        elif isinstance(index, list):
+            searchable_indexes = index
+        else:
+            # Is it the correct exception to use ?
+            raise ValueError("Invalid param 'index'")
+
+        # Resolve aliases to backing indices
+        resolved = []
+        for name in searchable_indexes:
+            backing = [
+                idx
+                for idx, entry in self.__aliases_dict.items()
+                if name in entry.get("aliases", {})
+            ]
+            if backing:
+                resolved.extend(backing)
+            else:
+                resolved.append(name)
+        searchable_indexes = resolved
+
+        # Check index(es) exists
+        for searchable_index in searchable_indexes:
+            if searchable_index not in self.__documents_dict:
+                raise NotFoundError(
+                    404, f"IndexMissingException[[{searchable_index}] missing]"
+                )
+
+        return searchable_indexes
+
+    @classmethod
+    def _find_and_convert_data_types(cls, document):
+        for key, value in document.items():
+            if isinstance(value, dict):
+                cls._find_and_convert_data_types(value)
+            elif isinstance(value, datetime.datetime):
+                document[key] = value.isoformat()
+
+    def make_aggregation_buckets(self, aggregation, documents):
+        if "composite" in aggregation:
+            return self.make_composite_aggregation_buckets(aggregation, documents)
+        if "terms" in aggregation:
+            field = aggregation["terms"]["field"]
+            counts = defaultdict(int)
+            for doc in documents:
+                val = doc["_source"].get(field)
+                if val is not None:
+                    counts[val] += 1
+            buckets = [
+                {"key": k, "doc_count": v}
+                for k, v in sorted(counts.items(), key=lambda x: x[1], reverse=True)
+            ]
+            return buckets
+        return []
+
+    def make_composite_aggregation_buckets(self, aggregation, documents):
+        def make_key(doc_source, agg_source):
+            attr = list(agg_source.values())[0]["terms"]["field"]
+            return doc_source[attr]
+
+        def make_bucket(bucket_key, bucket):
+            out = {
+                "key": dict(zip(bucket_key_fields, bucket_key)),
+                "doc_count": len(bucket),
+            }
+            if "aggs" in aggregation:
+                for metric_key, metric_definition in aggregation["aggs"].items():
+                    metric_type_str = list(metric_definition)[0]
+                    metric_type = MetricType.get_metric_type(metric_type_str)
+                    attr = metric_definition[metric_type_str]["field"]
+                    # Strip .keyword multifield suffix; the fake is schema-light
+                    # and stores only the base field value.
+                    if attr.endswith(".keyword"):
+                        attr = attr[: -len(".keyword")]
+                    data = [doc[attr] for doc in bucket]
+
+                    if metric_type == MetricType.CARDINALITY:
+                        value = len(set(data))
+                    else:
+                        raise NotImplementedError(
+                            f"Metric type '{metric_type}' not implemented"
+                        )
+
+                    out[metric_key] = {"value": value}
+            return out
+
+        agg_sources = aggregation["composite"]["sources"]
+        buckets = defaultdict(list)
+        bucket_key_fields = [list(src)[0] for src in agg_sources]
+        for document in documents:
+            doc_src = document["_source"]
+            key = ()
+            for agg_src in aggregation["composite"]["sources"]:
+                k = make_key(doc_src, agg_src)
+                if isinstance(k, list):
+                    key += tuple(k)
+                else:
+                    key += tuple([k])
+            buckets[key].append(doc_src)
+
+        buckets = sorted(((k, v) for k, v in buckets.items()), key=lambda x: x[0])
+        buckets = [make_bucket(bucket_key, bucket) for bucket_key, bucket in buckets]
+        return buckets

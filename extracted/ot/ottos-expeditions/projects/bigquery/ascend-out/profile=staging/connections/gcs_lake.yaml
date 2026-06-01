@@ -1,7 +1,0 @@
-connection:
-  gcs:
-    root: gs://ascend-io-gcs-public
-  metadata:
-    source:
-      path: projects/bigquery/connections/gcs_lake.yaml
-  name: gcs_lake

@@ -1,0 +1,255 @@
+Metadata-Version: 2.4
+Name: negspacy
+Version: 1.1.0
+Summary: A spaCy pipeline component for negating concepts in text (NegEx).
+Project-URL: Homepage, https://github.com/jenojp/negspacy
+Project-URL: Issues, https://github.com/jenojp/negspacy/issues
+Author-email: Jeno Pizarro <jenopizzaro@gmail.com>
+License: MIT License
+        
+        Copyright (c) 2019 Jeno Pizarro
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+License-File: LICENSE
+Keywords: clinical,negation,nlp,spacy
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Scientific/Engineering
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Requires-Dist: spacy<4.0,>=3.8
+Provides-Extra: dev
+Requires-Dist: pre-commit; extra == 'dev'
+Requires-Dist: pytest-cov; extra == 'dev'
+Requires-Dist: pytest>=8; extra == 'dev'
+Requires-Dist: ruff; extra == 'dev'
+Description-Content-Type: text/markdown
+
+
+<p align="center"><img width="40%" src="icon.png" /></p>
+
+
+# negspacy: negation for spaCy
+
+[![CI](https://github.com/jenojp/negspacy/actions/workflows/ci.yml/badge.svg)](https://github.com/jenojp/negspacy/actions/workflows/ci.yml) [![Built with spaCy](https://img.shields.io/badge/made%20with%20❤%20and-spaCy-09a3d5.svg)](https://spacy.io) [![pypi Version](https://img.shields.io/pypi/v/negspacy.svg?style=flat-square)](https://pypi.org/project/negspacy/) [![DOI](https://zenodo.org/badge/201071164.svg)](https://zenodo.org/badge/latestdoi/201071164)
+
+spaCy pipeline object for negating concepts in text. Based on the NegEx algorithm.
+
+***NegEx - A Simple Algorithm for Identifying Negated Findings and Diseases in Discharge Summaries
+Chapman, Bridewell, Hanbury, Cooper, Buchanan***
+[https://doi.org/10.1006/jbin.2001.1029](https://doi.org/10.1006/jbin.2001.1029)
+
+## What's new
+Version 1.0 is a major version update providing support for spaCy 3.0's new interface for adding pipeline components. As a result, it is not backwards compatible with previous versions of negspacy.
+
+If your project uses spaCy 2.3.5 or earlier, you will need to use version 0.1.9. See [archived readme](https://github.com/jenojp/negspacy/blob/v0.1.9_spacy_2.3.5/README.md).
+
+## Installation and usage
+Install the library.
+```bash
+pip install negspacy
+```
+
+Import library and spaCy.
+```python
+import spacy
+from negspacy.negation import Negex
+```
+
+Load spacy language model. Add negspacy pipeline object. Filtering on entity types is optional.
+```python
+nlp = spacy.load("en_core_web_sm")
+nlp.add_pipe("negex", config={"ent_types":["PERSON","ORG"]})
+
+```
+
+View negations.
+```python
+doc = nlp("She does not like Steve Jobs but likes Apple products.")
+
+for e in doc.ents:
+	print(e.text, e._.negex)
+```
+
+```console
+Steve Jobs True
+Apple False
+```
+
+Consider pairing with [scispacy](https://allenai.github.io/scispacy/) to find UMLS concepts in text and process negations.
+
+## NegEx Patterns
+
+* **pseudo_negations** - phrases that are false triggers, ambiguous negations, or double negatives
+* **preceding_negations** - negation phrases that precede an entity
+* **following_negations** - negation phrases that follow an entity
+* **termination** - phrases that cut a sentence in parts, for purposes of negation detection (.e.g., "but")
+
+### Termsets
+
+Designate termset to use, `en_clinical` is used by default.
+
+* `en` = phrases for general english language text
+* `en_clinical` **DEFAULT** = adds phrases specific to clinical domain to general english
+* `en_clinical_sensitive` = adds additional phrases to help rule out historical and possibly irrelevant entities
+
+To set:
+```python
+from negspacy.negation import Negex
+from negspacy.termsets import termset
+
+ts = termset("en")
+
+nlp = spacy.load("en_core_web_sm")
+nlp.add_pipe(
+    "negex",
+    config={
+        "neg_termset":ts.get_patterns()
+    }
+)
+
+```
+
+## Additional Functionality
+
+### Change patterns or view patterns in use
+
+Replace all patterns with your own set
+```python
+nlp = spacy.load("en_core_web_sm")
+nlp.add_pipe(
+    "negex",
+    config={
+        "neg_termset":{
+            "pseudo_negations": ["might not"],
+            "preceding_negations": ["not"],
+            "following_negations":["declined"],
+            "termination": ["but","however"]
+        }
+    }
+    )
+```
+
+Add and remove individual patterns on the fly from built-in termsets
+```python
+from negspacy.termsets import termset
+ts = termset("en")
+ts.add_patterns({
+            "pseudo_negations": ["my favorite pattern"],
+            "termination": ["these are", "great patterns", "but"],
+            "preceding_negations": ["wow a negation"],
+            "following_negations": ["extra negation"],
+        })
+#OR
+ts.remove_patterns(
+        {
+            "termination": ["these are", "great patterns"],
+            "pseudo_negations": ["my favorite pattern"],
+            "preceding_negations": ["denied", "wow a negation"],
+            "following_negations": ["unlikely", "extra negation"],
+        }
+    )
+```
+
+View patterns in use
+```python
+from negspacy.termsets import termset
+ts = termset("en_clinical")
+print(ts.get_patterns())
+```
+
+### Negations with Spans
+
+Span Groups can be negated by providing a list of span keys to the `span_keys` argument.
+
+Load spacy language model that [adds spans](https://spacy.io/api/spancategorizer) to the Doc object.
+```python
+nlp = spacy.load("your_span_cat_model")
+# 'sc' is the default SpanGroup spans_key
+nlp.add_pipe("negex", config={"span_keys":["sc"]})
+```
+
+View negations.
+```python
+doc = nlp("Analysis showed no sign of Human TR Beta 1 mRNA")
+
+for span in doc.spans["sc"]:
+	print(span.text, span.label, span._.negex)
+```
+
+```console
+Human TR Beta 1 PROTEIN True
+Human TR Beta 1 mRNA RNA True
+```
+
+### Negations in noun chunks
+
+Depending on the Named Entity Recognition model you are using, you _may_ have negations "chunked together" with nouns. For example:
+```python
+nlp = spacy.load("en_core_sci_sm")
+doc = nlp("There is no headache.")
+for e in doc.ents:
+    print(e.text)
+
+# no headache
+```
+This would cause the Negex algorithm to miss the preceding negation. To account for this, you can add a ```chunk_prefix```:
+
+```python
+nlp = spacy.load("en_core_sci_sm")
+ts = termset("en_clinical")
+nlp.add_pipe(
+    "negex",
+    config={
+        "chunk_prefix": ["no"],
+    },
+    last=True,
+)
+doc = nlp("There is no headache.")
+for e in doc.ents:
+    print(e.text, e._.negex)
+
+# no headache True
+```
+
+
+## Contributing
+[contributing](https://github.com/jenojp/negspacy/blob/master/CONTRIBUTING.md)
+
+## Authors
+* Jeno Pizarro
+
+## License
+[license](https://github.com/jenojp/negspacy/blob/master/LICENSE)
+
+## Other libraries
+
+This library is featured in the [spaCy Universe](https://spacy.io/universe). Check it out for other useful libraries and inspiration.
+
+If you're looking for a spaCy pipeline object to extract values that correspond to a named entity (e.g., birth dates, account numbers, or laboratory results) take a look at [extractacy](https://github.com/jenojp/extractacy).
+
+<p align="left"><img width="40%" src="https://github.com/jenojp/extractacy/blob/master/docs/icon.png?raw=true" /></p>

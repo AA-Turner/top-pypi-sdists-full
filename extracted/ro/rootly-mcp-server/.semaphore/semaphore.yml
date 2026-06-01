@@ -1,0 +1,73 @@
+version: v1.0
+name: Build and Deploy
+
+queue:
+  name: Build Queue
+  scope: project
+
+auto_cancel:
+  queued:
+    when: 'true'
+
+agent:
+  machine:
+    type: r1-standard-4
+    os_image: ubuntu2404
+
+blocks:
+  - name: 'Build'
+    dependencies: []
+    task:
+      secrets:
+        - name: 'AWS Credentials'
+      prologue:
+        commands:
+          - |
+            if [ "$SEMAPHORE_GIT_BRANCH" = "staging" ]; then
+              export AWS_PROFILE=staging
+              export ECR_PUSH_ENABLED=true
+            elif [ "$SEMAPHORE_GIT_BRANCH" = "main" ]; then
+              export AWS_PROFILE=production
+              export ECR_PUSH_ENABLED=true
+            else
+              export ECR_PUSH_ENABLED=false
+            fi
+          - |
+            if [ "$ECR_PUSH_ENABLED" = "true" ]; then
+              export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+              aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com
+            else
+              echo "Skipping AWS/ECR auth for non-deploy branch: $SEMAPHORE_GIT_BRANCH"
+            fi
+      jobs:
+        - name: Build
+          commands:
+            - checkout
+            - export BUILDKIT_PROGRESS=plain
+            - |
+              if [ "$SEMAPHORE_GIT_BRANCH" = "staging" ]; then
+                docker build --push \
+                  -t ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/rootly/mcp:${SEMAPHORE_GIT_SHA} \
+                  -t ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/rootly/mcp:staging .
+              elif [ "$SEMAPHORE_GIT_BRANCH" = "main" ]; then
+                docker build --push \
+                  -t ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/rootly/mcp:${SEMAPHORE_GIT_SHA} \
+                  -t ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/rootly/mcp:latest \
+                  -t ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/rootly/mcp:production .
+              else
+                docker build -t rootly-mcp-server:${SEMAPHORE_GIT_SHA} .
+              fi
+
+promotions:
+  - name: Deploy Staging
+    pipeline_file: deploy-staging.yml
+
+    auto_promote:
+      when: branch = 'staging' AND result = 'passed'
+
+  - name: Deploy
+    pipeline_file: deploy.yml
+    deployment_target: production
+
+    auto_promote:
+      when: branch = 'main' AND result = 'passed'

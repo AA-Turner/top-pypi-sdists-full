@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 import inspect
+import sys
 import unittest.mock
 import uuid
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Annotated, Any, cast
+from enum import Enum, IntEnum
+from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import MagicMock, patch
 
 from litestar import Litestar, get
-from litestar.di import Provide
+from litestar.di import NamedDependency, Provide
 from litestar.openapi.config import OpenAPIConfig
-from litestar.params import Dependency
+from litestar.params import SkipValidation
 from litestar.testing import TestClient
 from sqlalchemy import FromClause, String, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Mapper, mapped_column
@@ -20,6 +22,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Mapper, mapped_column
 from advanced_alchemy.extensions.litestar.plugins.init.plugin import signature_namespace_values
 from advanced_alchemy.extensions.litestar.providers import (
     DEPENDENCY_DEFAULTS,
+    ChoiceField,
     DependencyCache,
     DependencyDefaults,
     FilterConfig,
@@ -33,6 +36,8 @@ from advanced_alchemy.extensions.litestar.providers import (
 )
 from advanced_alchemy.filters import (
     BeforeAfter,
+    BooleanFilter,
+    ChoicesFilter,
     CollectionFilter,
     FilterTypes,
     LimitOffset,
@@ -47,6 +52,23 @@ from advanced_alchemy.service import (
 )
 from advanced_alchemy.types.identity import BigIntIdentity
 from tests.helpers import anext_
+
+if sys.version_info >= (3, 11):
+    from enum import StrEnum
+else:
+
+    class StrEnum(str, Enum):  # type: ignore[no-redef]
+        """Compatibility shim for testing string enum behavior on Python < 3.11."""
+
+
+class StatusChoice(StrEnum):
+    ACTIVE = "active"
+    PENDING = "pending"
+
+
+class PriorityChoice(IntEnum):
+    LOW = 1
+    HIGH = 2
 
 
 class Base(DeclarativeBase):
@@ -438,6 +460,83 @@ def test_order_by_filter() -> None:
     assert f.sort_order == "desc"
 
 
+def test_order_by_filter_uses_scalar_default_from_list_sort_field() -> None:
+    """Test list-based sort fields produce a scalar default order field."""
+    deps = _create_statement_filters({"sort_field": ["name", "id"]})
+
+    provider_func = deps["order_by_filter"].dependency
+    f = provider_func()
+
+    assert isinstance(f, OrderBy)
+    assert f.field_name == "name"
+    f.append_to_statement(select(DITestModel), DITestModel)
+
+
+def test_order_by_filter_uses_scalar_default_from_set_sort_field() -> None:
+    """Test set-based sort fields produce a deterministic scalar default order field."""
+    deps = _create_statement_filters({"sort_field": {"name", "id"}})
+
+    provider_func = deps["order_by_filter"].dependency
+    f = provider_func()
+
+    assert isinstance(f, OrderBy)
+    assert f.field_name == "id"
+    f.append_to_statement(select(DITestModel), DITestModel)
+
+
+def test_individual_order_by_dependency_injection_skips_runtime_field_validation() -> None:
+    """Test individual Litestar filter dependencies can be injected directly."""
+
+    @get("/", dependencies=create_filter_dependencies({"sort_field": "name"}))
+    async def handler(order_by_filter: OrderBy) -> dict[str, str]:
+        return {"field_name": cast(str, order_by_filter.field_name), "sort_order": order_by_filter.sort_order}
+
+    with TestClient(Litestar([handler])) as client:
+        response = client.get("/")
+        overridden_response = client.get("/?orderBy=id&sortOrder=asc")
+
+    assert response.status_code == 200
+    assert response.json() == {"field_name": "name", "sort_order": "desc"}
+    assert overridden_response.status_code == 200
+    assert overridden_response.json() == {"field_name": "id", "sort_order": "asc"}
+
+
+def test_litestar_openapi_schema_uses_typed_sort_parameters() -> None:
+    """Test sort parameters keep concrete OpenAPI schemas for collection defaults."""
+    filter_dependencies = create_filter_dependencies({"sort_field": ["name", "id"], "sort_order": "asc"})
+
+    @get("/test")
+    async def handler(filters: SkipValidation[list[FilterTypes]]) -> list[str]:
+        return [type(filter_).__name__ for filter_ in filters]
+
+    app = Litestar(
+        route_handlers=[handler],
+        signature_namespace=signature_namespace_values,
+        dependencies=filter_dependencies,
+        openapi_config=OpenAPIConfig(title="Test API", version="1.0.0", path="/schema"),
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/schema/openapi.json")
+
+    assert response.status_code == 200
+    parameters = response.json()["paths"]["/test"]["get"]["parameters"]
+    order_by_param = next(param for param in parameters if param["name"] == "orderBy")
+    sort_order_param = next(param for param in parameters if param["name"] == "sortOrder")
+
+    assert order_by_param["schema"] == {
+        "oneOf": [{"type": "string", "default": "name"}, {"type": "null"}],
+        "title": "Order by field",
+        "default": "name",
+    }
+    assert sort_order_param["schema"] == {
+        "type": ["null", "string"],
+        "enum": ["asc", "desc", None],
+        "title": "Field to search",
+        "default": "asc",
+    }
+
+
 def test_not_in_filter() -> None:
     """Test creating not_in filter dependency."""
     deps = _create_statement_filters({"not_in_fields": ["status"]})
@@ -476,13 +575,100 @@ def test_in_filter() -> None:
     assert f_none is None
 
 
+def test_boolean_filter() -> None:
+    """Test creating boolean filter dependency."""
+    deps = _create_statement_filters({"boolean_fields": ["is_featured"]})
+
+    assert "is_featured_boolean_filter" in deps
+    assert "filters" in deps
+
+    provider_func = deps["is_featured_boolean_filter"].dependency
+    f = provider_func(is_featured_boolean=True)
+    assert isinstance(f, BooleanFilter)
+    assert f.field_name == "is_featured"
+    assert f.value is True
+
+    f_none = provider_func(is_featured_boolean=None)
+    assert f_none is None
+
+
+def test_choices_filter() -> None:
+    """Test creating choices filter dependency."""
+    deps = _create_statement_filters({"choice_fields": [ChoiceField("status", ("active", "pending"))]})
+
+    assert "status_choices_filter" in deps
+    assert "filters" in deps
+
+    provider_func = deps["status_choices_filter"].dependency
+    f = provider_func(status_choices=["active", "pending"])
+    assert isinstance(f, ChoicesFilter)
+    assert f.field_name == "status"
+    assert f.values == ["active", "pending"]
+
+    f_none = provider_func(status_choices=None)
+    assert f_none is None
+
+
+def test_choice_filter_openapi_schema_supports_explicit_and_enum_choices() -> None:
+    """Test choice filters expose explicit, StrEnum, and IntEnum values in OpenAPI."""
+    filter_dependencies = create_filter_dependencies(
+        {
+            "choice_fields": [
+                ("visibility", ("public", "private")),
+                ("status", StatusChoice),
+                ("priority", PriorityChoice),
+            ],
+        }
+    )
+
+    @get("/items")
+    async def handler(filters: SkipValidation[list[FilterTypes]]) -> list[str]:
+        return [type(filter_).__name__ for filter_ in filters]
+
+    app = Litestar(
+        route_handlers=[handler],
+        signature_namespace=signature_namespace_values,
+        dependencies=filter_dependencies,
+        openapi_config=OpenAPIConfig(title="Test API", version="1.0.0", path="/schema"),
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/items?visibility=public&status=active&priority=1")
+        schema = client.get("/schema/openapi.json").json()
+
+    assert response.status_code == 200
+    assert response.json() == ["ChoicesFilter", "ChoicesFilter", "ChoicesFilter"]
+
+    parameters = schema["paths"]["/items"]["get"]["parameters"]
+    assert [parameter["name"] for parameter in parameters] == ["visibility", "status", "priority"]
+    param_schemas = {parameter["name"]: parameter["schema"] for parameter in parameters}
+    components = schema["components"]["schemas"]
+
+    visibility_items = next(schema for schema in param_schemas["visibility"]["oneOf"] if schema.get("type") == "array")[
+        "items"
+    ]
+    assert visibility_items == {"enum": ["public", "private"], "type": "string"}
+
+    status_items = next(schema for schema in param_schemas["status"]["oneOf"] if schema.get("type") == "array")["items"]
+    assert status_items == {"$ref": "#/components/schemas/StatusChoice"}
+    assert components["StatusChoice"]["enum"] == ["active", "pending"]
+    assert components["StatusChoice"]["type"] == "string"
+
+    priority_items = next(schema for schema in param_schemas["priority"]["oneOf"] if schema.get("type") == "array")[
+        "items"
+    ]
+    assert priority_items == {"$ref": "#/components/schemas/PriorityChoice"}
+    assert components["PriorityChoice"]["enum"] == [1, 2]
+    assert components["PriorityChoice"]["type"] == "integer"
+
+
 def test_litestar_in_filter_values_are_isolated() -> None:
     """Ensure in-filter query params do not overwrite each other."""
     filter_config: FilterConfig = {"in_fields": ["first_name", "last_name"]}
     filter_dependencies = create_filter_dependencies(filter_config)
 
     @get("/test")
-    def handler(filters: Annotated[list[FilterTypes], Dependency(skip_validation=True)]) -> dict[str, list[str]]:
+    def handler(filters: SkipValidation[list[FilterTypes]]) -> dict[str, list[str]]:
         response: dict[str, list[str]] = {}
         for filter_ in filters:
             if isinstance(filter_, CollectionFilter):
@@ -506,7 +692,7 @@ def test_litestar_not_in_filter_values_are_isolated() -> None:
     filter_dependencies = create_filter_dependencies(filter_config)
 
     @get("/test")
-    def handler(filters: Annotated[list[FilterTypes], Dependency(skip_validation=True)]) -> dict[str, list[str]]:
+    def handler(filters: NamedDependency[SkipValidation[list[FilterTypes]]]) -> dict[str, list[str]]:
         response: dict[str, list[str]] = {}
         for filter_ in filters:
             if isinstance(filter_, NotInCollectionFilter):
@@ -514,7 +700,7 @@ def test_litestar_not_in_filter_values_are_isolated() -> None:
                 response[field_name] = list(filter_.values or [])
         return response
 
-    app = Litestar(route_handlers=[handler], dependencies=filter_dependencies)
+    app = Litestar(route_handlers=[handler], dependencies=filter_dependencies, debug=True)
     client = TestClient(app)
 
     response = client.get("/test?firstNameNotIn=Sezer&lastNameNotIn=Tasan")
@@ -705,6 +891,40 @@ def test_in_filter_aggregation() -> None:
     assert mock_filter not in result_none
 
 
+def test_boolean_filter_aggregation() -> None:
+    """Test aggregation with boolean filter."""
+    aggregate_func = _create_filter_aggregate_function({"boolean_fields": ["is_featured"]})
+
+    sig = inspect.signature(aggregate_func)
+    assert "is_featured_boolean_filter" in sig.parameters
+
+    mock_filter = MagicMock(spec=BooleanFilter)
+    result = aggregate_func(is_featured_boolean_filter=mock_filter)
+
+    assert isinstance(result, list)
+    assert mock_filter in result
+
+    result_none = aggregate_func(is_featured_boolean_filter=None)
+    assert mock_filter not in result_none
+
+
+def test_choices_filter_aggregation() -> None:
+    """Test aggregation with choices filter."""
+    aggregate_func = _create_filter_aggregate_function({"choice_fields": ["status"]})
+
+    sig = inspect.signature(aggregate_func)
+    assert "status_choices_filter" in sig.parameters
+
+    mock_filter = MagicMock(spec=ChoicesFilter)
+    result = aggregate_func(status_choices_filter=mock_filter)
+
+    assert isinstance(result, list)
+    assert mock_filter in result
+
+    result_none = aggregate_func(status_choices_filter=None)
+    assert mock_filter not in result_none
+
+
 def test_multiple_filters_aggregation() -> None:
     """Test aggregation with multiple filters."""
 
@@ -718,6 +938,8 @@ def test_multiple_filters_aggregation() -> None:
             "sort_field": "name",
             "not_in_fields": ["status"],
             "in_fields": ["tag"],
+            "boolean_fields": ["is_featured"],
+            "choice_fields": ["state"],
         }
     )
 
@@ -731,6 +953,8 @@ def test_multiple_filters_aggregation() -> None:
     assert "order_by_filter" in sig.parameters
     assert "status_not_in_filter" in sig.parameters
     assert "tag_in_filter" in sig.parameters
+    assert "is_featured_boolean_filter" in sig.parameters
+    assert "state_choices_filter" in sig.parameters
 
     # Simulate calling with multiple filters
     mock_id_filter = MagicMock(spec=CollectionFilter)
@@ -744,6 +968,8 @@ def test_multiple_filters_aggregation() -> None:
     mock_order_by_filter.field_name = "name"
     mock_not_in_filter = MagicMock(spec=NotInCollectionFilter)
     mock_in_filter = MagicMock(spec=CollectionFilter)
+    mock_boolean_filter = MagicMock(spec=BooleanFilter)
+    mock_choices_filter = MagicMock(spec=ChoicesFilter)
 
     result = aggregate_func(
         id_filter=mock_id_filter,
@@ -754,10 +980,12 @@ def test_multiple_filters_aggregation() -> None:
         order_by_filter=mock_order_by_filter,
         status_not_in_filter=mock_not_in_filter,
         tag_in_filter=mock_in_filter,
+        is_featured_boolean_filter=mock_boolean_filter,
+        state_choices_filter=mock_choices_filter,
     )
 
     # Verify all filters are included
-    assert len(result) == 8
+    assert len(result) == 10
     assert mock_id_filter in result
     assert mock_created_filter in result
     assert mock_updated_filter in result
@@ -766,6 +994,8 @@ def test_multiple_filters_aggregation() -> None:
     assert mock_order_by_filter in result
     assert mock_not_in_filter in result
     assert mock_in_filter in result
+    assert mock_boolean_filter in result
+    assert mock_choices_filter in result
 
 
 @unittest.mock.patch(
@@ -788,6 +1018,8 @@ def test_litestar_openapi_schema(mock_create_filters: unittest.mock.MagicMock) -
         "sort_order": "asc",
         "not_in_fields": ["status", "category"],
         "in_fields": ["tag", "region"],
+        "boolean_fields": ["is_featured"],
+        "choice_fields": ["state"],
     }
     # Call the mocked function, which wraps the original
     filter_dependencies = mock_create_filters(filter_config)
@@ -836,6 +1068,8 @@ def test_litestar_openapi_schema(mock_create_filters: unittest.mock.MagicMock) -
         "categoryNotIn",
         "tagIn",
         "regionIn",
+        "isFeatured",
+        "state",
     }
     assert param_names == expected_params
 
@@ -870,3 +1104,21 @@ def test_litestar_openapi_schema(mock_create_filters: unittest.mock.MagicMock) -
     assert tag_in_param["in"] == "query"
     assert tag_in_param["required"] is False
     assert "oneOf" in tag_in_param["schema"]
+
+    is_featured_param = next(p for p in parameters if p["name"] == "isFeatured")
+    assert is_featured_param["in"] == "query"
+    assert is_featured_param["required"] is False
+    assert any(
+        schema.get("type") == "boolean"
+        for schema in is_featured_param["schema"].get("oneOf", [is_featured_param["schema"]])
+    )
+
+    state_param = next(p for p in parameters if p["name"] == "state")
+    assert state_param["in"] == "query"
+    assert state_param["required"] is False
+    state_array_schema = next(
+        schema
+        for schema in state_param["schema"].get("oneOf", [state_param["schema"]])
+        if schema.get("type") == "array"
+    )
+    assert state_array_schema["items"]["type"] == "string"

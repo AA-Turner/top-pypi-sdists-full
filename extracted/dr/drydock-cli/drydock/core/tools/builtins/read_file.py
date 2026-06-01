@@ -140,7 +140,17 @@ class ReadFile(
             prior_lines = prior_slot.get("lines_read", 0)
             dedup_count = prior_slot.get("dedup_count", 0)
             if dedup_count == 0:
-                header = "[Unchanged since last read — content re-embedded]\n"
+                # 2026-05-31: 2nd identical read. Operator session showed
+                # Gemma 4 ignoring the gentle "unchanged" header and reading
+                # the same file 3-4× before doing anything. Make it more
+                # actionable on the 2nd read so the model is steered
+                # toward an edit *immediately*, not 3 reads later.
+                header = (
+                    "[2nd identical read of this file — content is unchanged from "
+                    "your 1st read. STOP READING — your NEXT tool call should be "
+                    "search_replace or write_file with the edit. If you don't yet "
+                    "know what to edit, emit a plain-text question instead.]\n"
+                )
             else:
                 header = (
                     f"[REPEATED READ #{dedup_count + 1}: file has not changed across your last "

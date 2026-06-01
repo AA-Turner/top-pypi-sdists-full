@@ -1,0 +1,30 @@
+Metadata-Version: 2.4
+Name: aliyun-trace
+Version: 1.0.3
+Summary: Aliyun Trace 
+Project-URL: Homepage, https://help.aliyun.com/zh/arms/tracing-analysis/llm-trace-field-definition-description?spm=a2c4g.11186623.0.0.25494d16a5EuSm
+Author-email: Aliyun Authors <lurious.lyh@alibaba-inc.com>
+License-Expression: Apache-2.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.7
+Requires-Dist: aliyun-semantic-conventions>=1.0.0
+Requires-Dist: opentelemetry-api
+Requires-Dist: opentelemetry-semantic-conventions
+Requires-Dist: wrapt
+Provides-Extra: test
+Description-Content-Type: text/markdown
+
+# Aliyun Trace
+
+[![pypi](https://badge.fury.io/py/openinference-semantic-conventions.svg)](https://pypi.org/project/openinference-semantic-conventions/)
+
+This library contains code for the Aliyun Trace that manually creates a trace for the LLM.

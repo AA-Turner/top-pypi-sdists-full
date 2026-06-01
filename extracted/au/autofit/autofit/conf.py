@@ -1,1 +1,0 @@
-from autoconf.conf import *

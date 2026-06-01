@@ -865,6 +865,19 @@ class AgentLoop:
         if user_message.message_id is None:
             raise AgentLoopError("User message must have a message_id")
 
+        # 2026-05-31: Record pytest test-function count BEFORE the model
+        # touches anything. The _verify_test_count_grew check at
+        # end-of-turn compares against this baseline; without an
+        # early snapshot, the "before" reflects post-edit state and
+        # the nudge never fires. Cheap (sub-1s for typical trees).
+        # Only on first user turn — subsequent turns inherit the
+        # baseline so multi-turn sessions still nudge correctly.
+        if not hasattr(self, "_test_count_baseline"):
+            try:
+                self._record_test_count_baseline(Path.cwd())
+            except Exception:
+                pass
+
         # Reset sticky error counters on every fresh user turn. Without
         # this, once `_total_error_rounds` hits the 3-round stop ceiling
         # (~45 API errors), it stays at 3 forever — every subsequent
@@ -1342,6 +1355,30 @@ class AgentLoop:
                     # Reset API error count on successful turn
                     api_error_count = 0
                 except (RuntimeError, AgentLoopLLMResponseError) as e:
+                    # 2026-05-31: LLM-down fail-fast. Operator: "If the
+                    # llm is down, drydock just keeps trying instead of
+                    # quickly saying no llm is present." Without this,
+                    # MAX_API_ERRORS=5 × 3 rounds = ~15 retries with
+                    # backoffs, each hitting a 5s connect timeout —
+                    # 4-8 minutes of pointless retry before hard-stop.
+                    # Detect connection-refused / DNS / connect-timeout
+                    # and bail immediately with an actionable message.
+                    if self._is_llm_connection_error(e):
+                        active_model = self.config.get_active_model()
+                        provider = self.config.get_provider_for_model(active_model)
+                        endpoint = getattr(provider, "api_base", None) or "(unknown)"
+                        cause_msg = str(e.__cause__) if e.__cause__ else str(e)
+                        yield AssistantEvent(
+                            content=(
+                                f"\n\n❌ Cannot reach LLM backend at {endpoint}.\n"
+                                f"  Detail: {cause_msg[:200]}\n"
+                                f"  Check: `curl {endpoint.rstrip('/')}/models` — "
+                                f"is your llama.cpp / vLLM / Ollama server running?\n"
+                                f"  Drydock is NOT retrying. Fix the server and try "
+                                f"your message again.\n"
+                            ),
+                        )
+                        return
                     api_error_count += 1
                     if api_error_count > MAX_API_ERRORS:
                         # Track total error rounds — stop after 3 rounds
@@ -1660,6 +1697,52 @@ class AgentLoop:
                             logger.warning(
                                 "[ARTIFACT-CHECK] %d/2 — missing: %s",
                                 self._artifact_check_count, missing,
+                            )
+
+                # 2026-05-31: TEST-COUNT CHECK. If the initial task asked
+                # the model to "add a test" / "write a test" without
+                # naming a specific test file (artifact-check covers the
+                # named case), record the pytest test-function count at
+                # session start, then verify it grew before declaring
+                # done. Targets the test_harness P2-B1 / P6-B1 wall
+                # pattern where the model says "I added a test" but the
+                # count is unchanged. Capped at 2 nudges per session.
+                # Gated by DRYDOCK_TEST_COUNT_CHECK (default on).
+                if (should_break_loop
+                        and os.environ.get(
+                            "DRYDOCK_TEST_COUNT_CHECK", "1"
+                        ).strip().lower() in ("1", "true", "yes")):
+                    if not hasattr(self, "_test_count_check_count"):
+                        self._test_count_check_count = 0
+                    if self._test_count_check_count < 2:
+                        try:
+                            ok, before, after = (
+                                self._verify_test_count_grew(Path.cwd())
+                            )
+                        except Exception as _e:
+                            logger.warning(
+                                "[TEST-COUNT] verifier crashed (%s) — "
+                                "letting model end turn", _e,
+                            )
+                            ok = True
+                            before = after = -1
+                        if not ok:
+                            self._test_count_check_count += 1
+                            note = (
+                                "Before finishing: the task asked you to "
+                                "add a test, but the pytest test-function "
+                                f"count is unchanged ({before} → {after}). "
+                                "Add a new `test_*` function (or a test "
+                                "method on a `Test*` class) that exercises "
+                                "the behavior you just implemented, then "
+                                "run pytest to confirm it passes."
+                            )
+                            self._inject_system_note(note)
+                            should_break_loop = False
+                            logger.warning(
+                                "[TEST-COUNT] %d/2 — count unchanged "
+                                "(%d → %d)",
+                                self._test_count_check_count, before, after,
                             )
 
                 # No circuit breakers, no loop detection, no forced nudges.
@@ -2232,6 +2315,29 @@ class AgentLoop:
                 f"  - or end your turn with a text summary explaining "
                 f"what you need from the user."
             )
+        # 2026-05-31: same bait-strip for write_file's empty-path
+        # sentinel. Operator session hit 5+ consecutive empty-path
+        # write_file calls in the slides project — the model was
+        # copying "NO path supplied" content back as the next call's
+        # args (or back to empty). Do NOT echo the error preview.
+        _wf_empty_sentinel = (
+            tool_name == "write_file"
+            and "NO path supplied" in last_result
+        )
+        if _wf_empty_sentinel:
+            return (
+                f"NOTE: your `write_file` call has been made "
+                f"{count} times this session with NO path. "
+                f"Each empty-path call returns the same error. "
+                f"Do NOT repeat. Either:\n"
+                f"  - re-emit the call with a concrete file path "
+                f"(one of the source files you just read, OR a new "
+                f"path under the project root)\n"
+                f"  - call read_file to see what exists in the "
+                f"project before deciding where to write\n"
+                f"  - or end your turn with a text summary explaining "
+                f"what you intended to create."
+            )
         # For read-only tools include the full cached content so the model
         # has the data it needs and doesn't retry just to see more output.
         result_preview = last_result if is_readonly else last_result[:200]
@@ -2680,6 +2786,190 @@ class AgentLoop:
             async for event in self._process_one_tool_call(tool_call):
                 yield event
 
+    # Substrings in a tool's failure text that mean "the call's args
+    # were structurally invalid — the tool never did work." NARROW on
+    # purpose: tool calls that failed AFTER doing useful work (e.g.
+    # "block 1 failed: search text not found" in search_replace, "exit
+    # 1" in bash, "file not found" in read_file) still have valuable
+    # context for the model and must NOT be scrubbed. This list only
+    # covers calls that returned the SAME deterministic error
+    # regardless of what the model did, where keeping the failed
+    # tool_call in history can only mislead the next turn.
+    _VALIDATION_ERROR_PATTERNS = (
+        "NO path supplied",          # write_file empty path
+        "File path is required",      # search_replace empty path
+        "Empty content provided",     # search_replace empty content
+        "REFUSED: write blocked",     # write_file pre-write syntax gate (2026-05-31)
+        "REFUSED: bash inplace file edit",       # bash sed -i redirect (2026-05-31)
+        "REFUSED: bash redirect-to-source-file", # bash > file redirect (2026-05-31)
+        # Pydantic schema rejections — model emitted `{}` for required-field tool.
+        # Found in operator session 2026-05-31 14:24: model called bash({}) repeatedly
+        # after a REFUSED sed -i, dispatcher rejected with this exact text, and the
+        # empty-args bait sat in history baiting the next turn into the same shape.
+        "validation error for BashArgs",
+        "validation error for WriteFileArgs",
+        "validation error for SearchReplaceArgs",
+        "validation error for ReadFileArgs",
+        "Field required [type=missing",  # generic pydantic schema rejection
+        # Comment-only bash — model wrote its CoT as the bash command.
+        # Operator session 2026-05-31 15:00 (config.py task): Gemma 4 emitted
+        #   bash("# I need to use search_replace, but since I don't have...")
+        # repeatedly after a REFUSED sed -i. The comment text gets re-emitted
+        # verbatim as the next call. Scrub clears the leaked-thinking from history.
+        "bash: comment-only command",
+        # Empty/placeholder bash — same shape, different sentinel.
+        "bash: empty or placeholder command",
+        # exit_plan_mode hallucination — Gemma 4 calls it outside plan mode.
+        # Operator session 2026-05-31 17:25 (renderer.py task): model emitted
+        # exit_plan_mode while already in implementation mode; tool returned
+        # "Already in implementation mode." which is harmless but model
+        # could loop. Scrub the bait so it doesn't.
+        "Already in implementation mode",
+    )
+
+    def _scrub_validation_error_call(
+        self, failed_tool_call: "ResolvedToolCall"
+    ) -> None:
+        """Strip the args of a validation-error tool_call from history.
+
+        The failure pattern this addresses (operator session 2026-05-31
+        + months of recurrence prior to that): Gemma 4 constructs the
+        next tool call by pattern-matching on the most recent tool_call
+        shape in history. When the call fails because the args were
+        structurally invalid (empty required field), the
+        (call_with_empty_args, error_with_example_shape) pair stays in
+        history forever as bait. The model copies the empty-args shape
+        as the next call. Every previous "fix" cleaned the error
+        message text but left the assistant's tool_call.arguments
+        intact — that's the actual bait.
+
+        Scrub: find the assistant message that emitted this tool_call
+        by id, rewrite that specific tool_call's `arguments` field to
+        an empty `{}` JSON string. The tool's pydantic schema will
+        reject {} with a clean "field required" error if the model
+        copies it — that's a different (recoverable) failure mode than
+        the silent empty-arg loop.
+
+        Audit log preservation: messages.jsonl serialization happens
+        AFTER this scrub, so the on-disk record reflects the scrubbed
+        state. That's the right tradeoff: the audit needs to match
+        what the model actually saw on the next turn for debugging
+        purposes; if you need the pre-scrub original, the drydock log
+        WARNING line below has both the tool name and the original args
+        recorded.
+        """
+        tc_id = (
+            getattr(failed_tool_call, "call_id", None)
+            or getattr(failed_tool_call, "tool_call_id", None)
+            or getattr(failed_tool_call, "id", None)
+        )
+        if not tc_id:
+            return
+        # Walk backwards — the matching assistant message is almost
+        # always the immediate previous assistant turn.
+        for msg in reversed(list(self.messages)):
+            if msg.role != Role.assistant or not msg.tool_calls:
+                continue
+            for tc in msg.tool_calls:
+                if tc.id != tc_id:
+                    continue
+                if not tc.function or not tc.function.arguments:
+                    return
+                if tc.function.arguments.strip() == "{}":
+                    return  # already scrubbed
+                logger.warning(
+                    "[VALIDATION-SCRUB] tool=%s id=%s args(len=%d) → {}",
+                    tc.function.name, tc_id,
+                    len(tc.function.arguments),
+                )
+                tc.function.arguments = "{}"
+                return
+
+    def _is_validation_error(self, text: str) -> bool:
+        """Does this tool failure text indicate the call's args were
+        invalid (vs. the tool ran and returned useful failure info)?"""
+        if not text:
+            return False
+        return any(pat in text for pat in self._VALIDATION_ERROR_PATTERNS)
+
+    def _is_llm_connection_error(self, exc: Exception) -> bool:
+        """Is this exception a hard "can't reach the LLM endpoint" failure
+        (vs. a transient 5xx / rate-limit / context-overflow)?
+
+        Used by the _conversation_loop top-level catch to bail FAST
+        instead of grinding through MAX_API_ERRORS × 3 rounds when the
+        local LLM server isn't running. Operator session 2026-05-31:
+        "If the llm is down, drydock just keeps trying instead of
+        quickly saying no llm is present." Detecting the connection
+        layer keeps us from retrying when no retry can ever succeed.
+
+        Walks the exception chain because BackendErrorBuilder wraps
+        the underlying httpx error in a RuntimeError.
+        """
+        try:
+            import httpx as _httpx
+        except ImportError:
+            _httpx = None
+
+        cur: BaseException | None = exc
+        depth = 0
+        while cur is not None and depth < 6:
+            # httpx connection-layer errors (no socket, refused, DNS,
+            # connect-timeout) — none of these will recover on retry.
+            # IMPORTANT: do NOT include RemoteProtocolError or
+            # ReadTimeout here. Those fire after the connection
+            # succeeded and the server started responding; they're
+            # almost always transient (LLM busy, KV cache reload,
+            # tcp keep-alive blip) and should retry. Operator session
+            # 2026-05-31 hit "Server disconnected without sending a
+            # response" mid-generation; v2.9.19 wrongly fail-fasted
+            # on it. Only fail-fast on errors that genuinely can't
+            # connect.
+            if _httpx is not None:
+                if isinstance(cur, _httpx.ConnectError):
+                    return True
+                if isinstance(cur, _httpx.ConnectTimeout):
+                    return True
+                # NetworkError is broad — narrow it to its real
+                # connection-layer subclasses. ConnectError + ConnectTimeout
+                # already cover those; the rest (ReadError, WriteError,
+                # PoolTimeout) are mid-request and retryable.
+            # OSError covers ECONNREFUSED / EHOSTUNREACH / ENETUNREACH
+            # when httpx isn't the layer raising (e.g. provider SDKs).
+            if isinstance(cur, ConnectionRefusedError):
+                return True
+            if isinstance(cur, ConnectionResetError):
+                return True
+            # Text-shape fallback for cases where the wrapping converted
+            # the cause to a plain string (some provider SDKs do this).
+            msg = str(cur).lower()
+            connection_markers = (
+                "connection refused",
+                "connect call failed",
+                "name or service not known",
+                "temporary failure in name resolution",
+                "no route to host",
+                "network is unreachable",
+                "[errno 111]",   # ECONNREFUSED
+                "[errno 113]",   # EHOSTUNREACH
+                "[errno -2]",    # getaddrinfo failure
+                "connecterror",
+                "connecttimeout",
+                # NOTE: do NOT match "server disconnected" or "remote
+                # protocol error" or "read timeout" — those are
+                # mid-request transient failures (vLLM busy, KV reload,
+                # keep-alive blip) and retry should handle them.
+                # Operator session 2026-05-31 hit "Server disconnected
+                # without sending a response" mid-generation; v2.9.19
+                # wrongly fail-fasted on it (RemoteProtocolError was
+                # in the trap above + this marker list).
+            )
+            if any(marker in msg for marker in connection_markers):
+                return True
+            cur = cur.__cause__ or cur.__context__
+            depth += 1
+        return False
+
     def _handle_tool_response(
         self,
         tool_call: ResolvedToolCall,
@@ -2693,6 +2983,60 @@ class AgentLoop:
                 self.format_handler.create_tool_response_message(tool_call, text)
             )
         )
+
+        # 2026-05-31: VALIDATION-SCRUB. The single bait class that
+        # months of patch attempts kept missing: when the call's args
+        # were structurally invalid, the assistant's tool_call entry
+        # in history holds the bad shape FOREVER. Sentinel-stripping
+        # the error message text was a surface fix; the model copies
+        # the assistant's args, not the tool result. Strip the args
+        # immediately on validation-failure detection.
+        #
+        # 2026-05-31 PM hotfix: scrub regardless of status. The write_file
+        # empty-path branch returns a WriteFileResult (status="success"
+        # in the dispatcher) with the sentinel content; restricting to
+        # status="failure" let that bait sit in history unscrubbed for
+        # the operator's 9-minute "Sailing…" loop. The sentinel test
+        # is precise enough to be the gating condition.
+        if self._is_validation_error(text):
+            try:
+                self._scrub_validation_error_call(tool_call)
+            except Exception as _e:
+                logger.warning(
+                    "[VALIDATION-SCRUB] failed: %s", _e, exc_info=True,
+                )
+            # 2026-05-31: track CONSECUTIVE validation errors per tool.
+            # Scrubbing history isn't enough on its own — operator session
+            # showed Gemma 4 generating new empty-args calls faster than
+            # the scrub can clean prior turns. After 3 consecutive
+            # validation errors on the same tool, mute it for one turn.
+            # _hot_tool_path is consumed in _chat (next turn), then cleared.
+            try:
+                tn = getattr(tool_call, "tool_name", "") or ""
+                if not hasattr(self, "_consecutive_val_errors"):
+                    self._consecutive_val_errors = {}
+                self._consecutive_val_errors[tn] = (
+                    self._consecutive_val_errors.get(tn, 0) + 1
+                )
+                if self._consecutive_val_errors[tn] >= 3:
+                    logger.warning(
+                        "[VAL-ERR-MUTE] muting %s for 1 turn after %d "
+                        "consecutive validation errors", tn,
+                        self._consecutive_val_errors[tn],
+                    )
+                    self._hot_tool_path = (tn, "<repeated-validation-errors>")
+                    self._loop_detected = True
+                    self._loop_signal = "FORCE_STOP"
+            except Exception as _e:
+                logger.debug("val-err mute hook skipped: %s", _e)
+        else:
+            # Reset counter on any non-validation result for this tool.
+            try:
+                tn = getattr(tool_call, "tool_name", "") or ""
+                if hasattr(self, "_consecutive_val_errors") and tn in self._consecutive_val_errors:
+                    self._consecutive_val_errors.pop(tn, None)
+            except Exception:
+                pass
 
         # Loop detection now drives TOKEN-LEVEL sampling bumps, not
         # advisory system notes (2026-04-13: confirmed 75/75 NOTICE
@@ -2794,11 +3138,11 @@ class AgentLoop:
             "DRYDOCK_REFLECTION", "1"
         ).strip().lower() not in ("0", "false", "no"):
             try:
-                self._maybe_reflect(tool_call)
+                self._maybe_reflect(tool_call, text=text)
             except Exception as e:
                 logger.debug("reflection check skipped: %s", e)
 
-    def _maybe_reflect(self, tool_call: Any) -> None:
+    def _maybe_reflect(self, tool_call: Any, text: str = "") -> None:
         """Inject a write-commitment nudge after N consecutive read-only
         tool calls without an intervening write.
 
@@ -2821,7 +3165,37 @@ class AgentLoop:
             "write_file", "search_replace",
             "apply_patch", "mechanical_rename",
         }
-        THRESHOLD = 6
+        # 2026-05-31: bash commands that are functionally read-only
+        # (just print a file or its metadata). When the model intersperses
+        # `cat file.py` between `read_file file.py` calls, the streak
+        # counter previously stayed flat — bash was "Neutral" and the
+        # model could dodge the reflection nudge forever. Observed in
+        # operator session this date: 6 Read + 3 cat + 0 edits → idle.
+        # Treating cat/head/tail/wc/stat as readonly closes the dodge.
+        READONLY_BASH_PREFIXES = (
+            "cat ", "head ", "tail ", "less ", "more ", "wc ",
+            "stat ", "file ", "sha256sum ", "md5sum ", "sha1sum ",
+            "hexdump ", "xxd ", "od ",
+            # `ls` is already its own tool but bash variants also count:
+            "ls ", "ls\n", "ll ", "find ", "tree ",
+            # diff/cmp produce output but don't mutate
+            "diff ", "cmp ",
+        )
+        # 2026-05-31: REFUSED bash file edits (sed -i, python -c open().write(...),
+        # awk -i inplace, etc.) are "neutral" at the tool-name level but
+        # functionally are FAILED edit attempts. After enough of those,
+        # the model is in a refusal-thrash and re-reading the same file
+        # won't help. Count them so the streak still escalates.
+        # Detected by checking the bash result text for the REFUSED
+        # marker — set by Bash._detect_inplace_file_edit.
+
+        # 2026-05-31: lowered from 6 to 4. Operator session showed the
+        # model getting wedged in "Indexing… 6m46s" after only 4 reads
+        # because Gemma 4's adaptive thinking burns high CoT budget
+        # post-REFUSED. Earlier nudge gives more time for the model
+        # to actually call search_replace/write_file before the wall
+        # clock runs out.
+        THRESHOLD = 4
 
         try:
             tool_name = getattr(tool_call, "tool_name", "") or ""
@@ -2839,14 +3213,49 @@ class AgentLoop:
         if not hasattr(self, "_last_reflection_streak"):
             self._last_reflection_streak = 0
 
+        # Reclassify bash → readonly when it's a read-shaped command.
+        # Pull the command out of args; default to "" if missing.
+        effective_kind: str  # "write" | "readonly" | "neutral"
         if tool_name in WRITE_TOOLS:
+            effective_kind = "write"
+        elif tool_name in READONLY_TOOLS:
+            effective_kind = "readonly"
+        elif tool_name in ("bash", "run_command"):
+            try:
+                cmd = (
+                    getattr(tool_call, "args_dict", {}) or {}
+                ).get("command", "") or ""
+                cmd_stripped = cmd.strip()
+                # Take just the first sub-command for prefix check
+                first_part = cmd_stripped.split("&&")[0].split(";")[0].strip()
+                if any(first_part.startswith(p) for p in READONLY_BASH_PREFIXES):
+                    effective_kind = "readonly"
+                elif (
+                    "REFUSED: bash inplace file edit" in (text or "")
+                    or "REFUSED: bash redirect-to-source-file" in (text or "")
+                    or "[bash: empty or placeholder command" in (text or "")
+                    or "[bash: comment-only command" in (text or "")
+                ):
+                    # Refused/no-op bash — counts as a failed/no-progress turn.
+                    # Empty and comment-only bash commands produce no output and
+                    # leave files unchanged; classify as readonly so the streak
+                    # counter escalates and the reflection nudge fires.
+                    effective_kind = "readonly"
+                else:
+                    effective_kind = "neutral"
+            except Exception:
+                effective_kind = "neutral"
+        else:
+            effective_kind = "neutral"
+
+        if effective_kind == "write":
             self._readonly_streak = 0
             self._last_reflection_streak = 0
             return
-        if tool_name in READONLY_TOOLS:
+        if effective_kind == "readonly":
             self._readonly_streak += 1
         else:
-            # Neutral tool (bash, etc.) — don't change streak.
+            # Neutral tool — don't change streak.
             return
 
         # Rate-limit: only fire once per THRESHOLD-window past the
@@ -6191,6 +6600,99 @@ class AgentLoop:
                 if not found:
                     missing.append(a)
         return (not missing, missing)
+
+    # Phrases in the user prompt that signal "the model should add a test".
+    # Narrow on purpose — false positives here would force loops on
+    # tasks that talk ABOUT tests without requiring new ones.
+    _TEST_REQUEST_RE = re.compile(
+        r"\b(add|write|create|include)\b[^.]{0,30}\b(a|new|matching)?\b[^.]{0,15}"
+        r"\b(test|tests|unit test|pytest|test case)\b",
+        re.IGNORECASE,
+    )
+
+    def _prompt_requests_test(self) -> bool:
+        """Does the first user message ask for a new test?"""
+        for msg in self.messages:
+            if msg.role != Role.user:
+                continue
+            if getattr(msg, "tool_call_id", None):
+                continue
+            text = msg.content or ""
+            if not isinstance(text, str):
+                continue
+            return bool(self._TEST_REQUEST_RE.search(text))
+        return False
+
+    def _count_test_functions(self, cwd: Path) -> int:
+        """AST-walk *.py files in cwd, count test functions.
+
+        Test discovery rules match pytest: top-level functions named
+        `test_*`, plus methods named `test_*` on classes named `Test*`.
+        Skips venv/git/cache dirs. Bounded to 500 files for perf.
+        """
+        import ast
+        _SKIP = {".git", "__pycache__", "node_modules", ".venv",
+                 ".drydock", ".pytest_cache", "build", "dist"}
+        n = 0
+        files_scanned = 0
+        for py in cwd.rglob("*.py"):
+            if any(part in _SKIP for part in py.parts):
+                continue
+            files_scanned += 1
+            if files_scanned > 500:
+                break
+            try:
+                tree = ast.parse(py.read_text(encoding="utf-8", errors="replace"))
+            except (OSError, SyntaxError):
+                continue
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    if node.name.startswith("test_"):
+                        n += 1
+                elif isinstance(node, ast.ClassDef) and node.name.startswith("Test"):
+                    for child in node.body:
+                        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                            if child.name.startswith("test_"):
+                                n += 1
+        return n
+
+    def _verify_test_count_grew(self, cwd: Path) -> tuple[bool, int, int]:
+        """Return (ok, before, after).
+
+        ok=True if the prompt didn't request a test, or if the test
+        count grew since session start. ok=False only when the prompt
+        asked for a test AND the count is flat.
+
+        Records the baseline on first call; subsequent calls compare
+        against that baseline.
+        """
+        if not self._prompt_requests_test():
+            return (True, -1, -1)
+        if not hasattr(self, "_test_count_baseline"):
+            # First call: take the baseline. By construction this fires
+            # AFTER the model's first attempt to end its turn, so the
+            # baseline reflects the post-edit count for THIS session.
+            # That's wrong for the first call — better to take baseline
+            # at session START. The caller's __init__/first-turn path
+            # should call _record_test_count_baseline() instead.
+            # Fallback for unset baseline: assume zero growth = bad.
+            self._test_count_baseline = self._count_test_functions(cwd)
+            return (True, self._test_count_baseline, self._test_count_baseline)
+        before = self._test_count_baseline
+        after = self._count_test_functions(cwd)
+        return (after > before, before, after)
+
+    def _record_test_count_baseline(self, cwd: Path) -> None:
+        """Snapshot the pytest test-function count for later comparison.
+
+        Called once per session, before the model has had a chance to
+        edit anything. Cheap (AST parse of up to 500 .py files, sub-1s
+        on typical project trees).
+        """
+        try:
+            self._test_count_baseline = self._count_test_functions(cwd)
+        except Exception:
+            self._test_count_baseline = 0
 
     def _inject_subgoal_scaffold(self, user_msg: str) -> None:
         """Inject a generic subgoal-decomposition scaffold (PRD §5.3).

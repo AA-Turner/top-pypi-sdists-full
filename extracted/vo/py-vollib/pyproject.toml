@@ -3,28 +3,26 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "py_vollib"
-version = "1.0.10"
-description = "Deprecated transition package; install vollib instead."
+name = "py-vollib"
+version = "1.0.12"
+description = "Deprecated transition package for vollib."
 readme = "README.md"
-requires-python = ">=3.9,<3.13"
+requires-python = ">=3.9,<4"
 license = "MIT"
 authors = [
-    {name = "vollib", email = "vollib@gammoncap.com"},
-]
-dependencies = [
-    "vollib==1.0.10",
-    "py-lets-be-rational==1.1.2",
+    {name = "vollib", email = "vollib@gammoncap.com"}
 ]
 classifiers = [
-    "Development Status :: 7 - Inactive",
-    "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Office/Business :: Financial",
+]
+dependencies = [
+    "vollib>=1.0.11,<2.0.0",
 ]
 
 [project.urls]

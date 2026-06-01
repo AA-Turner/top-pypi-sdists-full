@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=78.1.1,<83.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name         = "rf-protocols"
+version      = "4.0.1"
+license      = "MIT"
+description  = "Library to decode and encode radio frequency signals."
+readme       = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.13.0"
+
+[project.urls]
+"Homepage" = "https://github.com/home-assistant-libs/rf-protocols"
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+include = ["rf_protocols*"]
+
+[tool.setuptools.package-data]
+rf_protocols = ["codes/**/*.sub"]
+
+[tool.ruff.lint]
+select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # isort
+    "I",]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 25
+
+[tool.pyright]
+typeCheckingMode = "standard"
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-asyncio", "prek"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

@@ -1,0 +1,20 @@
+fail_fast: true
+repos:
+  - repo: local
+    hooks:
+      - id: lint
+        name: lint
+        entry: uv run nox -s lint
+        language: system
+        types: [python]
+        pass_filenames: false
+        exclude: ^tests/test_data/
+  - repo: local
+    hooks:
+      - id: typecheck
+        name: typecheck
+        entry: uv run nox -s typecheck
+        language: system
+        types: [python]
+        pass_filenames: false
+        exclude: ^tests/

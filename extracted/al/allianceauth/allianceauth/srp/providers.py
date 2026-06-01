@@ -24,8 +24,8 @@ esi = ESIClientProvider(
 
 
 def get_killmails_killmail_id_killmail_hash(killmail_id: int, killmail_hash: str) -> "KillmailsKillmailIdKillmailHashGet":
-    return esi.client.Killmails.GetKillmailsKillmailIdKillmailHash(killmail_hash=killmail_hash, killmail_id=killmail_id).result()
+    return esi.client.Killmails.GetKillmailsKillmailIdKillmailHash(killmail_hash=killmail_hash, killmail_id=killmail_id).result(use_etag=False)
 
 
 def get_universe_types_type_id(type_id: int) -> "UniverseTypesTypeIdGet":
-    return esi.client.Universe.GetUniverseTypesTypeId(type_id=type_id).result()
+    return esi.client.Universe.GetUniverseTypesTypeId(type_id=type_id).result(use_etag=False)

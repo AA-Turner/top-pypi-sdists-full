@@ -1,0 +1,122 @@
+[build-system]
+requires = ["setuptools>=68.0", "setuptools-scm>=8.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scitex-dev"
+dynamic = ["version"]
+description = "Shared developer utilities for the SciTeX ecosystem"
+readme = "README.md"
+license = "AGPL-3.0-only"
+requires-python = ">=3.9"
+authors = [{name = "Yusuke Watanabe", email = "ywatanabe@scitex.ai"}]
+keywords = ["scitex", "developer-tools", "documentation", "llm-friendly", "mcp"]
+
+# Runtime deps: scitex-config (layered priority + local_state) and tomli on
+# 3.10 (tomllib is stdlib only from 3.11+; the pyproject linter needs it).
+dependencies = [
+    "scitex-config>=0.3.0",
+    "scitex-logging>=0.1.0",
+    "newb>=0.3.0",
+    "pyyaml>=6.0",
+    'tomli>=2.0; python_version < "3.11"',
+]
+
+[project.optional-dependencies]
+cli = ["click>=8.0.0"]
+mcp = ["fastmcp>=2.0.0"]
+dev = [
+    "click>=8.0.0",
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "fastmcp>=2.0.0",
+    "pyyaml>=6.0",
+    "textual>=0.50.0",
+    # NOTE: do NOT add `scitex-dev>=X.Y` here — it creates an unresolvable
+    # circular dependency in CI (the local editable install resolves to
+    # `0.1.dev1+g<sha>` via setuptools-scm, which fails `>=0.11.5`). The
+    # `scitex-dev` console script is provided by the package itself once
+    # `pip install -e .[dev]` runs, so PS-150's `shutil.which` check still
+    # works. If the meta-audit test must hard-fail (not skip) when the CLI
+    # is absent, gate it explicitly rather than via this circular pin.
+]
+cli-audit = ["click>=8.0.0", "pyyaml>=6.0"]
+tui = ["textual>=0.50.0"]
+docs = [
+    "sphinx>=7.0",
+    "sphinx-rtd-theme>=2.0",
+    "myst-parser>=2.0",
+    "sphinx-copybutton>=0.5",
+    "sphinx-autodoc-typehints>=1.25",
+]
+all = [
+    "scitex-dev[cli]",
+    "scitex-dev[mcp]",
+    "scitex-dev[dev]",
+    "scitex-dev[docs]",
+    "scitex-dev[cli-audit]",
+    "scitex-dev[tui]",
+]
+
+[project.scripts]
+scitex-dev = "scitex_dev._cli:main"
+
+[project.entry-points."scitex_dev.docs"]
+scitex-dev = "scitex_dev"
+
+[project.entry-points."scitex_dev.skills"]
+scitex-dev = "scitex_dev"
+
+# Federated scheduled-job providers. Each entry point loads to a callable
+# returning `list[scitex_dev.jobs.JobSpec]`; `scitex_dev.jobs.discover_jobs()`
+# aggregates them. scitex-dev's own built-ins are merged via an INTERNAL
+# provider (not an entry point) so they are always present and never
+# double-counted; this group is therefore reserved for *downstream*
+# packages.
+[project.entry-points."scitex_dev.jobs"]
+# (downstream packages register here, e.g.)
+# scitex-agent-container = "scitex_agent_container._jobs_plugin:provide_jobs"
+
+[project.urls]
+Homepage = "https://github.com/ywatanabe1989/scitex-dev"
+Repository = "https://github.com/ywatanabe1989/scitex-dev"
+Documentation = "https://scitex-dev.readthedocs.io/"
+
+[tool.setuptools_scm]
+# Empty body: derive version from latest git tag (vX.Y.Z → X.Y.Z).
+# Eliminates pyproject↔tag drift; release flow is `git tag vX.Y.Z && git push --tags`.
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+scitex_dev = [
+    "skills/*.md",
+    "skills/references/*.md",
+    "_skills/**/*",
+    "_branding/*.yaml",
+    "_cli/audit/_summary/data/*",
+    "_sphinx_html/**/*",
+    "_sphinx_html/**/.[!.]*",
+]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/scitex_dev/_skills" = "scitex_dev/_skills"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "skill_quality: structural checklist tests (§1–§4)",
+    "skill_trigger: trigger-rate tests (live claude -p, slow, non-deterministic)",
+]
+
+# Subprocess coverage wiring: see
+# src/scitex_dev/_skills/general/05_development_06_subprocess-coverage.md.
+# parallel=true → each child writes its own .coverage.<host>.<pid> shard so
+# `coverage combine` can merge them. concurrency covers both subprocess.run
+# spawns and threaded test code. source pins to the import name so coverage
+# excludes site-packages noise.
+[tool.coverage.run]
+parallel = true
+source = ["scitex_dev"]
+concurrency = ["multiprocessing", "thread"]

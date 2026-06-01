@@ -1,0 +1,206 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=78.0.2"]
+
+[dependency-groups]
+dev = [
+  {include-group = "lint"},
+  {include-group = "test"},
+  {include-group = "types"}
+]
+lint = [
+  {include-group = "pre-commit"},
+  {include-group = "pylint"}
+]
+pre-commit = [
+  "prek==0.3.9"
+]
+pylint = [
+  "pylint==4.0.5"
+]
+test = [
+  "pytest-cov==7.1.0",
+  "pytest-github-actions-annotate-failures==0.4.0",
+  "pytest==9.0.3",
+  "responses==0.26.0"
+]
+types = [
+  "ty==0.0.32",
+  "mypy==1.20.1",
+  "types-pyxdg==0.28.0.20260408",
+  "types-python-dateutil==2.9.0.20260408",
+  "types-requests==2.33.0.20260408"
+]
+
+[project]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Software Development :: Internationalization",
+  "Topic :: Software Development :: Localization",
+  "Topic :: Utilities"
+]
+dependencies = [
+  "argcomplete",
+  "python-dateutil",
+  "pyxdg",
+  "requests>=2.32.0",
+  "urllib3>=2.0"
+]
+description = "A command-line utility for Weblate, translation tool with tight version control integration"
+dynamic = ["version"]
+keywords = [
+  "i18n",
+  "l10n",
+  "gettext",
+  "git",
+  "mercurial",
+  "translate"
+]
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+name = "wlc"
+requires-python = ">=3.10"
+
+[[project.authors]]
+email = "michal@weblate.org"
+name = "Michal Čihař"
+
+[project.readme]
+content-type = "text/markdown"
+file = "README.md"
+
+[project.scripts]
+wlc = "wlc.main:main"
+
+[project.urls]
+Documentation = "https://docs.weblate.org/"
+Download = "https://github.com/WeblateOrg/wlc"
+Funding = "https://weblate.org/donate/"
+Homepage = "https://weblate.org/"
+"Issue Tracker" = "https://github.com/WeblateOrg/wlc/issues"
+"Source Code" = "https://github.com/WeblateOrg/wlc"
+Twitter = "https://twitter.com/WeblateOrg"
+
+[tool.check-manifest]
+ignore = [
+  ".dockerignore",
+  "Dockerfile",
+  ".well-known/*",
+  ".editorconfig",
+  "*.toml",
+  "*.yaml",
+  "*.yml"
+]
+
+[tool.check-wheel-contents]
+ignore = [
+  "W002"  # Triggered by API mocks
+]
+
+[tool.coverage.paths]
+source = [
+  "."
+]
+
+[tool.coverage.report]
+exclude_also = [
+  "@(abc\\.)?abstractmethod",
+  # Don't complain about missing debug-only code:
+  "def __repr__",
+  # Don't complain if non-runnable code isn't run:
+  "if 0:",
+  "if __name__ == .__main__.:",
+  "if self\\.debug",
+  # Type checking
+  "if TYPE_CHECKING:",
+  # Have to re-enable the standard pragma
+  "pragma: no cover",
+  # Don't complain if tests don't hit defensive assertion code:
+  "raise AssertionError",
+  "raise NotImplementedError"
+]
+
+[tool.isort]
+profile = "black"
+
+[tool.pylint.main]
+disable = [
+  "too-many-instance-attributes",
+  "too-many-positional-arguments",
+  "too-many-arguments",
+  "missing-function-docstring",
+  "too-many-public-methods"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+ignore = [
+  "D10",  # TODO: we are missing many docstrings
+  "D203",  # CONFIG: incompatible with D211
+  "D212",  # CONFIG: incompatible with D213
+  "D401",  # TODO: many strings need rephrasing
+  "T201",  # WONTFIX: using print() (maybe add noqa)
+  "TRY003",  # WONTFIX: Avoid specifying long messages outside the exception class
+  "PLR0913",  # WONTFIX: Too many arguments to function call
+  "PLR2004",  # TODO: Magic value used in comparison, consider replacing 201 with a constant variable
+  "COM",  # CONFIG: No trailing commas
+  "PT",  # CONFIG: Not using pytest
+  "PTH",  # TODO: Not using pathlib
+  "EM",  # TODO: Exception strings
+  "FBT",  # TODO: Boolean in function definition
+  "ANN",  # TODO: type annotations
+  "N818"  # TODO: exception naming
+]
+select = ["ALL"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 16
+
+[tool.rumdl]
+disable = [
+  # We do not enforce heading
+  "first-line-heading",
+  # Avoid length limit checks
+  "line-length"
+]
+
+[tool.rumdl.per-file-ignores]
+"README.md" = [
+  # Allow HTML
+  "MD033"
+]
+
+[tool.setuptools]
+include-package-data = false
+packages = ["wlc"]
+platforms = ["any"]
+
+[tool.setuptools.dynamic.version]
+attr = "wlc.const.__version__"
+
+[tool.setuptools.package-data]
+wlc = ["py.typed"]
+
+[tool.typos.default]
+extend-ignore-re = [
+  "\"shortrevision\": \"[a-f0-9]+\"",
+  "code\": \"[a-z]+\""
+]

@@ -1,0 +1,149 @@
+# Security-scan workflow — runs on every PR and weekly on main.
+#
+# Four scans:
+#   1. pip-audit  — Python supply-chain vulnerability scan against
+#                   the resolved dependency set.
+#   2. bandit     — Python static analysis for security issues.
+#   3. semgrep    — security-focused rule set; project-specific rule
+#                   set lives in .github/semgrep-rules/ (added later).
+#   4. CodeQL     — GitHub's free Python security analysis.
+#
+# Failure modes:
+#   - pip-audit finds a vuln in a pinned dep → PR blocks until the dep is bumped.
+#   - bandit / semgrep flags new code → PR blocks until the finding is
+#     addressed or the rule is allowlisted with explicit justification
+#     in the same PR.
+#   - CodeQL findings appear in the GitHub Security tab; failures don't
+#     hard-block at v0.1.0 but maintainer reviews each before merge.
+#
+# See SPEC-30.7 for the design.
+
+name: ci-security
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Weekly Monday 08:00 PT; catches new advisories against the existing main
+    # commit before a contributor's PR rebases against a vulnerable baseline.
+    - cron: '0 15 * * 1'
+
+permissions:
+  contents: read
+  security-events: write   # CodeQL writes findings here
+
+jobs:
+
+  pip-audit:
+    name: pip-audit (Python deps)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: uv sync --extra dev
+      - name: Run pip-audit
+        # Scope: we audit OUR pinned dependency set, not the whole
+        # virtualenv. Without scoping, pip-audit also scans pip itself
+        # (which ships with the Python install) and any other
+        # tool-chain packages that aren't part of our supply-chain
+        # surface. CI hit CVE-2026-3219 in pip 26.0.1 (no fix version)
+        # this way — a real vuln, but not in a dependency we control
+        # or ship to users. Using `uv export` gives us exactly the
+        # set users would install.
+        #
+        # `--strict` was removed 2026-04-26 after it converted the
+        # "distribution marked as editable" warning into an error.
+        # `--ignore-vuln` exceptions (must include the rationale + revisit
+        # condition; this list is pruned in pre-release housekeeping):
+        #
+        # - CVE-2026-44405 (paramiko 4.0.0): transitive via compliance-trestle's
+        #   OSCAL/FRMR pipeline. Efterlev imports no SSH code; the vulnerable
+        #   paramiko surface is unreachable from any agent / detector / scan
+        #   path. No fix version published as of v0.1.42 ship date (2026-05-08).
+        #   Revisit when paramiko ships a fixed release OR when trestle drops
+        #   the paramiko dep, whichever comes first.
+        #
+        # - PYSEC-2025-183 (pyjwt 2.12.1): transitive via mcp[crypto]; efterlev
+        #   imports no JWT code (verified: no `import jwt` anywhere in src/).
+        #   The advisory is DISPUTED by the PyJWT maintainer (it flags that the
+        #   library doesn't enforce a minimum encryption key length — a choice
+        #   the maintainer holds is the application's responsibility, not the
+        #   library's) and requires the *application* to explicitly use PyJWT
+        #   encryption with weak keys to be exploitable. Efterlev never calls
+        #   PyJWT, so the path is unreachable. No fixed version exists (2.12.1
+        #   is the latest as of v0.1.171, 2026-05-20). Revisit when PyJWT ships
+        #   a fix OR when the mcp dep drops the [crypto] extra.
+        run: |
+          uv export --format requirements-txt --no-emit-project > /tmp/efterlev-deps.txt
+          # v0.1.61: pip-audit is now baked into the [dev] extra, so
+          # `uv run` uses the lockfile-pinned version (was `--with pip-audit`
+          # which fetched fresh from PyPI every run).
+          uv run pip-audit -r /tmp/efterlev-deps.txt \
+            --ignore-vuln CVE-2026-44405 \
+            --ignore-vuln PYSEC-2025-183
+
+  bandit:
+    name: bandit (Python static security analysis)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install uv
+        # v0.1.61: bandit is now baked into the [dev] extra (same SHA-pinned
+        # setup-uv as the rest of CI), running against lockfile-pinned
+        # version instead of `pip install --upgrade` fetching fresh from
+        # PyPI on every run.
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: uv sync --extra dev
+      - name: Run bandit
+        # Skip B101 (assert-used) in tests/ — pytest needs it.
+        # Skip B404 (subprocess import) in scripts/ — release-pipeline scripts
+        # legitimately shell out.
+        run: |
+          uv run bandit -r src/efterlev \
+            --exclude tests \
+            --severity-level medium \
+            --confidence-level medium
+
+  semgrep:
+    name: semgrep (security rule set)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: returntocorp/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d # v1
+        with:
+          # r/python.lang.security is the curated Python-security rule set.
+          # Project-specific rules can be added under .github/semgrep-rules/
+          # in a follow-up PR.
+          config: 'p/python r/python.lang.security'
+
+  codeql:
+    name: CodeQL (Python)
+    runs-on: ubuntu-latest
+    # CodeQL's results-upload to the Security tab requires the repo to
+    # have Code Scanning enabled, which on private repos costs extra
+    # (GitHub Advanced Security) on Pro/Team plans. On a public repo
+    # Code Scanning is free for all plans. The repo is currently
+    # pre-launch private, so the upload step will 403 with "Resource
+    # not accessible by integration" — that's the plan limitation, not
+    # a real failure of the analysis.
+    #
+    # `continue-on-error: true` keeps the job non-blocking until the
+    # repo flips public. After flip, the upload will work and we can
+    # remove this attribute. Tracked as a maintainer-action item in
+    # the launch runbook (post-flip cleanup).
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: python
+          queries: security-and-quality
+      - uses: github/codeql-action/analyze@v4

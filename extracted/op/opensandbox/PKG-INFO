@@ -1,0 +1,728 @@
+Metadata-Version: 2.4
+Name: opensandbox
+Version: 0.1.9
+Summary: OpenSandbox Python SDK - Secure, isolated execution environments
+Project-URL: Homepage, https://open-sandbox.ai
+Project-URL: Repository, https://github.com/alibaba/OpenSandbox
+Project-URL: Documentation, https://open-sandbox.ai
+Project-URL: Issues, https://github.com/alibaba/OpenSandbox/issues
+Author-email: OpenSandbox Team <ninan.nn@alibaba-inc.com>
+License:                                  Apache License
+                                   Version 2.0, January 2004
+                                http://www.apache.org/licenses/
+        
+           TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+        
+           1. Definitions.
+        
+              "License" shall mean the terms and conditions for use, reproduction,
+              and distribution as defined by Sections 1 through 9 of this document.
+        
+              "Licensor" shall mean the copyright owner or entity authorized by
+              the copyright owner that is granting the License.
+        
+              "Legal Entity" shall mean the union of the acting entity and all
+              other entities that control, are controlled by, or are under common
+              control with that entity. For the purposes of this definition,
+              "control" means (i) the power, direct or indirect, to cause the
+              direction or management of such entity, whether by contract or
+              otherwise, or (ii) ownership of fifty percent (50%) or more of the
+              outstanding shares, or (iii) beneficial ownership of such entity.
+        
+              "You" (or "Your") shall mean an individual or Legal Entity
+              exercising permissions granted by this License.
+        
+              "Source" form shall mean the preferred form for making modifications,
+              including but not limited to software source code, documentation
+              source, and configuration files.
+        
+              "Object" form shall mean any form resulting from mechanical
+              transformation or translation of a Source form, including but
+              not limited to compiled object code, generated documentation,
+              and conversions to other media types.
+        
+              "Work" shall mean the work of authorship, whether in Source or
+              Object form, made available under the License, as indicated by a
+              copyright notice that is included in or attached to the work
+              (an example is provided in the Appendix below).
+        
+              "Derivative Works" shall mean any work, whether in Source or Object
+              form, that is based on (or derived from) the Work and for which the
+              editorial revisions, annotations, elaborations, or other modifications
+              represent, as a whole, an original work of authorship. For the purposes
+              of this License, Derivative Works shall not include works that remain
+              separable from, or merely link (or bind by name) to the interfaces of,
+              the Work and Derivative Works thereof.
+        
+              "Contribution" shall mean any work of authorship, including
+              the original version of the Work and any modifications or additions
+              to that Work or Derivative Works thereof, that is intentionally
+              submitted to Licensor for inclusion in the Work by the copyright owner
+              or by an individual or Legal Entity authorized to submit on behalf of
+              the copyright owner. For the purposes of this definition, "submitted"
+              means any form of electronic, verbal, or written communication sent
+              to the Licensor or its representatives, including but not limited to
+              communication on electronic mailing lists, source code control systems,
+              and issue tracking systems that are managed by, or on behalf of, the
+              Licensor for the purpose of discussing and improving the Work, but
+              excluding communication that is conspicuously marked or otherwise
+              designated in writing by the copyright owner as "Not a Contribution."
+        
+              "Contributor" shall mean Licensor and any individual or Legal Entity
+              on behalf of whom a Contribution has been received by Licensor and
+              subsequently incorporated within the Work.
+        
+           2. Grant of Copyright License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              copyright license to reproduce, prepare Derivative Works of,
+              publicly display, publicly perform, sublicense, and distribute the
+              Work and such Derivative Works in Source or Object form.
+        
+           3. Grant of Patent License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              (except as stated in this section) patent license to make, have made,
+              use, offer to sell, sell, import, and otherwise transfer the Work,
+              where such license applies only to those patent claims licensable
+              by such Contributor that are necessarily infringed by their
+              Contribution(s) alone or by combination of their Contribution(s)
+              with the Work to which such Contribution(s) was submitted. If You
+              institute patent litigation against any entity (including a
+              cross-claim or counterclaim in a lawsuit) alleging that the Work
+              or a Contribution incorporated within the Work constitutes direct
+              or contributory patent infringement, then any patent licenses
+              granted to You under this License for that Work shall terminate
+              as of the date such litigation is filed.
+        
+           4. Redistribution. You may reproduce and distribute copies of the
+              Work or Derivative Works thereof in any medium, with or without
+              modifications, and in Source or Object form, provided that You
+              meet the following conditions:
+        
+              (a) You must give any other recipients of the Work or
+                  Derivative Works a copy of this License; and
+        
+              (b) You must cause any modified files to carry prominent notices
+                  stating that You changed the files; and
+        
+              (c) You must retain, in the Source form of any Derivative Works
+                  that You distribute, all copyright, patent, trademark, and
+                  attribution notices from the Source form of the Work,
+                  excluding those notices that do not pertain to any part of
+                  the Derivative Works; and
+        
+              (d) If the Work includes a "NOTICE" text file as part of its
+                  distribution, then any Derivative Works that You distribute must
+                  include a readable copy of the attribution notices contained
+                  within such NOTICE file, excluding those notices that do not
+                  pertain to any part of the Derivative Works, in at least one
+                  of the following places: within a NOTICE text file distributed
+                  as part of the Derivative Works; within the Source form or
+                  documentation, if provided along with the Derivative Works; or,
+                  within a display generated by the Derivative Works, if and
+                  wherever such third-party notices normally appear. The contents
+                  of the NOTICE file are for informational purposes only and
+                  do not modify the License. You may add Your own attribution
+                  notices within Derivative Works that You distribute, alongside
+                  or as an addendum to the NOTICE text from the Work, provided
+                  that such additional attribution notices cannot be construed
+                  as modifying the License.
+        
+              You may add Your own copyright statement to Your modifications and
+              may provide additional or different license terms and conditions
+              for use, reproduction, or distribution of Your modifications, or
+              for any such Derivative Works as a whole, provided Your use,
+              reproduction, and distribution of the Work otherwise complies with
+              the conditions stated in this License.
+        
+           5. Submission of Contributions. Unless You explicitly state otherwise,
+              any Contribution intentionally submitted for inclusion in the Work
+              by You to the Licensor shall be under the terms and conditions of
+              this License, without any additional terms or conditions.
+              Notwithstanding the above, nothing herein shall supersede or modify
+              the terms of any separate license agreement you may have executed
+              with Licensor regarding such Contributions.
+        
+           6. Trademarks. This License does not grant permission to use the trade
+              names, trademarks, service marks, or product names of the Licensor,
+              except as required for reasonable and customary use in describing the
+              origin of the Work and reproducing the content of the NOTICE file.
+        
+           7. Disclaimer of Warranty. Unless required by applicable law or
+              agreed to in writing, Licensor provides the Work (and each
+              Contributor provides its Contributions) on an "AS IS" BASIS,
+              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+              implied, including, without limitation, any warranties or conditions
+              of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+              PARTICULAR PURPOSE. You are solely responsible for determining the
+              appropriateness of using or redistributing the Work and assume any
+              risks associated with Your exercise of permissions under this License.
+        
+           8. Limitation of Liability. In no event and under no legal theory,
+              whether in tort (including negligence), contract, or otherwise,
+              unless required by applicable law (such as deliberate and grossly
+              negligent acts) or agreed to in writing, shall any Contributor be
+              liable to You for damages, including any direct, indirect, special,
+              incidental, or consequential damages of any character arising as a
+              result of this License or out of the use or inability to use the
+              Work (including but not limited to damages for loss of goodwill,
+              work stoppage, computer failure or malfunction, or any and all
+              other commercial damages or losses), even if such Contributor
+              has been advised of the possibility of such damages.
+        
+           9. Accepting Warranty or Additional Liability. While redistributing
+              the Work or Derivative Works thereof, You may choose to offer,
+              and charge a fee for, acceptance of support, warranty, indemnity,
+              or other liability obligations and/or rights consistent with this
+              License. However, in accepting such obligations, You may act only
+              on Your own behalf and on Your sole responsibility, not on behalf
+              of any other Contributor, and only if You agree to indemnify,
+              defend, and hold each Contributor harmless for any liability
+              incurred by, or claims asserted against, such Contributor by reason
+              of your accepting any such warranty or additional liability.
+        
+           END OF TERMS AND CONDITIONS
+        
+           APPENDIX: How to apply the Apache License to your work.
+        
+              To apply the Apache License to your work, attach the following
+              boilerplate notice, with the fields enclosed by brackets "[]"
+              replaced with your own identifying information. (Don't include
+              the brackets!)  The text should be enclosed in the appropriate
+              comment syntax for the file format. We also recommend that a
+              file or class name and description of purpose be included on the
+              same "printed page" as the copyright notice for easier
+              identification within third-party archives.
+        
+           Copyright [yyyy] [name of copyright owner]
+        
+           Licensed under the Apache License, Version 2.0 (the "License");
+           you may not use this file except in compliance with the License.
+           You may obtain a copy of the License at
+        
+               http://www.apache.org/licenses/LICENSE-2.0
+        
+           Unless required by applicable law or agreed to in writing, software
+           distributed under the License is distributed on an "AS IS" BASIS,
+           WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+           See the License for the specific language governing permissions and
+           limitations under the License.
+License-File: LICENSE
+Keywords: code-execution,docker,opensandbox,sandbox,sdk,security
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Requires-Dist: attrs>=21.3.0
+Requires-Dist: httpx<1.0,>=0.27.0
+Requires-Dist: pydantic<3.0,>=2.4.2
+Requires-Dist: python-dateutil<3.0,>=2.8.2
+Provides-Extra: pool-redis
+Requires-Dist: redis<6.0,>=5.0; extra == 'pool-redis'
+Description-Content-Type: text/markdown
+
+# OpenSandbox SDK for Python
+
+English | [中文](README_zh.md)
+
+A Python SDK for low-level interaction with OpenSandbox. It provides capabilities to create, manage, and interact with secure sandbox environments, including executing shell commands, managing files, and monitoring resources.
+
+## Installation
+
+### pip
+
+```bash
+pip install opensandbox
+```
+
+### uv
+
+```bash
+uv add opensandbox
+```
+
+## Quick Start
+
+The following example shows how to create a sandbox and execute a shell command.
+
+> **Note**: Before running this example, ensure the OpenSandbox service is running. See the root [README.md](../../../README.md) for startup instructions.
+
+```python
+import asyncio
+from opensandbox.sandbox import Sandbox
+from opensandbox.config import ConnectionConfig
+from opensandbox.exceptions import SandboxException
+
+async def main():
+    # 1. Configure connection
+    config = ConnectionConfig(
+        domain="api.opensandbox.io",
+        api_key="your-api-key"
+    )
+
+    # 2. Create a Sandbox
+    try:
+        sandbox = await Sandbox.create(
+            "ubuntu",
+            connection_config=config
+        )
+        async with sandbox:
+
+            # 3. Execute a shell command
+            execution = await sandbox.commands.run("echo 'Hello Sandbox!'")
+
+            # 4. Print output
+            print(execution.logs.stdout[0].text)
+
+            # 5. Cleanup (sandbox.close() called automatically)
+            # Note: kill() must be called explicitly if you want to terminate the remote sandbox instance immediately
+            await sandbox.kill()
+
+    except SandboxException as e:
+        # Handle Sandbox specific exceptions
+        print(f"Sandbox Error: [{e.error.code}] {e.error.message}")
+        # Server logs can be correlated by this request id (if available)
+        print(f"Request ID: {e.request_id}")
+    except Exception as e:
+        print(f"Error: {e}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+### Synchronous Quick Start
+
+If you prefer a synchronous API, use `SandboxSync` / `SandboxManagerSync` and `ConnectionConfigSync`:
+
+```python
+from datetime import timedelta
+
+import httpx
+from opensandbox import SandboxSync
+from opensandbox.config import ConnectionConfigSync
+
+config = ConnectionConfigSync(
+    domain="api.opensandbox.io",
+    api_key="your-api-key",
+    request_timeout=timedelta(seconds=30),
+    transport=httpx.HTTPTransport(limits=httpx.Limits(max_connections=20)),
+)
+
+sandbox = SandboxSync.create("ubuntu", connection_config=config)
+with sandbox:
+    execution = sandbox.commands.run("echo 'Hello Sandbox!'")
+    print(execution.logs.stdout[0].text)
+    sandbox.kill()
+```
+
+### Synchronous Sandbox Pool
+
+`SandboxPoolSync` keeps a buffer of ready sandboxes to reduce acquire latency. The
+pool API is synchronous and aligned with the Kotlin `SandboxPool` semantics: acquire
+is allowed on any node, while replenish/shrink is gated by the store's primary lock.
+
+```python
+from datetime import timedelta
+
+from opensandbox import (
+    AcquirePolicy,
+    InMemoryPoolStateStore,
+    PoolCreationSpec,
+    SandboxPoolSync,
+)
+from opensandbox.config import ConnectionConfigSync
+
+pool = SandboxPoolSync(
+    pool_name="demo-pool",
+    owner_id="worker-1",
+    max_idle=2,
+    state_store=InMemoryPoolStateStore(),  # single-process only
+    connection_config=ConnectionConfigSync(domain="api.opensandbox.io"),
+    creation_spec=PoolCreationSpec(image="ubuntu:22.04"),
+    reconcile_interval=timedelta(seconds=5),
+)
+
+pool.start()
+try:
+    sandbox = pool.acquire(
+        sandbox_timeout=timedelta(minutes=30),
+        policy=AcquirePolicy.FAIL_FAST,
+    )
+    try:
+        result = sandbox.commands.run("echo pool-ok")
+        print(result.logs.stdout[0].text)
+    finally:
+        sandbox.kill()
+        sandbox.close()
+finally:
+    pool.shutdown(graceful=True)
+```
+
+Use `SandboxPoolAsync` in asyncio applications so pool acquire, warmup, health
+checks, and lifecycle calls do not block the event loop:
+
+```python
+from datetime import timedelta
+
+from opensandbox import (
+    AcquirePolicy,
+    InMemoryAsyncPoolStateStore,
+    PoolCreationSpec,
+    SandboxPoolAsync,
+)
+from opensandbox.config import ConnectionConfig
+
+pool = SandboxPoolAsync(
+    pool_name="demo-pool",
+    owner_id="worker-1",
+    max_idle=2,
+    state_store=InMemoryAsyncPoolStateStore(),  # single-event-loop only
+    connection_config=ConnectionConfig(domain="api.opensandbox.io"),
+    creation_spec=PoolCreationSpec(image="ubuntu:22.04"),
+)
+
+await pool.start()
+try:
+    sandbox = await pool.acquire(
+        sandbox_timeout=timedelta(minutes=30),
+        policy=AcquirePolicy.FAIL_FAST,
+    )
+    try:
+        result = await sandbox.commands.run("echo pool-ok")
+        print(result.logs.stdout[0].text)
+    finally:
+        await sandbox.kill()
+        await sandbox.close()
+finally:
+    await pool.shutdown(graceful=True)
+```
+
+For Python production services with multiple processes or pods, use Redis-backed
+pool state. Install the optional dependency:
+
+```bash
+pip install "opensandbox[pool-redis]"
+```
+
+Create and configure the Redis client yourself, then pass it to `RedisPoolStateStore`.
+The store does not create or close Redis clients.
+
+```python
+import redis
+
+from opensandbox import PoolCreationSpec, SandboxPoolSync
+from opensandbox.config import ConnectionConfigSync
+from opensandbox.pool_redis import RedisPoolStateStore
+
+redis_client = redis.Redis.from_url(
+    "redis://user:password@redis.example.com:6379/0",
+    decode_responses=True,
+)
+
+pool = SandboxPoolSync(
+    pool_name="prod-pool",
+    owner_id="worker-1",
+    max_idle=10,
+    state_store=RedisPoolStateStore(redis_client, key_prefix="opensandbox:pool:prod"),
+    connection_config=ConnectionConfigSync(domain="api.opensandbox.io"),
+    creation_spec=PoolCreationSpec(image="ubuntu:22.04"),
+    primary_lock_ttl=timedelta(seconds=60),
+)
+```
+
+For async pools, pass a `redis.asyncio` client to `AsyncRedisPoolStateStore`.
+
+Notes:
+
+- `InMemoryPoolStateStore` is for single-process development and tests. It is not
+  a process-wide or pod-wide pool for gunicorn, uvicorn workers, Celery, or Kubernetes.
+- `max_idle` is the target/cap for ready idle sandboxes. It is not a global limit
+  on borrowed or directly-created sandboxes.
+- For distributed deployment, all nodes in one logical pool must share the same
+  `key_prefix` and `pool_name`.
+- Each running process should use a unique `owner_id`; it identifies the primary
+  lock owner and is not the pool identifier.
+- All nodes sharing one pool must use the same creation and warmup definition. If
+  that definition changes, use a new `pool_name` or `key_prefix` and drain the old pool.
+- `resize(max_idle)` can be called from any node. The call returns after the new
+  idle target is stored in the shared state store; the current primary applies
+  replenish or shrink work during periodic reconcile.
+- Use `resize(0)` and wait for `snapshot().idle_count == 0` to drain a distributed
+  idle buffer. `release_all_idle()` is only a best-effort cleanup pass in distributed
+  mode because another primary may put new idle sandboxes concurrently unless the
+  shared target has already been reduced.
+- Configure `primary_lock_ttl` greater than `warmup_ready_timeout` plus expected
+  warmup preparer time and buffer.
+- Redis outages are surfaced as pool state store errors. The pool fails closed; it
+  does not bypass shared state.
+
+## Usage Examples
+
+### 1. Lifecycle Management
+
+Manage the sandbox lifecycle, including renewal, pausing, and resuming.
+
+```python
+from datetime import timedelta
+
+# Renew the sandbox
+# This resets the expiration time to (current time + duration)
+await sandbox.renew(timedelta(minutes=30))
+
+# Pause execution (suspends all processes)
+await sandbox.pause()
+
+# Resume execution
+sandbox = await Sandbox.resume(
+    sandbox_id=sandbox.id,
+    connection_config=config,
+)
+
+# Get current status
+info = await sandbox.get_info()
+print(f"State: {info.status.state}")
+print(f"Expires: {info.expires_at}")  # None when no automatic expiration is configured
+```
+
+Create a non-expiring sandbox by omitting `timeout`:
+
+```python
+manual = await Sandbox.create(
+    "ubuntu",
+    connection_config=config,
+)
+```
+
+### 2. Custom Health Check
+
+Define custom logic to determine if the sandbox is healthy. This overrides the default ping check.
+
+```python
+async def custom_health_check(sbx: Sandbox) -> bool:
+    try:
+        # 1. Get the external mapped address for port 80
+        endpoint = await sbx.get_endpoint(80)
+
+        # 2. Perform your connection check (e.g. HTTP request, Socket connect)
+        # return await check_connection(endpoint.endpoint)
+        return True
+    except Exception:
+        return False
+
+sandbox = await Sandbox.create(
+    "nginx:latest",
+    connection_config=config,
+    health_check=custom_health_check  # Custom check: Wait for port 80 to be accessible
+)
+```
+
+### 3. Command Execution & Streaming
+
+Execute commands and handle output streams in real-time.
+
+```python
+from opensandbox.models.execd import ExecutionHandlers, RunCommandOpts
+
+# Define async handlers for streaming output
+async def handle_stdout(msg):
+    print(f"STDOUT: {msg.text}")
+
+async def handle_stderr(msg):
+    print(f"STDERR: {msg.text}")
+
+async def handle_complete(complete):
+    print(f"Command finished in {complete.execution_time_in_millis}ms")
+
+# Create handlers (all handlers must be async)
+handlers = ExecutionHandlers(
+    on_stdout=handle_stdout,
+    on_stderr=handle_stderr,
+    on_execution_complete=handle_complete
+)
+
+# Execute command with handlers
+result = await sandbox.commands.run(
+    "for i in {1..5}; do echo \"Count $i\"; sleep 0.5; done",
+    handlers=handlers
+)
+```
+
+### 4. Comprehensive File Operations
+
+Manage files and directories, including read, write, list, delete, and search.
+
+```python
+from opensandbox.models.filesystem import WriteEntry, SearchEntry
+
+# 1. Write file
+await sandbox.files.write_files([
+    WriteEntry(
+        path="/tmp/hello.txt",
+        data="Hello World",
+        mode=644
+    )
+])
+
+# 2. Read file
+content = await sandbox.files.read_file("/tmp/hello.txt")
+print(f"Content: {content}")
+
+# 3. List/Search files
+files = await sandbox.files.search(
+    SearchEntry(
+        path="/tmp",
+        pattern="*.txt"
+    )
+)
+for f in files:
+    print(f"Found: {f.path}")
+
+# 4. Delete file
+await sandbox.files.delete_files(["/tmp/hello.txt"])
+```
+
+### 5. Sandbox Management (Admin)
+
+Use `SandboxManager` for administrative tasks and finding existing sandboxes.
+
+```python
+from opensandbox.manager import SandboxManager
+from opensandbox.models.sandboxes import SandboxFilter
+
+# Create manager using async context manager
+async with await SandboxManager.create(connection_config=config) as manager:
+
+    # List running sandboxes
+    sandboxes = await manager.list_sandbox_infos(
+        SandboxFilter(
+            states=["RUNNING"],
+            page_size=10
+        )
+    )
+
+    for info in sandboxes.sandbox_infos:
+        print(f"Found sandbox: {info.id}")
+        # Perform admin actions
+        await manager.kill_sandbox(info.id)
+```
+
+## Configuration
+
+### 1. Connection Configuration
+
+The `ConnectionConfig` class manages API server connection settings.
+
+| Parameter         | Description                                | Default                      | Environment Variable   |
+| ----------------- | ------------------------------------------ | ---------------------------- | ---------------------- |
+| `api_key`         | API Key for authentication                 | Required                     | `OPEN_SANDBOX_API_KEY` |
+| `domain`          | The endpoint domain of the sandbox service | Required (or localhost:8080) | `OPEN_SANDBOX_DOMAIN`  |
+| `protocol`        | HTTP protocol (http/https)                 | `http`                       | -                      |
+| `request_timeout` | Timeout for API requests                   | 30 seconds                   | -                      |
+| `debug`           | Enable debug logging for HTTP requests     | `False`                      | -                      |
+| `headers`         | Custom HTTP headers                        | Empty                        | -                      |
+| `transport`       | Shared httpx transport (pool/proxy/retry)  | SDK-created per instance     | -                      |
+| `use_server_proxy` | Use sandbox server as proxy for execd/endpoint requests (e.g. when client cannot reach the sandbox directly) | `False` | -                      |
+
+```python
+from datetime import timedelta
+
+# 1. Basic configuration
+config = ConnectionConfig(
+    api_key="your-key",
+    domain="api.opensandbox.io",
+    request_timeout=timedelta(seconds=60)
+)
+
+# 2. Advanced: Custom headers and custom transport
+# If you create many Sandbox instances, configuring a shared transport is recommended to optimize resource usage.
+# SDK default keep-alive is 30 seconds for its own transports.
+import httpx
+
+config = ConnectionConfig(
+    api_key="your-key",
+    domain="api.opensandbox.io",
+    headers={
+        "X-Custom-Header": "value",
+        "X-Request-ID": "trace-123",
+    },
+    transport=httpx.AsyncHTTPTransport(
+        limits=httpx.Limits(
+            max_connections=100,
+            max_keepalive_connections=50,
+        keepalive_expiry=30.0,
+        )
+    ),
+)
+
+# If you provide a custom transport, you are responsible for closing it:
+# await config.transport.aclose()
+```
+
+### 2. Sandbox Creation Configuration
+
+The `Sandbox.create()` allows configuring the sandbox environment.
+
+| Parameter       | Description                              | Default                         |
+| --------------- | ---------------------------------------- | ------------------------------- |
+| `image`    | Docker image specification               | Required                        |
+| `timeout`       | Automatic termination timeout            | 10 minutes                      |
+| `entrypoint`    | Container entrypoint command             | `["tail", "-f", "/dev/null"]`   |
+| `resource`      | CPU and memory limits                    | `{"cpu": "1", "memory": "2Gi"}` |
+| `env`           | Environment variables                    | Empty                           |
+| `metadata`      | Custom metadata tags                     | Empty                           |
+| `network_policy` | Optional outbound network policy (egress) | -                             |
+| `ready_timeout` | Max time to wait for sandbox to be ready | 30 seconds                      |
+
+Note: metadata keys under `opensandbox.io/` are reserved for system-managed
+labels and will be rejected by the server.
+
+```python
+from datetime import timedelta
+
+from opensandbox.models.sandboxes import NetworkPolicy, NetworkRule
+
+sandbox = await Sandbox.create(
+    "python:3.11",
+    connection_config=config,
+    timeout=timedelta(minutes=30),
+    resource={"cpu": "2", "memory": "4Gi"},
+    env={"PYTHONPATH": "/app"},
+    metadata={"project": "demo"},
+    network_policy=NetworkPolicy(
+        defaultAction="deny",
+        egress=[NetworkRule(action="allow", target="pypi.org")],
+    ),
+)
+```
+
+### 3. Runtime Egress Policy Updates
+
+Runtime egress policy reads and patches are sent directly to the sandbox egress sidecar.
+The SDK first resolves the sandbox endpoint on port `18080`, then calls the sidecar `/policy` API.
+
+Patch uses merge semantics:
+- Incoming rules take priority over existing rules with the same `target`.
+- Existing rules for other targets remain unchanged.
+- Within a single patch payload, the first rule for a `target` wins.
+- The current `defaultAction` is preserved.
+
+```python
+policy = await sandbox.get_egress_policy()
+
+await sandbox.patch_egress_rules(
+    [
+        NetworkRule(action="allow", target="www.github.com"),
+        NetworkRule(action="deny", target="pypi.org"),
+    ]
+)
+```

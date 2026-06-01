@@ -1,0 +1,1132 @@
+"""Tests for CloudSTT — OpenAI Whisper API fallback (V05-25).
+
+Covers: config validation, WAV encoding, fallback logic, API mocking,
+lifecycle states, error handling, streaming fallback.
+"""
+
+from __future__ import annotations
+
+import struct
+from typing import TYPE_CHECKING
+from unittest.mock import AsyncMock, MagicMock, patch
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+import numpy as np
+import pytest
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
+
+from sovyx.voice import stt_cloud as _stt_mod  # for patch.object (anti-pattern #11)
+from sovyx.voice.stt import (
+    PartialTranscription,
+    STTState,
+    TranscriptionResult,
+)
+from sovyx.voice.stt_cloud import (
+    _DEFAULT_SAMPLE_RATE,
+    _MAX_AUDIO_DURATION_S,
+    _WAV_SAMPLE_WIDTH,
+    CloudSTT,
+    CloudSTTConfig,
+    CloudSTTError,
+    _audio_to_wav_bytes,
+    needs_cloud_fallback,
+)
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def config() -> CloudSTTConfig:
+    """Default valid config."""
+    return CloudSTTConfig(api_key="sk-test-key-12345")
+
+
+@pytest.fixture()
+def audio_1s() -> np.ndarray:
+    """1 second of 440 Hz sine wave at 16 kHz."""
+    t = np.linspace(0, 1.0, _DEFAULT_SAMPLE_RATE, endpoint=False, dtype=np.float32)
+    return np.sin(2.0 * np.pi * 440.0 * t).astype(np.float32)
+
+
+@pytest.fixture()
+def short_audio() -> np.ndarray:
+    """Very short audio (100 samples)."""
+    return np.zeros(100, dtype=np.float32)
+
+
+# ---------------------------------------------------------------------------
+# CloudSTTConfig tests
+# ---------------------------------------------------------------------------
+
+
+class TestCloudSTTConfig:
+    """Configuration validation."""
+
+    def test_defaults(self) -> None:
+        cfg = CloudSTTConfig()
+        assert cfg.api_key == ""
+        assert cfg.model == "whisper-1"
+        assert cfg.language == "en"
+        assert cfg.confidence_threshold == 0.6
+        assert cfg.api_timeout == 30.0
+        assert cfg.api_base_url == "https://api.openai.com/v1"
+
+    def test_custom_values(self) -> None:
+        cfg = CloudSTTConfig(
+            api_key="sk-abc",
+            model="whisper-2",
+            language="pt",
+            confidence_threshold=0.8,
+            api_timeout=60.0,
+            api_base_url="https://custom.api/v1",
+        )
+        assert cfg.api_key == "sk-abc"
+        assert cfg.model == "whisper-2"
+        assert cfg.language == "pt"
+        assert cfg.confidence_threshold == 0.8
+        assert cfg.api_timeout == 60.0
+        assert cfg.api_base_url == "https://custom.api/v1"
+
+    def test_confidence_threshold_too_low(self) -> None:
+        with pytest.raises(ValueError, match="confidence_threshold"):
+            CloudSTTConfig(confidence_threshold=-0.1)
+
+    def test_confidence_threshold_too_high(self) -> None:
+        with pytest.raises(ValueError, match="confidence_threshold"):
+            CloudSTTConfig(confidence_threshold=1.1)
+
+    def test_confidence_threshold_boundary_zero(self) -> None:
+        cfg = CloudSTTConfig(confidence_threshold=0.0)
+        assert cfg.confidence_threshold == 0.0
+
+    def test_confidence_threshold_boundary_one(self) -> None:
+        cfg = CloudSTTConfig(confidence_threshold=1.0)
+        assert cfg.confidence_threshold == 1.0
+
+    def test_negative_timeout(self) -> None:
+        with pytest.raises(ValueError, match="api_timeout"):
+            CloudSTTConfig(api_timeout=-1.0)
+
+    def test_zero_timeout(self) -> None:
+        with pytest.raises(ValueError, match="api_timeout"):
+            CloudSTTConfig(api_timeout=0.0)
+
+    def test_empty_model(self) -> None:
+        with pytest.raises(ValueError, match="model"):
+            CloudSTTConfig(model="")
+
+    def test_frozen(self) -> None:
+        cfg = CloudSTTConfig()
+        with pytest.raises(AttributeError):
+            cfg.api_key = "new"  # type: ignore[misc]
+
+    @settings(deadline=None, suppress_health_check=[HealthCheck.too_slow])
+    @given(threshold=st.floats(min_value=0.0, max_value=1.0))
+    def test_valid_threshold_range(self, threshold: float) -> None:
+        """Any threshold in [0, 1] is valid."""
+        cfg = CloudSTTConfig(confidence_threshold=threshold)
+        assert cfg.confidence_threshold == threshold
+
+
+# ---------------------------------------------------------------------------
+# _audio_to_wav_bytes tests
+# ---------------------------------------------------------------------------
+
+
+class TestAudioToWavBytes:
+    """WAV encoding helper."""
+
+    def test_basic_wav_structure(self, audio_1s: np.ndarray) -> None:
+        wav = _audio_to_wav_bytes(audio_1s, _DEFAULT_SAMPLE_RATE)
+        assert wav[:4] == b"RIFF"
+        assert wav[8:12] == b"WAVE"
+        assert wav[12:16] == b"fmt "
+        assert wav[36:40] == b"data"
+
+    def test_wav_mono_pcm(self, audio_1s: np.ndarray) -> None:
+        wav = _audio_to_wav_bytes(audio_1s, _DEFAULT_SAMPLE_RATE)
+        # fmt chunk: PCM=1, channels=1
+        audio_format = struct.unpack_from("<H", wav, 20)[0]
+        num_channels = struct.unpack_from("<H", wav, 22)[0]
+        assert audio_format == 1  # PCM
+        assert num_channels == 1  # mono
+
+    def test_wav_sample_rate(self, audio_1s: np.ndarray) -> None:
+        wav = _audio_to_wav_bytes(audio_1s, _DEFAULT_SAMPLE_RATE)
+        sr = struct.unpack_from("<I", wav, 24)[0]
+        assert sr == _DEFAULT_SAMPLE_RATE
+
+    def test_wav_bits_per_sample(self, audio_1s: np.ndarray) -> None:
+        wav = _audio_to_wav_bytes(audio_1s, _DEFAULT_SAMPLE_RATE)
+        bits = struct.unpack_from("<H", wav, 34)[0]
+        assert bits == 16
+
+    def test_wav_data_size(self, audio_1s: np.ndarray) -> None:
+        wav = _audio_to_wav_bytes(audio_1s, _DEFAULT_SAMPLE_RATE)
+        data_size = struct.unpack_from("<I", wav, 40)[0]
+        expected = len(audio_1s) * _WAV_SAMPLE_WIDTH
+        assert data_size == expected
+
+    def test_wav_riff_size(self, audio_1s: np.ndarray) -> None:
+        wav = _audio_to_wav_bytes(audio_1s, _DEFAULT_SAMPLE_RATE)
+        riff_size = struct.unpack_from("<I", wav, 4)[0]
+        assert riff_size == len(wav) - 8
+
+    def test_int16_input(self) -> None:
+        audio = np.array([0, 16384, -16384, 32767, -32768], dtype=np.int16)
+        wav = _audio_to_wav_bytes(audio, 8000)
+        assert wav[:4] == b"RIFF"
+        data_size = struct.unpack_from("<I", wav, 40)[0]
+        assert data_size == 10  # 5 samples * 2 bytes
+
+    def test_float64_input(self) -> None:
+        audio = np.array([0.0, 0.5, -0.5], dtype=np.float64)
+        wav = _audio_to_wav_bytes(audio, 8000)
+        assert wav[:4] == b"RIFF"
+
+    def test_clipping(self) -> None:
+        """Values beyond [-1, 1] are clipped."""
+        audio = np.array([2.0, -2.0, 0.5], dtype=np.float32)
+        wav = _audio_to_wav_bytes(audio, 8000)
+        # Extract int16 samples
+        data_offset = 44
+        s0 = struct.unpack_from("<h", wav, data_offset)[0]
+        s1 = struct.unpack_from("<h", wav, data_offset + 2)[0]
+        assert s0 == 32767  # clipped to 1.0
+        assert s1 == -32767  # clipped to -1.0
+
+    def test_empty_audio(self) -> None:
+        audio = np.array([], dtype=np.float32)
+        wav = _audio_to_wav_bytes(audio, 16000)
+        data_size = struct.unpack_from("<I", wav, 40)[0]
+        assert data_size == 0
+
+    @settings(deadline=None, suppress_health_check=[HealthCheck.too_slow])
+    @given(length=st.integers(min_value=1, max_value=1000))
+    def test_roundtrip_length(self, length: int) -> None:
+        """WAV data section has correct length for any input size."""
+        audio = np.zeros(length, dtype=np.float32)
+        wav = _audio_to_wav_bytes(audio, 16000)
+        data_size = struct.unpack_from("<I", wav, 40)[0]
+        assert data_size == length * _WAV_SAMPLE_WIDTH
+
+
+# ---------------------------------------------------------------------------
+# needs_cloud_fallback tests
+# ---------------------------------------------------------------------------
+
+
+class TestNeedsCloudFallback:
+    """Fallback decision logic."""
+
+    def test_low_confidence_triggers_fallback(self) -> None:
+        result = TranscriptionResult(text="hello", confidence=0.3)
+        assert needs_cloud_fallback(result, threshold=0.6) is True
+
+    def test_high_confidence_no_fallback(self) -> None:
+        result = TranscriptionResult(text="hello", confidence=0.9)
+        assert needs_cloud_fallback(result, threshold=0.6) is False
+
+    def test_exact_threshold_no_fallback(self) -> None:
+        """At exactly the threshold, confidence is NOT below."""
+        result = TranscriptionResult(text="hello", confidence=0.6)
+        assert needs_cloud_fallback(result, threshold=0.6) is False
+
+    def test_empty_text_always_fallback(self) -> None:
+        result = TranscriptionResult(text="", confidence=0.99)
+        assert needs_cloud_fallback(result) is True
+
+    def test_whitespace_only_text_fallback(self) -> None:
+        result = TranscriptionResult(text="   ", confidence=0.99)
+        assert needs_cloud_fallback(result) is True
+
+    def test_default_threshold(self) -> None:
+        result = TranscriptionResult(text="hello", confidence=0.5)
+        assert needs_cloud_fallback(result) is True  # 0.5 < 0.6
+
+    @settings(deadline=None, suppress_health_check=[HealthCheck.too_slow])
+    @given(
+        confidence=st.floats(min_value=0.0, max_value=1.0),
+        threshold=st.floats(min_value=0.0, max_value=1.0),
+    )
+    def test_deterministic(self, confidence: float, threshold: float) -> None:
+        """Fallback decision is deterministic for given inputs."""
+        result = TranscriptionResult(text="hello world", confidence=confidence)
+        r1 = needs_cloud_fallback(result, threshold)
+        r2 = needs_cloud_fallback(result, threshold)
+        assert r1 == r2
+
+
+# ---------------------------------------------------------------------------
+# CloudSTT lifecycle tests
+# ---------------------------------------------------------------------------
+
+
+class TestCloudSTTLifecycle:
+    """Engine state machine tests."""
+
+    def test_initial_state(self, config: CloudSTTConfig) -> None:
+        engine = CloudSTT(config)
+        assert engine.state == STTState.UNINITIALIZED
+
+    def test_config_property(self, config: CloudSTTConfig) -> None:
+        engine = CloudSTT(config)
+        assert engine.config is config
+
+    def test_default_config(self) -> None:
+        engine = CloudSTT()
+        assert engine.config.api_key == ""
+
+    @pytest.mark.asyncio()
+    async def test_initialize_ready(self, config: CloudSTTConfig) -> None:
+        with patch.object(_stt_mod, "httpx") as mock_httpx:
+            mock_httpx.AsyncClient.return_value = AsyncMock()
+            mock_httpx.Timeout.return_value = MagicMock()
+            engine = CloudSTT(config)
+            await engine.initialize()
+            assert engine.state == STTState.READY
+            await engine.close()
+
+    @pytest.mark.asyncio()
+    async def test_initialize_idempotent(self, config: CloudSTTConfig) -> None:
+        with patch.object(_stt_mod, "httpx") as mock_httpx:
+            mock_httpx.AsyncClient.return_value = AsyncMock()
+            mock_httpx.Timeout.return_value = MagicMock()
+            engine = CloudSTT(config)
+            await engine.initialize()
+            await engine.initialize()  # Should not raise
+            assert engine.state == STTState.READY
+            await engine.close()
+
+    @pytest.mark.asyncio()
+    async def test_initialize_no_api_key(self) -> None:
+        engine = CloudSTT(CloudSTTConfig(api_key=""))
+        with pytest.raises(ValueError, match="API key is required"):
+            await engine.initialize()
+
+    @pytest.mark.asyncio()
+    async def test_initialize_after_close(self, config: CloudSTTConfig) -> None:
+        with patch.object(_stt_mod, "httpx") as mock_httpx:
+            mock_httpx.AsyncClient.return_value = AsyncMock()
+            mock_httpx.Timeout.return_value = MagicMock()
+            engine = CloudSTT(config)
+            await engine.initialize()
+            await engine.close()
+            with pytest.raises(RuntimeError, match="closed"):
+                await engine.initialize()
+
+    @pytest.mark.asyncio()
+    async def test_close_sets_state(self, config: CloudSTTConfig) -> None:
+        with patch.object(_stt_mod, "httpx") as mock_httpx:
+            mock_httpx.AsyncClient.return_value = AsyncMock()
+            mock_httpx.Timeout.return_value = MagicMock()
+            engine = CloudSTT(config)
+            await engine.initialize()
+            await engine.close()
+            assert engine.state == STTState.CLOSED
+
+    @pytest.mark.asyncio()
+    async def test_close_without_init(self, config: CloudSTTConfig) -> None:
+        engine = CloudSTT(config)
+        await engine.close()  # Should not raise
+        assert engine.state == STTState.CLOSED
+
+    @pytest.mark.asyncio()
+    async def test_transcribe_before_init(
+        self, config: CloudSTTConfig, audio_1s: np.ndarray
+    ) -> None:
+        engine = CloudSTT(config)
+        with pytest.raises(RuntimeError, match="not initialized"):
+            await engine.transcribe(audio_1s)
+
+    @pytest.mark.asyncio()
+    async def test_transcribe_after_close(
+        self, config: CloudSTTConfig, audio_1s: np.ndarray
+    ) -> None:
+        with patch.object(_stt_mod, "httpx") as mock_httpx:
+            mock_httpx.AsyncClient.return_value = AsyncMock()
+            mock_httpx.Timeout.return_value = MagicMock()
+            engine = CloudSTT(config)
+            await engine.initialize()
+            await engine.close()
+            with pytest.raises(RuntimeError, match="closed"):
+                await engine.transcribe(audio_1s)
+
+
+# ---------------------------------------------------------------------------
+# CloudSTT transcription tests
+# ---------------------------------------------------------------------------
+
+
+class TestCloudSTTTranscribe:
+    """Transcription via mocked API."""
+
+    @pytest.mark.asyncio()
+    async def test_successful_transcription(
+        self, config: CloudSTTConfig, audio_1s: np.ndarray
+    ) -> None:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"text": "Hello world"}
+
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+
+        with patch.object(_stt_mod, "httpx") as mock_httpx:
+            mock_httpx.AsyncClient.return_value = mock_client
+            mock_httpx.Timeout.return_value = MagicMock()
+            engine = CloudSTT(config)
+            await engine.initialize()
+
+            result = await engine.transcribe(audio_1s)
+
+            assert result.text == "Hello world"
+            assert result.confidence == 0.95
+            assert result.language == "en"
+            assert result.duration_ms >= 0
+            assert engine.state == STTState.READY
+
+            await engine.close()
+
+    @pytest.mark.asyncio()
+    async def test_api_sends_correct_data(
+        self, config: CloudSTTConfig, audio_1s: np.ndarray
+    ) -> None:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"text": "test"}
+
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+
+        with patch.object(_stt_mod, "httpx") as mock_httpx:
+            mock_httpx.AsyncClient.return_value = mock_client
+            mock_httpx.Timeout.return_value = MagicMock()
+            engine = CloudSTT(config)
+            await engine.initialize()
+            await engine.transcribe(audio_1s)
+
+            call_args = mock_client.post.call_args
+            assert call_args[0][0] == "/audio/transcriptions"
+            assert "file" in call_args[1]["files"]
+            assert call_args[1]["data"]["model"] == "whisper-1"
+            assert call_args[1]["data"]["language"] == "en"
+
+            await engine.close()
+
+    @pytest.mark.asyncio()
+    async def test_api_error_status(self, config: CloudSTTConfig, audio_1s: np.ndarray) -> None:
+        mock_response = MagicMock()
+        mock_response.status_code = 429
+        mock_response.text = "Rate limit exceeded"
+
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+
+        with patch.object(_stt_mod, "httpx") as mock_httpx:
+            mock_httpx.AsyncClient.return_value = mock_client
+            mock_httpx.Timeout.return_value = MagicMock()
+            engine = CloudSTT(config)
+            await engine.initialize()
+
+            with pytest.raises(CloudSTTError, match="429"):
+                await engine.transcribe(audio_1s)
+
+            # State should recover to READY
+            assert engine.state == STTState.READY
+            await engine.close()
+
+    @pytest.mark.asyncio()
+    async def test_api_network_error(self, config: CloudSTTConfig, audio_1s: np.ndarray) -> None:
+        mock_client = AsyncMock()
+        mock_client.post.side_effect = ConnectionError("Network down")
+
+        with patch.object(_stt_mod, "httpx") as mock_httpx:
+            mock_httpx.AsyncClient.return_value = mock_client
+            mock_httpx.Timeout.return_value = MagicMock()
+            engine = CloudSTT(config)
+            await engine.initialize()
+
+            with pytest.raises(CloudSTTError, match="request failed"):
+                await engine.transcribe(audio_1s)
+
+            assert engine.state == STTState.READY
+            await engine.close()
+
+    @pytest.mark.asyncio()
+    async def test_api_invalid_json(self, config: CloudSTTConfig, audio_1s: np.ndarray) -> None:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.side_effect = ValueError("bad json")
+        mock_response.text = "not json"
+
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+
+        with patch.object(_stt_mod, "httpx") as mock_httpx:
+            mock_httpx.AsyncClient.return_value = mock_client
+            mock_httpx.Timeout.return_value = MagicMock()
+            engine = CloudSTT(config)
+            await engine.initialize()
+
+            with pytest.raises(CloudSTTError, match="Invalid JSON"):
+                await engine.transcribe(audio_1s)
+
+            await engine.close()
+
+    @pytest.mark.asyncio()
+    async def test_api_unexpected_response_format(
+        self, config: CloudSTTConfig, audio_1s: np.ndarray
+    ) -> None:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"text": 42}  # not a string
+
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+
+        with patch.object(_stt_mod, "httpx") as mock_httpx:
+            mock_httpx.AsyncClient.return_value = mock_client
+            mock_httpx.Timeout.return_value = MagicMock()
+            engine = CloudSTT(config)
+            await engine.initialize()
+
+            with pytest.raises(CloudSTTError, match="Unexpected response"):
+                await engine.transcribe(audio_1s)
+
+            await engine.close()
+
+    @pytest.mark.asyncio()
+    async def test_audio_too_long(self, config: CloudSTTConfig) -> None:
+        # Create audio longer than max duration
+        samples = int((_MAX_AUDIO_DURATION_S + 1) * _DEFAULT_SAMPLE_RATE)
+        long_audio = np.zeros(samples, dtype=np.float32)
+
+        mock_client = AsyncMock()
+        with patch.object(_stt_mod, "httpx") as mock_httpx:
+            mock_httpx.AsyncClient.return_value = mock_client
+            mock_httpx.Timeout.return_value = MagicMock()
+            engine = CloudSTT(config)
+            await engine.initialize()
+
+            with pytest.raises(CloudSTTError, match="Audio too long"):
+                await engine.transcribe(long_audio)
+
+            await engine.close()
+
+    @pytest.mark.asyncio()
+    async def test_text_stripped(self, config: CloudSTTConfig, audio_1s: np.ndarray) -> None:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"text": "  hello world  "}
+
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+
+        with patch.object(_stt_mod, "httpx") as mock_httpx:
+            mock_httpx.AsyncClient.return_value = mock_client
+            mock_httpx.Timeout.return_value = MagicMock()
+            engine = CloudSTT(config)
+            await engine.initialize()
+
+            result = await engine.transcribe(audio_1s)
+            assert result.text == "hello world"
+
+            await engine.close()
+
+    @pytest.mark.asyncio()
+    async def test_empty_text_response(self, config: CloudSTTConfig, audio_1s: np.ndarray) -> None:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"text": ""}
+
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+
+        with patch.object(_stt_mod, "httpx") as mock_httpx:
+            mock_httpx.AsyncClient.return_value = mock_client
+            mock_httpx.Timeout.return_value = MagicMock()
+            engine = CloudSTT(config)
+            await engine.initialize()
+
+            result = await engine.transcribe(audio_1s)
+            assert result.text == ""
+            assert result.confidence == 0.95
+
+            await engine.close()
+
+    @pytest.mark.asyncio()
+    async def test_custom_language(self, audio_1s: np.ndarray) -> None:
+        cfg = CloudSTTConfig(api_key="sk-test", language="pt")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"text": "olá mundo"}
+
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+
+        with patch.object(_stt_mod, "httpx") as mock_httpx:
+            mock_httpx.AsyncClient.return_value = mock_client
+            mock_httpx.Timeout.return_value = MagicMock()
+            engine = CloudSTT(cfg)
+            await engine.initialize()
+
+            result = await engine.transcribe(audio_1s)
+            assert result.language == "pt"
+
+            # Check API received language param
+            call_data = mock_client.post.call_args[1]["data"]
+            assert call_data["language"] == "pt"
+
+            await engine.close()
+
+    @pytest.mark.asyncio()
+    async def test_no_language_hint(self, audio_1s: np.ndarray) -> None:
+        cfg = CloudSTTConfig(api_key="sk-test", language="")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"text": "hello"}
+
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+
+        with patch.object(_stt_mod, "httpx") as mock_httpx:
+            mock_httpx.AsyncClient.return_value = mock_client
+            mock_httpx.Timeout.return_value = MagicMock()
+            engine = CloudSTT(cfg)
+            await engine.initialize()
+
+            await engine.transcribe(audio_1s)
+
+            call_data = mock_client.post.call_args[1]["data"]
+            assert "language" not in call_data
+
+            await engine.close()
+
+    @pytest.mark.asyncio()
+    async def test_custom_sample_rate(self, config: CloudSTTConfig) -> None:
+        audio = np.zeros(44100, dtype=np.float32)  # 1s at 44.1kHz
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"text": "test"}
+
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+
+        with patch.object(_stt_mod, "httpx") as mock_httpx:
+            mock_httpx.AsyncClient.return_value = mock_client
+            mock_httpx.Timeout.return_value = MagicMock()
+            engine = CloudSTT(config)
+            await engine.initialize()
+
+            result = await engine.transcribe(audio, sample_rate=44100)
+            assert result.text == "test"
+
+            await engine.close()
+
+    @pytest.mark.asyncio()
+    async def test_state_returns_ready_after_error(
+        self, config: CloudSTTConfig, audio_1s: np.ndarray
+    ) -> None:
+        """State recovers to READY after failed transcription."""
+        mock_client = AsyncMock()
+        mock_client.post.side_effect = ConnectionError("fail")
+
+        with patch.object(_stt_mod, "httpx") as mock_httpx:
+            mock_httpx.AsyncClient.return_value = mock_client
+            mock_httpx.Timeout.return_value = MagicMock()
+            engine = CloudSTT(config)
+            await engine.initialize()
+
+            with pytest.raises(CloudSTTError):
+                await engine.transcribe(audio_1s)
+
+            assert engine.state == STTState.READY
+            await engine.close()
+
+
+# ---------------------------------------------------------------------------
+# CloudSTT streaming tests
+# ---------------------------------------------------------------------------
+
+
+class TestCloudSTTStreaming:
+    """Streaming transcription (batch fallback)."""
+
+    @pytest.mark.asyncio()
+    async def test_streaming_collects_and_transcribes(self, config: CloudSTTConfig) -> None:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"text": "streaming result"}
+
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+
+        async def audio_gen() -> AsyncIterator[tuple[np.ndarray, int]]:
+            for _ in range(3):
+                yield np.zeros(1600, dtype=np.float32), 16000
+
+        with patch.object(_stt_mod, "httpx") as mock_httpx:
+            mock_httpx.AsyncClient.return_value = mock_client
+            mock_httpx.Timeout.return_value = MagicMock()
+            engine = CloudSTT(config)
+            await engine.initialize()
+
+            results: list[PartialTranscription] = []
+            async for partial in engine.transcribe_streaming(audio_gen()):
+                results.append(partial)
+
+            assert len(results) == 1
+            assert results[0].text == "streaming result"
+            assert results[0].is_final is True
+            assert results[0].confidence == 0.95
+
+            await engine.close()
+
+    @pytest.mark.asyncio()
+    async def test_streaming_empty_input(self, config: CloudSTTConfig) -> None:
+        mock_client = AsyncMock()
+
+        async def empty_gen() -> AsyncIterator[tuple[np.ndarray, int]]:
+            return
+            yield  # type: ignore[misc]  # Make it an async generator
+
+        with patch.object(_stt_mod, "httpx") as mock_httpx:
+            mock_httpx.AsyncClient.return_value = mock_client
+            mock_httpx.Timeout.return_value = MagicMock()
+            engine = CloudSTT(config)
+            await engine.initialize()
+
+            results: list[PartialTranscription] = []
+            async for partial in engine.transcribe_streaming(empty_gen()):
+                results.append(partial)
+
+            assert len(results) == 1
+            assert results[0].text == ""
+            assert results[0].is_final is True
+            assert results[0].confidence == 0.0
+
+            await engine.close()
+
+    @pytest.mark.asyncio()
+    async def test_streaming_state_recovery(self, config: CloudSTTConfig) -> None:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"text": "ok"}
+
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+
+        async def audio_gen() -> AsyncIterator[tuple[np.ndarray, int]]:
+            yield np.zeros(1600, dtype=np.float32), 16000
+
+        with patch.object(_stt_mod, "httpx") as mock_httpx:
+            mock_httpx.AsyncClient.return_value = mock_client
+            mock_httpx.Timeout.return_value = MagicMock()
+            engine = CloudSTT(config)
+            await engine.initialize()
+
+            async for _ in engine.transcribe_streaming(audio_gen()):
+                pass
+
+            assert engine.state == STTState.READY
+            await engine.close()
+
+
+# ---------------------------------------------------------------------------
+# CloudSTTError tests
+# ---------------------------------------------------------------------------
+
+
+class TestCloudSTTError:
+    """Error class."""
+
+    def test_inherits_exception(self) -> None:
+        assert issubclass(CloudSTTError, Exception)
+
+    def test_message(self) -> None:
+        err = CloudSTTError("test error")
+        assert str(err) == "test error"
+
+    def test_raised_and_caught(self) -> None:
+        with pytest.raises(CloudSTTError, match="specific"):
+            raise CloudSTTError("specific error message")
+
+
+# ---------------------------------------------------------------------------
+# Import / public API tests
+# ---------------------------------------------------------------------------
+
+
+class TestPublicAPI:
+    """Verify import contracts.
+
+    v0.32.4 Phase 3.C.1 closure (P0.C1): the package-level public API
+    no longer surfaces CloudSTT. The contract is now "import directly
+    from ``sovyx.voice.stt_cloud``" — pinned by
+    ``test_import_from_module_direct``. The pre-v0.32.4 contract
+    (``from sovyx.voice import CloudSTT``) is deliberately broken so
+    that integrators don't assume an auto-fallback chain that doesn't
+    ship. Anti-regression coverage lives in
+    ``TestCloudSttPublicExportOrphan`` below.
+    """
+
+    def test_import_from_module_direct(self) -> None:
+        """The supported v0.32.4+ import path for advanced operators
+        who deliberately wire CloudSTT into the factory's STT slot."""
+        from sovyx.voice.stt_cloud import (  # noqa: PLC0415 — local
+            CloudSTT,
+            CloudSTTConfig,
+            CloudSTTError,
+            needs_cloud_fallback,
+        )
+
+        assert CloudSTT is not None
+        assert CloudSTTConfig is not None
+        assert CloudSTTError is not None
+        assert needs_cloud_fallback is not None
+
+    def test_cloud_stt_extends_stt_engine(self) -> None:
+        # Anti-pattern #8: issubclass is unreliable under pytest-cov reimport.
+        assert "STTEngine" in {c.__name__ for c in CloudSTT.__mro__}
+
+    def test_cloud_stt_uses_httpx(self) -> None:
+        """CloudSTT module imports httpx at top level."""
+        import sovyx.voice.stt_cloud as mod
+
+        assert hasattr(mod, "httpx")
+
+
+# ---------------------------------------------------------------------------
+# M2 wire-up — RED + USE telemetry on cloud STT
+# ---------------------------------------------------------------------------
+
+
+class TestCloudSTTM2WireUp:
+    """CloudSTT.transcribe must emit M2 stage events.
+
+    Mirrors the MoonshineSTT M2 wire-up (commit 156ee8c) — same
+    pattern, applied to the cloud variant. Both engines emit
+    consistent events so dashboards can attribute STT health
+    by provider without per-engine special casing.
+    """
+
+    @pytest.mark.asyncio()
+    async def test_success_path_records_success_event(
+        self,
+        config: CloudSTTConfig,
+        audio_1s: np.ndarray,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from typing import Any
+
+        recorded: list[tuple[Any, Any, Any]] = []
+
+        from sovyx.voice import stt_cloud as cloud_mod
+        from sovyx.voice._stage_metrics import StageEventKind, VoiceStage
+
+        def _capture(stage: Any, kind: Any, *, error_type: str | None = None) -> None:
+            recorded.append((stage, kind, error_type))
+
+        monkeypatch.setattr(cloud_mod, "record_stage_event", _capture)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"text": "hello"}
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+
+        with patch.object(_stt_mod, "httpx") as mock_httpx:
+            mock_httpx.AsyncClient.return_value = mock_client
+            mock_httpx.Timeout.return_value = MagicMock()
+            engine = CloudSTT(config)
+            await engine.initialize()
+            await engine.transcribe(audio_1s)
+            await engine.close()
+
+        assert (VoiceStage.STT, StageEventKind.SUCCESS, None) in recorded
+
+    @pytest.mark.asyncio()
+    async def test_audio_too_long_raises_no_success_event(
+        self,
+        config: CloudSTTConfig,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """CloudSTTError on audio-too-long propagates via
+        measure_stage_duration's BaseException handler. No SUCCESS
+        event recorded — the body never reached the success site."""
+        from typing import Any
+
+        recorded: list[tuple[Any, Any, Any]] = []
+
+        from sovyx.voice import stt_cloud as cloud_mod
+        from sovyx.voice._stage_metrics import StageEventKind, VoiceStage
+
+        def _capture(stage: Any, kind: Any, *, error_type: str | None = None) -> None:
+            recorded.append((stage, kind, error_type))
+
+        monkeypatch.setattr(cloud_mod, "record_stage_event", _capture)
+
+        # 30 minutes of audio @ 16 kHz — way over _MAX_AUDIO_DURATION_S.
+        too_long = np.zeros(16_000 * 1800, dtype=np.float32)
+
+        with patch.object(_stt_mod, "httpx") as mock_httpx:
+            mock_httpx.AsyncClient.return_value = AsyncMock()
+            mock_httpx.Timeout.return_value = MagicMock()
+            engine = CloudSTT(config)
+            await engine.initialize()
+            with pytest.raises(CloudSTTError, match="Audio too long"):
+                await engine.transcribe(too_long)
+            await engine.close()
+
+        successes = [
+            (s, k, et)
+            for (s, k, et) in recorded
+            if s == VoiceStage.STT and k == StageEventKind.SUCCESS
+        ]
+        assert successes == []
+
+
+# ---------------------------------------------------------------------------
+# R1 wire-up — HystrixGuard around the network call
+# ---------------------------------------------------------------------------
+
+
+class TestCloudSTTR1WireUp:
+    """CloudSTT.transcribe must guard the network call with R1.
+
+    Triple-defense: circuit breaker (per api_base_url), bulkhead
+    (concurrent-call cap), watchdog (deadline). Guard-imposed
+    failures translate to CloudSTTError so callers' existing
+    except clauses keep working.
+    """
+
+    @pytest.mark.asyncio()
+    async def test_circuit_open_translates_to_cloud_stt_error(
+        self,
+        config: CloudSTTConfig,
+        audio_1s: np.ndarray,
+    ) -> None:
+        """After failure_threshold consecutive API failures, the
+        circuit opens and subsequent calls fast-fail with
+        CloudSTTError (not the raw CircuitOpenError)."""
+        from sovyx.voice._hystrix_guard import CircuitState
+
+        # Mock httpx so the API call raises every time.
+        mock_client = AsyncMock()
+        mock_client.post.side_effect = RuntimeError("upstream broken")
+
+        with patch.object(_stt_mod, "httpx") as mock_httpx:
+            mock_httpx.AsyncClient.return_value = mock_client
+            mock_httpx.Timeout.return_value = MagicMock()
+            engine = CloudSTT(config)
+            await engine.initialize()
+
+            # Trip the breaker — default failure_threshold=3.
+            for _ in range(3):
+                with pytest.raises(CloudSTTError):
+                    await engine.transcribe(audio_1s)
+
+            # Circuit should now be OPEN.
+            assert engine._guard.state is CircuitState.OPEN
+
+            # Next call must fast-fail with the translated CloudSTTError.
+            with pytest.raises(CloudSTTError, match="circuit breaker open"):
+                await engine.transcribe(audio_1s)
+
+            await engine.close()
+
+    @pytest.mark.asyncio()
+    async def test_guard_keyed_by_api_base_url(
+        self,
+    ) -> None:
+        """Two CloudSTT instances with distinct api_base_urls get
+        distinct guard keys — an outage at one upstream doesn't
+        poison the other."""
+        from sovyx.voice._observability_pii import hash_pii
+
+        cfg_a = CloudSTTConfig(
+            api_key="sk-a",
+            api_base_url="https://api.openai.com/v1",
+        )
+        cfg_b = CloudSTTConfig(
+            api_key="sk-b",
+            api_base_url="https://gateway.example.com/v1",
+        )
+        engine_a = CloudSTT(cfg_a)
+        engine_b = CloudSTT(cfg_b)
+        assert engine_a._guard.key != engine_b._guard.key
+        # Keys must be the M1 hashed form (12 hex chars).
+        assert engine_a._guard.key == hash_pii(cfg_a.api_base_url, salt="voice.stt.cloud")
+
+    @pytest.mark.asyncio()
+    async def test_watchdog_buffer_above_api_timeout(
+        self,
+    ) -> None:
+        """Guard watchdog must be slightly higher than api_timeout so
+        the httpx layer's own deadline fires first; the guard is the
+        secondary safety net for when httpx fails to honour its own
+        timeout."""
+        cfg = CloudSTTConfig(api_key="sk-x", api_timeout=10.0)
+        engine = CloudSTT(cfg)
+        # Watchdog == api_timeout + 5 s buffer.
+        assert engine._guard._config.watchdog_timeout_s == 15.0  # noqa: PLR2004
+
+
+# ---------------------------------------------------------------------------
+# TS3 chaos wire-up — CLOUD_STT_NETWORK_FAIL injection
+# ---------------------------------------------------------------------------
+
+
+class TestCloudSTTChaosWireUp:
+    """CloudSTT.transcribe must honour the chaos injector AND the
+    injected failures must be observationally identical to real
+    network failures — counting against the R1 CB so the breaker
+    opens after threshold consecutive injected failures."""
+
+    @pytest.mark.asyncio()
+    async def test_chaos_disabled_no_injection(
+        self,
+        config: CloudSTTConfig,
+        audio_1s: np.ndarray,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from sovyx.voice._chaos import _ENABLED_ENV_VAR, _RATE_ENV_VAR_PREFIX
+
+        monkeypatch.delenv(_ENABLED_ENV_VAR, raising=False)
+        monkeypatch.setenv(f"{_RATE_ENV_VAR_PREFIX}CLOUD_STT_NETWORK_FAIL_PCT", "100")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"text": "hello"}
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+
+        with patch.object(_stt_mod, "httpx") as mock_httpx:
+            mock_httpx.AsyncClient.return_value = mock_client
+            mock_httpx.Timeout.return_value = MagicMock()
+            engine = CloudSTT(config)
+            await engine.initialize()
+            result = await engine.transcribe(audio_1s)
+            assert result.text == "hello"
+            await engine.close()
+
+    @pytest.mark.asyncio()
+    async def test_chaos_at_100_pct_trips_circuit_breaker(
+        self,
+        config: CloudSTTConfig,
+        audio_1s: np.ndarray,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Chaos at 100% over failure_threshold consecutive
+        transcribes opens the R1 CB — proves chaos failures are
+        observationally identical to real upstream failures."""
+        from sovyx.voice._chaos import _ENABLED_ENV_VAR, _RATE_ENV_VAR_PREFIX
+        from sovyx.voice._hystrix_guard import CircuitState
+
+        monkeypatch.setenv(_ENABLED_ENV_VAR, "true")
+        monkeypatch.setenv(f"{_RATE_ENV_VAR_PREFIX}CLOUD_STT_NETWORK_FAIL_PCT", "100")
+
+        # httpx mocked to succeed — but chaos overrides before the
+        # call lands, so every transcribe injects RuntimeError.
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"text": "hello"}
+        mock_client = AsyncMock()
+        mock_client.post.return_value = mock_response
+
+        with patch.object(_stt_mod, "httpx") as mock_httpx:
+            mock_httpx.AsyncClient.return_value = mock_client
+            mock_httpx.Timeout.return_value = MagicMock()
+            engine = CloudSTT(config)
+            await engine.initialize()
+
+            # Default failure_threshold=3 — 3 consecutive chaos
+            # injections trip the breaker. The chaos RuntimeError
+            # propagates as-is on the first 3 calls (not translated
+            # — only Hystrix-imposed exceptions get the CloudSTTError
+            # wrapper per the R1 contract). Each is recorded as a
+            # CB failure inside guard.run() before re-propagating.
+            for _ in range(3):
+                with pytest.raises(RuntimeError, match="chaos-injected"):
+                    await engine.transcribe(audio_1s)
+
+            # Circuit should now be OPEN.
+            assert engine._guard.state is CircuitState.OPEN
+
+            # Subsequent call fast-fails with the translated
+            # CloudSTTError (CircuitOpenError → CloudSTTError per the
+            # R1 wire-up in 8af4944). This is the proof of chaos +
+            # CB integration: chaos failures count against the CB,
+            # opening it after threshold; subsequent calls fast-fail
+            # without ever reaching the chaos check.
+            with pytest.raises(CloudSTTError, match="circuit breaker open"):
+                await engine.transcribe(audio_1s)
+
+            await engine.close()
+
+
+# ── Phase 3.C.1 (P0.C1) public-export orphan contract ───────────────
+
+
+class TestCloudSttPublicExportOrphan:
+    """v0.32.4 Phase 3.C.1 — closes audit gap P0.C1.
+
+    Pre-v0.32.4 the public ``sovyx.voice`` re-export ladder included
+    ``CloudSTT`` / ``CloudSTTConfig`` / ``CloudSTTError`` /
+    ``needs_cloud_fallback`` despite zero production caller in the
+    factory wire-up — operators reading the public API surface
+    reasonably assumed an auto-fallback chain (Moonshine low-confidence
+    → CloudSTT) existed. It did not. The audit graded P0.C because a
+    misleading public API surface is the kind of bug that bites
+    integrators silently.
+
+    v0.32.4 removes the re-exports while keeping the module importable
+    directly. Pin both halves of the contract:
+      * Direct module import still works (advanced/manual use case).
+      * Public ``sovyx.voice`` namespace no longer surfaces these
+        symbols (no AttributeError if absent — the whole point is
+        that they're gone).
+    """
+
+    def test_direct_module_import_still_works(self) -> None:
+        """``from sovyx.voice.stt_cloud import CloudSTT`` is the
+        operator path for deliberate Whisper STT use; must NOT
+        regress."""
+        from sovyx.voice.stt_cloud import (  # noqa: PLC0415 — local
+            CloudSTT,
+            CloudSTTConfig,
+            CloudSTTError,
+            needs_cloud_fallback,
+        )
+
+        assert CloudSTT is not None
+        assert CloudSTTConfig is not None
+        assert CloudSTTError is not None
+        assert needs_cloud_fallback is not None
+
+    def test_public_voice_namespace_no_longer_exports_cloud_stt(self) -> None:
+        """Pin the v0.32.4 removal: ``sovyx.voice.CloudSTT`` etc. must
+        NOT be available via the package's public namespace. Future
+        readers who re-add these to ``__all__`` will trip this test
+        and be forced to read the AUDIT.md §P0.C1 rationale."""
+        import sovyx.voice as voice_pkg  # noqa: PLC0415 — local
+
+        # Use ``hasattr`` (not ``getattr(..., None)``) to test the
+        # actual namespace contract — a plain attribute read is what
+        # operators do via ``sovyx.voice.CloudSTT``.
+        assert not hasattr(voice_pkg, "CloudSTT"), (
+            "v0.32.4 Phase 3.C.1: CloudSTT must NOT be in sovyx.voice "
+            "public namespace. Use ``from sovyx.voice.stt_cloud import "
+            "CloudSTT`` directly for advanced/manual wire-up."
+        )
+        assert not hasattr(voice_pkg, "CloudSTTConfig")
+        assert not hasattr(voice_pkg, "CloudSTTError")
+        # ``needs_cloud_fallback`` was always supposed to be internal —
+        # it was only public by accident. Same removal contract.
+        assert not hasattr(voice_pkg, "needs_cloud_fallback")

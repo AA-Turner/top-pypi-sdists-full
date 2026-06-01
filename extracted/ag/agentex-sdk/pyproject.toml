@@ -1,0 +1,360 @@
+[project]
+name = "agentex-sdk"
+version = "0.11.6"
+description = "The official Python library for the agentex API"
+dynamic = ["readme"]
+license = "Apache-2.0"
+authors = [
+{ name = "Agentex", email = "roxanne.farhad@scale.com" },
+]
+
+dependencies = [
+    "httpx>=0.28.1,<0.29",
+    "pydantic>=2.0.0, <3",
+    "typing-extensions>=4.14, <5",
+    "anyio>=3.5.0, <5",
+    "distro>=1.7.0, <2",
+    "sniffio",
+    "typer>=0.16,<0.17",
+    "questionary>=2.0.1,<3",
+    "rich>=13.9.2,<14",
+    "fastapi>=0.115.0",
+    "starlette>=0.49.1",
+    "uvicorn>=0.31.1",
+    "watchfiles>=0.24.0,<1.0",
+    "python-on-whales>=0.73.0,<0.74",
+    "pyyaml>=6.0.2,<7",
+    "jsonschema>=4.23.0,<5",
+    "jsonref>=1.1.0,<2",
+    "temporalio>=1.26.0,<2",
+    "aiohttp>=3.10.10,<4",
+    "redis>=5.2.0,<8",
+    "litellm>=1.83.7,<2",
+    "kubernetes>=25.0.0,<36.0.0",
+    "jinja2>=3.1.3,<4",
+    "mcp>=1.4.1",
+    "scale-gp>=0.1.0a59",
+    "openai-agents>=0.14.3,<0.15",
+    "pydantic-ai-slim>=1.0,<2",
+    "json_log_formatter>=1.1.1",
+    "scale-gp-beta>=0.2.0",
+    "openai>=2.2,<3", # Required by openai-agents; litellm now supports openai 2.x (issue #13711 resolved: https://github.com/BerriAI/litellm/issues/13711)
+    "cloudpickle>=3.1.1",
+    "ddtrace>=3.13.0",
+    "yaspin>=3.1.0",
+    "claude-agent-sdk>=0.1.0",
+    "langgraph-checkpoint>=2.0.0",
+    "opentelemetry-sdk>=1.20.0",
+    "opentelemetry-api>=1.20.0",
+]
+
+requires-python = ">= 3.11,<4"
+classifiers = [
+  "Typing :: Typed",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Operating System :: OS Independent",
+  "Operating System :: POSIX",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: Microsoft :: Windows",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "License :: OSI Approved :: Apache Software License"
+]
+
+[project.urls]
+Homepage = "https://github.com/scaleapi/scale-agentex-python"
+Repository = "https://github.com/scaleapi/scale-agentex-python"
+
+[project.optional-dependencies]
+aiohttp = ["aiohttp", "httpx_aiohttp>=0.1.9"]
+dev = [
+    "ruff>=0.3.4",
+]
+
+[project.scripts]
+agentex = "agentex.lib.cli.commands.main:app"
+
+[tool.rye]
+managed = true
+# version pins are in requirements-dev.lock
+dev-dependencies = [
+    "pyright==1.1.399",
+    "mypy==1.17",
+    "respx",
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+    "time-machine",
+    "nox",
+    "dirty-equals>=0.6.0",
+    "importlib-metadata>=6.7.0",
+    "rich>=13.7.1",
+    "nest_asyncio==1.6.0",
+    "pytest-xdist>=3.6.1",
+    "debugpy>=1.8.15",
+]
+
+[tool.rye.scripts]
+format = { chain = [
+  "format:ruff",
+  "format:docs",
+  "fix:ruff",
+  # run formatting again to fix any inconsistencies when imports are stripped
+  "format:ruff",
+]}
+"format:docs" = "bash -c 'python scripts/utils/ruffen-docs.py README.md $(find . -type f -name api.md)'"
+"format:ruff" = "ruff format"
+
+"lint" = { chain = [
+  "check:ruff",
+  "typecheck",
+  "check:importable",
+]}
+"check:ruff" = "ruff check ."
+"fix:ruff" = "ruff check --fix ."
+
+"check:importable" = "python -c 'import agentex'"
+
+typecheck = { chain = [
+  "typecheck:pyright"
+]}
+"typecheck:pyright" = "pyright"
+"typecheck:verify-types" = "pyright --verifytypes agentex --ignoreexternal"
+"typecheck:mypy" = "mypy ."
+
+[build-system]
+requires = ["hatchling==1.26.3", "hatch-fancy-pypi-readme"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "ipywidgets>=8.1.7",
+    "nbstripout>=0.8.1",
+    "yaspin>=3.1.0",
+]
+
+[tool.hatch.build]
+include = [
+  "src/*"
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agentex"]
+# Don't ship internal test files in the wheel. `lib/cli/templates/**/test_agent.py.j2`
+# is intentionally kept — those render into user projects.
+exclude = [
+  "src/agentex/lib/**/tests/**",
+  "src/agentex/lib/**/test_*.py",
+  "src/agentex/lib/**/conftest.py",
+  "src/agentex/lib/**/pytest.ini",
+]
+
+[tool.hatch.build.targets.sdist]
+# Basically everything except hidden files/directories (such as .github, .devcontainers, .python-version, etc)
+include = [
+  "/*.toml",
+  "/*.json",
+  "/*.lock",
+  "/*.md",
+  "/mypy.ini",
+  "/noxfile.py",
+  "bin/*",
+  "examples/*",
+  "src/*",
+  "tests/*",
+]
+
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+path = "README.md"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+# replace relative links with absolute links
+pattern = '\[(.+?)\]\(((?!https?://)\S+?)\)'
+replacement = '[\1](https://github.com/scaleapi/scale-agentex-python/tree/main/\g<2>)'
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--tb=short -n auto"
+xfail_strict = true
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+filterwarnings = [
+  "error",
+  "ignore::pydantic.warnings.PydanticDeprecatedSince20",
+]
+
+[tool.pyright]
+# Default to basic type checking, but override for specific directories
+typeCheckingMode = "basic"
+pythonVersion = "3.12"
+
+exclude = [
+    "_dev",
+    ".venv",
+    ".nox",
+    ".git",
+    "agentex-server",
+    "examples/tutorials",
+    # Exclude autogenerated Stainless code from type checking
+    "src/agentex/resources",
+    "src/agentex/types",
+]
+
+reportImplicitOverride = true
+reportOverlappingOverload = false
+
+reportImportCycles = false
+reportPrivateUsage = false
+
+# Ignore common issues in generated SDK code
+reportMissingTypeStubs = false
+reportUnknownParameterType = false
+reportUnknownMemberType = false
+reportUnknownArgumentType = false
+reportUnknownVariableType = false
+
+# Enable strict type checking only for hand-written code
+[[tool.pyright.executionEnvironments]]
+root = "src/agentex/lib"
+typeCheckingMode = "strict"
+# But allow some flexibility in OpenAI module for complex type boundaries
+reportArgumentType = false
+
+[[tool.pyright.executionEnvironments]]
+root = "examples"
+typeCheckingMode = "strict"
+# Allow type ignores in tutorials for readability
+reportUnnecessaryTypeIgnoreComment = false
+
+[[tool.pyright.executionEnvironments]]
+root = "tests"
+typeCheckingMode = "basic"
+# Be loose on typing in tests unless testing types specifically
+reportOptionalMemberAccess = false
+reportArgumentType = false
+
+[tool.mypy]
+pretty = true
+show_error_codes = true
+
+# Exclude _files.py because mypy isn't smart enough to apply
+# the correct type narrowing and as this is an internal module
+# it's fine to just use Pyright.
+#
+# We also exclude our `tests` as mypy doesn't always infer
+# types correctly and Pyright will still catch any type errors.
+exclude = ['src/agentex/_files.py', '_dev/.*.py', 'tests/.*', 'examples/tutorials/.*']
+
+strict_equality = true
+implicit_reexport = true
+check_untyped_defs = true
+no_implicit_optional = true
+
+warn_return_any = true
+warn_unreachable = true
+warn_unused_configs = true
+
+# Turn these options off as it could cause conflicts
+# with the Pyright options.
+warn_unused_ignores = false
+warn_redundant_casts = false
+
+disallow_any_generics = true
+# disallow_untyped_defs = true
+disallow_untyped_calls = true
+disallow_subclassing_any = true
+disallow_incomplete_defs = true
+disallow_untyped_decorators = true
+cache_fine_grained = true
+
+# By default, mypy reports an error if you assign a value to the result
+# of a function call that doesn't return anything. We do this in our test
+# cases:
+# ```
+# result = ...
+# assert result is None
+# ```
+# Changing this codegen to make mypy happy would increase complexity
+# and would not be worth it.
+disable_error_code = "func-returns-value,overload-cannot-match,no-untyped-def"
+
+# https://github.com/python/mypy/issues/12162
+[[tool.mypy.overrides]]
+module = "black.files.*"
+ignore_errors = true
+ignore_missing_imports = true
+
+
+[tool.ruff]
+line-length = 120
+output-format = "grouped"
+target-version = "py38"
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+  # isort
+  "I",
+  # bugbear rules
+  "B",
+  # remove unused imports
+  "F401",
+  # check for missing future annotations
+  "FA102",
+  # bare except statements
+  "E722",
+  # unused arguments
+  "ARG",
+  # print statements
+  "T201",
+  "T203",
+  # misuse of typing.TYPE_CHECKING
+  "TC004",
+  # import rules
+  "TID251",
+]
+ignore = [
+  # mutable defaults
+  "B006",
+]
+unfixable = [
+  # disable auto fix for print statements
+  "T201",
+  "T203",
+]
+
+extend-safe-fixes = ["FA102"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"functools.lru_cache".msg = "This function does not retain type information for the wrapped function's arguments; The `lru_cache` function from `_utils` should be used instead"
+
+[tool.ruff.lint.isort]
+length-sort = true
+length-sort-straight = true
+combine-as-imports = true
+extra-standard-library = ["typing_extensions"]
+known-first-party = ["agentex", "tests"]
+
+[tool.ruff.lint.per-file-ignores]
+# Exclude autogenerated files from future annotations requirement
+"src/agentex/resources/**.py" = ["FA102"]
+"src/agentex/types/**.py" = ["FA102"]
+"src/agentex/_*.py" = ["FA102"]
+"bin/**.py" = ["T201", "T203"]
+"scripts/**.py" = ["T201", "T203"]
+"tests/**.py" = ["T201", "T203", "ARG001", "ARG002", "ARG005"]
+"examples/**.py" = ["T201", "T203"]
+"examples/**.ipynb" = ["T201", "T203"]
+"examples/tutorials/**.py" = ["T201", "T203"]
+"examples/tutorials/**.ipynb" = ["T201", "T203"]
+"**/run_tests.py" = ["T201", "T203"]
+"**/dev_tools/**.py" = ["T201", "T203"]

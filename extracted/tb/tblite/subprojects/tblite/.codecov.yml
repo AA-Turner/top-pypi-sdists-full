@@ -1,6 +1,0 @@
-fixes:
-  - "/home/runner/work/tblite/tblite::"
-
-ignore:
-  - "python/**/test_*.py"
-  - "test/**"

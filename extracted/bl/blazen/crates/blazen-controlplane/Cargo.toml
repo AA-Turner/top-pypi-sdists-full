@@ -1,0 +1,82 @@
+[package]
+name = "blazen-controlplane"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "Distributed workflow control plane for Blazen — workers connect inbound to a central server"
+
+[dependencies]
+postcard = { workspace = true, features = ["alloc"] }
+blazen-core = { workspace = true, features = ["distributed"] }
+blazen-peer = { workspace = true }
+blazen-llm = { workspace = true, optional = true }
+async-trait = { workspace = true }
+dashmap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_bytes = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+
+axum = { version = "0.8", optional = true, features = ["multipart"] }
+tower = { version = "0.5", optional = true }
+tower-http = { version = "0.6", features = ["trace"], optional = true }
+base64 = { workspace = true, optional = true }
+
+# Native-only transport stack. tonic / rustls / tokio["full"] do not build
+# for wasm32-wasi*; the `http-transport` feature provides a pure-HTTP
+# alternative for those targets.
+[target.'cfg(not(any(target_os = "wasi", target_arch = "wasm32")))'.dependencies]
+tonic = { workspace = true, features = ["tls-aws-lc"] }
+tonic-prost = { workspace = true }
+prost = { workspace = true }
+rustls = { workspace = true, features = ["aws-lc-rs"] }
+tokio-rustls = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+tokio-stream = { workspace = true }
+tokio-util = { workspace = true, features = ["rt"] }
+futures-util = { workspace = true }
+futures-core = { workspace = true }
+anyhow = { workspace = true }
+redis = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["full", "test-util"] }
+futures-util = { workspace = true }
+tokio-stream = { workspace = true }
+reqwest = { workspace = true }
+serde_json = { workspace = true }
+postcard = { workspace = true, features = ["alloc"] }
+uuid = { workspace = true }
+
+# Proto codegen depends on a native compiler stack (protoc / prost). Skip
+# it on wasm targets — the `pb` module is itself cfg-gated to native.
+[target.'cfg(not(any(target_os = "wasi", target_arch = "wasm32")))'.build-dependencies]
+tonic-prost-build = { workspace = true }
+
+[features]
+default = ["server", "client", "model-server", "model-client"]
+server = []
+client = []
+# PR5: remote-mode ModelManager — gRPC `BlazenModelServer` service.
+# These flags toggle the proto codegen + the matching server / client
+# modules. They're independent of `server` / `client` (the workflow
+# control plane) because a deployment may want only one or the other.
+model-server = []
+model-client = []
+http-transport = ["dep:axum", "dep:tower", "dep:tower-http", "dep:blazen-llm", "dep:base64"]
+# PR5 phase 2: OpenAI-compat REST + Blazen-admin endpoints on top of the
+# `model-server` `ManagerHandle` trait. Independent of `http-transport`
+# (the workflow control plane's HTTP/SSE bridge) — a deployment may
+# mount one, the other, or both. Always needs `model-server` so the
+# `ManagerHandle` trait is in scope.
+http-rest = ["dep:axum", "dep:tower", "dep:tower-http", "dep:base64", "model-server"]
+valkey-store = ["dep:redis"]
+
+[lints]
+workspace = true

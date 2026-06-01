@@ -9,7 +9,6 @@ import re
 from functools import partial, reduce
 from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
-import sentry_sdk
 from django.conf import settings
 from django.contrib.postgres import indexes as postgres_indexes
 from django.core.cache import cache
@@ -63,6 +62,7 @@ from weblate.utils.state import (
     STATE_TRANSLATED,
     StringState,
 )
+from weblate.utils.tracing import start_span
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable
@@ -72,10 +72,37 @@ if TYPE_CHECKING:
     from weblate.formats.base import TranslationUnit
     from weblate.machinery.base import UnitMemoryResultDict
     from weblate.trans.models.label import Label
+    from weblate.trans.models.translation import Translation
     from weblate.utils.stats import StatItem, TranslationStats
 
 
 NEWLINES = re.compile(r"\r\n|\r|\n")
+LOCKED_COMPONENT_ORDER_FIELD = "translation__component__locked"
+COMPONENT_ORDER_FIELDS = [
+    # Order by priority for custom ordering
+    "translation__component__priority",
+    # Show glossaries at the end
+    "translation__component__is_glossary",
+    "translation__component__name",
+]
+
+
+def orders_units_by_component(obj: object) -> bool:
+    """Return whether the object scope spans component-ordered units."""
+    if isinstance(obj, (Project, Category)):
+        return True
+
+    from weblate.utils.stats import CategoryLanguage, ProjectLanguage  # noqa: PLC0415
+
+    return isinstance(obj, (ProjectLanguage, CategoryLanguage))
+
+
+def get_component_order_fields(sign: str = "") -> list[str]:
+    return [
+        # Show locked components at the end, regardless of sort direction
+        LOCKED_COMPONENT_ORDER_FIELD,
+        *(f"{sign}{field}" for field in COMPONENT_ORDER_FIELDS),
+    ]
 
 
 def fill_in_source_translation(units: Iterable[Unit]) -> None:
@@ -92,7 +119,8 @@ def fill_in_source_translation(units: Iterable[Unit]) -> None:
 
 class UnitQuerySet(models.QuerySet["Unit", "Unit"]):
     def prefetch(self):
-        from weblate.trans.models import Component  # noqa: PLC0415
+        from weblate.trans.models.component import Component  # noqa: PLC0415
+        from weblate.workspaces.models import Workspace  # noqa: PLC0415
 
         return self.prefetch_related(
             "translation",
@@ -101,18 +129,44 @@ class UnitQuerySet(models.QuerySet["Unit", "Unit"]):
             models.Prefetch(
                 "translation__component", queryset=Component.objects.defer_huge()
             ),
-            "translation__component__category",
-            "translation__component__category__project",
-            "translation__component__category__category",
-            "translation__component__category__category__project",
-            "translation__component__category__category__category",
-            "translation__component__category__category__category__project",
-            "translation__component__project",
+            models.Prefetch(
+                "translation__component__category",
+                queryset=Category.objects.defer_huge(),
+            ),
+            models.Prefetch(
+                "translation__component__category__project",
+                queryset=Project.objects.defer_huge(),
+            ),
+            models.Prefetch(
+                "translation__component__category__category",
+                queryset=Category.objects.defer_huge(),
+            ),
+            models.Prefetch(
+                "translation__component__category__category__project",
+                queryset=Project.objects.defer_huge(),
+            ),
+            models.Prefetch(
+                "translation__component__category__category__category",
+                queryset=Category.objects.defer_huge(),
+            ),
+            models.Prefetch(
+                "translation__component__category__category__category__project",
+                queryset=Project.objects.defer_huge(),
+            ),
+            models.Prefetch(
+                "translation__component__project",
+                queryset=Project.objects.defer_huge(),
+            ),
+            models.Prefetch(
+                "translation__component__project__workspace",
+                queryset=Workspace.objects.defer_huge(),
+            ),
             "translation__component__source_language",
         )
 
     def prefetch_source(self):
-        from weblate.trans.models import Component  # noqa: PLC0415
+        from weblate.trans.models.component import Component  # noqa: PLC0415
+        from weblate.workspaces.models import Workspace  # noqa: PLC0415
 
         return self.prefetch_related(
             "source_unit",
@@ -124,7 +178,14 @@ class UnitQuerySet(models.QuerySet["Unit", "Unit"]):
                 queryset=Component.objects.defer_huge(),
             ),
             "source_unit__translation__component__source_language",
-            "source_unit__translation__component__project",
+            models.Prefetch(
+                "source_unit__translation__component__project",
+                queryset=Project.objects.defer_huge(),
+            ),
+            models.Prefetch(
+                "source_unit__translation__component__project__workspace",
+                queryset=Workspace.objects.defer_huge(),
+            ),
         )
 
     def fill_in_source_translation(self):
@@ -254,6 +315,7 @@ class UnitQuerySet(models.QuerySet["Unit", "Unit"]):
             },
         }
         sort_list = []
+        component_sort = False
         for choice in sort_list_request:
             unsigned_choice = choice.replace("-", "")
             if unsigned_choice in countable_sort_choices:
@@ -266,33 +328,25 @@ class UnitQuerySet(models.QuerySet["Unit", "Unit"]):
                 )
             if unsigned_choice in available_sort_choices:
                 if unsigned_choice == "component":
+                    component_sort = True
                     sign = "-" if choice[0] == "-" else ""
-                    sort_list.extend(
-                        [
-                            f"{sign}translation__component__priority",
-                            f"{sign}translation__component__is_glossary",
-                            f"{sign}translation__component__name",
-                        ]
-                    )
+                    sort_list.extend(get_component_order_fields(sign))
                     continue
 
                 if unsigned_choice == "labels":
                     choice = choice.replace("labels", "max_labels_name")
                 sort_list.append(choice)
+        if (
+            component_sort
+            and orders_units_by_component(obj)
+            and "position" not in sort_list
+        ):
+            sort_list.append("position")
         if not sort_list:
             if hasattr(obj, "component") and obj.component.is_glossary:
                 sort_list = ["source"]
-            elif isinstance(obj, (Project, Category)):
-                sort_list = [
-                    # Show locked components at the end
-                    "translation__component__locked",
-                    # Order by priority for custom ordering
-                    "translation__component__priority",
-                    # Show glossaries at the end
-                    "translation__component__is_glossary",
-                    "translation__component__name",
-                    "-priority",
-                ]
+            elif orders_units_by_component(obj):
+                sort_list = [*get_component_order_fields(), "-priority", "position"]
             else:
                 sort_list = ["-priority", "position"]
         if "max_labels_name" in sort_list or "-max_labels_name" in sort_list:
@@ -367,7 +421,7 @@ class UnitQuerySet(models.QuerySet["Unit", "Unit"]):
         result = self
         if user.needs_project_filter:
             result = result.filter(
-                translation__component__project__in=user.allowed_projects
+                user.get_project_access_query("translation__component__project")
             )
         if user.needs_component_restrictions_filter:
             result = result.filter(
@@ -1041,49 +1095,63 @@ class Unit(models.Model, LoggerMixin):
             translation = self.translation
             component = translation.component
             try:
-                location = unit.locations
-                if self.translation.component.file_format_cls.supports_explanation:
-                    explanation = unit.explanation
-                    source_explanation = unit.source_explanation
-                else:
-                    explanation = self.explanation
-                    source_explanation = "" if created else self.source_unit.explanation
-                flags = Flags(unit.flags)
-                source = unit.source
-                self.check_valid(split_plural(source))
-                if not translation.is_template and translation.is_source:
-                    # Load target from source string for bilingual source translations
-                    target = source
-                else:
-                    target = unit.target
-                    self.check_valid(split_plural(target))
-                context = unit.context
-                self.check_valid([context])
-                note = unit.notes
-                previous_source = unit.previous_source
+                self.unit_attributes = self.build_unit_attributes(
+                    unit=unit,
+                    pos=pos,
+                    created=created,
+                    id_hash=id_hash,
+                    translation=translation,
+                )
             except DjangoDatabaseError:
                 raise
             except Exception as error:
                 report_error("Unit update error", project=component.project)
                 translation.component.handle_parse_error(error, translation)
-
-            self.unit_attributes = {
-                "location": location,
-                "explanation": explanation,
-                "source_explanation": source_explanation,
-                "flags": flags,
-                "source": source,
-                "target": target,
-                "context": context,
-                "note": note,
-                "previous_source": previous_source,
-                "unit": unit,
-                "created": created,
-                "pos": pos,
-                "id_hash": id_hash,
-                "automatically_translated": unit.is_automatically_translated(),
-            }
         return self.unit_attributes
+
+    def build_unit_attributes(
+        self,
+        *,
+        unit: TranslationUnit,
+        pos: int,
+        created: bool,
+        id_hash: int,
+        translation: Translation,
+    ) -> UnitAttributesDict:
+        location = unit.locations
+        if self.translation.component.file_format_cls.supports_explanation:
+            explanation = unit.explanation
+            source_explanation = unit.source_explanation
+        else:
+            explanation = self.explanation
+            source_explanation = "" if created else self.source_unit.explanation
+        flags = Flags(unit.flags)
+        source = unit.source
+        self.check_valid(split_plural(source))
+        if not translation.is_template and translation.is_source:
+            # Load target from source string for bilingual source translations
+            target = source
+        else:
+            target = unit.target
+            self.check_valid(split_plural(target))
+        context = unit.context
+        self.check_valid([context])
+        return {
+            "location": location,
+            "explanation": explanation,
+            "source_explanation": source_explanation,
+            "flags": flags,
+            "source": source,
+            "target": target,
+            "context": context,
+            "note": unit.notes,
+            "previous_source": unit.previous_source,
+            "unit": unit,
+            "created": created,
+            "pos": pos,
+            "id_hash": id_hash,
+            "automatically_translated": unit.is_automatically_translated(),
+        }
 
     def update_from_unit(  # noqa: C901,PLR0914
         self,
@@ -1427,7 +1495,7 @@ class Unit(models.Model, LoggerMixin):
         """Propagate current translation to all others."""
         warnings: list[str] = []
 
-        with sentry_sdk.start_span(op="unit.propagate", name=f"{self.pk}"):
+        with start_span(op="unit.propagate", name=f"{self.pk}"):
             to_update: list[Unit] = []
             units = self.propagated_units.exclude(
                 target=self.target, state=self.state
@@ -1653,7 +1721,7 @@ class Unit(models.Model, LoggerMixin):
 
         This is needed when editing template translation for monolingual formats.
         """
-        with sentry_sdk.start_span(op="unit.update_source_units", name=f"{self.pk}"):
+        with start_span(op="unit.update_source_units", name=f"{self.pk}"):
             changes = []
             translation_parent_stats = {}
             delta_failed = False
@@ -1999,9 +2067,7 @@ class Unit(models.Model, LoggerMixin):
             propagated_units = propagated_units.distinct().prefetch_all_checks()
 
             for unit in propagated_units:
-                with sentry_sdk.start_span(
-                    op="unit.propagate_check", name=f"{unit.pk}"
-                ):
+                with start_span(op="unit.propagate_check", name=f"{unit.pk}"):
                     try:
                         unit.run_checks(force_propagate=False, skip_propagate=True)
                     except Unit.DoesNotExist:
@@ -2030,7 +2096,7 @@ class Unit(models.Model, LoggerMixin):
         """Return list of nearby messages based on location."""
         if self.position == 0:
             return Unit.objects.none()
-        with sentry_sdk.start_span(op="unit.nearby", name=f"{self.pk}"):
+        with start_span(op="unit.nearby", name=f"{self.pk}"):
             # Limiting the query is needed to avoid issues when unit
             # position is not properly populated
             result = (
@@ -2048,7 +2114,7 @@ class Unit(models.Model, LoggerMixin):
         # Do not show nearby keys on bilingual
         if not self.translation.component.has_template():
             return []
-        with sentry_sdk.start_span(op="unit.nearby_keys", name=f"{self.pk}"):
+        with start_span(op="unit.nearby_keys", name=f"{self.pk}"):
             key = self.translation.keys_cache_key
             key_list = cache.get(key)
             unit_set = self.translation.unit_set
@@ -2242,10 +2308,8 @@ class Unit(models.Model, LoggerMixin):
         secondary_langs: set[int] = user.profile.secondary_language_ids
 
         # Add project/component secondary languages
-        if component.secondary_language_id:
-            secondary_langs.add(component.secondary_language_id)
-        elif component.project.secondary_language_id:
-            secondary_langs.add(component.project.secondary_language_id)
+        if component.effective_secondary_language is not None:
+            secondary_langs.add(component.effective_secondary_language.pk)
 
         # Remove current source and target language
         secondary_langs -= {translation.language_id, component.source_language_id}

@@ -292,7 +292,7 @@ class SocketOptionLinger(_message.Message):
     DURATION_FIELD_NUMBER: _ClassVar[int]
     active: bool
     duration: _duration_pb2.Duration
-    def __init__(self, active: bool = ..., duration: _Optional[_Union[datetime.timedelta, _duration_pb2.Duration, _Mapping]] = ...) -> None: ...
+    def __init__(self, active: _Optional[bool] = ..., duration: _Optional[_Union[datetime.timedelta, _duration_pb2.Duration, _Mapping]] = ...) -> None: ...
 
 class SocketOptionTcpInfo(_message.Message):
     __slots__ = ("tcpi_state", "tcpi_ca_state", "tcpi_retransmits", "tcpi_probes", "tcpi_backoff", "tcpi_options", "tcpi_snd_wscale", "tcpi_rcv_wscale", "tcpi_rto", "tcpi_ato", "tcpi_snd_mss", "tcpi_rcv_mss", "tcpi_unacked", "tcpi_sacked", "tcpi_lost", "tcpi_retrans", "tcpi_fackets", "tcpi_last_data_sent", "tcpi_last_ack_sent", "tcpi_last_data_recv", "tcpi_last_ack_recv", "tcpi_pmtu", "tcpi_rcv_ssthresh", "tcpi_rtt", "tcpi_rttvar", "tcpi_snd_ssthresh", "tcpi_snd_cwnd", "tcpi_advmss", "tcpi_reordering")
@@ -370,7 +370,7 @@ class GetTopChannelsResponse(_message.Message):
     END_FIELD_NUMBER: _ClassVar[int]
     channel: _containers.RepeatedCompositeFieldContainer[Channel]
     end: bool
-    def __init__(self, channel: _Optional[_Iterable[_Union[Channel, _Mapping]]] = ..., end: bool = ...) -> None: ...
+    def __init__(self, channel: _Optional[_Iterable[_Union[Channel, _Mapping]]] = ..., end: _Optional[bool] = ...) -> None: ...
 
 class GetServersRequest(_message.Message):
     __slots__ = ("start_server_id", "max_results")
@@ -386,7 +386,7 @@ class GetServersResponse(_message.Message):
     END_FIELD_NUMBER: _ClassVar[int]
     server: _containers.RepeatedCompositeFieldContainer[Server]
     end: bool
-    def __init__(self, server: _Optional[_Iterable[_Union[Server, _Mapping]]] = ..., end: bool = ...) -> None: ...
+    def __init__(self, server: _Optional[_Iterable[_Union[Server, _Mapping]]] = ..., end: _Optional[bool] = ...) -> None: ...
 
 class GetServerRequest(_message.Message):
     __slots__ = ("server_id",)
@@ -416,7 +416,7 @@ class GetServerSocketsResponse(_message.Message):
     END_FIELD_NUMBER: _ClassVar[int]
     socket_ref: _containers.RepeatedCompositeFieldContainer[SocketRef]
     end: bool
-    def __init__(self, socket_ref: _Optional[_Iterable[_Union[SocketRef, _Mapping]]] = ..., end: bool = ...) -> None: ...
+    def __init__(self, socket_ref: _Optional[_Iterable[_Union[SocketRef, _Mapping]]] = ..., end: _Optional[bool] = ...) -> None: ...
 
 class GetChannelRequest(_message.Message):
     __slots__ = ("channel_id",)
@@ -448,7 +448,7 @@ class GetSocketRequest(_message.Message):
     SUMMARY_FIELD_NUMBER: _ClassVar[int]
     socket_id: int
     summary: bool
-    def __init__(self, socket_id: _Optional[int] = ..., summary: bool = ...) -> None: ...
+    def __init__(self, socket_id: _Optional[int] = ..., summary: _Optional[bool] = ...) -> None: ...
 
 class GetSocketResponse(_message.Message):
     __slots__ = ("socket",)

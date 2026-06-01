@@ -26,10 +26,12 @@ fn psi_with_bps_helper(s: &[f64], bp: &[f64]) -> Vec<u32> {
     let bp = unsafe { std::mem::transmute::<&[f64], &[OrderedFloat<f64>]>(bp) };
 
     let mut c = vec![0u32; bp.len()];
-    s.iter().for_each(|x| {
-        match bp.binary_search(x) {
-            Ok(j) => {c[j] += 1;},
-            Err(k) => {c[k] += 1;},
+    s.iter().for_each(|x| match bp.binary_search(x) {
+        Ok(j) => {
+            c[j] += 1;
+        }
+        Err(k) => {
+            c[k] += 1;
         }
     });
     c
@@ -77,13 +79,12 @@ fn pl_psi_w_bps(inputs: &[Series]) -> PolarsResult<Series> {
     let data2 = inputs[1].f64().unwrap();
     let breakpoints = inputs[2].f64().unwrap();
 
-    let binding = data1.rechunk();
-    let s1 = binding.cont_slice().unwrap();
-    let binding = data2.rechunk();
-    let s2 = binding.cont_slice().unwrap();
-
-    let binding = breakpoints.rechunk();
-    let bp = binding.cont_slice().unwrap();
+    let binding1 = data1.rechunk();
+    let s1 = binding1.cont_slice().unwrap();
+    let binding2 = data2.rechunk();
+    let s2 = binding2.cont_slice().unwrap();
+    let binding_bp = breakpoints.rechunk();
+    let bp = binding_bp.cont_slice().unwrap();
 
     let c1 = psi_with_bps_helper(s1, bp);
     let c2 = psi_with_bps_helper(s2, bp);
@@ -102,12 +103,12 @@ fn pl_psi_report(inputs: &[Series]) -> PolarsResult<Series> {
     // The cnts for the baseline/reference
     let cnt = inputs[2].u32().unwrap();
 
-    let binding = new.rechunk();
-    let data_new = binding.cont_slice().unwrap();
-    let binding = brk.rechunk();
-    let ref_brk = binding.cont_slice().unwrap();
-    let binding = cnt.rechunk();
-    let ref_cnt = binding.cont_slice().unwrap();
+    let binding_new = new.rechunk();
+    let data_new = binding_new.cont_slice().unwrap();
+    let binding_brk = brk.rechunk();
+    let ref_brk = binding_brk.cont_slice().unwrap();
+    let binding_cnt = cnt.rechunk();
+    let ref_cnt = binding_cnt.cont_slice().unwrap();
 
     let new_cnt = psi_with_bps_helper(data_new, ref_brk);
     let psi_report = psi_frame(ref_brk, "<=", ref_cnt, &new_cnt)?.collect()?;

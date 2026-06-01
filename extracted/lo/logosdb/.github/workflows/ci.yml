@@ -1,0 +1,144 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.os }} / ${{ matrix.build_type }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        build_type: [Debug, Release]
+
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install build tools (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake ninja-build build-essential
+
+      - name: Install build tools (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install cmake ninja
+
+      - name: Report toolchain versions
+        run: |
+          cmake --version
+          ninja --version || true
+          c++ --version || true
+
+      - name: Cache CMake build directory
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: ${{ matrix.os }}-${{ matrix.build_type }}-cmake-${{ hashFiles('CMakeLists.txt', 'src/**', 'include/**', 'tools/**', 'tests/**', 'third_party/**') }}
+          restore-keys: |
+            ${{ matrix.os }}-${{ matrix.build_type }}-cmake-
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+
+      - name: Build
+        run: cmake --build build --config ${{ matrix.build_type }} --parallel
+
+      - name: List built targets
+        run: ls -la build
+
+      - name: Run tests (CTest)
+        working-directory: build
+        run: ctest --output-on-failure --build-config ${{ matrix.build_type }}
+
+      - name: Run tests (verbose)
+        working-directory: build
+        run: ./logosdb-test --test-suite-exclude=stress
+
+      - name: List test suites
+        working-directory: build
+        run: ./logosdb-test --list-test-suites
+
+      - name: Smoke-test CLI
+        working-directory: build
+        run: |
+          rm -rf /tmp/ci-smoke-db
+          ./logosdb-cli info /tmp/ci-smoke-db --dim 16
+
+  # libFuzzer smoke (short run)
+  fuzz-smoke-jsonl:
+    name: Fuzz smoke (JSONL parse harness)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Clang + Ninja
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake ninja-build clang
+
+      - name: Configure and build fuzzer
+        run: |
+          cmake -S . -B build-fuzz -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DLOGOSDB_BUILD_FUZZ=ON \
+            -DLOGOSDB_BUILD_TOOLS=OFF \
+            -DLOGOSDB_BUILD_TESTS=OFF
+          cmake --build build-fuzz --parallel
+
+      - name: Run fuzzer (bounded)
+        working-directory: build-fuzz
+        run: ./logosdb-fuzz-jsonl -max_total_time=20 -print_final_stats=1
+
+  # Formatting and linting check (Linux only, single config)
+  format-check:
+    name: Formatting / Linting
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install clang-format 18 and clang-tidy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang-format-18 clang-tidy
+
+      - name: Check clang-format version
+        run: clang-format-18 --version
+
+      - name: Run clang-format check
+        run: |
+          find src include tests tools \( -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) | \
+            grep -v 'doctest.h' | \
+            xargs clang-format-18 --dry-run -Werror
+
+      - name: Run clang-tidy check (optional, report only)
+        run: |
+          mkdir -p build
+          cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          find src -name '*.cpp' | \
+            xargs clang-tidy -p build --warnings-as-errors='' 2>&1 || true
+        continue-on-error: true

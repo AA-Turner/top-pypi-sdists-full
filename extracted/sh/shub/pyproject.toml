@@ -1,3 +1,0 @@
-[tool.sphinx-scrapy]
-# Keep in sync with .github/workflows/test.yml.
-python-version = "3.13"

@@ -8,7 +8,6 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
-import sentry_sdk
 from appconf import AppConf
 from django.db import Error as DjangoDatabaseError
 from django.db import models, transaction
@@ -39,8 +38,15 @@ from weblate.trans.signals import (
 from weblate.utils.classloader import ClassLoader
 from weblate.utils.decorators import disable_for_loaddata
 from weblate.utils.errors import report_error
+from weblate.utils.tracing import start_span
 
 from .base import BaseAddon
+from .defaults import (
+    DEFAULT_ADDON_ACTIVITY_LOG_EXPIRY,
+    DEFAULT_LOCALIZE_CDN_PATH,
+    DEFAULT_LOCALIZE_CDN_URL,
+    DEFAULT_WEBLATE_ADDONS,
+)
 from .events import AddonEvent
 
 if TYPE_CHECKING:
@@ -245,6 +251,7 @@ class Addon(models.Model):
                 original_component.drop_addons_cache()
             self._drop_addons_cache()
             self._clear_pot_guidance_alert()
+            self._clear_recommendation_guidance_alerts()
 
     def get_absolute_url(self) -> str:
         return reverse("addon-detail", kwargs={"pk": self.pk})
@@ -331,6 +338,20 @@ class Addon(models.Model):
             name="ExtractPotMissingMsgmerge",
         ).delete()
 
+    def _clear_recommendation_guidance_alerts(self) -> None:
+        from weblate.trans.alerts.registry import ALERTS, load_alerts  # noqa: PLC0415
+
+        load_alerts()
+        alert_names = [
+            name
+            for name, alert in ALERTS.items()
+            if getattr(alert, "addon", None) == self.name
+        ]
+        if alert_names:
+            Alert.objects.filter(
+                component__in=self._affected_components(), name__in=alert_names
+            ).delete()
+
     def delete(self, using=None, keep_parents=False):
         # Store history
         self.store_change(ActionEvents.ADDON_REMOVE)
@@ -409,48 +430,13 @@ class Event(models.Model):
 
 
 class AddonsConf(AppConf):
-    WEBLATE_ADDONS = (
-        "weblate.addons.gettext.GenerateMoAddon",
-        "weblate.addons.gettext.UpdateLinguasAddon",
-        "weblate.addons.gettext.UpdateConfigureAddon",
-        "weblate.addons.gettext.MsgmergeAddon",
-        "weblate.addons.gettext.XgettextAddon",
-        "weblate.addons.gettext.MesonAddon",
-        "weblate.addons.gettext.DjangoAddon",
-        "weblate.addons.gettext.SphinxAddon",
-        "weblate.addons.gettext.GettextAuthorComments",
-        "weblate.addons.cleanup.CleanupAddon",
-        "weblate.addons.cleanup.RemoveBlankAddon",
-        "weblate.addons.cleanup.ResetAddon",
-        "weblate.addons.consistency.LanguageConsistencyAddon",
-        "weblate.addons.discovery.DiscoveryAddon",
-        "weblate.addons.autotranslate.AutoTranslateAddon",
-        "weblate.addons.flags.SourceEditAddon",
-        "weblate.addons.flags.TargetEditAddon",
-        "weblate.addons.flags.SameEditAddon",
-        "weblate.addons.flags.BulkEditAddon",
-        "weblate.addons.flags.TargetRepoUpdateAddon",
-        "weblate.addons.generate.GenerateFileAddon",
-        "weblate.addons.generate.PseudolocaleAddon",
-        "weblate.addons.generate.PrefillAddon",
-        "weblate.addons.generate.FillReadOnlyAddon",
-        "weblate.addons.properties.PropertiesSortAddon",
-        "weblate.addons.git.GitSquashAddon",
-        "weblate.addons.removal.RemoveComments",
-        "weblate.addons.removal.RemoveSuggestions",
-        "weblate.addons.resx.ResxUpdateAddon",
-        "weblate.addons.cdn.CDNJSAddon",
-        "weblate.addons.cdn.CDNFilesAddon",
-        "weblate.addons.webhooks.WebhookAddon",
-        "weblate.addons.webhooks.SlackWebhookAddon",
-        "weblate.addons.fedora_messaging.FedoraMessagingAddon",
-    )
+    WEBLATE_ADDONS = DEFAULT_WEBLATE_ADDONS
 
-    LOCALIZE_CDN_URL = None
-    LOCALIZE_CDN_PATH = None
+    LOCALIZE_CDN_URL = DEFAULT_LOCALIZE_CDN_URL
+    LOCALIZE_CDN_PATH = DEFAULT_LOCALIZE_CDN_PATH
 
     # How long to keep add-on activity log entries
-    ADDON_ACTIVITY_LOG_EXPIRY = 180
+    ADDON_ACTIVITY_LOG_EXPIRY = DEFAULT_ADDON_ACTIVITY_LOG_EXPIRY
 
     class Meta:
         prefix = ""
@@ -550,8 +536,8 @@ def execute_addon_event(
             return
 
         try:
-            # Execute event in sentry span to track performance
-            with sentry_sdk.start_span(op=f"addon.{event.name}", name=addon.name):
+            # Execute event in tracing span to track performance.
+            with start_span(op=f"addon.{event.name}", name=addon.name):
                 log_result = getattr(addon.addon, method)(
                     *args, **kwargs, activity_log_id=activity_log.pk
                 )
@@ -705,12 +691,13 @@ def post_update(
     component: Component,
     previous_head: str,
     skip_push: bool = False,
+    parse_after_update: bool = False,
     **kwargs,
 ) -> None:
     handle_addon_event(
         AddonEvent.EVENT_POST_UPDATE,
         "post_update",
-        (component, previous_head, skip_push),
+        (component, previous_head, skip_push, parse_after_update),
         component=component,
     )
 

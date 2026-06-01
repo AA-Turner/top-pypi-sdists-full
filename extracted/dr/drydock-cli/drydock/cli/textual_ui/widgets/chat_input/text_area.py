@@ -56,6 +56,13 @@ class ChatTextArea(TextArea):
             self.mode = mode
             super().__init__()
 
+    class GhostAccepted(Message):
+        """Emitted when the user accepts the ghost-suggestion via Tab."""
+
+        def __init__(self, suggestion: str) -> None:
+            self.suggestion = suggestion
+            super().__init__()
+
     def __init__(self, nuage_enabled: bool = False, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._nuage_enabled = nuage_enabled
@@ -70,6 +77,29 @@ class ChatTextArea(TextArea):
         self._cursor_moved_since_load: bool = False
         self._completion_manager: MultiCompletionManager | None = None
         self._app_has_focus: bool = True
+        # 2026-05-31: ghost-suggestion. Operator wants a Claude-Code-style
+        # recommended command shown in lighter text when the input is
+        # empty; Tab populates it. The actual rendering is owned by the
+        # parent ChatInputBody (which renders a dim Static); here we
+        # just hold the current suggestion + intercept Tab in the empty
+        # state.
+        self._ghost_suggestion: str | None = None
+
+    def set_ghost_suggestion(self, suggestion: str | None) -> None:
+        """Set the dim suggestion shown when the input is empty.
+
+        Passing None clears it (e.g. after the user types anything).
+        """
+        self._ghost_suggestion = suggestion
+
+    @property
+    def ghost_suggestion(self) -> str | None:
+        return self._ghost_suggestion
+
+    def _input_is_empty(self) -> bool:
+        # Check the actual widget text (NOT including the mode prefix —
+        # if the user typed `/` we want the ghost gone).
+        return self.text == "" and self._input_mode == self.DEFAULT_MODE
 
     def on_blur(self, event: events.Blur) -> None:
         if self._app_has_focus:
@@ -226,6 +256,39 @@ class ChatTextArea(TextArea):
                         self._reset_prefix()
                         self.post_message(self.Submitted(value))
                     return
+
+        # Ghost-suggestion accept (Tab in empty input).
+        # Operator 2026-05-31: wants Claude-Code-style recommended
+        # command shown dim when the input is empty; Tab fills it.
+        # Only fires when the input is genuinely empty AND we have a
+        # suggestion AND no other tool (autocomplete) just claimed Tab.
+        if (
+            event.key == "tab"
+            and self._input_is_empty()
+            and self._ghost_suggestion
+        ):
+            suggestion = self._ghost_suggestion
+            event.prevent_default()
+            event.stop()
+            # If the suggestion starts with a mode character, set mode
+            # first so the prompt indicator matches and the slash/bang
+            # prefix isn't doubled.
+            if suggestion[:1] in {"/", "!", "&"}:
+                first = suggestion[:1]
+                if first in {"/", "!"} or (first == "&" and self._nuage_enabled):
+                    self._set_mode(first)  # type: ignore[arg-type]
+                    self.load_text(suggestion[1:])
+                else:
+                    self.load_text(suggestion)
+            else:
+                self.load_text(suggestion)
+            # Move cursor to end so the user can immediately edit or
+            # press Enter.
+            lines = self.text.split("\n")
+            self.move_cursor((len(lines) - 1, len(lines[-1])))
+            self._ghost_suggestion = None
+            self.post_message(self.GhostAccepted(suggestion))
+            return
 
         if event.key == "enter":
             event.prevent_default()

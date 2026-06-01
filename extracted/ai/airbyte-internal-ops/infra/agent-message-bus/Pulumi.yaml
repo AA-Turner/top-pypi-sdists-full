@@ -1,0 +1,16 @@
+name: agent-message-bus
+runtime:
+  name: python
+  options:
+    virtualenv: venv
+description: |
+  Pulumi Infrastructure as Code for the Agent Message Bus webhook relay service.
+
+  This project manages:
+  - Cloud Run service (FastAPI webhook handler + subscription API)
+  - Firestore database (subscription state)
+  - GCLB (Google Cloud Load Balancer) frontend
+  - Cloud Armor security policies (per-path IP allowlisting)
+  - Secret Manager secrets (webhook secrets, API tokens)
+
+  Architecture: https://github.com/airbytehq/airbyte-ops-mcp/issues/448

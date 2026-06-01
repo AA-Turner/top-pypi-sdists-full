@@ -1,1 +1,0 @@
-"""Singer tap for AfterShip."""

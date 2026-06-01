@@ -1,0 +1,201 @@
+/*
+ * ANISE Toolkit
+ * Copyright (C) 2021-onward Christopher Rabotin <christopher.rabotin@gmail.com> et al. (cf. AUTHORS.md)
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ *
+ * Documentation: https://nyxspace.com/
+ */
+use der::{Decode, Encode, Reader, Writer};
+use serde_derive::{Deserialize, Serialize};
+use std::ops::Sub;
+
+#[cfg(feature = "python")]
+use pyo3::exceptions::PyValueError;
+#[cfg(feature = "python")]
+use pyo3::prelude::*;
+#[cfg(feature = "python")]
+use pyo3::types::{PyBytes, PyType};
+
+/// Defines a spacecraft mass a the sum of the dry (structural) mass and the propellant mass, both in kilogram
+#[cfg_attr(
+    feature = "python",
+    pyclass(from_py_object, get_all, set_all, module = "anise.astro")
+)]
+#[derive(Copy, Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "metaload", derive(serde_dhall::StaticType))]
+pub struct Mass {
+    /// Structural mass of the spacecraft, in kg
+    /// :rtype: float
+    pub dry_mass_kg: f64,
+    /// Propellant mass of the spacecraft, in kg
+    /// :rtype: float
+    pub prop_mass_kg: f64,
+    /// Extra mass like unusable propellant mass of the spacecraft, in kg
+    /// :rtype: float
+    pub extra_mass_kg: f64,
+}
+
+impl Mass {
+    /// Creates a new spacecraft data structure where all mass is considered usable.
+    pub fn from_dry_and_prop_masses(dry_mass_kg: f64, prop_mass_kg: f64) -> Self {
+        Self {
+            dry_mass_kg,
+            prop_mass_kg,
+            extra_mass_kg: 0.0,
+        }
+    }
+    /// Creates a new spacecraft data structure from its dry mass (prop and extra set to zero).
+    pub fn from_dry_mass(dry_mass_kg: f64) -> Self {
+        Self {
+            dry_mass_kg,
+            prop_mass_kg: 0.0,
+            extra_mass_kg: 0.0,
+        }
+    }
+}
+
+#[cfg_attr(feature = "python", pymethods)]
+impl Mass {
+    /// Returns the total mass in kg
+    /// :rtype: float
+    pub fn total_mass_kg(&self) -> f64 {
+        self.dry_mass_kg + self.prop_mass_kg + self.extra_mass_kg
+    }
+
+    /// Returns true if all the masses are greater or equal to zero
+    /// :rtype: bool
+    pub fn is_valid(&self) -> bool {
+        self.dry_mass_kg >= 0.0 && self.prop_mass_kg >= 0.0 && self.extra_mass_kg >= 0.0
+    }
+
+    /// Returns a Mass structure that is guaranteed to be physically correct
+    /// :rtype: Mass
+    pub fn abs(&self) -> Self {
+        if self.is_valid() {
+            *self
+        } else {
+            Self {
+                dry_mass_kg: self.dry_mass_kg.abs(),
+                prop_mass_kg: self.prop_mass_kg.abs(),
+                extra_mass_kg: self.extra_mass_kg.abs(),
+            }
+        }
+    }
+}
+
+#[cfg(feature = "python")]
+#[cfg_attr(feature = "python", pymethods)]
+impl Mass {
+    #[new]
+    #[pyo3(signature = (dry_mass_kg, prop_mass_kg = None, extra_mass_kg = None))]
+    fn py_new(dry_mass_kg: f64, prop_mass_kg: Option<f64>, extra_mass_kg: Option<f64>) -> Self {
+        Self {
+            dry_mass_kg,
+            prop_mass_kg: prop_mass_kg.unwrap_or(0.0),
+            extra_mass_kg: extra_mass_kg.unwrap_or(0.0),
+        }
+    }
+
+    fn __str__(&self) -> String {
+        format!("{self:?}")
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{self:?} @ {self:p}")
+    }
+
+    /// Decodes an ASN.1 DER encoded byte array into a Mass object.
+    ///
+    /// :type data: bytes
+    /// :rtype: Mass
+    #[classmethod]
+    pub fn from_asn1(_cls: &Bound<'_, PyType>, data: &[u8]) -> PyResult<Self> {
+        match Self::from_der(data) {
+            Ok(obj) => Ok(obj),
+            Err(e) => Err(PyValueError::new_err(format!("ASN.1 decoding error: {e}"))),
+        }
+    }
+
+    /// Encodes this Mass object into an ASN.1 DER encoded byte array.
+    ///
+    /// :rtype: bytes
+    pub fn to_asn1<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
+        let mut buf = Vec::new();
+        match self.encode_to_vec(&mut buf) {
+            Ok(_) => Ok(PyBytes::new(py, &buf)),
+            Err(e) => Err(PyValueError::new_err(format!("ASN.1 encoding error: {e}"))),
+        }
+    }
+}
+
+impl Sub for Mass {
+    type Output = Mass;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self {
+            dry_mass_kg: self.dry_mass_kg - rhs.dry_mass_kg,
+            prop_mass_kg: self.prop_mass_kg - rhs.prop_mass_kg,
+            extra_mass_kg: self.extra_mass_kg - rhs.extra_mass_kg,
+        }
+    }
+}
+
+impl Encode for Mass {
+    fn encoded_len(&self) -> der::Result<der::Length> {
+        self.dry_mass_kg.encoded_len()?
+            + self.prop_mass_kg.encoded_len()?
+            + self.extra_mass_kg.encoded_len()?
+    }
+
+    fn encode(&self, encoder: &mut impl Writer) -> der::Result<()> {
+        self.dry_mass_kg.encode(encoder)?;
+        self.prop_mass_kg.encode(encoder)?;
+        self.extra_mass_kg.encode(encoder)
+    }
+}
+
+impl<'a> Decode<'a> for Mass {
+    fn decode<R: Reader<'a>>(decoder: &mut R) -> der::Result<Self> {
+        Ok(Self {
+            dry_mass_kg: decoder.decode()?,
+            prop_mass_kg: decoder.decode()?,
+            extra_mass_kg: decoder.decode()?,
+        })
+    }
+}
+
+#[cfg(test)]
+mod mass_ut {
+    use super::{Decode, Encode, Mass};
+    #[test]
+    fn zero_repr() {
+        let repr = Mass::default();
+
+        let mut buf = vec![];
+        repr.encode_to_vec(&mut buf).unwrap();
+
+        let repr_dec = Mass::from_der(&buf).unwrap();
+
+        assert_eq!(repr, repr_dec);
+    }
+
+    #[test]
+    fn example_repr() {
+        let repr = Mass {
+            dry_mass_kg: 50.0,
+            prop_mass_kg: 15.7,
+            extra_mass_kg: 0.3,
+        };
+
+        let mut buf = vec![];
+        repr.encode_to_vec(&mut buf).unwrap();
+
+        let repr_dec = Mass::from_der(&buf).unwrap();
+
+        assert_eq!(repr, repr_dec);
+
+        assert_eq!(repr_dec.total_mass_kg(), 66.0);
+    }
+}

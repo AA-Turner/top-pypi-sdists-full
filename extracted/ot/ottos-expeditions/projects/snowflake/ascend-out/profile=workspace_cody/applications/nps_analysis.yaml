@@ -1,9 +1,0 @@
-application:
-  metadata:
-    source:
-      first_line_number: 37
-      path: src/ascend_project_code/nps_analysis.py
-  name: nps_analysis
-  python:
-    entrypoint: ascend_project_code.nps_analysis.NPSAnalysis
-    source: src/ascend_project_code/nps_analysis.py

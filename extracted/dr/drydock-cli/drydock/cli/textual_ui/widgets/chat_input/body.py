@@ -35,6 +35,24 @@ class ChatInputBody(Widget):
             self.value = value
             super().__init__()
 
+    # 2026-05-31: ghost-suggestion cycle. Operator wants a Claude-Code-
+    # style "recommended command" shown in lighter text when the input
+    # is empty; Tab populates it. Rotates after each submit so the user
+    # sees different tips over time. Order is intentional — most
+    # generally-useful commands first.
+    DEFAULT_GHOST_SUGGESTIONS: ClassVar[tuple[str, ...]] = (
+        "/help",
+        "/clear",
+        "/undo",
+        "/back",
+        "/goal",
+        "/skills",
+        "/agents",
+        "/permissions",
+        "/doctor",
+        "/setup-model detect",
+    )
+
     def __init__(
         self,
         history_file: Path | None = None,
@@ -44,8 +62,10 @@ class ChatInputBody(Widget):
         super().__init__(**kwargs)
         self.input_widget: ChatTextArea | None = None
         self.prompt_widget: NoMarkupStatic | None = None
+        self.ghost_widget: Static | None = None
         self._nuage_enabled = nuage_enabled
         self._switching_mode = False
+        self._ghost_index: int = 0
 
         if history_file:
             self.history = HistoryManager(history_file)
@@ -64,9 +84,21 @@ class ChatInputBody(Widget):
             )
             yield self.input_widget
 
+            # Ghost suggestion overlays the empty input area. CSS
+            # positions it absolutely on top of #input (see app.tcss
+            # selector #ghost-suggestion); when input has text, we
+            # hide it.
+            self.ghost_widget = Static(
+                f"[dim]{self.DEFAULT_GHOST_SUGGESTIONS[0]} [/][dim italic](tab)[/]",
+                id="ghost-suggestion",
+                markup=True,
+            )
+            yield self.ghost_widget
+
     def on_mount(self) -> None:
         if self.input_widget:
             self.input_widget.focus()
+            self._refresh_ghost()
 
     def _parse_mode_and_text(self, text: str) -> tuple[InputMode, str]:
         if text.startswith("!"):
@@ -87,6 +119,47 @@ class ChatInputBody(Widget):
     def on_chat_text_area_mode_changed(self, event: ChatTextArea.ModeChanged) -> None:
         if self.prompt_widget:
             self.prompt_widget.update(event.mode)
+        self._refresh_ghost()
+
+    def _refresh_ghost(self) -> None:
+        """Show the ghost suggestion when input is genuinely empty; hide
+        otherwise. Called on text changes, mode changes, mount, submit."""
+        if not self.input_widget or not self.ghost_widget:
+            return
+        # "Empty" here means default mode AND no typed characters. As
+        # soon as the user types a mode prefix or any char, the ghost
+        # disappears so it doesn't overlap real input.
+        is_empty = (
+            self.input_widget.text == ""
+            and self.input_widget.input_mode == self.input_widget.DEFAULT_MODE
+        )
+        if is_empty:
+            suggestion = self.DEFAULT_GHOST_SUGGESTIONS[
+                self._ghost_index % len(self.DEFAULT_GHOST_SUGGESTIONS)
+            ]
+            self.input_widget.set_ghost_suggestion(suggestion)
+            self.ghost_widget.update(
+                f"[dim]{suggestion} [/][dim italic](tab)[/]"
+            )
+            self.ghost_widget.display = True
+        else:
+            self.input_widget.set_ghost_suggestion(None)
+            self.ghost_widget.display = False
+
+    def on_chat_text_area_changed(self, event: Any) -> None:
+        # Textual fires TextArea.Changed bubbling up; we refresh the
+        # ghost so it disappears as soon as the user starts typing.
+        self._refresh_ghost()
+
+    def on_chat_text_area_ghost_accepted(
+        self, event: ChatTextArea.GhostAccepted
+    ) -> None:
+        # User accepted via Tab — hide the ghost; advance the rotation
+        # so the next empty-state shows a different suggestion.
+        self._ghost_index = (self._ghost_index + 1) % len(
+            self.DEFAULT_GHOST_SUGGESTIONS
+        )
+        self._refresh_ghost()
 
     def _load_history_entry(self, text: str, cursor_col: int | None = None) -> None:
         if not self.input_widget:
@@ -191,6 +264,13 @@ class ChatInputBody(Widget):
             self._update_prompt()
 
             self._notify_completion_reset()
+
+            # Rotate ghost suggestion after each submit so the user
+            # sees a different tip on each empty-input state.
+            self._ghost_index = (self._ghost_index + 1) % len(
+                self.DEFAULT_GHOST_SUGGESTIONS
+            )
+            self._refresh_ghost()
 
             self.post_message(self.Submitted(value))
 

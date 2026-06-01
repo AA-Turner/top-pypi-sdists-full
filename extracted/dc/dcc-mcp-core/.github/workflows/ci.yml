@@ -1,0 +1,710 @@
+name: CI
+
+# Core CI: Rust checks, wheel build, Python tests, lint.
+# DCC integration tests live in dcc-integration.yml.
+
+on:
+  workflow_dispatch: {}
+  pull_request:
+    branches: [main]
+    paths:
+      - "crates/**"
+      - "python/**"
+      - "scripts/**"
+      - "src/**"
+      - "tests/**"
+      - "examples/**"
+      - "skills/**"
+      - "admin-ui/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "justfile"
+      - "pyproject.toml"
+      - "rust-toolchain.toml"
+      - ".github/workflows/ci.yml"
+      - ".github/workflows/dcc-integration.yml"
+      - ".github/workflows/release.yml"
+      - ".github/workflows/rust-matrix-full.yml"
+      - ".github/actions/build-wheel/**"
+  push:
+    branches: [main]
+    paths:
+      - "crates/**"
+      - "python/**"
+      - "scripts/**"
+      - "src/**"
+      - "tests/**"
+      - "examples/**"
+      - "skills/**"
+      - "admin-ui/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "justfile"
+      - "pyproject.toml"
+      - "rust-toolchain.toml"
+      - ".github/workflows/ci.yml"
+      - ".github/workflows/dcc-integration.yml"
+      - ".github/workflows/release.yml"
+      - ".github/workflows/rust-matrix-full.yml"
+      - ".github/actions/build-wheel/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-metadata:
+    name: Release metadata
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Validate package versions
+        run: |
+          python - <<'PY'
+          import sys
+          import tomllib
+          from pathlib import Path
+
+          pyproject_version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          cargo_version = tomllib.loads(Path("Cargo.toml").read_text())["workspace"]["package"]["version"]
+          versions = {
+              "pyproject.toml": pyproject_version,
+              "Cargo.toml": cargo_version,
+          }
+
+          lock = tomllib.loads(Path("Cargo.lock").read_text())
+          for package in lock["package"]:
+              name = package["name"]
+              if name == "dcc-mcp-core" or name.startswith("dcc-mcp-"):
+                  versions[f"Cargo.lock:{name}"] = package["version"]
+
+          mismatches = {source: version for source, version in versions.items() if version != pyproject_version}
+          if mismatches:
+              for source, version in sorted(mismatches.items()):
+                  print(f"{source} has {version}, expected {pyproject_version}", file=sys.stderr)
+              sys.exit(1)
+          PY
+
+  admin-ui-bundle:
+    name: Admin UI bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: loonghao/vx@v0.9.11
+        with:
+          version: "0.9.11"
+          cache-key-prefix: "vx-tools-v0.9.7"
+      - name: Build admin UI bundle
+        shell: bash
+        run: scripts/release/prebuild_admin_ui.sh
+      - name: Upload admin UI bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-ui-bundle
+          path: crates/dcc-mcp-gateway/src/gateway/admin/generated/index.html
+
+  # ── Rust checks ────────────────────────────────────────────────────────────
+  # Keep the PR critical path focused:
+  # - Linux runs the full Rust gate: stub generation, fmt, clippy, nextest, docs.
+  # - Windows/macOS run all-target compile smoke checks here; wheel + Python jobs
+  #   still compile, package, install, and exercise those OSes on every PR.
+  # - Full three-OS clippy + nextest runs in rust-matrix-full.yml on schedule or
+  #   manual dispatch for drift detection outside the PR fast path.
+  rust-check:
+    name: Rust (${{ matrix.os }})
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rust-validation: full
+          - os: windows-latest
+            rust-validation: smoke
+          - os: macos-latest
+            rust-validation: smoke
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - name: Fix cargo PATH on macOS
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          # macOS runners have a Homebrew `cargo` shim (actually rustup-init)
+          # that shadows ~/.cargo/bin/cargo. Pin CARGO env so all tools
+          # (cargo-hakari, vx just preflight, etc.) use the real binary.
+          CARGO_BIN="$(rustup which cargo)"
+          echo "CARGO=${CARGO_BIN}" >> "$GITHUB_ENV"
+          echo "RUSTC=$(rustup which rustc)" >> "$GITHUB_ENV"
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - uses: loonghao/vx@v0.9.11
+        with:
+          version: "0.9.11"
+          cache-key-prefix: "vx-tools-v0.9.7"
+      - name: Prepare admin UI dependencies
+        shell: bash
+        run: |
+          vx node --version
+          vx npm --prefix admin-ui ci --ignore-scripts
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: rust-${{ runner.os }}
+          shared-key: rust-${{ runner.os }}
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-hakari
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+      - name: Verify workspace-hack is up to date
+        shell: bash
+        run: |
+          # Invoke cargo-hakari as a standalone binary instead of `cargo hakari`.
+          # On macOS runners Homebrew installs a `cargo` that is actually a
+          # rustup-init shim, which does NOT dispatch to `cargo-<subcmd>` in
+          # ~/.cargo/bin and instead errors with `unexpected argument 'hakari'`.
+          # Calling cargo-hakari directly bypasses that PATH ordering issue.
+          # Also pin CARGO env so hakari's internal `cargo metadata` uses the
+          # real binary, not the Homebrew shim.
+          export PATH="$HOME/.cargo/bin:$PATH"
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            export CARGO="$(rustup which cargo 2>/dev/null || which cargo)"
+          fi
+          cargo-hakari hakari verify && exit 0
+
+          # If we get here, verify failed. Run generate and show the diff.
+          echo "::error::workspace-hack is out of date — run 'cargo hakari generate' locally"
+          echo ""
+          echo "Expected changes to crates/workspace-hack/Cargo.toml:"
+          cargo-hakari hakari generate
+          git diff --no-color crates/workspace-hack/Cargo.toml
+          echo ""
+          echo "::error::Run 'cargo hakari generate' and commit the changes to fix this CI step."
+          exit 1
+      # The full Linux path compiles through clippy + nextest. Smoke OSes still
+      # compile every workspace target, but skip duplicate Rust test execution.
+      - name: Stub generation check
+        if: matrix.rust-validation == 'full'
+        run: vx just stubgen-check
+      - name: Rust format check
+        if: matrix.rust-validation == 'full'
+        run: vx just fmt-check
+      - name: Clippy
+        if: matrix.rust-validation == 'full'
+        run: vx just clippy
+      - name: Rust tests
+        if: matrix.rust-validation == 'full'
+        run: vx just test-rust
+      - name: Rust compile smoke
+        if: matrix.rust-validation == 'smoke'
+        run: vx cargo check --workspace --all-targets
+      # Verify the composition binary still builds in its slim variants
+      # (issue #1359). Defaults are already exercised by the workspace
+      # check / clippy / test steps above.
+      - name: dcc-mcp-server slim feature matrix
+        if: matrix.rust-validation == 'full'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          vx cargo check -p dcc-mcp-server --no-default-features --features server
+          vx cargo check -p dcc-mcp-server --no-default-features --features gateway-daemon,admin
+          vx cargo check -p dcc-mcp-server --no-default-features --features server,gateway-auto,gateway-daemon,admin
+
+      # `dcc-mcp-semantic` with `python-bindings` / `fastembed-backend`
+      # is the only path that touches `pyo3 0.28` and `fastembed 5`'s
+      # `&mut self` ONNX session API. It is gated off in the default
+      # workspace check so PRs do not pay the ORT runtime download
+      # cost — but that also means API drift only shows up at release
+      # wheel-build time. `cargo check` (no codegen for the C++ ORT
+      # runtime) is enough to catch the drift on every PR. See the
+      # v0.17.45/0.17.46 release postmortems.
+      - name: Semantic crate feature check
+        if: matrix.rust-validation == 'full'
+        shell: bash
+        run: vx cargo check -p dcc-mcp-semantic --features python-bindings,ext-module,abi3-py38
+
+  # ── Dependency policy gate (cargo-deny) ───────────────────────────────────
+  # Independent of `rust-check` so its install of `cargo-deny` does not
+  # bottleneck the slower clippy/nextest path. Catches: native-tls /
+  # openssl-sys regressions (the v0.17.45/0.17.46 manylinux2014 OpenSSL 1.0.2
+  # break), unmaintained / yanked deps, and license drift. Configuration
+  # lives in `deny.toml` at the repo root.
+  cargo-deny:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+      - name: cargo deny check
+        run: cargo deny --all-features check
+
+
+  # ── Build ABI3 wheel (one per OS, reused by python-test) ──
+  # Intentionally does NOT `needs: [rust-check]` — maturin runs its own compile
+  # and can start in parallel with rust-check. If rust-check fails, the PR merge
+  # gate still blocks on it; decoupling just lets the two ~5-8 min jobs run
+  # concurrently instead of serially.
+  build-wheel:
+    name: Build wheel (${{ matrix.os }})
+    needs: [admin-ui-bundle]
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Download admin UI bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: admin-ui-bundle
+          path: crates/dcc-mcp-gateway/src/gateway/admin/generated
+      # Use the same composite wheel builder as release builds and py3.7 CI.
+      # It owns Rust/Python setup, Cargo cache, sccache, feature resolution,
+      # wheel-content validation, and artifact upload, avoiding duplicated
+      # setup/build logic in this workflow.
+      - uses: ./.github/actions/build-wheel
+        with:
+          python-version: "3.11"
+          test-wheel: "false"
+          artifact-name: wheel-${{ matrix.os }}
+          # The Linux Rust gate runs `stubgen-check`, so PR wheel builds can
+          # reuse committed stubs and avoid repeating PyO3 stub generation on
+          # every wheel platform.
+          generate-stubs: "false"
+          # Reuse the single Admin UI bundle built above instead of running
+          # npm install/build in every wheel job.
+          prebuild-admin-ui: "false"
+
+  # ── Python tests: trimmed OS × Python matrix (7 cells, was 18) ──
+  # Covers every supported Python version on ubuntu (cheapest) + endpoint
+  # versions (oldest 3.8, newest 3.13) on Windows/macOS. Middle versions on
+  # Windows/macOS rarely surface OS-specific Python bugs and are exercised on
+  # ubuntu. The full 3×6 matrix runs weekly via python-matrix-full.yml for
+  # drift detection.
+  python-test:
+    name: Test (${{ matrix.os }}, py${{ matrix.python-version }})
+    needs: [build-wheel]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Ubuntu — cover every supported Python version (cheapest runner).
+          - { os: ubuntu-latest,  python-version: "3.8",  wheel_os: ubuntu-latest }
+          - { os: ubuntu-latest,  python-version: "3.10", wheel_os: ubuntu-latest }
+          - { os: ubuntu-latest,  python-version: "3.13", wheel_os: ubuntu-latest }
+          # Windows + macOS — cover oldest + newest only. Middle versions
+          # are exercised on ubuntu and rarely surface OS-specific Python
+          # bugs; python-matrix-full.yml runs the full matrix weekly.
+          # Python 3.8 is not available in the windows-latest hosted-tool cache.
+          # Reuse the ABI3 Windows wheel, but run the oldest-version test on
+          # windows-2022 where actions/setup-python still provides 3.8.
+          - { os: windows-2022,   python-version: "3.8",  wheel_os: windows-latest }
+          - { os: windows-latest, python-version: "3.13", wheel_os: windows-latest }
+          - { os: macos-latest,   python-version: "3.8",  wheel_os: macos-latest }
+          - { os: macos-latest,   python-version: "3.13", wheel_os: macos-latest }
+    runs-on: ${{ matrix.os }}
+    # id-token: write enables Codecov tokenless OIDC on the upload step below.
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      MCP_LOG_LEVEL: warn
+      # Prevent Python 3.13's new REPL from crashing on Windows CI when
+      # there's no interactive console (WinError 123 in _pyrepl).
+      PYTHON_BASIC_REPL: "1"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: loonghao/vx@v0.9.11
+        with:
+          version: "0.9.11"
+          cache-key-prefix: "vx-tools-v0.9.7"
+      - name: Download wheel
+        uses: actions/download-artifact@v8
+        with:
+          name: wheel-${{ matrix.wheel_os }}
+          path: dist/
+      - name: Install wheel + test deps
+        run: |
+          pip install --no-index --find-links dist dcc-mcp-core
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.python-version }}" == "3.13" ]]; then
+            pip install pytest pytest-cov
+          else
+            pip install pytest
+          fi
+        shell: bash
+      - name: Test with coverage
+        if: matrix.python-version == '3.13' && matrix.os == 'ubuntu-latest'
+        run: vx just test-cov
+      - name: Test
+        if: matrix.python-version != '3.13' || matrix.os != 'ubuntu-latest'
+        run: vx just test
+      - name: Upload Python coverage to Codecov
+        if: matrix.python-version == '3.13' && matrix.os == 'ubuntu-latest'
+        uses: codecov/codecov-action@v6
+        with:
+          files: coverage.xml
+          flags: python
+          name: python-coverage
+          use_oidc: ${{ !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork) }}
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+
+  # ── Python 3.7 build + test (non-abi3 wheel) ──
+  # Syntax is also gated earlier in the ``lint`` job (``check_py37_syntax.py``).
+  # Independent from rust-check: the composite action performs its own build
+  # and test, so waiting for the Rust matrix only lengthens the critical path.
+  # Uses the same composite action as the release workflow so CI mirrors the
+  # exact environment that caused the windows-py37 failure post-merge.
+  # Previously this job used Python 3.14 as the active interpreter and called
+  # `just build-py37` directly, which hid a pyo3-stub-gen Python<3.10 compat
+  # bug (PyEncodingWarning missing on py37) that only surfaced in the release
+  # build-wheels workflow. Now both paths go through the same composite action.
+  # Note: Must use older OS runners where Python 3.7 is still available via setup-python
+  build-wheel-py37:
+    name: Build wheel (py3.7, ${{ matrix.os }})
+    needs: [admin-ui-bundle]
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-22.04  # Ubuntu 24.04 dropped Python 3.7 support
+            target: x86_64
+          - os: windows-2022  # Use Windows 2022 for Python 3.7 availability
+            target: x64
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Download admin UI bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: admin-ui-bundle
+          path: crates/dcc-mcp-gateway/src/gateway/admin/generated
+      - uses: ./.github/actions/build-wheel
+        with:
+          target: ${{ matrix.target }}
+          python-version: "3.7"
+          maturin-extra-args: '-i python3.7'
+          test-wheel: 'true'
+          artifact-name: wheel-py37-${{ matrix.os }}
+          use-sccache: 'false'
+          prebuild-admin-ui: "false"
+
+  # macOS cp37: cross-compile from ARM64 runner to x86_64 via Rosetta 2.
+  # The composite build-wheel action can't be used because actions/setup-python
+  # does not provide Python 3.7 on ARM64 macOS. We download the x86_64 Python
+  # 3.7 installer from python.org instead.
+  build-wheel-py37-macos:
+    name: Build wheel (py3.7, macos-latest)
+    needs: [admin-ui-bundle]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Download admin UI bundle
+        uses: actions/download-artifact@v8
+        with:
+          name: admin-ui-bundle
+          path: crates/dcc-mcp-gateway/src/gateway/admin/generated
+
+      - name: Install Python 3.7.9 (x86_64, Rosetta 2)
+        shell: bash
+        run: |
+          curl -fsSL -o /tmp/python-3.7.9-macosx10.9.pkg \
+            https://www.python.org/ftp/python/3.7.9/python-3.7.9-macosx10.9.pkg
+          sudo installer -pkg /tmp/python-3.7.9-macosx10.9.pkg -target /
+          PY37=/Library/Frameworks/Python.framework/Versions/3.7/bin/python3.7
+          echo "PY37=${PY37}" >> "$GITHUB_ENV"
+          "${PY37}" --version
+          "${PY37}" -m pip install --upgrade "pip>=20.0"
+
+      - name: Setup host Python (runs maturin)
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.95.0'
+
+      - name: Add x86_64-apple-darwin Rust target
+        run: rustup target add x86_64-apple-darwin
+
+      - uses: loonghao/vx@v0.9.11
+        with:
+          version: "0.9.11"
+          cache-key-prefix: "vx-tools-v0.9.7"
+          cache: "false"
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: rust-macos-py37
+          shared-key: rust-macos-py37
+
+      - name: Install maturin (host Python 3.11)
+        shell: bash
+        run: python -m pip install "maturin>=1.5,<2.0"
+
+      - name: Resolve build features (py37 non-abi3)
+        id: resolve-features
+        shell: bash
+        run: |
+          features=$(vx just print-wheel-features-py37)
+          echo "features=${features}" >> "$GITHUB_OUTPUT"
+
+      - name: Build wheel (x86_64-apple-darwin, cp37)
+        shell: bash
+        env:
+          DCC_MCP_ADMIN_UI_PREBUILT: "1"
+          ARCHFLAGS: "-arch x86_64"
+          MACOSX_DEPLOYMENT_TARGET: "10.9"
+        run: |
+          python -m maturin build \
+            --release \
+            --out dist \
+            --target x86_64-apple-darwin \
+            --features "${{ steps.resolve-features.outputs.features }}" \
+            -i "${PY37}"
+
+      - name: Check wheel contents
+        shell: bash
+        run: |
+          "${PY37}" -m pip install check-wheel-contents
+          "${PY37}" -m check_wheel_contents --ignore W004 dist/*.whl
+
+      - name: Test wheel
+        shell: bash
+        run: |
+          "${PY37}" -m venv test-env
+          source test-env/bin/activate
+          pip install --no-index --find-links dist dcc-mcp-core --force-reinstall --no-deps
+          pip check
+          python tests/test_imports.py
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v7
+        with:
+          name: wheel-py37-macos-latest
+          path: dist/
+          retention-days: 30
+
+  # ── Lint Python source ──
+  # ubuntu-22.04: setup-python still offers 3.7 for the cp37 syntax gate.
+  lint:
+    name: Lint
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        id: py314
+        with:
+          python-version: "3.14"
+
+      - uses: loonghao/vx@v0.9.11
+        with:
+          version: "0.9.11"
+          cache-key-prefix: "vx-tools-v0.9.7"
+
+      - name: Install dev deps
+        run: vx just install-dev-deps
+
+      - name: Lint (ruff)
+        run: vx just lint-py
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.7"
+
+      - name: Lint (Python 3.7 syntax — cp37 wheel parity)
+        run: python scripts/check_py37_syntax.py
+
+      - name: VRS replayer (dry-run trace validation)
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in tests/vrs/traces/*.jsonl; do
+            "${{ steps.py314.outputs.python-path }}" scripts/vrs_replay.py \
+              --base-url http://127.0.0.1:1 --dry-run --trace "$f"
+          done
+
+  # -- mcpcall e2e: real MCP client vs live MCP servers/gateway --
+  # Exercises the full HTTP stack from outside the process:
+  #   tools/list, tools/call, find_skills, load_skill, unload_skill,
+  #   progressive loading (discover -> load -> call -> unload),
+  #   gateway search -> describe -> load_skill -> call.
+  # Reuses the wheel artifact from `build-wheel` (ubuntu-latest) to avoid
+  # rebuilding the same wheel in a separate workflow.
+  mcpcall-e2e:
+    name: mcpcall e2e
+    needs: [build-wheel]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - uses: loonghao/vx@v0.9.11
+        with:
+          version: "0.9.11"
+          cache: "false"
+
+      - name: Download wheel
+        uses: actions/download-artifact@v8
+        with:
+          name: wheel-ubuntu-latest
+          path: dist/
+
+      - name: Install wheel + test deps
+        run: pip install --no-index --find-links dist dcc-mcp-core && pip install pytest anyio
+        shell: bash
+
+      - name: Verify mcpcall
+        run: vx mcpcall --version
+        shell: bash
+
+      - name: Run mcpcall e2e tests
+        env:
+          MCPCALL_CMD: vx mcpcall
+        run: pytest tests/test_mcp_mcpcall_e2e.py -v --tb=short
+        shell: bash
+
+  # ── DCC integration: reuse the Ubuntu wheel already built by CI ──
+  # The standalone dcc-integration.yml workflow remains for manual/release
+  # runs. PR and push coverage lives here so we do not compile a second Linux
+  # wheel just to run the same headless DCC tests.
+  dcc-blender:
+    name: DCC Blender ${{ matrix.blender-version }}
+    needs: [build-wheel]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - blender-version: "2.83.20"
+            blender-url: "https://download.blender.org/release/Blender2.83/blender-2.83.20-linux-x64.tar.xz"
+            blender-dir: "blender-2.83.20-linux-x64"
+          - blender-version: "3.6.21"
+            blender-url: "https://download.blender.org/release/Blender3.6/blender-3.6.21-linux-x64.tar.xz"
+            blender-dir: "blender-3.6.21-linux-x64"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Install Blender from tarball
+        run: |
+          wget -q "${{ matrix.blender-url }}" -O /tmp/blender.tar.xz
+          tar -xf /tmp/blender.tar.xz -C /opt
+          sudo ln -sf /opt/${{ matrix.blender-dir }}/blender /usr/local/bin/blender
+        shell: bash
+      - uses: actions/download-artifact@v8
+        with:
+          name: wheel-ubuntu-latest
+          path: dist/
+      - name: Install wheel + pytest
+        run: pip install --no-index --find-links dist dcc-mcp-core && pip install pytest
+        shell: bash
+      - name: Verify Blender
+        run: blender --version
+      - name: Test
+        run: pytest tests/test_integration_dcc_blender.py -v --tb=short
+
+  dcc-openscad:
+    name: DCC OpenSCAD
+    needs: [build-wheel]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Install OpenSCAD + Xvfb
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y openscad xvfb
+        shell: bash
+      - uses: actions/download-artifact@v8
+        with:
+          name: wheel-ubuntu-latest
+          path: dist/
+      - name: Install wheel + pytest
+        run: pip install --no-index --find-links dist dcc-mcp-core && pip install pytest
+        shell: bash
+      - name: Verify OpenSCAD
+        run: openscad --version
+      - name: Test
+        run: xvfb-run -a pytest tests/test_integration_dcc_openscad.py -v --tb=short
+
+  dcc-godot:
+    name: DCC Godot
+    needs: [build-wheel]
+    runs-on: ubuntu-latest
+    env:
+      GODOT_VERSION: "4.4.1"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Install Godot (headless)
+        run: |
+          wget -q \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip" \
+            -O /tmp/godot.zip
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          sudo mv /tmp/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 /usr/local/bin/godot
+          sudo chmod +x /usr/local/bin/godot
+        shell: bash
+      - uses: actions/download-artifact@v8
+        with:
+          name: wheel-ubuntu-latest
+          path: dist/
+      - name: Install wheel + pytest
+        run: pip install --no-index --find-links dist dcc-mcp-core && pip install pytest
+        shell: bash
+      - name: Verify Godot
+        run: godot --version
+      - name: Test
+        run: pytest tests/test_integration_dcc_godot.py -v --tb=short
+
+  dcc-cross:
+    name: DCC Cross-DCC Pipeline
+    needs: [build-wheel]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - uses: actions/download-artifact@v8
+        with:
+          name: wheel-ubuntu-latest
+          path: dist/
+      - name: Install wheel + pytest
+        run: pip install --no-index --find-links dist dcc-mcp-core && pip install pytest
+        shell: bash
+      - name: Test
+        run: pytest tests/test_integration_dcc_cross.py -v --tb=short

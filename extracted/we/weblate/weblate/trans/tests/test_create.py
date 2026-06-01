@@ -14,11 +14,17 @@ from translation_finder import DiscoveryResult
 
 from weblate.lang.models import Language, get_default_lang
 from weblate.trans.actions import ActionEvents
+from weblate.trans.forms import ComponentCreateForm
 from weblate.trans.models import Component
 from weblate.trans.tests.test_views import ViewTestCase
-from weblate.trans.tests.utils import create_test_billing, get_test_file
+from weblate.trans.tests.utils import (
+    create_another_user,
+    create_test_billing,
+    get_test_file,
+)
 from weblate.utils.views import get_form_data
 from weblate.vcs.git import GitRepository
+from weblate.workspaces.models import WORKSPACE_PROJECT_CREATORS_GROUP, Workspace
 
 if TYPE_CHECKING:
     from translation_finder.discovery.result import ResultDict
@@ -70,13 +76,29 @@ class CreateTest(ViewTestCase):
         self.assert_create_project(True)
 
         # Create one project
-        self.client_create_project(False, billing=0)
-        self.client_create_project(True, billing=billing.pk)
+        self.client_create_project(False, workspace=0)
+        self.client_create_project(True, workspace=billing.workspace_id)
 
         # No more billings left
         self.client_create_project(
-            reverse("create-project"), name="p2", slug="p2", billing=billing.pk
+            reverse("create-project"),
+            name="p2",
+            slug="p2",
+            workspace=billing.workspace_id,
         )
+
+    @modify_settings(INSTALLED_APPS={"append": "weblate.billing"})
+    def test_create_project_billing_project_creator(self) -> None:
+        billing = create_test_billing(self.user)
+        project_creator = create_another_user(suffix="-creator")
+        project_creator.add_team(
+            None,
+            billing.workspace.setup_groups()[WORKSPACE_PROJECT_CREATORS_GROUP],
+        )
+        self.client.login(username=project_creator.username, password="testpassword")
+
+        self.assert_create_project(True)
+        self.client_create_project(True, workspace=billing.workspace_id)
 
     @modify_settings(INSTALLED_APPS={"remove": "weblate.billing"})
     def test_create_project_admin(self) -> None:
@@ -132,7 +154,7 @@ class CreateTest(ViewTestCase):
 
         # Create billing and add permissions
         billing = create_test_billing(self.user)
-        billing.projects.add(self.project)
+        billing.add_project(self.project)
         self.project.add_user(self.user, "Administration")
         self.assert_create_component(True)
 
@@ -267,6 +289,202 @@ class CreateTest(ViewTestCase):
         self.assertNotIn("strings_encoding", component.file_format_params)
 
     @modify_settings(INSTALLED_APPS={"remove": "weblate.billing"})
+    def test_create_component_detected_license_disables_inheritance(self) -> None:
+        self.user.is_superuser = True
+        self.user.save()
+        self.project.license = "GPL-3.0-or-later"
+        self.project.save(update_fields=["license"])
+
+        params = {
+            "name": "Create Component With Detected License",
+            "slug": "create-component-with-detected-license",
+            "project": self.project.pk,
+            "vcs": "git",
+            "repo": self.component.repo,
+            "source_language": get_default_lang(),
+        }
+
+        with override_settings(CREATE_GLOSSARIES=self.CREATE_GLOSSARIES):
+            response = self.client.post(reverse("create-component-vcs"), params)
+        self.assertContains(response, "Choose translation files to import")
+
+        params["discovery"] = "4"
+        with (
+            patch("weblate.trans.views.create.detect_license", return_value="MIT"),
+            override_settings(CREATE_GLOSSARIES=self.CREATE_GLOSSARIES),
+        ):
+            response = self.client.post(reverse("create-component-vcs"), params)
+        self.assertContains(response, "Detected license as MIT")
+
+        data = get_form_data(response.context["form"].initial)
+        self.assertEqual(data["license"], "MIT")
+        self.assertEqual(data["detected_license"], "MIT")
+        data["project"] = self.project.pk
+        data["source_language"] = get_default_lang()
+        data["new_lang"] = "add"
+        data["new_base"] = "po/project.pot"
+        data["language_regex"] = "^[^.]+$"
+
+        with override_settings(CREATE_GLOSSARIES=self.CREATE_GLOSSARIES):
+            response = self.client.post(reverse("create-component-vcs"), data)
+        self.assertEqual(response.status_code, 302)
+
+        component = Component.objects.get(slug="create-component-with-detected-license")
+        self.assertEqual(component.license, "MIT")
+        self.assertFalse(component.inherit_license)
+        self.assertEqual(component.effective_license, "MIT")
+
+    @modify_settings(INSTALLED_APPS={"remove": "weblate.billing"})
+    def test_create_component_detected_license_matching_parent_inherits(self) -> None:
+        self.user.is_superuser = True
+        self.user.save()
+        self.project.license = "MIT"
+        self.project.save(update_fields=["license"])
+
+        params = {
+            "name": "Create Component With Inherited Detected License",
+            "slug": "create-component-with-inherited-detected-license",
+            "project": self.project.pk,
+            "vcs": "git",
+            "repo": self.component.repo,
+            "source_language": get_default_lang(),
+        }
+
+        with override_settings(CREATE_GLOSSARIES=self.CREATE_GLOSSARIES):
+            response = self.client.post(reverse("create-component-vcs"), params)
+        self.assertContains(response, "Choose translation files to import")
+
+        params["discovery"] = "4"
+        with (
+            patch("weblate.trans.views.create.detect_license", return_value="MIT"),
+            override_settings(CREATE_GLOSSARIES=self.CREATE_GLOSSARIES),
+        ):
+            response = self.client.post(reverse("create-component-vcs"), params)
+        self.assertContains(response, "Detected license as MIT")
+
+        form = response.context["form"]
+        self.assertTrue(form.fields["license"].disabled)
+        self.assertEqual(
+            form.fields["license"].widget.attrs["data-inherited-value"], "MIT"
+        )
+        self.assertTrue(form["inherit_license"].value())
+
+        data = {field: form[field].value() or "" for field in form.fields}
+        data.pop("license")
+        data["project"] = self.project.pk
+        data["source_language"] = get_default_lang()
+        data["new_lang"] = "add"
+        data["new_base"] = "po/project.pot"
+        data["language_regex"] = "^[^.]+$"
+
+        with override_settings(CREATE_GLOSSARIES=self.CREATE_GLOSSARIES):
+            response = self.client.post(reverse("create-component-vcs"), data)
+        self.assertEqual(response.status_code, 302)
+
+        component = Component.objects.get(
+            slug="create-component-with-inherited-detected-license"
+        )
+        self.assertTrue(component.inherit_license)
+        self.assertEqual(component.effective_license, "MIT")
+
+    @modify_settings(INSTALLED_APPS={"remove": "weblate.billing"})
+    def test_create_component_can_inherit_defaults(self) -> None:
+        self.user.is_superuser = True
+        self.user.save()
+        self.project.license = "GPL-3.0-or-later"
+        self.project.new_lang = "none"
+        self.project.language_code_style = "posix"
+        self.project.save(update_fields=["license", "new_lang", "language_code_style"])
+
+        params = {
+            "name": "Create Component With Inheritance",
+            "slug": "create-component-with-inheritance",
+            "project": self.project.pk,
+            "vcs": "git",
+            "repo": self.component.get_repo_link_url(),
+            "file_format": "po",
+            "filemask": "po/*.po",
+            "new_base": "po/project.pot",
+            "inherit_new_lang": "on",
+            "inherit_license": "on",
+            "inherit_language_code_style": "on",
+            "language_regex": "^[^.]+$",
+            "source_language": get_default_lang(),
+        }
+        with override_settings(CREATE_GLOSSARIES=self.CREATE_GLOSSARIES):
+            response = self.client.post(reverse("create-component-vcs"), params)
+        self.assertEqual(response.status_code, 302)
+
+        component = Component.objects.get(slug="create-component-with-inheritance")
+        self.assertTrue(component.inherit_new_lang)
+        self.assertEqual(component.effective_new_lang, "none")
+        self.assertTrue(component.inherit_license)
+        self.assertEqual(component.effective_license, "GPL-3.0-or-later")
+        self.assertTrue(component.inherit_language_code_style)
+        self.assertEqual(component.effective_language_code_style, "posix")
+
+    @modify_settings(INSTALLED_APPS={"remove": "weblate.billing"})
+    def test_create_component_explicit_defaults_disable_inheritance(self) -> None:
+        self.user.is_superuser = True
+        self.user.save()
+        self.project.new_lang = "none"
+        self.project.license = "GPL-3.0-or-later"
+        self.project.language_code_style = "posix"
+        self.project.save(update_fields=["new_lang", "license", "language_code_style"])
+
+        self.client_create_component(True, license="", language_code_style="")
+
+        component = Component.objects.get(slug="create-component")
+        self.assertFalse(component.inherit_new_lang)
+        self.assertEqual(component.effective_new_lang, "add")
+        self.assertFalse(component.inherit_license)
+        self.assertEqual(component.effective_license, "")
+        self.assertFalse(component.inherit_language_code_style)
+        self.assertEqual(component.effective_language_code_style, "")
+
+    def test_create_component_blank_parent_license_is_editable(self) -> None:
+        form = ComponentCreateForm(
+            self.get_request(), initial={"project": self.project.pk}
+        )
+
+        self.assertFalse(form.fields["license"].disabled)
+        self.assertFalse(form["inherit_license"].value())
+
+    @modify_settings(INSTALLED_APPS={"remove": "weblate.billing"})
+    def test_create_component_blank_parent_preserves_selected_license(self) -> None:
+        self.user.is_superuser = True
+        self.user.save()
+
+        self.project.license = ""
+        self.project.save(update_fields=["license"])
+
+        self.client_create_component(True, license="GPL-3.0-or-later")
+
+        component = Component.objects.get(slug="create-component")
+        self.assertFalse(component.inherit_license)
+        self.assertEqual(component.license, "GPL-3.0-or-later")
+        self.assertEqual(component.effective_license, "GPL-3.0-or-later")
+
+    @modify_settings(INSTALLED_APPS={"remove": "weblate.billing"})
+    def test_create_component_blank_workspace_preserves_selected_license(self) -> None:
+        self.user.is_superuser = True
+        self.user.save()
+
+        self.project.workspace = Workspace.objects.create(name="Blank workspace")
+        self.project.inherit_license = True
+        self.project.license = ""
+        self.project.workspace.license = ""
+        self.project.workspace.save(update_fields=["license"])
+        self.project.save(update_fields=["workspace", "inherit_license", "license"])
+
+        self.client_create_component(True, license="GPL-3.0-or-later")
+
+        component = Component.objects.get(slug="create-component")
+        self.assertFalse(component.inherit_license)
+        self.assertEqual(component.license, "GPL-3.0-or-later")
+        self.assertEqual(component.effective_license, "GPL-3.0-or-later")
+
+    @modify_settings(INSTALLED_APPS={"remove": "weblate.billing"})
     def test_create_component_existing(self) -> None:
         # Make superuser
         self.user.is_superuser = True
@@ -281,6 +499,20 @@ class CreateTest(ViewTestCase):
         self.component.addon_message = "test addon_message"
         self.component.pull_message = "test pull_message"
         self.component.save()
+        self.project.license = "MIT"
+        self.project.new_lang = "none"
+        self.project.language_code_style = "posix"
+        self.project.save(update_fields=["license", "new_lang", "language_code_style"])
+        Component.objects.filter(pk=self.component.pk).update(
+            license="GPL-3.0-or-later",
+            inherit_license=True,
+            new_lang="add",
+            inherit_new_lang=True,
+            language_code_style="",
+            inherit_language_code_style=False,
+            inherit_agreement=True,
+        )
+        self.component.refresh_from_db()
 
         response = self.client.get(
             f"{reverse('create-component')}?component={self.component.pk}#existing",
@@ -306,10 +538,13 @@ class CreateTest(ViewTestCase):
 
         # discovery step
         self.assertContains(response, "Choose translation files to import")
+        discovery_url = response.request["PATH_INFO"]
+        if query_string := response.request["QUERY_STRING"]:
+            discovery_url = f"{discovery_url}?{query_string}"
 
         with override_settings(CREATE_GLOSSARIES=self.CREATE_GLOSSARIES):
             response = self.client.post(
-                f"{reverse('create-component-vcs')}?source_component={self.component.pk}#existing,",
+                discovery_url,
                 {
                     "name": "Create Component From Existing",
                     "slug": "create-component-from-existing",
@@ -326,31 +561,36 @@ class CreateTest(ViewTestCase):
             response,
             "You will be able to edit more options in the component settings after creating it.",
         )
+        form = response.context["form"]
+        self.assertTrue(form.fields["license"].disabled)
+        self.assertEqual(
+            form.fields["license"].widget.attrs["data-override-value"],
+            "GPL-3.0-or-later",
+        )
+        self.assertTrue(form.fields["new_lang"].disabled)
+        self.assertFalse(form.fields["language_code_style"].disabled)
 
-        with override_settings(CREATE_GLOSSARIES=self.CREATE_GLOSSARIES):
-            response = self.client.post(
-                f"{reverse('create-component-vcs')}?source_component={self.component.pk}#existing,",
-                {
-                    "name": "Create Component From Existing",
-                    "slug": "create-component-from-existing",
-                    "is_glossary": self.component.is_glossary,
-                    "project": self.component.project_id,
-                    "vcs": self.component.vcs,
-                    "repo": self.component.repo,
-                    "source_language": self.component.source_language_id,
-                    "file_format": "po",
-                    "filemask": "deep/*/locales/*/LC_MESSAGES/messages.po",
-                    "new_lang": "add",
-                    "new_base": "deep/cs/locales/cs/LC_MESSAGES/messages.po",
-                    "language_regex": "^[^.]+$",
-                    "source_component": self.component.pk,
-                },
+        data = {field: form[field].value() or "" for field in form.fields}
+        data.pop("inherit_license")
+        data["license"] = "LGPL-3.0-or-later"
+        data.pop("new_lang")
+        create_url = response.request["PATH_INFO"]
+        if query_string := response.request["QUERY_STRING"]:
+            create_url = f"{create_url}?{query_string}"
+        with (
+            override_settings(CREATE_GLOSSARIES=self.CREATE_GLOSSARIES),
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            self.client.post(
+                create_url,
+                data,
                 follow=True,
             )
-        self.assertContains(response, "Community localization checklist")
+        new_component = Component.objects.get(name="Create Component From Existing")
+        response = self.client.get(new_component.get_absolute_url(), follow=True)
+        self.assertContains(response, "Diagnostics")
         self.assertContains(response, "Test/Create Component From Existing @ Weblate")
 
-        new_component = Component.objects.get(name="Create Component From Existing")
         cloned_fields = [
             "agreement",
             "merge_style",
@@ -365,6 +605,17 @@ class CreateTest(ViewTestCase):
             self.assertEqual(
                 getattr(new_component, field), getattr(self.component, field)
             )
+        self.assertEqual(
+            new_component.inherit_agreement, self.component.inherit_agreement
+        )
+        self.assertFalse(new_component.inherit_license)
+        self.assertEqual(new_component.license, "LGPL-3.0-or-later")
+        self.assertEqual(new_component.effective_license, "LGPL-3.0-or-later")
+        self.assertTrue(new_component.inherit_new_lang)
+        self.assertEqual(new_component.new_lang, "add")
+        self.assertEqual(new_component.effective_new_lang, "none")
+        self.assertFalse(new_component.inherit_language_code_style)
+        self.assertEqual(new_component.effective_language_code_style, "")
 
         change = new_component.change_set.get(action=ActionEvents.CREATE_COMPONENT)
         self.assertEqual(change.details["origin"], "vcs")
@@ -409,11 +660,14 @@ class CreateTest(ViewTestCase):
                     "component": component.pk,
                     "branch": "translations",
                 },
-                follow=True,
             )
-        self.assertContains(response, "Return to the component")
 
         component = Component.objects.get(slug="create-component")
+        self.assertRedirects(
+            response,
+            reverse("show_progress", kwargs={"path": component.get_url_path()}),
+            fetch_redirect_response=False,
+        )
         change = component.change_set.get(action=ActionEvents.CREATE_COMPONENT)
         self.assertEqual(change.details["origin"], "branch")
 
@@ -493,6 +747,7 @@ class CreateTest(ViewTestCase):
 
             form = response.context["form"]
             params = {field: form[field].value() or "" for field in form.fields}
+            params.pop("inherit_new_lang")
             params["new_lang"] = "none"
             response = self.client.post(
                 reverse("create-component-zip"), params, follow=True

@@ -1,0 +1,59 @@
+[project]
+name = "metatensor-core"
+dynamic = ["version", "authors"]
+requires-python = ">=3.10"
+
+readme = "README.rst"
+license = "BSD-3-Clause"
+description = "Python bindings for metatensor"
+
+dependencies = ["numpy"]
+
+keywords = ["machine learning", "molecular modeling"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Operating System :: POSIX",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.urls]
+homepage = "https://docs.metatensor.org/latest/"
+documentation = "https://docs.metatensor.org/latest/"
+repository = "https://github.com/metatensor/metatensor"
+changelog = "https://docs.metatensor.org/latest/core/CHANGELOG.html"
+
+### ======================================================================== ###
+[build-system]
+requires = [
+    "setuptools >=77",
+    "packaging >=23",
+    "cmake",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+zip-safe = false
+
+[tool.setuptools.packages.find]
+include = ["metatensor*"]
+namespaces = false
+
+### ======================================================================== ###
+[tool.pytest.ini_options]
+python_files = ["*.py"]
+testpaths = ["tests"]
+filterwarnings = [
+    "error",
+    "ignore:`torch.jit.interface` is deprecated. Please use `torch.compile` instead:DeprecationWarning",
+    "ignore:`torch.jit.script` is not supported in Python 3.14:DeprecationWarning",
+]

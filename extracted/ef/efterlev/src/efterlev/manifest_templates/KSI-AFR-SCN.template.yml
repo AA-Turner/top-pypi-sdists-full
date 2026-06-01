@@ -1,0 +1,32 @@
+# KSI-AFR-SCN — Significant Change Notifications
+#
+# DRAFT — this is a starter-pack template. Copy it to
+# `.efterlev/manifests/<ksi-id>.yml` (drop the `.template` suffix) and
+# fill in the DRAFT placeholders before letting it land in your
+# attestation pipeline. The `_template_help` block carries the
+# questions you should answer; remove that block once filled in.
+
+ksi: KSI-AFR-SCN
+name: "Significant Change Notifications"
+
+_template_help:
+  description: >
+    KSI-AFR-SCN tracks significant changes to the cloud service offering and notifies FedRAMP per the SCN process. The attestation should name what counts as significant, how changes are tracked, and the notification channel.
+  questions:
+      - "What change categories count as 'significant' for FedRAMP SCN purposes?"
+      - "Where are significant changes logged (change-management system, ticketing)?"
+      - "Who reviews proposed changes for SCN-applicability?"
+      - "What's the notification channel and timeline to FedRAMP?"
+      - "Where is your SCN process documented internally?"
+
+evidence:
+  - type: attestation
+    statement: >
+      DRAFT — Example: Significant changes (defined in compliance/scn-categories.md) are tracked in our change-management system (Jira CR project). The Compliance Officer reviews each CR for SCN-applicability; FedRAMP-significant changes go to the FedRAMP PMO via the FedRAMP Secure Repository within 30 days of approval per SCN guidance.
+    attested_by: "DRAFT — your-vp-security@example.com"
+    attested_at: "DRAFT — YYYY-MM-DD"
+    reviewed_at: "DRAFT — YYYY-MM-DD"
+    next_review: "DRAFT — YYYY-MM-DD (recommend 6-month review cadence)"
+    supporting_docs:
+      - "DRAFT — ./policies/your-runbook.pdf"
+      - "DRAFT — https://wiki.your-company.example/path-to-relevant-docs"

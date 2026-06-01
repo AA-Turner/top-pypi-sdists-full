@@ -1,0 +1,81 @@
+Metadata-Version: 2.4
+Name: rb-resume-parser
+Version: 0.1.6
+Summary: Extract structured information from PDF resumes using NLP and pattern matching
+Author-email: Rahul Bagai <rahulbagai@ieee.org>
+License: MIT
+Project-URL: Homepage, https://github.com/rahulbagai/resume-parser
+Project-URL: Documentation, https://github.com/rahulbagai/resume-parser#readme
+Project-URL: Issues, https://github.com/rahulbagai/resume-parser/issues
+Project-URL: Source, https://github.com/rahulbagai/resume-parser
+Keywords: resume,parser,pdf,nlp,cv,extraction
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Text Processing :: Linguistic
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pymupdf>=1.23.0
+Requires-Dist: spacy<4.0.0,>=3.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: mypy>=1.0.0; extra == "dev"
+Requires-Dist: ruff>=0.1.0; extra == "dev"
+Requires-Dist: bump2version>=1.0.0; extra == "dev"
+Dynamic: license-file
+
+# Resume Parser
+
+[![Python Version](https://img.shields.io/pypi/pyversions/rb-resume-parser?style=flat-square)](https://pypi.org/project/rb-resume-parser/)
+[![PyPI Version](https://img.shields.io/pypi/v/rb-resume-parser?style=flat-square)](https://pypi.org/project/rb-resume-parser/)
+[![License](https://img.shields.io/pypi/l/rb-resume-parser?style=flat-square)](https://github.com/rahulbagai/resume-parser/blob/main/LICENSE)
+[![Downloads](https://img.shields.io/pypi/dm/rb-resume-parser?style=flat-square)](https://pypi.org/project/rb-resume-parser/)
+
+![resume](https://img.shields.io/badge/-resume-blue) ![parser](https://img.shields.io/badge/-parser-blue) ![pdf](https://img.shields.io/badge/-pdf-blue) ![nlp](https://img.shields.io/badge/-nlp-blue) ![cv](https://img.shields.io/badge/-cv-blue)
+
+Extract structured information from PDF resumes using NLP and pattern matching
+
+## 📦 Installation
+
+```bash
+pip install rb-resume-parser
+```
+
+
+**Post-Install:**
+```bash
+Note: This package requires the spaCy English model.
+Run: python -m spacy download en_core_web_sm
+```
+
+## 🚀 Quick Start
+
+```python
+from resume_parser import *
+
+# Add usage examples here
+```
+
+## 📚 Documentation
+
+For full documentation, visit [https://github.com/rahulbagai/resume-parser](https://github.com/rahulbagai/resume-parser)
+
+## 🤝 Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## 📝 License
+
+This project is licensed under the MIT License - see [LICENSE](LICENSE) for details.
+
+## 🙏 Acknowledgments
+
+Maintained by [Rahul Bagai](https://github.com/rahulbagai/resume-parser)
+
+## 📧 Contact
+
+For questions and support, please open an issue on [GitHub](https://github.com/rahulbagai/resume-parser/issues).

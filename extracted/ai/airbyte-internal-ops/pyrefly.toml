@@ -1,0 +1,9 @@
+# Pyrefly Type Checker Configuration
+# https://pyrefly.org/en/docs/configuration/
+
+python-version = "3.11"
+project-includes = ["src/airbyte_ops_mcp/mcp"]
+project-excludes = [
+    "tests/**",
+    "docs/**",
+]

@@ -1,0 +1,66 @@
+Metadata-Version: 2.4
+Name: modulegraph2
+Version: 2.3
+Summary: A module import dependency graph for Python projects.
+Home-page: https://modulegraph2.readthedocs.io/
+Author: Ronald Oussoren
+Author-email: ronaldoussoren@mac.com
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
+License: MIT
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Free Threading :: 3 - Stable
+License-File: LICENSE.txt
+Requires-Dist: typing_extensions
+Requires-Dist: objectgraph >= 1.0.5
+Project-URL: Documentation, https://modulegraph2.readthedocs.io/
+Project-URL: Issue Tracker, https://github.com/ronaldoussoren/modulegraph2/issues
+Project-URL: Source Code, https://github.com/ronaldoussoren/modulegraph2/
+Project-URL: Supporting, https://blog.ronaldoussoren.net/support/
+
+Introduction
+------------
+
+Modulegraph2 is a library for creating and introspecting
+the dependency graph between Python modules. The graph is
+created using static analisys from source and byte code.
+
+The dependency graph contains information about packages,
+modules, extensions and their dependencies. The dependencies
+are annotated with relevant information about the import
+statement.
+
+Modules that from a distribution installed using pip also have
+a link to information about that distribution.
+
+There is `documentation at readthedocs <https://modulegraph2.readthedocs.io/>`_
+
+.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
+    :target: https://github.com/psf/black
+
+CI Status
+.........
+
+.. image:: https://github.com/ronaldoussoren/modulegraph2/workflows/Lint/badge.svg
+.. image:: https://github.com/ronaldoussoren/modulegraph2/workflows/Test/badge.svg
+
+Historic
+........
+
+Modulegraph2 is a complete rewrite of `modulegraph <https://pypi.org/project/modulegraph/>`_,
+using lessons learned in that project but with a complete new
+Python 3 code base and full test coverage.
+

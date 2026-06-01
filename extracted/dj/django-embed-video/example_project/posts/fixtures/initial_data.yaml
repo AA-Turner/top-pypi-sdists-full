@@ -1,0 +1,36 @@
+- fields: {title: I will wait, video: 'http://www.youtube.com/watch?v=rGKfrgqWcv0'}
+  model: posts.post
+  pk: 1
+- fields: {title: Alma, video: 'https://vimeo.com/4749536'}
+  model: posts.post
+  pk: 2
+- fields: {title: I Got Rhythm, video: 'https://www.youtube.com/watch?v=QAaOI0cAjhc'}
+  model: posts.post
+  pk: 3
+- fields: {title: It Had To Be You, video: 'https://www.youtube.com/watch?v=bbDqp1JV5lU'}
+  model: posts.post
+  pk: 4
+- fields: {title: Harlem Swing, video: 'https://soundcloud.com/djangoreinhardt/harlem-swing-5'}
+  model: posts.post
+  pk: 5
+- fields: {title: Yours and Mine, video: 'https://soundcloud.com/djangoreinhardt/yours-and-mine-704002798'}
+  model: posts.post
+  pk: 6
+- fields: {title: Festival Swing, video: 'https://soundcloud.com/djangoreinhardt/festival-swing-514690263'}
+  model: posts.post
+  pk: 7
+- fields: {title: Stubborn love, video: 'http://youtu.be/UJWk_KNbDHo'}
+  model: posts.post
+  pk: 8
+- fields: {title: Timelapse, video: 'http://vimeo.com/14352658'}
+  model: posts.post
+  pk: 9
+- fields: {title: Slovakia, video: 'https://vimeo.com/72304002'}
+  model: posts.post
+  pk: 10
+- fields: {title: Django Reinhardt, video: 'https://www.youtube.com/watch?v=ceqeR49t7I4'}
+  model: posts.post
+  pk: 11
+- fields: {title: What is Django, video: 'https://www.youtube.com/watch?v=c5HlCEjxQ9o&list=PLkQQsbwLvxCXWvKbcSBd7F7qg3x--A-v6'}
+  model: posts.post
+  pk: 12

@@ -1,0 +1,33 @@
+detector_id: aws.api_gateway_access_logging
+
+ksis:
+  - id: KSI-MLA-LET
+    name: "Logging Event Types"
+    coverage: partial
+    notes: >
+      Evidences whether each `aws_api_gateway_stage` (REST API v1)
+      and `aws_apigatewayv2_stage` (HTTP/WebSocket API v2) declares
+      an `access_log_settings` block. Stage-shaped evidence: a single
+      API can have multiple stages with different logging postures
+      (e.g., `prod` with logging enabled, `staging` without). Does
+      not evidence runtime log flow, retention on the destination,
+      access control on the destination, or that the format string
+      captures all event types compliance frameworks ask about.
+
+controls:
+  - id: AU-2
+    evidence_type: infrastructure
+    coverage: partial
+    notes: >
+      Event Logging at the IaC layer for the API Gateway request
+      path. Per-stage granularity captures the "production logging on,
+      staging off" pattern that compliance audits flag.
+  - id: AU-3
+    evidence_type: infrastructure
+    coverage: partial
+    notes: >
+      Content of Audit Records -- the access_log_settings.format
+      string declares which $context fields the stage logs. The
+      detector confirms the block exists and notes whether a
+      format is set; it does not validate the format string's
+      coverage of compliance-required fields.

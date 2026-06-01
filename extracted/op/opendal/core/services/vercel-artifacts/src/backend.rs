@@ -37,6 +37,7 @@ impl Access for VercelArtifactsBackend {
     type Writer = oio::OneShotWriter<VercelArtifactsWriter>;
     type Lister = ();
     type Deleter = ();
+    type Copier = ();
 
     fn info(&self) -> Arc<AccessorInfo> {
         self.core.info.clone()
@@ -66,9 +67,10 @@ impl Access for VercelArtifactsBackend {
         let status = response.status();
 
         match status {
-            StatusCode::OK | StatusCode::PARTIAL_CONTENT => {
-                Ok((RpRead::new(), response.into_body()))
-            }
+            StatusCode::OK | StatusCode::PARTIAL_CONTENT => Ok((
+                RpRead::new(parse_into_metadata(path, response.headers())?),
+                response.into_body(),
+            )),
             _ => {
                 let (part, mut body) = response.into_parts();
                 let buf = body.to_buffer().await?;

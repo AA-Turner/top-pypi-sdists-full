@@ -1,3 +1,0 @@
-flow:
-  version: 0.1.0
-  bootstrap: echo "hello!"

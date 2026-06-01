@@ -1,0 +1,170 @@
+[project]
+name = "abxbus"
+description = "Advanced Pydantic-powered event bus with async support"
+authors = [{ name = "Nick Sweeting" }, { name = "ArchiveBox" }]
+version = "2.5.9"
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "pydantic>=2.13.4",
+    "typing-extensions>=4.15.0",
+    "uuid7>=0.1.0",
+]
+[project.optional-dependencies]
+postgres = [
+    "asyncpg>=0.31.0",
+]
+nats = [
+    "nats-py>=2.14.0",
+]
+redis = [
+    "redis>=7.4.0",
+]
+# Tachyon's native core requires GCC 14+ / Clang 17+ to compile, so it's exposed
+# as its own extra and intentionally excluded from `bridges` to keep that
+# aggregate installable on stock CI/runtimes. Install with `abxbus[tachyon]`.
+tachyon = [
+    "tachyon-ipc>=0.5.0",
+]
+bridges = [
+    "asyncpg>=0.31.0",
+    "nats-py>=2.14.0",
+    "redis>=7.4.0",
+]
+
+[project.urls]
+Homepage = "https://abxbus.archivebox.io"
+Repository = "https://github.com/ArchiveBox/abxbus"
+"Issue Tracker" = "https://github.com/ArchiveBox/abxbus/issues"
+Documentation = "https://abxbus.archivebox.io"
+DeepWiki = "https://deepwiki.com/ArchiveBox/abxbus"
+PyPI = "https://pypi.org/project/abxbus/"
+NPM = "https://www.npmjs.com/package/abxbus"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.12",
+    "build>=1.5.0",
+    "pytest>=9.0.3",
+    "pytest-asyncio>=1.3.0",
+    "pytest-httpserver>=1.1.5",
+    "ipdb>=0.13.13",
+    "codespell>=2.4.2",
+    "pyright>=1.1.409",
+    "ty>=0.0.34",
+    "pytest-xdist>=3.8.0",
+    "psutil>=7.2.2",
+    "pytest-cov>=7.1.0",
+    "pytest-timeout>=2.4.0",
+    "prek>=0.3.13",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.11,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "abxbus"
+module-root = "."
+source-exclude = [
+    "/examples",
+    "/tests",
+    "/abxbus-ts",
+    "/test.sh",
+    "/.github",
+    "/.pytest_cache",
+    "/.cursor",
+    "/.claude",
+]
+
+[tool.codespell]
+ignore-words-list = "abx,abxbus,bu,wit,dont,cant,wont,re-use,re-used,re-using,re-usable,thats,doesnt"
+skip = "*.json"
+
+[tool.ruff]
+line-length = 130
+fix = true
+
+[tool.ruff.lint]
+preview = true
+select = ["ASYNC", "E", "F", "FAST", "I", "PLE"]
+ignore = ["ASYNC109", "E101", "E402", "E501", "F841", "E731", "W291"]  # TODO: determine if adding timeouts to all the unbounded async functions is needed / worth-it so we can un-ignore ASYNC109
+unfixable = ["E101", "E402", "E501", "F841", "E731"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["ASYNC220", "ASYNC221", "ASYNC240"]
+
+[tool.ruff.format]
+indent-style = "space"
+quote-style = "single"
+line-ending = "lf"
+docstring-code-format = true
+docstring-code-line-length = 140
+skip-magic-trailing-comma = false
+
+[tool.pyright]
+stubPath = "abxbus/typings"
+pythonVersion = "3.11"
+typeCheckingMode = "strict"
+reportMissingImports = "error"
+reportMissingTypeStubs = "error"
+reportPrivateUsage = "error"
+venvPath = "."
+venv = ".venv"
+include = ["abxbus", "examples", "tests"]
+executionEnvironments = [
+    { root = "tests", extraPaths = ["."] },
+]
+
+[tool.ty.src]
+include = ["abxbus", "examples", "tests"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+asyncio_default_test_loop_scope = "function"
+testpaths = [
+    "tests"
+]
+python_files = ["test_*.py", "*_test.py"]
+addopts = "-svx --strict-markers --tb=short --dist=loadscope"
+log_cli = true
+log_cli_format = "%(levelname)-8s [%(name)s] %(message)s"
+filterwarnings = [
+    "ignore::pytest.PytestDeprecationWarning",
+    "ignore::DeprecationWarning",
+]
+log_level = "DEBUG"
+
+[tool.coverage.run]
+source = ["abxbus"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*.pyc",
+]
+parallel = true
+data_file = ".coverage"
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "return NotImplemented",
+    "assert_never",
+    "\\.\\.\\.",
+    "^\\s*$",  # Blank lines
+]
+show_missing = true
+skip_covered = false
+precision = 2
+
+[tool.coverage.html]
+directory = "htmlcov"

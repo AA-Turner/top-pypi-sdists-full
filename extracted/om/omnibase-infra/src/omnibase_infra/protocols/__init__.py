@@ -1,0 +1,137 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Protocol definitions for omnibase_infra.
+
+Protocol definitions (duck-typed interfaces) for infrastructure
+components in the ONEX ecosystem.
+
+Protocols:
+    - ProtocolCapabilityProjection: Interface for capability-based projection queries
+    - ProtocolCapabilityQuery: Interface for capability-based node discovery service
+    - ProtocolDispatchEngine: Interface for message dispatch engines
+    - ProtocolEventBusLike: Interface for event bus abstraction (used by introspection)
+    - ProtocolIdempotencyStore: Interface for idempotency checking and deduplication
+    - ProtocolMessageDispatcher: Interface for message dispatchers
+    - ProtocolMessageTypeRegistry: Interface for message type registries
+    - ProtocolPluginCompute: Interface for deterministic compute plugins
+    - ProtocolRegistryMetrics: Interface for registry metrics collection (optional)
+    - ProtocolSnapshotPublisher: Interface for snapshot publishing services (F2)
+    - ProtocolSnapshotStore: Interface for snapshot storage backends
+    - ProtocolTopicRegistry: Interface for topic key to Kafka topic string resolution
+    - ProtocolNodeHeartbeat: Interface for node heartbeat DI resolution
+    - ProtocolValidationLedgerRepository: Interface for validation event ledger persistence
+
+Note:
+    ProtocolCircuitBreakerAware is defined in omnibase_infra.mixins (tightly coupled
+    to MixinAsyncCircuitBreaker). Import it from there, not from this package.
+
+Architecture:
+    Protocols enable duck typing and dependency injection without requiring
+    inheritance. Classes implementing a protocol are automatically recognized
+    through structural typing (matching method signatures).
+
+Usage:
+    ```python
+    from omnibase_infra.protocols import (
+        ProtocolCapabilityQuery,
+        ProtocolEventBusLike,
+        ProtocolIdempotencyStore,
+        ProtocolPluginCompute,
+        ProtocolRegistryMetrics,
+        ProtocolSnapshotPublisher,
+        ProtocolSnapshotStore,
+    )
+
+    # Verify protocol compliance via duck typing (per ONEX conventions)
+    plugin = MyComputePlugin()
+    assert hasattr(plugin, 'execute') and callable(plugin.execute)
+
+    publisher = MySnapshotPublisher()
+    assert hasattr(publisher, 'publish_snapshot') and callable(publisher.publish_snapshot)
+    assert hasattr(publisher, 'delete_snapshot') and callable(publisher.delete_snapshot)
+
+    store = MyIdempotencyStore()
+    assert hasattr(store, 'check_and_record') and callable(store.check_and_record)
+    ```
+
+See Also:
+    - omnibase_infra.plugins for base class implementations
+    - omnibase_infra.models.projection for projection models
+    - omnibase_infra.mixins for ProtocolCircuitBreakerAware
+    - ONEX 4-node architecture documentation
+    - OMN-947 (F2) for snapshot publishing design
+"""
+
+from omnibase_infra.protocols.protocol_auto_wiring_manifest_like import (
+    ProtocolAutoWiringManifestLike,
+)
+from omnibase_infra.protocols.protocol_capability_projection import (
+    ProtocolCapabilityProjection,
+)
+from omnibase_infra.protocols.protocol_capability_query import ProtocolCapabilityQuery
+from omnibase_infra.protocols.protocol_container_aware import ProtocolContainerAware
+from omnibase_infra.protocols.protocol_dispatch_engine import ProtocolDispatchEngine
+from omnibase_infra.protocols.protocol_dispatch_result_applier import (
+    ProtocolDispatchResultApplier,
+)
+from omnibase_infra.protocols.protocol_event_bus_like import ProtocolEventBusLike
+from omnibase_infra.protocols.protocol_event_projector import ProtocolEventProjector
+from omnibase_infra.protocols.protocol_idempotency_store import (
+    ProtocolIdempotencyStore,
+)
+from omnibase_infra.protocols.protocol_kafka_admin_like import ProtocolKafkaAdminLike
+from omnibase_infra.protocols.protocol_ledger_sink import ProtocolLedgerSink
+from omnibase_infra.protocols.protocol_message_dispatcher import (
+    ProtocolMessageDispatcher,
+)
+from omnibase_infra.protocols.protocol_message_type_registry import (
+    ProtocolMessageTypeRegistry,
+)
+from omnibase_infra.protocols.protocol_node_heartbeat import (
+    ProtocolNodeHeartbeat,
+)
+from omnibase_infra.protocols.protocol_node_introspection import (
+    ProtocolNodeIntrospection,
+)
+from omnibase_infra.protocols.protocol_payload_registry import (
+    ProtocolPayloadRegistry,
+)
+from omnibase_infra.protocols.protocol_plugin_compute import ProtocolPluginCompute
+from omnibase_infra.protocols.protocol_projector_schema_validator import (
+    ProtocolProjectorSchemaValidator,
+)
+from omnibase_infra.protocols.protocol_registry_metrics import ProtocolRegistryMetrics
+from omnibase_infra.protocols.protocol_snapshot_publisher import (
+    ProtocolSnapshotPublisher,
+)
+from omnibase_infra.protocols.protocol_snapshot_store import ProtocolSnapshotStore
+from omnibase_infra.protocols.protocol_topic_registry import ProtocolTopicRegistry
+from omnibase_infra.protocols.protocol_validation_ledger_repository import (
+    ProtocolValidationLedgerRepository,
+)
+
+__all__: list[str] = [
+    "ProtocolAutoWiringManifestLike",
+    "ProtocolCapabilityProjection",
+    "ProtocolCapabilityQuery",
+    "ProtocolContainerAware",
+    "ProtocolDispatchEngine",
+    "ProtocolDispatchResultApplier",
+    "ProtocolEventBusLike",
+    "ProtocolEventProjector",
+    "ProtocolIdempotencyStore",
+    "ProtocolKafkaAdminLike",
+    "ProtocolLedgerSink",
+    "ProtocolMessageDispatcher",
+    "ProtocolMessageTypeRegistry",
+    "ProtocolNodeHeartbeat",
+    "ProtocolNodeIntrospection",
+    "ProtocolPayloadRegistry",
+    "ProtocolPluginCompute",
+    "ProtocolProjectorSchemaValidator",
+    "ProtocolRegistryMetrics",
+    "ProtocolSnapshotPublisher",
+    "ProtocolSnapshotStore",
+    "ProtocolTopicRegistry",
+    "ProtocolValidationLedgerRepository",
+]

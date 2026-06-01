@@ -1,0 +1,311 @@
+name: Slack Notification Dispatch
+
+permissions:
+  contents: read
+  actions: read
+
+on:
+  # pull_request:
+  #   paths:
+  #     - "src/airbyte_ops_mcp/human_in_the_loop*.py"
+  #     - "src/airbyte_ops_mcp/mcp/human_in_the_loop.py"
+  #     - ".github/workflows/human-in-the-loop.yml"
+  workflow_dispatch:
+    inputs:
+      target_person:
+        description: >
+          Primary person to notify. Accepts an email address (aj@airbyte.io),
+          a GitHub handle (aaronsteers), or a Slack user ID (U05AKF1BCC9).
+        required: true
+        type: string
+      cc_persons:
+        description: >
+          Comma-separated list of additional people to tag (same identifier
+          formats as target_person). Optional.
+        required: false
+        type: string
+      message:
+        description: "Message body to deliver."
+        required: true
+        type: string
+      agent_session_url:
+        description: "Agent session URL for context (e.g. Devin session URL)."
+        required: true
+        type: string
+      pr_url:
+        description: "Optional URL to a related pull request."
+        required: false
+        type: string
+      issue_url:
+        description: "Optional URL to a related GitHub issue."
+        required: false
+        type: string
+      additional_actions:
+        description: "JSON object of label -> URL pairs for extra action buttons."
+        required: false
+        type: string
+      approval_requested:
+        description: >-
+          Set to 'true' to add an Approve button that posts back to the
+          Slack app with a confirmation dialog and post-approval state.
+        required: false
+        type: string
+      approval_request_summary:
+        description: >-
+          Short description of what the user is approving. Shown in a
+          confirmation dialog before the Approve button fires.
+        required: false
+        type: string
+      approval_request_detail_url:
+        description: >-
+          Optional URL where the reviewer can read full details of what
+          they are being asked to approve. Rendered as a 'View Details'
+          button in the Slack message.
+        required: false
+        type: string
+      approval_metadata:
+        description: >-
+          JSON object of key-value pairs to embed in approval button
+          payloads and echo back in the approval record. Used for
+          round-tripping structured data (e.g. secret_alias)
+          through the approval flow.
+        required: false
+        type: string
+      channel_override:
+        description: >-
+          Slack channel ID to post to instead of the default.
+          Set by the calling MCP tool; not agent-controlled.
+        required: false
+        type: string
+      header_emoji:
+        description: >-
+          Emoji for the message header (e.g. ":tada:", ":warning:").
+          Defaults to ":man-raising-hand:".
+        required: false
+        type: string
+      header_label:
+        description: >-
+          Label for the message header (e.g. "Devin Session Feedback (Positive)").
+          Defaults to "Human-in-the-loop request".
+        required: false
+        type: string
+      context_footer:
+        description: >-
+          Additional text for the context footer block.
+          Appended after the default footer content in the Slack message.
+        required: false
+        type: string
+      connector_name:
+        description: >-
+          Optional connector name to display as "Re: {connector_name}" in the
+          message header line, next to the "To:" field.
+        required: false
+        type: string
+  workflow_call:
+    inputs:
+      target_person:
+        description: "Primary person to notify."
+        required: true
+        type: string
+      cc_persons:
+        description: "Comma-separated additional people to tag."
+        required: false
+        type: string
+      message:
+        description: "Message body to deliver."
+        required: true
+        type: string
+      agent_session_url:
+        description: "Agent session URL for context."
+        required: true
+        type: string
+      pr_url:
+        description: "Optional PR URL."
+        required: false
+        type: string
+      issue_url:
+        description: "Optional issue URL."
+        required: false
+        type: string
+      additional_actions:
+        description: "JSON object of label -> URL pairs for extra action buttons."
+        required: false
+        type: string
+      approval_requested:
+        description: "Set to 'true' to add an Approve button with confirmation dialog."
+        required: false
+        type: string
+      approval_request_summary:
+        description: "Short description of what the user is approving, shown in confirmation dialog."
+        required: false
+        type: string
+      approval_request_detail_url:
+        description: "Optional URL for full approval request details, rendered as a View Details button."
+        required: false
+        type: string
+      approval_metadata:
+        description: "JSON object of key-value pairs embedded in approval buttons and echoed in approval records."
+        required: false
+        type: string
+      channel_override:
+        description: "Slack channel ID to post to instead of the default."
+        required: false
+        type: string
+      header_emoji:
+        description: "Emoji for the message header."
+        required: false
+        type: string
+      header_label:
+        description: "Label for the message header."
+        required: false
+        type: string
+      context_footer:
+        description: "Additional text for the context footer block."
+        required: false
+        type: string
+      connector_name:
+        description: "Optional connector name for 'Re:' in the header."
+        required: false
+        type: string
+    outputs:
+      message_channel:
+        description: "Slack channel ID where the message was posted"
+        value: ${{ jobs.send-slack-message.outputs.message_channel }}
+      message_ts:
+        description: "Slack message timestamp (ts) of the posted message"
+        value: ${{ jobs.send-slack-message.outputs.message_ts }}
+      thread_url:
+        description: "Slack permalink URL for the posted message; can be passed to tools that parse it to derive thread_ts"
+        value: ${{ jobs.send-slack-message.outputs.thread_url }}
+    secrets:
+      SLACK_HYDRA_BOT_TOKEN:
+        required: false
+      SLACK_BOT_TOKEN_HITL:
+        required: false
+      SLACK_BOT_TOKEN_AIRBYTE_TEAM:
+        required: false
+
+jobs:
+  send-slack-message:
+    name: Send Slack Notification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Download latest roster artifact
+        id: roster
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "Downloading latest roster artifact..."
+          ROSTER_FILE="/tmp/roster.json"
+
+          # Find the latest successful roster workflow run on main.
+          # Filtering by branch=main is critical: PR-triggered roster runs
+          # skip the artifact upload step (the upload step is gated on
+          # `github.event_name != 'pull_request'`), so picking them up
+          # yields an empty roster and broken Slack mentions. The
+          # `exclude_pull_requests` API parameter only strips the
+          # `pull_requests` metadata field from the response — it does
+          # NOT filter runs by event type — so we filter by branch
+          # instead.
+          RUN_ID=$(gh api \
+            "repos/${{ github.repository }}/actions/workflows/internal_team_roster.yml/runs?status=success&per_page=1&branch=main" \
+            --jq '.workflow_runs[0].id // empty')
+
+          if [ -z "$RUN_ID" ]; then
+            echo "::warning::No successful roster workflow run found. Slack mentions will use raw identifiers."
+            echo '[]' > "$ROSTER_FILE"
+            echo "roster_file=$ROSTER_FILE" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Download the artifact
+          ARTIFACT_ID=$(gh api \
+            "repos/${{ github.repository }}/actions/runs/${RUN_ID}/artifacts" \
+            --jq '.artifacts[] | select(.name == "internal-team-roster") | .id // empty')
+
+          if [ -z "$ARTIFACT_ID" ]; then
+            echo "::warning::Roster artifact not found in run ${RUN_ID}. Using raw identifiers."
+            echo '[]' > "$ROSTER_FILE"
+            echo "roster_file=$ROSTER_FILE" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          gh api \
+            "repos/${{ github.repository }}/actions/artifacts/${ARTIFACT_ID}/zip" \
+            > /tmp/roster.zip
+
+          unzip -o /tmp/roster.zip -d /tmp/roster_extract
+          # Find the JSON file in the extracted archive
+          JSON_FILE=$(find /tmp/roster_extract -name '*.json' | head -1)
+          if [ -n "$JSON_FILE" ]; then
+            cp "$JSON_FILE" "$ROSTER_FILE"
+          else
+            echo "::warning::No JSON file in roster artifact. Using raw identifiers."
+            echo '[]' > "$ROSTER_FILE"
+          fi
+
+          echo "roster_file=$ROSTER_FILE" >> "$GITHUB_OUTPUT"
+          echo "Roster downloaded successfully."
+
+      - name: Resolve identifiers and send Slack message
+        id: send-message
+        env:
+          SLACK_BOT_TOKEN_HITL: ${{ secrets.SLACK_HYDRA_BOT_TOKEN || secrets.SLACK_BOT_TOKEN_HITL || secrets.SLACK_BOT_TOKEN_AIRBYTE_TEAM }}
+          SLACK_CHANNEL_HITL: ${{ vars.SLACK_CHANNEL_HITL || 'human-in-the-loop' }}
+          ROSTER_FILE: ${{ steps.roster.outputs.roster_file }}
+          INPUT_TARGET_PERSON: ${{ inputs.target_person }}
+          INPUT_CC_PERSONS: ${{ inputs.cc_persons }}
+          INPUT_MESSAGE: ${{ inputs.message }}
+          INPUT_AGENT_SESSION_URL: ${{ inputs.agent_session_url }}
+          INPUT_PR_URL: ${{ inputs.pr_url }}
+          INPUT_ISSUE_URL: ${{ inputs.issue_url }}
+          INPUT_ADDITIONAL_ACTIONS: ${{ inputs.additional_actions }}
+          INPUT_APPROVAL_REQUESTED: ${{ inputs.approval_requested }}
+          INPUT_APPROVAL_REQUEST_SUMMARY: ${{ inputs.approval_request_summary }}
+          INPUT_APPROVAL_REQUEST_DETAIL_URL: ${{ inputs.approval_request_detail_url }}
+          INPUT_APPROVAL_METADATA: ${{ inputs.approval_metadata }}
+          INPUT_CHANNEL_OVERRIDE: ${{ inputs.channel_override }}
+          INPUT_HEADER_EMOJI: ${{ inputs.header_emoji }}
+          INPUT_HEADER_LABEL: ${{ inputs.header_label }}
+          INPUT_CONTEXT_FOOTER: ${{ inputs.context_footer }}
+          INPUT_CONNECTOR_NAME: ${{ inputs.connector_name }}
+        run: |
+          uv run python -m airbyte_ops_mcp.human_in_the_loop_ci \
+            --roster-file "$ROSTER_FILE" \
+            --target-person "$INPUT_TARGET_PERSON" \
+            --message "$INPUT_MESSAGE" \
+            --agent-session-url "$INPUT_AGENT_SESSION_URL" \
+            ${INPUT_CC_PERSONS:+--cc-persons "$INPUT_CC_PERSONS"} \
+            ${INPUT_PR_URL:+--pr-url "$INPUT_PR_URL"} \
+            ${INPUT_ISSUE_URL:+--issue-url "$INPUT_ISSUE_URL"} \
+            ${INPUT_ADDITIONAL_ACTIONS:+--additional-actions "$INPUT_ADDITIONAL_ACTIONS"} \
+            $([ "${INPUT_APPROVAL_REQUESTED}" = "true" ] && echo "--approval-requested") \
+            ${INPUT_APPROVAL_REQUEST_SUMMARY:+--approval-request-summary "$INPUT_APPROVAL_REQUEST_SUMMARY"} \
+            ${INPUT_APPROVAL_REQUEST_DETAIL_URL:+--approval-request-detail-url "$INPUT_APPROVAL_REQUEST_DETAIL_URL"} \
+            ${INPUT_APPROVAL_METADATA:+--approval-metadata "$INPUT_APPROVAL_METADATA"} \
+            ${INPUT_CHANNEL_OVERRIDE:+--channel-override "$INPUT_CHANNEL_OVERRIDE"} \
+            ${INPUT_HEADER_EMOJI:+--header-emoji "$INPUT_HEADER_EMOJI"} \
+            ${INPUT_HEADER_LABEL:+--header-label "$INPUT_HEADER_LABEL"} \
+            ${INPUT_CONTEXT_FOOTER:+--context-footer "$INPUT_CONTEXT_FOOTER"} \
+            ${INPUT_CONNECTOR_NAME:+--connector-name "$INPUT_CONNECTOR_NAME"}
+    outputs:
+      message_channel: ${{ steps.send-message.outputs.message_channel }}
+      message_ts: ${{ steps.send-message.outputs.message_ts }}
+      thread_url: ${{ steps.send-message.outputs.thread_url }}

@@ -12,12 +12,11 @@ from contextlib import contextmanager, nullcontext, suppress
 from dataclasses import dataclass
 from glob import glob
 from itertools import chain
-from typing import TYPE_CHECKING, Any, ClassVar, TypedDict, cast
+from typing import TYPE_CHECKING, Any, ClassVar, TypedDict, TypeVar, cast
 from urllib.parse import quote as urlquote
 from urllib.parse import urlparse
 
 import regex
-import sentry_sdk
 from celery import current_task
 from celery.result import AsyncResult
 from django.conf import settings
@@ -48,6 +47,12 @@ from weblate.formats.models import FILE_FORMATS
 from weblate.lang.models import Language, get_default_lang
 from weblate.memory.tasks import import_memory
 from weblate.trans.actions import ACTIONS_CONTENT, ActionEvents
+from weblate.trans.alerts.base import AlertSeverity
+from weblate.trans.alerts.registry import (
+    get_alert_class,
+    get_import_alerts,
+    update_alerts,
+)
 from weblate.trans.defines import (
     BRANCH_LENGTH,
     COMPONENT_NAME_LENGTH,
@@ -55,11 +60,24 @@ from weblate.trans.defines import (
     PROJECT_NAME_LENGTH,
     REPO_LENGTH,
 )
-from weblate.trans.exceptions import FileParseError, InvalidTemplateError
+from weblate.trans.exceptions import (
+    FileParseError,
+    InvalidTemplateError,
+    is_expected_parse_error,
+)
 from weblate.trans.fields import RegexField
 from weblate.trans.file_format_params import (
     FILE_FORMATS_PARAMS,
     get_encoding_param,
+)
+from weblate.trans.inherited_settings import (
+    HUGE_INHERITABLE_SETTINGS,
+    INHERITABLE_COMPONENT_SETTINGS,
+    LANGUAGE_CODE_STYLE_CHOICES,
+    NEW_LANG_CHOICES,
+    apply_create_inheritance_defaults,
+    get_inherit_field_name,
+    get_inheritable_setting_value,
 )
 from weblate.trans.mixins import (
     CacheKeyMixin,
@@ -67,7 +85,7 @@ from weblate.trans.mixins import (
     LockMixin,
     PathMixin,
 )
-from weblate.trans.models.alert import ALERTS, ALERTS_IMPORT, Alert, update_alerts
+from weblate.trans.models.alert import Alert
 from weblate.trans.models.audit import log_setting_changes, should_track_field
 from weblate.trans.models.change import Change
 from weblate.trans.models.pending import PendingUnitChange
@@ -140,6 +158,7 @@ from weblate.utils.state import (
     STATE_TRANSLATED,
 )
 from weblate.utils.stats import ComponentStats
+from weblate.utils.tracing import start_span
 from weblate.utils.validators import (
     validate_filename,
     validate_re_nonempty,
@@ -177,52 +196,6 @@ if TYPE_CHECKING:
     from weblate.trans.models.unit import UnitAttributesDict
     from weblate.trans.removal import RemovalBatch
     from weblate.vcs.base import CommitInfo, Repository, RepositoryLock
-
-NEW_LANG_CHOICES = (
-    # Translators: Action when adding new translation
-    ("contact", gettext_lazy("Contact maintainers")),
-    # Translators: Action when adding new translation
-    ("url", gettext_lazy("Point to translation instructions URL")),
-    # Translators: Action when adding new translation
-    ("add", gettext_lazy("Create new language file")),
-    # Translators: Action when adding new translation
-    ("none", gettext_lazy("Disable adding new translations")),
-)
-LANGUAGE_CODE_STYLE_CHOICES = (
-    ("", gettext_lazy("Default based on the file format")),
-    ("posix", gettext_lazy("POSIX style using underscore as a separator")),
-    (
-        "posix_lowercase",
-        gettext_lazy("POSIX style using underscore as a separator, lower cased"),
-    ),
-    ("bcp", gettext_lazy("BCP style using hyphen as a separator")),
-    (
-        "posix_long",
-        gettext_lazy(
-            "POSIX style using underscore as a separator, including country code"
-        ),
-    ),
-    (
-        "posix_long_lowercase",
-        gettext_lazy(
-            "POSIX style using underscore as a separator, including country code, lower cased"
-        ),
-    ),
-    (
-        "bcp_long",
-        gettext_lazy("BCP style using hyphen as a separator, including country code"),
-    ),
-    (
-        "bcp_legacy",
-        gettext_lazy("BCP style using hyphen as a separator, legacy language codes"),
-    ),
-    ("bcp_lower", gettext_lazy("BCP style using hyphen as a separator, lower cased")),
-    ("android", gettext_lazy("Android style")),
-    ("appstore", gettext_lazy("Apple App Store metadata style")),
-    ("googleplay", gettext_lazy("Google Play metadata style")),
-    ("linux", gettext_lazy("Linux style")),
-    ("linux_lowercase", gettext_lazy("Linux style, lower cased")),
-)
 
 MERGE_CHOICES = (
     ("merge", gettext_lazy("Merge")),
@@ -337,37 +310,86 @@ class ComponentQuerySet(models.QuerySet["Component", "Component"]):
     def prefetch(self, alerts: bool = True, defer: bool = True):
         result = self
         linked_component: str | models.Prefetch
+        project: str | models.Prefetch
+        category: str | models.Prefetch
+        category_project: str | models.Prefetch
+        parent_category: str | models.Prefetch
+        parent_category_project: str | models.Prefetch
+        grandparent_category: str | models.Prefetch
+        grandparent_category_project: str | models.Prefetch
+        linked_component_project: str | models.Prefetch
+        project_workspace: str | models.Prefetch
+        linked_component_project_workspace: str | models.Prefetch
         if defer:
+            from weblate.trans.models import Category, Project  # noqa: PLC0415
+            from weblate.workspaces.models import Workspace  # noqa: PLC0415
+
             result = result.defer_huge()
             linked_component = models.Prefetch(
                 "linked_component", queryset=Component.objects.defer_huge()
             )
+            project = models.Prefetch("project", queryset=Project.objects.defer_huge())
+            category = models.Prefetch(
+                "category", queryset=Category.objects.defer_huge()
+            )
+            category_project = models.Prefetch(
+                "category__project", queryset=Project.objects.defer_huge()
+            )
+            parent_category = models.Prefetch(
+                "category__category", queryset=Category.objects.defer_huge()
+            )
+            parent_category_project = models.Prefetch(
+                "category__category__project", queryset=Project.objects.defer_huge()
+            )
+            grandparent_category = models.Prefetch(
+                "category__category__category",
+                queryset=Category.objects.defer_huge(),
+            )
+            grandparent_category_project = models.Prefetch(
+                "category__category__category__project",
+                queryset=Project.objects.defer_huge(),
+            )
+            linked_component_project = models.Prefetch(
+                "linked_component__project", queryset=Project.objects.defer_huge()
+            )
+            project_workspace = models.Prefetch(
+                "project__workspace", queryset=Workspace.objects.defer_huge()
+            )
+            linked_component_project_workspace = models.Prefetch(
+                "linked_component__project__workspace",
+                queryset=Workspace.objects.defer_huge(),
+            )
         else:
             linked_component = "linked_component"
+            project = "project"
+            category = "category"
+            category_project = "category__project"
+            parent_category = "category__category"
+            parent_category_project = "category__category__project"
+            grandparent_category = "category__category__category"
+            grandparent_category_project = "category__category__category__project"
+            linked_component_project = "linked_component__project"
+            project_workspace = "project__workspace"
+            linked_component_project_workspace = "linked_component__project__workspace"
         if alerts:
             result = result.prefetch_related("alert_set")
 
         return result.prefetch_related(
-            "project",
-            "category",
-            "category__project",
-            "category__category",
-            "category__category__project",
-            "category__category__category",
-            "category__category__category__project",
+            project,
+            category,
+            category_project,
+            parent_category,
+            parent_category_project,
+            grandparent_category,
+            grandparent_category_project,
             linked_component,
-            "linked_component__project",
+            linked_component_project,
+            project_workspace,
+            linked_component_project_workspace,
         )
 
     def defer_huge(self):
-        return self.defer(
-            "commit_message",
-            "add_message",
-            "delete_message",
-            "merge_message",
-            "addon_message",
-            "pull_message",
-        )
+        return self.defer(*HUGE_INHERITABLE_SETTINGS)
 
     def filter_by_path(self, path: str) -> ComponentQuerySet:
         try:
@@ -408,7 +430,7 @@ class ComponentQuerySet(models.QuerySet["Component", "Component"]):
     def filter_access(self, user: User):
         result = self
         if user.needs_project_filter:
-            result = result.filter(project__in=user.allowed_projects)
+            result = result.filter(user.get_project_access_query("project"))
         if user.needs_component_restrictions_filter:
             result = result.filter(
                 Q(restricted=False) | Q(id__in=user.component_permissions)
@@ -457,11 +479,16 @@ class ComponentLink(models.Model):
 
 class OldComponentSettings(TypedDict):
     check_flags: str
+    project_id: int | None
+    category_id: int | None
     vcs: str
     push: str
     push_branch: str
     branch: str
     repo: str
+
+
+OldComponentSetting = TypeVar("OldComponentSetting")
 
 
 class Component(  # noqa: PLR0904
@@ -745,6 +772,13 @@ class Component(  # noqa: PLR0904
         default="",
         choices=get_license_choices(),
     )
+    inherit_license = models.BooleanField(
+        verbose_name=gettext_lazy("Inherit translation license"),
+        default=True,
+        help_text=gettext_lazy(
+            "Use the translation license configured in the category or project."
+        ),
+    )
     agreement = models.TextField(
         verbose_name=gettext_lazy("Contributor license agreement"),
         blank=True,
@@ -752,6 +786,13 @@ class Component(  # noqa: PLR0904
         help_text=gettext_lazy(
             "Contributor license agreement which needs to be approved before a user can "
             "translate this component."
+        ),
+    )
+    inherit_agreement = models.BooleanField(
+        verbose_name=gettext_lazy("Inherit contributor license agreement"),
+        default=True,
+        help_text=gettext_lazy(
+            "Use the contributor license agreement configured in the category or project."
         ),
     )
 
@@ -763,6 +804,13 @@ class Component(  # noqa: PLR0904
         default="add",
         help_text=gettext_lazy("How to handle requests for creating new translations."),
     )
+    inherit_new_lang = models.BooleanField(
+        verbose_name=gettext_lazy("Inherit adding new translations"),
+        default=True,
+        help_text=gettext_lazy(
+            "Use the adding new translations setting configured in the category or project."
+        ),
+    )
     language_code_style = models.CharField(
         verbose_name=gettext_lazy("Language code style"),
         max_length=20,
@@ -772,6 +820,13 @@ class Component(  # noqa: PLR0904
         help_text=gettext_lazy(
             "Customize language code used to generate the filename for "
             "translations created by Weblate."
+        ),
+    )
+    inherit_language_code_style = models.BooleanField(
+        verbose_name=gettext_lazy("Inherit language code style"),
+        default=True,
+        help_text=gettext_lazy(
+            "Use the language code style configured in the category or project."
         ),
     )
     manage_units = models.BooleanField(
@@ -804,6 +859,13 @@ class Component(  # noqa: PLR0904
         validators=[validate_render_commit],
         default=settings.DEFAULT_COMMIT_MESSAGE,
     )
+    inherit_commit_message = models.BooleanField(
+        verbose_name=gettext_lazy("Inherit commit message when translating"),
+        default=True,
+        help_text=gettext_lazy(
+            "Use the commit message when translating configured in the category or project."
+        ),
+    )
     add_message = models.TextField(
         verbose_name=gettext_lazy("Commit message when adding translation"),
         help_text=gettext_lazy(
@@ -813,6 +875,13 @@ class Component(  # noqa: PLR0904
         validators=[validate_render_commit],
         default=settings.DEFAULT_ADD_MESSAGE,
     )
+    inherit_add_message = models.BooleanField(
+        verbose_name=gettext_lazy("Inherit commit message when adding translation"),
+        default=True,
+        help_text=gettext_lazy(
+            "Use the commit message when adding translation configured in the category or project."
+        ),
+    )
     delete_message = models.TextField(
         verbose_name=gettext_lazy("Commit message when removing translation"),
         help_text=gettext_lazy(
@@ -821,6 +890,13 @@ class Component(  # noqa: PLR0904
         ),
         validators=[validate_render_commit],
         default=settings.DEFAULT_DELETE_MESSAGE,
+    )
+    inherit_delete_message = models.BooleanField(
+        verbose_name=gettext_lazy("Inherit commit message when removing translation"),
+        default=True,
+        help_text=gettext_lazy(
+            "Use the commit message when removing translation configured in the category or project."
+        ),
     )
     merge_message = models.TextField(
         # Translators: The commit message, for when merging the translation
@@ -832,6 +908,13 @@ class Component(  # noqa: PLR0904
         validators=[validate_render_component],
         default=settings.DEFAULT_MERGE_MESSAGE,
     )
+    inherit_merge_message = models.BooleanField(
+        verbose_name=gettext_lazy("Inherit commit message when merging translation"),
+        default=True,
+        help_text=gettext_lazy(
+            "Use the commit message when merging translation configured in the category or project."
+        ),
+    )
     addon_message = models.TextField(
         verbose_name=gettext_lazy("Commit message when add-on makes a change"),
         help_text=gettext_lazy(
@@ -841,6 +924,13 @@ class Component(  # noqa: PLR0904
         validators=[validate_render_addon],
         default=settings.DEFAULT_ADDON_MESSAGE,
     )
+    inherit_addon_message = models.BooleanField(
+        verbose_name=gettext_lazy("Inherit commit message when add-on makes a change"),
+        default=True,
+        help_text=gettext_lazy(
+            "Use the commit message when add-on makes a change configured in the category or project."
+        ),
+    )
     pull_message = models.TextField(
         verbose_name=gettext_lazy("Merge request message"),
         help_text=gettext_lazy(
@@ -849,6 +939,13 @@ class Component(  # noqa: PLR0904
         ),
         validators=[validate_render_addon],
         default=settings.DEFAULT_PULL_MESSAGE,
+    )
+    inherit_pull_message = models.BooleanField(
+        verbose_name=gettext_lazy("Inherit merge request message"),
+        default=True,
+        help_text=gettext_lazy(
+            "Use the merge request message configured in the category or project."
+        ),
     )
     push_on_commit = models.BooleanField(
         verbose_name=gettext_lazy("Push on commit"),
@@ -977,6 +1074,13 @@ class Component(  # noqa: PLR0904
         related_name="component_secondary_languages",
         on_delete=models.deletion.CASCADE,
     )
+    inherit_secondary_language = models.BooleanField(
+        verbose_name=gettext_lazy("Inherit secondary language"),
+        default=True,
+        help_text=gettext_lazy(
+            "Use the secondary language configured in the category or project."
+        ),
+    )
 
     objects = ComponentQuerySet.as_manager()
 
@@ -1008,6 +1112,8 @@ class Component(  # noqa: PLR0904
         return f"{self.category or self.project}/{self.name}"
 
     def __init__(self, *args, **kwargs) -> None:
+        if not args:
+            apply_create_inheritance_defaults(kwargs, set(kwargs))
         super().__init__(*args, **kwargs)
         self._file_format = None
         self.stats = ComponentStats(self)
@@ -1089,6 +1195,13 @@ class Component(  # noqa: PLR0904
                 if old.key_filter != self.key_filter:
                     self.drop_key_filter_cache()
 
+            update_fields_set = self.disable_inheritance_for_changed_settings(
+                old, update_fields
+            )
+            if update_fields_set is not None:
+                kwargs["update_fields"] = update_fields_set
+                update_fields = update_fields_set
+
             changed_variant = old.variant_regex != self.variant_regex
             # Generate change entries for changes
             self.generate_changes(old, update_fields=update_fields)
@@ -1119,6 +1232,7 @@ class Component(  # noqa: PLR0904
             # as they are added automatically
             self.manage_units = True
             self.new_lang = "none"
+            self.inherit_new_lang = False
             # Make sure it is listed in project glossaries now
             self.project.glossaries.append(self)
 
@@ -1183,7 +1297,11 @@ class Component(  # noqa: PLR0904
                 seed_author=seed_author,
             )
 
-        if self.old_component_settings["check_flags"] != self.check_flags:
+        if (
+            self.old_component_settings["check_flags"] != self.check_flags
+            or self.old_component_settings["project_id"] != self.project_id
+            or self.old_component_settings["category_id"] != self.category_id
+        ):
             transaction.on_commit(
                 lambda: self.schedule_update_checks(update_state=True)
             )
@@ -1198,6 +1316,20 @@ class Component(  # noqa: PLR0904
 
         if update_tm:
             import_memory.delay_on_commit(self.project.id, self.pk)
+
+    def disable_inheritance_for_changed_settings(
+        self, old: Component, update_fields: Collection[str] | None
+    ) -> set[str] | None:
+        update_fields_set = None if update_fields is None else set(update_fields)
+        for field in INHERITABLE_COMPONENT_SETTINGS:
+            if get_inheritable_setting_value(
+                old, field
+            ) != get_inheritable_setting_value(self, field):
+                inherit = get_inherit_field_name(field)
+                setattr(self, inherit, False)
+                if update_fields_set is not None:
+                    update_fields_set.add(inherit)
+        return update_fields_set
 
     @contextmanager
     def locked_for_update(
@@ -1235,19 +1367,27 @@ class Component(  # noqa: PLR0904
         """
         current = getattr(self, "old_component_settings", {})
         return {
-            "check_flags": self.get_old_component_setting("check_flags", current),
-            "vcs": self.get_old_component_setting("vcs", current),
-            "push": self.get_old_component_setting("push", current),
-            "push_branch": self.get_old_component_setting("push_branch", current),
-            "branch": self.get_old_component_setting("branch", current),
-            "repo": self.get_old_component_setting("repo", current),
+            "check_flags": self.get_old_component_setting("check_flags", current, ""),
+            "project_id": self.get_old_component_setting("project_id", current, None),
+            "category_id": self.get_old_component_setting("category_id", current, None),
+            "vcs": self.get_old_component_setting("vcs", current, ""),
+            "push": self.get_old_component_setting("push", current, ""),
+            "push_branch": self.get_old_component_setting("push_branch", current, ""),
+            "branch": self.get_old_component_setting("branch", current, ""),
+            "repo": self.get_old_component_setting("repo", current, ""),
         }
 
     def get_old_component_setting(
-        self, name: str, current: OldComponentSettings | dict[str, str]
-    ) -> str:
+        self,
+        name: str,
+        current: OldComponentSettings | dict[str, object],
+        default: OldComponentSetting,
+    ) -> OldComponentSetting:
         """Read a tracked setting without forcing deferred field evaluation."""
-        return self.__dict__.get(name, current.get(name, ""))
+        return cast(
+            "OldComponentSetting",
+            self.__dict__.get(name, current.get(name, default)),
+        )
 
     def refresh_from_db(self, *args, **kwargs) -> None:
         super().refresh_from_db(*args, **kwargs)
@@ -1378,11 +1518,13 @@ class Component(  # noqa: PLR0904
             is_glossary=True,
             has_template=False,
             allow_translation_propagation=False,
-            license=self.license,
+            license=self.effective_license,
         )
 
     @cached_property
     def lock(self):
+        # Serializes component-wide creation/import operations. Existing string
+        # updates should rely on row locks, and check refreshes use checks_lock.
         return WeblateLock(
             scope="component:update",
             key=self.pk,
@@ -2038,26 +2180,30 @@ class Component(  # noqa: PLR0904
         )
 
     @perform_on_link
+    def update_remote_repository(self) -> str | None:
+        with self.repository.lock:
+            start = time.monotonic()
+            try:
+                previous_revision = self.repository.last_remote_revision
+            except RepositoryError:
+                previous_revision = None
+            self.repository.update_remote()
+            timediff = time.monotonic() - start
+            self.log_info("update took %.2f seconds", timediff)
+            return previous_revision
+
+    @perform_on_link
     def update_remote_branch(self, validate: bool = False, retry: bool = True) -> bool:
         """Pull from remote repository."""
         # Update
         self.log_info("updating repository")
         try:
-            with self.repository.lock:
-                start = time.monotonic()
-                try:
-                    previous_revision = self.repository.last_remote_revision
-                except RepositoryError:
-                    # Repository not yet configured
-                    previous_revision = None
-                self.repository.update_remote()
-                timediff = time.monotonic() - start
-                self.log_info("update took %.2f seconds", timediff)
+            previous_revision = self.update_remote_repository()
         except RepositoryError as error:
             report_error(
                 "Could not update the repository",
                 project=self.project,
-                skip_sentry=not settings.DEBUG,
+                skip_error_reporting=not settings.DEBUG,
             )
             error_text = self.error_text(error)
             if validate:
@@ -2207,7 +2353,12 @@ class Component(  # noqa: PLR0904
 
             # update local branch
             try:
-                result = self.update_branch(request, method=method, skip_push=True)
+                result = self.update_branch(
+                    request,
+                    method=method,
+                    skip_push=True,
+                    parse_after_update=True,
+                )
             except RepositoryError:
                 result = False
 
@@ -2272,7 +2423,7 @@ class Component(  # noqa: PLR0904
                 report_error(
                     "Could not push the repo",
                     project=self.project,
-                    skip_sentry=not settings.DEBUG,
+                    skip_error_reporting=not settings.DEBUG,
                 )
                 self.change_set.create(
                     action=ActionEvents.FAILED_PUSH,
@@ -2297,7 +2448,7 @@ class Component(  # noqa: PLR0904
                             report_error(
                                 "Could not unshallow the repo",
                                 project=self.project,
-                                skip_sentry=not settings.DEBUG,
+                                skip_error_reporting=not settings.DEBUG,
                             )
                         else:
                             return self.push_repo(request, retry=False)
@@ -2386,6 +2537,68 @@ class Component(  # noqa: PLR0904
 
         return True
 
+    def reset_repository_to_remote(
+        self,
+        request: AuthenticatedHttpRequest | None,
+        user: User | None,
+        *,
+        keep_changes: bool,
+    ) -> str | None:
+        with self.track_local_head_change() as head_change:
+            repo_unit_filter = Q(translation__component=self) | Q(
+                translation__component__linked_component=self
+            )
+            previous_head = head_change.previous_head or "N/A"
+            # First check we're up to date
+            self.update_remote_branch()
+
+            if keep_changes:
+                # Mark all strings as pending when keeping changes
+                self.do_file_sync(request, do_commit=False, store_disk_state=False)
+            else:
+                # Explicitly remove all pending changes
+                PendingUnitChange.objects.filter(
+                    Q(unit__translation__component=self)
+                    | Q(unit__translation__component__linked_component=self)
+                ).delete()
+            # Remove disk state as we are going to change that
+            Unit.objects.filter(repo_unit_filter).clear_disk_state()
+
+            # Do actual reset
+            self.log_info("resetting to remote repo")
+            self.repository.reset()
+            new_head = head_change.refresh_new_head()
+
+            self.change_set.create(
+                action=ActionEvents.RESET,
+                user=user,
+                details={
+                    "new_head": new_head,
+                    "previous_head": previous_head,
+                },
+            )
+            self.delete_alert("MergeFailure")
+            self.delete_alert("RepositoryOutdated")
+            self.delete_alert("PushFailure")
+
+            if keep_changes and not self.restore_pending_translation_files(
+                request=request, user=user
+            ):
+                return None
+
+            if not keep_changes:
+                self.trigger_post_update(
+                    previous_head=previous_head,
+                    skip_push=False,
+                    user=user,
+                    parse_after_update=True,
+                )
+
+                # create translation objects for all files
+                self.create_translations(request=request, force=True)
+
+            return previous_head
+
     @perform_on_link
     def do_reset(
         self,
@@ -2398,67 +2611,22 @@ class Component(  # noqa: PLR0904
 
         user = request.user if request else self.acting_user
         try:
-            with self.track_local_head_change() as head_change:
-                repo_unit_filter = Q(translation__component=self) | Q(
-                    translation__component__linked_component=self
-                )
-                previous_head = head_change.previous_head or "N/A"
-                # First check we're up to date
-                self.update_remote_branch()
-
-                if keep_changes:
-                    # Mark all strings as pending when keeping changes
-                    self.do_file_sync(request, do_commit=False, store_disk_state=False)
-                else:
-                    # Explicitly remove all pending changes
-                    PendingUnitChange.objects.filter(
-                        Q(unit__translation__component=self)
-                        | Q(unit__translation__component__linked_component=self)
-                    ).delete()
-                # Remove disk state as we are going to change that
-                Unit.objects.filter(repo_unit_filter).clear_disk_state()
-
-                # Do actual reset
-                self.log_info("resetting to remote repo")
-                self.repository.reset()
-                new_head = head_change.refresh_new_head()
-
-                self.change_set.create(
-                    action=ActionEvents.RESET,
-                    user=user,
-                    details={
-                        "new_head": new_head,
-                        "previous_head": previous_head,
-                    },
-                )
-                self.delete_alert("MergeFailure")
-                self.delete_alert("RepositoryOutdated")
-                self.delete_alert("PushFailure")
-
-                if keep_changes and not self.restore_pending_translation_files(
-                    request=request, user=user
-                ):
-                    return False
-
-                if not keep_changes:
-                    self.trigger_post_update(
-                        previous_head=previous_head,
-                        skip_push=False,
-                        user=user,
-                    )
-
-                    # create translation objects for all files
-                    self.create_translations(request=request, force=True)
+            previous_head = self.reset_repository_to_remote(
+                request, user, keep_changes=keep_changes
+            )
         except RepositoryError:
             report_error(
                 "Could not reset the repository",
                 project=self.project,
-                skip_sentry=not settings.DEBUG,
+                skip_error_reporting=not settings.DEBUG,
             )
             messages.error(
                 request,
                 gettext("Could not reset to remote branch on %s.") % self,
             )
+            return False
+
+        if previous_head is None:
             return False
 
         if keep_changes:
@@ -2691,7 +2859,7 @@ class Component(  # noqa: PLR0904
                 report_error(
                     "Could not roll back partial translation file restore during reset",
                     project=self.project,
-                    skip_sentry=not settings.DEBUG,
+                    skip_error_reporting=not settings.DEBUG,
                 )
                 self.log_error(
                     "reset/reapply failed to roll back partial missing translation restore"
@@ -2706,7 +2874,7 @@ class Component(  # noqa: PLR0904
                 report_error(
                     "Could not roll back partial translation file restore during file sync",
                     project=self.project,
-                    skip_sentry=not settings.DEBUG,
+                    skip_error_reporting=not settings.DEBUG,
                 )
                 self.log_error(
                     "file sync failed to roll back partial missing translation restore"
@@ -2787,7 +2955,7 @@ class Component(  # noqa: PLR0904
             report_error(
                 "Could not clean the repository",
                 project=self.project,
-                skip_sentry=not settings.DEBUG,
+                skip_error_reporting=not settings.DEBUG,
             )
             messages.error(
                 request,
@@ -3019,7 +3187,7 @@ class Component(  # noqa: PLR0904
                         try:
                             component.template_store  # noqa: B018
                         except FileParseError as error:
-                            if not isinstance(error.__cause__, FileNotFoundError):
+                            if not is_expected_parse_error(error):
                                 report_error(
                                     "Could not parse template file on commit",
                                     project=self.project,
@@ -3032,7 +3200,7 @@ class Component(  # noqa: PLR0904
                             continue
 
                     components[component.pk] = component
-                with self.start_sentry_span("commit_pending"):
+                with self.start_tracing_span("commit_pending"):
                     pending_changes_pk = changes_by_translation[translation.pk]
                     translation_changed = translation._commit_pending(  # noqa: SLF001
                         reason, user, pending_changes_pk
@@ -3092,7 +3260,7 @@ class Component(  # noqa: PLR0904
                 store_hash=store_hash,
             )
 
-        with self.start_sentry_span("commit_files"), self.track_local_head_change():
+        with self.start_tracing_span("commit_files"), self.track_local_head_change():
             if message is None:
                 if template is None:
                     msg = "Missing template when message is not specified"
@@ -3187,15 +3355,25 @@ class Component(  # noqa: PLR0904
     @perform_on_link
     @contextmanager
     def track_local_head_change(self) -> Generator[LocalHeadChange]:
-        """Track local HEAD changes and persist them on successful exit."""
+        """Track local HEAD changes and persist them on exit."""
         head_change = LocalHeadChange(component=self)
         with self.repository.lock:
             head_change.previous_head = self.try_get_local_head_revision()
-            yield head_change
-            if head_change.new_head is None:
-                head_change.refresh_new_head()
-            if self.id and head_change.needs_local_revision_sync:
-                self.store_local_revision()
+            raised = False
+            try:
+                yield head_change
+            except BaseException:
+                raised = True
+                raise
+            finally:
+                try:
+                    if head_change.new_head is None:
+                        head_change.refresh_new_head()
+                    if self.id and head_change.needs_local_revision_sync:
+                        self.store_local_revision()
+                except Exception:
+                    if not raised:
+                        raise
 
     @perform_on_link
     def update_branch(
@@ -3203,6 +3381,7 @@ class Component(  # noqa: PLR0904
         request: AuthenticatedHttpRequest | None = None,
         method: str | None = None,
         skip_push: bool = False,
+        parse_after_update: bool = False,
     ) -> bool:
         """Update current branch to match remote (if possible)."""
         if method is None:
@@ -3225,7 +3404,9 @@ class Component(  # noqa: PLR0904
             error_msg = gettext("Could not merge remote branch into %s.")
             action = ActionEvents.MERGE
             action_failed = ActionEvents.FAILED_MERGE
-            kwargs = {"message": render_template(self.merge_message, component=self)}
+            kwargs = {
+                "message": render_template(self.effective_merge_message, component=self)
+            }
             if method == "merge_noff":
                 kwargs["no_ff"] = True
 
@@ -3246,7 +3427,7 @@ class Component(  # noqa: PLR0904
                 report_error(
                     f"Failed {method}",
                     project=self.project,
-                    skip_sentry=not settings.DEBUG,
+                    skip_error_reporting=not settings.DEBUG,
                 )
 
                 # In case merge has failure recover
@@ -3304,12 +3485,18 @@ class Component(  # noqa: PLR0904
                     previous_head=previous_head,
                     skip_push=skip_push,
                     user=user,
+                    parse_after_update=parse_after_update,
                 )
         return True
 
     @perform_on_link
     def trigger_post_update(
-        self, *, previous_head: str, skip_push: bool, user: User | None
+        self,
+        *,
+        previous_head: str,
+        skip_push: bool,
+        user: User | None,
+        parse_after_update: bool = False,
     ) -> None:
         vcs_post_update.send(
             sender=self.__class__,
@@ -3317,6 +3504,7 @@ class Component(  # noqa: PLR0904
             previous_head=previous_head,
             skip_push=skip_push,
             user=user,
+            parse_after_update=parse_after_update,
         )
         for component in self.linked_children:
             vcs_post_update.send(
@@ -3325,6 +3513,7 @@ class Component(  # noqa: PLR0904
                 previous_head=previous_head,
                 skip_push=skip_push,
                 user=user,
+                parse_after_update=parse_after_update,
             )
 
     def get_mask_matches(self, *, raise_on_timeout: bool = False) -> list[str]:
@@ -3404,8 +3593,24 @@ class Component(  # noqa: PLR0904
         return [alert for alert in self.alert_set.all() if not alert.dismissed]
 
     @cached_property
+    def all_problem_alerts(self) -> list[Alert]:
+        return [alert for alert in self.all_active_alerts if alert.is_problem]
+
+    @cached_property
     def all_alerts(self) -> dict[str, Alert]:
         return {alert.name: alert for alert in self.alert_set.all()}
+
+    def update_alert_caches(self) -> None:
+        if "all_active_alerts" in self.__dict__:
+            self.__dict__["all_active_alerts"] = [
+                item for item in self.all_alerts.values() if not item.dismissed
+            ]
+        if "all_problem_alerts" in self.__dict__:
+            self.__dict__["all_problem_alerts"] = [
+                item
+                for item in self.all_active_alerts
+                if item.severity >= AlertSeverity.ERROR
+            ]
 
     def clear_prefetched_alerts(self) -> None:
         with suppress(AttributeError, KeyError):
@@ -3429,10 +3634,7 @@ class Component(  # noqa: PLR0904
         if alert in self.all_alerts:
             self.all_alerts[alert].delete()
             del self.all_alerts[alert]
-            if "all_active_alerts" in self.__dict__:
-                self.__dict__["all_active_alerts"] = [
-                    item for item in self.all_alerts.values() if not item.dismissed
-                ]
+            self.update_alert_caches()
             self.clear_prefetched_alerts()
             if (
                 self.locked
@@ -3450,17 +3652,19 @@ class Component(  # noqa: PLR0904
             ):
                 self.do_lock(user=None, lock=False, auto=True)
 
-        if ALERTS[alert].link_wide:
+        if get_alert_class(alert).link_wide:
             for component in self.linked_children:
                 component.delete_alert(alert)
 
     def add_alert(self, alert: str, noupdate: bool = False, **details) -> None:
+        alert_class = get_alert_class(alert)
+        severity = alert_class.severity
         if alert in self.all_alerts:
             obj = self.all_alerts[alert]
             created = False
         else:
             obj, created = self.alert_set.get_or_create(
-                name=alert, defaults={"details": details}
+                name=alert, defaults={"details": details, "severity": severity}
             )
             self.all_alerts[alert] = obj
 
@@ -3469,23 +3673,27 @@ class Component(  # noqa: PLR0904
             self.do_lock(user=None, lock=True, auto=True)
 
         # Update details with exception of component removal
-        if not created and not noupdate:
-            obj.details = details
-            obj.save()
+        if not created:
+            update_fields = []
+            if obj.severity != severity:
+                obj.severity = severity
+                update_fields.append("severity")
+            if not noupdate and obj.details != details:
+                obj.details = details
+                update_fields.append("details")
+            if update_fields or not noupdate:
+                obj.save(update_fields=[*update_fields, "updated"])
 
-        if "all_active_alerts" in self.__dict__:
-            self.__dict__["all_active_alerts"] = [
-                item for item in self.all_alerts.values() if not item.dismissed
-            ]
+        self.update_alert_caches()
         self.clear_prefetched_alerts()
 
-        if ALERTS[alert].link_wide:
+        if alert_class.link_wide:
             for component in self.linked_children:
                 component.add_alert(alert, noupdate=noupdate, **details)
 
     def update_import_alerts(self, delete: bool = True) -> None:
         self.log_info("checking triggered alerts")
-        for alert in ALERTS_IMPORT:
+        for alert in get_import_alerts():
             if alert in self.alerts_trigger:
                 self.add_alert(alert, occurrences=self.alerts_trigger[alert])
             elif delete:
@@ -3552,7 +3760,7 @@ class Component(  # noqa: PLR0904
         """
         # In case the lock cannot be acquired, an error will be raised.
         with (
-            self.start_sentry_span("create_translations"),
+            self.start_tracing_span("create_translations"),
             self.repository.lock,
             self.lock,
         ):
@@ -3889,6 +4097,7 @@ class Component(  # noqa: PLR0904
         validate: bool = False,
         skip_push: bool = False,
         skip_commit: bool = False,
+        parse_after_update: bool = False,
     ) -> None:
         """Bring VCS repo in sync with current model."""
         if self.is_repo_link:
@@ -3905,7 +4114,10 @@ class Component(  # noqa: PLR0904
         self.configure_branch()
         if self.id:
             # Update existing repo
-            self.update_branch(skip_push=skip_push)
+            self.update_branch(
+                skip_push=skip_push,
+                parse_after_update=parse_after_update,
+            )
         else:
             # Reset to upstream in case not yet saved model (this is called
             # from the clean method only)
@@ -4060,7 +4272,9 @@ class Component(  # noqa: PLR0904
     def clean_new_lang(self) -> None:
         """Validate new language choices."""
         # Validate if new base is configured or language adding is set
-        if (not self.new_base and self.new_lang != "add") or not self.file_format:
+        if (
+            not self.new_base and self.effective_new_lang != "add"
+        ) or not self.file_format:
             return
         # File is valid or no file is needed
         errors: list[Exception] = []
@@ -4289,7 +4503,9 @@ class Component(  # noqa: PLR0904
     def clean_model_settings(self) -> None:
         """Validate component settings that do not require repository access."""
         self.drop_file_format_cache()
-        if self.new_lang == "url" and not self.project.instructions:
+        if self.project_id is None:
+            return
+        if self.effective_new_lang == "url" and not self.project.instructions:
             msg = gettext(
                 "Please either fill in an instruction URL "
                 "or use a different option for adding a new language."
@@ -4297,7 +4513,7 @@ class Component(  # noqa: PLR0904
             raise ValidationError({"new_lang": msg})
 
         # Skip validation if we don't have valid project
-        if self.project_id is None or not self.file_format:
+        if not self.file_format:
             return
 
         if self.id:
@@ -4450,7 +4666,7 @@ class Component(  # noqa: PLR0904
 
         with self.repository.lock:
             self.commit_files(
-                template=self.add_message,
+                template=self.effective_add_message,
                 author="Weblate <noreply@weblate.org>",
                 extra_context={
                     "translation": Translation(
@@ -4491,7 +4707,11 @@ class Component(  # noqa: PLR0904
         # Configure git repo if there were changes
         if changed_git and (not create or not self.is_repo_link):
             # Bring VCS repo in sync with current model
-            self.sync_git_repo(skip_push=skip_push, skip_commit=create)
+            self.sync_git_repo(
+                skip_push=skip_push,
+                skip_commit=create,
+                parse_after_update=True,
+            )
 
         # Create template in case intermediate file is present
         self.create_template_if_missing()
@@ -4694,7 +4914,7 @@ class Component(  # noqa: PLR0904
             report_error(
                 "Could not check if merge is needed",
                 project=self.project,
-                skip_sentry=not settings.DEBUG,
+                skip_error_reporting=not settings.DEBUG,
             )
             self.add_alert("MergeFailure", error=self.error_text(error))
             return 0
@@ -4710,7 +4930,7 @@ class Component(  # noqa: PLR0904
             report_error(
                 "Could not check if push is needed",
                 project=self.project,
-                skip_sentry=not settings.DEBUG,
+                skip_error_reporting=not settings.DEBUG,
             )
             self.add_alert("PushFailure", error=error_text)
             return 0
@@ -4748,7 +4968,7 @@ class Component(  # noqa: PLR0904
             report_error(
                 "Could not check if push is needed",
                 project=self.project,
-                skip_sentry=not settings.DEBUG,
+                skip_error_reporting=not settings.DEBUG,
             )
             self.add_alert("PushFailure", error=error_text)
             return False
@@ -4829,7 +5049,7 @@ class Component(  # noqa: PLR0904
 
     def load_template_store(self, fileobj=None) -> TranslationFormat:
         """Load translate-toolkit store for template."""
-        with self.start_sentry_span("load_template_store"):
+        with self.start_tracing_span("load_template_store"):
             return self.file_format_cls(  # pylint: disable=too-many-function-args,unexpected-keyword-arg
                 fileobj or self.get_template_filename(),
                 language_code=self.source_language.code,
@@ -4849,15 +5069,92 @@ class Component(  # noqa: PLR0904
         try:
             return self.load_template_store()
         except Exception as error:
-            if not isinstance(error, FileNotFoundError):
+            if not is_expected_parse_error(error):
                 report_error("Template parse error", project=self.project)
             self.handle_parse_error(error, filename=self.template)
             return None
 
+    def uses_project_setting(self, field: str) -> bool:
+        """Return whether a component setting is inherited from the project."""
+        return field in INHERITABLE_COMPONENT_SETTINGS and getattr(
+            self, get_inherit_field_name(field), False
+        )
+
+    def get_effective_setting(self, field: str) -> str | Language | None:
+        """Return setting value after applying parent inheritance."""
+        if self.uses_project_setting(field):
+            category = self.category
+            if category is not None:
+                return category.get_effective_setting(field)
+            return self.project.get_effective_setting(field)
+        return getattr(self, field)
+
+    def get_effective_setting_owner(self, field: str):
+        """Return object owning the effective setting value."""
+        if self.uses_project_setting(field):
+            category = self.category
+            if category is not None:
+                return category.get_effective_setting_owner(field)
+            return self.project.get_effective_setting_owner(field)
+        return self
+
+    @property
+    def effective_license(self) -> str:
+        return cast("str", self.get_effective_setting("license"))
+
+    @property
+    def effective_agreement(self) -> str:
+        return cast("str", self.get_effective_setting("agreement"))
+
+    @property
+    def effective_new_lang(self) -> str:
+        return cast("str", self.get_effective_setting("new_lang"))
+
+    @property
+    def effective_language_code_style(self) -> str:
+        return cast("str", self.get_effective_setting("language_code_style"))
+
+    @property
+    def effective_secondary_language(self) -> Language | None:
+        return cast("Language | None", self.get_effective_setting("secondary_language"))
+
+    @property
+    def effective_commit_message(self) -> str:
+        return cast("str", self.get_effective_setting("commit_message"))
+
+    @property
+    def effective_add_message(self) -> str:
+        return cast("str", self.get_effective_setting("add_message"))
+
+    @property
+    def effective_delete_message(self) -> str:
+        return cast("str", self.get_effective_setting("delete_message"))
+
+    @property
+    def effective_merge_message(self) -> str:
+        return cast("str", self.get_effective_setting("merge_message"))
+
+    @property
+    def effective_addon_message(self) -> str:
+        return cast("str", self.get_effective_setting("addon_message"))
+
+    @property
+    def effective_pull_message(self) -> str:
+        return cast("str", self.get_effective_setting("pull_message"))
+
     @cached_property
     def all_flags(self):
         """Return parsed list of flags."""
-        return Flags(self.project.check_flags, self.file_format_flags, self.check_flags)
+        category = self.category
+        if category is not None:
+            parent_flags = category.effective_check_flags
+        else:
+            parent_flags = self.project.effective_check_flags
+        return Flags(
+            parent_flags,
+            self.file_format_flags,
+            self.check_flags,
+        )
 
     @property
     def is_multivalue(self):
@@ -4879,7 +5176,7 @@ class Component(  # noqa: PLR0904
         # for users is not configured.
         self.new_lang_error_message = gettext("Could not add new translation file.")
         if (
-            self.new_lang != "add"
+            self.effective_new_lang != "add"
             and user is not None
             and not user.has_perm("component.edit", self)
         ):
@@ -4921,7 +5218,7 @@ class Component(  # noqa: PLR0904
     def format_new_language_code(self, language):
         # Language code used for file
         code = self.file_format_cls.get_language_code(
-            language.code, self.language_code_style
+            language.code, self.effective_language_code_style
         )
 
         # Apply language aliases
@@ -5038,7 +5335,7 @@ class Component(  # noqa: PLR0904
                     request.user.get_author_name()
                     if request
                     else "Weblate <noreply@weblate.org>",
-                    template=self.add_message,
+                    template=self.effective_add_message,
                     store_hash=False,
                 )
 
@@ -5112,7 +5409,7 @@ class Component(  # noqa: PLR0904
             user.get_author_name() if user else "Weblate <noreply@weblate.org>",
             skip_push=skip_push,
             signals=signals,
-            template=self.add_message,
+            template=self.effective_add_message,
             store_hash=False,
         )
 
@@ -5152,15 +5449,15 @@ class Component(  # noqa: PLR0904
 
     @cached_property
     def libre_license(self) -> bool:
-        return is_libre(self.license)
+        return is_libre(self.effective_license)
 
     @cached_property
     def license_url(self) -> str:
-        return get_license_url(self.license)
+        return get_license_url(self.effective_license)
 
     def get_license_display(self) -> str:  # type: ignore[no-redef]
         # Override Django implementation as that rebuilds the dict every time
-        return get_license_name(self.license)
+        return get_license_name(self.effective_license)
 
     def post_create(self, user: User, *, origin: str) -> None:
         self.change_set.create(
@@ -5177,12 +5474,6 @@ class Component(  # noqa: PLR0904
             return gettext("Context")
         # Translators: Translation key for monolingual translations
         return pgettext("Translation key", "Key")
-
-    @cached_property
-    def guidelines(self):
-        from weblate.trans.guide import GUIDELINES  # noqa: PLC0415
-
-        return [guide(self) for guide in GUIDELINES]
 
     @cached_property
     def addons_cache(self) -> AddonCache:
@@ -5283,9 +5574,9 @@ class Component(  # noqa: PLR0904
         if config is None:
             return Component.objects.none()
 
-        push, push_branch = config
+        push, push_branch, pulls_from_push_branch = config
 
-        return (
+        conflicts = (
             Component.objects.filter(
                 push=push,
                 vcs__in=VCS_REGISTRY.git_based,
@@ -5295,10 +5586,15 @@ class Component(  # noqa: PLR0904
             .exclude(vcs="local")
             .filter(Q(push_branch=push_branch) | Q(push_branch="", branch=push_branch))
         )
+        if pulls_from_push_branch:
+            conflicts = conflicts.exclude(
+                Q(push_branch="") | Q(push_branch=F("branch"))
+            )
+        return conflicts
 
     def get_conflicting_repository_setup_config(
         self, old_settings: OldComponentSettings | None = None
-    ) -> tuple[str, str] | None:
+    ) -> tuple[str, str, bool] | None:
         if old_settings is None:
             push = self.push
             push_branch = self.push_branch
@@ -5322,11 +5618,11 @@ class Component(  # noqa: PLR0904
         push_branch = push_branch or branch
         if not push_branch:
             return None
-        return (push, push_branch)
+        return (push, push_branch, push_branch == branch)
 
     def get_conflicting_repository_setup_configs(
         self,
-    ) -> set[tuple[str, str]]:
+    ) -> set[tuple[str, str, bool]]:
         return {
             config
             for config in (
@@ -5347,13 +5643,13 @@ class Component(  # noqa: PLR0904
         )
 
     def cleanup_conflicting_repository_setup_alerts(
-        self, cleanup_configs: set[tuple[str, str]] | None = None
+        self, cleanup_configs: set[tuple[str, str, bool]] | None = None
     ) -> None:
         if cleanup_configs is None:
             cleanup_configs = self.get_conflicting_repository_setup_configs()
 
-        for push, push_branch in cleanup_configs:
-            matching = (
+        for push, push_branch, _pulls_from_push_branch in cleanup_configs:
+            matching = list(
                 Component.objects.filter(
                     push=push,
                     vcs__in=VCS_REGISTRY.git_based,
@@ -5364,10 +5660,22 @@ class Component(  # noqa: PLR0904
                 .filter(
                     Q(push_branch=push_branch) | Q(push_branch="", branch=push_branch)
                 )
+                .values_list("id", "push_branch", "branch")
             )
-            if matching.count() == 1:
+            component_ids = [component_id for component_id, _, _ in matching]
+            unsafe_count = sum(
+                1
+                for _, component_push_branch, component_branch in matching
+                if component_push_branch and component_push_branch != component_branch
+            )
+            if unsafe_count == 0 or len(matching) == 1:
+                stale_component_ids = component_ids
+            else:
+                stale_component_ids = []
+            if stale_component_ids:
                 Alert.objects.filter(
-                    name="ConflictingRepositorySetup", component__in=matching
+                    name="ConflictingRepositorySetup",
+                    component_id__in=stale_component_ids,
                 ).delete()
 
     @cached_property
@@ -5391,8 +5699,8 @@ class Component(  # noqa: PLR0904
             return [self.linked_component]
         return [self]
 
-    def start_sentry_span(self, op: str):
-        return sentry_sdk.start_span(op=op, name=self.full_slug)
+    def start_tracing_span(self, op: str):
+        return start_span(op=op, name=self.full_slug)
 
     @cached_property
     def key_filter_re(self) -> regex.Pattern:

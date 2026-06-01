@@ -1,0 +1,170 @@
+"""Test that ConfigField definitions match actual tool parameters from agno."""
+
+import inspect
+from types import UnionType
+from typing import Union, get_args, get_origin, get_type_hints
+
+import pytest
+from agno.tools.dalle import DalleTools
+
+# Import tools to ensure they're registered
+import mindroom.tools  # noqa: F401
+from mindroom.constants import RuntimePaths
+from mindroom.tool_system.metadata import TOOL_METADATA, TOOL_REGISTRY, ToolManagedInitArg
+from mindroom.tool_system.worker_routing import ResolvedWorkerTarget
+
+SKIP_CUSTOM = {"homeassistant", "gmail", "google_calendar", "google_drive", "google_sheets", "openclaw_compat"}
+IGNORED_AGNO_PARAMS = {
+    # Agno still exposes deprecated BigQuery aliases in its constructor, but MindRoom intentionally only surfaces canonical flags.
+    "google_bigquery": {"enable_list_tables", "enable_describe_table", "enable_run_sql_query"},
+    # Agno accepts an SSLContext for Slack, but MindRoom has no safe serialized UI/config path for it.
+    "slack": {"ssl"},
+    # Agno accepts a live HTTP session object, which MindRoom cannot serialize safely in UI/YAML config.
+    "yfinance": {"session"},
+}
+
+
+def test_dalle_default_model_is_accepted_by_agno() -> None:
+    """The dashboard default for the DALL-E tool must satisfy Agno's constructor validation."""
+    model_field = next(field for field in TOOL_METADATA["dalle"].config_fields or [] if field.name == "model")
+
+    assert isinstance(model_field.default, str)
+    assert model_field.default
+    DalleTools(model=model_field.default, api_key="sk-test")
+
+
+@pytest.mark.parametrize("tool_name", list(TOOL_REGISTRY.keys()))
+def test_all(tool_name: str) -> None:
+    """Test that all tools have matching ConfigFields and agno parameters."""
+    if tool_name in SKIP_CUSTOM:
+        pytest.skip(f"{tool_name} is a custom tool, skipping test")
+    tool_factory = TOOL_REGISTRY[tool_name]
+    try:
+        tool_class = tool_factory()
+    except NotImplementedError:
+        pytest.skip(f"{tool_name} tool is not implemented, skipping test")
+    except ImportError as e:
+        pytest.skip(f"{tool_name} dependency not installed: {e}")
+    except RuntimeError as e:
+        if tool_name == "openbb" and ".build.lock" in str(e):
+            pytest.skip(f"{tool_name} import is transiently locked by upstream build process: {e}")
+        raise
+    verify_tool_configfields(tool_name, tool_class)
+
+
+def verify_tool_configfields(tool_name: str, tool_class: type) -> None:  # noqa: C901, PLR0912, PLR0915
+    """Verify tool ConfigFields match agno tool parameters.
+
+    Args:
+        tool_name: Name of the tool in the registry
+        tool_class: The agno tool class to check against
+
+    """
+    # Get the actual parameters from agno
+    sig = inspect.signature(tool_class.__init__)
+    resolved_type_hints = get_type_hints(
+        tool_class.__init__,
+        globalns=tool_class.__init__.__globals__
+        | {
+            "ResolvedWorkerTarget": ResolvedWorkerTarget,
+            "RuntimePaths": RuntimePaths,
+        },
+    )
+    agno_params = {}
+
+    for name, param in sig.parameters.items():
+        if name == "self":
+            continue
+        # Skip **kwargs as it's for forward compatibility
+        if param.kind == inspect.Parameter.VAR_KEYWORD:
+            continue
+        # Managed init args are injected by MindRoom, not end-user tool config.
+        if name in {managed_arg.value for managed_arg in ToolManagedInitArg}:
+            continue
+        agno_params[name] = {
+            "type": resolved_type_hints.get(name),
+        }
+
+    ignored_param_names = IGNORED_AGNO_PARAMS.get(tool_name, set())
+    agno_params = {name: param_info for name, param_info in agno_params.items() if name not in ignored_param_names}
+
+    # Get our ConfigFields for the tool
+    tool_metadata = TOOL_METADATA[tool_name]
+
+    config_fields = tool_metadata.config_fields or []
+    config_field_map = {field.name: field for field in config_fields}
+
+    # Check parameter names
+    agno_param_names = set(agno_params.keys())
+    config_field_names = set(config_field_map.keys())
+
+    missing_fields = agno_param_names - config_field_names
+    extra_fields = config_field_names - agno_param_names
+
+    # Build error message if there are issues
+    errors = []
+    if missing_fields:
+        errors.append(f"Missing ConfigFields for agno parameters: {', '.join(sorted(missing_fields))}")
+    if extra_fields:
+        errors.append(f"Extra ConfigFields not in agno: {', '.join(sorted(extra_fields))}")
+
+    # Check types for matching parameters
+    type_mismatches = []
+    for param_name, param_info in agno_params.items():
+        if param_name not in config_field_map:
+            continue
+
+        field = config_field_map[param_name]
+        param_type = param_info["type"]
+
+        # Handle Optional types
+        actual_type = param_type
+        origin = get_origin(param_type)
+        if origin in {Union, UnionType}:
+            args = get_args(param_type)
+            if type(None) in args:
+                # It's Optional, get the actual type
+                actual_type = next(arg for arg in args if arg is not type(None))
+
+        if actual_type is bool:
+            expected_type = "boolean"
+        elif actual_type is int or actual_type is float:
+            expected_type = "number"
+        elif actual_type is str:
+            # String parameters - check name patterns for special types
+            if (
+                "token" in param_name.lower()
+                or "password" in param_name.lower()
+                or "secret" in param_name.lower()
+                or "key" in param_name.lower()
+            ):
+                expected_type = "password"
+            elif (
+                "url" in param_name.lower()
+                or "uri" in param_name.lower()
+                or "proxy" in param_name.lower()
+                or "endpoint" in param_name.lower()
+                or "host" in param_name.lower()
+            ):
+                expected_type = "url"
+            else:
+                expected_type = "text"
+        else:
+            # For Any or other types, we can't determine automatically
+            continue
+
+        if field.type != expected_type:
+            type_mismatches.append(
+                f"{param_name}: expected type '{expected_type}' (from {param_type}), got '{field.type}'",
+            )
+
+    if type_mismatches:
+        errors.append("Type mismatches:\n  " + "\n  ".join(type_mismatches))
+
+    # Assert no errors
+    if errors:
+        error_msg = "\n\n".join(errors)
+        pytest.fail(f"{tool_name} ConfigField validation failed:\n{error_msg}")
+
+    # Success message (will only show with -v flag)
+    print(f"\n✅ All {len(config_fields)} {tool_name} ConfigFields match agno parameter names and types!")

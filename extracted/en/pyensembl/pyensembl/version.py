@@ -1,0 +1,7 @@
+__version__ = "2.10.1"
+
+def print_version():
+    print(f"v{__version__}")
+
+if __name__ == "__main__":
+    print_version()

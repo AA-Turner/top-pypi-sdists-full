@@ -1,0 +1,24 @@
+from .Generator import Generator
+from .native.openssl import create_OpenSSLOptimizations, NID_secp256k1
+from .native.secp256k1 import LibSECP256K1Optimizations
+
+# from http://www.secg.org/sec2-v2.pdf
+
+_a = 0x0000000000000000000000000000000000000000000000000000000000000000
+_b = 0x0000000000000000000000000000000000000000000000000000000000000007
+_p = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
+_Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798
+_Gy = 0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8
+_r = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+
+
+# include optimizations from libsecp256k1 and openssl, if available
+
+
+class GeneratorWithOptimizations(
+    LibSECP256K1Optimizations, create_OpenSSLOptimizations(NID_secp256k1), Generator
+):
+    pass
+
+
+secp256k1_generator = GeneratorWithOptimizations(_p, _a, _b, (_Gx, _Gy), _r)

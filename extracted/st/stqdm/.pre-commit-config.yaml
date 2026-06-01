@@ -1,0 +1,44 @@
+default_stages: [ pre-commit ]
+default_install_hook_types: [pre-commit, commit-msg]
+repos:
+  -   repo: https://github.com/pre-commit/pre-commit-hooks
+      rev: v6.0.0
+      hooks:
+        - id: trailing-whitespace
+        - id: end-of-file-fixer
+        - id: check-yaml
+        - id: check-json
+        - id: check-toml
+  - repo: local
+    hooks:
+      - id: ruff-format
+        name: Formatting (ruff)
+        entry: uv run ruff format
+        language: system
+        types: [ python ]
+        stages: [ pre-commit ]
+      - id: ruff-check
+        name: Imports (ruff)
+        entry: uv run ruff check --fix
+        language: system
+        types: [ python ]
+        stages: [ pre-commit ]
+      - id: lint
+        name: Linter (pylint)
+        entry: uv run pylint
+        language: system
+        types: [ python ]
+        exclude: ^demo/app/Home\.py$
+        stages: [ pre-commit ]
+      - id: test
+        name: Unit tests (pytest)
+        entry: uv run pytest
+        pass_filenames: false
+        language: system
+        types: [ python ]
+        stages: [ pre-push ]
+      - id: commitizen
+        name: Commit message (commitizen)
+        entry: uv run cz check --commit-msg-file
+        language: system
+        stages: [ commit-msg ]

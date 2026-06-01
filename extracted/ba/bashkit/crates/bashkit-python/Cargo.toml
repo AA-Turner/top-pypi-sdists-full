@@ -1,0 +1,35 @@
+# Bashkit Python package
+# Exposes Bashkit as a Python module via PyO3
+
+[package]
+name = "bashkit-python"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "A sandboxed bash interpreter for AI agents"
+readme = "README.md"
+
+[lib]
+crate-type = ["cdylib"]
+name = "bashkit"
+doc = false  # Python extension, no Rust docs needed
+
+[dependencies]
+# Bashkit core
+# realfs: always-on so Python callers can use mount_real_* APIs
+bashkit = { path = "../bashkit", features = ["scripted_tool", "python", "realfs", "jq", "interop", "http_client", "sqlite"] }
+
+# PyO3 native extension
+pyo3 = { workspace = true }
+pyo3-async-runtimes = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+
+# Serialization
+serde_json = { workspace = true }
+
+# Big-integer support for py_to_monty BigInt extraction
+num-bigint = "^0.4.6"  # must be compatible with the version pulled in by bashkit core

@@ -318,7 +318,8 @@ class EveCorporationInfo(models.Model):
         max_length=254)
     url = models.URLField(
         help_text="Corporation's URL",
-        blank=True, null=True, default=None)
+        max_length=2048,
+        blank=True, default="")
     war_eligible = models.BooleanField(
         help_text="Corporation's war eligibility",
         blank=True, null=True, default=None)
@@ -410,7 +411,7 @@ class EveCorporationInfo(models.Model):
         self.shares = corporation.shares if corporation.shares else None
         self.tax_rate = corporation.tax_rate if corporation.tax_rate else None
         self.corporation_ticker = corporation.ticker
-        self.url = corporation.url if corporation.url else ""
+        self.url = corporation.url if corporation.url and len(corporation.url) <= 2048 else ""
         self.war_eligible = corporation.war_eligible if corporation.war_eligible is not None else None
         self.last_updated = datetime.strptime(response.headers.get("Last-Modified"), "%a, %d %b %Y %H:%M:%S GMT").replace(tzinfo=timezone.utc)
         self.save()

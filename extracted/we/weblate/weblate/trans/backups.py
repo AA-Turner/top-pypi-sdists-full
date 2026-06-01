@@ -16,13 +16,23 @@ from io import BytesIO
 from operator import itemgetter
 from pathlib import Path
 from shutil import copyfileobj
-from typing import TYPE_CHECKING, Any, BinaryIO, Literal, TypedDict, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    BinaryIO,
+    Literal,
+    TypedDict,
+    TypeVar,
+    cast,
+    overload,
+)
 from zipfile import ZipFile
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.files import File
 from django.db import transaction
+from django.db.models import Prefetch
 from django.db.models.fields.files import FieldFile
 from django.db.models.signals import pre_save
 from django.utils import timezone
@@ -30,12 +40,24 @@ from django.utils.timezone import make_aware
 from django.utils.translation import gettext
 from weblate_schemas import load_schema, validate_schema
 
-from weblate.auth.models import AutoGroup, Group, Role, User, get_anonymous
+from weblate.auth.models import (
+    AutoGroup,
+    Group,
+    Role,
+    TeamMembership,
+    User,
+    get_anonymous,
+)
 from weblate.checks.models import Check
 from weblate.lang.models import Language, Plural
 from weblate.memory.models import Memory
 from weblate.screenshots.models import Screenshot
+from weblate.trans import defaults
 from weblate.trans.actions import ActionEvents
+from weblate.trans.inherited_settings import (
+    INHERITABLE_COMPONENT_FLAGS,
+    INHERITABLE_COMPONENT_SETTINGS,
+)
 from weblate.trans.models import (
     Category,
     Change,
@@ -69,16 +91,33 @@ from weblate.utils.zip import (
 from weblate.vcs.models import VCS_REGISTRY
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
     from zipfile import ZipInfo
 
     from django.db.models import Model
 
     from weblate.billing.models import Billing
+    from weblate.workspaces.models import Workspace
 
 warnings.filterwarnings("error", module="zipfile")
 
+ModelT = TypeVar("ModelT", bound="Model")
 PROJECTBACKUP_PREFIX = "projectbackups"
+BackupValue = str | int | bool | dict[str, Any] | list[Any] | None
+PROJECT_INHERITABLE_BACKUP_FIELDS = (
+    "check_flags",
+    *INHERITABLE_COMPONENT_SETTINGS,
+    *INHERITABLE_COMPONENT_FLAGS,
+)
+COMPONENT_INHERITABLE_BACKUP_FIELDS = (
+    "secondary_language",
+    *INHERITABLE_COMPONENT_FLAGS,
+)
+CATEGORY_INHERITABLE_BACKUP_FIELDS = (
+    "check_flags",
+    *INHERITABLE_COMPONENT_SETTINGS,
+    *INHERITABLE_COMPONENT_FLAGS,
+)
 
 
 class BackupListDict(TypedDict):
@@ -115,13 +154,19 @@ class ProjectBackup:
     VCS_PREFIX = "vcs/"
     VCS_PREFIX_LEN = len(VCS_PREFIX)
     IMPORT_BATCH_SIZE = 2000
-    MAX_ARCHIVE_MEMBERS = 100_000
+    MAX_ARCHIVE_MEMBERS = defaults.DEFAULT_PROJECT_BACKUP_IMPORT_MAX_MEMBERS
     # Per-entry limits reject suspiciously high compression ratios, while the
     # total uncompressed limit constrains low-compression archives as a whole.
-    MAX_COMPRESSED_ENTRY_SIZE = 250 * 1024 * 1024
-    MIN_COMPRESSED_RATIO_SIZE = 1 * 1024 * 1024
-    MAX_COMPRESSED_ENTRY_RATIO = 250
-    MAX_TOTAL_UNCOMPRESSED_SIZE = 512 * 1024 * 1024
+    MAX_COMPRESSED_ENTRY_SIZE = (
+        defaults.DEFAULT_PROJECT_BACKUP_IMPORT_MAX_COMPRESSED_ENTRY_SIZE
+    )
+    MIN_COMPRESSED_RATIO_SIZE = defaults.DEFAULT_PROJECT_BACKUP_IMPORT_MIN_RATIO_SIZE
+    MAX_COMPRESSED_ENTRY_RATIO = (
+        defaults.DEFAULT_PROJECT_BACKUP_IMPORT_MAX_COMPRESSED_ENTRY_RATIO
+    )
+    MAX_TOTAL_UNCOMPRESSED_SIZE = (
+        defaults.DEFAULT_PROJECT_BACKUP_IMPORT_MAX_TOTAL_UNCOMPRESSED_SIZE
+    )
 
     def __init__(self, filename: str = "", *, fileio: BinaryIO | None = None) -> None:
         self.data: dict[str, Any] = {}
@@ -150,12 +195,7 @@ class ProjectBackup:
     def validate_data(self) -> None:
         validate_schema(self.data, "weblate-backup.schema.json")
 
-    def backup_property(
-        self, obj: Model, field: str, extras: dict[str, Callable] | None = None
-    ) -> str | int | dict | None:
-        if extras and field in extras:
-            return extras[field](obj)
-        value = getattr(obj, field)
+    def backup_value(self, value: object) -> BackupValue:
         if isinstance(value, Language):
             return value.code
         if isinstance(value, Plural):
@@ -173,15 +213,43 @@ class ProjectBackup:
             return value.isoformat()
         if isinstance(value, FieldFile):
             return os.path.basename(value.name)  # type: ignore[type-var]
-        return value
+        if value is None or isinstance(value, str | int | bool):
+            return value
+        if isinstance(value, dict):
+            return cast("dict[str, Any]", value)
+        if isinstance(value, list):
+            return cast("list[Any]", value)
+        return cast("BackupValue", value)
+
+    def backup_property(
+        self,
+        obj: ModelT,
+        field: str,
+        extras: Mapping[str, Callable[[ModelT], object]] | None = None,
+    ) -> BackupValue:
+        if extras and field in extras:
+            return self.backup_value(extras[field](obj))
+        return self.backup_value(getattr(obj, field))
 
     def backup_object(
         self,
-        obj: Model,
+        obj: ModelT,
         properties: list[str],
-        extras: dict[str, Callable] | None = None,
-    ) -> dict[str, str | int | dict | None]:
+        extras: Mapping[str, Callable[[ModelT], object]] | None = None,
+    ) -> dict[str, BackupValue]:
         return {field: self.backup_property(obj, field, extras) for field in properties}
+
+    @staticmethod
+    def extend_fields(fields: list[str], *extra_fields: str) -> list[str]:
+        return list(dict.fromkeys((*fields, *extra_fields)))
+
+    def import_inherited_settings(self, kwargs: dict[str, Any]) -> None:
+        for field in INHERITABLE_COMPONENT_FLAGS:
+            kwargs.setdefault(field, False)
+        if "secondary_language" in kwargs and kwargs["secondary_language"] is not None:
+            kwargs["secondary_language"] = self.import_language(
+                kwargs["secondary_language"]
+            )
 
     def backup_m2m_flat(self, obj: Model, relation: str, field: str) -> list:
         """Backup a many to many relation using a unique identifying field of the related object."""
@@ -193,7 +261,6 @@ class ProjectBackup:
             ("roles", "roles", "name"),
             ("languages", "languages", "code"),
             ("admins", "admins", "username"),
-            ("members", "user_set", "username"),
             ("autogroups", "autogroup_set", "match"),
         ]:
             extras[schema_name] = partial(
@@ -204,6 +271,7 @@ class ProjectBackup:
         extras["components"] = lambda obj: [
             self.full_slug_without_project(c) for c in obj.components.all()
         ]
+        extras["members"] = self.backup_team_members
 
         return [
             self.backup_object(
@@ -214,15 +282,46 @@ class ProjectBackup:
             for group in project.defined_groups.all()
         ]
 
-    def backup_categories(self, obj: Project | Category) -> list[dict]:
+    @staticmethod
+    def backup_team_members(group: Group) -> list[str | dict[str, Any]]:
+        result: list[str | dict[str, Any]] = []
+        memberships = (
+            group.memberships.select_related("user")
+            .prefetch_related(
+                Prefetch("limit_languages", queryset=Language.objects.only("code"))
+            )
+            .order_by("user__username")
+        )
+        for membership in memberships:
+            limit_languages = sorted(
+                language.code for language in membership.limit_languages.all()
+            )
+            if limit_languages:
+                result.append(
+                    {
+                        "username": membership.user.username,
+                        "limit_languages": limit_languages,
+                    }
+                )
+            else:
+                result.append(membership.user.username)
+        return result
+
+    def backup_categories(
+        self, obj: Project | Category
+    ) -> list[dict[str, BackupValue]]:
         if isinstance(obj, Project):
             categories = obj.category_set.filter(category=None)
         else:
             categories = obj.category_set.all()
+        category_fields = self.extend_fields(
+            self.project_schema["definitions"]["category"]["required"],
+            *CATEGORY_INHERITABLE_BACKUP_FIELDS,
+        )
         return [
             self.backup_object(
                 category,
-                self.project_schema["definitions"]["category"]["required"],
+                category_fields,
                 {"categories": self.backup_categories},
             )
             for category in categories
@@ -230,6 +329,15 @@ class ProjectBackup:
 
     def backup_data(self, project: Project) -> None:
         self.project = project
+        project_fields = self.extend_fields(
+            self.project_schema["properties"]["project"]["required"],
+            *PROJECT_INHERITABLE_BACKUP_FIELDS,
+        )
+        project_extras: dict[str, Callable[[Project], object]] = {
+            field: partial(Project.get_effective_setting, field=field)
+            for field in INHERITABLE_COMPONENT_SETTINGS
+        }
+        project_extras["check_flags"] = lambda obj: obj.effective_check_flags.format()
         self.data = {
             "metadata": {
                 "version": VERSION,
@@ -237,9 +345,7 @@ class ProjectBackup:
                 "domain": settings.SITE_DOMAIN.rsplit(":", 1)[0],
                 "timestamp": self.timestamp.isoformat(),
             },
-            "project": self.backup_object(
-                project, self.project_schema["properties"]["project"]["required"]
-            ),
+            "project": self.backup_object(project, project_fields, project_extras),
             "labels": [
                 {"name": label.name, "color": label.color}
                 for label in project.label_set.all()
@@ -299,9 +405,14 @@ class ProjectBackup:
         )
 
     def backup_component(self, backupzip: ZipFile, component: Component) -> None:
+        component_fields = self.extend_fields(
+            self.component_schema["properties"]["component"]["required"],
+            *COMPONENT_INHERITABLE_BACKUP_FIELDS,
+        )
         data: dict = {
             "component": self.backup_object(
-                component, self.component_schema["properties"]["component"]["required"]
+                component,
+                component_fields,
             ),
             "translations": [
                 self.backup_object(
@@ -820,6 +931,70 @@ class ProjectBackup:
             users.append(user)
         return users
 
+    def restore_team_members(
+        self, group: Group, members: list[str | dict[str, Any]]
+    ) -> None:
+        users: dict[str, User] = {}
+        limit_languages: dict[str, list[str]] = {}
+        for member in members:
+            if isinstance(member, str):
+                username = member
+                languages = []
+            else:
+                username = member["username"]
+                languages = member.get("limit_languages", [])
+            missing_languages = [
+                language_code
+                for language_code in dict.fromkeys(languages)
+                if language_code not in self.languages_cache
+            ]
+            if missing_languages:
+                msg = (
+                    f"Unknown language codes in limit_languages for {username!r}: "
+                    f"{', '.join(missing_languages)}"
+                )
+                raise ValueError(msg)
+            user = self.restore_user(username)
+            if user.username == settings.ANONYMOUS_USER_NAME:
+                continue
+            if user.username in limit_languages and set(
+                limit_languages[user.username]
+            ) != set(languages):
+                warnings.warn(
+                    f"Conflicting language limits for {user.username!r} in backup.",
+                    stacklevel=2,
+                )
+            users[user.username] = user
+            limit_languages[user.username] = languages
+
+        with transaction.atomic():
+            user_list = list(users.values())
+            group.user_set.set(user_list)
+            memberships = list(
+                TeamMembership.objects.filter(
+                    group=group, user__in=user_list
+                ).select_related("user")
+            )
+            membership_ids = [membership.id for membership in memberships]
+            if not membership_ids:
+                return
+
+            through = TeamMembership.limit_languages.through
+            through.objects.filter(teammembership_id__in=membership_ids).delete()
+            through.objects.bulk_create(
+                through(teammembership_id=membership.id, language_id=language_id)
+                for membership in memberships
+                for language_id in sorted(
+                    {
+                        language.id
+                        for language in self.get_items_from_cache(
+                            self.languages_cache,
+                            limit_languages[membership.user.username],
+                        )
+                    }
+                )
+            )
+
     @staticmethod
     def get_items_from_cache(cache: dict[str, Any], keys: list[str]) -> list:
         return [value for key in keys if (value := cache.get(key))]
@@ -842,7 +1017,7 @@ class ProjectBackup:
             self.get_items_from_cache(self.languages_cache, team["languages"])
         )
         group.admins.set(self.restore_users(team["admins"]))
-        group.user_set.set(self.restore_users(team["members"]))
+        self.restore_team_members(group, team["members"])
 
         autogroups = [
             AutoGroup(match=match, group=group) for match in team["autogroups"]
@@ -1101,6 +1276,7 @@ class ProjectBackup:
             raise TypeError
         original_slug = self.get_component_backup_slug(data["component"])
         kwargs = data["component"].copy()
+        self.import_inherited_settings(kwargs)
         source_language = kwargs["source_language"] = self.import_language(
             kwargs["source_language"]
         )
@@ -1273,19 +1449,21 @@ class ProjectBackup:
     def restore_categories(
         self, categories: list[dict], parent_category: Category | None = None
     ) -> None:
-        category_objs = [
-            Category(
-                name=category["name"],
-                slug=category["slug"],
-                category=parent_category,
-                project=self.project,
-            )
-            for category in categories
-        ]
+        category_objs = []
+        child_categories = []
+        for category in categories:
+            kwargs = category.copy()
+            child_categories.append(kwargs.pop("categories"))
+            self.import_inherited_settings(kwargs)
+            kwargs["category"] = parent_category
+            kwargs["project"] = self.project
+            category_objs.append(Category(**kwargs))
         category_objs = Category.objects.bulk_create(category_objs)
-        for category, obj in zip(categories, category_objs, strict=False):
+        for nested_categories, obj in zip(
+            child_categories, category_objs, strict=False
+        ):
             self.categories_cache[self.full_slug_without_project(obj)] = obj
-            self.restore_categories(category["categories"], obj)
+            self.restore_categories(nested_categories, obj)
 
     @transaction.atomic
     def restore(
@@ -1294,6 +1472,7 @@ class ProjectBackup:
         project_slug: str,
         user: User,
         billing: Billing | None = None,
+        workspace: Workspace | None = None,
         progress_callback: Callable[[int, int], None] | None = None,
     ) -> Project:
         if not self.filename:
@@ -1311,6 +1490,11 @@ class ProjectBackup:
             kwargs = self.data["project"].copy()
             kwargs["name"] = project_name
             kwargs["slug"] = project_slug
+            self.import_inherited_settings(kwargs)
+            if workspace is not None:
+                for field in INHERITABLE_COMPONENT_FLAGS:
+                    kwargs[field] = False
+                kwargs["workspace"] = workspace
             # the attribute `set_language_team` is present in legacy backups prior to 5.17.1
             self.set_language_team_project = kwargs.pop("set_language_team", False)
             self.project = project = Project.objects.create(**kwargs)

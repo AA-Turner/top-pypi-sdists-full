@@ -1,0 +1,78 @@
+# PoeThePoet task definitions
+# https://poethepoet.natn.io/
+
+# Global environment variables
+[tool.poe.env]
+# The pointer to our app. Used in MCP helper tasks.
+MCP_SERVER_APP = "airbyte_ops_mcp.mcp.server:app"
+
+[tool.poe.tasks]
+
+# Linting and formatting
+lint = "ruff check ."
+format = "ruff format ."
+format-check = "ruff format --check ."
+
+# Testing  
+test = "pytest"
+test-fast = "pytest -x"
+test-cov = "pytest --cov=airbyte_ops_mcp --cov-report=html"
+test-unit = "pytest -m unit"
+test-integration = "pytest -m integration"
+
+# Combined tasks
+check = ["format-check", "lint", "deps", "test"]
+fix = ["format", "lint --fix"]
+
+# Build and install
+install = "uv sync --extra dev"
+install-prod = "uv sync"
+build = "uv build"
+
+# API Docs with PDoc
+docs-generate = {env = {PDOC_ALLOW_EXEC = "1"}, cmd = "python -m docs.generate run", help="Generate API documentation with PDoc."}
+docs-preview = {shell = "poe docs-generate && python -m webbrowser docs/generated/index.html", help="Generate API documentation with PDoc and then open the docs in the default web browser."}
+
+# Development helpers
+clean = "rm -rf .pytest_cache .coverage htmlcov dist .ruff_cache"
+version = { "shell" = "echo 'airbyte-internal-ops version:' && python -c 'import airbyte_ops_mcp; print(airbyte_ops_mcp.__version__)'" }
+
+[tool.poe.tasks.typecheck]
+help = "Run type checking with pyrefly"
+cmd = "pyrefly check"
+
+[tool.poe.tasks.security]
+help = "Run security checks with bandit"  
+cmd = "echo 'Security scanning not yet configured - consider adding bandit'"
+
+[tool.poe.tasks.deps]
+help = "Check for unused and missing dependencies"
+cmd = "deptry ."
+
+# Pre-commit style combined task
+[tool.poe.tasks.pre-commit]
+help = "Run all pre-commit checks"
+sequence = ["format", "lint", "test-fast"]
+
+# Claude Code MCP Testing Tasks
+[tool.poe.tasks.test-my-tools]
+help = "Run Claude Code in headless mode with the test-my-tools MCP prompt"
+shell = """
+npx @anthropic-ai/claude-code --print "Use the test-my-tools prompt${scope:+ with scope: $scope}" \
+    --allowedTools "mcp__airbyte-ops-mcp__*" \
+    --mcp-config .mcp.json
+"""
+args = [{ name = "scope", default = "", help = "Optional scope/context to focus testing (e.g., 'focus on areas of the code changed versus main')" }]
+# MCP tool testing
+
+[tool.poe.tasks.mcp-tool-test]
+help = "Test MCP tools directly with JSON arguments: poe mcp-tool-test <tool_name> '<json_args>'"
+cmd = "python -m fastmcp_extensions.utils.test_tool --app $MCP_SERVER_APP"
+
+[tool.poe.tasks.mcp-tool-test-http]
+help = "Test MCP tools over HTTP transport (stateless): poe mcp-tool-test-http [tool_name] ['<json_args>']"
+cmd = "python -m fastmcp_extensions.utils.test_tool --http --app $MCP_SERVER_APP"
+
+[tool.poe.tasks.mcp-server-describe]
+help = "Describe MCP server tool list (count, total characters, average)"
+cmd = "python -m fastmcp_extensions.utils.describe_server --app $MCP_SERVER_APP --name airbyte-ops-mcp"

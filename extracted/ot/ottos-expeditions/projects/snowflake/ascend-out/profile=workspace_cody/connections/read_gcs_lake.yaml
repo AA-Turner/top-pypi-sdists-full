@@ -1,7 +1,0 @@
-connection:
-  gcs:
-    root: gs://ascend-io-gcs-public/
-  metadata:
-    source:
-      path: connections/read_gcs_lake.yaml
-  name: read_gcs_lake

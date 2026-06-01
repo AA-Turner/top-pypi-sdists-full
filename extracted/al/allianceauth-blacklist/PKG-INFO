@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: allianceauth-blacklist
-Version: 0.2.0
+Version: 0.2.1
 Summary: Integration with Alliance Auth's State System, creates an maintains a Blacklisted State to ensure no services access is granted to Blacklisted users
 Keywords: allianceauth,eveonline
 Author-email: AaronKable <aaronkable@gmail.com>

@@ -1,0 +1,172 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# plugin-pin-cascade.yml
+#
+# Triggered by repository_dispatch (event-type: plugin-release) from app repos
+# (omniclaude, omniintelligence, omnimemory) after each PyPI release.
+# Updates Dockerfile.runtime pins for the released plugin and opens a PR.
+#
+# Ticket: OMN-5375
+
+name: Plugin Pin Cascade
+
+on:
+  repository_dispatch:
+    types: [plugin-release]
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'PyPI package name (e.g. omninode-claude)'
+        required: true
+        type: string
+      version:
+        description: 'Released version (e.g. 0.5.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-dockerfile-pins:
+    name: Update Dockerfile.runtime pins for ${{ github.event.client_payload.package || inputs.package }}
+    # OMNI_RUNNER_SELECTOR_V1 — trusted CI defaults to self-hosted omnibase-ci; public forks default to ubuntu-latest
+    runs-on: >-
+      ${{
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name != github.repository)
+        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+      }}
+    steps:
+      - name: Resolve inputs
+        id: inputs
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo "package=${{ github.event.client_payload.package }}" >> $GITHUB_OUTPUT
+            echo "version=${{ github.event.client_payload.version }}" >> $GITHUB_OUTPUT
+            echo "source_repo=${{ github.event.client_payload.source_repo }}" >> $GITHUB_OUTPUT
+          else
+            echo "package=${{ inputs.package }}" >> $GITHUB_OUTPUT
+            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+            echo "source_repo=manual" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout omnibase_infra
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Set branch name
+        id: branch
+        run: |
+          PKG="${{ steps.inputs.outputs.package }}"
+          VER="${{ steps.inputs.outputs.version }}"
+          echo "name=automation/pin-${PKG}-${VER}" >> $GITHUB_OUTPUT
+
+      - name: Create branch
+        run: git checkout -b "${{ steps.branch.outputs.name }}"
+
+      - name: Run update-plugin-pins.py
+        # **Reconciliation semantics**: This workflow is a full plugin reconciliation
+        # mechanism triggered by one release event. It fetches the latest visible PyPI
+        # version for ALL plugins in the PLUGINS list (omninode-claude,
+        # omninode-intelligence, omninode-memory) and rewrites Dockerfile.runtime
+        # accordingly. The dispatched `version` is enforced as a *minimum postcondition*
+        # for the triggering package — not a cap on what other pins may also advance.
+        # Any additional plugin pin changes in the same PR reflect reconciliation to the
+        # latest visible PyPI state. Reviewers should expect a single PR may advance one,
+        # two, or all three plugin pins simultaneously.
+        run: |
+          python scripts/update-plugin-pins.py \
+            --dockerfile docker/Dockerfile.runtime
+
+      - name: Verify pin advanced to expected version
+        # Postcondition: the Dockerfile pin for the dispatched package must match
+        # the requested version. If PyPI propagation lag caused update-plugin-pins.py
+        # to fetch an older version, fail loudly rather than silently succeed with
+        # stale data.
+        #
+        # The dispatched version may carry a 'v' prefix (e.g. v0.15.0 from the
+        # release tag) while the Dockerfile pin is bare (0.15.0). Strip the prefix
+        # before comparing.
+        run: |
+          PKG="${{ steps.inputs.outputs.package }}"
+          EXPECTED_VER="${{ steps.inputs.outputs.version }}"
+          # Strip leading 'v' prefix if present (e.g. v0.15.0 → 0.15.0)
+          EXPECTED_VER="${EXPECTED_VER#v}"
+          ACTUAL=$(grep -oP "(?<=${PKG}==)[0-9]+\.[0-9]+\.[0-9]+" docker/Dockerfile.runtime || true)
+          if [ "$ACTUAL" != "$EXPECTED_VER" ]; then
+            echo "ERROR: Dockerfile pin for ${PKG} did not reach expected version ${EXPECTED_VER} (actual: ${ACTUAL}) — PyPI propagation lag. Re-run workflow after 60s." >&2
+            exit 1
+          fi
+          echo "Pin confirmed: ${PKG}==${ACTUAL}"
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if git diff --quiet docker/Dockerfile.runtime; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "Dockerfile.runtime unchanged — pin already up to date."
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docker/Dockerfile.runtime
+          git commit -m "chore(deps): pin ${{ steps.inputs.outputs.package }} to ${{ steps.inputs.outputs.version }}
+
+          Automated Dockerfile.runtime pin update triggered by release of
+          ${{ steps.inputs.outputs.package }} ${{ steps.inputs.outputs.version }}
+          from ${{ steps.inputs.outputs.source_repo }}.
+
+          Triggered-by: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          git push origin "${{ steps.branch.outputs.name }}"
+
+      - name: Open PR
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EXISTING=$(gh pr list \
+            --head "${{ steps.branch.outputs.name }}" \
+            --state open \
+            --json number \
+            --jq 'length')
+          if [ "$EXISTING" -gt 0 ]; then
+            echo "PR already exists — skipping."
+            exit 0
+          fi
+          gh pr create \
+            --title "chore(deps): reconcile plugin pins (triggered by ${{ steps.inputs.outputs.package }} ${{ steps.inputs.outputs.version }})" \
+            --body "$(cat <<'PREOF'
+          ## Summary
+
+          Automated Dockerfile.runtime pin update for `${{ steps.inputs.outputs.package }}` ${{ steps.inputs.outputs.version }}.
+
+          - Updates pin in `docker/Dockerfile.runtime`
+          - Triggered by release from `${{ steps.inputs.outputs.source_repo }}`
+
+          ## Test plan
+
+          - [ ] CI passes
+          - [ ] Dockerfile.runtime pin reflects correct version
+          - [ ] Runtime image builds successfully with new pin
+          PREOF
+          )" \
+            --head "${{ steps.branch.outputs.name }}" \
+            --base main
+
+      - name: Skip summary
+        if: steps.diff.outputs.changed == 'false'
+        run: |
+          echo "### Skipped: Dockerfile.runtime already at ${{ steps.inputs.outputs.package }} ${{ steps.inputs.outputs.version }}" >> $GITHUB_STEP_SUMMARY

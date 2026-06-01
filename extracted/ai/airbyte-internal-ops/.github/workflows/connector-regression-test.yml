@@ -1,0 +1,644 @@
+name: Connector Regression Test
+permissions:
+  contents: read
+  checks: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      connector_name:
+        description: "Connector name to build from source (e.g., 'source-pokeapi')."
+        required: true
+        type: string
+      pr:
+        description: "PR number to checkout and build from (e.g., 70847). Must be from the repository specified by 'repo'."
+        required: true
+        type: string
+      repo:
+        description: "Repository where the connector PR is located."
+        required: false
+        type: choice
+        options:
+          - airbyte
+          - airbyte-enterprise
+        default: "airbyte"
+      connection_id:
+        description: "Airbyte Cloud connection ID to fetch config/catalog from."
+        required: false
+        type: string
+      skip_compare:
+        description: "If true, skip comparison and run single-version tests only. If false (default), run comparison tests (target vs control)."
+        required: false
+        type: boolean
+        default: false
+      skip_read_action:
+        description: "If true, skip the read action (run only spec, check, discover)."
+        required: false
+        type: boolean
+        default: false
+      override_test_image:
+        description: "Override test connector image with tag (e.g., airbyte/source-github:1.0.0). Ignored if skip_compare=false."
+        required: false
+        type: string
+      override_control_image:
+        description: "Override control connector image (baseline version) with tag. Ignored if skip_compare=true."
+        required: false
+        type: string
+      selected_streams:
+        description: "Comma-separated list of stream names to include in reads. Limits data volume by testing only specific streams."
+        required: false
+        type: string
+      enable_debug_logs:
+        description: "Enable debug-level logging for regression test output. Also passed as LOG_LEVEL=DEBUG to the connector Docker container."
+        required: false
+        type: boolean
+        default: false
+      with_state:
+        description: "Fetch and pass the connection's current state to the read command (warm read). Defaults to true when connection_id is provided."
+        required: false
+        type: choice
+        options:
+          - ""
+          - "true"
+          - "false"
+
+  workflow_call:
+    inputs:
+      connector_name:
+        description: "Connector name to build from source (e.g., 'source-pokeapi')."
+        required: true
+        type: string
+      pr:
+        description: "PR number to checkout and build from. Must be from the repository specified by 'repo'."
+        required: true
+        type: string
+      repo:
+        description: "Repository where the connector PR is located. Use 'airbyte' or 'airbyte-enterprise'."
+        required: false
+        type: string
+        default: "airbyte"
+      connection_id:
+        description: "Airbyte Cloud connection ID to fetch config/catalog from."
+        required: false
+        type: string
+      skip_compare:
+        description: "If true, skip comparison and run single-version tests only. If false (default), run comparison tests (target vs control)."
+        required: false
+        type: boolean
+        default: false
+      skip_read_action:
+        description: "If true, skip the read action (run only spec, check, discover)."
+        required: false
+        type: boolean
+        default: false
+      override_test_image:
+        description: "Override test connector image with tag. Ignored if skip_compare=false."
+        required: false
+        type: string
+      override_control_image:
+        description: "Override control connector image (baseline version) with tag. Ignored if skip_compare=true."
+        required: false
+        type: string
+      selected_streams:
+        description: "Comma-separated list of stream names to include in reads. Limits data volume by testing only specific streams."
+        required: false
+        type: string
+      enable_debug_logs:
+        description: "Enable debug-level logging for regression test output. Also passed as LOG_LEVEL=DEBUG to the connector Docker container."
+        required: false
+        type: boolean
+        default: false
+      with_state:
+        description: "Fetch and pass the connection's current state to the read command (warm read). Defaults to true when connection_id is provided."
+        required: false
+        type: string
+    outputs:
+      success:
+        description: "True if regression test passed (no regression detected)"
+        value: ${{ jobs.regression-test.outputs.success }}
+      internal_failure:
+        description: "True if an internal/infrastructure error caused the workflow to fail"
+        value: ${{ jobs.regression-test.outputs.internal_failure }}
+      both_failed:
+        description: "True if any step had both versions fail (no regression but both failed)"
+        value: ${{ jobs.regression-test.outputs.both_failed }}
+      summary_url:
+        description: "GitHub Actions run summary URL"
+        value: ${{ jobs.regression-test.outputs.summary_url }}
+      report_url:
+        description: "Detailed regression report (GitHub Check URL)"
+        value: ${{ jobs.regression-test.outputs.report_url }}
+    secrets:
+      AIRBYTE_CLOUD_CLIENT_ID:
+        required: false
+      AIRBYTE_CLOUD_CLIENT_SECRET:
+        required: false
+      GCP_GSM_CREDENTIALS:
+        required: false
+      GCP_GSM_CREDENTIALS_FOR_TESTING_TOOL:
+        required: false
+
+jobs:
+  regression-test:
+    name: "Regression Test: '${{ inputs.connector_name }}'"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Install dependencies
+        run: uv sync --group dev --all-packages
+
+      - name: Resolve connector repo ref
+        id: resolve-connector-ref
+        run: |
+          REPO="${{ inputs.repo }}"
+          # Default to 'airbyte' if not specified
+          if [ -z "$REPO" ]; then
+            REPO="airbyte"
+          fi
+          echo "repo=$REPO" >> "$GITHUB_OUTPUT"
+          echo "resolved_ref=refs/pull/${{ inputs.pr }}/head" >> "$GITHUB_OUTPUT"
+          echo "Using PR ${{ inputs.pr }} from airbytehq/$REPO -> refs/pull/${{ inputs.pr }}/head"
+
+      - name: Checkout connector repo
+        uses: actions/checkout@v6
+        with:
+          repository: airbytehq/${{ steps.resolve-connector-ref.outputs.repo }}
+          ref: ${{ steps.resolve-connector-ref.outputs.resolved_ref }}
+          path: connector-repo
+          fetch-depth: 1
+
+      - name: Install Cloud SQL Proxy
+        if: ${{ inputs.connection_id != '' }}
+        run: |
+          set -euo pipefail
+          echo "Installing Cloud SQL Proxy..."
+          VERSION="v2.15.0"
+          BASE_URL="https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/${VERSION}"
+          BINARY_NAME="cloud-sql-proxy.linux.amd64"
+          # Checksum from GitHub release: https://github.com/GoogleCloudPlatform/cloud-sql-proxy/releases/tag/v2.15.0
+          EXPECTED_SHA256="cf3e9d069ea0d09cdfddce77daa36811bb0b963b1169e9c3f1586433ca7325fa"
+
+          echo "Downloading Cloud SQL Proxy binary..."
+          curl -fsSLO "${BASE_URL}/${BINARY_NAME}"
+
+          echo "Verifying Cloud SQL Proxy checksum..."
+          echo "${EXPECTED_SHA256}  ${BINARY_NAME}" | sha256sum -c -
+
+          chmod +x "${BINARY_NAME}"
+          sudo mv "${BINARY_NAME}" /usr/local/bin/cloud-sql-proxy
+          cloud-sql-proxy --version
+
+      - name: Start Cloud SQL Proxy
+        if: ${{ inputs.connection_id != '' }}
+        env:
+          GCP_PROD_DB_ACCESS_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS_FOR_TESTING_TOOL }}
+        run: |
+          echo "Starting Cloud SQL Proxy for connection secret retrieval..."
+          # Start proxy in background on port 15432
+          uv run airbyte-ops cloud db start-proxy --port 15432 &
+          # Wait for proxy to be ready
+          for i in {1..30}; do
+            if nc -z localhost 15432 2>/dev/null; then
+              echo "Cloud SQL Proxy is ready on port 15432"
+              break
+            fi
+            echo "Waiting for proxy to start... ($i/30)"
+            sleep 1
+          done
+          if ! nc -z localhost 15432 2>/dev/null; then
+            echo "ERROR: Cloud SQL Proxy failed to start"
+            exit 1
+          fi
+
+      - name: Setup paths and args
+        id: setup
+        run: |
+          echo "=========================================="
+          echo "SETUP: Calculating all paths and args upfront"
+          echo "=========================================="
+          
+          # Define all artifact paths upfront
+          ARTIFACTS_DIR="/tmp/regression_test_artifacts"
+          SPEC_OUTPUT_DIR="$ARTIFACTS_DIR/spec"
+          CHECK_OUTPUT_DIR="$ARTIFACTS_DIR/check"
+          DISCOVER_OUTPUT_DIR="$ARTIFACTS_DIR/discover"
+          READ_OUTPUT_DIR="$ARTIFACTS_DIR/read"
+          
+          # Deterministic path for configured catalog (used by both GSM and connection_id modes)
+          CONFIGURED_CATALOG_PATH="$ARTIFACTS_DIR/configured_catalog.json"
+          
+          # Discover output paths (where catalog.jsonl might be found)
+          DISCOVER_TARGET_CATALOG="$DISCOVER_OUTPUT_DIR/target/airbyte_messages/catalog.jsonl"
+          DISCOVER_ROOT_CATALOG="$DISCOVER_OUTPUT_DIR/airbyte_messages/catalog.jsonl"
+          
+          echo "--- Artifact Paths ---"
+          echo "ARTIFACTS_DIR=$ARTIFACTS_DIR"
+          echo "SPEC_OUTPUT_DIR=$SPEC_OUTPUT_DIR"
+          echo "CHECK_OUTPUT_DIR=$CHECK_OUTPUT_DIR"
+          echo "DISCOVER_OUTPUT_DIR=$DISCOVER_OUTPUT_DIR"
+          echo "READ_OUTPUT_DIR=$READ_OUTPUT_DIR"
+          echo "CONFIGURED_CATALOG_PATH=$CONFIGURED_CATALOG_PATH"
+          echo "DISCOVER_TARGET_CATALOG=$DISCOVER_TARGET_CATALOG"
+          echo "DISCOVER_ROOT_CATALOG=$DISCOVER_ROOT_CATALOG"
+          
+          # Determine catalog mode
+          CONNECTION_ID="${{ inputs.connection_id }}"
+          if [ -n "$CONNECTION_ID" ]; then
+            CATALOG_MODE="connection_id"
+            echo "--- Catalog Mode: connection_id ---"
+            echo "Catalog will be fetched from Airbyte Cloud connection: $CONNECTION_ID"
+          else
+            CATALOG_MODE="gsm"
+            echo "--- Catalog Mode: gsm ---"
+            echo "Catalog will be generated from discover output"
+          fi
+          
+          # Build common args
+          SKIP_COMPARE="${{ inputs.skip_compare }}"
+          ARGS=""
+          ARGS+=" --connector-name ${{ inputs.connector_name }}"
+          ARGS+=" --repo-root ${{ github.workspace }}/connector-repo"
+          
+          if [ -n "$CONNECTION_ID" ]; then
+            ARGS+=" --connection-id $CONNECTION_ID"
+          fi
+          
+          if [ "$SKIP_COMPARE" = "true" ]; then
+            ARGS+=" --skip-compare"
+            if [ -n "${{ inputs.override_test_image }}" ]; then
+              ARGS+=" --test-image ${{ inputs.override_test_image }}"
+            fi
+          else
+            if [ -n "${{ inputs.override_control_image }}" ]; then
+              ARGS+=" --control-image ${{ inputs.override_control_image }}"
+            fi
+          fi
+          
+          if [ -n "${{ inputs.selected_streams }}" ]; then
+            ARGS+=" --selected-streams ${{ inputs.selected_streams }}"
+          fi
+          
+          if [ "${{ inputs.enable_debug_logs }}" = "true" ]; then
+            ARGS+=" --enable-debug-logs"
+          fi
+          
+          echo "--- Common Args ---"
+          echo "ARGS=$ARGS"
+          
+          # Output all values for use in subsequent steps
+          echo "artifacts_dir=$ARTIFACTS_DIR" >> "$GITHUB_OUTPUT"
+          echo "spec_output_dir=$SPEC_OUTPUT_DIR" >> "$GITHUB_OUTPUT"
+          echo "check_output_dir=$CHECK_OUTPUT_DIR" >> "$GITHUB_OUTPUT"
+          echo "discover_output_dir=$DISCOVER_OUTPUT_DIR" >> "$GITHUB_OUTPUT"
+          echo "read_output_dir=$READ_OUTPUT_DIR" >> "$GITHUB_OUTPUT"
+          echo "configured_catalog_path=$CONFIGURED_CATALOG_PATH" >> "$GITHUB_OUTPUT"
+          echo "discover_target_catalog=$DISCOVER_TARGET_CATALOG" >> "$GITHUB_OUTPUT"
+          echo "discover_root_catalog=$DISCOVER_ROOT_CATALOG" >> "$GITHUB_OUTPUT"
+          echo "catalog_mode=$CATALOG_MODE" >> "$GITHUB_OUTPUT"
+          echo "common_args=$ARGS" >> "$GITHUB_OUTPUT"
+          
+          echo "=========================================="
+          echo "SETUP COMPLETE"
+          echo "=========================================="
+
+      - name: Run SPEC
+        id: run-spec
+        timeout-minutes: 30
+        env:
+          AIRBYTE_CLOUD_CLIENT_ID: ${{ secrets.AIRBYTE_CLOUD_CLIENT_ID }}
+          AIRBYTE_CLOUD_CLIENT_SECRET: ${{ secrets.AIRBYTE_CLOUD_CLIENT_SECRET }}
+          GCP_GSM_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS }}
+          GCP_PROD_DB_ACCESS_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS_FOR_TESTING_TOOL }}
+          USE_CONNECTION_SECRET_RETRIEVER: "true"
+        run: uv run airbyte-ops cloud connector regression-test --command spec ${{ steps.setup.outputs.common_args }} --output-dir ${{ steps.setup.outputs.spec_output_dir }}
+
+      - name: Upload SPEC Artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: regression-test-artifacts-spec-${{ github.run_id }}
+          path: ${{ steps.setup.outputs.spec_output_dir }}/
+          retention-days: 7
+
+      - name: Write Context Block to Summary
+        if: always()
+        run: |
+          # Use resolved image versions from SPEC step outputs (written by CLI to GITHUB_OUTPUT)
+          # The CLI writes target_image and control_image to GITHUB_OUTPUT during execution
+          TARGET_IMAGE="${{ steps.run-spec.outputs.target_image }}"
+          CONTROL_IMAGE="${{ steps.run-spec.outputs.control_image }}"
+          
+          # Fallback to input overrides if not found in step outputs
+          if [ -z "$TARGET_IMAGE" ]; then
+            TARGET_IMAGE="${{ inputs.override_test_image }}"
+            if [ -z "$TARGET_IMAGE" ]; then
+              TARGET_IMAGE="(built from PR #${{ inputs.pr }})"
+            fi
+          fi
+          if [ -z "$CONTROL_IMAGE" ]; then
+            CONTROL_IMAGE="${{ inputs.override_control_image }}"
+            if [ -z "$CONTROL_IMAGE" ]; then
+              CONTROL_IMAGE="(auto-detected from latest release)"
+            fi
+          fi
+          
+          # Determine PR URL based on repo input
+          REPO="${{ inputs.repo }}"
+          if [ -z "$REPO" ]; then
+            REPO="airbyte"
+          fi
+          PR_URL="https://github.com/airbytehq/${REPO}/pull/${{ inputs.pr }}"
+          
+          # Write Context block
+          {
+            echo "# Regression Test Report"
+            echo ""
+            echo "## Context"
+            echo ""
+            echo "- **Test Date:** $(date -u '+%Y-%m-%d %H:%M:%S') UTC"
+            echo "- **Connector:** \`${{ inputs.connector_name }}\`"
+            echo "- **PR Under Test:** [#${{ inputs.pr }}](${PR_URL})"
+            if [ "${{ inputs.skip_compare }}" != "true" ]; then
+              echo "- **Control Version:** \`$CONTROL_IMAGE\`"
+              echo "- **Target Version:** \`$TARGET_IMAGE\`"
+            else
+              echo "- **Version:** \`$TARGET_IMAGE\`"
+            fi
+            echo "- **Workflow Run:** [View Execution](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run CHECK
+        id: run-check
+        timeout-minutes: 30
+        env:
+          AIRBYTE_CLOUD_CLIENT_ID: ${{ secrets.AIRBYTE_CLOUD_CLIENT_ID }}
+          AIRBYTE_CLOUD_CLIENT_SECRET: ${{ secrets.AIRBYTE_CLOUD_CLIENT_SECRET }}
+          GCP_GSM_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS }}
+          GCP_PROD_DB_ACCESS_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS_FOR_TESTING_TOOL }}
+          USE_CONNECTION_SECRET_RETRIEVER: "true"
+        run: uv run airbyte-ops cloud connector regression-test --command check ${{ steps.setup.outputs.common_args }} --output-dir ${{ steps.setup.outputs.check_output_dir }}
+
+      - name: Upload CHECK Artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: regression-test-artifacts-check-${{ github.run_id }}
+          path: ${{ steps.setup.outputs.check_output_dir }}/
+          retention-days: 7
+
+      - name: Run DISCOVER
+        id: run-discover
+        timeout-minutes: 60
+        env:
+          AIRBYTE_CLOUD_CLIENT_ID: ${{ secrets.AIRBYTE_CLOUD_CLIENT_ID }}
+          AIRBYTE_CLOUD_CLIENT_SECRET: ${{ secrets.AIRBYTE_CLOUD_CLIENT_SECRET }}
+          GCP_GSM_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS }}
+          GCP_PROD_DB_ACCESS_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS_FOR_TESTING_TOOL }}
+          USE_CONNECTION_SECRET_RETRIEVER: "true"
+        run: uv run airbyte-ops cloud connector regression-test --command discover ${{ steps.setup.outputs.common_args }} --output-dir ${{ steps.setup.outputs.discover_output_dir }}
+
+      - name: Upload DISCOVER Artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: regression-test-artifacts-discover-${{ github.run_id }}
+          path: ${{ steps.setup.outputs.discover_output_dir }}/
+          retention-days: 7
+
+      - name: Generate Configured Catalog from Discover Output
+        id: generate-catalog
+        if: inputs.skip_read_action != true && inputs.connection_id == ''
+        run: |
+          # Find catalog file from discover output
+          if [ -f "${{ steps.setup.outputs.discover_target_catalog }}" ]; then
+            CATALOG_FILE="${{ steps.setup.outputs.discover_target_catalog }}"
+          elif [ -f "${{ steps.setup.outputs.discover_root_catalog }}" ]; then
+            CATALOG_FILE="${{ steps.setup.outputs.discover_root_catalog }}"
+          else
+            echo "No catalog file found"; exit 0
+          fi
+          
+          # Generate configured catalog
+          python3 -c "
+          import json, sys
+          with open('${CATALOG_FILE}') as f:
+              for line in f:
+                  msg = json.loads(line.strip()) if line.strip() else {}
+                  if msg.get('type') == 'CATALOG':
+                      catalog = msg['catalog']
+                      break
+              else:
+                  sys.exit('No CATALOG message found')
+          streams = [{'stream': s, 'sync_mode': 'full_refresh' if not s.get('supported_sync_modes') or 'full_refresh' in s.get('supported_sync_modes', []) else s['supported_sync_modes'][0], 'destination_sync_mode': 'overwrite'} for s in catalog.get('streams', [])]
+          with open('${{ steps.setup.outputs.configured_catalog_path }}', 'w') as f:
+              json.dump({'streams': streams}, f, indent=2)
+          print(f'Generated {len(streams)} streams')
+          "
+
+      - name: Run READ
+        id: run-read
+        if: inputs.skip_read_action != true
+        timeout-minutes: 180
+        env:
+          AIRBYTE_CLOUD_CLIENT_ID: ${{ secrets.AIRBYTE_CLOUD_CLIENT_ID }}
+          AIRBYTE_CLOUD_CLIENT_SECRET: ${{ secrets.AIRBYTE_CLOUD_CLIENT_SECRET }}
+          GCP_GSM_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS }}
+          GCP_PROD_DB_ACCESS_CREDENTIALS: ${{ secrets.GCP_GSM_CREDENTIALS_FOR_TESTING_TOOL }}
+          USE_CONNECTION_SECRET_RETRIEVER: "true"
+        run: |
+          CATALOG_ARG=""
+          if [ "${{ steps.setup.outputs.catalog_mode }}" = "gsm" ] && [ -f "${{ steps.setup.outputs.configured_catalog_path }}" ]; then
+            CATALOG_ARG="--catalog-path ${{ steps.setup.outputs.configured_catalog_path }}"
+          fi
+          STATE_ARG=""
+          if [ "${{ inputs.with_state }}" = "true" ]; then
+            STATE_ARG="--with-state"
+          elif [ "${{ inputs.with_state }}" = "false" ]; then
+            STATE_ARG="--no-state"
+          fi
+          uv run airbyte-ops cloud connector regression-test --command read ${{ steps.setup.outputs.common_args }} $CATALOG_ARG $STATE_ARG --output-dir ${{ steps.setup.outputs.read_output_dir }}
+
+      - name: Upload READ Artifacts
+        if: always() && inputs.skip_read_action != true
+        uses: actions/upload-artifact@v6
+        with:
+          name: regression-test-artifacts-read-${{ github.run_id }}
+          path: ${{ steps.setup.outputs.read_output_dir }}/
+          retention-days: 7
+
+      - name: Append READ Skipped Message to Summary
+        if: always() && inputs.skip_read_action == true
+        run: |
+          {
+            echo "## \`READ\` Test Results (skipped)"
+            echo ""
+            echo "_This test was skipped per the \`skip_read_action=true\` input argument._"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Determine Final Status
+        id: final-status
+        if: always()
+        run: |
+          # Check step outcomes for internal failures (non-zero exit = infrastructure error)
+          SPEC_OUTCOME="${{ steps.run-spec.outcome }}"
+          CHECK_OUTCOME="${{ steps.run-check.outcome }}"
+          DISCOVER_OUTCOME="${{ steps.run-discover.outcome }}"
+          READ_OUTCOME="${{ steps.run-read.outcome }}"
+          SKIP_READ="${{ inputs.skip_read_action }}"
+
+          echo "=== Step Outcomes (infrastructure) ==="
+          echo "SPEC: $SPEC_OUTCOME"
+          echo "CHECK: $CHECK_OUTCOME"
+          echo "DISCOVER: $DISCOVER_OUTCOME"
+          echo "READ: $READ_OUTCOME (skip_read=$SKIP_READ)"
+
+          # Check for both_failed outputs from each step
+          SPEC_BOTH_FAILED="${{ steps.run-spec.outputs.both_failed }}"
+          CHECK_BOTH_FAILED="${{ steps.run-check.outputs.both_failed }}"
+          DISCOVER_BOTH_FAILED="${{ steps.run-discover.outputs.both_failed }}"
+          READ_BOTH_FAILED="${{ steps.run-read.outputs.both_failed }}"
+
+          # Surface whether any step had both versions fail (computed before early exits)
+          if [ "$SPEC_BOTH_FAILED" = "true" ] || [ "$CHECK_BOTH_FAILED" = "true" ] || [ "$DISCOVER_BOTH_FAILED" = "true" ] || [ "$READ_BOTH_FAILED" = "true" ]; then
+            echo "both_failed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "both_failed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Check for internal/infrastructure failures (step exited non-zero or timed out)
+          # Note: GitHub Actions reports timed-out steps as outcome='failure'
+          INTERNAL_FAILURE=false
+          for STEP_NAME in SPEC CHECK DISCOVER READ; do
+            OUTCOME_VAR="${STEP_NAME}_OUTCOME"
+            OUTCOME="${!OUTCOME_VAR}"
+            if [ "$STEP_NAME" = "READ" ] && [ "$SKIP_READ" = "true" ]; then
+              continue
+            fi
+            if [ "$OUTCOME" = "cancelled" ]; then
+              echo "::error::${STEP_NAME} step was cancelled (likely timed out)"
+              INTERNAL_FAILURE=true
+            elif [ "$OUTCOME" != "success" ] && [ "$OUTCOME" != "skipped" ]; then
+              echo "::error::${STEP_NAME} step failed due to an internal error (outcome: ${OUTCOME})"
+              INTERNAL_FAILURE=true
+            fi
+          done
+
+          # Check test results from CLI outputs (success=true/false written by CLI)
+          SPEC_SUCCESS="${{ steps.run-spec.outputs.success }}"
+          CHECK_SUCCESS="${{ steps.run-check.outputs.success }}"
+          DISCOVER_SUCCESS="${{ steps.run-discover.outputs.success }}"
+          READ_SUCCESS="${{ steps.run-read.outputs.success }}"
+
+          echo ""
+          echo "=== Test Results (from CLI outputs) ==="
+          echo "SPEC: success=$SPEC_SUCCESS"
+          echo "CHECK: success=$CHECK_SUCCESS"
+          echo "DISCOVER: success=$DISCOVER_SUCCESS"
+          echo "READ: success=$READ_SUCCESS (skip_read=$SKIP_READ)"
+
+          ALL_TESTS_PASSED=true
+          if [ "$SPEC_SUCCESS" != "true" ]; then ALL_TESTS_PASSED=false; fi
+          if [ "$CHECK_SUCCESS" != "true" ]; then ALL_TESTS_PASSED=false; fi
+          if [ "$DISCOVER_SUCCESS" != "true" ]; then ALL_TESTS_PASSED=false; fi
+          if [ "$SKIP_READ" != "true" ] && [ "$READ_SUCCESS" != "true" ]; then ALL_TESTS_PASSED=false; fi
+
+          echo ""
+          echo "=== Final Status ==="
+          echo "Internal failure: $INTERNAL_FAILURE"
+          echo "All tests passed: $ALL_TESTS_PASSED"
+
+          echo "success=$ALL_TESTS_PASSED" >> "$GITHUB_OUTPUT"
+          echo "internal_failure=$INTERNAL_FAILURE" >> "$GITHUB_OUTPUT"
+
+          # Only fail the workflow if there was an internal/infrastructure error
+          if [ "$INTERNAL_FAILURE" = "true" ]; then
+            echo "::error::Workflow failed due to internal infrastructure error(s)"
+            exit 1
+          fi
+
+      - name: Write Summary Table to Summary
+        if: always()
+        run: |
+          # Determine emoji for each result based on CLI outputs (not step outcomes)
+          # Use ⚠️ for "both versions failed" (no regression but both failed)
+          if [ "${{ steps.run-spec.outputs.both_failed }}" = "true" ]; then
+            SPEC_EMOJI="⚠️"
+          elif [ "${{ steps.run-spec.outputs.success }}" = "true" ]; then
+            SPEC_EMOJI="✅"
+          else
+            SPEC_EMOJI="❌"
+          fi
+
+          if [ "${{ steps.run-check.outputs.both_failed }}" = "true" ]; then
+            CHECK_EMOJI="⚠️"
+          elif [ "${{ steps.run-check.outputs.success }}" = "true" ]; then
+            CHECK_EMOJI="✅"
+          else
+            CHECK_EMOJI="❌"
+          fi
+
+          if [ "${{ steps.run-discover.outputs.both_failed }}" = "true" ]; then
+            DISCOVER_EMOJI="⚠️"
+          elif [ "${{ steps.run-discover.outputs.success }}" = "true" ]; then
+            DISCOVER_EMOJI="✅"
+          else
+            DISCOVER_EMOJI="❌"
+          fi
+
+          if [ "${{ steps.run-read.outputs.both_failed }}" = "true" ]; then
+            READ_EMOJI="⚠️"
+          elif [ "${{ steps.run-read.outputs.success }}" = "true" ]; then
+            READ_EMOJI="✅"
+          else
+            READ_EMOJI="❌"
+          fi
+
+          SKIP_READ="${{ inputs.skip_read_action }}"
+          
+          # Write summary table at the bottom
+          {
+            echo ""
+            echo "---"
+            echo ""
+            echo "## Summary"
+            echo ""
+            echo "| Command | Result |"
+            echo "|---------|--------|"
+            echo "| \`SPEC\` | $SPEC_EMOJI |"
+            echo "| \`CHECK\` | $CHECK_EMOJI |"
+            echo "| \`DISCOVER\` | $DISCOVER_EMOJI |"
+            if [ "$SKIP_READ" != "true" ]; then
+              echo "| \`READ\` | $READ_EMOJI |"
+            else
+              echo "| \`READ\` | _(skipped)_ |"
+            fi
+            echo ""
+            echo "Legend: ✅ = passed, ❌ = regression detected, ⚠️ = both versions failed (no regression)"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+    outputs:
+      success: ${{ steps.final-status.outputs.success }}
+      internal_failure: ${{ steps.final-status.outputs.internal_failure }}
+      both_failed: ${{ steps.final-status.outputs.both_failed }}
+      summary_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

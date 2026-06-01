@@ -1,0 +1,253 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "efterlev"
+dynamic = ["version"]
+description = "Repo-native, agent-first compliance scanner for FedRAMP and DoD Impact Levels"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.12"
+authors = [{ name = "Efterlev contributors" }]
+keywords = [
+    "compliance",
+    "fedramp",
+    "oscal",
+    "dod",
+    "cmmc",
+    "security",
+    "iac",
+    "terraform",
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "pydantic>=2.6,<3",
+    "typer>=0.12,<1",
+    "python-hcl2>=4.3,<9",
+    # Trestle 4.x relaxes the hard cryptography==46.0.5 pin that locked us out of
+    # the CVE-2026-34073 / CVE-2026-39892 fixes (4.0.2 requires cryptography>=46.0.7).
+    # No code depends on trestle yet, so the major bump is free at pre-implementation.
+    # 4.0.3 fixes CVE-2026-46380 + CVE-2026-46439 (filed against 4.0.2;
+    # surfaced by pip-audit on 2026-05-28).
+    "compliance-trestle>=4.0.3,<5",
+    "anthropic>=0.40,<1",
+    "mcp>=1.0,<2",
+    "jinja2>=3.1,<4",
+    # Already available transitively via mcp; pinning directly because Phase 2a's
+    # FRMR loader uses Draft 2020-12 validation as a first-class input check.
+    "jsonschema>=4.20,<5",
+    # Evidence Manifest loader parses customer-authored YAML under
+    # `.efterlev/manifests/`. Transitively available via other deps; pinning
+    # directly because it's load-bearing for a core primitive.
+    "pyyaml>=6.0.3,<7",
+    # Authorization-boundary scoping (Priority 4) uses gitignore-style glob
+    # patterns to match repo-relative paths against `include`/`exclude` rules.
+    # pathspec implements gitwildmatch correctly (`**` recursive, `*` non-
+    # crossing-`/`, etc.) — the same semantics customers expect from `.gitignore`.
+    # Transitively available via mkdocs et al.; pinning directly because the
+    # boundary feature is load-bearing for the customer-facing posture statement.
+    # Upper bound widened from <1 to <2 (2026-04-29) to unblock mypy>=1.20
+    # which depends on pathspec>=1.0.0; the gitwildmatch interface we use
+    # is stable across the 0.x → 1.x boundary.
+    "pathspec>=0.12,<2",
+    # `efterlev quickstart` (v0.1.18+) writes its temp workspace under the
+    # platform-appropriate user cache dir (`~/.cache/efterlev/` on Linux,
+    # `~/Library/Caches/efterlev/` on macOS, `%LOCALAPPDATA%\efterlev\` on
+    # Windows). platformdirs is the canonical helper — same library pip /
+    # uv / ruff use. Tiny dep, no transitives.
+    "platformdirs>=4.0,<5",
+    # Pin python-multipart>=0.0.27 directly to override the older MCP
+    # transitive (mcp pulls 0.0.26). CVE-2026-42561 affects 0.0.26;
+    # fix landed in 0.0.27. We don't import python-multipart ourselves
+    # (it comes in via the mcp server's HTTP transport); the direct
+    # pin is purely a security floor until mcp ships a release with
+    # the bumped transitive.
+    "python-multipart>=0.0.27,<1",
+    # `efterlev shell` (v0.1.132+) interactive REPL — history,
+    # tab-completion, key bindings. Available transitively via several
+    # existing deps but pinned directly because the shell is a
+    # first-class user-facing surface.
+    "prompt_toolkit>=3.0,<4",
+    # Rich is shipped transitively (typer pulls it) but we use rich's
+    # Console / Text API directly in the shell renderer. Pin to keep
+    # the API surface explicit.
+    "rich>=13.7,<16",
+    # Efterlev Studio TUI (DECISIONS 2026-05-22). Built on rich (already a
+    # dep); `textual serve` later yields the browser/shareable surface.
+    "textual>=6,<9",
+]
+
+[project.optional-dependencies]
+dev = [
+    # CVE constraint: CVE-2025-71176 fix landed in pytest 9.0.3; tests/test_smoke.py
+    # was written to handle pytest 9's "exit 5 on no tests" behavior, so bumping is safe.
+    "pytest>=9.0.3,<10",
+    "ruff>=0.15.12,<1",
+    "mypy>=1.11,<3",
+    # PEP 561 stubs for pyyaml — required by mypy strict on
+    # `efterlev.manifests.*`. Runtime pyyaml lives in project deps.
+    "types-PyYAML>=6.0,<7",
+    # boto3 also lives in the [bedrock] extra; included here so the
+    # AnthropicBedrockClient tests can mock it without an opt-in install.
+    "boto3>=1.35,<2",
+    # Security tools, baked into the [dev] extra in v0.1.61 so CI runs
+    # them via `uv run` against the lockfile-pinned versions instead of
+    # `pip install --upgrade` / `uv run --with` (both of which fetch
+    # whatever PyPI happens to have on every CI run, defeating
+    # reproducibility). Local-dev parity with CI is the bonus.
+    "pip-audit>=2.7,<3",
+    "bandit[toml]>=1.7,<2",
+]
+# AWS Bedrock backend (SPEC-10). Opt-in to keep the default `pipx install
+# efterlev` lean for users who don't need GovCloud / Bedrock. Container
+# images bake boto3 in directly via the Dockerfile.
+bedrock = [
+    "boto3>=1.35,<2",
+]
+# OpenAI backend (v0.1.211). Opt-in for the same reason as bedrock; customers
+# without Claude access (Anthropic / Bedrock / subscription) get a path here.
+# **Experimental — quality not yet maintainer-validated** on the 60-KSI sweep
+# (the other backends are at 99–100% on the 5-fixture harness). Pin range:
+# the openai SDK is on a fast major-cadence; cap at <3 to keep CI deterministic.
+openai = [
+    "openai>=1.40,<3",
+]
+# Docs site build (SPEC-38, A6 gate). Pin majors so a Material/MkDocs
+# breaking-change doesn't silently break the site build.
+docs = [
+    "mkdocs>=1.6.1,<2",
+    "mkdocs-material>=9.7.6,<10",
+    "pymdown-extensions>=10.7,<11",
+]
+
+[project.scripts]
+efterlev = "efterlev.cli.main:app"
+
+[project.urls]
+Homepage = "https://efterlev.com"
+Documentation = "https://efterlev.com"
+Repository = "https://github.com/efterlev/efterlev"
+Issues = "https://github.com/efterlev/efterlev/issues"
+
+# Single source of truth for the version: the `__version__` constant in
+# `src/efterlev/__init__.py`. Hatch reads it at build time so pyproject's
+# `[project].version` and `efterlev --version` (which prints `__version__`)
+# stay in lock-step. v0.1.0 shipped with the two out of sync (PyPI metadata
+# 0.1.0, in-source constant 0.0.1) — see docs/followups.md.
+[tool.hatch.version]
+path = "src/efterlev/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/efterlev"]
+
+# Ship the vendored FRMR + NIST 800-53 catalogs inside the installed package
+# so `pipx install efterlev` (and other wheel-based installs) gets the reference
+# data the tool needs at runtime. Day 1 implementation will pick the canonical
+# lookup path — `importlib.resources.files("efterlev") / "catalogs" / ...` is
+# the expected direction, which this force-include supports.
+[tool.hatch.build.targets.wheel.force-include]
+"catalogs" = "efterlev/catalogs"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# Opt-in to only the `PLW1514` preview rule (unspecified-encoding)
+# without auto-enabling all other preview rules. Without it,
+# `Path.open()` / `read_text()` / `write_text()` /
+# `tempfile.NamedTemporaryFile(mode="w")` calls fall back to the OS-
+# default encoding — cp1252 on Windows, utf-8 on POSIX. The v0.1.22-
+# v0.1.27 cascade exposed this as v0.1.25's UnicodeDecodeError on the
+# FRMR catalog (read path) and v0.1.27's UnicodeEncodeError on CLI
+# stdout (write path). PLW1514 catches the whole category at lint
+# time, on every dev platform — no Windows runner needed.
+#
+# `preview = true` + `explicit-preview-rules = true` means we get
+# only the preview rules we explicitly select via `extend-select`;
+# other preview-only rules (RUF029/RUF056/RUF067/etc.) stay off
+# until we opt them in deliberately. DECISIONS 2026-05-07
+# "Process improvements from v0.1.22-v0.1.27 cascade".
+preview = true
+explicit-preview-rules = true
+select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "B",
+    "UP",
+    "N",
+    "SIM",
+    "RUF",
+]
+extend-select = [
+    "PLW1514",  # unspecified-encoding (preview rule; see comment above)
+]
+# B008: "Do not perform function call in argument defaults" — Typer's canonical
+# pattern uses `= typer.Option(...)` as a default, which B008 flags. The pattern
+# is explicitly supported by Typer and idiomatic; globally-ignore rather than
+# per-line noqa in every CLI function signature.
+ignore = ["B008"]
+
+[tool.ruff.lint.per-file-ignores]
+# generate_starter_pack.py is a data-driven generator: KSI descriptions,
+# auditor-question prompts, and example DRAFT statements live as long
+# string literals inside a dict. Wrapping for E501 would split sentences
+# mid-clause and hurt maintainer readability — the strings are the
+# product. Confined ignore: only this one generator file.
+"scripts/generate_starter_pack.py" = ["E501"]
+
+# test_frmr_loader.py intentionally embeds non-ASCII chars (en-dash,
+# em-dash, smart quotes) in its UTF-8 fixture catalog to exercise the
+# v0.1.25 encoding fix. RUF001 flags those as "ambiguous" — they're
+# exactly the point of the test.
+"tests/test_frmr_loader.py" = ["RUF001"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src/efterlev"]
+plugins = ["pydantic.mypy"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "efterlev.primitives.*",
+    "efterlev.detectors.*",
+    "efterlev.oscal.*",
+    "efterlev.manifests.*",
+]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_decorators = true
+disallow_any_generics = true
+no_implicit_optional = true
+warn_return_any = true
+warn_unused_ignores = true
+strict_equality = true
+check_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra --strict-markers"
+markers = [
+    "e2e: end-to-end harness tests that hit a real LLM backend; opt-in only.",
+    "deep: deterministic deep-test smoke covering user flows via the CLI; runs in <60s with no LLM calls and no cost. Opt-in via `pytest -m deep` or `scripts/deep-test.sh`.",
+]

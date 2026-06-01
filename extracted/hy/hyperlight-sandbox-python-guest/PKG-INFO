@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: hyperlight-sandbox-python-guest
+Version: 0.4.0
+Summary: Packaged Hyperlight Wasm Python guest exposed as python_guest.path
+License-Expression: Apache-2.0
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+
+# hyperlight-sandbox-python-guest
+
+Packaged Python guest for the `hyperlight-sandbox` Wasm backend.
+
+After installation, use `module="python_guest.path"` or
+`module_path="python_guest.path"` in the public API package.

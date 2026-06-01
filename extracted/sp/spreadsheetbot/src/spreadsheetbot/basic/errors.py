@@ -1,2 +1,0 @@
-class BotShouldBeInactive(Exception):
-    pass

@@ -1,0 +1,24 @@
+Metadata-Version: 2.1
+Name: umi-tools
+Version: 1.1.6
+Summary: umi_tools: Tools for UMI analyses
+Home-page: https://github.com/CGATOxford/UMI-tools
+Download-URL: https://github.com/CGATOxford/UMI-tools/tarball/1.1.6
+Author: Ian Sudbery
+Author-email: i.sudbery@sheffield.ac.uk
+License: MIT
+Keywords: computational genomics
+Platform: any
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved
+Classifier: Programming Language :: Python
+Classifier: Topic :: Software Development
+Classifier: Topic :: Scientific/Engineering
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Unix
+Classifier: Operating System :: MacOS
+License-File: LICENSE
+
+umi_tools: Tools for UMI analyses

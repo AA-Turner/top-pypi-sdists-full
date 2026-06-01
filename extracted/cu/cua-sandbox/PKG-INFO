@@ -1,0 +1,116 @@
+Metadata-Version: 2.4
+Name: cua-sandbox
+Version: 0.1.16
+Summary: CUA Sandbox — ephemeral and persistent sandboxed computer environments
+Project-URL: Homepage, https://github.com/trycua/cua
+Project-URL: Repository, https://github.com/trycua/cua
+Author-email: TryCua <hello@trycua.com>
+License-Expression: MIT
+Keywords: automation,computer-use,container,sandbox,vm
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: <3.14,>=3.11
+Requires-Dist: cua-auto>=0.1.2
+Requires-Dist: cua-core<0.4.0,>=0.3.0
+Requires-Dist: grpcio==1.78.0
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: oras>=0.2.40
+Requires-Dist: paramiko>=4.0.0
+Requires-Dist: protobuf==6.31.1
+Requires-Dist: pycdlib>=1.14.0
+Requires-Dist: vncdotool>=1.2.0
+Requires-Dist: websockets>=12.0
+Provides-Extra: auth
+Requires-Dist: webbrowser-open>=0.0.1; extra == 'auth'
+Provides-Extra: dev
+Requires-Dist: pytest-asyncio>=0.23.0; extra == 'dev'
+Requires-Dist: pytest>=8.0.0; extra == 'dev'
+Requires-Dist: ruff>=0.1.0; extra == 'dev'
+Description-Content-Type: text/markdown
+
+# cua-sandbox
+
+Sandboxed VM environments with a unified Python API. Cloud by default.
+
+```bash
+pip install cua-sandbox
+```
+
+## Ephemeral sandbox
+
+Created on enter, destroyed on exit.
+
+```python
+from cua_sandbox import Sandbox, Image
+
+async with Sandbox.ephemeral(Image.linux()) as sb:
+    await sb.shell.run("uname -a")
+    await sb.screenshot()
+```
+
+## Persistent sandbox
+
+Provision a new sandbox that stays alive after your script exits.
+
+```python
+from cua_sandbox import Sandbox, Image
+
+sb = await Sandbox.create(Image.linux())
+await sb.shell.run("uname -a")
+print(sb.name)  # save this to reconnect later
+await sb.disconnect()
+```
+
+## Connect to existing sandbox
+
+Attach to a sandbox that's already running. Works as a plain await or context manager.
+
+```python
+from cua_sandbox import Sandbox
+
+# plain await
+sb = await Sandbox.connect("my-sandbox")
+await sb.shell.run("whoami")
+await sb.disconnect()
+
+# context manager — disconnects on exit, sandbox keeps running
+async with Sandbox.connect("my-sandbox") as sb:
+    await sb.shell.run("whoami")
+```
+
+## Destroy a sandbox
+
+```python
+await sb.destroy()  # disconnect + permanently delete
+```
+
+## Local VM
+
+Spins up a local VM using QEMU or Lume, destroyed on exit.
+
+```python
+from cua_sandbox import Sandbox, Image
+from cua_sandbox.runtime import QEMURuntime
+
+async with Sandbox.ephemeral(Image.linux(), local=True, runtime=QEMURuntime()) as sb:
+    await sb.shell.run("uname -a")
+```
+
+## Localhost (unsandboxed)
+
+Direct host control — **not sandboxed**, use with caution.
+
+```python
+from cua_sandbox import Localhost
+
+async with Localhost.connect() as host:
+    await host.shell.run("echo hello")
+    await host.screenshot()
+```

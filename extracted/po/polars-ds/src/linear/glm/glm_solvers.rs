@@ -8,7 +8,7 @@ use crate::linear::{
     LinalgErrors,
 };
 use crate::utils::parallelism::PARALLEL_MATMUL_THRESHOLD;
-use faer::{diag::DiagRef, mat::Mat, MatRef, Par};
+use faer::{mat::Mat, unzip, zip, MatRef, Par};
 use faer_traits::RealField;
 use itertools::Itertools;
 use num::Float;
@@ -48,12 +48,16 @@ impl GLMFamily {
 
 impl From<&str> for GLMFamily {
     fn from(s: &str) -> Self {
-        match s.to_lowercase().as_str() {
-            "gaussian" | "normal" => GLMFamily::Gaussian,
-            "poisson" => GLMFamily::Poisson,
-            "binomial" | "logistic" => GLMFamily::Binomial,
-            "gamma" => GLMFamily::Gamma,
-            _ => GLMFamily::Gaussian, // Default to Gaussian
+        if s.eq_ignore_ascii_case("gaussian") || s.eq_ignore_ascii_case("normal") {
+            GLMFamily::Gaussian
+        } else if s.eq_ignore_ascii_case("poisson") {
+            GLMFamily::Poisson
+        } else if s.eq_ignore_ascii_case("binomial") || s.eq_ignore_ascii_case("logistic") {
+            GLMFamily::Binomial
+        } else if s.eq_ignore_ascii_case("gamma") {
+            GLMFamily::Gamma
+        } else {
+            GLMFamily::Gaussian // Default to Gaussian
         }
     }
 }
@@ -258,7 +262,7 @@ pub fn faer_irls<T: RealField + Float>(
 
     // let epsilon = T::from(1e-8).unwrap();
     // Initialized mu based on variance
-    let point_5 = T::one() / (T::one() + T::one());
+    let point_5 = T::from(0.5).unwrap();
     let mut mu = match variance {
         VarianceFunction::Binomial => y
             .col(0)
@@ -290,17 +294,17 @@ pub fn faer_irls<T: RealField + Float>(
             for i in 0..n_samples {
                 let mu_i = mu[i];
                 d_mu[i] = link.deriv(mu_i);
-                weights[i] = (d_mu[i].powi(2) * variance.variance(mu_i)).recip()
-                // .max(epsilon)
+                weights[i] = (d_mu[i].powi(2) * variance.variance(mu_i)).recip();
             }
 
             // Update Response
-            // Reuse eta as Z, the working response
-            // This computation is vectorized
-            // let z = eta + diag_d_mu * (y - mu.as_mat());
-            let diag_d_mu = DiagRef::from_slice(&d_mu);
-            let mu_mat = MatRef::from_column_major_slice(&mu, mu.len(), 1);
-            eta += diag_d_mu * (y - mu_mat); // This is now Z
+            // Eta was X * beta. We update it into Z (working response) in-place.
+            // Z = eta + deriv(mu) * (y - mu)
+            for i in 0..n_samples {
+                let y_i = *y.get_unchecked(i, 0);
+                let eta_i = eta.get_mut_unchecked(i, 0);
+                *eta_i = *eta_i + d_mu[i] * (y_i - mu[i]);
+            }
 
             // Solve weighted least squares
             let beta_new = faer_weighted_lr(
@@ -331,9 +335,11 @@ pub fn faer_irls<T: RealField + Float>(
             }
 
             // Check for convergence
-            // Use L Inf norm. Ignore diff from bias/intercept term???
-            let diff = beta - &beta_new;
-            let max_diff = diff.norm_max();
+            let mut max_diff = T::zero();
+            zip!(beta.col(0), beta_new.col(0)).for_each(|unzip!(b, bn)| {
+                max_diff = max_diff.max((*b - *bn).abs());
+            });
+
             // Update beta
             beta = beta_new;
             // Check convergence
@@ -341,14 +347,13 @@ pub fn faer_irls<T: RealField + Float>(
                 converged = true;
                 break;
             }
-            println!("Max Diff: {:?}", max_diff);
         }
     }
 
-    //
-    if !converged {
-        println!("IRLS algorithm did not converge within maximum iterations");
-    }
+    // //
+    // if !converged {
+    //     println!("IRLS algorithm did not converge within maximum iterations");
+    // }
 
     beta
 }

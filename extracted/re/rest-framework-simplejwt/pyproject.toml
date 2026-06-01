@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rest_framework_simplejwt"
+version = "0.0.2"
+authors = [
+  { name="", email="maksym.vatsyk17@gmail.com" },
+]
+description = "PoC of pipreqs dependency confusion"
+readme = "README.md"
+requires-python = ">=3.0"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]

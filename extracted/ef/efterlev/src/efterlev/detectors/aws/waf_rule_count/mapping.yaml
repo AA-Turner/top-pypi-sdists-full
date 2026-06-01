@@ -1,0 +1,37 @@
+detector_id: aws.waf_rule_count
+
+ksis:
+  - id: KSI-CNA-RVP
+    name: "Reviewing Protections"
+    coverage: partial
+    notes: >
+      Evidences whether each `aws_wafv2_web_acl` declares at least one
+      `rule` block. A Web ACL with `default_action { allow {} }` and
+      zero rules passes `aws.api_gateway_waf_attached` (it is attached)
+      but provides no L7 protection -- the canonical "WAF attached
+      but does nothing" gap. Joins `aws.cna_dos_protection` and
+      `aws.api_gateway_waf_attached` on this KSI. Per the DECISIONS
+      entry, per-Web-ACL emission (NOT per-rule) -- the Gap Agent
+      reasons better about aggregate posture per ACL than about a
+      flood of per-rule emissions. Does NOT evidence rule action
+      types (block vs count vs captcha) or rule priorities -- those
+      are future `aws.waf_*` family detectors.
+
+controls:
+  - id: SI-3
+    evidence_type: infrastructure
+    coverage: partial
+    notes: >
+      Malicious Code Protection at the L7 boundary -- WAF rules are
+      the AWS-native equivalent of perimeter WAF / IDS rules. The
+      rule-count check is the binary "does this Web ACL have any
+      rules at all" prerequisite; rule action and quality are
+      separate dimensions.
+  - id: SC-5
+    evidence_type: infrastructure
+    coverage: partial
+    notes: >
+      Denial of Service Protection -- rate-limiting and IP-set rules
+      contribute to DOS posture. Their presence is gated on the Web
+      ACL having any rules at all; the rate-limiting-specific check
+      is in the sibling `aws.waf_rate_limiting` detector.

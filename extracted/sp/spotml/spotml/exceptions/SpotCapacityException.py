@@ -1,2 +1,0 @@
-class SpotCapacityException(Exception):
-    pass

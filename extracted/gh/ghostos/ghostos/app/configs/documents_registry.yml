@@ -1,5 +1,0 @@
-docs:
-  - directory: docs/
-    domain: ghostos
-    extension: .md
-    default_lang: zh

@@ -131,6 +131,20 @@ def _truncate(text: str, n: int = _MAX_OUTPUT_BYTES) -> str:
     return b[:n].decode("utf-8", errors="replace") + f"\n[... truncated, {len(b)} bytes total]"
 
 
+def _coerce_str(v: str | bytes | None) -> str:
+    """Subprocess return values can be str OR bytes depending on Python
+    version + whether the call completed or timed out (Python 3.14 in
+    particular returns bytes from TimeoutExpired even with text=True).
+    Coerce to str so callers can concatenate safely. Operator session
+    2026-05-18: verify_tool crashed with 'can't concat str to bytes'.
+    """
+    if v is None:
+        return ""
+    if isinstance(v, bytes):
+        return v.decode("utf-8", errors="replace")
+    return v
+
+
 def _run_cmd(cmd: str, cwd: str, timeout: int) -> tuple[int, str, str]:
     """Run cmd via /bin/bash -lc, return (exit_code, stdout, stderr)."""
     try:
@@ -141,9 +155,13 @@ def _run_cmd(cmd: str, cwd: str, timeout: int) -> tuple[int, str, str]:
             text=True,
             timeout=timeout,
         )
-        return proc.returncode, proc.stdout, proc.stderr
+        return proc.returncode, _coerce_str(proc.stdout), _coerce_str(proc.stderr)
     except subprocess.TimeoutExpired as e:
-        return 124, e.stdout or "", (e.stderr or "") + f"\n[timeout after {timeout}s]"
+        return (
+            124,
+            _coerce_str(e.stdout),
+            _coerce_str(e.stderr) + f"\n[timeout after {timeout}s]",
+        )
 
 
 class Verify(

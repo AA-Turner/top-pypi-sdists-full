@@ -1,0 +1,44 @@
+Metadata-Version: 2.1
+Name: nlup
+Version: 0.8
+Summary: ('Core libraries for natural language processing',)
+Home-page: http://github.com/cslu-nlp/nlup/
+Author: Kyle Gorman
+Author-email: kylebgorman@gmail.com
+License: MIT
+Description: `nlup` contains some base libraries I use in natural language processing projects. Some highlights:
+        
+        * `confusion.py`: classifier evaluation objects
+        * `decorators.py`: clever decorators for various purposes
+        * `jsonable.py`: a mix-in which allows the state of most objects to be serialized to (and deserialized from) compressed JSON
+        * `perceptron.py`: perceptron-like classifiers (binary and multiclass), including some forms of structured prediction
+        * `reader.py`: classes and readers for tagged and dependency-parsed data
+        * `timer.py`: a `with`-block that logs wall clock time elapsed
+        
+        All have been tested on CPython 3.4.1 and PyPy 3.2.5 (PyPy version 2.3.1). They will not work on Python 2 without modification.
+        
+        Some projects using `nlup`:
+        
+        * [Detector Morse](http://github.com/cslu-nlp/detectormorse): simple sentence boundary detection
+        * [Perceptronix Point Never](http://github.com/cslu-nlp/PerceptronixPointNever): simple part of speech tagging
+        * [Where's Yr Head At](http://github.com/cslu-nlp/WheresYrHeadAt): simple transition-based dependency parsing
+        
+Keywords: nlp,natural language processing,text,text processing,ai,artificial intelligence,neural net,perceptron,data,science,statistics,data science,math,machine learning,computer science,information theory
+Platform: UNKNOWN
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Other Environment
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Text Processing :: Linguistic
+Classifier: Topic :: Text Processing :: Filters
+Classifier: Topic :: Text Processing :: General
+Classifier: Topic :: Text Processing :: Indexing
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Description-Content-Type: text/markdown

@@ -1,0 +1,117 @@
+# Copyright (c) Metakernel Development Team.
+# Distributed under the terms of the Modified BSD License.
+
+from __future__ import annotations
+
+import os
+from typing import Any
+
+from metakernel import Magic, MetaKernel, pexpect
+from metakernel.replwrap import REPLWrapper, bash, powershell
+
+
+class ShellMagic(Magic):
+    def __init__(self, kernel: MetaKernel) -> None:
+        super().__init__(kernel)
+        self.repl: REPLWrapper | None = None
+        self.cmd: str | None = None
+
+    def line_shell(self, *args: str) -> None:
+        """
+        %shell COMMAND - run the line as a shell command
+
+        This line command will run the COMMAND in the bash shell.
+
+        Examples:
+            %shell ls -al
+            %shell cd
+
+         Note: this is a persistent connection to a shell.
+         The working directory is synchronized to that of the notebook
+         before and after each call.
+
+        You can also use "!" instead of "%shell".
+
+        """
+        # get in sync with the cwd
+        self.eval('cd "{}"'.format(os.getcwd().replace(os.path.sep, "/")))
+
+        command = " ".join(args)
+        self.eval(command, True)
+
+        if self.cmd == "cmd":
+            cwd = self.eval("echo %cd%")
+        else:
+            cwd = self.eval("pwd")
+
+        if os.path.exists(cwd):
+            os.chdir(cwd)
+
+    def eval(self, cmd: str, incremental: bool = False) -> str:
+        if self.repl is None:
+            self.start_process()
+        assert self.repl is not None  # noqa: S101
+        stream_handler = self.kernel.Print if incremental else None
+        return self.repl.run_command(cmd, timeout=None, stream_handler=stream_handler)
+
+    def start_process(self) -> None:
+        if self.repl is not None:
+            self.repl.child.terminate()
+
+        if not self.cmd:
+            if os.name == "nt":
+                self.cmd = "powershell"
+                self.repl = powershell()
+            elif pexpect.which("bash"):
+                self.cmd = "bash"
+                self.repl = bash()
+            elif pexpect.which("sh"):
+                self.cmd = "sh"
+                self.repl = bash(command="sh")
+            else:
+                msg = "The command was not found or was not executable: sh"
+                raise Exception(msg)
+
+    def cell_shell(self) -> None:
+        """
+         %%shell - run the contents of the cell as shell commands
+
+         This shell command will run the cell contents in the bash shell.
+
+         Example:
+             %%shell
+                cd ..
+                ls -al
+
+        Note: this is a persistent connection to a shell.
+          The working directory is synchronized to that of the notebook
+          before and after each call.
+
+         You can also use "!!" instead of "%%shell".
+        """
+        self.line_shell(self.code)
+        self.evaluate = False
+
+    def get_completions(self, info: dict[str, Any]) -> list[str]:
+        if self.cmd == "cmd":
+            return []
+        command = 'compgen -cdfa "{}"'.format(info["code"])
+        completion_text = self.eval(command)
+        return completion_text.split()
+
+    def get_help_on(self, info: dict[str, Any], level: int = 0) -> str:
+        expr = info["code"].rstrip()
+        if self.cmd == "cmd":
+            resp = self.eval(f"help {expr}")
+        elif level == 0:
+            resp = self.eval(f"{expr} --help")
+        else:
+            resp = self.eval(f"man {expr}")
+        if resp and ": command not found" not in resp:
+            return resp
+        else:
+            return f"Sorry, no help is available on '{expr}'."
+
+
+def register_magics(kernel: MetaKernel) -> None:
+    kernel.register_magics(ShellMagic)

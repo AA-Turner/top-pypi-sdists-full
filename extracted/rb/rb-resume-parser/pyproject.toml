@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rb-resume-parser"
+version = "0.1.6"
+description = "Extract structured information from PDF resumes using NLP and pattern matching"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [
+    {name = "Rahul Bagai", email = "rahulbagai@ieee.org"}
+]
+keywords = ["resume", "parser", "pdf", "nlp", "cv", "extraction"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Text Processing :: Linguistic"
+]
+
+dependencies = [
+    "pymupdf>=1.23.0",
+    "spacy>=3.0.0,<4.0.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "mypy>=1.0.0",
+    "ruff>=0.1.0",
+    "bump2version>=1.0.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/rahulbagai/resume-parser"
+Documentation = "https://github.com/rahulbagai/resume-parser#readme"
+Issues = "https://github.com/rahulbagai/resume-parser/issues"
+Source = "https://github.com/rahulbagai/resume-parser"
+
+[tool.setuptools.packages.find]
+include = ["resume_parser*"]
+
+[tool.black]
+line-length = 100
+target-version = ["py38", "py39", "py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]

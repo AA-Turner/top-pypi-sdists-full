@@ -1,0 +1,86 @@
+[build-system]
+requires = [
+    "hatch",
+    "hatchling",
+    "hatch-nodejs-version",
+    "hatch-build-scripts",
+    "jupyterlab==4.*",
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "bqscales"
+description = "Grammar of Graphics in Python."
+readme = "README.md"
+requires-python = ">=3.6"
+authors = [
+    { name = "The BQplot Development Team" },
+]
+keywords = [
+    "bqplot",
+    "d3",
+    "graphics",
+    "ipython",
+    "jupyter",
+    "plotting",
+    "widgets",
+]
+dependencies = [
+    "ipywidgets>=8.0.1,<9",
+    "numpy>=1.10.4",
+    "traitlets>=4.3.0",
+    "traittypes>=0.0.6",
+]
+dynamic = [
+    "version",
+]
+
+[project.license]
+file = "LICENSE"
+
+[project.urls]
+Homepage = "https://github.com/bqplot/bqscales"
+
+[tool.hatch.version]
+source = "nodejs"
+
+[tool.hatch.build]
+artifacts = [
+    "bqscales/nbextension/static/index.*",
+    "bqscales/labextension",
+    "bqscales/_version.py",
+]
+
+[tool.hatch.build.targets.wheel.shared-data]
+"bqscales/nbextension/static" = "share/jupyter/nbextensions/bqscales"
+"bqscales/labextension" = "share/jupyter/labextensions/bqscales"
+"bqscales.json" = "etc/jupyter/nbconfig/notebook.d/bqscales.json"
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    ".github",
+    "bqscales/_version.py",
+]
+
+[tool.hatch.build.hooks.jupyter-builder]
+ensured-targets = [
+    "bqscales/nbextension/static/index.js",
+    "bqscales/labextension/package.json",
+]
+dependencies = [
+    "hatch-jupyter-builder>=0.8.1",
+]
+build-function = "hatch_jupyter_builder.npm_builder"
+
+[[tool.hatch.build.hooks.build-scripts.scripts]]
+work_dir = "."
+commands = ['python scripts/write_version.py']
+# _version.py is already mentioned in top-level build artifact
+artifacts = []
+
+[tool.hatch.build.hooks.jupyter-builder.build-kwargs]
+path = "."
+build_cmd = "build"
+npm = [
+    "jlpm",
+]

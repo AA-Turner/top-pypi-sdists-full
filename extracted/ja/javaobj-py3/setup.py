@@ -7,12 +7,12 @@ http://download.oracle.com/javase/6/docs/platform/serialization/spec/protocol.ht
 
 :authors: Volodymyr Buell, Thomas Calmant
 :license: Apache License 2.0
-:version: 0.4.4
+:version: 0.5.0
 :status: Alpha
 
 ..
 
-    Copyright 2024 Thomas Calmant
+    Copyright 2026 Thomas Calmant
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -70,10 +70,10 @@ setup(
     license_file="LICENSE",
     keywords="python java marshalling serialization",
     packages=["javaobj", "javaobj.v1", "javaobj.v2"],
-    test_suite="tests.tests",
+    test_suite="tests",
     install_requires=[
-        'enum34;python_version<="3.4"',
-        'typing;python_version<="3.4"',
+        "enum34; python_version<'3.4'",
+        "typing; python_version<'3.5'"
     ],
     long_description=read("README.md"),
     long_description_content_type="text/markdown",
@@ -91,6 +91,8 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
 )

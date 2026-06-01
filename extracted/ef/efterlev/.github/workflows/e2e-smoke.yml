@@ -1,0 +1,183 @@
+name: e2e-smoke
+
+# End-to-end smoke harness on every PR — runs the full Efterlev CLI
+# pipeline (init → scan → agent gap → agent document → poam) against
+# a synthetic Terraform fixture using a real Anthropic API call.
+#
+# Why this exists: v0.1.5 through v0.1.9 each surfaced 3 bugs in
+# manual govnotes-demo shakedowns that unit tests missed, because the
+# bugs were cross-component interactions only visible at full-pipeline
+# scale (doc dual-emit, boundary propagation, max_tokens truncation,
+# detector registry drift). Catching those automatically here saves
+# the maintainer ~80 min + ~$3 of manual verification per cycle.
+#
+# Cost: ~$0.05-0.10 per run on Haiku 4.5 (the 2026-05-09 default;
+# was Sonnet 4.6 from v0.1.10 until the noise-floor study in 2026-05-09
+# showed a ~50% PR flake rate on Sonnet 4.6 -- gap or document agent
+# would output-validate-fail under load. Haiku 4.5 is faster and the
+# v0.2 eval-harness baseline showed M1 / M5 hit 1.0 reliably on it).
+# Doc-only PRs no-op (zero LLM cost) via the path-detect step below;
+# source-touching PRs run the full harness.
+#
+# Required-check posture (v0.1.10): this workflow is wired as a
+# required status check on PRs to main via the "main" repository
+# ruleset (gh api /repos/efterlev/efterlev/rulesets/15566618). The
+# job ALWAYS runs (no `paths:` filter on the trigger) so the check
+# always reports — without that, doc-only PRs would block on a never-
+# reporting required check. Inside the job, a path-detect step
+# decides whether to run the harness or graceful-no-op.
+#
+# Secret setup: requires `ANTHROPIC_API_KEY` in repo secrets. The key
+# only runs against the synthetic harness fixture; never against
+# customer code.
+#
+# Bedrock-path coverage stays opt-in via `EFTERLEV_BEDROCK_SMOKE=1`
+# (separate harness, not yet wired here — needs AWS OIDC role + region
+# config; tracked as a v0.2 followup).
+
+on:
+  pull_request:
+    # No `paths:` filter — the workflow MUST run on every PR so the
+    # status check reports for required-check semantics. Cost-saving
+    # path-detection happens inside the job; doc-only PRs short-
+    # circuit before the LLM call (no API spend, ~30s wall).
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  e2e-smoke:
+    name: E2E smoke (Anthropic, Haiku 4.5)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Need both base + head to diff for changed files. PR check
+          # has fetch-depth=1 by default which only gets the merge
+          # commit; we need the base sha too.
+          fetch-depth: 0
+
+      - name: Detect source/test changes vs PR base
+        id: filter
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+          echo "diffing $base...$head"
+          # Doc-only PRs (README, CHANGELOG, docs/) don't match; source /
+          # test / harness / build-config changes do.
+          changed=$(git diff --name-only "$base" "$head" | grep -E "^(src/|tests/|scripts/e2e_smoke\.py|pyproject\.toml|uv\.lock|\.github/workflows/e2e-smoke\.yml)" || true)
+
+          # v0.1.87: filter out the case where `src/efterlev/__init__.py`
+          # is the ONLY changed file under src/. That file is the
+          # `__version__ = "X.Y.Z"` source-of-truth bumped on every
+          # release; a version-bump-only change has zero behavior
+          # effect and shouldn't trigger the ~3-4min e2e harness.
+          # Pre-v0.1.87 doc-only releases triggered e2e_smoke (~5min
+          # wasted) because of this false positive.
+          src_changed=$(echo "$changed" | grep -E "^src/" || true)
+          if [ -n "$src_changed" ] && [ "$src_changed" = "src/efterlev/__init__.py" ]; then
+            non_src_changed=$(echo "$changed" | grep -vE "^src/" || true)
+            if [ -z "$non_src_changed" ]; then
+              echo "Version-bump-only change to src/efterlev/__init__.py — skipping E2E harness."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+
+          if [ -z "$changed" ]; then
+            echo "Doc-only PR — skipping E2E harness (graceful no-op)."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Source / test / harness changed:"
+            echo "$changed"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install uv and Python 3.12
+        if: steps.filter.outputs.skip == 'false'
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Sync dependencies
+        if: steps.filter.outputs.skip == 'false'
+        run: uv sync --all-extras
+
+      - name: Run E2E smoke harness
+        if: steps.filter.outputs.skip == 'false'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Pin to Haiku 4.5 explicitly -- 2026-05-09 swap from
+          # Sonnet 4.6 after that model's PR flake rate hit ~50%
+          # (gap or document agent output-validate-fail under load,
+          # not a real efterlev regression). To run a Sonnet or Opus
+          # check (e.g. before a release), set this to claude-sonnet-4-6
+          # or claude-opus-4-7 in workflow_dispatch.
+          EFTERLEV_E2E_MODEL: claude-haiku-4-5
+        run: uv run pytest tests/test_e2e_smoke.py -v --no-header
+
+      - name: Debug — list .e2e-results contents on any outcome
+        if: always() && steps.filter.outputs.skip == 'false'
+        run: |
+          echo "github.workspace = ${{ github.workspace }}"
+          echo "pwd = $(pwd)"
+          if [ -d "${{ github.workspace }}/.e2e-results" ]; then
+            echo "--- contents of \${{ github.workspace }}/.e2e-results ---"
+            find "${{ github.workspace }}/.e2e-results" -maxdepth 4 -type f | head -50
+          else
+            echo ".e2e-results/ does not exist at workspace root"
+          fi
+
+      # Print captured stage output to the log on failure so a maintainer
+      # can diagnose without downloading the artifact (the artifact upload
+      # has been flaky against the deep `.e2e-results/<ts>/` glob).
+      # 2026-05-06: added after PR #129 e2e failed inside `agent gap` and
+      # the actual error was unreachable from the run logs.
+      - name: Debug — print failed stage outputs on failure
+        if: failure() && steps.filter.outputs.skip == 'false'
+        run: |
+          dir="${{ github.workspace }}/.e2e-results"
+          if [ ! -d "$dir" ]; then
+            echo "no .e2e-results/"; exit 0
+          fi
+          # Find the most recent timestamped run and print every stage's
+          # captured output. Limit per-file to ~200 lines to keep the
+          # action log readable.
+          latest=$(ls -td "$dir"/*/ 2>/dev/null | head -1)
+          if [ -z "$latest" ]; then
+            echo "no timestamped results dir"; exit 0
+          fi
+          echo "=== latest run: $latest ==="
+          if [ -f "$latest/summary.md" ]; then
+            echo "--- summary.md ---"
+            sed -n '1,200p' "$latest/summary.md"
+          fi
+          for f in "$latest"/outputs/*.txt; do
+            [ -f "$f" ] || continue
+            echo ""
+            echo "--- $f ---"
+            sed -n '1,200p' "$f"
+          done
+
+      - name: Upload .e2e-results artifact on failure
+        if: failure() && steps.filter.outputs.skip == 'false'
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-results-pr-${{ github.event.pull_request.number || 'manual' }}
+          # Path glob: include both top-level and timestamped-subdir
+          # shapes. v0.1.10 used `**` which silently matched no files
+          # in this run; the dual pattern is robust against either
+          # working-dir resolution.
+          path: |
+            ${{ github.workspace }}/.e2e-results/
+            ${{ github.workspace }}/.e2e-results/**/*
+          retention-days: 14
+          if-no-files-found: warn

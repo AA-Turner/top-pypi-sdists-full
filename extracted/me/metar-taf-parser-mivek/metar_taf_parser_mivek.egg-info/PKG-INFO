@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: metar-taf-parser-mivek
-Version: 1.13.0
+Version: 1.13.1
 Summary: Python project parsing metar and taf message
 Author-email: Jean-Kevin KPADEY <jeankevin.kpadey@gmail.com>
 License-Expression: MIT

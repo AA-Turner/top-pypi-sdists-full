@@ -1,0 +1,125 @@
+"""Utilities for RST files."""
+
+import io
+import re
+import string
+from dataclasses import dataclass
+from pathlib import Path
+
+from docutils import nodes
+from sphinx.application import Sphinx
+
+from linklint.dump import dump_doctree
+from linklint.utils import SAVE_INTERMEDIATE, in_tempdir, slug_for_test
+
+
+@dataclass
+class SphinxResult:
+    doctree: nodes.document
+    warning: str
+    status: str
+
+
+def run_sphinx(content: str, buildername: str, extensions: list[str]) -> SphinxResult:
+    # Create minimal conf.py
+    Path("conf.py").write_text(f"extensions = {extensions!r}\n", encoding="utf-8")
+
+    # Copy the RST file as index.rst
+    Path("index.rst").write_text(content, encoding="utf-8")
+
+    status = io.StringIO()
+    warning = io.StringIO()
+    app = Sphinx(
+        srcdir=".",
+        confdir=".",
+        outdir="_build",
+        doctreedir="_build/.doctrees",
+        buildername=buildername,
+        freshenv=True,
+        status=status,
+        warning=warning,
+    )
+
+    app.build()
+    result = SphinxResult(
+        doctree=app.env.get_doctree("index"),
+        warning=warning.getvalue(),
+        status=status.getvalue(),
+    )
+    return result
+
+
+def parse_rst(content: str) -> nodes.document:
+    """Parse RST content using Sphinx and return the doctree."""
+    with in_tempdir():
+        doctree = run_sphinx(content, buildername="dummy", extensions=[]).doctree
+    fix_node_lines(doctree)
+    if SAVE_INTERMEDIATE:
+        save_test_doctree(doctree)
+    return doctree
+
+
+def save_test_doctree(doctree: nodes.document) -> None:
+    dump_file = Path(f"tmp/doctree/{slug_for_test()}.txt")
+    dump_file.parent.mkdir(parents=True, exist_ok=True)
+    with dump_file.open("w", encoding="utf-8") as f:
+        dump_doctree(doctree, f)
+
+
+BLOCK_NODES = (nodes.paragraph,)
+
+
+def fix_node_lines(doctree: nodes.document) -> None:
+    """Fix line numbers for inline nodes within block elements.
+
+    Doctree block nodes have correct line numbers, but their inline children
+    inherit the block's start line.  Walk each block's descendants counting
+    newlines in text nodes to compute each inline node's actual line.
+    """
+    for block in doctree.findall(lambda n: isinstance(n, BLOCK_NODES)):
+        if not block.line:
+            continue
+        newline_count = 0
+        for node in block.findall():
+            if node is block:
+                continue
+            node.line = block.line + newline_count
+            if isinstance(node, nodes.Text):
+                # References are trimmed, so we can miss a trailing newline.
+                # The parent might have better information.
+                if isinstance(node.parent, (nodes.inline, nodes.reference)):
+                    newline_count += node.parent.rawsource.count("\n")
+                else:
+                    newline_count += str(node).count("\n")
+
+
+def is_header_line(line: str, text_line: str) -> bool:
+    """Check if a line is a header underline/overline for `text_line`."""
+    stripped = line.rstrip()
+    return (
+        len(stripped) >= len(text_line.rstrip())
+        and len(set(stripped)) == 1
+        and stripped[0] in string.punctuation
+    )
+
+
+def replace_rst_line(lines: list[str], line_num: int, new_line: str) -> None:
+    """Replace a line in the content lines, adjusting header lengths if needed."""
+    old_line = lines[line_num]
+    lines[line_num] = new_line
+    # Adjust adjacent lines if they are header lines.
+    for adj_line_num in [line_num - 1, line_num + 1]:
+        if adj_line_num in range(len(lines)):
+            adj_line = lines[adj_line_num]
+            if is_header_line(adj_line, old_line):
+                line_end = adj_line[len(adj_line.rstrip()) :]
+                lines[adj_line_num] = adj_line[0] * len(new_line.rstrip()) + line_end
+
+
+def resub_in_rst_line(lines: list[str], line_num: int, pat: str, repl: str, count=0) -> bool:
+    """Replace a substring in a line, adjusting header lengths if needed."""
+    new_line = re.sub(pat, repl, lines[line_num], count=count)
+    changed = new_line != lines[line_num]
+    if changed:
+        replace_rst_line(lines, line_num, new_line)
+    return changed

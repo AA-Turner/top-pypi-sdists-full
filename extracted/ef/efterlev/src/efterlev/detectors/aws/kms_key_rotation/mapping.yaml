@@ -1,0 +1,34 @@
+detector_id: aws.kms_key_rotation
+
+# Priority 6 (2026-04-27 honesty pass): KSI-SVC-ASM ("Automating Secret
+# Management") includes SC-12 in its controls array, and its statement
+# explicitly names "rotation of digital keys, certificates, and other
+# secrets" — KMS key rotation is the canonical example. The original
+# 2026-04-21 design call left this empty under the assumption that no
+# clean mapping existed; the honesty pass re-evaluated and found this
+# fit. KSI-SVC-VRI was considered (carries SC-13 cryptographic
+# protection) but SC-12 is specifically about key management, not
+# integrity validation.
+ksis:
+  - KSI-SVC-ASM
+  - id: KSI-AFR-UCM
+    coverage: reinforces
+    notes: >
+      v0.1.42 mapping (DECISIONS 2026-05-08 Tier 1 #4.1): Automatic
+      KMS key rotation evidences cryptographic-key lifecycle alignment
+      with UCM expectations. Pairs with kms_customer_managed_keys for
+      the module-selection half; this detector covers the
+      key-management-cadence half.
+
+controls:
+  - id: SC-12
+    enhancements: [SC-12(2)]
+    evidence_type: infrastructure
+    coverage: partial
+    notes: >
+      Infrastructure-layer evidence only. The detector confirms that
+      aws_kms_key resources declare enable_key_rotation=true on symmetric
+      CMKs. Asymmetric keys are noted as rotation_status=not_applicable.
+      The detector does not evidence HSM posture, BYOK/external key
+      material import, multi-region replica key handling, or whether
+      applications actually use the declared CMK vs. AWS-managed defaults.

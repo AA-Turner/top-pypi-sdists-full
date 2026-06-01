@@ -515,15 +515,10 @@ def fix_framework_collision_rn(path: Path) -> int:
 
 
 def stub_truncated_init(path: Path) -> bool:
-    """If this `__init__.py` doesn't parse, overwrite it with an empty stub.
+    """Unconditionally empty all __init__.py files to make sure they are 100% blank markers.
 
-    The overnight build kept landing with truncated __init__.py files (LLM
-    ran out of tokens mid-import-block). An empty __init__.py is always
-    valid Python, makes the package importable, and is the right thing for
-    a barrel-style package — explicit re-exports live in the leaf modules.
-    Only applied to `__init__.py` so we never silently empty real code.
-
-    Returns True if the file was rewritten.
+    An empty __init__.py is always valid Python, makes the package importable, and
+    is the right thing for a leaf-import model.
     """
     if path.name != "__init__.py":
         return False
@@ -531,13 +526,10 @@ def stub_truncated_init(path: Path) -> bool:
         src = path.read_text("utf-8", errors="replace")
     except OSError:
         return False
-    try:
-        ast.parse(src)
-        return False  # parses fine, leave alone
-    except SyntaxError:
-        pass
-    path.write_text('"""Package init."""\n', encoding="utf-8")
-    return True
+    if src != "":
+        path.write_text("", encoding="utf-8")
+        return True
+    return False
 
 
 def attempt_indent_fix(path: Path) -> bool:

@@ -1,0 +1,29 @@
+detector_id: aws.encryption_ebs
+
+# DECISIONS 2026-04-21 Option C: SC-28 has no FRMR KSI in 0.9.43-beta.
+# Same posture as encryption_s3_at_rest and rds_encryption_at_rest.
+ksis:
+  - id: KSI-AFR-UCM
+    coverage: partial
+    notes: >
+      v0.1.42 mapping (DECISIONS 2026-05-08 Tier 1 #4.1): EBS volume
+      encryption evidences AT-REST cryptographic-module use (FIPS-
+      validated AWS KMS by default in commercial regions). Pre-v0.1.42
+      this detector declared ksis=[] because SC-28 has no direct FRMR
+      KSI mapping in 0.9.43-beta; UCM was correctly classified
+      procedural-only at v0.1.34 but the 2026-05-08 re-classification
+      audit identified the IaC angle. Does not evidence key rotation,
+      BYOK/HSM governance, or snapshot-encryption inheritance.
+
+controls:
+  - id: SC-28
+    enhancements: [SC-28(1)]
+    evidence_type: infrastructure
+    coverage: partial
+    notes: >
+      Infrastructure-layer evidence only. The detector confirms that
+      EBS volumes — both standalone `aws_ebs_volume` resources and
+      inline `aws_instance.{root_block_device, ebs_block_device}`
+      blocks — declare `encrypted = true`. It does NOT evidence key
+      rotation (kms_key_rotation territory), BYOK/HSM governance,
+      snapshot-encryption inheritance, or runtime state.

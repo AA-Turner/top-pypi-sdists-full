@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use log::debug;
@@ -22,6 +23,7 @@ use log::debug;
 use super::HF_SCHEME;
 use super::config::HfConfig;
 use super::core::HfCore;
+use super::core::HfDownloadMode;
 use super::deleter::HfDeleter;
 use super::lister::HfLister;
 use super::reader::HfReader;
@@ -51,7 +53,7 @@ impl HfBuilder {
     pub fn repo_type(mut self, repo_type: &str) -> Self {
         if !repo_type.is_empty() {
             if let Ok(rt) = HfRepoType::parse(repo_type) {
-                self.config.repo_type = rt;
+                self.config.repo_type = Some(rt);
             }
         }
         self
@@ -110,6 +112,19 @@ impl HfBuilder {
         self
     }
 
+    /// Set the download mode. Either `xet` (default) or `http`.
+    ///
+    /// - `xet`: uses the XET protocol for downloads (default).
+    /// - `http`: plain HTTP download, following the redirect from the server.
+    pub fn download_mode(mut self, mode: &str) -> Self {
+        if !mode.is_empty() {
+            if let Ok(m) = HfDownloadMode::parse(mode) {
+                self.config.download_mode = Some(m);
+            }
+        }
+        self
+    }
+
     /// configure the Hub base url. You might want to set this variable if your
     /// organization is using a Private Hub https://huggingface.co/enterprise
     ///
@@ -120,6 +135,52 @@ impl HfBuilder {
         }
         self
     }
+
+    fn hf_endpoint(&self) -> String {
+        self.config
+            .endpoint
+            .clone()
+            .or_else(|| std::env::var("HF_ENDPOINT").ok())
+            .unwrap_or_else(|| "https://huggingface.co".to_string())
+    }
+
+    fn hf_home() -> Option<PathBuf> {
+        if let Ok(h) = std::env::var("HF_HOME") {
+            return Some(PathBuf::from(h));
+        }
+        if let Ok(xdg) = std::env::var("XDG_CACHE_HOME") {
+            return Some(PathBuf::from(xdg).join("huggingface"));
+        }
+        let home = std::env::var("HOME").ok()?;
+        Some(PathBuf::from(home).join(".cache/huggingface"))
+    }
+
+    /// Resolve the authentication token using the same priority order as hf-hub:
+    /// explicit config → HF_HUB_DISABLE_IMPLICIT_TOKEN check → HF_TOKEN env → token file.
+    fn hf_token(&self) -> Option<String> {
+        if let Some(t) = self.config.token.clone() {
+            return Some(t);
+        }
+        if let Ok(val) = std::env::var("HF_HUB_DISABLE_IMPLICIT_TOKEN") {
+            if !val.is_empty() {
+                return None;
+            }
+        }
+        if let Ok(t) = std::env::var("HF_TOKEN") {
+            if !t.is_empty() {
+                return Some(t);
+            }
+        }
+        let token_path = if let Ok(p) = std::env::var("HF_TOKEN_PATH") {
+            Some(PathBuf::from(p))
+        } else {
+            Self::hf_home().map(|h| h.join("token"))
+        };
+        token_path
+            .and_then(|p| std::fs::read_to_string(p).ok())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+    }
 }
 
 impl Builder for HfBuilder {
@@ -128,15 +189,21 @@ impl Builder for HfBuilder {
     fn build(self) -> Result<impl Access> {
         debug!("backend build started: {:?}", &self);
 
-        let repo_type = self.config.repo_type;
+        let token = self.hf_token();
+        let endpoint = self.hf_endpoint();
+
+        let repo_type = self.config.repo_type.ok_or_else(|| {
+            Error::new(ErrorKind::ConfigInvalid, "repo_type is required")
+                .with_operation("Builder::build")
+                .with_context("service", HF_SCHEME)
+        })?;
         debug!("backend use repo_type: {:?}", &repo_type);
 
-        let repo_id = match &self.config.repo_id {
-            Some(repo_id) => Ok(repo_id.clone()),
-            None => Err(Error::new(ErrorKind::ConfigInvalid, "repo_id is empty")
+        let repo_id = self.config.repo_id.ok_or_else(|| {
+            Error::new(ErrorKind::ConfigInvalid, "repo_id is required")
                 .with_operation("Builder::build")
-                .with_context("service", HF_SCHEME)),
-        }?;
+                .with_context("service", HF_SCHEME)
+        })?;
         debug!("backend use repo_id: {}", &repo_id);
 
         let revision = match &self.config.revision {
@@ -147,22 +214,10 @@ impl Builder for HfBuilder {
 
         let root = normalize_root(&self.config.root.unwrap_or_default());
         debug!("backend use root: {}", &root);
-
-        let token = self.config.token.as_ref().cloned();
-
-        let endpoint = match &self.config.endpoint {
-            Some(endpoint) => endpoint.clone(),
-            None => {
-                // Try to read from HF_ENDPOINT env var which is used
-                // by the official huggingface clients.
-                if let Ok(env_endpoint) = std::env::var("HF_ENDPOINT") {
-                    env_endpoint
-                } else {
-                    "https://huggingface.co".to_string()
-                }
-            }
-        };
+        debug!("backend use token: {}", token.is_some());
         debug!("backend use endpoint: {}", &endpoint);
+        let download_mode = self.config.download_mode.unwrap_or_default();
+        debug!("backend use download_mode: {:?}", download_mode);
 
         let info: Arc<AccessorInfo> = {
             let am = AccessorInfo::default();
@@ -184,7 +239,14 @@ impl Builder for HfBuilder {
         debug!("backend repo uri: {:?}", repo.uri(&root, ""));
 
         Ok(HfBackend {
-            core: Arc::new(HfCore::build(info, repo, root, token, endpoint)?),
+            core: Arc::new(HfCore::build(
+                info,
+                repo,
+                root,
+                token,
+                endpoint,
+                download_mode,
+            )?),
         })
     }
 }
@@ -200,6 +262,7 @@ impl Access for HfBackend {
     type Writer = HfWriter;
     type Lister = oio::PageLister<HfLister>;
     type Deleter = oio::BatchDeleter<HfDeleter>;
+    type Copier = ();
 
     fn info(&self) -> Arc<AccessorInfo> {
         self.core.info.clone()
@@ -211,19 +274,9 @@ impl Access for HfBackend {
             return Ok(RpStat::new(Metadata::new(EntryMode::DIR)));
         }
 
-        if self.core.repo.is_bucket() {
-            if path.ends_with('/') {
-                return Ok(RpStat::new(Metadata::new(EntryMode::DIR)));
-            }
-            return match self.core.maybe_xet_file(path).await? {
-                Some(file_info) => {
-                    let size = file_info.file_size().unwrap_or(0);
-                    Ok(RpStat::new(
-                        Metadata::new(EntryMode::FILE).with_content_length(size),
-                    ))
-                }
-                None => Err(Error::new(ErrorKind::NotFound, "path not found")),
-            };
+        // Buckets have no git directory entries; treat any trailing-slash path as a virtual dir.
+        if self.core.repo.is_bucket() && path.ends_with('/') {
+            return Ok(RpStat::new(Metadata::new(EntryMode::DIR)));
         }
 
         let info = self.core.path_info(path).await?;
@@ -231,8 +284,7 @@ impl Access for HfBackend {
     }
 
     async fn read(&self, path: &str, args: OpRead) -> Result<(RpRead, Self::Reader)> {
-        let reader = HfReader::try_new(&self.core, path, args.range()).await?;
-        Ok((RpRead::default(), reader))
+        HfReader::try_new(&self.core, path, args.range()).await
     }
 
     async fn list(&self, path: &str, args: OpList) -> Result<(RpList, Self::Lister)> {
@@ -257,10 +309,15 @@ impl Access for HfBackend {
 
 #[cfg(test)]
 pub(super) mod test_utils {
+    use std::sync::Arc;
+
+    use super::super::core::{HfCore, HfDownloadMode};
+    use super::super::uri::{HfRepo, HfRepoType};
     use super::HfBuilder;
+    use opendal_core::Capability;
     use opendal_core::Operator;
     use opendal_core::layers::HttpClientLayer;
-    use opendal_core::raw::HttpClient;
+    use opendal_core::raw::{AccessorInfo, HttpClient};
 
     fn finish_operator(op: Operator) -> Operator {
         let client = HttpClient::with(reqwest::Client::new());
@@ -271,7 +328,8 @@ pub(super) mod test_utils {
         let op = Operator::new(
             HfBuilder::default()
                 .repo_type("model")
-                .repo_id("openai-community/gpt2"),
+                .repo_id("openai-community/gpt2")
+                .download_mode("http"),
         )
         .unwrap()
         .finish();
@@ -287,6 +345,34 @@ pub(super) mod test_utils {
         .unwrap()
         .finish();
         finish_operator(op)
+    }
+
+    pub fn testing_dataset_core() -> Arc<HfCore> {
+        let repo_id = std::env::var("HF_OPENDAL_DATASET").expect("HF_OPENDAL_DATASET must be set");
+        let token = std::env::var("HF_OPENDAL_TOKEN").expect("HF_OPENDAL_TOKEN must be set");
+
+        let info = AccessorInfo::default();
+        info.set_scheme("hf").set_native_capability(Capability {
+            read: true,
+            write: true,
+            delete: true,
+            ..Default::default()
+        });
+        info.update_http_client(|_| HttpClient::with(reqwest::Client::new()));
+
+        let repo = HfRepo::new(HfRepoType::Dataset, repo_id, Some("main".to_string()));
+
+        Arc::new(
+            HfCore::build(
+                Arc::new(info),
+                repo,
+                "/".to_string(),
+                Some(token),
+                "https://huggingface.co".to_string(),
+                HfDownloadMode::Xet,
+            )
+            .expect("failed to build HfCore"),
+        )
     }
 
     pub fn testing_bucket_operator() -> Operator {
@@ -307,6 +393,91 @@ pub(super) mod test_utils {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    // Env vars are process-global; serialize all tests that mutate them.
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    fn builder_with_token(token: &str) -> HfBuilder {
+        HfBuilder::default().token(token)
+    }
+
+    fn builder_no_token() -> HfBuilder {
+        HfBuilder::default()
+    }
+
+    #[test]
+    fn hf_token_config_takes_priority_over_env() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe { std::env::set_var("HF_TOKEN", "env-token") };
+        let result = builder_with_token("config-token").hf_token();
+        unsafe { std::env::remove_var("HF_TOKEN") };
+        assert_eq!(result.as_deref(), Some("config-token"));
+    }
+
+    #[test]
+    fn hf_token_reads_hf_token_env_var() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe { std::env::remove_var("HF_HUB_DISABLE_IMPLICIT_TOKEN") };
+        unsafe { std::env::remove_var("HF_TOKEN_PATH") };
+        unsafe { std::env::set_var("HF_TOKEN", "my-env-token") };
+        let result = builder_no_token().hf_token();
+        unsafe { std::env::remove_var("HF_TOKEN") };
+        assert_eq!(result.as_deref(), Some("my-env-token"));
+    }
+
+    #[test]
+    fn hf_token_disable_flag_suppresses_discovery() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe { std::env::set_var("HF_HUB_DISABLE_IMPLICIT_TOKEN", "1") };
+        unsafe { std::env::set_var("HF_TOKEN", "my-env-token") };
+        let result = builder_no_token().hf_token();
+        unsafe { std::env::remove_var("HF_HUB_DISABLE_IMPLICIT_TOKEN") };
+        unsafe { std::env::remove_var("HF_TOKEN") };
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn hf_token_reads_from_file_via_hf_token_path() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let token_file = std::env::temp_dir().join("opendal-hf-token-test");
+        std::fs::write(&token_file, "file-token\n").unwrap();
+        unsafe { std::env::remove_var("HF_HUB_DISABLE_IMPLICIT_TOKEN") };
+        unsafe { std::env::remove_var("HF_TOKEN") };
+        unsafe { std::env::set_var("HF_TOKEN_PATH", &token_file) };
+        let result = builder_no_token().hf_token();
+        unsafe { std::env::remove_var("HF_TOKEN_PATH") };
+        std::fs::remove_file(&token_file).ok();
+        assert_eq!(result.as_deref(), Some("file-token"));
+    }
+
+    #[test]
+    fn hf_endpoint_returns_default() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe { std::env::remove_var("HF_ENDPOINT") };
+        let result = HfBuilder::default().hf_endpoint();
+        assert_eq!(result, "https://huggingface.co");
+    }
+
+    #[test]
+    fn hf_endpoint_config_takes_priority_over_env() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe { std::env::set_var("HF_ENDPOINT", "https://env.example.com") };
+        let result = HfBuilder::default()
+            .endpoint("https://config.example.com")
+            .hf_endpoint();
+        unsafe { std::env::remove_var("HF_ENDPOINT") };
+        assert_eq!(result, "https://config.example.com");
+    }
+
+    #[test]
+    fn hf_endpoint_reads_hf_endpoint_env_var() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe { std::env::set_var("HF_ENDPOINT", "https://env.example.com") };
+        let result = HfBuilder::default().hf_endpoint();
+        unsafe { std::env::remove_var("HF_ENDPOINT") };
+        assert_eq!(result, "https://env.example.com");
+    }
 
     #[test]
     fn build_accepts_datasets_alias() {

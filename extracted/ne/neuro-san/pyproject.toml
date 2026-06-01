@@ -1,0 +1,60 @@
+# These bits are assembled from (largely) following the guidance here:
+# https://packaging.python.org/en/latest/overview/
+[build-system]
+requires = ["setuptools>=61.0", "wheel","setuptools-scm==8.1.0"]
+build-backend = "setuptools.build_meta"
+ 
+[project]
+name = "neuro-san"
+authors = [
+    { name="Dan Fink", email="Daniel.Fink@cognizant.com" }
+]
+description = "NeuroAI data-driven System for multi-Agent Networks - client, library and server"
+keywords = ["LLM", "langchain", "agent", "multi-agent"]
+
+# This license name comes from doc recommendation here
+# https://packaging.python.org/en/latest/guides/licensing-examples-and-user-scenarios/
+license = "Apache-2.0"
+license-files = ["LICENSE.txt"]
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+
+    # How mature is this project? Common values are
+    #   3 - Alpha
+    #   4 - Beta
+    #   5 - Production/Stable
+    "Development Status :: 3 - Alpha",
+
+    "Intended Audience :: Developers",
+]
+# "dynamic" says we are going to get these project properties by dynamic means.
+# More on each below
+dynamic = ["version", "dependencies", "readme"]
+
+[tool.setuptools.dynamic]
+# Specify the dependencies for the library from what is given in requirements.txt
+dependencies = {file = ["requirements.txt"]}
+
+readme = {file = ["README.md"], content-type = "text/markdown"}
+
+[tool.setuptools.packages.find]
+# Standard setup has source existing under /src directory.
+# That's not what we tend to do.
+# Ours is more of what is called a "flat-layout", so be explicit about that.
+where = ["."]
+# namespaces = false
+# Note: package_data is not useful here for packaging up non-python files.
+#       See MANIFEST.in instead.
+exclude = ["tests*"]
+
+[tool.setuptools_scm]
+fallback_version = "0.0.1"
+
+[project.urls]
+Homepage = "https://github.com/cognizant-ai-lab/neuro-san"
+Repository = "https://github.com/cognizant-ai-lab/neuro-san"
+Documentation = "https://github.com/cognizant-ai-lab/neuro-san#readme"
+# If we move issue tracking to github 
+# Issues = "https://github.com/cognizant-ai-lab/neuro-san/issues"

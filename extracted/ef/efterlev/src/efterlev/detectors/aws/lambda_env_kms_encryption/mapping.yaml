@@ -1,0 +1,34 @@
+detector_id: aws.lambda_env_kms_encryption
+
+ksis:
+  - id: KSI-AFR-UCM
+    name: "Using Cryptographic Modules"
+    coverage: partial
+    notes: >
+      Evidences whether each `aws_lambda_function` with non-empty
+      environment variables uses an explicit `kms_key_arn`
+      (customer-managed-key encryption-at-rest of env-var values).
+      Lambda env vars are encrypted at rest by AWS-managed keys by
+      default; this detector surfaces the explicit-CMK gap that
+      compliance audits typically ask about. Functions with no env
+      vars are skipped (no secrets to protect). Does not evidence
+      the FIPS-approval status of the cryptographic module, key
+      rotation cadence (separately evidenced by
+      `aws.kms_key_rotation`), or whether the env-var values
+      themselves should live in Secrets Manager instead.
+
+controls:
+  - id: SC-28
+    evidence_type: infrastructure
+    coverage: partial
+    notes: >
+      Protection of Information at Rest — the explicit CMK declaration
+      is the IaC-layer half of demonstrating env-var values are
+      protected with a customer-controlled key.
+  - id: SC-28(1)
+    evidence_type: infrastructure
+    coverage: partial
+    notes: >
+      Cryptographic Protection — paired with SC-28; the CMK ARN is
+      the cryptographic-module identity the function uses for env-var
+      encryption.

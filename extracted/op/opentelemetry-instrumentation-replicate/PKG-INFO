@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-instrumentation-replicate
-Version: 0.60.0
+Version: 0.61.0
 Summary: OpenTelemetry Replicate instrumentation
 Project-URL: Repository, https://github.com/traceloop/openllmetry/tree/main/packages/opentelemetry-instrumentation-replicate
 Author-email: Kartik Prajapati <kartik@ktklab.org>

@@ -1,5 +1,0 @@
----
-upgrade:
-  - |
-    New clusters will be created with kube_tag=v1.11.1 or later. v1.11.1 is
-    the default version in the Rocky release.

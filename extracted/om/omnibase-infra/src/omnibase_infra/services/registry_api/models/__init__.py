@@ -1,0 +1,107 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+"""Registry API Response Models.
+
+Pydantic models for the Registry API HTTP responses. These models define
+the JSON shape returned by each endpoint for dashboard consumption.
+
+Design Principles:
+    - Flat, dashboard-friendly structures (no deep nesting)
+    - Explicit field descriptions for API documentation
+    - Immutable (frozen) for thread safety
+    - Strict validation (extra="forbid")
+
+Related Tickets:
+    - OMN-1278: Contract-Driven Dashboard - Registry Discovery
+    - OMN-1845: Contract Registry Persistence
+"""
+
+from omnibase_infra.services.registry_api.models.model_capability_widget_mapping import (
+    ModelCapabilityWidgetMapping,
+)
+from omnibase_infra.services.registry_api.models.model_contract_ref import (
+    ModelContractRef,
+)
+from omnibase_infra.services.registry_api.models.model_contract_view import (
+    ModelContractView,
+)
+from omnibase_infra.services.registry_api.models.model_feature_flag_changed_event import (
+    ModelFeatureFlagChangedEvent,
+)
+from omnibase_infra.services.registry_api.models.model_feature_flag_toggle_result import (
+    ModelFeatureFlagToggleResult,
+)
+from omnibase_infra.services.registry_api.models.model_feature_flag_view import (
+    ModelFeatureFlagView,
+)
+from omnibase_infra.services.registry_api.models.model_pagination_info import (
+    ModelPaginationInfo,
+)
+from omnibase_infra.services.registry_api.models.model_registry_discovery_response import (
+    ModelRegistryDiscoveryResponse,
+)
+from omnibase_infra.services.registry_api.models.model_registry_health_response import (
+    ModelRegistryHealthResponse,
+)
+from omnibase_infra.services.registry_api.models.model_registry_instance_view import (
+    ModelRegistryInstanceView,
+)
+from omnibase_infra.services.registry_api.models.model_registry_node_detail_view import (
+    ModelRegistryNodeDetailView,
+)
+from omnibase_infra.services.registry_api.models.model_registry_node_view import (
+    ModelRegistryNodeView,
+)
+from omnibase_infra.services.registry_api.models.model_registry_summary import (
+    ModelRegistrySummary,
+)
+from omnibase_infra.services.registry_api.models.model_response_contracts import (
+    ModelResponseListContracts,
+)
+from omnibase_infra.services.registry_api.models.model_response_list_instances import (
+    ModelResponseListInstances,
+)
+from omnibase_infra.services.registry_api.models.model_response_list_nodes import (
+    ModelResponseListNodes,
+)
+from omnibase_infra.services.registry_api.models.model_response_topics import (
+    ModelResponseListTopics,
+)
+from omnibase_infra.services.registry_api.models.model_topic_summary import (
+    ModelTopicSummary,
+)
+from omnibase_infra.services.registry_api.models.model_topic_view import (
+    ModelTopicView,
+)
+from omnibase_infra.services.registry_api.models.model_warning import ModelWarning
+from omnibase_infra.services.registry_api.models.model_widget_defaults import (
+    ModelWidgetDefaults,
+)
+from omnibase_infra.services.registry_api.models.model_widget_mapping import (
+    ModelWidgetMapping,
+)
+
+__all__ = [
+    "ModelCapabilityWidgetMapping",
+    "ModelContractRef",
+    "ModelContractView",
+    "ModelFeatureFlagChangedEvent",
+    "ModelFeatureFlagToggleResult",
+    "ModelFeatureFlagView",
+    "ModelPaginationInfo",
+    "ModelRegistryDiscoveryResponse",
+    "ModelRegistryHealthResponse",
+    "ModelRegistryNodeDetailView",
+    "ModelRegistryInstanceView",
+    "ModelRegistryNodeView",
+    "ModelRegistrySummary",
+    "ModelResponseListContracts",
+    "ModelResponseListInstances",
+    "ModelResponseListNodes",
+    "ModelResponseListTopics",
+    "ModelTopicSummary",
+    "ModelTopicView",
+    "ModelWarning",
+    "ModelWidgetDefaults",
+    "ModelWidgetMapping",
+]

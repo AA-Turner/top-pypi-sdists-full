@@ -1,0 +1,56 @@
+"""Test that authorization updates when config is reloaded."""
+
+from __future__ import annotations
+
+import tempfile
+from pathlib import Path
+
+from mindroom.authorization import is_authorized_sender
+from mindroom.config.main import Config
+from mindroom.entity_resolution import mindroom_user_id
+from tests.conftest import bind_runtime_paths, runtime_paths_for, test_runtime_paths
+
+
+def test_authorization_check_uses_updated_config() -> None:
+    """Test that is_authorized_sender uses the updated config.
+
+    This demonstrates that when the config.authorization is updated,
+    the authorization checks will use the new configuration.
+    """
+    runtime_paths = test_runtime_paths(Path(tempfile.mkdtemp()))
+    # Create config with alice authorized
+    config = bind_runtime_paths(
+        Config(
+            agents={
+                "test_agent": {
+                    "display_name": "Test Agent",
+                    "role": "Test role",
+                    "rooms": ["test_room"],
+                },
+            },
+            mindroom_user={"username": "mindroom_user", "display_name": "MindRoomUser"},
+            authorization={
+                "global_users": ["@alice:example.com"],
+                "room_permissions": {},
+                "default_room_access": False,
+            },
+        ),
+        runtime_paths,
+    )
+    runtime_paths = runtime_paths_for(config)
+
+    # Alice should be authorized
+    assert is_authorized_sender("@alice:example.com", config, "!test:server", runtime_paths)
+
+    # Bob should not be authorized
+    assert not is_authorized_sender("@bob:example.com", config, "!test:server", runtime_paths)
+
+    # Now update the config to add Bob
+    config.authorization.global_users = ["@alice:example.com", "@bob:example.com"]
+
+    # Both should now be authorized
+    assert is_authorized_sender("@alice:example.com", config, "!test:server", runtime_paths)
+    assert is_authorized_sender("@bob:example.com", config, "!test:server", runtime_paths)
+
+    # Configured internal system user should always be authorized
+    assert is_authorized_sender(mindroom_user_id(config, runtime_paths), config, "!test:server", runtime_paths)

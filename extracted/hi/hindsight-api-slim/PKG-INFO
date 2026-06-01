@@ -1,0 +1,230 @@
+Metadata-Version: 2.4
+Name: hindsight-api-slim
+Version: 0.7.1
+Summary: Hindsight: Agent Memory That Works Like Human Memory
+Requires-Python: >=3.11
+Requires-Dist: aiohttp>=3.13.3
+Requires-Dist: alembic>=1.17.1
+Requires-Dist: anthropic>=0.40.0
+Requires-Dist: asyncpg>=0.29.0
+Requires-Dist: authlib>=1.6.9
+Requires-Dist: boto3>=1.42.74
+Requires-Dist: claude-agent-sdk>=0.1.27
+Requires-Dist: cohere>=5.0.0
+Requires-Dist: cryptography<47,>=46.0.6
+Requires-Dist: dateparser>=1.2.2
+Requires-Dist: fastapi[standard]>=0.120.3
+Requires-Dist: fastmcp>=3.2.0
+Requires-Dist: filelock>=3.20.1
+Requires-Dist: google-auth>=2.0.0
+Requires-Dist: google-genai>=1.0.0
+Requires-Dist: greenlet<3.4.0,>=3.2.4
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: langchain-core>=1.2.22
+Requires-Dist: langchain-text-splitters>=0.3.0
+Requires-Dist: langsmith>=0.6.3
+Requires-Dist: litellm>=1.83.14
+Requires-Dist: markitdown[docx,pdf,pptx,xls,xlsx]>=0.1.4
+Requires-Dist: obstore>=0.4.0
+Requires-Dist: openai>=1.0.0
+Requires-Dist: opentelemetry-api>=1.41.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.41.0
+Requires-Dist: opentelemetry-exporter-prometheus>=0.62b1
+Requires-Dist: opentelemetry-instrumentation-fastapi>=0.62b1
+Requires-Dist: opentelemetry-sdk>=1.41.0
+Requires-Dist: opentelemetry-semantic-conventions>=0.62b1
+Requires-Dist: orjson>=3.11.6
+Requires-Dist: pgvector>=0.4.1
+Requires-Dist: pillow>=12.1.1
+Requires-Dist: protobuf>=6.33.5
+Requires-Dist: psycopg2-binary>=2.9.11
+Requires-Dist: pyasn1>=0.6.3
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: pygments>=2.20.0
+Requires-Dist: pyjwt>=2.12.0
+Requires-Dist: pyjwt[crypto]>=2.8.0
+Requires-Dist: python-dateutil>=2.8.0
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: python-multipart>=0.0.22
+Requires-Dist: rich>=13.0.0
+Requires-Dist: sqlalchemy>=2.0.44
+Requires-Dist: tiktoken>=0.12.0
+Requires-Dist: tornado>=6.5.5
+Requires-Dist: typer>=0.9.0
+Requires-Dist: urllib3>=2.7.0
+Requires-Dist: uvicorn>=0.38.0
+Requires-Dist: uvloop>=0.22.1; sys_platform != 'win32'
+Requires-Dist: winloop>=0.1.0; sys_platform == 'win32'
+Requires-Dist: wsproto>=1.0.0
+Provides-Extra: all
+Requires-Dist: einops>=0.8.2; extra == 'all'
+Requires-Dist: flashrank>=0.2.0; extra == 'all'
+Requires-Dist: mlx-lm>=0.31.1; (sys_platform != 'win32') and extra == 'all'
+Requires-Dist: mlx>=0.31.0; (sys_platform != 'win32') and extra == 'all'
+Requires-Dist: pg0-embedded>=0.14.0; extra == 'all'
+Requires-Dist: safetensors>=0.6.2; extra == 'all'
+Requires-Dist: sentence-transformers>=3.3.0; extra == 'all'
+Requires-Dist: torch>=2.6.0; extra == 'all'
+Requires-Dist: transformers>=4.53.0; extra == 'all'
+Provides-Extra: embedded-db
+Requires-Dist: pg0-embedded>=0.14.0; extra == 'embedded-db'
+Provides-Extra: local-llm
+Requires-Dist: huggingface-hub>=0.20.0; extra == 'local-llm'
+Requires-Dist: llama-cpp-python[server]>=0.3.0; extra == 'local-llm'
+Provides-Extra: local-ml
+Requires-Dist: einops>=0.8.2; extra == 'local-ml'
+Requires-Dist: flashrank>=0.2.0; extra == 'local-ml'
+Requires-Dist: mlx-lm>=0.31.1; (sys_platform != 'win32') and extra == 'local-ml'
+Requires-Dist: mlx>=0.31.0; (sys_platform != 'win32') and extra == 'local-ml'
+Requires-Dist: safetensors>=0.6.2; extra == 'local-ml'
+Requires-Dist: sentence-transformers>=3.3.0; extra == 'local-ml'
+Requires-Dist: torch>=2.6.0; extra == 'local-ml'
+Requires-Dist: transformers>=4.53.0; extra == 'local-ml'
+Provides-Extra: oracle
+Requires-Dist: oracledb>=2.5.0; extra == 'oracle'
+Provides-Extra: test
+Requires-Dist: filelock>=3.20.1; extra == 'test'
+Requires-Dist: pytest-asyncio>=0.21.0; extra == 'test'
+Requires-Dist: pytest-timeout>=2.4.0; extra == 'test'
+Requires-Dist: pytest-xdist>=3.0.0; extra == 'test'
+Requires-Dist: pytest>=7.0.0; extra == 'test'
+Requires-Dist: testcontainers>=4.0.0; extra == 'test'
+Description-Content-Type: text/markdown
+
+# Hindsight API
+
+**Memory System for AI Agents** — Temporal + Semantic + Entity Memory Architecture using PostgreSQL with pgvector.
+
+Hindsight gives AI agents persistent memory that works like human memory: it stores facts, tracks entities and relationships, handles temporal reasoning ("what happened last spring?"), and forms opinions based on configurable disposition traits.
+
+## Installation
+
+```bash
+pip install hindsight-api
+```
+
+## Quick Start
+
+### Run the Server
+
+```bash
+# Set your LLM provider
+export HINDSIGHT_API_LLM_PROVIDER=openai
+export HINDSIGHT_API_LLM_API_KEY=sk-xxxxxxxxxxxx
+
+# Start the server (uses embedded PostgreSQL by default)
+hindsight-api
+```
+
+The server starts at http://localhost:8888 with:
+- REST API for memory operations
+- MCP server at `/mcp` for tool-use integration
+
+### Use the Python API
+
+```python
+from hindsight_api import MemoryEngine
+
+# Create and initialize the memory engine
+memory = MemoryEngine()
+await memory.initialize()
+
+# Create a memory bank for your agent
+bank = await memory.create_memory_bank(
+    name="my-assistant",
+    background="A helpful coding assistant"
+)
+
+# Store a memory
+await memory.retain(
+    memory_bank_id=bank.id,
+    content="The user prefers Python for data science projects"
+)
+
+# Recall memories
+results = await memory.recall(
+    memory_bank_id=bank.id,
+    query="What programming language does the user prefer?"
+)
+
+# Reflect with reasoning
+response = await memory.reflect(
+    memory_bank_id=bank.id,
+    query="Should I recommend Python or R for this ML project?"
+)
+```
+
+## CLI Options
+
+```bash
+hindsight-api --help
+
+# Common options
+hindsight-api --port 9000          # Custom port (default: 8888)
+hindsight-api --host 127.0.0.1     # Bind to localhost only
+hindsight-api --workers 4          # Multiple worker processes
+hindsight-api --log-level debug    # Verbose logging
+```
+
+## Configuration
+
+Configure via environment variables:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `HINDSIGHT_API_DATABASE_URL` | PostgreSQL connection string | `pg0` (embedded) |
+| `HINDSIGHT_API_LLM_PROVIDER` | `openai`, `anthropic`, `gemini`, `groq`, `ollama`, `lmstudio` | `openai` |
+| `HINDSIGHT_API_LLM_API_KEY` | API key for LLM provider | - |
+| `HINDSIGHT_API_LLM_MODEL` | Model name | `gpt-4o-mini` |
+| `HINDSIGHT_API_HOST` | Server bind address | `0.0.0.0` |
+| `HINDSIGHT_API_PORT` | Server port | `8888` |
+
+### Example with External PostgreSQL
+
+```bash
+export HINDSIGHT_API_DATABASE_URL=postgresql://user:pass@localhost:5432/hindsight
+export HINDSIGHT_API_LLM_PROVIDER=groq
+export HINDSIGHT_API_LLM_API_KEY=gsk_xxxxxxxxxxxx
+
+hindsight-api
+```
+
+## Docker
+
+```bash
+docker run --rm -it -p 8888:8888 \
+  -e HINDSIGHT_API_LLM_API_KEY=$OPENAI_API_KEY \
+  -v $HOME/.hindsight-docker:/home/hindsight/.pg0 \
+  ghcr.io/vectorize-io/hindsight:latest
+```
+
+## MCP Server
+
+For local MCP integration without running the full API server:
+
+```bash
+hindsight-local-mcp
+```
+
+This runs a stdio-based MCP server that can be used directly with MCP-compatible clients.
+
+## Key Features
+
+- **Multi-Strategy Retrieval (TEMPR)** — Semantic, keyword, graph, and temporal search combined with RRF fusion
+- **Entity Graph** — Automatic entity extraction and relationship tracking
+- **Temporal Reasoning** — Native support for time-based queries
+- **Disposition Traits** — Configurable skepticism, literalism, and empathy influence opinion formation
+- **Three Memory Types** — World facts, bank actions, and formed opinions with confidence scores
+
+## Documentation
+
+Full documentation: [https://hindsight.vectorize.io](https://hindsight.vectorize.io)
+
+- [Installation Guide](https://hindsight.vectorize.io/developer/installation)
+- [Configuration Reference](https://hindsight.vectorize.io/developer/configuration)
+- [API Reference](https://hindsight.vectorize.io/api-reference)
+- [Python SDK](https://hindsight.vectorize.io/sdks/python)
+
+## License
+
+Apache 2.0

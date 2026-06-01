@@ -1,0 +1,193 @@
+######################################################################################################
+#                                 Auto-generated Metaflow stub file                                  #
+# MF version: 2.19.31                                                                                #
+# Generated on 2026-06-01T01:50:49.557952                                                            #
+######################################################################################################
+
+from __future__ import annotations
+
+import typing
+if typing.TYPE_CHECKING:
+    import metaflow.user_decorators.mutable_flow
+    import metaflow.flowspec
+    import typing
+    import metaflow.user_decorators.user_step_decorator
+    import metaflow.decorators
+    import functools
+
+from ..exception import MetaflowException as MetaflowException
+from .user_step_decorator import StepMutator as StepMutator
+from .user_step_decorator import UserStepDecoratorBase as UserStepDecoratorBase
+
+TYPE_CHECKING: bool
+
+class MutableStep(object, metaclass=type):
+    def __init__(self, flow_spec: "metaflow.flowspec.FlowSpec", step: typing.Union[typing.Callable[["metaflow.decorators.FlowSpecDerived"], None], typing.Callable[["metaflow.decorators.FlowSpecDerived", typing.Any], None]], pre_mutate: bool = False, statically_defined: bool = False, inserted_by: typing.Union[str, None] = None):
+        ...
+    @property
+    def flow(self) -> "metaflow.user_decorators.mutable_flow.MutableFlow":
+        """
+        The flow that contains this step
+        
+        Returns
+        -------
+        MutableFlow
+            The flow that contains this step
+        """
+        ...
+    @property
+    def decorator_specs(self) -> typing.Generator[typing.Tuple[str, str, typing.List[typing.Any], typing.Dict[str, typing.Any]], None, None]:
+        """
+        Iterate over all the decorator specifications of this step. Note that the same
+        type of decorator may be present multiple times and no order is guaranteed.
+        
+        The returned tuple contains:
+        - The decorator's name (shortest possible)
+        - The decorator's fully qualified name (in the case of Metaflow decorators, this
+          will indicate which extension the decorator comes from)
+        - A list of positional arguments
+        - A dictionary of keyword arguments
+        
+        You can use the resulting tuple to remove a decorator for example
+        
+        Yields
+        ------
+        str, str, List[Any], Dict[str, Any]
+            A tuple containing the decorator name, it's fully qualified name,
+            a list of positional arguments, and a dictionary of keyword arguments.
+        """
+        ...
+    def has_decorator(self, name: str) -> bool:
+        """
+        Check whether this step has at least one decorator with the given name.
+        
+        Parameters
+        ----------
+        name : str
+            The decorator name (short) or fully qualified name (contains a period).
+        
+        Returns
+        -------
+        bool
+            True if a decorator with the given name exists on this step.
+        """
+        ...
+    def get_decorator_specs(self, name: str) -> typing.List[typing.Tuple[str, str, typing.List[typing.Any], typing.Dict[str, typing.Any]]]:
+        """
+        Return all spec tuples matching the given name.
+        
+        Parameters
+        ----------
+        name : str
+            The decorator name (short) or fully qualified name (contains a period).
+        
+        Returns
+        -------
+        List[Tuple[str, str, List[Any], Dict[str, Any]]]
+            A list of (short_name, fq_name, args, kwargs) tuples. Empty list if
+            no decorators match.
+        """
+        ...
+    def add_decorator(self, deco_type: typing.Union[functools.partial, metaflow.user_decorators.user_step_decorator.UserStepDecoratorBase, str], deco_args: typing.Union[typing.List[typing.Any], None] = None, deco_kwargs: typing.Union[typing.Dict[str, typing.Any], None] = None, duplicates: int = 1) -> typing.Union[metaflow.user_decorators.user_step_decorator.UserStepDecoratorBase, "metaflow.decorators.StepDecorator", None]:
+        """
+        Add a Metaflow step-decorator or a user step-decorator to a step.
+        
+        Returns the decorator instance that was inserted, which can be used to
+        inspect or further configure the decorator. Returns None if the decorator
+        was not added (e.g. due to duplicate handling with IGNORE).
+        
+        You can either add the decorator itself or its decorator specification for it
+        (the same you would get back from decorator_specs). You can also mix and match
+        but you cannot provide arguments both through the string and the
+        deco_args/deco_kwargs.
+        
+        As an example:
+        ```
+        from metaflow import environment
+        ...
+        my_step.add_decorator(environment, deco_kwargs={"vars": {"foo": 42})}
+        ```
+        
+        is equivalent to:
+        ```
+        my_step.add_decorator('environment:vars={"foo": 42}')
+        ```
+        
+        is equivalent to:
+        ```
+        my_step.add_decorator('environment', deco_kwargs={"vars":{"foo": 42}})
+        ```
+        
+        but this is not allowed:
+        ```
+        my_step.add_decorator('environment:vars={"bar" 43}', deco_kwargs={"vars":{"foo": 42}})
+        ```
+        
+        Note in the case where you specify a
+        string for the decorator, there is no need to import the decorator.
+        
+        The string syntax is useful to, for example, allow decorators to be stored as
+        strings in a configuration file.
+        
+        You can only add StepMutators in the pre_mutate stage.
+        
+        In terms of precedence for decorators:
+          - if a decorator can be applied multiple times (like `@card`) all decorators
+            added are kept.
+          - if `duplicates` is set to `MutableStep.IGNORE`, then the decorator
+            being added is ignored (in other words, the existing decorator has precedence).
+          - if `duplicates` is set to `MutableStep.OVERRIDE`, then the *existing*
+            decorator is removed and this newly added one replaces it (in other
+            words, the newly added decorator has precedence).
+          - if `duplicates` is set to `MutableStep.ERROR`, then an error is raised but only
+            if the newly added decorator is *static* (ie: defined directly in the code).
+            If not, it is ignored.
+        
+        Parameters
+        ----------
+        deco_type : Union[partial, UserStepDecoratorBase, str]
+            The decorator class to add to this step.
+        deco_args : List[Any], optional, default None
+            Positional arguments to pass to the decorator.
+        deco_kwargs : Dict[str, Any], optional, default None
+            Keyword arguments to pass to the decorator.
+        duplicates : int, default MutableStep.IGNORE
+            Instruction on how to handle duplicates. It can be one of:
+            - `MutableStep.IGNORE`: Ignore the decorator if it already exists.
+            - `MutableStep.ERROR`: Raise an error if the decorator already exists.
+            - `MutableStep.OVERRIDE`: Remove the existing decorator and add this one.
+        
+        Returns
+        -------
+        Optional[Union[UserStepDecoratorBase, StepDecorator]]
+            The decorator instance that was added, or None if the decorator was not
+            added due to duplicate handling.
+        """
+        ...
+    def remove_decorator(self, deco_name: str, deco_args: typing.Union[typing.List[typing.Any], None] = None, deco_kwargs: typing.Union[typing.Dict[str, typing.Any], None] = None) -> bool:
+        """
+        Remove a step-level decorator. To remove a decorator, you can pass the decorator
+        specification (obtained from `decorator_specs` for example).
+        Note that if multiple decorators share the same decorator specification
+        (very rare), they will all be removed.
+        
+        You can only remove StepMutators in the `pre_mutate` method.
+        
+        Parameters
+        ----------
+        deco_name : str
+            Decorator specification of the decorator to remove. If nothing else is
+            specified, all decorators matching that name will be removed.
+        deco_args : List[Any], optional, default None
+            Positional arguments to match the decorator specification.
+        deco_kwargs : Dict[str, Any], optional, default None
+            Keyword arguments to match the decorator specification.
+        
+        Returns
+        -------
+        bool
+            Returns True if a decorator was removed.
+        """
+        ...
+    ...
+

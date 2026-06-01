@@ -3,4 +3,4 @@
 
 """Build-stamped Studio release metadata."""
 
-STUDIO_RELEASE_VERSION = 'v0.1.42-beta'
+STUDIO_RELEASE_VERSION = 'v0.1.43-beta'

@@ -1,0 +1,5 @@
+extend = "../pyproject.toml"
+
+# Showcases follow PEP-8 strict (79 char limit) so they read like stdlib
+# examples, while the rest of the codebase uses the project-wide 120.
+line-length = 79

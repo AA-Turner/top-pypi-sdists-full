@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["kanban_framework*"]
+
+[tool.setuptools.package-data]
+kanban_framework = ["_skill/**/*", "dashboard/**/*"]
+
+[tool.setuptools.exclude-package-data]
+kanban_framework = ["dashboard/node_modules/**", "dashboard/package-lock.json"]
+
+[project]
+name = "kanban-framework"
+version = "0.96.6"
+description = "Kanban multi-agent orchestration framework for Claude Code"
+requires-python = ">=3.10"
+dependencies = [
+    "jieba>=0.42",
+    "chromadb>=1.0",
+    "fastembed>=0.4",
+    "numpy",
+    "code-review-graph>=0.1.0",
+]
+
+[project.scripts]
+kanban = "kanban_framework.cli.main:main"
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-cov"]
+code-index = ["code-review-graph>=0.1.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+pythonpath = ["."]
+markers = [
+    "perf: performance benchmarks (may take seconds per test)",
+    "slow: stress tests that take >10s to complete",
+]
+
+[tool.coverage.run]
+source = ["kanban_framework"]
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "if __name__ == .__main__.:"]

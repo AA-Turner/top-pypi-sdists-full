@@ -1,0 +1,37 @@
+[build-system]
+# setuptools removed pkg_resources in version 81
+requires = ["setuptools>=61,<81", "setuptools-rust>=1.9"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chalkpy-rs"
+description = "Native Rust extension package for chalkpy"
+requires-python = ">=3.10,<3.15"
+authors = [
+    { name = "Chalk AI, Inc." }
+]
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Rust",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://chalk.ai"
+Documentation = "https://docs.chalk.ai"
+Changelog = "https://docs.chalk.ai/docs/changelog"
+
+[tool.setuptools]
+# The distribution is named `chalkpy-rs`, but it intentionally provides the
+# top-level extension module imported by chalkpy: `chalk_rs`.
+py-modules = ["_chalkpy_rs_version"]
+
+[tool.setuptools.dynamic]
+version = { attr = "_chalkpy_rs_version.__version__" }

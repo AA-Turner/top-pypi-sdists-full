@@ -25,6 +25,8 @@ __all__ = ("SMTPProtocol",)
 MAX_LINE_LENGTH = 8192
 LINE_ENDINGS_REGEX = re.compile(rb"(?:\r\n|\n|\r(?!\n))")
 PERIOD_REGEX = re.compile(rb"(?m)^\.")
+# Reject all C0 controls + DEL; CR/LF/NUL in particular enable injection.
+COMMAND_INJECTION_REGEX = re.compile(rb"[\x00-\x1f\x7f]")
 
 
 class FlowControlMixin(asyncio.Protocol):
@@ -132,12 +134,15 @@ class SMTPProtocol(FlowControlMixin, asyncio.BaseProtocol):
     def connection_lost(self, exc: Exception | None) -> None:
         super().connection_lost(exc)
 
-        if not self._quit_sent:
-            smtp_exc = SMTPServerDisconnected("Connection lost")
-            if exc:
-                smtp_exc.__cause__ = exc
-
-            if self._response_waiter and not self._response_waiter.done():
+        if self._response_waiter and not self._response_waiter.done():
+            if self._quit_sent:
+                self._response_waiter.set_result(
+                    SMTPResponse(SMTPStatus.closing.value, "")
+                )
+            else:
+                smtp_exc = SMTPServerDisconnected("Connection lost")
+                if exc:
+                    smtp_exc.__cause__ = exc
                 self._response_waiter.set_exception(smtp_exc)
 
         self.transport = None
@@ -288,6 +293,9 @@ class SMTPProtocol(FlowControlMixin, asyncio.BaseProtocol):
         Sends an SMTP command along with any args to the server, and returns
         a response.
         """
+        for arg in args:
+            if COMMAND_INJECTION_REGEX.search(arg):
+                raise ValueError("Command arg contains a prohibited control character")
         if self._command_lock is None:
             raise SMTPServerDisconnected("Server not connected")
         command = b" ".join(args) + b"\r\n"

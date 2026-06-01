@@ -1,0 +1,45 @@
+"""Command-line entry-point into db-contrib-tool."""
+
+import click
+from importlib.metadata import version, PackageNotFoundError
+from multiprocessing import freeze_support
+from db_contrib_tool.setup_mongot_repro_env.cli import setup_mongot_repro_env
+from db_contrib_tool.setup_repro_env.cli import setup_repro_env
+from db_contrib_tool.symbolizer.cli import symbolize
+from db_contrib_tool.usage_analytics import CommandUsage
+
+
+def get_version() -> str:
+    """Get the version of db-contrib-tool."""
+    try:
+        return version("db-contrib-tool")
+    except PackageNotFoundError:
+        return "unknown"
+
+_PLUGINS = [
+    setup_repro_env,
+    setup_mongot_repro_env,
+    symbolize,
+]
+
+
+@click.group(context_settings=dict(show_default=True, max_content_width=120))
+@click.version_option(version=get_version(), message="%(version)s")
+@click.pass_context
+def cli(ctx: click.Context) -> None:  # noqa: D401
+    """
+    The db-contrib-tool - MongoDB's tool for contributors.
+
+    For more information, see the help message for each subcommand.
+    For example: db-contrib-tool setup-repro-env --help
+    """
+    ctx.obj = CommandUsage(command=ctx.invoked_subcommand)
+
+
+for plugin in _PLUGINS:
+    cli.add_command(plugin)
+
+
+if __name__ == "__main__":
+    freeze_support()  # Required for multiprocessing support in a frozen (i.e. PyInstaller) application
+    cli(obj=CommandUsage(command=None))

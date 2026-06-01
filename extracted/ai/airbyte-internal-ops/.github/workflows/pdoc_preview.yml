@@ -1,0 +1,42 @@
+name: Generate Docs
+
+on:
+  push:
+    branches:
+      - main
+  pull_request: {}
+
+permissions:
+  contents: read
+
+jobs:
+  preview_docs:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: uv sync --group dev --all-packages
+
+      - name: Generate documentation
+        run: |
+          set -e
+          uv run poe docs-generate
+          if [ ! -d "docs/generated" ]; then
+            echo "Error: Documentation generation failed - docs/generated directory not found"
+            exit 1
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          # Upload generated documentation
+          path: "docs/generated"

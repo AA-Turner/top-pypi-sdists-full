@@ -1,6 +1,6 @@
 [project]
 name = "drydock-cli"
-version = "2.9.12"
+version = "2.9.32"
 description = "Local-first CLI coding agent — tested with Gemma 4 26B via llama.cpp"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -76,6 +76,16 @@ build-backend = "hatchling.build"
 [tool.hatch.metadata]
 allow-direct-references = true
 
+[tool.hatch.build.targets.sdist]
+include = [
+    "drydock/",
+    "tests/",
+    "pyproject.toml",
+    "README.md",
+    "LICENSE",
+    "uv.lock",
+]
+
 [tool.hatch.build.targets.wheel]
 include = ["drydock/"]
 
@@ -87,6 +97,7 @@ include = ["drydock/"]
 "drydock/skills/ship" = "drydock/skills/ship"
 "drydock/skills/batch" = "drydock/skills/batch"
 "drydock/skills/simplify" = "drydock/skills/simplify"
+"drydock/skills/checklist" = "drydock/skills/checklist"
 
 
 [project.scripts]

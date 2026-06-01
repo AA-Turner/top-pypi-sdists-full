@@ -1,0 +1,15 @@
+[package]
+name = "fast-geo-distance"
+version = "0.4.2"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "fast_geo_distance"
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+geographiclib = "0.1.0"
+geographiclib-rs = "0.2.4"
+pyo3 = "0.19.0"
+rayon = "1.8.1"

@@ -1,0 +1,879 @@
+"""Tests for workflow scheduling functionality."""
+
+from __future__ import annotations
+
+import json
+import tempfile
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Literal
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
+
+import nio
+import pytest
+
+from mindroom.config.agent import AgentConfig, TeamConfig
+from mindroom.config.main import Config
+from mindroom.config.models import ModelConfig, RouterConfig
+from mindroom.constants import ORIGINAL_SENDER_KEY
+from mindroom.entity_resolution import entity_identity_registry
+from mindroom.matrix.client import DeliveredMatrixEvent
+from mindroom.matrix.identity import MatrixID
+from mindroom.message_target import MessageTarget
+from mindroom.scheduling import (
+    CronSchedule,
+    ScheduledWorkflow,
+    SchedulingRuntime,
+    _build_scheduled_failure_content,
+    _execute_scheduled_workflow,
+    _parse_workflow_schedule,
+    _validate_conditional_workflow,
+    _WorkflowParseError,
+    schedule_task,
+)
+from tests.conftest import bind_runtime_paths, make_event_cache_mock, runtime_paths_for, test_runtime_paths
+from tests.identity_helpers import persist_entity_accounts
+
+
+def _mid(name: str) -> MatrixID:
+    return MatrixID(username=name, domain="localhost")
+
+
+def _runtime_bound_config(config: Config, runtime_root: Path | None = None) -> Config:
+    """Return a runtime-bound workflow config."""
+    runtime_paths = test_runtime_paths(runtime_root or Path(tempfile.mkdtemp()))
+    bound_config = bind_runtime_paths(config, runtime_paths)
+    persist_entity_accounts(bound_config, runtime_paths)
+    return bound_config
+
+
+def _conversation_cache(
+    thread_history: list[object] | None = None,
+    *,
+    latest_thread_event_id: str | None = None,
+) -> AsyncMock:
+    access = AsyncMock()
+    access.get_thread_history = AsyncMock(return_value=list(thread_history or []))
+    access.get_latest_thread_event_id_if_needed = AsyncMock(return_value=latest_thread_event_id)
+    access.notify_outbound_message = Mock()
+    return access
+
+
+def _event_cache() -> AsyncMock:
+    return make_event_cache_mock()
+
+
+@pytest.fixture
+def mock_config() -> Config:
+    """Create a runtime-bound config with test agents."""
+    config = _runtime_bound_config(
+        Config(
+            agents={
+                "general": AgentConfig(display_name="General"),
+                "research": AgentConfig(display_name="Research"),
+                "email_assistant": AgentConfig(display_name="Email Assistant"),
+                "finance": AgentConfig(display_name="Finance"),
+                "shell": AgentConfig(display_name="Shell"),
+                "analyst": AgentConfig(display_name="Analyst"),
+            },
+            teams={
+                "ops": TeamConfig(display_name="Ops Team", role="Operations team", agents=["research", "analyst"]),
+            },
+            models={"default": ModelConfig(provider="test", id="test-model")},
+        ),
+    )
+    persist_entity_accounts(
+        config,
+        runtime_paths_for(config),
+        usernames={alias: alias for alias in ["router", *config.agents, *config.teams]},
+    )
+    return config
+
+
+class TestCronSchedule:
+    """Test CronSchedule model."""
+
+    def test_to_cron_string_default(self) -> None:
+        """Test converting default schedule to cron string."""
+        schedule = CronSchedule()
+        assert schedule.to_cron_string() == "* * * * *"
+
+    def test_to_cron_string_daily(self) -> None:
+        """Test daily schedule at 9am."""
+        schedule = CronSchedule(minute="0", hour="9")
+        assert schedule.to_cron_string() == "0 9 * * *"
+
+    def test_to_cron_string_weekly(self) -> None:
+        """Test weekly schedule on Monday at 3pm."""
+        schedule = CronSchedule(minute="0", hour="15", weekday="1")
+        assert schedule.to_cron_string() == "0 15 * * 1"
+
+    def test_to_cron_string_hourly(self) -> None:
+        """Test hourly schedule."""
+        schedule = CronSchedule(minute="0")
+        assert schedule.to_cron_string() == "0 * * * *"
+
+
+class TestScheduledWorkflow:
+    """Test ScheduledWorkflow model."""
+
+    def test_once_workflow(self) -> None:
+        """Test creating a one-time workflow."""
+        exec_time = datetime.now(UTC) + timedelta(hours=1)
+        workflow = ScheduledWorkflow(
+            schedule_type="once",
+            execute_at=exec_time,
+            message="@research Please find AI news",
+            description="One-time research task",
+        )
+        assert workflow.schedule_type == "once"
+        assert workflow.execute_at == exec_time
+        assert "@research" in workflow.message
+
+    def test_cron_workflow(self) -> None:
+        """Test creating a recurring workflow."""
+        cron = CronSchedule(minute="0", hour="9")
+        workflow = ScheduledWorkflow(
+            schedule_type="cron",
+            cron_schedule=cron,
+            message="@finance Daily market analysis",
+            description="Daily market report",
+        )
+        assert workflow.schedule_type == "cron"
+        assert workflow.cron_schedule.to_cron_string() == "0 9 * * *"
+
+    def test_message_target_for_scheduled_task_uses_persisted_thread_id(self) -> None:
+        """Scheduled workflows should honor the persisted thread even if live routing is room mode."""
+        workflow = ScheduledWorkflow(
+            schedule_type="once",
+            execute_at=datetime.now(UTC),
+            message="Check the queue depth",
+            description="Queue check",
+            room_id="!room:server",
+            thread_id="$thread-root",
+            new_thread=False,
+        )
+
+        target = MessageTarget.for_scheduled_task(workflow)
+
+        assert target.resolved_thread_id == "$thread-root"
+        assert target.session_id == "!room:server:$thread-root"
+
+
+@pytest.mark.asyncio
+class TestParseWorkflowSchedule:
+    """Test parse_workflow_schedule function."""
+
+    @patch("mindroom.model_loading.get_model_instance")
+    @patch("mindroom.scheduling.Agent")
+    async def test_parse_research_email_workflow(
+        self,
+        mock_agent_class: Mock,
+        mock_get_model: Mock,  # noqa: ARG002
+        mock_config: MagicMock,
+    ) -> None:
+        """Test parsing research + email workflow."""
+        # Setup mock agent response
+        mock_agent = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.content = ScheduledWorkflow(
+            schedule_type="cron",
+            cron_schedule=CronSchedule(minute="0", hour="9", weekday="1"),
+            message="@research @email_assistant Please research the latest AI news and email me a summary",
+            description="Weekly AI news research and email",
+        )
+        mock_agent.arun.return_value = mock_response
+        mock_agent_class.return_value = mock_agent
+
+        # Parse the request
+        result = await _parse_workflow_schedule(
+            "Every Monday at 9am, research AI news and email me a summary",
+            config=mock_config,
+            runtime_paths=runtime_paths_for(mock_config),
+            available_responders=[_mid("research"), _mid("email_assistant")],
+        )
+
+        assert isinstance(result, ScheduledWorkflow)
+        assert result.schedule_type == "cron"
+        assert result.cron_schedule.weekday == "1"
+        assert "@research" in result.message
+        assert "@email_assistant" in result.message
+
+    @patch("mindroom.model_loading.get_model_instance")
+    @patch("mindroom.scheduling.Agent")
+    async def test_parse_simple_reminder(
+        self,
+        mock_agent_class: Mock,
+        mock_get_model: Mock,  # noqa: ARG002
+        mock_config: MagicMock,
+    ) -> None:
+        """Test parsing simple reminder without agents."""
+        mock_agent = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.content = ScheduledWorkflow(
+            schedule_type="once",
+            execute_at=datetime.now(UTC) + timedelta(minutes=5),
+            message="Check the deployment status",
+            description="Deployment check reminder",
+        )
+        mock_agent.arun.return_value = mock_response
+        mock_agent_class.return_value = mock_agent
+
+        result = await _parse_workflow_schedule(
+            "ping me in 5 minutes to check the deployment",
+            config=mock_config,
+            runtime_paths=runtime_paths_for(mock_config),
+            available_responders=[_mid("general")],
+        )
+
+        assert isinstance(result, ScheduledWorkflow)
+        assert result.schedule_type == "once"
+        assert result.message == "Check the deployment status"
+
+    @patch("mindroom.model_loading.get_model_instance")
+    @patch("mindroom.scheduling.Agent")
+    async def test_parse_daily_task(self, mock_agent_class: Mock, mock_get_model: Mock, mock_config: MagicMock) -> None:  # noqa: ARG002
+        """Test parsing daily recurring task."""
+        mock_agent = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.content = ScheduledWorkflow(
+            schedule_type="cron",
+            cron_schedule=CronSchedule(minute="0", hour="9"),
+            message="@finance Please provide a market analysis for today",
+            description="Daily market analysis",
+        )
+        mock_agent.arun.return_value = mock_response
+        mock_agent_class.return_value = mock_agent
+
+        result = await _parse_workflow_schedule(
+            "Daily at 9am, give me a market analysis",
+            config=mock_config,
+            runtime_paths=runtime_paths_for(mock_config),
+            available_responders=[_mid("finance")],
+        )
+
+        assert isinstance(result, ScheduledWorkflow)
+        assert result.schedule_type == "cron"
+        assert result.cron_schedule.to_cron_string() == "0 9 * * *"
+        assert "@finance" in result.message
+
+    @patch("mindroom.model_loading.get_model_instance")
+    @patch("mindroom.scheduling.Agent")
+    async def test_parse_error_handling(
+        self,
+        mock_agent_class: Mock,
+        mock_get_model: Mock,  # noqa: ARG002
+        mock_config: MagicMock,
+    ) -> None:
+        """Test error handling in parse_workflow_schedule."""
+        mock_agent = AsyncMock()
+        mock_agent.arun.side_effect = Exception("AI service error")
+        mock_agent_class.return_value = mock_agent
+
+        result = await _parse_workflow_schedule(
+            "Schedule something",
+            config=mock_config,
+            runtime_paths=runtime_paths_for(mock_config),
+            available_responders=[_mid("general")],
+        )
+
+        assert isinstance(result, _WorkflowParseError)
+        assert "Error parsing schedule" in result.error
+        assert result.suggestion is not None
+
+    @patch("mindroom.scheduling.Agent")
+    async def test_parse_empty_available_responders_returns_parse_error(
+        self,
+        mock_agent_class: Mock,
+        mock_config: MagicMock,
+    ) -> None:
+        """Empty responder sets should fail deterministically for direct callers."""
+        result = await _parse_workflow_schedule(
+            "Schedule something",
+            config=mock_config,
+            runtime_paths=runtime_paths_for(mock_config),
+            available_responders=[],
+        )
+
+        assert isinstance(result, _WorkflowParseError)
+        assert result.error == "No agents or teams available for scheduling."
+        mock_agent_class.assert_not_called()
+
+    @patch("mindroom.model_loading.get_model_instance")
+    @patch("mindroom.scheduling.Agent")
+    async def test_parse_formats_available_agents_without_double_at(
+        self,
+        mock_agent_class: Mock,
+        mock_get_model: Mock,  # noqa: ARG002
+        mock_config: MagicMock,
+    ) -> None:
+        """Available-agent prompt rendering should never produce @@ mentions."""
+        mock_agent = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.content = ScheduledWorkflow(
+            schedule_type="once",
+            execute_at=datetime.now(UTC) + timedelta(minutes=5),
+            message="Check in",
+            description="Reminder",
+        )
+        mock_agent.arun.return_value = mock_response
+        mock_agent_class.return_value = mock_agent
+
+        await _parse_workflow_schedule(
+            "remind me later",
+            config=mock_config,
+            runtime_paths=runtime_paths_for(mock_config),
+            available_responders=[
+                _mid("general"),
+                _mid("research"),
+                _mid("ops"),
+                _mid("finance"),
+                _mid("analyst"),
+            ],
+        )
+
+        prompt = mock_agent.arun.call_args.args[0]
+        assert "Available agents and teams: @general, @research, @ops, @finance, @analyst" in prompt
+        assert "@@" not in prompt
+
+    @patch("mindroom.model_loading.get_model_instance")
+    @patch("mindroom.scheduling.Agent")
+    async def test_parse_missing_fields_fallbacks(
+        self,
+        mock_agent_class: Mock,
+        mock_get_model: Mock,  # noqa: ARG002
+        mock_config: MagicMock,
+    ) -> None:
+        """Missing execute_at/cron_schedule fields get sensible defaults."""
+        mock_agent = AsyncMock()
+
+        # once without execute_at
+        resp_once = MagicMock()
+        resp_once.content = ScheduledWorkflow(
+            schedule_type="once",
+            execute_at=None,
+            message="Check",
+            description="Check later",
+        )
+
+        # cron without cron_schedule
+        resp_cron = MagicMock()
+        resp_cron.content = ScheduledWorkflow(
+            schedule_type="cron",
+            cron_schedule=None,
+            message="Daily",
+            description="Daily task",
+        )
+
+        # Alternate responses
+        mock_agent.arun.side_effect = [resp_once, resp_cron]
+        mock_agent_class.return_value = mock_agent
+
+        result_once = await _parse_workflow_schedule(
+            "remind me later",
+            mock_config,
+            runtime_paths_for(mock_config),
+            [_mid("general")],
+        )
+        assert isinstance(result_once, ScheduledWorkflow)
+        assert result_once.schedule_type == "once"
+        assert result_once.execute_at is not None
+
+        result_cron = await _parse_workflow_schedule(
+            "every day",
+            mock_config,
+            runtime_paths_for(mock_config),
+            [_mid("general")],
+        )
+        assert isinstance(result_cron, ScheduledWorkflow)
+        assert result_cron.schedule_type == "cron"
+        assert result_cron.cron_schedule is not None
+
+    @patch("mindroom.model_loading.get_model_instance")
+    @patch("mindroom.scheduling.Agent")
+    async def test_parse_conditional_schedule_rejects_non_polling_cron(
+        self,
+        mock_agent_class: Mock,
+        mock_get_model: Mock,  # noqa: ARG002
+        mock_config: MagicMock,
+    ) -> None:
+        """Conditional schedules should fail instead of accepting a non-polling cron."""
+        mock_agent = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.content = ScheduledWorkflow(
+            schedule_type="cron",
+            is_conditional=True,
+            cron_schedule=CronSchedule(minute="0", hour="9"),
+            message="@general Check for messages containing urgent. If found, notify the team.",
+            description="Monitor urgent mentions",
+        )
+        mock_agent.arun.return_value = mock_response
+        mock_agent_class.return_value = mock_agent
+
+        result = await _parse_workflow_schedule(
+            "If someone mentions urgent then notify the team immediately",
+            config=mock_config,
+            runtime_paths=runtime_paths_for(mock_config),
+            available_responders=[_mid("general")],
+        )
+
+        assert isinstance(result, _WorkflowParseError)
+        assert "polling cron" in result.error
+        assert "0 9 * * *" in result.error
+
+
+@pytest.mark.asyncio
+class TestExecuteScheduledWorkflow:
+    """Test execute_scheduled_workflow function."""
+
+    async def test_execute_workflow_with_agents(self) -> None:
+        """Current-scope workflow execution should keep the automated threaded wrapper."""
+        client = AsyncMock()
+        config = _runtime_bound_config(
+            Config(
+                agents={
+                    "research": AgentConfig(display_name="Research"),
+                    "analyst": AgentConfig(display_name="Analyst"),
+                },
+                models={"default": ModelConfig(provider="test", id="test-model")},
+            ),
+        )
+        persist_entity_accounts(
+            config,
+            runtime_paths_for(config),
+            usernames={alias: alias for alias in ["router", *config.agents]},
+        )
+        workflow = ScheduledWorkflow(
+            schedule_type="once",
+            execute_at=datetime.now(UTC),
+            message="@research @analyst Please analyze the latest AI trends",
+            description="AI trend analysis",
+            thread_id="$thread123",
+            room_id="!room:server",
+            created_by="@user:server",
+        )
+
+        conversation_cache = _conversation_cache(latest_thread_event_id="$latest456")
+        with patch(
+            "mindroom.hooks.sender._send_message_result",
+            new=AsyncMock(
+                return_value=DeliveredMatrixEvent(
+                    event_id="$event123",
+                    content_sent={"body": "sent"},
+                ),
+            ),
+        ) as mock_send:
+            await _execute_scheduled_workflow(
+                client,
+                workflow,
+                config,
+                runtime_paths_for(config),
+                conversation_cache,
+            )
+
+        conversation_cache.get_latest_thread_event_id_if_needed.assert_awaited_once_with(
+            "!room:server",
+            "$thread123",
+            caller_label="scheduled_workflow_message",
+        )
+        mock_send.assert_awaited_once()
+        call_args = mock_send.await_args
+        assert call_args.args[0] == client
+        assert call_args.args[1] == "!room:server"
+        content = call_args.args[2]
+        assert content["body"].startswith("⏰ [Automated Task]\n")
+        registry = entity_identity_registry(config, runtime_paths_for(config))
+        assert registry.current_id("research").full_id in content["body"]
+        assert registry.current_id("analyst").full_id in content["body"]
+        assert content["m.relates_to"]["event_id"] == "$thread123"
+        assert content[ORIGINAL_SENDER_KEY] == "@user:server"
+
+    async def test_execute_workflow_new_thread_posts_room_level_message(self) -> None:
+        """New-thread workflow execution should post a plain room-level message."""
+        client = AsyncMock()
+        config = _runtime_bound_config(
+            Config(
+                agents={
+                    "research": AgentConfig(display_name="Research"),
+                    "analyst": AgentConfig(display_name="Analyst"),
+                },
+                models={"default": ModelConfig(provider="test", id="test-model")},
+            ),
+        )
+        persist_entity_accounts(
+            config,
+            runtime_paths_for(config),
+            usernames={alias: alias for alias in ["router", *config.agents]},
+        )
+        workflow = ScheduledWorkflow(
+            schedule_type="once",
+            execute_at=datetime.now(UTC),
+            message="@research @analyst Please analyze the latest AI trends",
+            description="AI trend analysis",
+            thread_id=None,
+            room_id="!room:server",
+            created_by="@user:server",
+            new_thread=True,
+        )
+
+        with patch(
+            "mindroom.hooks.sender._send_message_result",
+            new=AsyncMock(
+                return_value=DeliveredMatrixEvent(
+                    event_id="$event456",
+                    content_sent={"body": "sent"},
+                ),
+            ),
+        ) as mock_send:
+            conversation_cache = _conversation_cache()
+            await _execute_scheduled_workflow(
+                client,
+                workflow,
+                config,
+                runtime_paths_for(config),
+                conversation_cache,
+            )
+
+        conversation_cache.get_latest_thread_event_id_if_needed.assert_not_awaited()
+        mock_send.assert_awaited_once()
+        content = mock_send.await_args.args[2]
+        assert "⏰ [Automated Task]" not in content["body"]
+        registry = entity_identity_registry(config, runtime_paths_for(config))
+        assert registry.current_id("research").full_id in content["body"]
+        assert registry.current_id("analyst").full_id in content["body"]
+        assert "m.relates_to" not in content
+        assert content[ORIGINAL_SENDER_KEY] == "@user:server"
+
+    async def test_scheduled_failure_content_labels_latest_thread_lookup(self) -> None:
+        """Scheduled failure replies should attribute latest-thread lookups."""
+        workflow = ScheduledWorkflow(
+            schedule_type="once",
+            execute_at=datetime.now(UTC),
+            message="Run report",
+            description="report",
+            thread_id="$thread123",
+            room_id="!room:server",
+            created_by="@user:server",
+        )
+        target = MessageTarget.resolve("!room:server", "$thread123", None)
+        conversation_cache = _conversation_cache(latest_thread_event_id="$latest456")
+
+        content = await _build_scheduled_failure_content(
+            workflow,
+            target,
+            "Workflow failed",
+            conversation_cache,
+        )
+
+        assert content["m.relates_to"]["m.in_reply_to"]["event_id"] == "$latest456"
+        conversation_cache.get_latest_thread_event_id_if_needed.assert_awaited_once_with(
+            "!room:server",
+            "$thread123",
+            caller_label="scheduled_workflow_failure",
+        )
+
+    async def test_execute_workflow_simple_reminder(self) -> None:
+        """Test executing a simple reminder without agents."""
+        client = AsyncMock()
+        config = _runtime_bound_config(Config())
+        workflow = ScheduledWorkflow(
+            schedule_type="once",
+            execute_at=datetime.now(UTC),
+            message="Check the server status",
+            description="Server check reminder",
+            room_id="!room:server",
+        )
+
+        with patch(
+            "mindroom.hooks.sender._send_message_result",
+            new=AsyncMock(
+                return_value=DeliveredMatrixEvent(
+                    event_id="$event789",
+                    content_sent={"body": "sent"},
+                ),
+            ),
+        ) as mock_send:
+            await _execute_scheduled_workflow(
+                client,
+                workflow,
+                config,
+                runtime_paths_for(config),
+                _conversation_cache(latest_thread_event_id="$thread123"),
+            )
+            mock_send.assert_awaited_once()
+
+            # Check the message content
+            content = mock_send.await_args.args[2]
+            assert content["body"].startswith("⏰ [Automated Task]\n")
+            assert "Check the server status" in content["body"]
+            assert "m.relates_to" not in content  # No thread
+            assert ORIGINAL_SENDER_KEY not in content
+
+    async def test_execute_workflow_error_handling(self) -> None:
+        """Test error handling in execute_scheduled_workflow."""
+        client = AsyncMock()
+        config = _runtime_bound_config(Config())
+        workflow = ScheduledWorkflow(
+            schedule_type="once",
+            execute_at=datetime.now(UTC),
+            message="Test message",
+            description="Test task",
+            room_id="!room:server",
+            thread_id="$thread123",
+        )
+
+        # Mock send_message to raise an error only on the first call
+        mock_send = AsyncMock(
+            side_effect=[
+                Exception("Send failed"),
+                DeliveredMatrixEvent(event_id="$error123", content_sent={"body": "error"}),
+            ],
+        )
+
+        with patch("mindroom.hooks.sender._send_message_result", new=mock_send):
+            # Should not raise, but log error
+            await _execute_scheduled_workflow(
+                client,
+                workflow,
+                config,
+                runtime_paths_for(config),
+                _conversation_cache(latest_thread_event_id="$thread123"),
+            )
+
+            # Should have tried to send original and error message
+            assert mock_send.call_count == 2
+
+            # Check error message was sent
+            error_call = mock_send.call_args_list[1]
+            error_content = error_call[0][2]
+            assert "failed" in error_content["body"].lower()
+
+    async def test_execute_workflow_send_message_returning_none_is_failure(self) -> None:
+        """send_message returning None should trigger failure handling instead of success logging."""
+        client = AsyncMock()
+        config = _runtime_bound_config(Config())
+        workflow = ScheduledWorkflow(
+            schedule_type="once",
+            execute_at=datetime.now(UTC),
+            message="Check the queue depth",
+            description="Queue check",
+            room_id="!room:server",
+            thread_id="$thread123",
+        )
+
+        with (
+            patch(
+                "mindroom.hooks.sender._send_message_result",
+                new=AsyncMock(
+                    side_effect=[
+                        None,
+                        DeliveredMatrixEvent(
+                            event_id="$error456",
+                            content_sent={"body": "error"},
+                        ),
+                    ],
+                ),
+            ) as mock_send,
+            patch("mindroom.scheduling.logger.info") as mock_info,
+        ):
+            conversation_cache = _conversation_cache(latest_thread_event_id="$latest123")
+            await _execute_scheduled_workflow(
+                client,
+                workflow,
+                config,
+                runtime_paths_for(config),
+                conversation_cache,
+            )
+
+        assert mock_send.await_count == 2
+        mock_info.assert_not_called()
+        error_content = mock_send.await_args_list[1].args[2]
+        assert "Scheduled task failed" in error_content["body"]
+
+    async def test_execute_workflow_no_room_id(self) -> None:
+        """Test that workflow without room_id doesn't execute."""
+        client = AsyncMock()
+        config = _runtime_bound_config(Config())
+        workflow = ScheduledWorkflow(
+            schedule_type="once",
+            execute_at=datetime.now(UTC),
+            message="Test message",
+            description="Test task",
+            room_id=None,  # No room ID
+        )
+
+        with patch("mindroom.hooks.sender._send_message_result", new=AsyncMock()) as mock_send:
+            await _execute_scheduled_workflow(
+                client,
+                workflow,
+                config,
+                runtime_paths_for(config),
+                _conversation_cache(),
+            )
+            mock_send.assert_not_called()
+
+
+class TestWorkflowSerialization:
+    """Test workflow serialization for Matrix state storage."""
+
+    def test_workflow_json_serialization(self) -> None:
+        """Test that workflows can be serialized to JSON and back."""
+        workflow = ScheduledWorkflow(
+            schedule_type="cron",
+            cron_schedule=CronSchedule(minute="0", hour="9"),
+            message="@finance Daily report",
+            description="Daily finance report",
+            room_id="!room:server",
+            thread_id=None,
+            created_by="@user:server",
+            new_thread=True,
+        )
+
+        # Serialize to JSON
+        json_str = workflow.model_dump_json()
+        data = json.loads(json_str)
+
+        # Deserialize back
+        restored = ScheduledWorkflow(**data)
+
+        assert restored.schedule_type == workflow.schedule_type
+        assert restored.cron_schedule.to_cron_string() == workflow.cron_schedule.to_cron_string()
+        assert restored.message == workflow.message
+        assert restored.description == workflow.description
+        assert restored.room_id == workflow.room_id
+        assert restored.new_thread is True
+
+    def test_workflow_old_payload_defaults_new_thread_false(self) -> None:
+        """Older persisted workflows should deserialize with new_thread=False."""
+        data = {
+            "schedule_type": "once",
+            "execute_at": datetime(2026, 2, 1, 10, 0, tzinfo=UTC).isoformat(),
+            "message": "Check deployment",
+            "description": "Deployment check",
+            "room_id": "!room:server",
+            "thread_id": "$thread123",
+            "created_by": "@user:server",
+        }
+
+        restored = ScheduledWorkflow(**data)
+
+        assert restored.new_thread is False
+
+
+@pytest.mark.asyncio
+class TestIntegrationWithScheduling:
+    """Test integration with the main scheduling module."""
+
+    @patch("mindroom.scheduling._parse_workflow_schedule")
+    async def test_schedule_task_workflow_path(self, mock_parse_workflow: AsyncMock) -> None:
+        """Test that schedule_task uses workflow parsing for complex requests."""
+        client = AsyncMock()
+        mock_parse_workflow.return_value = ScheduledWorkflow(
+            schedule_type="cron",
+            cron_schedule=CronSchedule(minute="0", hour="9"),
+            message="@research Daily AI news",
+            description="Daily AI research",
+        )
+
+        # Create a proper config with the research agent configured for the room.
+        config = _runtime_bound_config(
+            Config(
+                agents={
+                    "research": AgentConfig(
+                        display_name="Research",
+                        role="Research agent",
+                        rooms=["!room:server"],
+                    ),
+                },
+                router=RouterConfig(model="default"),
+            ),
+        )
+        persist_entity_accounts(
+            config,
+            runtime_paths_for(config),
+            usernames={"router": "router", "research": "research"},
+        )
+
+        # Create a mock room with research agent using the correct MatrixID
+        room = nio.MatrixRoom("!room:server", "@bot:server")
+        research_matrix_id = entity_identity_registry(config, runtime_paths_for(config)).current_id("research").full_id
+        room.users[research_matrix_id] = nio.RoomMember(
+            user_id=research_matrix_id,
+            display_name="Research",
+            avatar_url=None,
+        )
+        room.members_synced = True
+
+        with patch("mindroom.scheduling._run_cron_task", new=AsyncMock()):
+            task_id, message = await schedule_task(
+                runtime=SchedulingRuntime(
+                    client=client,
+                    config=config,
+                    runtime_paths=runtime_paths_for(config),
+                    room=room,
+                    conversation_cache=_conversation_cache(),
+                    event_cache=_event_cache(),
+                ),
+                room_id="!room:server",
+                thread_id="$thread123",
+                scheduled_by="@user:server",
+                full_text="Daily at 9am, research AI news",
+            )
+
+            assert task_id is not None
+            assert "recurring task" in message
+            assert "0 9 * * *" in message
+
+
+class TestValidateConditionalWorkflow:
+    """Test _validate_conditional_workflow rejects invalid conditional schedules."""
+
+    def _workflow(
+        self,
+        message: str,
+        *,
+        schedule_type: Literal["once", "cron"] = "cron",
+        is_conditional: bool = True,
+        cron_schedule: CronSchedule | None = None,
+    ) -> ScheduledWorkflow:
+        return ScheduledWorkflow(
+            schedule_type=schedule_type,
+            is_conditional=is_conditional,
+            cron_schedule=cron_schedule or CronSchedule(minute="0", hour="9"),
+            message=message,
+            description="test",
+        )
+
+    def test_conditional_with_non_polling_cron_returns_error(self) -> None:
+        """Reject conditional schedules that do not resolve to polling cron."""
+        result = _validate_conditional_workflow(self._workflow(""))
+        assert isinstance(result, _WorkflowParseError)
+        assert "polling cron" in result.error
+        assert "0 9 * * *" in result.error
+
+    def test_conditional_with_polling_cron_passes(self) -> None:
+        """Allow conditional schedules that resolve to interval polling."""
+        result = _validate_conditional_workflow(
+            self._workflow(
+                "@ops Check CPU usage. If above 80%, scale up.",
+                cron_schedule=CronSchedule(minute="*/5", hour="*", day="*", month="*", weekday="*"),
+            ),
+        )
+        assert result is None
+
+    def test_non_conditional_schedule_is_ignored(self) -> None:
+        """Skip validation for normal time-based schedules."""
+        result = _validate_conditional_workflow(self._workflow("", is_conditional=False))
+        assert result is None
+
+    def test_conditional_once_returns_error(self) -> None:
+        """Reject one-time parses for conditional requests."""
+        result = _validate_conditional_workflow(
+            self._workflow(
+                "Check deployment status and notify me.",
+                schedule_type="once",
+                cron_schedule=None,
+            ),
+        )
+        assert isinstance(result, _WorkflowParseError)
+        assert "recurring polling schedule" in result.error

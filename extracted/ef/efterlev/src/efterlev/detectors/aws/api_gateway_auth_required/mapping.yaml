@@ -1,0 +1,44 @@
+detector_id: aws.api_gateway_auth_required
+
+ksis:
+  - id: KSI-CNA-EIS
+    name: "Enforcing Intended State"
+    coverage: partial
+    notes: >
+      Evidences whether each `aws_api_gateway_method` (REST API v1)
+      and `aws_apigatewayv2_route` (HTTP/WebSocket API v2) declares a
+      non-NONE authorization mode (AWS_IAM, CUSTOM Lambda authorizer,
+      COGNITO_USER_POOLS, or JWT). Auth on routes IS the intended-
+      state enforcement at the API edge -- the detector is the
+      library's first KSI-CNA-EIS evidence source. Per the DECISIONS
+      entry, the detector emits per-route posture; the Gap Agent
+      reasons about whether auth_none is intentional (public health
+      endpoint, public webhook) or a gap. Does not evidence
+      authorizer correctness at runtime, Cognito group rules, or
+      that the authorizer Lambda rejects bad tokens.
+  - id: KSI-CNA-DFP
+    name: "Defining Functionality and Privileges"
+    coverage: partial
+    notes: >
+      Same per-route auth-mode evidence as KSI-CNA-EIS; the privilege
+      boundary at the API edge IS the route-level auth declaration.
+      First detector evidencing KSI-CNA-DFP. Coverage is partial for
+      the same reasons as KSI-CNA-EIS.
+
+controls:
+  - id: AC-3
+    evidence_type: infrastructure
+    coverage: partial
+    notes: >
+      Access Enforcement at the IaC layer -- a non-NONE auth mode is
+      the route-level enforcement primitive. Does not evidence the
+      enforcement actually rejecting unauthorized requests at runtime.
+  - id: AC-6
+    evidence_type: infrastructure
+    coverage: partial
+    notes: >
+      Least Privilege -- the auth declaration narrows the set of
+      principals that can invoke the route. The detector's role is
+      surfacing the declaration; whether the principals authorized
+      have appropriately-scoped permissions is the responsibility of
+      adjacent IAM detectors.

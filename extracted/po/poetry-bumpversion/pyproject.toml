@@ -1,0 +1,109 @@
+[project]
+name = "poetry-bumpversion"
+version = "0.3.3"
+description = "Poetry plugin to update __version__ in __init__ file and other files containing version strings"
+authors = [{name = "Abdul Monim",email = "6266677+monim67@users.noreply.github.com"}]
+readme = "README.rst"
+requires-python = ">=3.9,<4"
+repository = "https://github.com/monim67/poetry-bumpversion"
+license = "MIT"
+keywords = ["poetry", "bump", "version", "plugin"]
+classifiers = ["Typing :: Typed"]
+dependencies = [
+    "poetry>=1.2.0,<3",
+    "typing-extensions",
+    "pydantic"
+]
+
+[tool.poetry]
+requires-poetry = ">=2.0"
+packages = [{ include = "poetry_bumpversion", from = "src" }]
+
+[tool.poetry.group.build.dependencies]
+black = "^22.3.0"
+isort = "^5.10.1"
+mypy = "^1.7.1"
+pydocstyle = {extras = ["toml"], version = "^6.1.1"}
+pytest = "^7.1.3"
+rstcheck = "^6.0.0.post1"
+poethepoet = "^0.16.3"
+coverage = { extras = ["toml"], version = "^6.4.4" }
+pre-commit = "^2.20.0"
+
+[tool.poetry.group.dev.dependencies]
+tox = "^3.24.5"
+docutils = "^0.18.1" # RST Preview
+Pygments = "^2.12.0" # RST Preview
+
+[project.entry-points."poetry.application.plugin"]
+poetry_bumpversion = "poetry_bumpversion.plugin:BumpVersionPlugin"
+
+[tool.poetry_bumpversion.file."src/poetry_bumpversion/__init__.py"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+target_version = ["py39", "py310", "py311"]
+
+[tool.isort]
+py_version = "39"
+profile = "black"
+
+[tool.mypy]
+python_version = "3.9"
+namespace_packages = true
+strict = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.pydocstyle]
+convention = "google"
+add_select = "D401,D404"
+
+[tool.coverage.run]
+command_line = "-m pytest"
+source = ["poetry_bumpversion"]
+parallel = true
+
+[tool.coverage.paths]
+source = [
+    "src/poetry_bumpversion",
+    "**/site-packages/poetry_bumpversion",
+]
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+isolated_build = True
+envlist = py{312,311,310,39}
+
+[testenv]
+allowlist_externals =
+    poetry
+    poe
+skip_install = true
+commands =
+    poetry install --no-root --only build
+    pip install -c tests/pip-constraints.txt .
+    poe lint
+    pytest
+"""
+
+[tool.poe.tasks]
+lint = [
+    { cmd = "python -m black --check src tests" },
+    { cmd = "python -m isort --check-only src tests" },
+    { cmd = "mypy src tests" },
+    { cmd = "pydocstyle src" },
+    { cmd = "rstcheck --report-level warning *.rst" },
+]
+test-cov = [
+    { cmd = "coverage run" },
+    { cmd = "coverage combine" },
+    { cmd = "coverage lcov -o coverage/lcov.info" },
+    { cmd = "coverage report" },
+]

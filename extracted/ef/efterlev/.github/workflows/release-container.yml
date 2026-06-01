@@ -1,0 +1,167 @@
+# Container release workflow — builds multi-arch amd64+arm64 images on
+# every semver tag and pushes to ghcr.io, with cosign keyless OIDC signing
+# and buildx provenance + SBOM attestation.
+#
+# One-time maintainer setup before this workflow can publish:
+#
+#   1. ghcr.io: automatic. Provisioned with the `efterlev/` GitHub org.
+#      The workflow uses the default GITHUB_TOKEN with packages:write.
+#
+# Docker Hub publish was a parallel target at design time but was dropped
+# at v0.1.0 (2026-04-26): Docker Hub eliminated the free organization
+# tier in 2024, and paid Team ($15/seat/month) is overhead a solo-
+# maintainer OSS project doesn't need at launch. Docker Hub republish
+# can return post-launch via the Docker-Sponsored Open Source program
+# (free for OSS, ~2-week application process).
+#
+# See SPEC-06 for the full design + rationale.
+
+name: release-container
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-rc.[0-9]+'
+
+permissions:
+  contents: read
+  packages: write       # push to ghcr.io
+  id-token: write       # cosign keyless OIDC + SLSA attestation
+  attestations: write   # actions/attest-build-provenance API write
+
+jobs:
+  build-and-push:
+    name: Build and push multi-arch image
+    runs-on: ubuntu-latest
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      tags: ${{ steps.tags.outputs.tags }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Parse tag
+        id: version
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF#refs/tags/v}"
+          echo "version=$TAG" >> "$GITHUB_OUTPUT"
+          if [[ "$TAG" == *"-rc."* ]]; then
+            echo "is-rc=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is-rc=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up QEMU (arm64 emulation)
+        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Docker Hub publish was originally a parallel target alongside
+      # ghcr.io. Removed at v0.1.0 because Docker Hub eliminated the
+      # free organization tier in 2024; paid Team is $15/seat/month
+      # which is overhead a solo-maintainer OSS project doesn't need
+      # at launch. Users `docker pull ghcr.io/efterlev/efterlev:vX.Y.Z`
+      # works fine — same image, different registry, no auth
+      # difference for users. Docker Hub republishing can return
+      # post-launch via the Docker-Sponsored Open Source program
+      # (free for OSS projects after a ~2-week application).
+
+      - name: Compute image tags
+        id: tags
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          IS_RC: ${{ steps.version.outputs.is-rc }}
+        run: |
+          set -euo pipefail
+          TAGS=""
+          for REGISTRY in ghcr.io/efterlev/efterlev; do
+            # Exact version tag — always applied
+            TAGS="${TAGS}${REGISTRY}:v${VERSION},"
+            # Moving tags (v{major}.{minor} and latest) — non-rc only
+            if [ "$IS_RC" = "false" ]; then
+              MAJOR_MINOR=$(echo "$VERSION" | cut -d. -f1-2)
+              TAGS="${TAGS}${REGISTRY}:v${MAJOR_MINOR},"
+              TAGS="${TAGS}${REGISTRY}:latest,"
+            fi
+          done
+          TAGS="${TAGS%,}"
+          echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
+          echo "Resolved tags:"
+          echo "$TAGS" | tr ',' '\n' | sed 's/^/  /'
+
+      - name: Build and push multi-arch image
+        id: build
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Sign images with cosign (keyless OIDC)
+        env:
+          TAGS: ${{ steps.tags.outputs.tags }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          # Sign by digest (not tag) — cosign-recommended pattern ensures
+          # the signature binds to the exact artifact bytes, not to whatever
+          # the tag currently resolves to.
+          IFS=',' read -ra TAG_ARRAY <<< "$TAGS"
+          # Build a dedup'd set of image names (no tag component).
+          declare -A IMAGES
+          for TAG in "${TAG_ARRAY[@]}"; do
+            IMAGES["${TAG%%:*}"]=1
+          done
+          for IMAGE in "${!IMAGES[@]}"; do
+            echo "Signing ${IMAGE}@${DIGEST}"
+            cosign sign --yes "${IMAGE}@${DIGEST}"
+          done
+
+      - name: Verify signatures
+        env:
+          TAGS: ${{ steps.tags.outputs.tags }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          declare -A IMAGES
+          IFS=',' read -ra TAG_ARRAY <<< "$TAGS"
+          for TAG in "${TAG_ARRAY[@]}"; do
+            IMAGES["${TAG%%:*}"]=1
+          done
+          for IMAGE in "${!IMAGES[@]}"; do
+            echo "Verifying ${IMAGE}@${DIGEST}"
+            cosign verify "${IMAGE}@${DIGEST}" \
+              --certificate-identity-regexp '^https://github\.com/efterlev/efterlev/' \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com
+          done
+
+      # SLSA build provenance — produces a cosign-verifiable in-toto
+      # attestation pushed to GHCR alongside the image. v0.1.10 + v0.1.11
+      # had buildx-emitted provenance in the OCI image manifest only
+      # (verifiable with `docker buildx imagetools inspect`); the absence
+      # of a separate cosign attestation made `cosign verify-attestation
+      # --type slsaprovenance` fail. The verify-release.sh script's check 3
+      # is wired to this attestation. See DECISIONS 2026-05-05.
+      - name: Generate SLSA build provenance attestation
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ghcr.io/efterlev/efterlev
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true

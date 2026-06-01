@@ -1,0 +1,135 @@
+use crate::{
+    evaluation::evaluator_value::MemoizedEvaluatorValue, unwrap_or_return,
+    user::user_value::UserValueRef,
+};
+use chrono::Duration;
+
+pub(crate) fn compare_time(
+    left: UserValueRef<'_>,
+    right: &MemoizedEvaluatorValue,
+    op: &str,
+) -> bool {
+    let raw_left_ts = unwrap_or_return!(left.timestamp_value().or(left.int_value()), false);
+    let left_ts = to_millis(raw_left_ts);
+
+    // dcs will always be in milliseconds
+    let right_ts = unwrap_or_return!(
+        right
+            .timestamp_value
+            .or(right.float_value.map(|x| x as i64)),
+        false
+    );
+
+    match op {
+        "before" => left_ts < right_ts,
+        "after" => left_ts > right_ts,
+        "on" => {
+            Duration::milliseconds(left_ts).num_days()
+                == Duration::milliseconds(right_ts).num_days()
+        }
+        _ => false,
+    }
+}
+
+fn to_millis(ts: i64) -> i64 {
+    // calculate the absolute value of the digits
+    let digits = ts.abs();
+
+    // epoch in seconds (milliseconds would be before 1970)
+    if digits < 10_000_000_000 {
+        // seconds to milliseconds
+        ts.saturating_mul(1000)
+    } else {
+        // milliseconds return directly
+        ts
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::evaluation::comparisons::compare_time;
+    use crate::{dyn_value, test_only_make_eval_value, DynamicValue};
+    use chrono::Utc;
+
+    fn create_str_value(s: &str) -> DynamicValue {
+        dyn_value!(s.to_string())
+    }
+
+    #[test]
+    fn test_compare_before() {
+        let now = Utc::now().timestamp_millis();
+        let left = DynamicValue::for_timestamp_evaluation(now);
+        let right = test_only_make_eval_value!(now + 1);
+
+        assert!(compare_time((&left).into(), &right, "before"));
+    }
+
+    #[test]
+    fn test_compare_after() {
+        let now = Utc::now().timestamp_millis();
+        let left = DynamicValue::for_timestamp_evaluation(now + 1);
+        let right = test_only_make_eval_value!(now);
+
+        assert!(compare_time((&left).into(), &right, "after"));
+    }
+
+    #[test]
+    fn test_rfc3339_format() {
+        let test_eval_value = test_only_make_eval_value!("2023-01-02T00:00:00Z");
+        assert!(compare_time(
+            (&create_str_value("2023-01-01T00:00:00Z")).into(),
+            &test_eval_value,
+            "before"
+        ));
+    }
+
+    #[test]
+    fn test_custom_datetime_format() {
+        let test_eval_value = test_only_make_eval_value!("2023-01-02 00:00:00");
+        assert!(compare_time(
+            (&create_str_value("2023-01-01 00:00:00")).into(),
+            &test_eval_value,
+            "before"
+        ));
+    }
+
+    #[test]
+    fn test_iso_format_no_separator() {
+        let test_eval_value = test_only_make_eval_value!("2023-01-02 00:00:00Z");
+        assert!(compare_time(
+            (&create_str_value("2023-01-01 00:00:00Z")).into(),
+            &test_eval_value,
+            "before"
+        ));
+    }
+
+    #[test]
+    fn test_timestamp_string() {
+        let test_eval_value = test_only_make_eval_value!("1672617600000");
+        assert!(compare_time(
+            (&create_str_value("1672531200000")).into(), // 2023-01-01
+            &test_eval_value,                            // 2023-01-02
+            "before"
+        ));
+    }
+
+    #[test]
+    fn test_mixed_formats() {
+        let test_eval_value = test_only_make_eval_value!(1672617600000_i64);
+        assert!(compare_time(
+            (&create_str_value("2023-01-01T00:00:00Z")).into(),
+            &test_eval_value, // 2023-01-02
+            "before"
+        ));
+    }
+
+    #[test]
+    fn test_invalid_input() {
+        let test_eval_value = test_only_make_eval_value!(1672617600000_i64);
+        assert!(!compare_time(
+            (&create_str_value("invalid-date")).into(),
+            &test_eval_value,
+            "before"
+        ));
+    }
+}

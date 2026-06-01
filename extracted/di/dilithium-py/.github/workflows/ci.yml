@@ -1,0 +1,94 @@
+name: GitHub CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  lint_check_ruff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/ruff-action@v3
+        with:
+          version: "latest"
+          args: "check"
+
+  lint_format_ruff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/ruff-action@v3
+        with:
+          version: "latest"
+          args: "format --check"
+
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: py3.9
+            os: ubuntu-latest
+            python-version: "3.9"
+          - name: py3.10
+            os: ubuntu-latest
+            python-version: "3.10"
+          - name: py3.11
+            os: ubuntu-latest
+            python-version: "3.11"
+          - name: py3.12
+            os: ubuntu-latest
+            python-version: "3.12"
+          - name: py3.9 with ecdsa
+            os: ubuntu-latest
+            python-version: "3.9"
+            opt-deps: ['ecdsa']
+          - name: py3.10 with ecdsa
+            os: ubuntu-latest
+            python-version: "3.10"
+            opt-deps: ['ecdsa']
+          - name: py3.11 with ecdsa
+            os: ubuntu-latest
+            python-version: "3.11"
+            opt-deps: ['ecdsa']
+          - name: py3.12 with ecdsa
+            os: ubuntu-latest
+            python-version: "3.12"
+            opt-deps: ['ecdsa']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 10
+      - name: Verify git status
+        run: |
+          git status
+          git remote -v
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Display Python version
+        run: python -c "import sys; print(sys.version)"
+      - name: Display installed python package versions
+        run: |
+          pip list || :
+      - name: Install pytest
+        run: |
+          pip install pytest
+      - name: Install build dependencies
+        run: |
+          pip install -r requirements.txt
+      - name: Install ecdsa
+        if: ${{ contains(matrix.opt-deps, 'ecdsa') }}
+        run: |
+          pip install ecdsa
+      - name: Display installed python package versions
+        run: |
+          pip list || :
+      - name: Run unit tests
+        run: |
+          PYTHONPATH=src pytest

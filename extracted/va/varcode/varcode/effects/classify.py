@@ -1,0 +1,216 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Classify a MutationEffect from a reference/mutant protein pair.
+
+Shared classifier used by both the splice-outcome builder
+(:mod:`varcode.splice_outcomes`, #305) and the forthcoming
+:class:`ProteinDiffEffectAnnotator` (#309 / stage 3d). Reduces
+the protein pair via :func:`trim_shared_flanking_strings` and
+dispatches to the standard Effect classes.
+
+This module deliberately does NOT handle:
+
+* Non-coding / incomplete transcripts — caller gates those before
+  reaching the classifier.
+* Splice-class effects (SpliceDonor, etc.) — those come from the
+  position-based splice classifier, not from a protein diff.
+* ``AlternateStartCodon`` — requires inspecting the mutant cDNA's
+  first codon, not just the protein strings. The caller (the
+  annotator) special-cases that before calling this function.
+"""
+
+from ..string_helpers import trim_shared_flanking_strings
+from .effect_classes import (
+    ComplexSubstitution,
+    Deletion,
+    FrameShift,
+    FrameShiftTruncation,
+    Insertion,
+    PrematureStop,
+    Silent,
+    StartLoss,
+    StopLoss,
+    Substitution,
+)
+
+
+def classify_from_protein_diff(
+        variant,
+        transcript,
+        ref_protein,
+        mut_protein,
+        length_delta=0,
+        mutant_transcript=None):
+    """Classify a :class:`MutationEffect` by diffing translated
+    proteins.
+
+    Parameters
+    ----------
+    variant : Variant
+    transcript : pyensembl.Transcript
+    ref_protein : str
+        Reference protein sequence (from ``transcript.protein_sequence``).
+    mut_protein : str
+        Mutant protein sequence (translated from the mutated cDNA,
+        stopping at the first stop codon).
+    length_delta : int
+        Net nucleotide-level length change of the cDNA edit
+        (positive for net insertion, negative for net deletion, zero
+        for substitution). Used to detect frameshifts: when
+        ``length_delta % 3 != 0`` AND the protein diff shows a
+        changed tail, the effect is a :class:`FrameShift`.
+    mutant_transcript : MutantTranscript or None
+        Optional edit-level context for the already-materialized
+        mutant transcript. When present, the classifier can preserve
+        insertion semantics for premature-stop calls that would
+        otherwise look like a substitution-plus-truncation in a
+        whole-protein diff.
+
+    Returns
+    -------
+    MutationEffect subclass instance
+    """
+    if ref_protein == mut_protein:
+        return Silent(
+            variant=variant,
+            transcript=transcript,
+            aa_pos=0,
+            aa_ref=ref_protein[:1] if ref_protein else "")
+
+    # Start loss: mutant protein doesn't begin with M.
+    if not mut_protein or (mut_protein[0] != "M" and ref_protein and ref_protein[0] == "M"):
+        return StartLoss(variant=variant, transcript=transcript)
+
+    ref_delta, alt_delta, prefix, suffix = trim_shared_flanking_strings(
+        ref_protein, mut_protein)
+
+    aa_offset = len(prefix)
+    n_ref = len(ref_delta)
+    n_alt = len(alt_delta)
+
+    # Frameshift: cDNA length change not divisible by 3.
+    if length_delta % 3 != 0:
+        # Guard: if the mutation offset is past the end of the
+        # reference protein, the edit is in the stop-codon / 3'UTR
+        # region. That's a StopLoss, not a FrameShift.
+        if aa_offset >= len(ref_protein):
+            return StopLoss(
+                variant=variant,
+                transcript=transcript,
+                aa_ref="",
+                aa_alt=alt_delta)
+        if n_alt == 0:
+            return FrameShiftTruncation(
+                variant=variant,
+                transcript=transcript,
+                stop_codon_offset=aa_offset)
+        return FrameShift(
+            variant=variant,
+            transcript=transcript,
+            aa_mutation_start_offset=aa_offset,
+            shifted_sequence=alt_delta)
+
+    # Premature stop: mutant protein shorter than reference and the
+    # change is at the tail (the trimmed alt runs to the end of the
+    # mutant protein). Use the single reference residue at the stop-
+    # creation point as aa_ref (matching fast's convention, which
+    # shows the codon that became a stop rather than the entire
+    # truncated tail).
+    if len(mut_protein) < len(ref_protein) and aa_offset + n_alt == len(mut_protein):
+        aa_ref = ref_protein[aa_offset] if aa_offset < len(ref_protein) else ref_delta
+
+        # Whole-protein trimming can't distinguish a codon-aligned
+        # insertion that introduces an early stop from a substitution
+        # of the next reference residue followed by truncation. Use
+        # edit provenance when available so pure insertions keep
+        # aa_ref="" (matching the historical #174/#175 behaviour
+        # preserved by the fast annotator).
+        if mutant_transcript is not None and len(mutant_transcript.edits) == 1:
+            edit = mutant_transcript.edits[0]
+            cds_start = min(transcript.start_codon_spliced_offsets)
+            if edit.is_insertion and edit.cdna_start >= cds_start:
+                if (edit.cdna_start - cds_start) % 3 == 0:
+                    aa_ref = ""
+        return PrematureStop(
+            variant=variant,
+            transcript=transcript,
+            aa_mutation_start_offset=aa_offset,
+            aa_ref=aa_ref,
+            aa_alt=alt_delta)
+
+    # Stop loss: mutant protein longer than reference, the change
+    # extends past the original stop. Two routes into this branch:
+    #   1. Reference residues were replaced (n_ref > 0) — the
+    #      mutation clearly disrupted residues at/adjacent to the
+    #      stop codon.
+    #   2. n_ref == 0 after aa-level shared-flank trimming, but the
+    #      underlying cDNA edit is NOT a pure insertion — a
+    #      substitution or deletion of the stop codon itself
+    #      produces zero aa-level ref because the shared prefix
+    #      absorbs the entire reference protein. Fall back to the
+    #      cDNA edit kind via ``mutant_transcript`` to distinguish
+    #      "stop codon mutated → StopLoss" from "in-frame insertion
+    #      before stop → Insertion". Closes #319.
+    is_cdna_pure_insertion = (
+        mutant_transcript is not None
+        and len(mutant_transcript.edits) == 1
+        and mutant_transcript.edits[0].is_insertion)
+    if (len(mut_protein) > len(ref_protein)
+            and aa_offset + n_ref >= len(ref_protein)
+            and (n_ref > 0 or not is_cdna_pure_insertion)):
+        return StopLoss(
+            variant=variant,
+            transcript=transcript,
+            aa_ref=ref_delta,
+            aa_alt=alt_delta)
+
+    # Silent (after trimming — all changes cancelled out).
+    if n_ref == 0 and n_alt == 0:
+        return Silent(
+            variant=variant,
+            transcript=transcript,
+            aa_pos=aa_offset,
+            aa_ref=prefix + suffix)
+
+    # Deletion.
+    if n_alt == 0:
+        return Deletion(
+            variant=variant,
+            transcript=transcript,
+            aa_mutation_start_offset=aa_offset,
+            aa_ref=ref_delta)
+
+    # Insertion.
+    if n_ref == 0:
+        return Insertion(
+            variant=variant,
+            transcript=transcript,
+            aa_mutation_start_offset=aa_offset,
+            aa_alt=alt_delta)
+
+    # Substitution (simple 1:1).
+    if n_ref == 1 and n_alt == 1:
+        return Substitution(
+            variant=variant,
+            transcript=transcript,
+            aa_mutation_start_offset=aa_offset,
+            aa_ref=ref_delta,
+            aa_alt=alt_delta)
+
+    # Complex substitution (multi-residue edit).
+    return ComplexSubstitution(
+        variant=variant,
+        transcript=transcript,
+        aa_mutation_start_offset=aa_offset,
+        aa_ref=ref_delta,
+        aa_alt=alt_delta)

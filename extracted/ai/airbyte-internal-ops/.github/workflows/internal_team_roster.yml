@@ -1,0 +1,84 @@
+name: Internal Team Roster
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # Daily at 6:00 UTC
+  workflow_dispatch: # Allow manual trigger
+  pull_request:
+    paths:
+      - "src/airbyte_ops_mcp/internal_team_roster.py"
+      - "data/github_to_airbyte_io_email.csv"
+      - "src/airbyte_ops_mcp/cli/roster.py"
+      - "src/airbyte_ops_mcp/mcp/people_lookup.py"
+      - ".github/workflows/internal_team_roster.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  generate-roster:
+    name: Generate Internal Team Roster
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        # NOTE: Full checkout is required so that data/github_to_airbyte_io_email.csv
+        # is available for roster generation (the static mapping file is not shipped
+        # with the PyPI package).
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Authenticate as GitHub App
+        uses: actions/create-github-app-token@v2
+        id: get-app-token
+        with:
+          app-id: ${{ secrets.OCTAVIA_BOT_APP_ID }}
+          private-key: ${{ secrets.OCTAVIA_BOT_PRIVATE_KEY }}
+          owner: airbytehq
+
+      - name: Generate roster artifact
+        env:
+          SLACK_HYDRA_BOT_TOKEN: ${{ secrets.SLACK_HYDRA_BOT_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.get-app-token.outputs.token }}
+        run: uv run airbyte-ops roster generate --output roster.json
+
+      - name: Validate roster artifact
+        run: |
+          python -c "
+          import json, sys
+          with open('roster.json') as f:
+              data = json.load(f)
+          assert 'members' in data, 'Missing members key'
+          assert 'generated_at' in data, 'Missing generated_at key'
+          assert 'count' in data, 'Missing count key'
+          assert isinstance(data['members'], list), 'members is not a list'
+          assert len(data['members']) > 0, 'Roster is empty'
+          assert data['count'] == len(data['members']), 'Count mismatch'
+          first = data['members'][0]
+          expected_keys = {'slack_id', 'slack_display_name', 'slack_email', 'github_id', 'github_handle', 'github_public_email'}
+          assert expected_keys == set(first.keys()), f'Unexpected keys: {set(first.keys())}'
+          print(f'Roster validated: {data[\"count\"]} members', file=sys.stderr)
+          "
+
+      - name: Print roster matching summary
+        if: github.event_name == 'pull_request'
+        run: uv run airbyte-ops roster summary --input roster.json
+
+      - name: Upload roster artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v6
+        with:
+          name: internal-team-roster
+          path: roster.json
+          retention-days: 7

@@ -1,0 +1,1078 @@
+use crate::runtime_paths::{resolve_existing_relative_to_exe, resolve_explicit_file_override};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::env;
+use std::ffi::{OsStr, OsString};
+use std::fs;
+use std::io::{self, Read, Write};
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
+use std::path::{Path, PathBuf};
+use std::process::{Child, Command, ExitStatus, Stdio};
+use std::thread;
+use std::time::{Duration, Instant};
+
+const DEFAULT_SIDECAR_MODULE: &str = "tensor_grep.sidecar";
+const DEFAULT_TENSOR_GREP_MODULE: &str = "tensor_grep";
+const TG_SIDECAR_PYTHON_ENV: &str = "TG_SIDECAR_PYTHON";
+const TG_SIDECAR_TIMEOUT_MS_ENV: &str = "TG_SIDECAR_TIMEOUT_MS";
+const TG_NATIVE_TG_BINARY_ENV: &str = "TG_NATIVE_TG_BINARY";
+const DEFAULT_SIDECAR_TIMEOUT_MS: u64 = 30_000;
+const DEFAULT_HELP_PROBE_TIMEOUT_MS: u64 = 750;
+const MAX_SOURCE_ROOT_ANCESTOR_DEPTH: usize = 4;
+const WINDOWS_EXE_BRIDGE_MARKER: &str = "tg.exe.tensor-grep-bridge";
+const WINDOWS_EXE_BRIDGE_MARKER_CONTENT: &str = "tensor-grep managed tg.exe bridge";
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SidecarRequest {
+    pub command: String,
+    pub args: Vec<String>,
+    pub payload: Option<Value>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SidecarCommandResult {
+    pub exit_code: i32,
+    pub stdout: String,
+    pub stderr: String,
+    pub sidecar_pid: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct SidecarError {
+    pub exit_code: i32,
+    pub message: String,
+    pub stderr: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct PythonPassthroughResult {
+    pub exit_code: i32,
+    pub stdout: String,
+    pub stderr: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct SidecarResponse {
+    exit_code: i32,
+    stdout: String,
+    stderr: String,
+    pid: u32,
+}
+
+enum PythonLaunchTarget {
+    Module(String),
+    Script(PathBuf),
+}
+
+enum SidecarWaitOutcome {
+    Exited(ExitStatus),
+    TimedOut,
+}
+
+pub fn execute_sidecar_command(
+    command: &str,
+    args: Vec<String>,
+    payload: Option<Value>,
+) -> Result<SidecarCommandResult, SidecarError> {
+    invoke_sidecar(SidecarRequest {
+        command: command.to_string(),
+        args,
+        payload,
+    })
+}
+
+pub fn execute_python_passthrough_command(
+    command: &str,
+    args: Vec<String>,
+) -> Result<i32, SidecarError> {
+    let python = resolve_python_command();
+
+    let mut child = command_for_executable(&python);
+    configure_python_child_environment(&mut child);
+    child
+        .arg("-m")
+        .arg(DEFAULT_TENSOR_GREP_MODULE)
+        .arg(command)
+        .args(args)
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit());
+
+    let status = child
+        .status()
+        .map_err(|err| map_python_spawn_error(&python, err))?;
+
+    Ok(status.code().unwrap_or(1))
+}
+
+pub fn execute_python_passthrough_command_captured(
+    command: &str,
+    args: Vec<String>,
+) -> Result<PythonPassthroughResult, SidecarError> {
+    let python = resolve_python_command();
+    let passthrough_timeout = resolve_help_probe_timeout();
+
+    let mut child = command_for_executable(&python);
+    configure_python_child_environment(&mut child);
+    #[cfg(unix)]
+    unsafe {
+        child.pre_exec(|| {
+            if libc::setpgid(0, 0) != 0 {
+                return Err(io::Error::last_os_error());
+            }
+            Ok(())
+        });
+    }
+    child
+        .arg("-m")
+        .arg(DEFAULT_TENSOR_GREP_MODULE)
+        .arg(command)
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    let mut child = child
+        .spawn()
+        .map_err(|err| map_python_spawn_error(&python, err))?;
+
+    let stdout = child.stdout.take().ok_or_else(|| SidecarError {
+        exit_code: 1,
+        message: "Python passthrough stdout pipe was unavailable".to_string(),
+        stderr: String::new(),
+    })?;
+    let stderr = child.stderr.take().ok_or_else(|| SidecarError {
+        exit_code: 1,
+        message: "Python passthrough stderr pipe was unavailable".to_string(),
+        stderr: String::new(),
+    })?;
+
+    let stdout_reader = read_all_thread(stdout);
+    let stderr_reader = read_all_thread(stderr);
+    let wait_outcome = wait_for_passthrough_or_kill(&mut child, passthrough_timeout)?;
+
+    let stdout_bytes = stdout_reader.join().map_err(|_| SidecarError {
+        exit_code: 1,
+        message: "Python passthrough stdout reader thread panicked".to_string(),
+        stderr: String::new(),
+    })?;
+    let stderr_bytes = stderr_reader.join().map_err(|_| SidecarError {
+        exit_code: 1,
+        message: "Python passthrough stderr reader thread panicked".to_string(),
+        stderr: String::new(),
+    })?;
+
+    let stderr_text = bytes_to_string(stderr_bytes.map_err(|err| SidecarError {
+        exit_code: 1,
+        message: format!("Failed to read Python passthrough stderr: {err}"),
+        stderr: String::new(),
+    })?);
+    let stdout_text = bytes_to_string(stdout_bytes.map_err(|err| SidecarError {
+        exit_code: 1,
+        message: format!("Failed to read Python passthrough stdout: {err}"),
+        stderr: stderr_text.clone(),
+    })?);
+
+    if matches!(wait_outcome, SidecarWaitOutcome::TimedOut) {
+        return Err(SidecarError {
+            exit_code: 124,
+            message: format!(
+                "Python passthrough timed out after {} ms and was terminated",
+                passthrough_timeout.as_millis()
+            ),
+            stderr: stderr_text,
+        });
+    }
+
+    let status = match wait_outcome {
+        SidecarWaitOutcome::Exited(status) => status,
+        SidecarWaitOutcome::TimedOut => unreachable!("timed out passthrough handled above"),
+    };
+
+    Ok(PythonPassthroughResult {
+        exit_code: status.code().unwrap_or(1),
+        stdout: stdout_text,
+        stderr: stderr_text,
+    })
+}
+
+pub fn invoke_sidecar(request: SidecarRequest) -> Result<SidecarCommandResult, SidecarError> {
+    let python = resolve_python_command();
+    let launch_target = resolve_sidecar_target();
+    let sidecar_timeout = resolve_sidecar_timeout();
+    let request_bytes = serde_json::to_vec(&request).map_err(|err| SidecarError {
+        exit_code: 1,
+        message: format!("Failed to encode Python sidecar request: {err}"),
+        stderr: String::new(),
+    })?;
+
+    let mut child = command_for_executable(&python);
+    configure_python_child_environment(&mut child);
+    if let Some(device_ids) = gpu_device_ids_env_value(&request) {
+        child.env("TENSOR_GREP_DEVICE_IDS", device_ids);
+    }
+    match launch_target {
+        PythonLaunchTarget::Module(module) => {
+            child.arg("-m").arg(module);
+        }
+        PythonLaunchTarget::Script(script) => {
+            child.arg(script);
+        }
+    }
+
+    child
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    let mut child = child
+        .spawn()
+        .map_err(|err| map_python_spawn_error(&python, err))?;
+
+    let mut stdin = child.stdin.take().ok_or_else(|| SidecarError {
+        exit_code: 1,
+        message: "Python sidecar stdin pipe was unavailable".to_string(),
+        stderr: String::new(),
+    })?;
+    let stdout = child.stdout.take().ok_or_else(|| SidecarError {
+        exit_code: 1,
+        message: "Python sidecar stdout pipe was unavailable".to_string(),
+        stderr: String::new(),
+    })?;
+    let stderr = child.stderr.take().ok_or_else(|| SidecarError {
+        exit_code: 1,
+        message: "Python sidecar stderr pipe was unavailable".to_string(),
+        stderr: String::new(),
+    })?;
+
+    let writer = thread::spawn(move || -> io::Result<()> {
+        stdin.write_all(&request_bytes)?;
+        stdin.flush()?;
+        drop(stdin);
+        Ok(())
+    });
+    let stdout_reader = read_all_thread(stdout);
+    let stderr_reader = read_all_thread(stderr);
+
+    let wait_outcome = wait_for_sidecar_or_kill(&mut child, sidecar_timeout)?;
+
+    let write_result = writer.join().map_err(|_| SidecarError {
+        exit_code: 1,
+        message: "Python sidecar request writer thread panicked".to_string(),
+        stderr: String::new(),
+    })?;
+    let stdout_bytes = stdout_reader.join().map_err(|_| SidecarError {
+        exit_code: 1,
+        message: "Python sidecar stdout reader thread panicked".to_string(),
+        stderr: String::new(),
+    })?;
+    let stderr_bytes = stderr_reader.join().map_err(|_| SidecarError {
+        exit_code: 1,
+        message: "Python sidecar stderr reader thread panicked".to_string(),
+        stderr: String::new(),
+    })?;
+
+    let stderr_text = bytes_to_string(stderr_bytes.map_err(|err| SidecarError {
+        exit_code: 1,
+        message: format!("Failed to read Python sidecar stderr: {err}"),
+        stderr: String::new(),
+    })?);
+
+    if let Err(err) = write_result {
+        if err.kind() != io::ErrorKind::BrokenPipe {
+            return Err(SidecarError {
+                exit_code: 1,
+                message: format!("Failed to send request to Python sidecar: {err}"),
+                stderr: stderr_text,
+            });
+        }
+    }
+
+    let stdout_bytes = stdout_bytes.map_err(|err| SidecarError {
+        exit_code: 1,
+        message: format!("Failed to read Python sidecar stdout: {err}"),
+        stderr: stderr_text.clone(),
+    })?;
+
+    if matches!(wait_outcome, SidecarWaitOutcome::TimedOut) {
+        return Err(SidecarError {
+            exit_code: 124,
+            message: format!(
+                "Python sidecar timed out after {} ms and was terminated",
+                sidecar_timeout.as_millis()
+            ),
+            stderr: stderr_text,
+        });
+    }
+
+    let status = match wait_outcome {
+        SidecarWaitOutcome::Exited(status) => status,
+        SidecarWaitOutcome::TimedOut => unreachable!("timed out sidecar handled above"),
+    };
+    let child_exit_code = status.code().unwrap_or(1);
+    let response: SidecarResponse = serde_json::from_slice(&stdout_bytes).map_err(|err| {
+        let mut message = format!("Python sidecar returned invalid JSON: {err}");
+        if child_exit_code != 0 {
+            message = format!(
+                "Python sidecar exited with code {child_exit_code} before returning valid JSON: {err}"
+            );
+        }
+
+        SidecarError {
+            exit_code: child_exit_code.max(1),
+            message,
+            stderr: stderr_text.clone(),
+        }
+    })?;
+
+    if child_exit_code != 0 {
+        return Err(SidecarError {
+            exit_code: child_exit_code.max(1),
+            message: format!("Python sidecar exited with code {child_exit_code}"),
+            stderr: merge_stderr(&stderr_text, &response.stderr),
+        });
+    }
+
+    Ok(SidecarCommandResult {
+        exit_code: response.exit_code,
+        stdout: response.stdout,
+        stderr: response.stderr,
+        sidecar_pid: response.pid,
+    })
+}
+
+fn wait_for_sidecar_or_kill(
+    child: &mut Child,
+    timeout: Duration,
+) -> Result<SidecarWaitOutcome, SidecarError> {
+    let deadline = Instant::now() + timeout;
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => return Ok(SidecarWaitOutcome::Exited(status)),
+            Ok(None) => {
+                if Instant::now() >= deadline {
+                    terminate_sidecar_process(child)?;
+                    return Ok(SidecarWaitOutcome::TimedOut);
+                }
+                thread::sleep(Duration::from_millis(10));
+            }
+            Err(err) => {
+                return Err(SidecarError {
+                    exit_code: 1,
+                    message: format!("Failed while waiting for Python sidecar: {err}"),
+                    stderr: String::new(),
+                });
+            }
+        }
+    }
+}
+
+fn wait_for_passthrough_or_kill(
+    child: &mut Child,
+    timeout: Duration,
+) -> Result<SidecarWaitOutcome, SidecarError> {
+    let deadline = Instant::now() + timeout;
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => return Ok(SidecarWaitOutcome::Exited(status)),
+            Ok(None) => {
+                if Instant::now() >= deadline {
+                    terminate_passthrough_process(child)?;
+                    return Ok(SidecarWaitOutcome::TimedOut);
+                }
+                thread::sleep(Duration::from_millis(10));
+            }
+            Err(err) => {
+                return Err(SidecarError {
+                    exit_code: 1,
+                    message: format!("Failed while waiting for Python passthrough: {err}"),
+                    stderr: String::new(),
+                });
+            }
+        }
+    }
+}
+
+fn terminate_sidecar_process(child: &mut Child) -> Result<(), SidecarError> {
+    if let Err(err) = child.kill() {
+        if err.kind() != io::ErrorKind::InvalidInput {
+            return Err(SidecarError {
+                exit_code: 1,
+                message: format!("Failed to terminate timed-out Python sidecar: {err}"),
+                stderr: String::new(),
+            });
+        }
+    }
+
+    child.wait().map_err(|err| SidecarError {
+        exit_code: 1,
+        message: format!("Failed to reap timed-out Python sidecar: {err}"),
+        stderr: String::new(),
+    })?;
+
+    Ok(())
+}
+
+fn terminate_passthrough_process(child: &mut Child) -> Result<(), SidecarError> {
+    #[cfg(windows)]
+    {
+        let pid = child.id().to_string();
+        let status = Command::new("taskkill")
+            .args(["/PID", &pid, "/T", "/F"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+        match status {
+            Ok(status) if status.success() => {}
+            Ok(_) | Err(_) => {
+                if let Err(err) = child.kill() {
+                    if err.kind() != io::ErrorKind::InvalidInput {
+                        return Err(SidecarError {
+                            exit_code: 1,
+                            message: format!(
+                                "Failed to terminate timed-out Python passthrough tree: {err}"
+                            ),
+                            stderr: String::new(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(not(windows))]
+    {
+        let pid = child.id() as i32;
+        let kill_status = unsafe { libc::killpg(pid, libc::SIGKILL) };
+        if kill_status != 0 {
+            let err = io::Error::last_os_error();
+            if err.raw_os_error() != Some(libc::ESRCH) && err.kind() != io::ErrorKind::InvalidInput
+            {
+                return Err(SidecarError {
+                    exit_code: 1,
+                    message: format!(
+                        "Failed to terminate timed-out Python passthrough process group: {err}"
+                    ),
+                    stderr: String::new(),
+                });
+            }
+        }
+    }
+
+    child.wait().map_err(|err| SidecarError {
+        exit_code: 1,
+        message: format!("Failed to reap timed-out Python passthrough: {err}"),
+        stderr: String::new(),
+    })?;
+
+    Ok(())
+}
+
+fn read_all_thread<R>(mut reader: R) -> thread::JoinHandle<io::Result<Vec<u8>>>
+where
+    R: Read + Send + 'static,
+{
+    thread::spawn(move || {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes)?;
+        Ok(bytes)
+    })
+}
+
+fn bytes_to_string(bytes: Vec<u8>) -> String {
+    String::from_utf8_lossy(&bytes).into_owned()
+}
+
+fn merge_stderr(process_stderr: &str, response_stderr: &str) -> String {
+    match (process_stderr.is_empty(), response_stderr.is_empty()) {
+        (true, true) => String::new(),
+        (false, true) => process_stderr.to_string(),
+        (true, false) => response_stderr.to_string(),
+        (false, false) => format!("{process_stderr}{response_stderr}"),
+    }
+}
+
+fn resolve_python_command() -> OsString {
+    if let Some(explicit) = resolve_explicit_file_override(TG_SIDECAR_PYTHON_ENV) {
+        return explicit.into_os_string();
+    }
+
+    let current_exe = env::current_exe().ok();
+    resolve_python_command_for_context(current_exe.as_deref(), &managed_home_dirs_from_env())
+}
+
+fn command_for_executable(program: &OsStr) -> Command {
+    #[cfg(windows)]
+    {
+        let path = Path::new(program);
+        if is_windows_batch_script(path) {
+            let mut command = Command::new("cmd");
+            command.arg("/d").arg("/c").arg(path);
+            return command;
+        }
+    }
+    Command::new(program)
+}
+
+#[cfg(windows)]
+fn is_windows_batch_script(program: &Path) -> bool {
+    program
+        .extension()
+        .and_then(OsStr::to_str)
+        .is_some_and(|extension| {
+            extension.eq_ignore_ascii_case("cmd") || extension.eq_ignore_ascii_case("bat")
+        })
+}
+
+fn resolve_python_command_for_context(
+    current_exe: Option<&Path>,
+    home_dirs: &[PathBuf],
+) -> OsString {
+    if current_exe.is_some_and(is_windows_com_bridge) {
+        for home_dir in home_dirs {
+            if let Some(managed_python) = managed_install_python_from_home(home_dir) {
+                return managed_python.into_os_string();
+            }
+        }
+    }
+
+    if let Some(current_exe) = current_exe {
+        if let Some(runtime_relative_python) = resolve_existing_relative_to_exe(
+            current_exe,
+            &[
+                &[if cfg!(windows) {
+                    "python.exe"
+                } else {
+                    "python"
+                }],
+                &[
+                    ".venv",
+                    if cfg!(windows) { "Scripts" } else { "bin" },
+                    if cfg!(windows) {
+                        "python.exe"
+                    } else {
+                        "python"
+                    },
+                ],
+            ],
+        ) {
+            return runtime_relative_python.into_os_string();
+        }
+    }
+
+    if current_exe.is_some_and(|path| is_managed_windows_exe_bridge(path, home_dirs)) {
+        for home_dir in home_dirs {
+            if let Some(managed_python) = managed_install_python_from_home(home_dir) {
+                return managed_python.into_os_string();
+            }
+        }
+    }
+
+    OsString::from("python")
+}
+
+fn is_windows_com_bridge(path: &Path) -> bool {
+    path.file_name()
+        .and_then(OsStr::to_str)
+        .is_some_and(|name| name.eq_ignore_ascii_case("tg.com"))
+}
+
+fn is_external_windows_exe_bridge(path: &Path) -> bool {
+    if !cfg!(windows) {
+        return false;
+    }
+    path.file_name()
+        .and_then(OsStr::to_str)
+        .is_some_and(|name| name.eq_ignore_ascii_case("tg.exe"))
+}
+
+fn is_managed_windows_exe_bridge(path: &Path, home_dirs: &[PathBuf]) -> bool {
+    if !is_external_windows_exe_bridge(path) {
+        return false;
+    }
+    let Some(parent) = path.parent() else {
+        return false;
+    };
+    if !home_dirs.iter().any(|home_dir| {
+        paths_equivalent(parent, &home_dir.join("bin"))
+            || paths_equivalent(parent, &home_dir.join(".local").join("bin"))
+    }) {
+        return false;
+    }
+    fs::read_to_string(path.with_file_name(WINDOWS_EXE_BRIDGE_MARKER))
+        .is_ok_and(|content| content.trim() == WINDOWS_EXE_BRIDGE_MARKER_CONTENT)
+}
+
+fn managed_home_dirs_from_env() -> Vec<PathBuf> {
+    let env_names = if cfg!(windows) {
+        ["USERPROFILE", "HOME"]
+    } else {
+        ["HOME", "USERPROFILE"]
+    };
+    let mut dirs = Vec::new();
+    for env_name in env_names {
+        let Some(value) = env::var_os(env_name) else {
+            continue;
+        };
+        if value.is_empty() {
+            continue;
+        }
+        let dir = PathBuf::from(value);
+        if !dirs.iter().any(|existing| existing == &dir) {
+            dirs.push(dir);
+        }
+    }
+    dirs
+}
+
+fn managed_install_python_from_home(home_dir: &Path) -> Option<PathBuf> {
+    let candidate = home_dir
+        .join(".tensor-grep")
+        .join(".venv")
+        .join(if cfg!(windows) { "Scripts" } else { "bin" })
+        .join(if cfg!(windows) {
+            "python.exe"
+        } else {
+            "python"
+        });
+    candidate.is_file().then_some(candidate)
+}
+
+fn managed_install_native_binary_from_home(home_dir: &Path) -> Option<PathBuf> {
+    let candidate = home_dir
+        .join(".tensor-grep")
+        .join("bin")
+        .join(if cfg!(windows) { "tg.exe" } else { "tg-native" });
+    candidate.is_file().then_some(candidate)
+}
+
+fn configure_python_module_path(command: &mut Command) {
+    let Some(source_root) = resolve_repo_source_root() else {
+        return;
+    };
+
+    command.env(
+        "PYTHONPATH",
+        merged_pythonpath(&source_root, env::var_os("PYTHONPATH")),
+    );
+}
+
+fn configure_python_child_environment(command: &mut Command) {
+    configure_python_module_path(command);
+    if let Some(native_tg_binary) = native_tg_binary_env_override(
+        env::var_os(TG_NATIVE_TG_BINARY_ENV),
+        env::current_exe().ok(),
+    ) {
+        command.env(TG_NATIVE_TG_BINARY_ENV, native_tg_binary);
+    }
+}
+
+fn native_tg_binary_env_override(
+    existing: Option<OsString>,
+    current_exe: Option<PathBuf>,
+) -> Option<OsString> {
+    native_tg_binary_env_override_for_context(existing, current_exe, &managed_home_dirs_from_env())
+}
+
+fn native_tg_binary_env_override_for_context(
+    existing: Option<OsString>,
+    current_exe: Option<PathBuf>,
+    home_dirs: &[PathBuf],
+) -> Option<OsString> {
+    if existing.is_some() {
+        return None;
+    }
+    if current_exe
+        .as_ref()
+        .is_some_and(|path| is_windows_com_bridge(path))
+    {
+        for home_dir in home_dirs {
+            if let Some(managed_native) = managed_install_native_binary_from_home(home_dir) {
+                return Some(managed_native.into_os_string());
+            }
+        }
+    }
+    if current_exe
+        .as_ref()
+        .is_some_and(|path| is_managed_windows_exe_bridge(path, home_dirs))
+    {
+        for home_dir in home_dirs {
+            if let Some(managed_native) = managed_install_native_binary_from_home(home_dir) {
+                if !paths_equivalent(
+                    current_exe.as_ref().expect("checked current_exe"),
+                    &managed_native,
+                ) {
+                    return Some(managed_native.into_os_string());
+                }
+            }
+        }
+    }
+    current_exe.map(Into::into)
+}
+
+fn paths_equivalent(left: &Path, right: &Path) -> bool {
+    if cfg!(windows) {
+        left.to_string_lossy()
+            .eq_ignore_ascii_case(&right.to_string_lossy())
+    } else {
+        left == right
+    }
+}
+
+fn resolve_repo_source_root() -> Option<PathBuf> {
+    let current_exe = env::current_exe().ok()?;
+    resolve_repo_source_root_relative_to_exe(&current_exe)
+}
+
+fn resolve_repo_source_root_relative_to_exe(exe_path: &Path) -> Option<PathBuf> {
+    let exe_dir = exe_path.parent()?;
+
+    for base in exe_dir.ancestors().take(MAX_SOURCE_ROOT_ANCESTOR_DEPTH + 1) {
+        let candidate = base.join("src");
+        if candidate.join("tensor_grep").is_dir() {
+            return Some(candidate);
+        }
+    }
+
+    None
+}
+
+fn merged_pythonpath(source_root: &Path, existing: Option<OsString>) -> OsString {
+    let mut paths = vec![source_root.to_path_buf()];
+
+    if let Some(existing) = existing {
+        for path in env::split_paths(&existing) {
+            if path != source_root {
+                paths.push(path);
+            }
+        }
+    }
+
+    env::join_paths(&paths).unwrap_or_else(|_| source_root.as_os_str().to_os_string())
+}
+
+fn gpu_device_ids_env_value(request: &SidecarRequest) -> Option<OsString> {
+    if request.command != "gpu_search" {
+        return None;
+    }
+
+    let payload = request.payload.as_ref()?;
+    let gpu_device_ids = payload.get("gpu_device_ids")?.as_array()?;
+    let device_ids = gpu_device_ids
+        .iter()
+        .filter_map(|value| value.as_i64())
+        .map(|device_id| device_id.to_string())
+        .collect::<Vec<_>>();
+
+    if device_ids.is_empty() {
+        return None;
+    }
+
+    Some(OsString::from(device_ids.join(",")))
+}
+
+fn resolve_sidecar_target() -> PythonLaunchTarget {
+    if let Some(script) = env::var_os("TG_SIDECAR_SCRIPT") {
+        return PythonLaunchTarget::Script(PathBuf::from(script));
+    }
+
+    let module =
+        env::var("TG_SIDECAR_MODULE").unwrap_or_else(|_| DEFAULT_SIDECAR_MODULE.to_string());
+    PythonLaunchTarget::Module(module)
+}
+
+fn resolve_sidecar_timeout() -> Duration {
+    let timeout_ms = env::var(TG_SIDECAR_TIMEOUT_MS_ENV)
+        .ok()
+        .and_then(|raw| raw.parse::<u64>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(DEFAULT_SIDECAR_TIMEOUT_MS);
+    Duration::from_millis(timeout_ms)
+}
+
+fn resolve_help_probe_timeout() -> Duration {
+    Duration::from_millis(DEFAULT_HELP_PROBE_TIMEOUT_MS)
+}
+
+fn map_python_spawn_error(python: &OsStr, err: io::Error) -> SidecarError {
+    if err.kind() == io::ErrorKind::NotFound {
+        return SidecarError {
+            exit_code: 2,
+            message: format!(
+                "Python sidecar not found. Tried `{}`. Set {} to an interpreter path or create `.venv` with `uv pip install -e \".[dev,ast,nlp]\"`.",
+                python.to_string_lossy(),
+                TG_SIDECAR_PYTHON_ENV
+            ),
+            stderr: String::new(),
+        };
+    }
+
+    SidecarError {
+        exit_code: 1,
+        message: format!(
+            "Failed to start Python sidecar with `{}`: {err}",
+            python.to_string_lossy()
+        ),
+        stderr: String::new(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        gpu_device_ids_env_value, managed_install_native_binary_from_home,
+        managed_install_python_from_home, merged_pythonpath, native_tg_binary_env_override,
+        native_tg_binary_env_override_for_context, resolve_python_command_for_context,
+        resolve_repo_source_root_relative_to_exe, SidecarRequest, WINDOWS_EXE_BRIDGE_MARKER,
+        WINDOWS_EXE_BRIDGE_MARKER_CONTENT,
+    };
+    use serde_json::json;
+    use std::env;
+    use std::ffi::{OsStr, OsString};
+    use std::fs;
+    use std::path::Path;
+    use tempfile::tempdir;
+
+    #[test]
+    fn resolves_repo_source_root_relative_to_native_binary() {
+        let dir = tempdir().unwrap();
+        let repo_root = dir.path().join("repo");
+        let exe_path = repo_root
+            .join("rust_core")
+            .join("target")
+            .join("debug")
+            .join(if cfg!(windows) { "tg.exe" } else { "tg" });
+        let source_root = repo_root.join("src");
+        let rust_source_root = repo_root.join("rust_core").join("src");
+
+        fs::create_dir_all(exe_path.parent().unwrap()).unwrap();
+        fs::create_dir_all(source_root.join("tensor_grep")).unwrap();
+        fs::create_dir_all(&rust_source_root).unwrap();
+        fs::write(&exe_path, b"binary").unwrap();
+
+        let resolved = resolve_repo_source_root_relative_to_exe(&exe_path);
+        assert_eq!(resolved.as_deref(), Some(source_root.as_path()));
+    }
+
+    #[test]
+    fn merged_pythonpath_prepends_source_root_and_preserves_existing_entries() {
+        let source_root = Path::new("repo").join("src");
+        let existing = env::join_paths([Path::new("alpha"), Path::new("beta")]).unwrap();
+
+        let merged = merged_pythonpath(&source_root, Some(existing));
+        let paths = env::split_paths(&merged).collect::<Vec<_>>();
+
+        assert_eq!(paths[0], source_root);
+        assert_eq!(paths[1], Path::new("alpha"));
+        assert_eq!(paths[2], Path::new("beta"));
+    }
+
+    #[test]
+    fn merged_pythonpath_dedupes_existing_source_root() {
+        let source_root = Path::new("repo").join("src");
+        let existing =
+            env::join_paths([source_root.clone(), Path::new("beta").to_path_buf()]).unwrap();
+
+        let merged = merged_pythonpath(&source_root, Some(existing));
+        let paths = env::split_paths(&merged).collect::<Vec<_>>();
+
+        assert_eq!(paths[0], source_root);
+        assert_eq!(paths[1], Path::new("beta"));
+        assert_eq!(paths.len(), 2);
+    }
+
+    #[test]
+    fn gpu_device_ids_env_value_serializes_request_gpu_ids() {
+        let request = SidecarRequest {
+            command: "gpu_search".to_string(),
+            args: vec![],
+            payload: Some(json!({
+                "gpu_device_ids": [0, 2, 4],
+            })),
+        };
+
+        assert_eq!(
+            gpu_device_ids_env_value(&request),
+            Some(OsString::from("0,2,4"))
+        );
+    }
+
+    #[test]
+    fn native_tg_binary_env_override_uses_current_exe_only_when_unset() {
+        let current_exe = Path::new("managed").join("bin").join("tg.exe");
+
+        assert_eq!(
+            native_tg_binary_env_override(None, Some(current_exe.clone())),
+            Some(current_exe.into_os_string())
+        );
+        assert_eq!(
+            native_tg_binary_env_override(
+                Some(OsString::from("explicit-native.exe")),
+                Some(Path::new("managed").join("bin").join("tg.exe"))
+            ),
+            None
+        );
+        assert_eq!(native_tg_binary_env_override(None, None), None);
+    }
+
+    #[test]
+    fn resolves_managed_home_python_for_external_windows_bridge() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().join("home");
+        let python = home
+            .join(".tensor-grep")
+            .join(".venv")
+            .join(if cfg!(windows) { "Scripts" } else { "bin" })
+            .join(if cfg!(windows) {
+                "python.exe"
+            } else {
+                "python"
+            });
+        let bridge = dir.path().join("Python314").join("Scripts").join("tg.com");
+        fs::create_dir_all(python.parent().unwrap()).unwrap();
+        fs::create_dir_all(bridge.parent().unwrap()).unwrap();
+        fs::write(&python, b"python").unwrap();
+        fs::write(&bridge, b"native").unwrap();
+        fs::write(
+            bridge.with_file_name(WINDOWS_EXE_BRIDGE_MARKER),
+            WINDOWS_EXE_BRIDGE_MARKER_CONTENT,
+        )
+        .unwrap();
+        fs::write(
+            bridge.with_file_name(WINDOWS_EXE_BRIDGE_MARKER),
+            WINDOWS_EXE_BRIDGE_MARKER_CONTENT,
+        )
+        .unwrap();
+        fs::write(
+            bridge
+                .parent()
+                .unwrap()
+                .parent()
+                .unwrap()
+                .join("python.exe"),
+            b"ambient",
+        )
+        .unwrap();
+
+        assert_eq!(
+            managed_install_python_from_home(&home).as_deref(),
+            Some(python.as_path())
+        );
+        assert_eq!(
+            resolve_python_command_for_context(Some(&bridge), &[home]).as_os_str(),
+            python.as_os_str()
+        );
+    }
+
+    #[test]
+    fn external_com_bridge_points_sidecar_back_to_managed_native_frontdoor() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().join("home");
+        let managed_native = home
+            .join(".tensor-grep")
+            .join("bin")
+            .join(if cfg!(windows) { "tg.exe" } else { "tg-native" });
+        let bridge = dir.path().join("Python314").join("Scripts").join("tg.com");
+        fs::create_dir_all(managed_native.parent().unwrap()).unwrap();
+        fs::create_dir_all(bridge.parent().unwrap()).unwrap();
+        fs::write(&managed_native, b"native").unwrap();
+        fs::write(&bridge, b"bridge").unwrap();
+        fs::write(
+            bridge.with_file_name(WINDOWS_EXE_BRIDGE_MARKER),
+            WINDOWS_EXE_BRIDGE_MARKER_CONTENT,
+        )
+        .unwrap();
+
+        assert_eq!(
+            managed_install_native_binary_from_home(&home).as_deref(),
+            Some(managed_native.as_path())
+        );
+        assert_eq!(
+            native_tg_binary_env_override_for_context(None, Some(bridge), &[home]).as_deref(),
+            Some(managed_native.as_os_str())
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn external_exe_bridge_resolves_managed_home_python() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().join("home");
+        let python = home
+            .join(".tensor-grep")
+            .join(".venv")
+            .join("Scripts")
+            .join("python.exe");
+        let bridge = home.join("bin").join("tg.exe");
+        fs::create_dir_all(python.parent().unwrap()).unwrap();
+        fs::create_dir_all(bridge.parent().unwrap()).unwrap();
+        fs::write(&python, b"python").unwrap();
+        fs::write(&bridge, b"native").unwrap();
+        fs::write(
+            bridge.with_file_name(WINDOWS_EXE_BRIDGE_MARKER),
+            WINDOWS_EXE_BRIDGE_MARKER_CONTENT,
+        )
+        .unwrap();
+
+        assert_eq!(
+            resolve_python_command_for_context(Some(&bridge), &[home]).as_os_str(),
+            python.as_os_str()
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn external_exe_bridge_points_sidecar_back_to_managed_native_frontdoor() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().join("home");
+        let managed_native = home.join(".tensor-grep").join("bin").join("tg.exe");
+        let bridge = home.join("bin").join("tg.exe");
+        fs::create_dir_all(managed_native.parent().unwrap()).unwrap();
+        fs::create_dir_all(bridge.parent().unwrap()).unwrap();
+        fs::write(&managed_native, b"native").unwrap();
+        fs::write(&bridge, b"bridge").unwrap();
+        fs::write(
+            bridge.with_file_name(WINDOWS_EXE_BRIDGE_MARKER),
+            WINDOWS_EXE_BRIDGE_MARKER_CONTENT,
+        )
+        .unwrap();
+
+        assert_eq!(
+            native_tg_binary_env_override_for_context(None, Some(bridge), &[home]).as_deref(),
+            Some(managed_native.as_os_str())
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn unmarked_home_bin_exe_does_not_redirect_to_managed_install() {
+        let dir = tempdir().unwrap();
+        let home = dir.path().join("home");
+        let python = home
+            .join(".tensor-grep")
+            .join(".venv")
+            .join("Scripts")
+            .join("python.exe");
+        let managed_native = home.join(".tensor-grep").join("bin").join("tg.exe");
+        let local_exe = home.join("bin").join("tg.exe");
+        fs::create_dir_all(python.parent().unwrap()).unwrap();
+        fs::create_dir_all(managed_native.parent().unwrap()).unwrap();
+        fs::create_dir_all(local_exe.parent().unwrap()).unwrap();
+        fs::write(&python, b"python").unwrap();
+        fs::write(&managed_native, b"managed").unwrap();
+        fs::write(&local_exe, b"local").unwrap();
+
+        assert_eq!(
+            resolve_python_command_for_context(Some(&local_exe), std::slice::from_ref(&home))
+                .as_os_str(),
+            OsStr::new("python")
+        );
+        assert_eq!(
+            native_tg_binary_env_override_for_context(None, Some(local_exe.clone()), &[home])
+                .as_deref(),
+            Some(local_exe.as_os_str())
+        );
+    }
+}

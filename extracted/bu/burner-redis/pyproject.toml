@@ -1,0 +1,39 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "burner-redis"
+requires-python = ">=3.10"
+description = "An embedded, in-process Redis-compatible database"
+license = {text = "MIT"}
+dynamic = ["version"]
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: 3",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+]
+
+[project.urls]
+Homepage = "https://github.com/PrefectHQ/burner-redis"
+Repository = "https://github.com/PrefectHQ/burner-redis"
+Issues = "https://github.com/PrefectHQ/burner-redis/issues"
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-asyncio", "maturin", "redis"]
+
+[tool.maturin]
+features = ["pyo3/extension-module", "pyo3/abi3-py310"]
+module-name = "burner_redis._burner_redis"
+python-source = "python"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+markers = ["integration: integration tests that simulate Prefect usage"]
+addopts = "-m 'not integration'"

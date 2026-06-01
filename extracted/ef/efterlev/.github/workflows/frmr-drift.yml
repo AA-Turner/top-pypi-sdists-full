@@ -1,0 +1,43 @@
+# FRMR KSI-count drift gate (v0.1.164 / #369).
+#
+# Re-fetches the live FRMR JSON from github.com/FedRAMP/docs and
+# fails if the KSI count diverges from the pinned constant in
+# `scripts/check_frmr_ksi_count.py`. Catches FedRAMP catalog bumps
+# we'd otherwise discover from a customer complaint.
+#
+# Runs on:
+#   - Daily cron (early UTC morning, low-traffic window for the
+#     FedRAMP repo)
+#   - Pull requests touching the vendored FRMR catalog or this gate
+#   - Manual workflow_dispatch (maintainer can sanity-check ad-hoc)
+#
+# Exit semantics:
+#   - 0 on match (no drift)
+#   - 0 on network failure (don't block PRs on transient infra)
+#   - 1 on drift (real signal — investigate)
+name: frmr-drift
+
+on:
+  schedule:
+    - cron: "13 7 * * *"  # daily, 07:13 UTC
+  pull_request:
+    paths:
+      - "catalogs/frmr/**"
+      - "scripts/check_frmr_ksi_count.py"
+      - ".github/workflows/frmr-drift.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  check-frmr-ksi-count:
+    name: FRMR KSI-count drift gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Run drift check
+        run: python3 scripts/check_frmr_ksi_count.py

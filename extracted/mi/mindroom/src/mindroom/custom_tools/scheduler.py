@@ -1,0 +1,132 @@
+"""Scheduler tool that reuses the same backend as `!schedule`."""
+
+from __future__ import annotations
+
+from agno.tools import Toolkit
+
+from mindroom.scheduling import cancel_scheduled_task, edit_scheduled_task, list_scheduled_tasks, schedule_task
+from mindroom.tool_system.runtime_context import (
+    build_scheduling_runtime_from_tool_runtime_context,
+    get_tool_runtime_context,
+)
+
+_TOOL_ERROR_PREFIX = "❌"
+_LIST_SCHEDULES_ERROR = "Unable to retrieve scheduled tasks."
+
+
+def _raise_for_scheduler_error(response_text: str) -> None:
+    if response_text.startswith(_TOOL_ERROR_PREFIX) or response_text == _LIST_SCHEDULES_ERROR:
+        raise RuntimeError(response_text)
+
+
+class SchedulerTools(Toolkit):
+    """Tools for scheduling tasks in the current Matrix room/thread."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            name="scheduler",
+            tools=[self.schedule, self.edit_schedule, self.list_schedules, self.cancel_schedule],
+        )
+
+    async def schedule(self, request: str, new_thread: bool = False) -> str:
+        """Schedule a task using natural language.
+
+        This uses the exact same scheduling backend as the `!schedule` command.
+        By default, the task posts back into the current scope.
+        Set `new_thread=True` to schedule a future room-level root message instead.
+
+        Args:
+            request: The scheduling request, e.g. "in 5 minutes remind me to check logs"
+            new_thread: When `False`, post in the current room/thread scope.
+                When `True`, schedule a future room-level root message that can become
+                its own thread when someone replies later.
+
+        Returns:
+            The scheduling result message.
+
+        """
+        context = get_tool_runtime_context()
+        if context is None or context.room is None:
+            return "❌ Scheduler tool is unavailable in this context."
+
+        runtime = build_scheduling_runtime_from_tool_runtime_context(context)
+        task_id, response_text = await schedule_task(
+            runtime=runtime,
+            room_id=context.room_id,
+            thread_id=context.resolved_thread_id,
+            scheduled_by=context.requester_id,
+            full_text=request,
+            new_thread=new_thread,
+        )
+        if task_id is None:
+            raise RuntimeError(response_text)
+        return response_text
+
+    async def edit_schedule(self, task_id: str, request: str) -> str:
+        """Edit an existing scheduled task by replacing its timing and content.
+
+        Args:
+            task_id: The ID of the task to edit (from list_schedules).
+            request: The new scheduling request, e.g. "tomorrow at 9am check deployment"
+
+        Returns:
+            The edit result message.
+
+        """
+        context = get_tool_runtime_context()
+        if context is None or context.room is None:
+            return "❌ Scheduler tool is unavailable in this context."
+
+        runtime = build_scheduling_runtime_from_tool_runtime_context(context)
+        response_text = await edit_scheduled_task(
+            runtime=runtime,
+            room_id=context.room_id,
+            task_id=task_id,
+            full_text=request,
+            scheduled_by=context.requester_id,
+            thread_id=context.resolved_thread_id,
+        )
+        _raise_for_scheduler_error(response_text)
+        return response_text
+
+    async def list_schedules(self) -> str:
+        """List all pending scheduled tasks in the current room/thread.
+
+        Returns:
+            A formatted list of scheduled tasks with their IDs.
+
+        """
+        context = get_tool_runtime_context()
+        if context is None:
+            return "❌ Scheduler tool is unavailable in this context."
+
+        response_text = await list_scheduled_tasks(
+            client=context.client,
+            room_id=context.room_id,
+            thread_id=context.resolved_thread_id,
+            config=context.config,
+        )
+        _raise_for_scheduler_error(response_text)
+        return response_text
+
+    async def cancel_schedule(self, task_id: str) -> str:
+        """Cancel a scheduled task.
+
+        Args:
+            task_id: The ID of the task to cancel (from list_schedules).
+
+        Returns:
+            The cancellation result message.
+
+        """
+        context = get_tool_runtime_context()
+        if context is None:
+            return "❌ Scheduler tool is unavailable in this context."
+
+        response_text = await cancel_scheduled_task(
+            client=context.client,
+            room_id=context.room_id,
+            task_id=task_id,
+        )
+        _raise_for_scheduler_error(response_text)
+        return response_text

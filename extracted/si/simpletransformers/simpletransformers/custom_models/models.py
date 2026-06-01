@@ -239,6 +239,7 @@ class RobertaForMultiLabelSequenceClassification(BertPreTrainedModel):
 
         self.roberta = RobertaModel(config)
         self.classifier = RobertaClassificationHead(config)
+        self.post_init()
 
     def forward(
         self,
@@ -687,6 +688,7 @@ class ElectraForLanguageModelingModel(PreTrainedModel):
         self.vocab_size = generator_config.vocab_size
         if kwargs.get("tie_generator_and_discriminator_embeddings", True):
             self.tie_generator_and_discriminator_embeddings()
+        self.post_init()
 
     def tie_generator_and_discriminator_embeddings(self):
         self.discriminator_model.set_input_embeddings(
@@ -774,6 +776,7 @@ class ElectraForSequenceClassification(ElectraPreTrainedModel):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(config.hidden_size, self.config.num_labels)
         self.weight = weight
+        self.post_init()
 
     def forward(
         self,
@@ -829,6 +832,7 @@ class ElectraForMultiLabelSequenceClassification(ElectraPreTrainedModel):
         self.pooler = ElectraPooler(config)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(config.hidden_size, self.config.num_labels)
+        self.post_init()
 
     def forward(
         self,

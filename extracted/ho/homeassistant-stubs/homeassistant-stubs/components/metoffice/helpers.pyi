@@ -1,0 +1,3 @@
+from typing import Any
+
+def get_attribute(data: dict[str, Any] | None, attr_name: str) -> Any | None: ...

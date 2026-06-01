@@ -1,0 +1,426 @@
+use std::sync::Weak;
+
+use pyo3::{
+    prelude::*,
+    types::{PyDict, PyList},
+};
+use pyo3_stub_gen::derive::*;
+use statsig_rust::{
+    log_e, BulkEvaluationOptions, DynamicConfigEvaluationOptions, ExperimentEvaluationOptions,
+    FailureDetails, FeatureGateEvaluationOptions, InitializeDetails, LayerEvaluationOptions,
+    ParameterStoreEvaluationOptions, Statsig, StatsigUser,
+};
+
+use crate::pyo_utils::{
+    list_of_values_to_py_list, map_to_py_dict, py_dict_to_json_value_map, py_list_to_list_of_values,
+};
+
+const TAG: &str = stringify!(StatsigTypesPy);
+
+#[gen_stub_pyclass]
+#[pyclass(name = "InitializeDetails", module = "statsig_python_core")]
+pub struct InitializeDetailsPy {
+    #[pyo3(get)]
+    pub duration: f64, // deprecated, this should be removed in the next major version. Use duration_ms instead.
+
+    #[pyo3(get)]
+    pub duration_ms: u64,
+
+    #[pyo3(get)]
+    pub init_success: bool,
+
+    #[pyo3(get)]
+    pub is_config_spec_ready: bool,
+
+    #[pyo3(get)]
+    pub is_id_list_ready: Option<bool>,
+
+    #[pyo3(get)]
+    pub source: String,
+
+    #[pyo3(get)]
+    pub failure_details: Option<FailureDetailsPy>,
+}
+
+impl From<InitializeDetails> for InitializeDetailsPy {
+    fn from(value: InitializeDetails) -> Self {
+        InitializeDetailsPy {
+            duration_ms: value.duration_ms,
+            init_success: value.init_success,
+            is_config_spec_ready: value.is_config_spec_ready,
+            is_id_list_ready: value.is_id_list_ready,
+            source: value.source.to_string(),
+            failure_details: value.failure_details.map(FailureDetailsPy::from),
+
+            #[allow(deprecated)]
+            duration: value.duration_ms as f64,
+        }
+    }
+}
+
+impl InitializeDetailsPy {
+    pub fn from_error(reason: &str, error: Option<String>) -> Self {
+        InitializeDetailsPy {
+            duration_ms: 0,
+            init_success: false,
+            is_config_spec_ready: false,
+            is_id_list_ready: None,
+            source: "error".to_string(),
+            failure_details: Some(FailureDetailsPy {
+                reason: reason.to_string(),
+                error,
+            }),
+
+            #[allow(deprecated)]
+            duration: 0.0,
+        }
+    }
+}
+
+#[gen_stub_pyclass]
+#[pyclass(
+    name = "FailureDetails",
+    module = "statsig_python_core",
+    from_py_object
+)]
+#[derive(Clone)]
+pub struct FailureDetailsPy {
+    #[pyo3(get)]
+    pub reason: String,
+
+    #[pyo3(get)]
+    pub error: Option<String>,
+}
+
+impl From<FailureDetails> for FailureDetailsPy {
+    fn from(value: FailureDetails) -> Self {
+        FailureDetailsPy {
+            reason: value.reason,
+            error: value.error.map(|e| e.to_string()),
+        }
+    }
+}
+
+#[gen_stub_pyclass]
+#[pyclass(name = "ParameterStore", module = "statsig_python_core")]
+pub struct ParameterStorePy {
+    #[pyo3(get)]
+    pub name: String,
+
+    pub inner_statsig: Weak<Statsig>,
+    pub user: StatsigUser,
+    pub options: ParameterStoreEvaluationOptions,
+}
+
+#[gen_stub_pymethods]
+#[pymethods]
+impl ParameterStorePy {
+    pub fn get_string(&self, param_name: &str, fallback: String) -> Option<String> {
+        match self.inner_statsig.upgrade() {
+            Some(inner_statsig) => inner_statsig.get_string_parameter_from_store(
+                &self.user,
+                &self.name,
+                param_name,
+                Some(fallback),
+                Some(self.options),
+            ),
+            None => {
+                log_e!(TAG, "Failed to upgrade Statsig instance");
+                Some(fallback)
+            }
+        }
+    }
+
+    pub fn get_float(&self, param_name: &str, fallback: f64) -> Option<f64> {
+        match self.inner_statsig.upgrade() {
+            Some(inner_statsig) => inner_statsig.get_float_parameter_from_store(
+                &self.user,
+                &self.name,
+                param_name,
+                Some(fallback),
+                Some(self.options),
+            ),
+            None => {
+                log_e!(TAG, "Failed to upgrade Statsig instance");
+                Some(fallback)
+            }
+        }
+    }
+
+    pub fn get_integer(&self, param_name: &str, fallback: i64) -> Option<i64> {
+        match self.inner_statsig.upgrade() {
+            Some(inner_statsig) => inner_statsig.get_integer_parameter_from_store(
+                &self.user,
+                &self.name,
+                param_name,
+                Some(fallback),
+                Some(self.options),
+            ),
+            None => {
+                log_e!(TAG, "Failed to upgrade Statsig instance");
+                Some(fallback)
+            }
+        }
+    }
+
+    pub fn get_bool(&self, param_name: &str, fallback: bool) -> Option<bool> {
+        match self.inner_statsig.upgrade() {
+            Some(inner_statsig) => inner_statsig.get_boolean_parameter_from_store(
+                &self.user,
+                &self.name,
+                param_name,
+                Some(fallback),
+                Some(self.options),
+            ),
+            None => {
+                log_e!(TAG, "Failed to upgrade Statsig instance");
+                Some(fallback)
+            }
+        }
+    }
+
+    pub fn get_array(
+        &self,
+        py: Python,
+        param_name: &str,
+        fallback: Bound<PyList>,
+    ) -> Option<Py<PyAny>> {
+        match self.inner_statsig.upgrade() {
+            Some(inner_statsig) => {
+                let result = inner_statsig.get_array_parameter_from_store(
+                    &self.user,
+                    &self.name,
+                    param_name,
+                    Some(py_list_to_list_of_values(&fallback).unwrap_or_default()),
+                    Some(self.options),
+                );
+                if let Some(result) = result {
+                    match list_of_values_to_py_list(py, &result) {
+                        Ok(list) => Some(list),
+                        Err(_) => Some(fallback.unbind().into()),
+                    }
+                } else {
+                    Some(fallback.unbind().into())
+                }
+            }
+            None => {
+                log_e!(TAG, "Failed to upgrade Statsig instance");
+                Some(fallback.unbind().into())
+            }
+        }
+    }
+
+    pub fn get_map(
+        &self,
+        py: Python,
+        param_name: &str,
+        fallback: Bound<PyDict>,
+    ) -> Option<Py<PyAny>> {
+        match self.inner_statsig.upgrade() {
+            Some(inner_statsig) => {
+                let result = inner_statsig.get_object_parameter_from_store(
+                    &self.user,
+                    &self.name,
+                    param_name,
+                    Some(py_dict_to_json_value_map(&fallback)),
+                    Some(self.options),
+                );
+                if let Some(result) = result {
+                    Some(map_to_py_dict(py, &result))
+                } else {
+                    Some(fallback.unbind().into())
+                }
+            }
+            None => {
+                log_e!(TAG, "Failed to upgrade Statsig instance");
+                Some(fallback.unbind().into())
+            }
+        }
+    }
+}
+
+#[gen_stub_pyclass]
+#[pyclass(name = "FeatureGateEvaluationOptions", module = "statsig_python_core")]
+#[derive(FromPyObject)]
+pub struct FeatureGateEvaluationOptionsPy {
+    #[pyo3(get)]
+    pub disable_exposure_logging: bool,
+}
+
+#[gen_stub_pyclass]
+#[pyclass(
+    name = "DynamicConfigEvaluationOptions",
+    module = "statsig_python_core"
+)]
+#[derive(FromPyObject)]
+pub struct DynamicConfigEvaluationOptionsPy {
+    #[pyo3(get)]
+    pub disable_exposure_logging: bool,
+}
+
+#[gen_stub_pyclass]
+#[pyclass(name = "ExperimentEvaluationOptions", module = "statsig_python_core")]
+#[derive(FromPyObject)]
+pub struct ExperimentEvaluationOptionsPy {
+    #[pyo3(get)]
+    pub disable_exposure_logging: bool,
+    #[pyo3(get, set)]
+    pub user_persisted_values: Option<Py<PyDict>>,
+}
+
+#[gen_stub_pyclass]
+#[pyclass(name = "LayerEvaluationOptions", module = "statsig_python_core")]
+#[derive(FromPyObject)]
+pub struct LayerEvaluationOptionsPy {
+    #[pyo3(get)]
+    pub disable_exposure_logging: bool,
+    #[pyo3(get, set)]
+    pub user_persisted_values: Option<Py<PyDict>>,
+}
+
+#[gen_stub_pyclass]
+#[pyclass(name = "BulkEvaluationOptions", module = "statsig_python_core")]
+#[derive(FromPyObject)]
+pub struct BulkEvaluationOptionsPy {
+    #[pyo3(get)]
+    pub feature_gate_filter: Option<Vec<String>>,
+    #[pyo3(get)]
+    pub dynamic_config_filter: Option<Vec<String>>,
+    #[pyo3(get)]
+    pub experiment_filter: Option<Vec<String>>,
+    #[pyo3(get)]
+    pub layer_filter: Option<Vec<String>>,
+    #[pyo3(get)]
+    pub include_local_override: bool,
+}
+
+#[gen_stub_pyclass]
+#[pyclass(
+    name = "ParameterStoreEvaluationOptions",
+    module = "statsig_python_core"
+)]
+#[derive(FromPyObject)]
+pub struct ParameterStoreEvaluationOptionsPy {
+    #[pyo3(get)]
+    pub disable_exposure_logging: bool,
+}
+
+impl From<FeatureGateEvaluationOptionsPy> for FeatureGateEvaluationOptions {
+    fn from(val: FeatureGateEvaluationOptionsPy) -> FeatureGateEvaluationOptions {
+        FeatureGateEvaluationOptions {
+            disable_exposure_logging: val.disable_exposure_logging,
+        }
+    }
+}
+
+impl From<DynamicConfigEvaluationOptionsPy> for DynamicConfigEvaluationOptions {
+    fn from(val: DynamicConfigEvaluationOptionsPy) -> DynamicConfigEvaluationOptions {
+        DynamicConfigEvaluationOptions {
+            disable_exposure_logging: val.disable_exposure_logging,
+        }
+    }
+}
+
+impl From<&ExperimentEvaluationOptionsPy> for ExperimentEvaluationOptions {
+    fn from(val: &ExperimentEvaluationOptionsPy) -> ExperimentEvaluationOptions {
+        ExperimentEvaluationOptions {
+            disable_exposure_logging: val.disable_exposure_logging,
+            // For performance consideration, conversion to user persisted values use convert_dict_to_user_persisted_values()
+            user_persisted_values: None,
+        }
+    }
+}
+
+impl From<&LayerEvaluationOptionsPy> for LayerEvaluationOptions {
+    fn from(val: &LayerEvaluationOptionsPy) -> LayerEvaluationOptions {
+        LayerEvaluationOptions {
+            disable_exposure_logging: val.disable_exposure_logging,
+            // For performance consideration, conversion to user persisted values use convert_dict_to_user_persisted_values()
+            user_persisted_values: None,
+        }
+    }
+}
+
+impl From<ParameterStoreEvaluationOptionsPy> for ParameterStoreEvaluationOptions {
+    fn from(val: ParameterStoreEvaluationOptionsPy) -> ParameterStoreEvaluationOptions {
+        ParameterStoreEvaluationOptions {
+            disable_exposure_logging: val.disable_exposure_logging,
+        }
+    }
+}
+
+impl From<BulkEvaluationOptionsPy> for BulkEvaluationOptions {
+    fn from(val: BulkEvaluationOptionsPy) -> BulkEvaluationOptions {
+        BulkEvaluationOptions {
+            feature_gate_filter: val.feature_gate_filter,
+            dynamic_config_filter: val.dynamic_config_filter,
+            experiment_filter: val.experiment_filter,
+            layer_filter: val.layer_filter,
+            include_local_override: val.include_local_override,
+        }
+    }
+}
+
+macro_rules! impl_new_method {
+    ($struct_name:ident) => {
+        #[gen_stub_pymethods]
+        #[pymethods]
+        impl $struct_name {
+            #[new]
+            #[pyo3(signature = (disable_exposure_logging=false))]
+            pub fn new(disable_exposure_logging: bool) -> Self {
+                Self {
+                    disable_exposure_logging,
+                }
+            }
+        }
+    };
+}
+
+macro_rules! impl_new_method_with_persisted_values {
+    ($struct_name:ident) => {
+        #[gen_stub_pymethods]
+        #[pymethods]
+        impl $struct_name {
+            #[new]
+            #[pyo3(signature = (disable_exposure_logging=false, user_persisted_values=None))]
+            pub fn new(
+                disable_exposure_logging: bool,
+                user_persisted_values: Option<Py<PyDict>>,
+            ) -> Self {
+                Self {
+                    disable_exposure_logging,
+                    user_persisted_values,
+                }
+            }
+        }
+    };
+}
+
+impl_new_method!(FeatureGateEvaluationOptionsPy);
+impl_new_method!(DynamicConfigEvaluationOptionsPy);
+impl_new_method!(ParameterStoreEvaluationOptionsPy);
+impl_new_method_with_persisted_values!(ExperimentEvaluationOptionsPy);
+impl_new_method_with_persisted_values!(LayerEvaluationOptionsPy);
+
+#[gen_stub_pymethods]
+#[pymethods]
+impl BulkEvaluationOptionsPy {
+    #[new]
+    #[pyo3(signature = (feature_gate_filter=None, dynamic_config_filter=None, experiment_filter=None, layer_filter=None, include_local_override=true))]
+    pub fn new(
+        feature_gate_filter: Option<Vec<String>>,
+        dynamic_config_filter: Option<Vec<String>>,
+        experiment_filter: Option<Vec<String>>,
+        layer_filter: Option<Vec<String>>,
+        include_local_override: bool,
+    ) -> Self {
+        Self {
+            feature_gate_filter,
+            dynamic_config_filter,
+            experiment_filter,
+            layer_filter,
+            include_local_override,
+        }
+    }
+}

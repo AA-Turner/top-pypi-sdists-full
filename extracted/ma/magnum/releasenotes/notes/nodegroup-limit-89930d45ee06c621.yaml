@@ -1,4 +1,0 @@
----
-fixes:
-  - |
-    Fixes the next url in the list nodegroups API response.

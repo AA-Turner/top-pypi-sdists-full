@@ -1,0 +1,43 @@
+name: Complex caching
+description: some more complex caching - pip & conda
+
+inputs:
+  python-version:
+    description: Python version
+    required: true
+  requires:
+    description: define oldest, latest, or an empty string
+    required: false
+    default: ""
+  offset:
+    description: some extra hash for pip cache
+    required: false
+    default: ""
+  interval:
+    description: cache hash reset interval in days
+    required: false
+    default: "7"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Determine caches
+      id: cache_dirs
+      run: echo "pip_dir=$(pip cache dir)" >> $GITHUB_OUTPUT
+      shell: bash
+
+    - name: Cache 💽 pip
+      uses: actions/cache@v3
+      with:
+        path: ${{ steps.cache_dirs.outputs.pip_dir }}
+        key: py${{ inputs.python-version }}-pip-${{ inputs.offset }}-${{ hashFiles('requirements.txt') }}
+        restore-keys: py${{ inputs.python-version }}-pip-${{ inputs.offset }}-
+        enableCrossOsArchive: true
+
+    - name: Cache 💽 conda
+      uses: actions/cache@v3
+      if: runner.os == 'Linux'
+      with:
+        path: ~/conda_pkgs_dir
+        key: py${{ inputs.python-version }}-conda-${{ inputs.offset }}
+        restore-keys: py${{ inputs.python-version }}-conda-${{ inputs.offset }}

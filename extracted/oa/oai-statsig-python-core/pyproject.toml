@@ -1,0 +1,27 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "oai_statsig_python_core"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dynamic = ["version", "description", "license", "authors", "readme"]
+dependencies = ["requests", "typing_extensions"]
+
+[project.urls]
+homepage = "https://statsig.com"
+documentation = "https://docs.statsig.com/server-core/python-core"
+repository = "https://github.com/statsig-io/statsig-server-core/tree/main/statsig-pyo3"
+changelog = "https://github.com/statsig-io/statsig-server-core/releases"
+
+
+[tool.maturin]
+features = ["pyo3/extension-module", "pyo3/abi3-py310"]
+include = ["statsig_python_core.pyi"]
+manifest-path = "statsig-pyo3/Cargo.toml"
+python-source = "py_src"

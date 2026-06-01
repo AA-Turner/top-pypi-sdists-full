@@ -1,0 +1,95 @@
+use serde::{de::Error, Deserialize, Deserializer};
+
+use super::{djb2::djb2, memo_sha_256::MemoSha256};
+use std::fmt::Display;
+
+#[derive(Eq, PartialEq)]
+pub enum HashAlgorithm {
+    Djb2,
+    None,
+    Sha256,
+}
+
+impl HashAlgorithm {
+    #[must_use]
+    pub fn from_string(input: &str) -> Option<Self> {
+        match input {
+            "sha256" | "SHA256" | "Sha256" => Some(HashAlgorithm::Sha256),
+            "djb2" | "DJB2" | "Djb2" => Some(HashAlgorithm::Djb2),
+            "none" | "NONE" | "None" => Some(HashAlgorithm::None),
+            _ => None,
+        }
+    }
+}
+
+pub fn opt_bool_to_hashable(input: &Option<bool>) -> u64 {
+    match input {
+        Some(true) => 1,
+        Some(false) => 0,
+        None => 2,
+    }
+}
+
+impl<'de> Deserialize<'de> for HashAlgorithm {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        HashAlgorithm::from_string(&s).ok_or_else(|| D::Error::custom("Invalid hash algorithm"))
+    }
+}
+
+impl Display for HashAlgorithm {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            HashAlgorithm::Djb2 => write!(f, "djb2"),
+            HashAlgorithm::None => write!(f, "none"),
+            HashAlgorithm::Sha256 => write!(f, "sha256"),
+        }
+    }
+}
+
+pub struct HashUtil {
+    sha_hasher: MemoSha256,
+}
+
+impl Default for HashUtil {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl HashUtil {
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            sha_hasher: MemoSha256::new(),
+        }
+    }
+
+    pub fn hash(&self, input: &str, hash_algorithm: &HashAlgorithm) -> String {
+        match hash_algorithm {
+            HashAlgorithm::Sha256 => self.sha_hasher.hash_string(input),
+            HashAlgorithm::Djb2 => djb2(input),
+            HashAlgorithm::None => input.to_string(),
+        }
+    }
+
+    pub fn sha256(&self, input: &str) -> String {
+        self.sha_hasher.hash_string(input)
+    }
+
+    pub fn sha256_to_u64(&self, input: &str) -> u64 {
+        let hash = self.sha_hasher.hash_string(input);
+
+        let mut hasher_bytes = [0u8; 8];
+        hasher_bytes.copy_from_slice(&hash.as_bytes()[0..8]);
+
+        u64::from_be_bytes(hasher_bytes)
+    }
+
+    pub fn evaluation_hash(&self, input: &String) -> Option<u64> {
+        self.sha_hasher.compute_hash(input)
+    }
+}

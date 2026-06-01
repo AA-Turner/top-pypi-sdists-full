@@ -1,0 +1,21 @@
+Metadata-Version: 2.1
+Name: audoai-noise-removal
+Version: 1.4.0
+Summary: Python client for Audo AI noise removal APIs
+Home-page: https://github.com/audo-ai/audoai-python
+Author: Audo AI
+Author-email: info@audo.ai
+License: UNKNOWN
+Keywords: audoai
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Provides-Extra: test
+
+UNKNOWN
+

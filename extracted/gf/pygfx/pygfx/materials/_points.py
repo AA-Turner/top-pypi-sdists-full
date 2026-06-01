@@ -1,0 +1,537 @@
+from ._base import Material
+from ..resources import Texture, TextureMap
+from ..utils import unpack_bitfield, Color, assert_type
+from ..utils.enums import (
+    EdgeMode,
+    ColorMode,
+    SizeMode,
+    CoordSpace,
+    MarkerInt,
+    MarkerShape,
+    MarkerMode,
+    RotationMode,
+)
+
+
+class PointsMaterial(Material):
+    """Point default material.
+
+    Renders disks of the given size and color.
+
+    Parameters
+    ----------
+    size : float
+        The size (diameter) of the points in logical pixels. Default 4.
+    size_space : str | CoordSpace
+        The coordinate space in which the size is expressed ('screen', 'world', 'model'). Default 'screen'.
+    size_mode : str | SizeMode
+        The mode by which the points are sized. Default 'uniform'.
+    color : str | tuple | Color
+        The uniform color of the points (used depending on the ``color_mode``).
+    color_mode : str | ColorMode
+        The mode by which the points are coloured. Default 'auto'.
+    edge_mode : str | EdgeMode
+        The mode by which the points are edged. Default 'centered'.
+    map : TextureMap | Texture
+        The texture map specifying the color for each texture coordinate.
+    maprange : tuple
+        The range of the ``geometry.texcoords`` that is projected onto the (color) map. Default (0, 1).
+    aa : bool
+        Whether the points are anti-aliased in the shader. Default False.
+    rotation : float
+        The rotation of the point marker in radians. Default 0.
+    rotation_mode : str | RotationMode
+        The mode by which the points are rotated. Default 'uniform'.
+    kwargs : Any
+        Additional kwargs will be passed to the :class:`material base class
+        <pygfx.Material>`.
+
+    """
+
+    uniform_type = dict(
+        Material.uniform_type,
+        color="4xf4",
+        maprange="2xf4",
+        size="f4",
+        rotation="f4",
+    )
+
+    def __init__(
+        self,
+        size=4,
+        size_space="screen",
+        size_mode="uniform",
+        *,
+        color=(1, 1, 1, 1),
+        color_mode="auto",
+        edge_mode="centered",
+        map=None,
+        maprange=None,
+        aa=False,
+        rotation=0,
+        rotation_mode="uniform",
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+
+        self.size = size
+        self.size_space = size_space
+        self.size_mode = size_mode
+        self.color = color
+        self.color_mode = color_mode
+        self.edge_mode = edge_mode
+        self.map = map
+        self.maprange = maprange
+        self.aa = aa
+        self.rotation = rotation
+        self.rotation_mode = rotation_mode
+
+    def _wgpu_get_pick_info(self, pick_value):
+        # This should match with the shader
+        values = unpack_bitfield(pick_value, wobject_id=20, index=26, x=9, y=9)
+        return {
+            "vertex_index": values["index"],
+            "point_coord": (values["x"] - 256.0, values["y"] - 256.0),
+        }
+
+    @property
+    def color(self):
+        """The color of the points (if map is not set)."""
+        return Color(self.uniform_buffer.data["color"])
+
+    @color.setter
+    def color(self, color):
+        color = Color(color)
+        self.uniform_buffer.data["color"] = color
+        self.uniform_buffer.update_full()
+
+    @property
+    def aa(self):
+        """Whether the point's visual edge is anti-aliased.
+
+        Aliasing gives prettier results by producing semi-transparent fragments
+        at the edges. Lines thinner than one physical pixel are also diminished
+        by making them more transparent.
+
+        However, because semi-transparent fragments are introduced, artifacts
+        may occur if certain cases. For the same reason, aa only works for the
+        "blended" and "weighted" alpha methods.
+
+        Note that by default, pygfx already uses SSAA and/or PPAA to anti-alias
+        the total renderered result. Point-based aa is an *additional* visual
+        improvement.
+        """
+        return self._store.aa
+
+    @aa.setter
+    def aa(self, aa):
+        self._store.aa = bool(aa)
+
+    @property
+    def _gfx_effective_aa(self):
+        aa_able_methods = ("blended", "weighted")
+        return self._store.aa and self.alpha_method in aa_able_methods
+
+    @property
+    def color_mode(self):
+        """The way that color is applied to the points.
+
+        See :obj:`pygfx.utils.enums.ColorMode`:
+        """
+        return self._store.color_mode
+
+    @color_mode.setter
+    def color_mode(self, value):
+        value = value or "auto"
+        if value not in ColorMode:
+            raise ValueError(
+                f"PointsMaterial.color_mode must be a string in {ColorMode}, not {value!r}"
+            )
+        if value in ["face", "face_map"]:
+            raise ValueError(f"PointsMaterial.color_mode does not support {value!r}")
+        self._store.color_mode = value
+
+    @property
+    def edge_mode(self):
+        """The way that edges are applied to the mesh.
+
+        See :obj:`pygfx.utils.enums.EdgeMode`:
+        """
+        return self._store.edge_mode
+
+    @edge_mode.setter
+    def edge_mode(self, value):
+        value = value or "centered"
+        if value not in EdgeMode:
+            raise ValueError(
+                f"PointsMaterial.edge_mode must be a string in {EdgeMode}, not {value!r}"
+            )
+        self._store.edge_mode = value
+
+    @property
+    def vertex_colors(self):
+        return self.color_mode == ColorMode.vertex
+
+    @vertex_colors.setter
+    def vertex_colors(self, value):
+        raise DeprecationWarning(
+            "vertex_colors is deprecated, use ``color_mode='vertex'``"
+        )
+
+    @property
+    def size(self):
+        """The size (diameter) of the points, in logical pixels (or world/model space if ``size_space`` is set)."""
+        return float(self.uniform_buffer.data["size"])
+
+    @size.setter
+    def size(self, size):
+        self.uniform_buffer.data["size"] = size
+        self.uniform_buffer.update_full()
+
+    @property
+    def size_space(self):
+        """The coordinate space in which the size is expressed.
+
+        See :obj:`pygfx.utils.enums.CoordSpace`:
+        """
+        return self._store.size_space
+
+    @size_space.setter
+    def size_space(self, value):
+        value = value or "screen"
+        if value not in CoordSpace:
+            raise ValueError(
+                f"PointsMaterial.size_space must be a string in {CoordSpace}, not {value!r}"
+            )
+        self._store.size_space = value
+
+    @property
+    def size_mode(self):
+        """The way that size is applied to the mesh.
+
+        See :obj:`pygfx.utils.enums.SizeMode`:
+        """
+        return self._store.size_mode
+
+    @size_mode.setter
+    def size_mode(self, value):
+        value = value or "uniform"
+        if value not in SizeMode:
+            raise ValueError(
+                f"PointsMaterial.size_mode must be a string in {SizeMode}, not {value!r}"
+            )
+        self._store.size_mode = value
+
+    @property
+    def map(self):
+        """The texture map specifying the color for each texture coordinate.
+        The dimensionality of the map can be 1D, 2D or 3D, but should match the
+        number of columns in the geometry's texcoords.
+        """
+        return self._store.map
+
+    @map.setter
+    def map(self, map):
+        assert_type("map", map, None, Texture, TextureMap)
+        if isinstance(map, Texture):
+            map = TextureMap(map)
+        self._store.map = map
+
+    @property
+    def maprange(self):
+        """The range of the ``geometry.texcoords`` that is projected onto the (color) map.
+
+        By default this value is (0.0, 1.0), but if the ``texcoords`` represents some
+        domain-specific value, e.g. temperature, then ``maprange`` can be set to e.g. (0, 100).
+        """
+        v1, v2 = self.uniform_buffer.data["maprange"]
+        return float(v1), float(v2)
+
+    @maprange.setter
+    def maprange(self, maprange):
+        # Check and store given value
+        if maprange is None:
+            maprange = 0, 1
+        maprange = float(maprange[0]), float(maprange[1])
+        # Update uniform data
+        self.uniform_buffer.data["maprange"] = maprange
+        self.uniform_buffer.update_full()
+
+    @property
+    def rotation(self):
+        """The rotation of the marker in radians."""
+        return float(self.uniform_buffer.data["rotation"])
+
+    @rotation.setter
+    def rotation(self, rotation):
+        self.uniform_buffer.data["rotation"] = rotation
+        self.uniform_buffer.update_full()
+
+    @property
+    def rotation_mode(self):
+        """The way that rotation is applied to the markers."""
+        return self._store.rotation_mode
+
+    @rotation_mode.setter
+    def rotation_mode(self, value):
+        value = value or "uniform"
+        if value not in RotationMode:
+            raise ValueError(
+                f"PointsMaterial.rotation_mode must be a string in {RotationMode}, not {value!r}"
+            )
+
+        self._store.rotation_mode = value
+
+    # todo: sizeAttenuation
+
+
+class PointsGaussianBlobMaterial(PointsMaterial):
+    """A material to render points as Gaussian blobs.
+
+    Renders Gaussian blobs with a standard deviation that is 1/6th of the
+    point-size.
+    """
+
+
+class PointsMarkerMaterial(PointsMaterial):
+    """A material to render points as markers.
+
+    Markers come in a variety of shapes, and have an edge with a separate color.
+
+    Parameters
+    ----------
+    marker : str | MarkerShape
+        The shape of the marker. Default 'circle'.
+    marker_mode : str | MarkerMode
+        The mode by which the markers are defined. Default 'uniform'.
+    edge_color : str | tuple | Color
+        The color of line marking the edge of the markers. Default 'black'.
+    edge_width : float
+        The width of the edge of the markers. Default 1.
+    kwargs : Any
+        Additional kwargs will be passed to the :class:`PointsMaterial<pygfx.PointsMaterial>`.
+
+    """
+
+    uniform_type = dict(
+        PointsMaterial.uniform_type,
+        edge_color="4xf4",
+        edge_width="f4",
+    )
+
+    def __init__(
+        self,
+        *,
+        marker="circle",
+        marker_mode="uniform",
+        edge_width=1.0,
+        edge_color="black",
+        custom_sdf=None,
+        edge_color_mode="auto",
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.marker = marker
+        self.marker_mode = marker_mode
+        self.edge_width = edge_width
+        self.edge_color = edge_color
+        self.edge_color_mode = edge_color_mode
+        self.custom_sdf = custom_sdf
+
+    @property
+    def edge_color(self):
+        """The color of the edge of the markers."""
+        return Color(self.uniform_buffer.data["edge_color"])
+
+    @edge_color.setter
+    def edge_color(self, edge_color):
+        edge_color = Color(edge_color)
+        self.uniform_buffer.data["edge_color"] = edge_color
+        self.uniform_buffer.update_full()
+
+    @property
+    def edge_width(self):
+        """The width of the edge of the markers, in logical pixels (or world/model space if ``size_space`` is set)."""
+        return float(self.uniform_buffer.data["edge_width"])
+
+    @edge_width.setter
+    def edge_width(self, edge_width):
+        self.uniform_buffer.data["edge_width"] = float(edge_width)
+        self.uniform_buffer.update_full()
+
+    @property
+    def marker(self):
+        """The type/shape of the markers.
+
+        Supported values:
+
+        * A string from :obj:`pygfx.utils.enums.MarkerShape`.
+        * Matplotlib compatible characters: "osD+x^v<>*".
+        * Unicode symbols: "●○■♦♥♠♣✳▲▼◀▶".
+        * Emojis: "❤️♠️♣️♦️💎💍✳️📍".
+        * A string containing the value "custom". In this case, the WGSL
+          code defined by ``custom_sdf`` will be used.
+        """
+        # TODO: is marker a good name?
+        # Note: MPL calls this 'marker', Plotly calls this 'symbol'
+        return self._store.marker
+
+    @marker.setter
+    def marker(self, name):
+        # Define possible values, see:
+        # https://matplotlib.org/stable/api/markers_api.html
+        # https://plotly.com/python/marker-style/#custom-marker-symbols
+
+        alt_names = {
+            # MPL
+            "o": "circle",
+            "s": "square",
+            "D": "diamond",
+            "+": "plus",
+            "x": "cross",
+            "^": "triangle_up",
+            "<": "triangle_left",
+            ">": "triangle_right",
+            "v": "triangle_down",
+            "*": "asterisk6",
+            # Unicode
+            "●": "circle",
+            "○": "ring",
+            "■": "square",
+            "♦": "diamond",
+            "♥": "heart",
+            "♠": "spade",
+            "♣": "club",
+            "✳": "asterisk8",
+            "▲": "triangle_up",
+            "▼": "triangle_down",
+            "◀": "triangle_left",
+            "▶": "triangle_right",
+            # Emojis (these may look like their plaintext variants in your editor)
+            "❤️": "heart",
+            "♠️": "spade",
+            "♣️": "club",
+            "♦️": "diamond",
+            "💎": "diamond",
+            "💍": "ring",
+            "✳️": "asterisk8",
+            "📍": "pin",
+            # Compat
+            "asterisk": "asterisk6",
+            "asterix": "asterisk6",
+        }
+
+        name = name or "circle"
+        if isinstance(name, int):
+            try:
+                resolved_name = MarkerInt[name]
+            except KeyError:
+                raise ValueError(
+                    f"PointsMarkerMaterial.marker was set using an int ({name}), but that int does not correspond to a marker."
+                ) from None
+        else:
+            resolved_name = alt_names.get(name, name).lower()
+            if resolved_name not in MarkerShape:
+                raise ValueError(
+                    f"PointsMarkerMaterial.marker must be a string in {MarkerShape}, or a supported character, not {name!r}"
+                )
+        self._store.marker = resolved_name
+
+    @property
+    def marker_mode(self):
+        """The mode by which markers are defined.
+
+        See :obj:`pygfx.utils.enums.MarkerMode`:
+
+        When using per-vertex markers, the geometry should have a buffer called "markers", containing ints.
+        To make marker names to ints, use :obj:`pygfx.utils.enums.MarkerInt`:.
+        """
+        return self._store.marker_mode
+
+    @marker_mode.setter
+    def marker_mode(self, value):
+        value = value or "uniform"
+        if value not in MarkerMode:
+            raise ValueError(
+                f"PointsMaterial.marker_mode must be a string in {MarkerMode}, not {value!r}"
+            )
+        self._store.marker_mode = value
+
+    @property
+    def edge_color_mode(self):
+        """The way that color is applied to the points.
+
+        Only "uniform", "auto", and "vertex" are supported.
+
+        For `edge_color_mode`, "auto" is an alias for "uniform".
+
+        See :obj:`pygfx.utils.enums.ColorMode`:
+        """
+        return self._store.edge_color_mode
+
+    @edge_color_mode.setter
+    def edge_color_mode(self, value):
+        value = value or "auto"
+        if value not in ColorMode:
+            raise ValueError(
+                f"PointsMaterial.edge_color_mode must be a string in {ColorMode}, not {value!r}"
+            )
+        if value in ["face", "face_map", "vertex_map"]:
+            raise ValueError(
+                f"PointsMaterial.edge_color_mode does not support {value!r}"
+            )
+        self._store.edge_color_mode = value
+
+    @property
+    def custom_sdf(self):
+        """The SDF code for the marker shape when the marker is set to custom.
+
+        Negative values are inside the shape, positive values are outside the
+        shape.
+
+        The SDF's takes in two parameters `coords: vec2<f32>` and `size: f32`.
+        The first is a WGSL coordinate and `size` is the overall size of
+        the texture. The returned value should be the signed distance from
+        any edge of the shape. Distances (positive and negative) that are
+        less than half the `edge_width` in absolute terms will be colored
+        with the `edge_color`. Other negative distances will be colored by
+        `color`.
+        """
+        return self._store.custom_sdf
+
+    @custom_sdf.setter
+    def custom_sdf(self, code):
+        self._store.custom_sdf = code
+
+
+class PointsSpriteMaterial(PointsMaterial):
+    """A material to render points as sprite images.
+
+    Renders the provided texture at each point position. The images are square
+    and sized just like with a PointMaterial. The texture color is multiplied
+    with the point's "normal" color (as calculated depending on ``color_mode``).
+
+    The sprite texture is provided via ``.sprite``.
+    """
+
+    def __init__(self, *, sprite=None, **kwargs):
+        super().__init__(**kwargs)
+        self.sprite = sprite
+
+    @property
+    def sprite(self):
+        """The texture map specifying the sprite image.
+
+        The dimensionality of the map must be 2D. If None, it just shows a
+        uniform color.
+        """
+        return self._store.sprite
+
+    @sprite.setter
+    def sprite(self, sprite):
+        if not (sprite is None or isinstance(sprite, Texture)):
+            raise TypeError(
+                f"sprite must be `None` or a Texture, you have passed a: {type(sprite)}"
+            )
+
+        self._store.sprite = sprite

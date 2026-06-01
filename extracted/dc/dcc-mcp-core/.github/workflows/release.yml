@@ -1,0 +1,631 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing release tag to rebuild and publish, for example v0.15.4"
+        required: false
+        type: string
+        default: ""
+      release_version:
+        description: "Version for release_tag without the v prefix, for example 0.15.4"
+        required: false
+        type: string
+        default: ""
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+  attestations: write
+  actions: read
+
+jobs:
+  # ── Decide what to release (release-please for push, manual backfill for dispatch) ──
+  release-please:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    outputs:
+      release_created: ${{ steps.decide.outputs.release_created }}
+      tag_name: ${{ steps.decide.outputs.tag_name }}
+      version: ${{ steps.decide.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+        if: github.event_name == 'push'
+
+      - name: Classify push release state
+        id: push-preflight
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: python scripts/ci/release_push_preflight.py
+
+      - name: Validate manual release backfill inputs
+        if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          if [ -z "$RELEASE_VERSION" ]; then
+            echo "::error::release_version is required when release_tag is set"
+            exit 1
+          fi
+          if [ "$RELEASE_TAG" != "v$RELEASE_VERSION" ]; then
+            echo "::error::release_tag must match release_version, expected v$RELEASE_VERSION"
+            exit 1
+          fi
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null
+
+      - uses: googleapis/release-please-action@v5
+        if: >-
+          (github.event_name != 'workflow_dispatch' || inputs.release_tag == '') &&
+          steps.push-preflight.outputs.skip_release_please != 'true'
+        id: release
+        with:
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      - name: Decide release outputs
+        id: decide
+        env:
+          BACKFILL_TAG: ${{ inputs.release_tag }}
+          BACKFILL_VERSION: ${{ inputs.release_version }}
+          RP_RELEASE_CREATED: ${{ steps.release.outputs.release_created }}
+          RP_TAG_NAME: ${{ steps.release.outputs.tag_name }}
+          RP_VERSION: ${{ steps.release.outputs.version }}
+          PREFLIGHT_RELEASE_CREATED: ${{ steps.push-preflight.outputs.release_created }}
+          PREFLIGHT_TAG_NAME: ${{ steps.push-preflight.outputs.tag_name }}
+          PREFLIGHT_VERSION: ${{ steps.push-preflight.outputs.version }}
+        run: |
+          if [ -n "$BACKFILL_TAG" ]; then
+            release_created=true
+            tag_name="$BACKFILL_TAG"
+            version="$BACKFILL_VERSION"
+          elif [ "$PREFLIGHT_RELEASE_CREATED" = "true" ]; then
+            release_created=true
+            tag_name="$PREFLIGHT_TAG_NAME"
+            version="$PREFLIGHT_VERSION"
+          else
+            release_created="${RP_RELEASE_CREATED:-false}"
+            tag_name="$RP_TAG_NAME"
+            version="$RP_VERSION"
+          fi
+          echo "release_created=$release_created" >> "$GITHUB_OUTPUT"
+          echo "tag_name=$tag_name" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Release decision: created=$release_created tag=$tag_name version=$version"
+
+  build-admin-ui:
+    needs: [release-please]
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - uses: loonghao/vx@v0.9.11
+        with:
+          version: "0.9.11"
+          cache-key-prefix: "vx-tools-v0.9.7"
+
+      - name: Build admin UI bundle
+        shell: bash
+        run: scripts/release/prebuild_admin_ui.sh
+
+      - name: Upload admin UI bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-ui-bundle
+          path: crates/dcc-mcp-gateway/src/gateway/admin/generated/index.html
+
+  # ── Build standalone binaries (raw Release assets + server PyPI wheel) ──
+  #
+  # One job, one native cargo target/ (plus an isolated manylinux target/), three outputs:
+  #   1. Raw binary `dcc-mcp-server[-linux-x86_64|-windows-x86_64.exe|-macos-universal2]`
+  #      attached to the GitHub Release. Backward-compat artefact for
+  #      ops / docker users who don't want to `pip install`.
+  #   2. Raw binary `dcc-mcp-cli[-linux-x86_64|-windows-x86_64.exe|-macos-universal2]`
+  #      attached to the same GitHub Release and consumed by scripts/install-cli.*.
+  #   3. PyPI wheel `dcc_mcp_server-<ver>-py3-none-<plat>.whl` built from
+  #      pkg/dcc-mcp-server-bin/ via maturin's `bindings = "bin"`. It has
+  #      no Python extension ABI and declares Python 3.7+ compatibility so
+  #      Maya 2022's embedded Python can install it. maturin reuses the
+  #      just-built binary from `target/release/` on macOS/Windows so we do
+  #      NOT compile twice (#1003 review feedback). Linux manylinux wheels use
+  #      an isolated `target-manylinux2014/` because host-built Cargo build
+  #      scripts cannot run inside the older manylinux2014 glibc environment.
+  #
+  # Both artefacts ride the same release-please tag — there is exactly
+  # one release lifecycle for the workspace, and `dcc-mcp-server` ships
+  # at the same workspace.package.version as `dcc-mcp-core`.
+  build-binaries:
+    needs: [release-please, build-admin-ui]
+    if: needs.release-please.outputs.release_created == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: dcc-mcp-server-linux-x86_64
+            cli_artifact_name: dcc-mcp-cli-linux-x86_64
+            binary: dcc-mcp-server
+            cli_binary: dcc-mcp-cli
+          - os: windows-latest
+            artifact_name: dcc-mcp-server-windows-x86_64.exe
+            cli_artifact_name: dcc-mcp-cli-windows-x86_64.exe
+            binary: dcc-mcp-server.exe
+            cli_binary: dcc-mcp-cli.exe
+          - os: macos-latest
+            artifact_name: dcc-mcp-server-macos-universal2
+            cli_artifact_name: dcc-mcp-cli-macos-universal2
+            binary: dcc-mcp-server
+            cli_binary: dcc-mcp-cli
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: '1.95.0'
+          targets: aarch64-apple-darwin  # needed for macOS universal2 lipo
+
+      - uses: loonghao/vx@v0.9.11
+        with:
+          version: "0.9.11"
+          cache-key-prefix: "vx-tools-v0.9.7"
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Cache Cargo
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-binary-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: ${{ runner.os }}-cargo-binary-
+
+      # ── Raw binary build ──────────────────────────────────────────
+      - name: Download admin UI bundle for Linux builds
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/download-artifact@v8
+        with:
+          name: admin-ui-bundle
+          path: crates/dcc-mcp-gateway/src/gateway/admin/generated
+
+      - name: Use pre-built admin UI for Linux builds
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: echo "DCC_MCP_ADMIN_UI_PREBUILT=1" >> "$GITHUB_ENV"
+
+      - name: Build raw binary (macOS universal2)
+        if: matrix.os == 'macos-latest'
+        run: |
+          vx just build-server-universal
+          vx just build-cli-universal
+
+      - name: Build raw binary (Linux / Windows)
+        if: matrix.os != 'macos-latest'
+        run: |
+          vx just build-server
+          vx just build-cli
+        shell: bash
+
+      - name: Stage raw binary (Linux / Windows)
+        if: matrix.os != 'macos-latest'
+        run: |
+          cp target/release/${{ matrix.binary }} ${{ matrix.artifact_name }}
+          cp target/release/${{ matrix.cli_binary }} ${{ matrix.cli_artifact_name }}
+        shell: bash
+
+      # ── PyPI wheel build ──────────────────────────────────────────
+      # macOS / Windows reuse the same target/ directory the raw-binary
+      # step just populated; maturin sees the binary as already-compiled
+      # and does only the wheel-pack step. Linux intentionally builds
+      # inside a manylinux2014 container so the uploaded wheel is accepted
+      # by older embedded hosts such as Maya 2022 / Python 3.7. Keep that
+      # container build on its own Cargo target dir: reusing host-built
+      # build scripts from target/ can fail with GLIBC_* symbol errors.
+      # NOTE: maturin's `--strip` is intentionally OMITTED — the workspace
+      # already has `strip = true` in `[profile.release]` (Cargo.toml:214),
+      # so the binary is stripped at the cargo level. Adding `--strip` here
+      # changes rustc args and busts the target/ cache from the previous
+      # raw-binary step (verified locally: ~25s rebuild vs <1s cache hit).
+      - name: Build PyPI wheel (macOS universal2)
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        working-directory: pkg/dcc-mcp-server-bin
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "maturin>=1.5,<2.0" "wheel>=0.46"
+          maturin build --release --target universal2-apple-darwin --out wheels
+
+      - name: Build PyPI wheel (Linux manylinux2014)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: scripts/release/build_manylinux_server_wheel.sh
+
+      - name: Build PyPI wheel (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        working-directory: pkg/dcc-mcp-server-bin
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "maturin>=1.5,<2.0" "wheel>=0.46"
+          maturin build --release --out wheels
+
+      - name: Retag server binary wheel as Python-version independent
+        shell: bash
+        run: |
+          python -m pip install --upgrade "wheel>=0.46"
+          python scripts/release/server_wheel_tags.py retag
+
+      - name: Check server wheel Python compatibility metadata
+        shell: bash
+        run: python scripts/release/server_wheel_tags.py validate
+
+      - name: Upload raw binary artefact (for cross-job collection)
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-binary-${{ matrix.os }}
+          path: |
+            ${{ matrix.artifact_name }}
+            ${{ matrix.cli_artifact_name }}
+
+      - name: Upload server wheel artefact (for cross-job collection)
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-wheel-${{ matrix.os }}
+          path: pkg/dcc-mcp-server-bin/wheels/*.whl
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.release-please.outputs.tag_name }}
+          files: |
+            ${{ matrix.artifact_name }}
+            ${{ matrix.cli_artifact_name }}
+            pkg/dcc-mcp-server-bin/wheels/*.whl
+
+  # ── Build dcc-mcp-core-semantic companion wheels (issue #1395) ──
+  #
+  # Native Rust semantic embeddings (fastembed-rs + ONNX Runtime) shipped as
+  # an opt-in PyPI package. Users only pay this wheel's cost when they
+  # explicitly `pip install 'dcc-mcp-core[semantic]'`. The matrix mirrors
+  # `build-wheels.yml` so the opt-in surface covers the same OS / Python set
+  # as the main wheel, minus macOS cp37. macOS cp37 is NOT buildable for the
+  # semantic wheel because `ort-sys 2.x` no longer ships prebuilt ONNX Runtime
+  # binaries for `x86_64-apple-darwin`. The main `dcc-mcp-core` wheel now
+  # provides macOS cp37 via cross-compilation (see build-wheels.yml macos-py37
+  # job); users who need semantic embeddings on macOS Python 3.7 should use
+  # the pure-Python `fastembed` backend (automatic fallback in the Python
+  # wrapper).
+  #
+  # IMPORTANT: ort 2.x (pulled in transitively by fastembed-rs) requires
+  # glibc >= 2.27, so Linux wheels target manylinux_2_28 — NOT manylinux2014
+  # like `pkg/dcc-mcp-server-bin/`. See
+  # `scripts/release/build_manylinux_semantic_wheel.sh` for the docker
+  # invocation.
+  build-semantic-wheels:
+    needs: [release-please]
+    if: needs.release-please.outputs.release_created == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: semantic-wheel-linux-abi3
+            target: linux-abi3
+          - os: ubuntu-22.04
+            artifact_name: semantic-wheel-linux-py37
+            target: linux-py37
+          - os: windows-latest
+            artifact_name: semantic-wheel-windows-abi3
+            target: windows-abi3
+          - os: windows-2022
+            artifact_name: semantic-wheel-windows-py37
+            target: windows-py37
+          - os: macos-latest
+            artifact_name: semantic-wheel-macos-abi3
+            target: macos-abi3
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      # Rust toolchain is only needed for non-Linux builds; the Linux
+      # builds run inside the pyo3/maturin docker image which bundles its
+      # own pinned toolchain.
+      - name: Setup Rust
+        if: matrix.target != 'linux-abi3' && matrix.target != 'linux-py37'
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: '1.95.0'
+          components: clippy, rustfmt
+
+      - name: Setup Python (abi3 build)
+        if: endsWith(matrix.target, '-abi3') && !startsWith(matrix.target, 'linux-')
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Setup Python (py37 build)
+        if: matrix.target == 'windows-py37'
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.7'
+
+      - name: Install maturin
+        if: matrix.target != 'linux-abi3' && matrix.target != 'linux-py37'
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "maturin>=1.5,<2.0"
+
+      # ── Linux: docker (manylinux_2_28, ort glibc 2.27 baseline) ──
+      - name: Build wheel (Linux abi3)
+        if: matrix.target == 'linux-abi3'
+        shell: bash
+        run: scripts/release/build_manylinux_semantic_wheel.sh abi3
+
+      - name: Build wheel (Linux py37)
+        if: matrix.target == 'linux-py37'
+        shell: bash
+        run: scripts/release/build_manylinux_semantic_wheel.sh py37
+
+      # ── macOS aarch64 (abi3) ──
+      # Apple Silicon only: `ort-sys 2.0.0-rc.12` no longer publishes
+      # prebuilt ONNX Runtime binaries for `x86_64-apple-darwin`, and the
+      # macos-13 (Intel) hosted runners were retired by GitHub Actions in
+      # September 2025. Both halves of `--target universal2-apple-darwin`
+      # would need ORT linkage, so universal2 is no longer buildable.
+      # Users on legacy Intel macOS install the Python `fastembed`
+      # backend (the `dcc-mcp-core` Python wrapper falls back gracefully).
+      - name: Build wheel (macOS aarch64 abi3)
+        if: matrix.target == 'macos-abi3'
+        shell: bash
+        working-directory: pkg/dcc-mcp-core-semantic
+        run: |
+          maturin build --release \
+            --target aarch64-apple-darwin \
+            --features python-bindings,ext-module,abi3-py38 \
+            --out wheels
+
+      # ── Windows (abi3 / py37) ──
+      - name: Build wheel (Windows abi3)
+        if: matrix.target == 'windows-abi3'
+        shell: bash
+        working-directory: pkg/dcc-mcp-core-semantic
+        run: |
+          maturin build --release \
+            --features python-bindings,ext-module,abi3-py38 \
+            --out wheels
+
+      - name: Build wheel (Windows py37 non-abi3)
+        if: matrix.target == 'windows-py37'
+        shell: bash
+        working-directory: pkg/dcc-mcp-core-semantic
+        run: |
+          maturin build --release \
+            --features python-bindings,ext-module \
+            -i python3.7 \
+            --out wheels
+
+      - name: Upload semantic wheel artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: pkg/dcc-mcp-core-semantic/wheels/*.whl
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.release-please.outputs.tag_name }}
+          files: pkg/dcc-mcp-core-semantic/wheels/*.whl
+
+  # ── Build wheels only when release-please creates a release ──
+  build-wheels:
+    needs: [release-please]
+    if: needs.release-please.outputs.release_created == 'true'
+    uses: ./.github/workflows/build-wheels.yml
+    with:
+      # Release runs publish artefacts after PR CI has already enforced the
+      # test gates. Keep this path build-only so a tag can publish as soon as
+      # every wheel/binary is produced successfully.
+      test-wheel: ${{ 'false' }}
+      checkout-ref: ${{ needs.release-please.outputs.tag_name }}
+
+  publish-clawhub-skills:
+    needs: [release-please]
+    if: needs.release-please.outputs.release_created == 'true'
+    uses: ./.github/workflows/clawhub.yml
+    with:
+      checkout-ref: ${{ needs.release-please.outputs.tag_name }}
+      publish: true
+    secrets: inherit
+
+  # ── Publish to PyPI ──
+  publish:
+    needs: [release-please, build-wheels, build-binaries, build-semantic-wheels]
+    if: |
+      needs.release-please.outputs.release_created == 'true' &&
+      needs.build-wheels.result == 'success' &&
+      needs.build-binaries.result == 'success' &&
+      needs.build-semantic-wheels.result == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/dcc-mcp-core
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Validate release version
+        env:
+          RELEASE_VERSION: ${{ needs.release-please.outputs.version }}
+        run: |
+          python - <<'PY'
+          import os
+          import sys
+          import tomllib
+          from pathlib import Path
+
+          release_version = os.environ["RELEASE_VERSION"]
+          # Only the public-facing versions must match the release tag.
+          # Cargo.lock member-crate versions can lag behind for a single release
+          # cycle and are reconciled by release-please-lock-sync.yml; treating
+          # that drift as fatal here turned every minor lag into a missing
+          # PyPI/GitHub Release upload (see v0.15.2 post-mortem).
+          fatal = {
+              "pyproject.toml": tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"],
+              "Cargo.toml": tomllib.loads(Path("Cargo.toml").read_text())["workspace"]["package"]["version"],
+          }
+          mismatches = {src: ver for src, ver in fatal.items() if ver != release_version}
+          if mismatches:
+              for src, ver in sorted(mismatches.items()):
+                  print(f"::error::{src} has {ver}, expected {release_version}", file=sys.stderr)
+              sys.exit(1)
+
+          lock = tomllib.loads(Path("Cargo.lock").read_text())
+          for package in lock["package"]:
+              name = package["name"]
+              if name == "dcc-mcp-core" or name.startswith("dcc-mcp-"):
+                  ver = package["version"]
+                  if ver != release_version:
+                      print(f"::warning::Cargo.lock:{name} has {ver}, expected {release_version}")
+          PY
+
+      - name: Download dcc-mcp-core wheel artefacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: wheels-*
+          path: dist
+          merge-multiple: true
+
+      - name: Download dcc-mcp-server wheel artefacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: server-wheel-*
+          path: dist-server
+          merge-multiple: true
+
+      - name: Download dcc-mcp-core-semantic wheel artefacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: semantic-wheel-*
+          path: dist-semantic
+          merge-multiple: true
+
+      - name: List artefacts
+        run: |
+          echo "── dcc-mcp-core wheels ──"
+          ls -la dist/
+          echo "── dcc-mcp-server wheels ──"
+          ls -la dist-server/ 2>/dev/null || echo "(no server wheels — check build-binaries job)"
+          echo "── dcc-mcp-core-semantic wheels ──"
+          ls -la dist-semantic/ 2>/dev/null || echo "(no semantic wheels — check build-semantic-wheels job)"
+
+      # ── PyPI: dcc-mcp-core (existing trusted publisher) ──
+      # continue-on-error so that a PyPI failure (e.g. file already exists from
+      # a previous partial run) does not block the GitHub Release upload below.
+      - name: Upload dcc-mcp-core to PyPI
+        id: pypi-core
+        continue-on-error: true
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          verbose: true
+          print-hash: true
+          skip-existing: true
+
+      # ── PyPI: dcc-mcp-server (new — requires its own trusted publisher) ──
+      # Setup steps for the maintainer (one-time):
+      #   1. https://pypi.org/manage/account/publishing/
+      #   2. Add a new "pending publisher" with:
+      #      Owner = loonghao, Repo = dcc-mcp-core,
+      #      Workflow = release.yml, Environment = pypi, Project = dcc-mcp-server
+      # Until that's configured this step degrades gracefully — the
+      # wheels are still published to GitHub Release below.
+      - name: Upload dcc-mcp-server to PyPI
+        id: pypi-server
+        if: hashFiles('dist-server/*.whl') != ''
+        continue-on-error: true
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist-server
+          verbose: true
+          print-hash: true
+          skip-existing: true
+
+      # ── PyPI: dcc-mcp-core-semantic (companion wheel, issue #1395) ──
+      # Trusted publisher setup (one-time, identical pattern to dcc-mcp-server):
+      #   1. https://pypi.org/manage/account/publishing/
+      #   2. Add a new "pending publisher" with:
+      #      Owner = loonghao, Repo = dcc-mcp-core,
+      #      Workflow = release.yml, Environment = pypi,
+      #      Project = dcc-mcp-core-semantic
+      # Until that's configured this step degrades gracefully — the
+      # wheels are still published to GitHub Release below by the safety net.
+      - name: Upload dcc-mcp-core-semantic to PyPI
+        id: pypi-semantic
+        if: hashFiles('dist-semantic/*.whl') != ''
+        continue-on-error: true
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist-semantic
+          verbose: true
+          print-hash: true
+          skip-existing: true
+
+      # Always attempt the GitHub Release upload, even if PyPI failed; this is
+      # the user-visible artefact set and must be complete per release tag.
+      # Note: build-binaries / build-semantic-wheels already upload each
+      # per-platform wheel directly to the Release. This step is the safety
+      # net for the (unlikely) case where the per-platform upload was skipped.
+      - name: Upload wheels to GitHub Release (safety net)
+        if: always()
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.release-please.outputs.tag_name }}
+          files: |
+            dist/*
+            dist-server/*
+            dist-semantic/*
+
+      - name: Fail job if PyPI upload failed
+        if: steps.pypi-core.outcome == 'failure' || steps.pypi-server.outcome == 'failure' || steps.pypi-semantic.outcome == 'failure'
+        run: |
+          echo "::error::PyPI upload failed (core=${{ steps.pypi-core.outcome }} server=${{ steps.pypi-server.outcome }} semantic=${{ steps.pypi-semantic.outcome }}); GitHub Release artefacts were still uploaded above."
+          exit 1
