@@ -199,6 +199,48 @@ def _validate_resample_scalar_or_pair(value, param_name):
             )
 
 
+def _validate_monotonic_regular_coords(agg):
+    """Reject inputs whose spatial coords are not regular and monotonic.
+
+    ``resample`` assumes a regular, monotonic grid: ``calc_res`` derives
+    the input resolution from the full coordinate extent while the output
+    coordinates are rebuilt from first/last neighbour spacing. On an
+    irregular or non-monotonic grid those two views of "resolution"
+    disagree and the function silently produces inconsistent output
+    geometry (wrong width, coords spilling past the input range). Fail
+    fast here instead.
+
+    Only 1-D coords that actually exist on the spatial dims are checked;
+    an input without spatial coords is left to the existing code paths.
+    For 3-D inputs ``resample`` recurses per band, so this runs once per
+    band on identical coords -- a cheap, harmless repeat.
+    """
+    for dim in agg.dims[-2:]:
+        if dim not in agg.coords:
+            continue
+        vals = np.asarray(agg[dim].values, dtype=np.float64)
+        if vals.ndim != 1 or vals.size < 2:
+            continue
+        diffs = np.diff(vals)
+        if not (np.all(diffs > 0) or np.all(diffs < 0)):
+            raise ValueError(
+                f"resample(): `agg` coordinate {dim!r} must be strictly "
+                f"monotonic (consistently increasing or decreasing); "
+                f"resample only supports regular monotonic rasters"
+            )
+        # Allow floating-point jitter but reject genuinely uneven spacing
+        # (e.g. [0, 1, 4]). Compare every step to the mean step. The
+        # tolerance scales with the step size via ``rtol`` so it tracks
+        # the coordinate magnitude.
+        step = diffs.mean()
+        if not np.allclose(diffs, step, rtol=1e-5, atol=0.0):
+            raise ValueError(
+                f"resample(): `agg` coordinate {dim!r} must be evenly "
+                f"spaced; resample only supports regular monotonic "
+                f"rasters, not irregular grids"
+            )
+
+
 # -- Output-geometry helpers -------------------------------------------------
 
 def _output_shape(in_h, in_w, scale_y, scale_x):
@@ -981,6 +1023,24 @@ def _min_chunksize_for_scale(scale):
     return int(1.0 / scale) + 1
 
 
+def _downsample_radius(scale):
+    """Extra interp overlap (input pixels) needed for a downsample on one axis.
+
+    Block-centered mapping sends output pixel ``o`` to input coordinate
+    ``(o + 0.5) * (in/out) - 0.5``. When ``scale < 1`` (downsampling), the
+    source coordinate of an output pixel near a chunk seam can sit up to
+    about ``(in/out)/2`` input pixels beyond the chunk ``_output_chunks``
+    assigned it to. Returning ``ceil((1/scale)/2) + 1`` covers that
+    displacement (the ``+1`` absorbs the half-pixel coordinate offset and
+    the cumulative-rounding mismatch between ``_output_chunks`` and the
+    per-pixel mapping). Upsampling needs none, so return 0 for ``scale >= 1``.
+    """
+    import math
+    if scale >= 1.0:
+        return 0
+    return int(math.ceil((1.0 / scale) / 2.0)) + 1
+
+
 def _ensure_min_chunksize(data, min_size):
     """Rechunk *data* so every chunk is at least *min_size* pixels wide."""
     import math
@@ -1012,6 +1072,16 @@ def _run_dask_numpy(data, scale_y, scale_x, method):
         order = INTERP_METHODS[method]
         depth = _INTERP_DEPTH[method]
 
+        # When downsampling, an output pixel's block-centered source
+        # coordinate can land ~(in/out)/2 input pixels past the chunk
+        # _output_chunks assigned it to. _INTERP_DEPTH only covers the
+        # kernel stencil, not that displacement, so add the per-axis
+        # downsample radius. Without it the overlapped block is missing the
+        # true source row/column and map_coordinates clamps to the block
+        # edge, corrupting whole chunk-seam rows (issue #2610).
+        depth_y_base = depth + _downsample_radius(scale_y)
+        depth_x_base = depth + _downsample_radius(scale_x)
+
         # Clamp depth per axis so it never exceeds the array's total size on
         # that axis. dask.overlap rejects ``depth > sum(chunks)``, which would
         # otherwise blow up for inputs smaller than the cubic prefilter depth
@@ -1020,8 +1090,8 @@ def _run_dask_numpy(data, scale_y, scale_x, method):
         # keeping the full depth wherever the axis is large enough.
         global_in_h = int(sum(data.chunks[0]))
         global_in_w = int(sum(data.chunks[1]))
-        depth_y = min(depth, max(0, global_in_h - 1))
-        depth_x = min(depth, max(0, global_in_w - 1))
+        depth_y = min(depth_y_base, max(0, global_in_h - 1))
+        depth_x = min(depth_x_base, max(0, global_in_w - 1))
 
         min_size = max(2 * max(depth_y, depth_x) + 1,
                        _min_chunksize_for_scale(scale_y),
@@ -1108,11 +1178,16 @@ def _run_dask_cupy(data, scale_y, scale_x, method):
         order = INTERP_METHODS[method]
         depth = _INTERP_DEPTH[method]
 
+        # Add the per-axis downsample radius before clamping (see
+        # _run_dask_numpy and _downsample_radius for the rationale; #2610).
+        depth_y_base = depth + _downsample_radius(scale_y)
+        depth_x_base = depth + _downsample_radius(scale_x)
+
         # Clamp depth per axis (see _run_dask_numpy for rationale).
         global_in_h = int(sum(data.chunks[0]))
         global_in_w = int(sum(data.chunks[1]))
-        depth_y = min(depth, max(0, global_in_h - 1))
-        depth_x = min(depth, max(0, global_in_w - 1))
+        depth_y = min(depth_y_base, max(0, global_in_h - 1))
+        depth_x = min(depth_x_base, max(0, global_in_w - 1))
 
         min_size = max(2 * max(depth_y, depth_x) + 1,
                        _min_chunksize_for_scale(scale_y),
@@ -1230,7 +1305,21 @@ def _resolve_nodata(agg, nodata):
             f"nodata={nodata!r} is not representable in integer dtype "
             f"{agg.dtype}; pass an integer sentinel instead."
         )
-    return np.asarray(nodata).astype(agg.dtype).item()
+    # Integer inputs: an out-of-range sentinel wraps on cast (e.g. 999
+    # becomes 231 for uint8), masking the wrong cells. Require the value
+    # to round-trip exactly into agg.dtype before trusting the cast.
+    info = np.iinfo(agg.dtype)
+    nd_int = int(nodata)
+    # A sentinel beyond the dtype range either wraps (numpy fixed-width
+    # cast) or overflows the C-long conversion for very large Python
+    # ints. Range-check up front so both surface the same ValueError
+    # instead of a raw OverflowError.
+    if nd_int < info.min or nd_int > info.max:
+        raise ValueError(
+            f"nodata={nodata!r} is out of range for integer dtype "
+            f"{agg.dtype} (valid range [{info.min}, {info.max}])."
+        )
+    return np.asarray(nd_int).astype(agg.dtype).item()
 
 
 def _apply_nodata_mask(agg, nodata):
@@ -1257,6 +1346,27 @@ def _apply_nodata_mask(agg, nodata):
     if not is_float_input:
         agg = agg.astype(np.float32)
     return agg.where(mask)
+
+
+def _refresh_nodata_attrs(src_attrs, dst_attrs):
+    """Refresh nodata sentinels in *dst_attrs* to NaN.
+
+    Resample replaces sentinel pixels with NaN regardless of input
+    dtype. If the input declared a sentinel via ``_FillValue``,
+    ``nodatavals``, or the rasterio-style ``nodata`` attr, refresh each
+    one to NaN so the metadata matches the actual data. Keys absent on
+    the input stay absent. ``_resolve_nodata`` reads ``nodata`` as a
+    fallback, so a stale finite value there would silently mismatch the
+    masked data on any downstream consumer that trusts
+    ``attrs['nodata']``.
+    """
+    if '_FillValue' in src_attrs:
+        dst_attrs['_FillValue'] = float('nan')
+    if 'nodatavals' in src_attrs:
+        old = src_attrs['nodatavals']
+        dst_attrs['nodatavals'] = tuple(float('nan') for _ in old)
+    if 'nodata' in src_attrs:
+        dst_attrs['nodata'] = float('nan')
 
 
 @supports_dataset
@@ -1315,12 +1425,28 @@ def resample(
     Raises
     ------
     ValueError
-        If neither or both of ``scale_factor`` and ``target_resolution``
-        are given; if either is a sequence whose length is not 2; if any
-        component is zero, negative, NaN, or infinite; or if ``method``
-        is not in :data:`ALL_METHODS`.
+        If ``agg`` has a zero-length spatial dimension; if neither or both
+        of ``scale_factor`` and ``target_resolution`` are given; if either
+        is a sequence whose length is not 2; if any component is zero,
+        negative, NaN, or infinite; if ``method`` is not in
+        :data:`ALL_METHODS`; if the spatial coordinates of ``agg`` are
+        not strictly monotonic and evenly spaced (``resample`` only
+        supports regular monotonic rasters); or if ``nodata`` does not
+        round-trip exactly into an integer ``agg.dtype`` (a fractional
+        or out-of-range sentinel that would wrap on the cast).
     """
     _validate_raster(agg, func_name='resample', name='agg', ndim=(2, 3))
+    _validate_monotonic_regular_coords(agg)
+
+    # Reject empty rasters up front. A zero-length spatial axis would
+    # otherwise reach the output-coordinate rebuild and surface as an
+    # opaque IndexError (vals[0] on an empty coord array) rather than a
+    # clear, parameter-named error.
+    if agg.shape[-2] == 0 or agg.shape[-1] == 0:
+        raise ValueError(
+            f"resample(): `agg` must have non-empty spatial dimensions, "
+            f"got shape {tuple(agg.shape)}"
+        )
 
     if method not in ALL_METHODS:
         raise ValueError(
@@ -1390,7 +1516,13 @@ def resample(
         out.name = name
         # When nodata was applied, advertise NaN as the new sentinel.
         if has_nodata:
+            # Always advertise NaN via `_FillValue` -- this also covers the
+            # explicit `nodata=` case where the input carried no nodata
+            # attrs. Then refresh `nodata` / `nodatavals` for inputs that
+            # did declare them, so masked-to-NaN output never advertises a
+            # stale finite sentinel (the non-identity path does the same).
             out.attrs['_FillValue'] = float('nan')
+            _refresh_nodata_attrs(agg.attrs, out.attrs)
         return out
 
     # -- 3D: dispatch per band ----------------------------------------------
@@ -1422,6 +1554,7 @@ def resample(
         new_attrs.update(bands[0].attrs)  # res from per-band resample
         if has_nodata:
             new_attrs['_FillValue'] = float('nan')
+            _refresh_nodata_attrs(agg.attrs, new_attrs)
         result.attrs = new_attrs
         # Preserve the leading-dim coordinate if it was on the input.
         if leading_dim in agg.coords:
@@ -1491,21 +1624,7 @@ def resample(
             px, 0.0, x_edge_start, 0.0, py, y_edge_start,
         )
 
-    # Resample replaces sentinel pixels with NaN regardless of input
-    # dtype. If the input declared a sentinel via `_FillValue`,
-    # `nodatavals`, or the rasterio-style `nodata` attr, refresh each
-    # one to NaN so the metadata matches the actual data. Leave the
-    # keys absent when the input did not have them. `_resolve_nodata`
-    # reads `nodata` as a fallback, so we must refresh it too -- a
-    # stale finite value here would silently mismatch the masked data
-    # on any downstream consumer that trusts `attrs['nodata']`.
-    if '_FillValue' in agg.attrs:
-        new_attrs['_FillValue'] = float('nan')
-    if 'nodatavals' in agg.attrs:
-        old = agg.attrs['nodatavals']
-        new_attrs['nodatavals'] = tuple(float('nan') for _ in old)
-    if 'nodata' in agg.attrs:
-        new_attrs['nodata'] = float('nan')
+    _refresh_nodata_attrs(agg.attrs, new_attrs)
 
     # Carry across scalar (zero-dim) non-dim coords like rioxarray's
     # `spatial_ref` or a squeezed `time` / `band` selector. The

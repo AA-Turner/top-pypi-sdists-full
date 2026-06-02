@@ -1851,8 +1851,15 @@ async function loadUnpackedExtensionsIntoBrowser(
       } catch (error) {
         const detail = `${error.name}: ${error.message}`;
         extension.target_error = detail;
-        throw new Error(
-          `Failed to attach Chrome extension ${
+        if (!extension.manifest) {
+          const manifest = loadExtensionManifest(extension.unpacked_path);
+          if (manifest) {
+            extension.manifest = manifest;
+            extension.manifest_version = manifest.manifest_version || null;
+          }
+        }
+        console.warn(
+          `[⚠️] Could not attach Chrome extension ${
             extension.name || extension.unpacked_path
           } target after Extensions.loadUnpacked returned ${
             extension.id
@@ -2728,16 +2735,7 @@ async function setBrowserDownloadBehavior(options = {}) {
   // Keep the CDP session alive for the lifetime of the caller's browser/page
   // connection. Extension-driven downloads regress if we detach immediately
   // after configuring download behavior.
-  try {
-    await session.send("Browser.setDownloadBehavior", {
-      behavior: "allow",
-      downloadPath,
-    });
-    console.error(
-      `[+] Configured Chrome download directory via CDP: ${downloadPath}`
-    );
-    return true;
-  } catch (browserError) {
+  if (page) {
     try {
       await session.send("Page.setDownloadBehavior", {
         behavior: "allow",
@@ -2748,11 +2746,25 @@ async function setBrowserDownloadBehavior(options = {}) {
       );
       return true;
     } catch (pageError) {
-      throw new Error(
-        `Browser.setDownloadBehavior failed: ${browserError.message}; ` +
+      if (!browser) {
+        throw new Error(
           `Page.setDownloadBehavior failed: ${pageError.message}`
-      );
+        );
+      }
     }
+  }
+
+  try {
+    await session.send("Browser.setDownloadBehavior", {
+      behavior: "allow",
+      downloadPath,
+    });
+    console.error(
+      `[+] Configured Chrome download directory via CDP: ${downloadPath}`
+    );
+    return true;
+  } catch (browserError) {
+    throw new Error(`Browser.setDownloadBehavior failed: ${browserError.message}`);
   }
 }
 

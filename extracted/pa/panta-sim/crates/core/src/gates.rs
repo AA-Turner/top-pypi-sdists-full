@@ -69,6 +69,28 @@ pub enum Gate {
     /// + control 비트 자체에 e^(iγ) phase (즉 |1c⟩ amplitude 에 e^(iγ) 곱).
     CU(f64, f64, f64, f64),
     SWAP,
+    /// iSWAP — |01⟩↔|10⟩ 교환 + i phase.  초전도 큐비트 native.
+    /// 행렬: `[[1,0,0,0],[0,0,i,0],[0,i,0,0],[0,0,0,1]]`.
+    ISwap,
+    /// `RXX(θ) = exp(-iθ/2 · X⊗X)`.  이온트랩 (Mølmer–Sørensen) native.
+    Rxx(f64),
+    /// `RYY(θ) = exp(-iθ/2 · Y⊗Y)`.
+    Ryy(f64),
+    /// `RZZ(θ) = exp(-iθ/2 · Z⊗Z)` = `diag(e^{-iθ/2}, e^{iθ/2}, e^{iθ/2}, e^{-iθ/2})`.
+    /// QAOA / Ising 시뮬레이션의 기본 2-큐비트 회전.
+    Rzz(f64),
+    /// DCX — double-CNOT (`cx(a,b)·cx(b,a)`).  `[[1,0,0,0],[0,0,0,1],[0,1,0,0],[0,0,1,0]]`.
+    Dcx,
+    /// ECR — echoed cross-resonance (IBM Eagle/Falcon native).
+    /// `(1/√2)·[[0,1,0,i],[1,0,-i,0],[0,i,0,1],[-i,0,1,0]]`.
+    Ecr,
+    /// `RZX(θ) = exp(-iθ/2 · Z⊗X)`.  cross-resonance building block.
+    Rzx(f64),
+    /// `XXPlusYY(θ) = exp(-iθ/2 · (XX+YY)/2)` (β=0).  excitation-preserving
+    /// (|01⟩↔|10⟩ 부분공간 회전) — 화학/HEA ansatz.
+    XxPlusYy(f64),
+    /// `XXMinusYY(θ) = exp(-iθ/2 · (XX−YY)/2)` (β=0).  |00⟩↔|11⟩ 부분공간 회전.
+    XxMinusYy(f64),
     // 3큐비트 게이트
     Toffoli,
     Fredkin,
@@ -203,6 +225,115 @@ impl Gate {
             [zero(), zero(), one(), zero()],
             [zero(), one(), zero(), zero()],
             [zero(), zero(), zero(), one()],
+        ]
+    }
+
+    /// iSWAP 게이트의 4×4 유니터리 행렬.  `[[1,0,0,0],[0,0,i,0],[0,i,0,0],[0,0,0,1]]`.
+    pub fn iswap_matrix<F: Real>() -> Matrix4x4<F> {
+        let i = imag_unit::<F>();
+        [
+            [one(), zero(), zero(), zero()],
+            [zero(), zero(), i, zero()],
+            [zero(), i, zero(), zero()],
+            [zero(), zero(), zero(), one()],
+        ]
+    }
+
+    /// `RXX(θ) = cos(θ/2)·I - i·sin(θ/2)·X⊗X`.  대칭 게이트.
+    pub fn rxx_matrix<F: Real>(theta: f64) -> Matrix4x4<F> {
+        let c = real::<F>((theta / 2.0).cos());
+        let nis = complex::<F>(0.0, -(theta / 2.0).sin());
+        [
+            [c, zero(), zero(), nis],
+            [zero(), c, nis, zero()],
+            [zero(), nis, c, zero()],
+            [nis, zero(), zero(), c],
+        ]
+    }
+
+    /// `RYY(θ) = cos(θ/2)·I - i·sin(θ/2)·Y⊗Y`.  대칭 게이트.
+    pub fn ryy_matrix<F: Real>(theta: f64) -> Matrix4x4<F> {
+        let c = real::<F>((theta / 2.0).cos());
+        let is = complex::<F>(0.0, (theta / 2.0).sin());
+        let nis = complex::<F>(0.0, -(theta / 2.0).sin());
+        // Y⊗Y = [[0,0,0,-1],[0,0,1,0],[0,1,0,0],[-1,0,0,0]] → -i sin(θ/2)·(Y⊗Y).
+        [
+            [c, zero(), zero(), is],
+            [zero(), c, nis, zero()],
+            [zero(), nis, c, zero()],
+            [is, zero(), zero(), c],
+        ]
+    }
+
+    /// `RZZ(θ) = diag(e^{-iθ/2}, e^{iθ/2}, e^{iθ/2}, e^{-iθ/2})`.
+    pub fn rzz_matrix<F: Real>(theta: f64) -> Matrix4x4<F> {
+        let m = complex::<F>((theta / 2.0).cos(), -(theta / 2.0).sin()); // e^{-iθ/2}
+        let p = complex::<F>((theta / 2.0).cos(), (theta / 2.0).sin()); // e^{+iθ/2}
+        [
+            [m, zero(), zero(), zero()],
+            [zero(), p, zero(), zero()],
+            [zero(), zero(), p, zero()],
+            [zero(), zero(), zero(), m],
+        ]
+    }
+
+    /// DCX 게이트의 4×4 행렬.  `[[1,0,0,0],[0,0,0,1],[0,1,0,0],[0,0,1,0]]`.
+    pub fn dcx_matrix<F: Real>() -> Matrix4x4<F> {
+        [
+            [one(), zero(), zero(), zero()],
+            [zero(), zero(), zero(), one()],
+            [zero(), one(), zero(), zero()],
+            [zero(), zero(), one(), zero()],
+        ]
+    }
+
+    /// ECR 게이트의 4×4 행렬 (echoed cross-resonance).
+    pub fn ecr_matrix<F: Real>() -> Matrix4x4<F> {
+        let s = real::<F>(FRAC_1_SQRT2);
+        let is = complex::<F>(0.0, FRAC_1_SQRT2);
+        let nis = complex::<F>(0.0, -FRAC_1_SQRT2);
+        [
+            [zero(), s, zero(), is],
+            [s, zero(), nis, zero()],
+            [zero(), is, zero(), s],
+            [nis, zero(), s, zero()],
+        ]
+    }
+
+    /// `RZX(θ) = exp(-iθ/2 Z⊗X)`.
+    pub fn rzx_matrix<F: Real>(theta: f64) -> Matrix4x4<F> {
+        let c = real::<F>((theta / 2.0).cos());
+        let nis = complex::<F>(0.0, -(theta / 2.0).sin());
+        let is = complex::<F>(0.0, (theta / 2.0).sin());
+        [
+            [c, zero(), nis, zero()],
+            [zero(), c, zero(), is],
+            [nis, zero(), c, zero()],
+            [zero(), is, zero(), c],
+        ]
+    }
+
+    /// `XXPlusYY(θ)` (β=0) — `|01⟩↔|10⟩` 부분공간 회전.
+    pub fn xx_plus_yy_matrix<F: Real>(theta: f64) -> Matrix4x4<F> {
+        let c = real::<F>((theta / 2.0).cos());
+        let nis = complex::<F>(0.0, -(theta / 2.0).sin());
+        [
+            [one(), zero(), zero(), zero()],
+            [zero(), c, nis, zero()],
+            [zero(), nis, c, zero()],
+            [zero(), zero(), zero(), one()],
+        ]
+    }
+
+    /// `XXMinusYY(θ)` (β=0) — `|00⟩↔|11⟩` 부분공간 회전.
+    pub fn xx_minus_yy_matrix<F: Real>(theta: f64) -> Matrix4x4<F> {
+        let c = real::<F>((theta / 2.0).cos());
+        let nis = complex::<F>(0.0, -(theta / 2.0).sin());
+        [
+            [c, zero(), zero(), nis],
+            [zero(), one(), zero(), zero()],
+            [zero(), zero(), one(), zero()],
+            [nis, zero(), zero(), c],
         ]
     }
 

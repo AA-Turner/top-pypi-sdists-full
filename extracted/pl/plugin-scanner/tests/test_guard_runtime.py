@@ -4,15 +4,19 @@ from __future__ import annotations
 
 import argparse
 import builtins
+import hashlib
 import io
 import json
 import os
+import shlex
 import sqlite3
 import subprocess
 import sys
 import threading
 import urllib.error
 import urllib.request
+from base64 import urlsafe_b64decode
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import ClassVar
@@ -24,6 +28,7 @@ from codex_plugin_scanner.guard.adapters.base import HarnessContext
 from codex_plugin_scanner.guard.approvals import apply_approval_resolution
 from codex_plugin_scanner.guard.cli import commands as guard_commands_module
 from codex_plugin_scanner.guard.cli import render as guard_render_module
+from codex_plugin_scanner.guard.cli.oauth_client import generate_dpop_key_pair
 from codex_plugin_scanner.guard.cli.render import emit_guard_payload
 from codex_plugin_scanner.guard.config import GuardConfig, load_guard_config
 from codex_plugin_scanner.guard.consumer import artifact_hash, evaluate_detection
@@ -59,6 +64,20 @@ def _write_json(path: Path, payload: dict[str, object]) -> None:
 def _write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
+
+
+def _request_header(request: urllib.request.Request, name: str) -> str | None:
+    expected = name.lower()
+    for header_name, header_value in request.headers.items():
+        if header_name.lower() == expected:
+            return header_value
+    return None
+
+
+def _decode_jwt_segment(segment: str) -> dict[str, object]:
+    padding = "=" * (-len(segment) % 4)
+    decoded = urlsafe_b64decode(f"{segment}{padding}".encode("ascii"))
+    return json.loads(decoded.decode("utf-8"))
 
 
 def _isolate_git_config(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -15376,7 +15395,7 @@ def test_sync_receipts_preserves_batch_metadata_and_reuses_device_metadata(tmp_p
         "_guard_device_metadata",
         lambda _store: metadata_calls.append(True) or ("device-1", "MacBook Pro"),
     )
-    monkeypatch.setattr(guard_runner_module, "sync_pain_signals", lambda _store: 0)
+    monkeypatch.setattr(guard_runner_module, "sync_pain_signals", lambda _store, auth_context=None: 0)
 
     sync_payloads = iter(
         [
@@ -15599,6 +15618,312 @@ def test_sync_runtime_session_retries_once_after_read_timeout(tmp_path, monkeypa
     assert payload["runtime_session_id"] == "session-read-timeout"
 
 
+def test_sync_runtime_session_refreshes_oauth_access_token_and_rotates_refresh_token(tmp_path, monkeypatch):
+    store = GuardStore(tmp_path / "guard-home")
+    dpop_key_material = generate_dpop_key_pair()
+    store.set_oauth_local_credentials(
+        issuer="https://hol.org",
+        client_id="guard-local-daemon",
+        refresh_token="refresh-token-1",
+        dpop_private_key_pem=dpop_key_material.private_key_pem,
+        dpop_public_jwk=dpop_key_material.public_jwk,
+        dpop_public_jwk_thumbprint=dpop_key_material.public_jwk_thumbprint,
+        grant_id="grant-1",
+        machine_id="machine-1",
+        workspace_id="workspace-1",
+        now="2026-06-01T00:00:00+00:00",
+    )
+    captured_requests: list[urllib.request.Request] = []
+
+    class _Response:
+        def __init__(self, payload: dict[str, object]) -> None:
+            self._payload = payload
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self) -> bytes:
+            return json.dumps(self._payload).encode("utf-8")
+
+    def _fake_urlopen(request, timeout):
+        captured_requests.append(request)
+        if request.full_url == "https://hol.org/api/guard/oauth/token":
+            assert request.get_method() == "POST"
+            body = urllib.parse.parse_qs(request.data.decode("utf-8"))
+            assert body["grant_type"] == ["refresh_token"]
+            assert body["client_id"] == ["guard-local-daemon"]
+            assert body["refresh_token"] == ["refresh-token-1"]
+            assert isinstance(_request_header(request, "DPoP"), str) and _request_header(request, "DPoP")
+            return _Response(
+                {
+                    "access_token": "oauth-access-token-1",
+                    "refresh_token": "refresh-token-2",
+                    "token_type": "DPoP",
+                    "expires_in": 3600,
+                }
+            )
+        assert request.full_url == "https://hol.org/api/guard/runtime/sessions/sync"
+        assert _request_header(request, "Authorization") == "Bearer oauth-access-token-1"
+        assert isinstance(_request_header(request, "DPoP"), str) and _request_header(request, "DPoP")
+        return _Response(
+            {
+                "generatedAt": "2026-06-01T00:00:10+00:00",
+                "items": [{"sessionId": "session-oauth"}],
+            }
+        )
+
+    monkeypatch.setattr(guard_runner_module.urllib.request, "urlopen", _fake_urlopen)
+
+    payload = guard_runner_module.sync_runtime_session(
+        store,
+        session={
+            "session_id": "session-oauth",
+            "harness": "codex",
+            "surface": "cli",
+            "status": "active",
+            "client_name": "Codex",
+            "client_title": "Codex CLI",
+            "client_version": "1.0.0",
+            "workspace": "prod",
+            "capabilities": ["chat"],
+            "started_at": "2026-06-01T00:00:00+00:00",
+            "updated_at": "2026-06-01T00:00:00+00:00",
+            "operations": [],
+        },
+    )
+
+    credentials = store.get_oauth_local_credentials()
+
+    assert [request.full_url for request in captured_requests] == [
+        "https://hol.org/api/guard/oauth/token",
+        "https://hol.org/api/guard/runtime/sessions/sync",
+    ]
+    assert payload["runtime_session_id"] == "session-oauth"
+    assert credentials is not None
+    assert credentials["refresh_token"] == "refresh-token-2"
+
+
+def test_sign_guard_dpop_proof_sets_access_token_hash_claim() -> None:
+    dpop_key_material = generate_dpop_key_pair()
+    access_token = "oauth-access-token-1"
+
+    proof = guard_runner_module._sign_guard_dpop_proof(
+        request_url="https://hol.org/api/guard/runtime/sessions/sync",
+        method="POST",
+        dpop_key_material=dpop_key_material,
+        access_token=access_token,
+        now=datetime(2026, 6, 1, tzinfo=timezone.utc),
+    )
+
+    claims = _decode_jwt_segment(proof.split(".")[1])
+
+    expected_ath = guard_runner_module._base64url_encode(hashlib.sha256(access_token.encode("ascii")).digest())
+
+    assert claims["ath"] == expected_ath
+
+
+def test_sync_receipts_uses_distinct_dpop_proofs_per_batch(tmp_path, monkeypatch):
+    store = GuardStore(tmp_path / "guard-home")
+    dpop_key_material = generate_dpop_key_pair()
+    store.set_oauth_local_credentials(
+        issuer="https://hol.org",
+        client_id="guard-local-daemon",
+        refresh_token="refresh-token-1",
+        dpop_private_key_pem=dpop_key_material.private_key_pem,
+        dpop_public_jwk=dpop_key_material.public_jwk,
+        dpop_public_jwk_thumbprint=dpop_key_material.public_jwk_thumbprint,
+        grant_id="grant-1",
+        machine_id="machine-1",
+        workspace_id="workspace-1",
+        now="2026-06-01T00:00:00+00:00",
+    )
+    for index in range(51):
+        store.add_receipt(
+            GuardReceipt(
+                receipt_id=f"receipt-{index}",
+                timestamp="2026-06-01T00:00:00+00:00",
+                harness="codex",
+                artifact_id=f"artifact-{index}",
+                artifact_hash=f"sha256:{index:064x}",
+                policy_decision="review",
+                capabilities_summary="requests file write",
+                changed_capabilities=("fs_write",),
+                provenance_summary="local codex workspace",
+                artifact_name=f"artifact-{index}",
+                source_scope="workspace",
+            )
+        )
+    token_requests: list[urllib.request.Request] = []
+    receipt_dpop_headers: list[str] = []
+
+    class _Response:
+        def __init__(self, payload: dict[str, object]) -> None:
+            self._payload = payload
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self) -> bytes:
+            return json.dumps(self._payload).encode("utf-8")
+
+    def _fake_urlopen(request, timeout):
+        if request.full_url == "https://hol.org/api/guard/oauth/token":
+            token_requests.append(request)
+            return _Response(
+                {
+                    "access_token": "oauth-access-token-1",
+                    "refresh_token": "refresh-token-1",
+                    "token_type": "Bearer",
+                    "expires_in": 3600,
+                }
+            )
+        dpop_header = _request_header(request, "DPoP")
+        assert isinstance(dpop_header, str) and dpop_header
+        receipt_dpop_headers.append(dpop_header)
+        assert _request_header(request, "Authorization") == "Bearer oauth-access-token-1"
+        payload = json.loads(request.data.decode("utf-8"))
+        if "receipts" not in payload:
+            return _Response(
+                {
+                    "syncedAt": "2026-06-01T00:00:10+00:00",
+                    "accepted": len(payload.get("events", [])),
+                    "events": len(payload.get("events", [])),
+                }
+            )
+        return _Response(
+            {
+                "syncedAt": "2026-06-01T00:00:10+00:00",
+                "receiptsStored": len(payload["receipts"]),
+                "advisories": [],
+                "policy": {},
+                "alertPreferences": {},
+                "teamPolicyPack": {},
+                "exceptions": [],
+            }
+        )
+
+    monkeypatch.setattr(guard_runner_module.urllib.request, "urlopen", _fake_urlopen)
+
+    payload = guard_runner_module.sync_receipts(store)
+
+    assert len(token_requests) == 1
+    assert len(receipt_dpop_headers) >= 2
+    assert receipt_dpop_headers[0] != receipt_dpop_headers[1]
+    assert payload["receipts_stored"] == 51
+
+
+def test_sync_pain_signals_raises_when_oauth_refresh_is_revoked(tmp_path, monkeypatch):
+    store = GuardStore(tmp_path / "guard-home")
+    dpop_key_material = generate_dpop_key_pair()
+    store.set_oauth_local_credentials(
+        issuer="https://hol.org",
+        client_id="guard-local-daemon",
+        refresh_token="refresh-token-1",
+        dpop_private_key_pem=dpop_key_material.private_key_pem,
+        dpop_public_jwk=dpop_key_material.public_jwk,
+        dpop_public_jwk_thumbprint=dpop_key_material.public_jwk_thumbprint,
+        grant_id="grant-1",
+        machine_id="machine-1",
+        workspace_id="workspace-1",
+        now="2026-06-01T00:00:00+00:00",
+    )
+
+    class _ErrorResponse:
+        def read(self) -> bytes:
+            return json.dumps(
+                {
+                    "error": "invalid_grant",
+                    "error_description": "refresh token revoked",
+                }
+            ).encode("utf-8")
+
+        def close(self) -> None:
+            return None
+
+    def _fake_urlopen(request, timeout):
+        raise urllib.error.HTTPError(
+            request.full_url,
+            400,
+            "Bad Request",
+            hdrs=None,
+            fp=_ErrorResponse(),
+        )
+
+    monkeypatch.setattr(guard_runner_module.urllib.request, "urlopen", _fake_urlopen)
+
+    with pytest.raises(guard_runner_module.GuardSyncAuthorizationExpiredError) as error:
+        guard_runner_module.sync_pain_signals(store)
+
+    assert "hol-guard connect" in str(error.value)
+
+
+def test_sync_runtime_session_treats_token_endpoint_503_as_retryable_error(tmp_path, monkeypatch):
+    store = GuardStore(tmp_path / "guard-home")
+    dpop_key_material = generate_dpop_key_pair()
+    store.set_oauth_local_credentials(
+        issuer="https://hol.org",
+        client_id="guard-local-daemon",
+        refresh_token="refresh-token-1",
+        dpop_private_key_pem=dpop_key_material.private_key_pem,
+        dpop_public_jwk=dpop_key_material.public_jwk,
+        dpop_public_jwk_thumbprint=dpop_key_material.public_jwk_thumbprint,
+        grant_id="grant-1",
+        machine_id="machine-1",
+        workspace_id="workspace-1",
+        now="2026-06-01T00:00:00+00:00",
+    )
+
+    class _ErrorResponse:
+        def read(self) -> bytes:
+            return json.dumps(
+                {
+                    "error": "temporarily_unavailable",
+                    "error_description": "oauth upstream down",
+                }
+            ).encode("utf-8")
+
+        def close(self) -> None:
+            return None
+
+    def _fake_urlopen(request, timeout):
+        raise urllib.error.HTTPError(
+            request.full_url,
+            503,
+            "Service Unavailable",
+            hdrs=None,
+            fp=_ErrorResponse(),
+        )
+
+    monkeypatch.setattr(guard_runner_module.urllib.request, "urlopen", _fake_urlopen)
+
+    with pytest.raises(RuntimeError, match="oauth upstream down") as error:
+        guard_runner_module.sync_runtime_session(
+            store,
+            session={
+                "session_id": "session-oauth",
+                "harness": "codex",
+                "surface": "cli",
+                "status": "active",
+                "client_name": "Codex",
+                "client_title": "Codex CLI",
+                "client_version": "1.0.0",
+                "workspace": "prod",
+                "capabilities": ["chat"],
+                "started_at": "2026-06-01T00:00:00+00:00",
+                "updated_at": "2026-06-01T00:00:00+00:00",
+                "operations": [],
+            },
+        )
+
+    assert not isinstance(error.value, guard_runner_module.GuardSyncAuthorizationExpiredError)
+
+
 def test_codex_read_only_source_inspection_rejects_globbed_targets(tmp_path: Path) -> None:
     workspace_dir = tmp_path / "workspace"
     (workspace_dir / "src").mkdir(parents=True)
@@ -15711,6 +16036,127 @@ def test_codex_read_only_source_inspection_preserves_pipelines_in_safe_chains(tm
         command,
         cwd=workspace_dir,
     )
+
+
+def test_codex_read_only_source_inspection_allows_cd_then_bounded_secret_term_search(tmp_path: Path) -> None:
+    repo_root = tmp_path / "CascadeProjects" / "hashgraph-online"
+    workspace_dir = repo_root / "hol-points-portal" / ".worktrees" / "guard-auth-phase-r-removal"
+    source_file = workspace_dir / "src" / "guard-auth.ts"
+    live_prefix = "guard" + "_live" + "_"
+    _write_text(
+        source_file,
+        "export const legacy_runtime_material_rejected = 'agent_token field name only';\n",
+    )
+    pattern = (
+        f"{live_prefix}|service_principal|agent_token|migration_failure|"
+        "legacy_runtime_material_rejected|legacy_issuance_attempt_rejected|legacy.*report|reauthorization"
+    )
+
+    command = (
+        f"cd {shlex.quote(str(workspace_dir))} && "
+        f"rg -n {shlex.quote(pattern)} src app __tests__ docs -g '!**/*.map' | sed -n '1,260p'"
+    )
+
+    assert guard_commands_module._codex_command_is_read_only_source_inspection(
+        command,
+        cwd=repo_root,
+        home_dir=tmp_path,
+    )
+    artifact = guard_commands_module._codex_post_tool_output_artifact(
+        payload={
+            "tool_name": "Bash",
+            "tool_input": {"command": command},
+            "tool_response": {
+                "stdout": (
+                    "src/guard-auth.ts:1:"
+                    "export const legacy_runtime_material_rejected = 'agent_token field name only';\n"
+                )
+            },
+        },
+        config_path=str(repo_root / ".codex" / "config.toml"),
+        source_scope="workspace",
+        cwd=repo_root,
+        home_dir=tmp_path,
+    )
+    assert artifact is None
+
+
+def test_codex_read_only_source_inspection_rejects_cd_parent_escape(tmp_path: Path) -> None:
+    repo_root = tmp_path / "CascadeProjects" / "hashgraph-online"
+    workspace_dir = repo_root / "hol-points-portal" / ".worktrees" / "guard-auth-phase-r-removal"
+    outside_dir = tmp_path / "CascadeProjects" / "outside"
+    _write_text(workspace_dir / "src" / "inside.ts", "export const token_label = 'field name only';\n")
+    _write_text(outside_dir / "src" / "outside.ts", "export const token_label = 'field name only';\n")
+
+    command = (
+        f"cd {shlex.quote(str(workspace_dir / '..' / '..' / '..' / '..' / 'outside'))} && "
+        "rg -n token_label src | sed -n '1,40p'"
+    )
+
+    assert not guard_commands_module._codex_command_is_read_only_source_inspection(
+        command,
+        cwd=repo_root,
+        home_dir=tmp_path,
+    )
+
+
+def test_codex_read_only_source_inspection_allows_tilde_worktree_targets(tmp_path: Path) -> None:
+    repo_root = tmp_path / "CascadeProjects" / "hashgraph-online"
+    workspace_dir = repo_root / "hol-points-portal" / ".worktrees" / "guard-auth-phase-r-default-surfaces"
+    _write_text(
+        workspace_dir / "app" / "agent-token-detail.tsx",
+        "export type AgentTokenDetail = { tokenId: string };\n",
+    )
+    _write_text(workspace_dir / "__tests__" / "agent-token-detail.test.ts", "expect(onRotated).toHaveBeenCalled();\n")
+
+    command = (
+        "rg -n \"onRotated=|onRotated:|onRotated\\)|AgentTokenDetail\" "
+        "~/CascadeProjects/hashgraph-online/hol-points-portal/.worktrees/guard-auth-phase-r-default-surfaces/app "
+        "~/CascadeProjects/hashgraph-online/hol-points-portal/.worktrees/guard-auth-phase-r-default-surfaces/__tests__"
+    )
+
+    assert guard_commands_module._codex_command_is_read_only_source_inspection(
+        command,
+        cwd=repo_root,
+        home_dir=tmp_path,
+    )
+    artifact = guard_commands_module._codex_post_tool_output_artifact(
+        payload={
+            "tool_name": "Bash",
+            "tool_input": {"command": command},
+            "tool_response": {
+                "stdout": (
+                    "app/agent-token-detail.tsx:1:export type AgentTokenDetail = { tokenId: string };\n"
+                    "__tests__/agent-token-detail.test.ts:1:expect(onRotated).toHaveBeenCalled();\n"
+                )
+            },
+        },
+        config_path=str(repo_root / ".codex" / "config.toml"),
+        source_scope="workspace",
+        cwd=repo_root,
+        home_dir=tmp_path,
+    )
+    assert artifact is None
+
+
+def test_codex_read_only_source_inspection_still_blocks_value_like_secret_output(tmp_path: Path) -> None:
+    workspace_dir = tmp_path / "workspace"
+    _write_text(workspace_dir / "src" / "config.ts", "export const label = 'token';\n")
+    command = "rg -n \"token\" src | sed -n '1,40p'"
+
+    artifact = guard_commands_module._codex_post_tool_output_artifact(
+        payload={
+            "tool_name": "Bash",
+            "tool_input": {"command": command},
+            "tool_response": {
+                "stdout": "src/config.ts:1:export const token = 'ghp_123456789012345678901234567890123456';\n"
+            },
+        },
+        config_path=str(workspace_dir / ".codex" / "config.toml"),
+        source_scope="workspace",
+        cwd=workspace_dir,
+    )
+    assert artifact is not None
 
 
 def test_codex_read_only_source_inspection_allows_git_diff_with_bounded_sed(

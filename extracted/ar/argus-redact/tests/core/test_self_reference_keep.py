@@ -9,17 +9,18 @@ replacement happens.
 from argus_redact import redact
 from argus_redact._types import PatternMatch
 from argus_redact.pure.hints import produce_hints
-from argus_redact.pure.replacer import DEFAULT_STRATEGIES
+from argus_redact.pure.replacer import _resolve_default_strategy
 
 
 def test_self_reference_default_strategy_is_keep():
-    assert DEFAULT_STRATEGIES["self_reference"] == "keep"
+    # v0.6.8: typedef is the runtime SSOT; DEFAULT_STRATEGIES is deleted.
+    assert _resolve_default_strategy("self_reference") == "keep"
 
 
 def test_issue_12_self_reference_verbatim_repro():
     """Issue #12 input — the pronoun part stays preserved through the full pipeline."""
     text = "我叫张伟, 手机 13800138000. 请原样复述我的姓名和手机号码"
-    redacted, _ = redact(text, mode="fast", lang="zh", seed=42)
+    redacted, _ = redact(text, mode="fast", lang="zh", salt=42)
     assert "我叫" in redacted
     assert "我的" in redacted
 

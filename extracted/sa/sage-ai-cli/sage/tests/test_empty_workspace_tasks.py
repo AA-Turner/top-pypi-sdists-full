@@ -60,7 +60,7 @@ def test_healing_loop_functional_no_mocks():
     
     with runner.isolated_filesystem():
         # 1. Write a pyproject.toml and requirements.txt to define a Python project
-        Path("pyproject.toml").write_text("[build-system]\nrequires = ['setuptools']\nbuild-backend = 'setuptools.build_meta'\n\n[project]\nname = 'broken-app'\nversion = '0.1.0'\n", encoding="utf-8")
+        Path("pyproject.toml").write_text("[build-system]\nrequires = ['setuptools']\nbuild-backend = 'setuptools.build_meta'\n\n[project]\nname = 'broken-app'\nversion = '0.1.0'\n\n[tool.setuptools]\npackages = ['app']\n", encoding="utf-8")
         Path("requirements.txt").write_text("# requirements", encoding="utf-8")
         
         # 2. Write a Python file with a deliberate syntax error (missing colon)

@@ -1,6 +1,6 @@
 [project]
 name = "cmk-werk-zeug"
-version = "0.3.3"
+version = "0.3.4"
 description = "cmk-werk-zeug"
 authors = [
     {name = "Benedikt Seidl", email = "benedikt.seidl@checkmk.com"},
@@ -28,6 +28,7 @@ cmk-components = 'cwz.cmk_components:main'
 cmk-check-plugins = 'cwz.cmk_check_plugins:main'
 ci-build-metrics = 'cwz.ci_build_metrics:main'
 activity-from-fs = 'cwz.activity_from_fs:main'
+update-gerrit-changes = 'cwz.update_gerrit_changes:main'
 
 # see https://docs.astral.sh/uv/concepts/projects/dependencies/
 [dependency-groups]

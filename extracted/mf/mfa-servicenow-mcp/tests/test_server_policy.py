@@ -66,7 +66,9 @@ def test_list_tools_injects_confirm_field_for_mutating_tools(
     confirm_schema = manage_incident_schema["properties"]["confirm"]
 
     assert confirm_schema["enum"] == ["approve"]
-    assert confirm_schema["description"] == "Pass 'approve' for writes."
+    # No description: field name + single-value enum + the tool description's
+    # "(confirm='approve')" suffix are self-explanatory (token saving).
+    assert "description" not in confirm_schema
     assert "confirm" in manage_incident_schema["required"]
     assert "confirm='approve'" in (tools["manage_incident"].description or "")
 
@@ -242,6 +244,14 @@ def test_list_instances_reports_active_and_hosts(monkeypatch: pytest.MonkeyPatch
     assert {item["alias"] for item in payload["instances"]} == {"dev", "test"}
     assert any(item["host"] == "test.service-now.com" for item in payload["instances"])
     assert "read_other_instance" in payload
+    # Explicit per-instance auth state surfaced (no-network, deterministic).
+    for item in payload["instances"]:
+        assert item["auth_status"] in {
+            "credentials",
+            "session_cached",
+            "no_session",
+            "unknown",
+        }
 
 
 # ---------------------------------------------------------------------------

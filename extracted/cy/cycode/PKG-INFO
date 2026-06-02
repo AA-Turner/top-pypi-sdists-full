@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cycode
-Version: 3.15.3
+Version: 3.16.0
 Summary: Boost security in your dev lifecycle via SAST, SCA, Secrets & IaC scanning.
 License-Expression: MIT
 License-File: LICENCE
@@ -34,6 +34,8 @@ Requires-Dist: pyyaml (>=6.0,<7.0)
 Requires-Dist: requests (>=2.32.4,<3.0)
 Requires-Dist: rich (>=13.9.4,<14)
 Requires-Dist: tenacity (>=9.0.0,<9.1.0)
+Requires-Dist: tomli (>=2.0.0,<3.0.0) ; python_version < "3.11"
+Requires-Dist: tomli-w (>=1.0.0,<2.0.0)
 Requires-Dist: typer (>=0.15.3,<0.16.0)
 Requires-Dist: urllib3 (>=2.4.0,<3.0.0)
 Project-URL: Repository, https://github.com/cycodehq/cycode-cli

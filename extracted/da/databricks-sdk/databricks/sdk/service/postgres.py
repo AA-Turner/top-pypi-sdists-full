@@ -487,9 +487,6 @@ class CatalogCatalogStatus:
     
     Format: projects/{project_id}/branches/{branch_id}."""
 
-    catalog_id: Optional[str] = None
-    """Part of the resource name."""
-
     postgres_database: Optional[str] = None
     """The name of the Postgres database associated with the catalog."""
 
@@ -503,8 +500,6 @@ class CatalogCatalogStatus:
         body = {}
         if self.branch is not None:
             body["branch"] = self.branch
-        if self.catalog_id is not None:
-            body["catalog_id"] = self.catalog_id
         if self.postgres_database is not None:
             body["postgres_database"] = self.postgres_database
         if self.project is not None:
@@ -516,8 +511,6 @@ class CatalogCatalogStatus:
         body = {}
         if self.branch is not None:
             body["branch"] = self.branch
-        if self.catalog_id is not None:
-            body["catalog_id"] = self.catalog_id
         if self.postgres_database is not None:
             body["postgres_database"] = self.postgres_database
         if self.project is not None:
@@ -529,7 +522,6 @@ class CatalogCatalogStatus:
         """Deserializes the CatalogCatalogStatus from a dictionary."""
         return cls(
             branch=d.get("branch", None),
-            catalog_id=d.get("catalog_id", None),
             postgres_database=d.get("postgres_database", None),
             project=d.get("project", None),
         )
@@ -2866,9 +2858,6 @@ class SyncedTableSyncedTableStatus:
     provisioning_phase: Optional[ProvisioningPhase] = None
     """The current phase of the data synchronization pipeline."""
 
-    synced_table_id: Optional[str] = None
-    """Part of the resource name."""
-
     unity_catalog_provisioning_state: Optional[ProvisioningInfoState] = None
     """The provisioning state of the synced table entity in Unity Catalog."""
 
@@ -2893,8 +2882,6 @@ class SyncedTableSyncedTableStatus:
             body["project"] = self.project
         if self.provisioning_phase is not None:
             body["provisioning_phase"] = self.provisioning_phase.value
-        if self.synced_table_id is not None:
-            body["synced_table_id"] = self.synced_table_id
         if self.unity_catalog_provisioning_state is not None:
             body["unity_catalog_provisioning_state"] = self.unity_catalog_provisioning_state.value
         return body
@@ -2920,8 +2907,6 @@ class SyncedTableSyncedTableStatus:
             body["project"] = self.project
         if self.provisioning_phase is not None:
             body["provisioning_phase"] = self.provisioning_phase
-        if self.synced_table_id is not None:
-            body["synced_table_id"] = self.synced_table_id
         if self.unity_catalog_provisioning_state is not None:
             body["unity_catalog_provisioning_state"] = self.unity_catalog_provisioning_state
         return body
@@ -2939,7 +2924,6 @@ class SyncedTableSyncedTableStatus:
             pipeline_id=d.get("pipeline_id", None),
             project=d.get("project", None),
             provisioning_phase=_enum(d, "provisioning_phase", ProvisioningPhase),
-            synced_table_id=d.get("synced_table_id", None),
             unity_catalog_provisioning_state=_enum(d, "unity_catalog_provisioning_state", ProvisioningInfoState),
         )
 
@@ -2994,7 +2978,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("POST", f"/api/2.0/postgres/{parent}/branches", query=query, body=body, headers=headers)
         operation = Operation.from_dict(res)
@@ -3022,7 +3006,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("POST", "/api/2.0/postgres/catalogs", query=query, body=body, headers=headers)
         operation = Operation.from_dict(res)
@@ -3062,7 +3046,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("POST", f"/api/2.0/postgres/{parent}/databases", query=query, body=body, headers=headers)
         operation = Operation.from_dict(res)
@@ -3101,7 +3085,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("POST", f"/api/2.0/postgres/{parent}/endpoints", query=query, body=body, headers=headers)
         operation = Operation.from_dict(res)
@@ -3132,7 +3116,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("POST", "/api/2.0/postgres/projects", query=query, body=body, headers=headers)
         operation = Operation.from_dict(res)
@@ -3168,7 +3152,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("POST", f"/api/2.0/postgres/{parent}/roles", query=query, body=body, headers=headers)
         operation = Operation.from_dict(res)
@@ -3204,7 +3188,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("POST", "/api/2.0/postgres/synced_tables", query=query, body=body, headers=headers)
         operation = Operation.from_dict(res)
@@ -3230,7 +3214,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("DELETE", f"/api/2.0/postgres/{name}", query=query, headers=headers)
         operation = Operation.from_dict(res)
@@ -3253,7 +3237,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("DELETE", f"/api/2.0/postgres/{name}", headers=headers)
         operation = Operation.from_dict(res)
@@ -3275,7 +3259,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("DELETE", f"/api/2.0/postgres/{name}", headers=headers)
         operation = Operation.from_dict(res)
@@ -3297,7 +3281,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("DELETE", f"/api/2.0/postgres/{name}", headers=headers)
         operation = Operation.from_dict(res)
@@ -3323,7 +3307,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("DELETE", f"/api/2.0/postgres/{name}", query=query, headers=headers)
         operation = Operation.from_dict(res)
@@ -3353,7 +3337,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("DELETE", f"/api/2.0/postgres/{name}", query=query, headers=headers)
         operation = Operation.from_dict(res)
@@ -3375,7 +3359,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("DELETE", f"/api/2.0/postgres/{name}", headers=headers)
         operation = Operation.from_dict(res)
@@ -3407,7 +3391,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("POST", "/api/2.0/postgres/credentials", body=body, headers=headers)
         return DatabaseCredential.from_dict(res)
@@ -3427,7 +3411,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", f"/api/2.0/postgres/{name}", headers=headers)
         return Branch.from_dict(res)
@@ -3449,7 +3433,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", f"/api/2.0/postgres/{name}", headers=headers)
         return Catalog.from_dict(res)
@@ -3470,7 +3454,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", f"/api/2.0/postgres/{name}", headers=headers)
         return Database.from_dict(res)
@@ -3492,7 +3476,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", f"/api/2.0/postgres/{name}", headers=headers)
         return Endpoint.from_dict(res)
@@ -3512,7 +3496,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", f"/api/2.0/postgres/{name}", headers=headers)
         return Operation.from_dict(res)
@@ -3532,7 +3516,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", f"/api/2.0/postgres/{name}", headers=headers)
         return Project.from_dict(res)
@@ -3554,7 +3538,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", f"/api/2.0/postgres/{name}", headers=headers)
         return Role.from_dict(res)
@@ -3575,7 +3559,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", f"/api/2.0/postgres/{name}", headers=headers)
         return SyncedTable.from_dict(res)
@@ -3616,7 +3600,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         while True:
             json = self._api.do("GET", f"/api/2.0/postgres/{parent}/branches", query=query, headers=headers)
@@ -3654,7 +3638,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         while True:
             json = self._api.do("GET", f"/api/2.0/postgres/{parent}/databases", query=query, headers=headers)
@@ -3692,7 +3676,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         while True:
             json = self._api.do("GET", f"/api/2.0/postgres/{parent}/endpoints", query=query, headers=headers)
@@ -3732,7 +3716,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         while True:
             json = self._api.do("GET", "/api/2.0/postgres/projects", query=query, headers=headers)
@@ -3769,7 +3753,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         while True:
             json = self._api.do("GET", f"/api/2.0/postgres/{parent}/roles", query=query, headers=headers)
@@ -3796,7 +3780,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("POST", f"/api/2.0/postgres/{name}/undelete", headers=headers)
         operation = Operation.from_dict(res)
@@ -3818,7 +3802,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("POST", f"/api/2.0/postgres/{name}/undelete", headers=headers)
         operation = Operation.from_dict(res)
@@ -3853,7 +3837,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("PATCH", f"/api/2.0/postgres/{name}", query=query, body=body, headers=headers)
         operation = Operation.from_dict(res)
@@ -3887,7 +3871,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("PATCH", f"/api/2.0/postgres/{name}", query=query, body=body, headers=headers)
         operation = Operation.from_dict(res)
@@ -3922,7 +3906,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("PATCH", f"/api/2.0/postgres/{name}", query=query, body=body, headers=headers)
         operation = Operation.from_dict(res)
@@ -3954,7 +3938,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("PATCH", f"/api/2.0/postgres/{name}", query=query, body=body, headers=headers)
         operation = Operation.from_dict(res)
@@ -3989,7 +3973,7 @@ class PostgresAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("PATCH", f"/api/2.0/postgres/{name}", query=query, body=body, headers=headers)
         operation = Operation.from_dict(res)

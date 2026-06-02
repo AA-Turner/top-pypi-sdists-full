@@ -25,6 +25,7 @@ from rich.table import Table
 from rich.text import Text
 
 from ..client import APIClient, APIError
+from ..lab_hygiene import LabHygieneOptions, find_lab_workspace, run_lab_hygiene_preflight
 from ..utils import (
     PlainTyper,
     get_console,
@@ -970,6 +971,34 @@ def _resolve_push_environment_path(path: Optional[str], env_id: Optional[str]) -
     return Path(path or ".").resolve()
 
 
+def _emit_lab_hygiene_message(message: str) -> None:
+    console.print(message, markup=False)
+
+
+def _run_env_init_lab_hygiene_preflight() -> None:
+    workspace = find_lab_workspace(Path.cwd())
+    if workspace is None:
+        return
+    run_lab_hygiene_preflight(
+        LabHygieneOptions(fix=True),
+        workspace=workspace,
+        emit=_emit_lab_hygiene_message,
+    )
+
+
+def _run_env_push_lab_hygiene_preflight(env_path: Path) -> None:
+    workspace = find_lab_workspace(env_path)
+    if workspace is None:
+        return
+    result = run_lab_hygiene_preflight(
+        LabHygieneOptions(fix=False, fail_on_tracked=True),
+        workspace=workspace,
+        emit=_emit_lab_hygiene_message,
+    )
+    if result.exit_code != 0:
+        raise typer.Exit(result.exit_code)
+
+
 def _resolve_pull_environment_path(target: Optional[str], env_name: str) -> Path:
     """Resolve the local target directory for `prime env pull`."""
     if target:
@@ -1028,6 +1057,7 @@ def push(
 
     try:
         env_path = _resolve_push_environment_path(path, env_id)
+        _run_env_push_lab_hygiene_preflight(env_path)
 
         # Display upstream environment info if metadata exists
         display_upstream_environment_info(env_path)
@@ -1640,6 +1670,7 @@ def init(
     result = subprocess.run(command)
     if result.returncode != 0:
         raise typer.Exit(result.returncode)
+    _run_env_init_lab_hygiene_preflight()
 
 
 @app.command(
@@ -1719,7 +1750,7 @@ def pull(
             console.print(f"[red]Failed to get environment details: {e}[/red]")
             raise typer.Exit(1)
 
-        download_url = details.get("package_url")
+        download_url = _environment_package_download_url(details)
         if not download_url:
             console.print("[red]Error: No downloadable package found[/red]")
             raise typer.Exit(1)
@@ -1757,7 +1788,11 @@ def pull(
                         if client.api_key:
                             headers["Authorization"] = f"Bearer {client.api_key}"
                         with httpx.stream(
-                            "GET", download_url, headers=headers, timeout=60.0
+                            "GET",
+                            download_url,
+                            headers=headers,
+                            timeout=60.0,
+                            follow_redirects=True,
                         ) as resp:
                             resp.raise_for_status()
                             with open(tmp.name, "wb") as f:
@@ -1896,6 +1931,15 @@ def is_valid_url(url: str) -> bool:
         return all([result.scheme in ("http", "https"), result.netloc])
     except Exception:
         return False
+
+
+def _environment_package_download_url(details: Dict[str, Any]) -> Optional[str]:
+    """Return the platform package URL, preferring tracked public downloads."""
+    for key in ("tracked_package_url", "package_url"):
+        url = details.get(key)
+        if isinstance(url, str) and url:
+            return url
+    return None
 
 
 def normalize_package_name(name: str) -> str:
@@ -3026,7 +3070,7 @@ def _pull_and_build_private_env(
     _validate_path_component(name, "name")
     _validate_path_component(version, "version")
 
-    download_url = details.get("package_url")
+    download_url = _environment_package_download_url(details)
     if not download_url:
         raise ValueError("No downloadable package found for private environment")
 
@@ -3057,7 +3101,9 @@ def _pull_and_build_private_env(
             if client.api_key:
                 headers["Authorization"] = f"Bearer {client.api_key}"
 
-            with httpx.stream("GET", download_url, headers=headers, timeout=60.0) as resp:
+            with httpx.stream(
+                "GET", download_url, headers=headers, timeout=60.0, follow_redirects=True
+            ) as resp:
                 resp.raise_for_status()
                 with open(tmp.name, "wb") as f:
                     for chunk in resp.iter_bytes(chunk_size=8192):

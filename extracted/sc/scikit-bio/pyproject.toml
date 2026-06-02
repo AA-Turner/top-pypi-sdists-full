@@ -61,7 +61,7 @@ test = [
     "matplotlib"
 ]
 docs = [
-    "sphinx < 9",
+    "sphinx",
     "sphinx-design",
     "sphinx-copybutton",
     "pydata-sphinx-theme",
@@ -84,7 +84,7 @@ dev = [
     "coverage",
     "responses",
     "matplotlib",
-    "sphinx < 9",
+    "sphinx",
     "sphinx-design",
     "sphinx-copybutton",
     "pydata-sphinx-theme",
@@ -108,6 +108,7 @@ packages = ["skbio"]
 
 [tool.setuptools.package-data]
 "skbio.alignment.tests" = ["data/*"]
+"skbio.tree.tests" = ["data/*"]
 "skbio.diversity.alpha.tests" = ["data/qiime-191-tt/*"]
 "skbio.diversity.beta.tests" = ["data/qiime-191-tt/*"]
 "skbio.io.tests" = ["data/*"]
@@ -146,6 +147,9 @@ addopts = [
 doctest_optionflags = [
     "NORMALIZE_WHITESPACE",
     "IGNORE_EXCEPTION_DETAIL",
+]
+markers = [
+    "array_api: tests that exercise the Array API across backends",
 ]
 
 [tool.check-manifest]

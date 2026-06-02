@@ -481,6 +481,10 @@ class LiteLLMRoutes(enum.Enum):
         "/v1beta/interactions/{interaction_id}",
         "/interactions/{interaction_id}/cancel",
         "/v1beta/interactions/{interaction_id}/cancel",
+        # Google Managed Agents API
+        "/v1beta/agents",
+        "/v1beta/agents/{name}",
+        "/v1beta/agents/{name}/versions",
     ]
 
     apply_guardrail_routes = [
@@ -2357,6 +2361,30 @@ class ConfigGeneralSettings(LiteLLMPydanticObjectBase):
     database_connection_timeout: Optional[float] = Field(
         60, description="default timeout for a connection to the database"
     )
+    database_connect_timeout: Optional[float] = Field(
+        None,
+        description=(
+            "Prisma `connect_timeout` URL param (seconds). Bounds how long the "
+            "engine waits to establish a new connection before failing. Defaults "
+            "to Prisma's built-in value when unset."
+        ),
+    )
+    database_socket_timeout: Optional[float] = Field(
+        None,
+        description=(
+            "Prisma `socket_timeout` URL param (seconds). When set, an idle/slow "
+            "connection that has not produced data within this window is closed. "
+            "This is the main knob for capping idle DB connections from LiteLLM."
+        ),
+    )
+    database_extra_connection_params: Optional[Dict[str, Any]] = Field(
+        None,
+        description=(
+            "Escape hatch: extra key/value pairs appended verbatim to the Prisma "
+            "DATABASE_URL / DIRECT_URL query string (e.g. `sslmode`, `pgbouncer`, "
+            "`statement_cache_size`). Keys here override any default LiteLLM sets."
+        ),
+    )
     database_type: Optional[Literal["dynamo_db"]] = Field(
         None, description="to use dynamodb instead of postgres db"
     )
@@ -2713,13 +2741,16 @@ class UserAPIKeyAuth(
         1. Regular API keys from LiteLLM DB
         2. JWT tokens used for connecting to LiteLLM API
         """
-        if api_key.startswith("sk-"):
-            return hash_token(api_key)
+        normalized = api_key
+        if normalized[:7].lower() == "bearer ":
+            normalized = normalized[7:]
+        if normalized.startswith("sk-"):
+            return hash_token(normalized)
         from litellm.proxy.auth.handle_jwt import JWTHandler
 
-        if JWTHandler.is_jwt(token=api_key):
-            return f"hashed-jwt-{hash_token(token=api_key)}"
-        return api_key
+        if JWTHandler.is_jwt(token=normalized):
+            return f"hashed-jwt-{hash_token(token=normalized)}"
+        return normalized
 
     @classmethod
     def get_litellm_internal_health_check_user_api_key_auth(cls) -> "UserAPIKeyAuth":
@@ -4549,6 +4580,7 @@ class PrismaCompatibleUpdateDBModel(TypedDict, total=False):
     model_name: str
     litellm_params: str
     model_info: str
+    blocked: bool
     updated_at: str
     updated_by: str
 

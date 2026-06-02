@@ -6,12 +6,12 @@ import socket
 import ssl
 import sys
 import time
-from collections.abc import AsyncIterator, Callable, Iterator
+from collections.abc import AsyncIterator, Callable, Generator, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from hashlib import md5, sha1, sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any, Generator
+from typing import Any
 from unittest import mock
 from uuid import uuid4
 
@@ -95,6 +95,11 @@ def blockbuster(request: pytest.FixtureRequest) -> Iterator[None]:
             bb.functions[func].can_block_in(
                 "aiohttp/web_urldispatcher.py", "add_static"
             )
+        # save/load is not async, so we must allow this:
+        for func in ("io.TextIOWrapper.read", "io.BufferedReader.read"):
+            bb.functions[func].can_block_in("aiohttp/cookiejar.py", "load")
+        for func in ("io.TextIOWrapper.write", "io.BufferedWriter.write"):
+            bb.functions[func].can_block_in("aiohttp/cookiejar.py", "save")
         # Note: coverage.py uses locking internally which can cause false positives
         # in blockbuster when it instruments code. This is particularly problematic
         # on Windows where it can lead to flaky test failures.
@@ -158,6 +163,24 @@ def tls_certificate_pem_bytes(tls_certificate):
 def tls_certificate_fingerprint_sha256(tls_certificate_pem_bytes):
     tls_cert_der = ssl.PEM_cert_to_DER_cert(tls_certificate_pem_bytes.decode())
     return sha256(tls_cert_der).digest()
+
+
+@pytest.fixture
+async def loop_debug_mode() -> AsyncIterator[None]:
+    """Enable asyncio debug mode for the duration of the test.
+
+    Disables debug before teardown so PyPy 3.11's recursive
+    ``Task.__repr__``, triggered by the asyncio slow-callback
+    logger during connector close, does not surface a spurious
+    ``RuntimeWarning: coroutine ... was never awaited`` while
+    the ``aiohttp_client`` fixture finalizes.
+    """
+    loop = asyncio.get_running_loop()
+    loop.set_debug(True)
+    try:
+        yield
+    finally:
+        loop.set_debug(False)
 
 
 @pytest.fixture

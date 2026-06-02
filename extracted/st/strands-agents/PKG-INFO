@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strands-agents
-Version: 1.41.0
+Version: 1.42.0
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/sdk-python
 Project-URL: Bug Tracker, https://github.com/strands-agents/sdk-python/issues
@@ -139,7 +139,7 @@ Description-Content-Type: text/markdown
   </div>
 
   <h1>
-    Strands Agents
+    Strands Agents - Python SDK
   </h1>
 
   <h2>
@@ -159,7 +159,6 @@ Description-Content-Type: text/markdown
   <p>
     <a href="https://strandsagents.com/">Documentation</a>
     ◆ <a href="https://github.com/strands-agents/samples">Samples</a>
-    ◆ <a href="https://github.com/strands-agents/sdk-python">Python SDK</a>
     ◆ <a href="https://github.com/strands-agents/tools">Tools</a>
     ◆ <a href="https://github.com/strands-agents/agent-builder">Agent Builder</a>
     ◆ <a href="https://github.com/strands-agents/mcp-server">MCP Server</a>
@@ -441,9 +440,17 @@ For detailed guidance & examples, explore our documentation:
 - [API Reference](https://strandsagents.com/docs/api/python/strands.agent.agent/)
 - [Production & Deployment Guide](https://strandsagents.com/docs/user-guide/deploy/operating-agents-in-production/)
 
+## Development
+
+```bash
+pip install hatch
+hatch test        # run unit tests
+hatch fmt         # format & lint
+```
+
 ## Contributing ❤️
 
-We welcome contributions! See our [Contributing Guide](CONTRIBUTING.md) for details on:
+We welcome contributions! See our [Contributing Guide](https://github.com/strands-agents/sdk-python/blob/main/CONTRIBUTING.md) for details on:
 - Reporting bugs & features
 - Development setup
 - Contributing via Pull Requests
@@ -455,9 +462,8 @@ Come meet the Strands team and other users on [**Discord**](https://discord.com/
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](https://github.com/strands-agents/sdk-python/blob/main/LICENSE.APACHE) file for details.
 
 ## Security
 
-See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
-
+See [CONTRIBUTING](https://github.com/strands-agents/sdk-python/blob/main/CONTRIBUTING.md#security-issue-notifications) for more information.

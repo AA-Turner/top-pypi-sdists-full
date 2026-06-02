@@ -14,7 +14,7 @@ Why a dedicated subcommand (not a flag on `report run`):
     overloading the top-level CLI.
   - `efterlev report run` users who don't care about OSCAL shouldn't
     pay the OSCAL emit cost (deterministic but still work).
-  - Trestle (IBM) and RegScale CLI both use the subcommand pattern;
+  - Trestle (IBM) uses the subcommand pattern;
     this keeps the OSCAL-tool surface familiar to compliance users.
 
 OSCAL version: 1.0.4 (FedRAMP-current). When FedRAMP publishes

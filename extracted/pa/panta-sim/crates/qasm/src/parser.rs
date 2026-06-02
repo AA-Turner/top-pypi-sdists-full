@@ -13,11 +13,19 @@ use crate::lexer::{Tok, Token};
 pub struct Parser {
     tokens: Vec<Token>,
     pos: usize,
+    /// v0.6.9: 선언된 def 서브루틴의 파라미터 종류 시그니처.  호출
+    /// `name(classical_or_qubit, ...)` 의 각 인자를 expr / qarg 중 무엇으로
+    /// 파싱할지 결정하는 데 사용 (single-pass — def 는 호출 전에 선언돼야 함).
+    defs: std::collections::HashMap<String, Vec<crate::ast::DefParamKind>>,
 }
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
-        Self { tokens, pos: 0 }
+        Self {
+            tokens,
+            pos: 0,
+            defs: std::collections::HashMap::new(),
+        }
     }
 
     pub fn parse_program(mut self) -> QasmResult<Program> {
@@ -173,15 +181,18 @@ impl Parser {
             Tok::For => self.parse_for_loop(version),
             Tok::While => self.parse_while_loop(version),
             Tok::Switch => self.parse_switch(version),
-            Tok::Box_ => self.parse_unsupported_v3("box"),
-            Tok::Def => self.parse_unsupported_v3("def"),
+            Tok::Box_ => self.parse_box(version),
+            Tok::Def => self.parse_def(version),
             Tok::Else => self.parse_unsupported_v3("else"),
-            Tok::Ident(_) => {
-                // 3.0 assignment-form measurement: `c[i] = measure q[j];` 또는 `c = measure q;`.
-                // 일반 gate-call (`h q[0];`) 와 구분하려면 lookahead 필요.
-                if self.is_assignment_measure() {
+            Tok::Ident(ref name) => {
+                // v0.6.9: 선언된 def 서브루틴 호출이면 mixed-arg 파서로.
+                if self.defs.contains_key(name) {
+                    self.parse_def_call()
+                } else if self.is_assignment_measure() {
+                    // 3.0 assignment-form measurement: `c[i] = measure q[j];` 또는 `c = measure q;`.
                     self.parse_assignment_measure()
                 } else {
+                    // 일반 gate-call (`h q[0];`).
                     self.parse_gate_call_stmt()
                 }
             }
@@ -326,6 +337,189 @@ impl Parser {
             line: kw.line,
             col: kw.col,
         }))
+    }
+
+    /// v0.6.9: `def name(typed-params) [-> type]? { gate-body }`.
+    ///
+    /// 지원: classical (int/float/angle/uint, optional `[N]` width), qubit
+    /// (단일), qubit[N] (배열, v0.7.3) 파라미터.  body 는 gate-call 만.  반환
+    /// 타입 (`-> ...`) / bit 파라미터는 거부.
+    fn parse_def(&mut self, version: QasmVersion) -> QasmResult<Stmt> {
+        use crate::ast::{DefDecl, DefParam, DefParamKind};
+        let kw = self.bump(); // 'def'
+        let name = self.parse_ident("def name")?;
+        self.expect(Tok::LParen, "'(' after def name")?;
+        let mut params: Vec<DefParam> = Vec::new();
+        if !self.check(&Tok::RParen) {
+            loop {
+                params.push(self.parse_def_param()?);
+                if self.check(&Tok::Comma) {
+                    self.bump();
+                } else {
+                    break;
+                }
+            }
+        }
+        self.expect(Tok::RParen, "')' after def params")?;
+        // optional return type `-> TYPE` — 파싱해서 두지만 lowering 에서 거부.
+        let has_return = if self.check(&Tok::Arrow) {
+            self.bump();
+            // 타입 토큰 1개 (+ optional `[N]`) 소비.
+            self.bump();
+            if self.check(&Tok::LBracket) {
+                while !self.check(&Tok::RBracket) && !self.is_eof() {
+                    self.bump();
+                }
+                self.expect(Tok::RBracket, "']'")?;
+            }
+            true
+        } else {
+            false
+        };
+        self.expect(Tok::LBrace, "'{' after def signature")?;
+        // v0.7.3: body 는 일반 문장 (gate-call / measure / reset / control-flow).
+        // include / 레지스터·게이트 선언 / 중첩 def 는 거부.
+        let mut body = Vec::new();
+        while !self.check(&Tok::RBrace) && !self.is_eof() {
+            let stmt = self.parse_stmt(version)?;
+            match &stmt {
+                Stmt::Include { .. }
+                | Stmt::QregDecl { .. }
+                | Stmt::CregDecl { .. }
+                | Stmt::GateDecl(_)
+                | Stmt::OpaqueDecl { .. }
+                | Stmt::DefDecl(_) => {
+                    return Err(QasmError::Parse {
+                        line: kw.line,
+                        col: kw.col,
+                        message: "def body 안에는 gate-call / measure / reset / \
+                                  control-flow 만 허용됩니다 (선언 / include / 중첩 def 불가)"
+                            .to_string(),
+                    });
+                }
+                _ => body.push(stmt),
+            }
+        }
+        self.expect(Tok::RBrace, "'}'")?;
+        let _ = version;
+        // 시그니처를 등록해 이후 호출 파싱에서 사용.
+        let kinds: Vec<DefParamKind> = params.iter().map(|p| p.kind).collect();
+        self.defs.insert(name.clone(), kinds);
+        if has_return {
+            // 반환값 있는 def 는 미지원 — UnsupportedV3 로 표시해 lowering 에서 친화 에러.
+            return Ok(Stmt::UnsupportedV3 {
+                keyword: "def (return value)",
+                line: kw.line,
+                col: kw.col,
+            });
+        }
+        Ok(Stmt::DefDecl(DefDecl {
+            name,
+            params,
+            body,
+            line: kw.line,
+            col: kw.col,
+        }))
+    }
+
+    /// def 파라미터 1개: `TYPE [width]? NAME`.
+    fn parse_def_param(&mut self) -> QasmResult<crate::ast::DefParam> {
+        use crate::ast::{DefParam, DefParamKind};
+        let cur = self.cur().clone();
+        let is_qubit = matches!(&cur.kind, Tok::Qubit);
+        let kind = match &cur.kind {
+            Tok::Qubit => {
+                self.bump();
+                DefParamKind::Qubit
+            }
+            Tok::Int_ => {
+                self.bump();
+                DefParamKind::Classical
+            }
+            Tok::Ident(s) if matches!(s.as_str(), "float" | "angle" | "uint") => {
+                self.bump();
+                DefParamKind::Classical
+            }
+            other => {
+                return Err(QasmError::Parse {
+                    line: cur.line,
+                    col: cur.col,
+                    message: format!(
+                        "def 파라미터 타입은 int/float/angle/uint/qubit 만 지원합니다 (got {other:?})"
+                    ),
+                });
+            }
+        };
+        // optional width designator `[N]`.  qubit[N] → 배열 파라미터 (v0.7.3),
+        // classical 의 width 는 무시.
+        let mut array_size: Option<usize> = None;
+        if self.check(&Tok::LBracket) {
+            self.bump();
+            // qubit[N] 은 정수 크기, classical width 도 정수 — 첫 정수만 취하고
+            // 나머지 토큰은 ']' 까지 소비.
+            if is_qubit {
+                array_size = Some(self.parse_size("qubit array size")?);
+            }
+            while !self.check(&Tok::RBracket) && !self.is_eof() {
+                self.bump();
+            }
+            self.expect(Tok::RBracket, "']'")?;
+        }
+        let name = self.parse_ident("def param name")?;
+        let (kind, size) = if kind == DefParamKind::Qubit && array_size.is_some() {
+            (DefParamKind::QubitArray, array_size)
+        } else {
+            (kind, None)
+        };
+        Ok(DefParam { kind, name, size })
+    }
+
+    /// v0.6.9: def 서브루틴 호출 `name(arg, arg, ...);`.  각 인자는 def 의
+    /// 파라미터 종류에 따라 expr (classical) 또는 qarg (qubit) 로 파싱.
+    fn parse_def_call(&mut self) -> QasmResult<Stmt> {
+        use crate::ast::DefArg;
+        let name_tok = self.cur().clone();
+        let name = self.parse_ident("def name")?;
+        let kinds = self
+            .defs
+            .get(&name)
+            .expect("parse_def_call only on known def")
+            .clone();
+        self.expect(Tok::LParen, "'(' after def call")?;
+        let mut args: Vec<DefArg> = Vec::new();
+        if !self.check(&Tok::RParen) {
+            let mut idx = 0usize;
+            loop {
+                let kind = kinds.get(idx).copied();
+                match kind {
+                    Some(crate::ast::DefParamKind::Qubit)
+                    | Some(crate::ast::DefParamKind::QubitArray) => {
+                        args.push(DefArg::Qubit(self.parse_qarg()?));
+                    }
+                    Some(crate::ast::DefParamKind::Classical) => {
+                        args.push(DefArg::Classical(self.parse_expr()?));
+                    }
+                    None => {
+                        // 인자 개수 초과 — 일단 expr 로 파싱해 lowering 에서 arity 에러.
+                        args.push(DefArg::Classical(self.parse_expr()?));
+                    }
+                }
+                idx += 1;
+                if self.check(&Tok::Comma) {
+                    self.bump();
+                } else {
+                    break;
+                }
+            }
+        }
+        self.expect(Tok::RParen, "')' after def call args")?;
+        self.expect(Tok::Semicolon, "';'")?;
+        Ok(Stmt::DefCall {
+            name,
+            args,
+            line: name_tok.line,
+            col: name_tok.col,
+        })
     }
 
     fn parse_opaque_decl(&mut self) -> QasmResult<Stmt> {
@@ -512,6 +706,40 @@ impl Parser {
             var,
             low,
             high,
+            body,
+            line: kw.line,
+            col: kw.col,
+        })
+    }
+
+    /// v0.6.8: `box [designator]? { stmts }` (OpenQASM 3.0 §7.7).
+    /// panta-sim 은 timing 을 모델링하지 않으므로 optional duration designator
+    /// (`[100ns]` 등) 는 파싱 후 버리고, body 를 투명한 블록으로 lowering 한다.
+    fn parse_box(&mut self, version: QasmVersion) -> QasmResult<Stmt> {
+        let kw = self.bump(); // 'box'
+                              // optional duration designator `[...]` — depth-aware skip.
+        if self.check(&Tok::LBracket) {
+            self.bump();
+            let mut depth = 1i32;
+            while depth > 0 {
+                match self.cur().kind {
+                    Tok::LBracket => {
+                        depth += 1;
+                        self.bump();
+                    }
+                    Tok::RBracket => {
+                        depth -= 1;
+                        self.bump();
+                    }
+                    Tok::Eof => break,
+                    _ => {
+                        self.bump();
+                    }
+                }
+            }
+        }
+        let body = self.parse_block(version)?;
+        Ok(Stmt::Box {
             body,
             line: kw.line,
             col: kw.col,
@@ -926,13 +1154,33 @@ mod tests {
     }
 
     #[test]
-    fn test_v3_unsupported_keywords() {
-        // v0.4.7: for / while / switch 는 native 파싱.  남은 unsupported 는 box / def.
-        let p = parse("OPENQASM 3.0; qubit q; box { h q; }");
-        assert!(p
-            .stmts
-            .iter()
-            .any(|s| matches!(s, Stmt::UnsupportedV3 { keyword: "box", .. })));
+    fn test_v3_def_parses() {
+        // v0.4.7: for / while / switch native.  v0.6.8: box.  v0.6.9: def native.
+        let p = parse(
+            "OPENQASM 3.0; include \"stdgates.inc\"; qubit q; def foo(qubit a) { h a; } foo(q);",
+        );
+        assert!(p.stmts.iter().any(|s| matches!(s, Stmt::DefDecl(_))));
+        assert!(p.stmts.iter().any(|s| matches!(s, Stmt::DefCall { .. })));
+    }
+
+    #[test]
+    fn test_v3_def_return_value_marked_unsupported() {
+        // 반환값 있는 def 는 UnsupportedV3 로 표시되어 lowering 에서 거부.
+        let p = parse("OPENQASM 3.0; qubit q; def f(qubit a) -> bit { h a; }");
+        assert!(p.stmts.iter().any(|s| matches!(
+            s,
+            Stmt::UnsupportedV3 {
+                keyword: "def (return value)",
+                ..
+            }
+        )));
+    }
+
+    #[test]
+    fn test_v068_box_parses() {
+        // v0.6.8: box { body } 는 native 파싱.
+        let p = parse("OPENQASM 3.0; include \"stdgates.inc\"; qubit q; box { h q; }");
+        assert!(p.stmts.iter().any(|s| matches!(s, Stmt::Box { .. })));
     }
 
     #[test]

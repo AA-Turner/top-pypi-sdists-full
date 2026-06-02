@@ -38,7 +38,16 @@ class TestAddVirtualColumnEntry(unittest.TestCase):
                 input_columns = [
                     ''
                     ],
-                data_type = lance_namespace_urllib3_client.models.data_type.data_type(),
+                outputs = [
+                    lance_namespace_urllib3_client.models.add_virtual_column_output_entry.AddVirtualColumnOutputEntry(
+                        column = '', 
+                        struct_field = '', 
+                        data_type = lance_namespace_urllib3_client.models.data_type.data_type(), 
+                        nullable = True, 
+                        metadata = {
+                            'key' : ''
+                            }, )
+                    ],
                 image = '',
                 udf = '',
                 udf_name = '',
@@ -56,7 +65,16 @@ class TestAddVirtualColumnEntry(unittest.TestCase):
                 input_columns = [
                     ''
                     ],
-                data_type = lance_namespace_urllib3_client.models.data_type.data_type(),
+                outputs = [
+                    lance_namespace_urllib3_client.models.add_virtual_column_output_entry.AddVirtualColumnOutputEntry(
+                        column = '', 
+                        struct_field = '', 
+                        data_type = lance_namespace_urllib3_client.models.data_type.data_type(), 
+                        nullable = True, 
+                        metadata = {
+                            'key' : ''
+                            }, )
+                    ],
                 image = '',
                 udf = '',
                 udf_name = '',

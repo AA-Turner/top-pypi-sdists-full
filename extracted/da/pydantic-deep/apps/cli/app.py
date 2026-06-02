@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import os
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -15,8 +16,14 @@ from textual.binding import Binding
 from textual.css.query import NoMatches
 from textual.reactive import reactive
 
+from apps.cli.commands import dispatch_command
+from apps.cli.config import load_config
+from apps.cli.debug_log import get_logger
+from apps.cli.forking import CLIForkSession
 from apps.cli.screens.chat import ChatScreen
+from apps.cli.styles.themes import register_themes
 from apps.cli.widgets.header import DeepHeader
+from apps.cli.widgets.message_list import MessageList
 from apps.cli.widgets.status_bar import StatusBar
 
 
@@ -38,7 +45,7 @@ def _detect_git_branch(working_dir: str) -> str:
 
 
 class DeepApp(App):
-    """pydantic-deep TUI — Textual-based interactive AI coding assistant."""
+    """pydantic-deep TUI - Textual-based interactive AI coding assistant."""
 
     TITLE = "pydantic-deep"
     CSS_PATH = "styles/app.tcss"
@@ -47,23 +54,31 @@ class DeepApp(App):
         Binding("ctrl+c", "interrupt", "Interrupt", show=False),
         Binding("escape", "escape_key", "Interrupt/Focus", show=False),
         Binding("ctrl+d", "quit", "Quit", show=False),
+        Binding("ctrl+v", "paste_image", "Paste image", show=False),
         Binding("f1", "show_help", "Help"),
         Binding("f2", "show_settings", "Settings"),
         Binding("f5", "show_context", "Context"),
     ]
 
-    # ── Reactive state ────────────────────────────────────────────
-
     is_streaming: reactive[bool] = reactive(False)
     model_name: reactive[str] = reactive("")
+    fallback_model_name: reactive[str] = reactive("")
     app_version: reactive[str] = reactive("0.0.0")
     context_pct: reactive[float] = reactive(0.0)
     context_current: reactive[int] = reactive(0)
     context_max: reactive[int] = reactive(0)
     total_cost: reactive[float] = reactive(0.0)
     current_cost: reactive[float] = reactive(0.0)
+    active_fork: reactive[CLIForkSession | None] = reactive(None)
+    fork_branch_count: reactive[int] = reactive(2)
+    fork_aggregate_budget_usd: reactive[float | None] = reactive["float | None"](None)
+    fork_branch_models: reactive[list[str | None]] = reactive(list, always_update=True)
+    fork_branch_budgets: reactive[list[float | None]] = reactive(list, always_update=True)
+    fork_merge_strategy: reactive[str] = reactive("auto_with_fallback")
+    fork_judge_model: reactive[str] = reactive("anthropic:claude-haiku-4-5")
+    fork_confidence_threshold: reactive[float] = reactive(0.80)
 
-    _agent_task: asyncio.Task[None] | None = None
+    agent_task: asyncio.Task[None] | None = None
 
     def __init__(
         self,
@@ -74,6 +89,9 @@ class DeepApp(App):
         version: str = "0.0.0",
         message_history: list[ModelMessage] | None = None,
         startup_error: str | None = None,
+        on_cost_update: Any | None = None,
+        on_context_update: Any | None = None,
+        on_reminder: Any | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
@@ -87,9 +105,19 @@ class DeepApp(App):
         self.last_response: str = ""
         self._startup_error = startup_error
         self.queue = getattr(deps, "message_queue", None)
+        # Status-bar / reminder callbacks, retained so reconfigure_agent (e.g.
+        # after /model) recreates the agent with the same wiring. Without this,
+        # the cost/token/context status bar and reminder notifications go dead
+        # for the rest of the session after the first reconfigure.
+        self._on_cost_update = on_cost_update
+        self._on_context_update = on_context_update
+        self._on_reminder = on_reminder
+        # Strong references to fire-and-forget background tasks. asyncio only
+        # holds a weak reference, so an untracked create_task can be GC'd
+        # mid-flight and its exceptions silently dropped.
+        self._background_tasks: set[asyncio.Task[Any]] = set()
 
         # Register custom themes
-        from apps.cli.styles.themes import register_themes
 
         register_themes(self)
 
@@ -105,7 +133,6 @@ class DeepApp(App):
         timeout: float = 5,
     ) -> None:
         """Show notification and log it to the session log file."""
-        from apps.cli.debug_log import get_logger
 
         level = "info" if severity == "information" else severity
         getattr(get_logger(), level, get_logger().info)(f"[notify] {message}")
@@ -124,9 +151,37 @@ class DeepApp(App):
         except Exception:
             pass
 
+    def _seed_fork_settings_from_config(self) -> None:
+        """Pull the four fork CLI knobs out of `config.toml` into reactive state.
+
+        Run on mount so :class:`ForkPickerModal` sees the persisted values when
+        the user opens `/fork`. Errors are swallowed deliberately - a corrupt
+        config should never break startup, just fall back to defaults.
+        """
+        try:
+            from apps.cli.config import load_config
+
+            config = load_config()
+            self.fork_branch_count = config.fork_branch_count
+            self.fork_aggregate_budget_usd = config.fork_aggregate_budget_usd
+            self.fork_branch_models = list(config.fork_branch_models)
+            self.fork_branch_budgets = list(config.fork_branch_budgets)
+            self.fork_merge_strategy = config.fork_merge_strategy
+            self.fork_judge_model = config.fork_judge_model
+            self.fork_confidence_threshold = config.fork_confidence_threshold
+        except Exception:  # pragma: no cover - defensive: bad config shouldn't break startup
+            pass
+
     def on_mount(self) -> None:
         self.model_name = self._model
+        try:
+            from apps.cli.config import load_config
+
+            self.fallback_model_name = load_config().fallback_model or ""
+        except Exception as exc:
+            self.notify(f"Could not read fallback model from config: {exc}", severity="warning")
         self.app_version = self._version
+        self._seed_fork_settings_from_config()
         self.push_screen(ChatScreen())
         # Sync state to widgets after screen is pushed
         self.call_later(self._sync_widgets)
@@ -156,12 +211,11 @@ class DeepApp(App):
             pass
 
     def compose(self) -> ComposeResult:
-        """Empty — ChatScreen is pushed on mount."""
+        """Empty - ChatScreen is pushed on mount."""
         return []
 
     def _show_startup_error(self) -> None:
         """Show startup error and open provider setup."""
-        from apps.cli.widgets.message_list import MessageList
 
         try:
             msg_list = self.screen.query_one(MessageList)
@@ -182,7 +236,6 @@ class DeepApp(App):
 
     def _show_onboarding(self) -> None:
         """Show onboarding flow for first-time users."""
-        from apps.cli.widgets.message_list import MessageList
 
         try:
             msg_list = self.screen.query_one(MessageList)
@@ -202,13 +255,14 @@ class DeepApp(App):
         self.handle_command("/provider")
 
     def reconfigure_agent(self, model: str | None = None) -> None:
-        """Try to recreate the agent (after API key is set).
+        """Recreate the agent from the current config.
 
-        If model is None, reads from config. If config model fails,
-        tries to detect a working model from available API keys.
+        `model` overrides `config.model` when provided. `fallback_model` is
+        always read from `config.fallback_model` - callers that want to change
+        it should write to the config first (see :meth:`set_fallback_and_reconfigure`).
+        If `model` is None and the config model lacks an available API key, picks
+        a working model from available keys.
         """
-        from apps.cli.config import load_config
-        from apps.cli.debug_log import get_logger
 
         log = get_logger()
         config = load_config()
@@ -219,20 +273,27 @@ class DeepApp(App):
         if not model:
             effective = self._pick_available_model(effective)
 
-        log.info("Reconfiguring agent", model=effective)
+        effective_fallback = config.fallback_model or None
+
+        log.info("Reconfiguring agent", model=effective, fallback=effective_fallback)
 
         try:
             from apps.cli.agent import create_cli_agent
 
             agent, deps = create_cli_agent(
                 model=effective,
+                fallback_model=effective_fallback,
                 working_dir=self.working_dir,
+                on_cost_update=self._on_cost_update,
+                on_context_update=self._on_context_update,
+                on_reminder=self._on_reminder,
             )
             self.agent = agent
             self.deps = deps
             self.queue = getattr(deps, "message_queue", None)
             self._startup_error = None
             self.model_name = effective
+            self.fallback_model_name = effective_fallback or ""
 
             # Save the working model to config
             try:
@@ -242,16 +303,33 @@ class DeepApp(App):
             except Exception:
                 pass
 
-            log.info("Agent reconfigured successfully", model=effective)
-            self.notify(f"Agent ready! Model: {effective}", severity="information")
+            msg = f"Agent ready! Model: {effective}"
+            if effective_fallback:
+                msg += f" → fallback: {effective_fallback}"
+            log.info(
+                "Agent reconfigured successfully", model=effective, fallback=effective_fallback
+            )
+            self.notify(msg, severity="information")
         except Exception as exc:
             log.error("Agent reconfiguration failed", exc_info=True, model=effective)
             self.notify(f"Still failing: {exc}", severity="error", timeout=10)
 
+    def set_fallback_and_reconfigure(self, model: str, fallback: str | None) -> None:
+        """Persist `fallback` to config (empty string clears it), then reconfigure
+        the agent with `model`. Used by the `/model` flow where the user picks a
+        primary model and then chooses a fallback (or "No fallback") in a follow-up
+        modal."""
+        try:
+            from apps.cli.config import DEFAULT_CONFIG_PATH, set_config_value
+
+            set_config_value(DEFAULT_CONFIG_PATH, "fallback_model", fallback or "")
+        except Exception as exc:
+            self.notify(f"Could not persist fallback model: {exc}", severity="warning")
+        self.reconfigure_agent(model=model)
+
     @staticmethod
     def _pick_available_model(current: str) -> str:
         """If the current model's provider key isn't set, pick one that is."""
-        import os
 
         # Map provider prefix → env var → default model
         provider_keys = [
@@ -266,14 +344,14 @@ class DeepApp(App):
             if current.startswith(prefix) and os.environ.get(env_var):
                 return current  # Current model's key is set, keep it
 
-        # Current model's key not set — find first available
+        # Current model's key not set - find first available
         for _prefix, env_var, default_model in provider_keys:
             if os.environ.get(env_var):
                 return default_model
 
-        return current  # No keys at all — return as-is, will fail with clear error
+        return current  # No keys at all - return as-is, will fail with clear error
 
-    # ── Watchers — propagate to widgets ───────────────────────────
+    # ── Watchers - propagate to widgets ───────────────────────────
 
     def watch_model_name(self, name: str) -> None:
         try:
@@ -298,19 +376,65 @@ class DeepApp(App):
         with contextlib.suppress(NoMatches, Exception):
             self.screen.query_one(StatusBar).current_cost = cost
 
+    def watch_active_fork(self, new: CLIForkSession | None) -> None:
+        """Drive fork view enter/exit on the chat screen when `active_fork` flips.
+
+        We only swallow :class:`NoMatches` here - that's the legitimate case
+        when the chat screen isn't the top screen (e.g. a modal is open and
+        catches the query). Any other exception is a real bug in the fork
+        view setup and is surfaced to the user via :meth:`notify` so the
+        fork doesn't silently fail to start / clean up.
+        """
+        screen = self.screen
+        action: tuple[str, Any] = (
+            ("enter_fork_view", new) if new is not None else ("exit_fork_view", None)
+        )
+        method_name, arg = action
+        handler = getattr(screen, method_name, None)
+        if handler is None:
+            return
+        try:
+            if arg is None:
+                handler()
+            else:
+                handler(arg)
+        except NoMatches:
+            pass
+        except Exception as exc:  # pragma: no cover - defensive surfacing
+            self.notify(f"Fork view error: {exc}", severity="error", timeout=10)
+
     # ── Command handling ──────────────────────────────────────────
+
+    def _spawn_tracked(self, coro: Any, *, label: str) -> asyncio.Task[Any]:
+        """Schedule `coro` as a tracked background task.
+
+        Keeps a strong reference until completion (so the task can't be
+        garbage-collected mid-flight) and surfaces any non-cancellation
+        exception via :meth:`notify` instead of letting it vanish silently.
+        """
+        task = asyncio.create_task(coro)
+        self._background_tasks.add(task)
+
+        def _done(t: asyncio.Task[Any]) -> None:
+            self._background_tasks.discard(t)
+            if t.cancelled():
+                return
+            exc = t.exception()
+            if exc is not None:  # pragma: no cover - defensive surfacing
+                self.notify(f"{label} failed: {exc}", severity="error", timeout=10)
+
+        task.add_done_callback(_done)
+        return task
 
     def handle_command(self, command: str) -> None:
         """Dispatch a slash command."""
-        from apps.cli.commands import dispatch_command
 
-        asyncio.create_task(dispatch_command(self, command))
+        self._spawn_tracked(dispatch_command(self, command), label=f"Command {command}")
 
     # ── Shell commands ────────────────────────────────────────────
 
     def run_shell_command(self, command: str) -> None:
         """Execute a shell command and show output in message list + save to session."""
-        from apps.cli.widgets.message_list import MessageList
 
         try:
             msg_list = self.screen.query_one(MessageList)
@@ -362,24 +486,60 @@ class DeepApp(App):
 
     # ── Actions ───────────────────────────────────────────────────
 
+    def _signal_cancelling(self) -> None:
+        """Immediately flag in-flight tool calls as stopping for instant feedback.
+
+        Cancellation propagation (killing subprocesses) can take a moment; this
+        gives the user visible acknowledgement that Esc/Ctrl+C registered.
+        """
+        from apps.cli.widgets.message_list import MessageList
+
+        with contextlib.suppress(Exception):
+            msg_list = self.screen.query_one(MessageList)
+            current = msg_list.current_assistant
+            if current is not None:
+                current.mark_pending_cancelling()
+
     def action_interrupt(self) -> None:
-        """Handle Ctrl+C — cancel running agent or exit."""
-        if self._agent_task and not self._agent_task.done():
-            self._agent_task.cancel()
+        """Handle Ctrl+C - cancel running agent or exit."""
+        if self.agent_task and not self.agent_task.done():
+            self._signal_cancelling()
+            self.agent_task.cancel()
             self.notify("Agent interrupted", severity="warning")
         else:
             self.exit()
 
     def action_escape_key(self) -> None:
-        """Handle Esc — interrupt running agent, or focus input if idle."""
-        if self._agent_task and not self._agent_task.done():
-            self._agent_task.cancel()
+        """Handle Esc - fork-aware: terminate branch / abort fork, then interrupt, then focus."""
+        if self.active_fork is not None:
+            screen = self.screen
+            handler = getattr(screen, "fork_action_escape", None)
+            if handler is not None:
+                task = asyncio.create_task(handler())
+
+                def _on_fork_esc_done(t: asyncio.Task[Any]) -> None:
+                    exc = t.exception()
+                    if exc is not None:  # pragma: no cover - defensive surfacing
+                        self.notify(f"Fork Esc handler failed: {exc}", severity="error")
+
+                task.add_done_callback(_on_fork_esc_done)
+                return
+
+        if self.agent_task and not self.agent_task.done():
+            self._signal_cancelling()
+            self.agent_task.cancel()
             self.notify("Agent interrupted", severity="warning")
         else:
             from apps.cli.widgets.input_area import InputArea
 
             with contextlib.suppress(NoMatches):
                 self.screen.query_one(InputArea).focus_input()
+
+    def action_paste_image(self) -> None:
+        """Attach an image from the clipboard to the next prompt (Ctrl+V)."""
+        handler = getattr(self.screen, "attach_clipboard_image", None)
+        if handler is not None:
+            handler()
 
     def action_show_help(self) -> None:
         self.handle_command("/help")

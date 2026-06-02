@@ -1,0 +1,418 @@
+Metadata-Version: 2.4
+Name: headroom-ai
+Version: 0.22.4
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Dist: tiktoken>=0.5.0
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: litellm==1.82.3
+Requires-Dist: click>=8.1.0
+Requires-Dist: rich>=13.0.0
+Requires-Dist: opentelemetry-api>=1.24.0
+Requires-Dist: ast-grep-cli>=0.30.0
+Requires-Dist: tomli>=2.0.0 ; python_full_version < '3.11'
+Requires-Dist: agno>=1.0.0 ; extra == 'agno'
+Requires-Dist: headroom-ai[proxy,code,ml,memory,relevance,image,reports,otel,evals,voice,html,benchmark,mcp] ; extra == 'all'
+Requires-Dist: any-llm-sdk>=1.0.0 ; python_full_version >= '3.11' and extra == 'anyllm'
+Requires-Dist: boto3>=1.28.0 ; extra == 'bedrock'
+Requires-Dist: lm-eval[api]>=0.4.0 ; extra == 'benchmark'
+Requires-Dist: openai>=1.0.0 ; extra == 'benchmark'
+Requires-Dist: anthropic>=0.18.0 ; extra == 'benchmark'
+Requires-Dist: tree-sitter-language-pack>=0.10.0 ; extra == 'code'
+Requires-Dist: pytest>=7.0.0 ; extra == 'dev'
+Requires-Dist: pytest-cov>=4.0.0 ; extra == 'dev'
+Requires-Dist: pytest-asyncio>=0.21.0 ; extra == 'dev'
+Requires-Dist: ruff>=0.1.0 ; extra == 'dev'
+Requires-Dist: mypy>=1.0.0 ; extra == 'dev'
+Requires-Dist: pre-commit>=3.0.0 ; extra == 'dev'
+Requires-Dist: openai>=1.0.0 ; extra == 'dev'
+Requires-Dist: anthropic>=0.18.0 ; extra == 'dev'
+Requires-Dist: litellm==1.82.3 ; extra == 'dev'
+Requires-Dist: fastapi>=0.100.0 ; extra == 'dev'
+Requires-Dist: uvicorn>=0.23.0 ; extra == 'dev'
+Requires-Dist: httpx[http2]>=0.24.0 ; extra == 'dev'
+Requires-Dist: websockets>=13.0 ; extra == 'dev'
+Requires-Dist: opentelemetry-sdk>=1.24.0 ; extra == 'dev'
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.24.0 ; extra == 'dev'
+Requires-Dist: ollama>=0.4.0 ; extra == 'dev'
+Requires-Dist: langchain-ollama>=0.2.0 ; extra == 'dev'
+Requires-Dist: hnswlib>=0.8.0 ; extra == 'dev'
+Requires-Dist: sqlite-vec>=0.1.6 ; extra == 'dev'
+Requires-Dist: sentence-transformers>=2.2.0 ; extra == 'dev'
+Requires-Dist: numpy>=1.24.0 ; extra == 'dev'
+Requires-Dist: datasets>=2.14.0 ; extra == 'evals'
+Requires-Dist: sentence-transformers>=2.2.0 ; extra == 'evals'
+Requires-Dist: numpy>=1.24.0 ; extra == 'evals'
+Requires-Dist: scikit-learn>=1.3.0 ; extra == 'evals'
+Requires-Dist: anthropic>=0.18.0 ; extra == 'evals'
+Requires-Dist: openai>=1.0.0 ; extra == 'evals'
+Requires-Dist: trafilatura>=1.6.0 ; extra == 'html'
+Requires-Dist: pillow>=10.0.0 ; extra == 'image'
+Requires-Dist: sentencepiece>=0.1.99 ; extra == 'image'
+Requires-Dist: rapidocr-onnxruntime>=1.4.0,<2 ; python_full_version < '3.13' and extra == 'image'
+Requires-Dist: rapidocr>=3.0,<4 ; python_full_version >= '3.13' and extra == 'image'
+Requires-Dist: onnxruntime>=1.7,<2 ; python_full_version >= '3.13' and extra == 'image'
+Requires-Dist: langchain-core>=0.2.0 ; extra == 'langchain'
+Requires-Dist: langchain-openai>=0.1.0 ; extra == 'langchain'
+Requires-Dist: mcp>=1.0.0 ; extra == 'mcp'
+Requires-Dist: httpx>=0.24.0 ; extra == 'mcp'
+Requires-Dist: hnswlib>=0.8.0 ; extra == 'memory'
+Requires-Dist: sqlite-vec>=0.1.6 ; extra == 'memory'
+Requires-Dist: sentence-transformers>=2.2.0 ; extra == 'memory'
+Requires-Dist: mem0ai>=0.1.100 ; extra == 'memory-stack'
+Requires-Dist: qdrant-client>=1.9.0 ; extra == 'memory-stack'
+Requires-Dist: neo4j>=5.20.0 ; extra == 'memory-stack'
+Requires-Dist: torch>=2.0.0 ; extra == 'ml'
+Requires-Dist: transformers>=4.30.0 ; extra == 'ml'
+Requires-Dist: huggingface-hub>=1.5.0,<2.0 ; extra == 'ml'
+Requires-Dist: opentelemetry-sdk>=1.24.0 ; extra == 'otel'
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.24.0 ; extra == 'otel'
+Requires-Dist: fastapi>=0.100.0 ; extra == 'proxy'
+Requires-Dist: uvicorn>=0.23.0 ; extra == 'proxy'
+Requires-Dist: httpx[http2]>=0.24.0 ; extra == 'proxy'
+Requires-Dist: openai>=2.14.0 ; extra == 'proxy'
+Requires-Dist: mcp>=1.0.0 ; extra == 'proxy'
+Requires-Dist: magika>=0.6.0 ; extra == 'proxy'
+Requires-Dist: zstandard>=0.20.0 ; extra == 'proxy'
+Requires-Dist: websockets>=13.0 ; extra == 'proxy'
+Requires-Dist: onnxruntime>=1.16.0 ; extra == 'proxy'
+Requires-Dist: transformers>=4.30.0 ; extra == 'proxy'
+Requires-Dist: watchdog>=4.0.0 ; extra == 'proxy'
+Requires-Dist: sqlite-vec>=0.1.6 ; extra == 'proxy'
+Requires-Dist: fastembed>=0.4.0 ; extra == 'relevance'
+Requires-Dist: numpy>=1.24.0 ; extra == 'relevance'
+Requires-Dist: jinja2>=3.0.0 ; extra == 'reports'
+Requires-Dist: strands-agents>=0.1.0 ; extra == 'strands'
+Requires-Dist: onnxruntime>=1.16.0 ; extra == 'voice'
+Requires-Dist: transformers>=4.30.0 ; extra == 'voice'
+Requires-Dist: torch>=2.0.0 ; extra == 'voice'
+Requires-Dist: headroom-ai[voice] ; extra == 'voice-train'
+Requires-Dist: datasets>=2.14.0 ; extra == 'voice-train'
+Requires-Dist: accelerate>=0.20.0 ; extra == 'voice-train'
+Provides-Extra: agno
+Provides-Extra: all
+Provides-Extra: anyllm
+Provides-Extra: bedrock
+Provides-Extra: benchmark
+Provides-Extra: code
+Provides-Extra: dev
+Provides-Extra: evals
+Provides-Extra: html
+Provides-Extra: image
+Provides-Extra: langchain
+Provides-Extra: mcp
+Provides-Extra: memory
+Provides-Extra: memory-stack
+Provides-Extra: ml
+Provides-Extra: otel
+Provides-Extra: proxy
+Provides-Extra: relevance
+Provides-Extra: reports
+Provides-Extra: strands
+Provides-Extra: voice
+Provides-Extra: voice-train
+License-File: LICENSE
+License-File: NOTICE
+Summary: The Context Optimization Layer for LLM Applications - Cut costs by 50-90%
+Keywords: llm,openai,anthropic,claude,gpt,context,token,optimization,compression,caching,proxy,ai,machine-learning
+Author: Headroom Contributors
+Maintainer: Headroom Contributors
+License-Expression: Apache-2.0
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: AI / LLM Index, https://headroom-docs.vercel.app/llms.txt
+Project-URL: Changelog, https://github.com/chopratejas/headroom/blob/main/CHANGELOG.md
+Project-URL: Documentation, https://headroom-docs.vercel.app/docs
+Project-URL: Homepage, https://headroom-docs.vercel.app
+Project-URL: Issues, https://github.com/chopratejas/headroom/issues
+Project-URL: Repository, https://github.com/chopratejas/headroom
+
+```
+  ██╗  ██╗███████╗ █████╗ ██████╗ ██████╗  ██████╗  ██████╗ ███╗   ███╗
+  ██║  ██║██╔════╝██╔══██╗██╔══██╗██╔══██╗██╔═══██╗██╔═══██╗████╗ ████║
+  ███████║█████╗  ███████║██║  ██║██████╔╝██║   ██║██║   ██║██╔████╔██║
+  ██╔══██║██╔══╝  ██╔══██║██║  ██║██╔══██╗██║   ██║██║   ██║██║╚██╔╝██║
+  ██║  ██║███████╗██║  ██║██████╔╝██║  ██║╚██████╔╝╚██████╔╝██║ ╚═╝ ██║
+  ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚═╝     ╚═╝
+                  The context compression layer for AI agents
+```
+
+<p align="center"><strong>60–95% fewer tokens · library · proxy · MCP · 6 algorithms · local-first · reversible</strong></p>
+
+<p align="center">
+  <a href="https://github.com/chopratejas/headroom/actions/workflows/ci.yml"><img src="https://github.com/chopratejas/headroom/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://app.codecov.io/gh/chopratejas/headroom"><img src="https://codecov.io/gh/chopratejas/headroom/graph/badge.svg" alt="codecov"></a>
+  <a href="https://pypi.org/project/headroom-ai/"><img src="https://img.shields.io/pypi/v/headroom-ai.svg" alt="PyPI"></a>
+  <a href="https://www.npmjs.com/package/headroom-ai"><img src="https://img.shields.io/npm/v/headroom-ai.svg" alt="npm"></a>
+  <a href="https://huggingface.co/chopratejas/kompress-base"><img src="https://img.shields.io/badge/model-Kompress--base-yellow.svg" alt="Model: Kompress-base"></a>
+  <a href="https://headroomlabs.ai/dashboard"><img src="https://img.shields.io/badge/tokens%20saved-60B%2B-2ea44f" alt="Tokens saved: 60B+"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License: Apache 2.0"></a>
+  <a href="https://headroom-docs.vercel.app/docs"><img src="https://img.shields.io/badge/docs-online-blue.svg" alt="Docs"></a>
+</p>
+
+<p align="center">
+  <a href="https://headroom-docs.vercel.app/docs">Docs</a> ·
+  <a href="#get-started-60-seconds">Install</a> ·
+  <a href="#proof">Proof</a> ·
+  <a href="#agent-compatibility-matrix">Agents</a> ·
+  <a href="https://discord.gg/yRmaUNpsPJ">Discord</a> ·
+  <a href="llms.txt">llms.txt</a>
+</p>
+
+<p align="center"><sub>
+  <b>AI agents / LLMs:</b> read <a href="llms.txt"><code>/llms.txt</code></a> here, or fetch <a href="https://headroom-docs.vercel.app/llms.txt">the live index</a> / <a href="https://headroom-docs.vercel.app/llms-full.txt">full docs blob</a>.
+</sub></p>
+
+---
+
+> Headroom compresses everything your AI agent reads — tool outputs, logs, RAG chunks, files, and conversation history — before it reaches the LLM. Same answers, fraction of the tokens.
+
+<p align="center">
+  <img src="HeadroomDemo-Fast.gif" alt="Headroom in action" width="820">
+  <br/><sub>Live: 10,144 → 1,260 tokens — same FATAL found.</sub>
+</p>
+
+## What it does
+
+- **Library** — `compress(messages)` in Python or TypeScript, inline in any app
+- **Proxy** — `headroom proxy --port 8787`, zero code changes, any language
+- **Agent wrap** — `headroom wrap claude|codex|cursor|aider|copilot` in one command
+- **MCP server** — `headroom_compress`, `headroom_retrieve`, `headroom_stats` for any MCP client
+- **Cross-agent memory** — shared store across Claude, Codex, Gemini, auto-dedup
+- **`headroom learn`** — mines failed sessions, writes corrections to `CLAUDE.md` / `AGENTS.md`
+- **Reversible (CCR)** — originals never deleted; LLM retrieves on demand
+
+## How it works (30 seconds)
+
+```
+ Your agent / app
+   (Claude Code, Cursor, Codex, LangChain, Agno, Strands, your own code…)
+        │   prompts · tool outputs · logs · RAG results · files
+        ▼
+    ┌────────────────────────────────────────────────────┐
+    │  Headroom   (runs locally — your data stays here)  │
+    │  ───────────────────────────────────────────────   │
+    │  CacheAligner  →  ContentRouter  →  CCR             │
+    │                    ├─ SmartCrusher   (JSON)         │
+    │                    ├─ CodeCompressor (AST)          │
+    │                    └─ Kompress-base  (text, HF)     │
+    │                                                     │
+    │  Cross-agent memory  ·  headroom learn  ·  MCP      │
+    └────────────────────────────────────────────────────┘
+        │   compressed prompt  +  retrieval tool
+        ▼
+ LLM provider  (Anthropic · OpenAI · Bedrock · …)
+```
+
+- **ContentRouter** — detects content type, selects the right compressor
+- **SmartCrusher / CodeCompressor / Kompress-base** — compress JSON, AST, or prose
+- **CacheAligner** — stabilizes prefixes so provider KV caches actually hit
+- **CCR** — stores originals locally; LLM calls `headroom_retrieve` if it needs them
+
+→ [Architecture](https://headroom-docs.vercel.app/docs/architecture) · [CCR reversible compression](https://headroom-docs.vercel.app/docs/ccr) · [Kompress-base model card](https://huggingface.co/chopratejas/kompress-base)
+
+## Get started (60 seconds)
+
+```bash
+# 1 — Install
+pip install "headroom-ai[all]"          # Python
+npm install headroom-ai                 # Node / TypeScript
+
+# 2 — Pick your mode
+headroom wrap claude                    # wrap a coding agent
+headroom proxy --port 8787              # drop-in proxy, zero code changes
+# or: from headroom import compress      # inline library
+
+# 3 — See the savings
+headroom stats
+```
+
+Granular extras: `[proxy]`, `[mcp]`, `[ml]`, `[agno]`, `[langchain]`, `[evals]`. Requires **Python 3.10+**.
+
+## Proof
+
+**Savings on real agent workloads:**
+
+| Workload                      | Before | After  | Savings |
+|-------------------------------|-------:|-------:|--------:|
+| Code search (100 results)     | 17,765 |  1,408 | **92%** |
+| SRE incident debugging        | 65,694 |  5,118 | **92%** |
+| GitHub issue triage           | 54,174 | 14,761 | **73%** |
+| Codebase exploration          | 78,502 | 41,254 | **47%** |
+
+**Accuracy preserved on standard benchmarks:**
+
+| Benchmark  | Category | N   | Baseline | Headroom | Delta      |
+|------------|----------|----:|---------:|---------:|------------|
+| GSM8K      | Math     | 100 |    0.870 |    0.870 | **±0.000** |
+| TruthfulQA | Factual  | 100 |    0.530 |    0.560 | **+0.030** |
+| SQuAD v2   | QA       | 100 |        — |  **97%** | 19% compression |
+| BFCL       | Tools    | 100 |        — |  **97%** | 32% compression |
+
+Reproduce: `python -m headroom.evals suite --tier 1` · [Full benchmarks & methodology](https://headroom-docs.vercel.app/docs/benchmarks)
+
+<p align="center">
+  <a href="https://headroomlabs.ai/dashboard">
+    <img src="headroom-savings.png" alt="60B+ tokens saved — community leaderboard" width="820">
+  </a>
+  <br/><b><a href="https://headroomlabs.ai/dashboard">60B+ tokens saved by the community — live leaderboard →</a></b>
+</p>
+
+## Agent compatibility matrix
+
+| Agent       | `headroom wrap` | Notes                            |
+|-------------|:---------------:|----------------------------------|
+| Claude Code | ●               | `--memory` · `--code-graph`      |
+| Codex       | ●               | shares memory with Claude        |
+| Cursor      | ●               | prints config — paste once       |
+| Aider       | ●               | starts proxy + launches          |
+| Copilot CLI | ●               | starts proxy + launches          |
+| OpenClaw    | ●               | installs as ContextEngine plugin |
+
+Any OpenAI-compatible client works via `headroom proxy`. MCP-native: `headroom mcp install`.
+
+## When to use · When to skip
+
+**Great fit if you…**
+- run AI coding agents daily and want savings without changing your code
+- work across multiple agents and want shared memory
+- need reversible compression — originals always retrievable via CCR
+
+**Skip it if you…**
+- only use a single provider's native compaction and don't need cross-agent memory
+- work in a sandboxed environment where local processes can't run
+
+<details>
+<summary><b>Integrations — drop Headroom into any stack</b></summary>
+
+| Your setup             | Hook in with                                                     |
+|------------------------|------------------------------------------------------------------|
+| Any Python app         | `compress(messages, model=…)`                                    |
+| Any TypeScript app     | `await compress(messages, { model })`                            |
+| Anthropic / OpenAI SDK | `withHeadroom(new Anthropic())` · `withHeadroom(new OpenAI())`   |
+| Vercel AI SDK          | `wrapLanguageModel({ model, middleware: headroomMiddleware() })` |
+| LiteLLM                | `litellm.callbacks = [HeadroomCallback()]`                       |
+| LangChain              | `HeadroomChatModel(your_llm)`                                    |
+| Agno                   | `HeadroomAgnoModel(your_model)`                                  |
+| Strands                | [Strands guide](https://headroom-docs.vercel.app/docs/strands)  |
+| ASGI apps              | `app.add_middleware(CompressionMiddleware)`                      |
+| Multi-agent            | `SharedContext().put / .get`                                     |
+| MCP clients            | `headroom mcp install`                                           |
+
+</details>
+
+<details>
+<summary><b>What's inside</b></summary>
+
+- **SmartCrusher** — universal JSON: arrays of dicts, nested objects, mixed types.
+- **CodeCompressor** — AST-aware for Python, JS, Go, Rust, Java, C++.
+- **Kompress-base** — our HuggingFace model, trained on agentic traces.
+- **Image compression** — 40–90% reduction via trained ML router.
+- **CacheAligner** — stabilizes prefixes so Anthropic/OpenAI KV caches actually hit.
+- **IntelligentContext** — score-based context fitting with learned importance.
+- **CCR** — reversible compression; LLM retrieves originals on demand.
+- **Cross-agent memory** — shared store, agent provenance, auto-dedup.
+- **SharedContext** — compressed context passing across multi-agent workflows.
+- **`headroom learn`** — plugin-based failure mining for Claude, Codex, Gemini.
+
+</details>
+
+<details>
+<summary><b>Pipeline internals</b></summary>
+
+Headroom exposes one stable request lifecycle across `compress()`, the SDK, and the proxy:
+
+`Setup` → `Pre-Start` → `Post-Start` → `Input Received` → `Input Cached` → `Input Routed` → `Input Compressed` → `Input Remembered` → `Pre-Send` → `Post-Send` → `Response Received`
+
+- **Transforms** do the work: CacheAligner, ContentRouter, SmartCrusher, CodeCompressor, Kompress-base, IntelligentContext / RollingWindow.
+- **Pipeline extensions** observe or customize lifecycle stages via `on_pipeline_event(...)`.
+- **Compression hooks** sit alongside the canonical lifecycle as an additional extension seam.
+- **Proxy extensions** remain the server/app integration seam for ASGI middleware, routes, and startup policy.
+
+Provider and tool-specific behavior lives under `headroom/providers/` so core orchestration stays focused on lifecycle, sequencing, and policy.
+
+- **CLI/tool slices**: `headroom/providers/claude`, `copilot`, `codex`, `openclaw`
+- **Provider runtime slices**: `headroom/providers/claude`, `gemini`, plus shared backend/runtime dispatch in `headroom/providers/registry.py`
+- **Core files stay orchestration-first**: `wrap.py`, `client.py`, `cli/proxy.py`, and `proxy/server.py` delegate provider-specific env shaping, API target normalization, backend selection, and transport dispatch.
+
+</details>
+
+## Install
+
+```bash
+pip install "headroom-ai[all]"          # Python, everything
+npm install headroom-ai                 # TypeScript / Node
+docker pull ghcr.io/chopratejas/headroom:latest
+```
+
+Granular extras: `[proxy]`, `[mcp]`, `[ml]` (Kompress-base), `[agno]`, `[langchain]`, `[evals]`. Requires **Python 3.10+**.
+
+Using `pipx`? Choose a supported interpreter explicitly:
+
+```bash
+pipx install --python python3.13 "headroom-ai[all]"
+```
+
+→ [Installation guide](https://headroom-docs.vercel.app/docs/installation) — Docker tags, persistent service, PowerShell, devcontainers.
+
+## headroom learn
+
+<p align="center">
+  <img src="headroom_learn.gif" alt="headroom learn in action" width="720">
+</p>
+
+`headroom learn` — mines failed sessions, writes corrections to `CLAUDE.md` / `AGENTS.md` / `GEMINI.md`.
+
+## Documentation
+
+| Start here                                                                    | Go deeper                                                                          |
+|-------------------------------------------------------------------------------|------------------------------------------------------------------------------------|
+| [Quickstart](https://headroom-docs.vercel.app/docs/quickstart)                | [Architecture](https://headroom-docs.vercel.app/docs/architecture)                 |
+| [Proxy](https://headroom-docs.vercel.app/docs/proxy)                          | [How compression works](https://headroom-docs.vercel.app/docs/how-compression-works) |
+| [MCP tools](https://headroom-docs.vercel.app/docs/mcp)                        | [CCR — reversible compression](https://headroom-docs.vercel.app/docs/ccr)          |
+| [Memory](https://headroom-docs.vercel.app/docs/memory)                        | [Cache optimization](https://headroom-docs.vercel.app/docs/cache-optimization)     |
+| [Failure learning](https://headroom-docs.vercel.app/docs/failure-learning)    | [Benchmarks](https://headroom-docs.vercel.app/docs/benchmarks)                    |
+| [Configuration](https://headroom-docs.vercel.app/docs/configuration)          | [Limitations](https://headroom-docs.vercel.app/docs/limitations)                  |
+
+## Compared to
+
+Headroom runs **locally**, covers **every** content type, works with every major framework, and is **reversible**.
+
+|                                                                              | Scope                                          | Deploy                             | Local | Reversible |
+|------------------------------------------------------------------------------|------------------------------------------------|------------------------------------|:-----:|:----------:|
+| **Headroom**                                                                 | All context — tools, RAG, logs, files, history | Proxy · library · middleware · MCP | Yes   | Yes        |
+| [RTK](https://github.com/rtk-ai/rtk)                                        | CLI command outputs                            | CLI wrapper                        | Yes   | No         |
+| [lean-ctx](https://github.com/yvgude/lean-ctx)                               | CLI commands, MCP tools, editor rules          | CLI wrapper · MCP                  | Yes   | No         |
+| [Compresr](https://compresr.ai), [Token Co.](https://thetokencompany.ai)    | Text sent to their API                         | Hosted API call                    | No    | No         |
+| OpenAI Compaction                                                            | Conversation history                           | Provider-native                    | No    | No         |
+
+> **Attribution.** Headroom ships with the excellent [RTK](https://github.com/rtk-ai/rtk) binary for shell-output rewriting — `git show --short`, scoped `ls`, summarized installers. Huge thanks to the RTK team; their tool is a first-class part of our stack, and Headroom compresses everything downstream of it. Headroom can also use [lean-ctx](https://github.com/yvgude/lean-ctx) as the selected CLI context tool; set `HEADROOM_CONTEXT_TOOL=lean-ctx` before running `headroom wrap ...`.
+
+## Contributing
+
+```bash
+git clone https://github.com/chopratejas/headroom.git && cd headroom
+pip install -e ".[dev]" && pytest
+```
+
+Devcontainers in `.devcontainer/` (default + `memory-stack` with Qdrant & Neo4j). See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Community
+
+- **[Live leaderboard](https://headroomlabs.ai/dashboard)** — 60B+ tokens saved and counting.
+- **[Discord](https://discord.gg/yRmaUNpsPJ)** — questions, feedback, war stories.
+- **[Kompress-base on HuggingFace](https://huggingface.co/chopratejas/kompress-base)** — the model behind our text compression.
+
+## License
+
+Apache 2.0 — see [LICENSE](LICENSE).
+

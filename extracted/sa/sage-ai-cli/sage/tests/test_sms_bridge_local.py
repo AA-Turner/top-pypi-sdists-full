@@ -129,6 +129,7 @@ def test_international_phone_normalization():
 
 
 def test_find_kdeconnect_cli_and_daemon_candidates(monkeypatch):
+    monkeypatch.setattr("sys.platform", "darwin")
     from sage.core.sms_bridge import _find_kdeconnect_cli
     from sage.core.kdeconnect_listener import _find_kdeconnectd
     
@@ -152,3 +153,111 @@ def test_find_kdeconnect_cli_and_daemon_candidates(monkeypatch):
     daemon_paths_str = " ".join(checked_paths)
     assert "opt/homebrew" in daemon_paths_str or "homebrew" in daemon_paths_str
     assert "KDE Connect" in daemon_paths_str
+
+
+def test_kdeconnectd_running_reporting(monkeypatch):
+    """Test that _kdeconnectd_running returns True with warning if daemon is alive but no devices online."""
+    from sage.core.sms_bridge import _kdeconnectd_running
+    
+    monkeypatch.setattr("sage.core.sms_bridge._find_kdeconnect_cli", lambda: "/fake/kdeconnect-cli")
+    monkeypatch.setattr("sage.core.kdeconnect_listener._is_daemon_running", lambda: True)
+    
+    sub = CapturedSubprocess()
+    sub.results.append(DummySubprocessResult(returncode=0, stdout="\n"))
+    import subprocess
+    monkeypatch.setattr(subprocess, "run", sub)
+    
+    ok, reason = _kdeconnectd_running()
+    assert ok is True
+    assert "no paired+reachable KDE Connect devices online" in reason
+
+
+def test_kdeconnect_systemd_cooperation(monkeypatch):
+    """Test that _stop_os_daemon and _start_os_daemon call systemctl user services on Linux."""
+    from sage.core.kdeconnect_listener import _stop_os_daemon, _start_os_daemon
+    
+    monkeypatch.setattr("sys.platform", "linux")
+    monkeypatch.setattr("sage.core.kdeconnect_listener._is_daemon_running", lambda: False)
+    monkeypatch.setattr("sage.core.kdeconnect_listener._find_kdeconnectd", lambda: "/fake/kdeconnectd")
+    
+    sub = CapturedSubprocess()
+    import subprocess
+    monkeypatch.setattr(subprocess, "run", sub)
+    monkeypatch.setattr(subprocess, "Popen", lambda *args, **kwargs: None)
+    
+    # Test stop
+    _stop_os_daemon()
+    
+    systemctl_calls = [args for args in sub.calls if args[0] == "systemctl"]
+    assert len(systemctl_calls) >= 2
+    assert "stop" in systemctl_calls[0]
+    assert "kdeconnect" in systemctl_calls[0]
+    
+    # Test start
+    sub.calls.clear()
+    # Mock is-enabled check to return success (0)
+    sub.results.append(DummySubprocessResult(returncode=0))
+    sub.results.append(DummySubprocessResult(returncode=0))
+    _start_os_daemon()
+    
+    start_calls = [args for args in sub.calls if args[0] == "systemctl"]
+    assert len(start_calls) >= 2
+    assert "is-enabled" in start_calls[0]
+    assert "start" in start_calls[1]
+    assert "kdeconnect" in start_calls[1]
+
+
+def test_handshake_null_safety(monkeypatch):
+    """Test that SAGEMessageBridge handshake safely handles null user_email and user_phone."""
+    from sage.core.sms_bridge import SAGEMessageBridge, SMSConfig
+    import json
+    
+    class MockWebSocket:
+        def __init__(self):
+            self.sent = []
+            self.closed = False
+        def send(self, data):
+            self.sent.append(data)
+        def recv(self):
+            return json.dumps({
+                "type": "ready",
+                "display_email": "bridge@example.com",
+                "user_email": None,
+                "user_phone": None
+            })
+        def close(self):
+            self.closed = True
+            
+    # Mock token loading
+    monkeypatch.setattr("sage.core.sms_bridge._load_sage_token", lambda: ("token-123", "http://fake-api"))
+    monkeypatch.setattr("sage.core.cli_auth.get_uid_from_token", lambda tok: "uid-123")
+    
+    # Mock config
+    cfg = SMSConfig(computer_name="test-mac")
+    monkeypatch.setattr(SMSConfig, "load", lambda *a, **k: cfg)
+    
+    bridge = SAGEMessageBridge(cfg=cfg, token="token-123", api_base="http://fake-api")
+    
+    mock_ws = MockWebSocket()
+    import websocket as _ws_lib
+    monkeypatch.setattr(_ws_lib, "create_connection", lambda *a, **k: mock_ws)
+    
+    # Mock load_auth to trigger a break or stop after handshake
+    call_count = 0
+    def mock_load_auth():
+        nonlocal call_count
+        call_count += 1
+        if call_count > 1:
+            bridge._stop.set()
+        return {"id_token": "token-123"}
+        
+    monkeypatch.setattr("sage.core.cli_auth.load_auth", mock_load_auth)
+    
+    # Run the bridge run loop
+    bridge.run()
+    
+    # Verify that the handshake completed without raising AttributeError/TypeError
+    assert bridge._user_email == ""
+    assert bridge._user_phone == ""
+    assert mock_ws.closed is True
+

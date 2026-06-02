@@ -458,11 +458,189 @@ fn expand_three_qubit_index(
     p0 | p1 | p2 | p3
 }
 
+// ============================================================================
+// 임의 k-큐비트 유니터리 직접 적용 (v0.6.8)
+// ============================================================================
+
+/// 임의의 k-큐비트 유니터리 행렬을 상태 벡터에 직접 적용한다.
+///
+/// `matrix` 는 `2^k × 2^k` row-major 행렬 (`matrix[row * dim + col]`).
+/// `targets` 는 행렬이 작용할 k 개의 큐비트 인덱스 (little-endian).  행렬의
+/// sub-index 비트 `j` 가 `targets[j]` 에 대응하며 `targets[0]` 가 LSB —
+/// 2-큐비트의 경우 [`apply_two_qubit_gate`] 의 `|q1 q0⟩` 컨벤션과 동일.
+///
+/// 게이트별 native 커널 (1q/2q/3q) 과 달리 모든 k 를 지원하는 일반 경로로,
+/// 임의 unitary 직접 적용 (`QuantumCircuit.unitary`) 의 백엔드다.  비-target
+/// 큐비트 조합 (`2^{n-k}` 개) 마다 `2^k` 진폭을 모아 작은 mat-vec 을 수행한다.
+///
+/// # Panics
+/// `targets` 가 비었거나 중복이거나 `matrix.len() != 4^k` 이면 panic
+/// (디버그 빌드).  호출 측 (Python binding) 에서 사전 검증한다.
+pub fn apply_multi_qubit_gate<F: Real>(
+    state: &mut StateVector<F>,
+    matrix: &[Complex<F>],
+    targets: &[usize],
+) {
+    let k = targets.len();
+    debug_assert!(k >= 1, "targets 는 비어 있을 수 없음");
+    let dim_sub = 1usize << k;
+    debug_assert_eq!(
+        matrix.len(),
+        dim_sub * dim_sub,
+        "matrix 는 2^k × 2^k 여야 함"
+    );
+
+    let n = state.dim();
+
+    // sub-index → target 비트 기여 (base 와 OR 하면 full index).
+    let tcontrib: Vec<usize> = (0..dim_sub)
+        .map(|sub| {
+            let mut bits = 0usize;
+            for (j, &t) in targets.iter().enumerate() {
+                if (sub >> j) & 1 == 1 {
+                    bits |= 1usize << t;
+                }
+            }
+            bits
+        })
+        .collect();
+
+    // base (모든 target 비트 = 0) 를 compressed 인덱스로부터 복원하기 위한
+    // 정렬된 target 위치.
+    let mut sorted_targets = targets.to_vec();
+    sorted_targets.sort_unstable();
+
+    let n_bases = n >> k;
+    let amps = state.amplitudes_mut();
+
+    let apply_base = |base: usize, amps_ptr: *mut Complex<F>| {
+        // gather
+        let mut v = [Complex::new(F::zero(), F::zero()); 64];
+        let v = &mut v[..dim_sub];
+        for (sub, vc) in v.iter_mut().enumerate() {
+            *vc = unsafe { *amps_ptr.add(base | tcontrib[sub]) };
+        }
+        // mat-vec + scatter
+        for (row, &dst_bits) in tcontrib.iter().enumerate() {
+            let mut acc = Complex::new(F::zero(), F::zero());
+            let row_off = row * dim_sub;
+            for (col, &vc) in v.iter().enumerate() {
+                acc = acc + matrix[row_off + col] * vc;
+            }
+            unsafe {
+                *amps_ptr.add(base | dst_bits) = acc;
+            }
+        }
+    };
+
+    if n < PARALLEL_THRESHOLD || k > 6 {
+        // k > 6: stack 버퍼 (64) 초과 → 직렬 경로에서 heap 버퍼 사용.
+        for b in 0..n_bases {
+            let base = expand_compressed_index(b, &sorted_targets);
+            if k <= 6 {
+                apply_base(base, amps.as_mut_ptr());
+            } else {
+                apply_base_heap(base, &tcontrib, matrix, dim_sub, amps);
+            }
+        }
+        return;
+    }
+
+    let amps_addr = amps.as_mut_ptr() as usize;
+    (0..n_bases).into_par_iter().for_each(|b| {
+        let base = expand_compressed_index(b, &sorted_targets);
+        let amps_ptr = amps_addr as *mut Complex<F>;
+        apply_base(base, amps_ptr);
+    });
+}
+
+/// k > 6 (행렬 차원 > 64) 일 때 heap 버퍼로 한 base 처리.
+#[inline]
+fn apply_base_heap<F: Real>(
+    base: usize,
+    tcontrib: &[usize],
+    matrix: &[Complex<F>],
+    dim_sub: usize,
+    amps: &mut [Complex<F>],
+) {
+    let v: Vec<Complex<F>> = tcontrib.iter().map(|&b| amps[base | b]).collect();
+    for (row, &dst_bits) in tcontrib.iter().enumerate() {
+        let mut acc = Complex::new(F::zero(), F::zero());
+        let row_off = row * dim_sub;
+        for (col, &vc) in v.iter().enumerate() {
+            acc = acc + matrix[row_off + col] * vc;
+        }
+        amps[base | dst_bits] = acc;
+    }
+}
+
+/// compressed 인덱스 (비-target 비트만) → full base 인덱스 (target 비트 = 0).
+/// `sorted_targets` 오름차순.  각 target 위치에 0 비트를 삽입한다.
+#[inline]
+fn expand_compressed_index(compressed: usize, sorted_targets: &[usize]) -> usize {
+    let mut result = compressed;
+    for &t in sorted_targets {
+        let low_mask = (1usize << t) - 1;
+        let low = result & low_mask;
+        let high = result & !low_mask;
+        result = (high << 1) | low;
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::complex::{approx_eq, ONE, ZERO};
     use crate::gates::Gate;
+
+    /// v0.6.8: 일반 k-큐비트 커널이 native 2q 커널 (CNOT) 과 일치하는지 검증.
+    /// CNOT 4×4 (|q1 q0⟩, q0 LSB) 를 random 상태에 generic / native 양쪽으로
+    /// 적용 후 진폭이 일치해야 한다.
+    #[test]
+    fn test_multi_qubit_matches_two_qubit_cnot() {
+        use crate::gates::Matrix4x4;
+        let cnot: Matrix4x4<f64> = Gate::cnot_matrix();
+        // flat row-major copy.
+        let flat: Vec<Complex<f64>> = cnot.iter().flat_map(|r| r.iter().copied()).collect();
+
+        for &(q0, q1) in &[(0usize, 1usize), (1, 0), (0, 2), (2, 0)] {
+            let n = 3;
+            let mut a: StateVector<f64> = StateVector::new(n);
+            // prepare a non-trivial state: H on all then some.
+            let h: Matrix2x2<f64> = Gate::H.matrix_2x2();
+            for q in 0..n {
+                apply_single_qubit_gate(&mut a, &h, q);
+            }
+            let mut b = a.clone();
+            apply_two_qubit_gate(&mut a, &cnot, q0, q1);
+            apply_multi_qubit_gate(&mut b, &flat, &[q0, q1]);
+            for (x, y) in a.amplitudes().iter().zip(b.amplitudes().iter()) {
+                assert!(
+                    approx_eq(*x, *y, 1e-12),
+                    "mismatch q0={q0} q1={q1}: {x} vs {y}"
+                );
+            }
+        }
+    }
+
+    /// v0.6.8: 단일 큐비트 커널과의 일치.
+    #[test]
+    fn test_multi_qubit_matches_single_qubit() {
+        let h: Matrix2x2<f64> = Gate::H.matrix_2x2();
+        let flat = vec![h[0][0], h[0][1], h[1][0], h[1][1]];
+        for target in 0..3 {
+            let mut a: StateVector<f64> = StateVector::new(3);
+            let x: Matrix2x2<f64> = Gate::X.matrix_2x2();
+            apply_single_qubit_gate(&mut a, &x, 0); // make it non-trivial
+            let mut b = a.clone();
+            apply_single_qubit_gate(&mut a, &h, target);
+            apply_multi_qubit_gate(&mut b, &flat, &[target]);
+            for (p, q) in a.amplitudes().iter().zip(b.amplitudes().iter()) {
+                assert!(approx_eq(*p, *q, 1e-12));
+            }
+        }
+    }
 
     #[test]
     fn test_x_gate_flips_qubit() {

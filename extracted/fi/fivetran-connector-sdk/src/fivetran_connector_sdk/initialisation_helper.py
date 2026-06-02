@@ -1,28 +1,39 @@
 import os
+import shutil
+import subprocess
 import sys
 
 import requests as rq
 
 from fivetran_connector_sdk.logger import Logging
 from fivetran_connector_sdk.constants import EXAMPLES_GITHUB_REPO, GITHUB_BRANCH, \
-    AI_AGENTS, TEMPLATE_CONNECTOR_PATH, CONNECTORS_GITHUB_REPO, CONNECTORS_TEMPLATE_PREFIX
+    AGENT_PLUGINS, SUPPORTED_AGENT_DISPLAY_NAMES, TOOLS_GITHUB_REPO_URL, TEMPLATE_CONNECTOR_PATH, \
+    CONNECTORS_GITHUB_REPO, CONNECTORS_TEMPLATE_PREFIX, ROOT_FILENAME
 from fivetran_connector_sdk.helpers import print_library_log
 
+
 def init(project_dir: str, template: str, force: bool):
-    if not force:
-        confirm = input(f"create new connector project at {project_dir}? (y/N): ")
-    else:
+    connector_path = os.path.join(project_dir, ROOT_FILENAME)
+    if force:
         print_library_log("overriding existing files; --force is set")
         confirm = "y"
-    if confirm.lower() != "y":
-        print_library_log("project initialization canceled")
-        sys.exit(0)
-
+    else:
+        if os.path.isfile(connector_path):
+            print_library_log(
+                f"{ROOT_FILENAME} already exists at {project_dir}",
+                log_icon=Logging.LogIcon.STEP,
+            )
+            confirm = "n"
+        else:
+            confirm = input(f"create new connector project at {project_dir}? (Y/n): ").strip()
     try:
-        setup_connector(project_dir, template, force)
-        setup_ai_agent(project_dir, force)
-        print_library_log("project initialized", log_icon=Logging.LogIcon.SUCCESS)
-        print_library_log("Time to make a great connector; Happy coding")
+        if confirm.lower() == "n":
+            print_library_log("skipping connector project creation", log_icon=Logging.LogIcon.STEP)
+        else:
+            setup_connector(project_dir, template, force)
+            print_library_log("project initialized", log_icon=Logging.LogIcon.SUCCESS)
+            print_library_log("Time to make a great connector; Happy coding")
+        setup_ai_agent()
         sys.exit(0)
     except Exception as e:
         print_library_log(f"failed to initialize project error: {e}", level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
@@ -35,29 +46,88 @@ def setup_connector(project_dir: str, template: str, force: bool):
     print_library_log(f"new project created at: {project_dir}", log_icon=Logging.LogIcon.SUCCESS)
 
 
-def setup_ai_agent(project_dir: str, force: bool):
-    ai_agent = input("Which AI Agent shall we optimize the project to work with?\n"
-                     "1. Claude\n"
-                     "2. Cursor\n"
-                     "3. VSCode with a Copilot\n"
-                     "4. Do nothing, I already have my AI context configured\n"
-                     "\n"
-                     "Please enter the number or name of your choice (e.g., '1' or 'Claude'): ").strip()
+def detect_installed_agents() -> dict:
+    return {
+        key: config["display_name"]
+        for key, config in AGENT_PLUGINS.items()
+        if shutil.which(config["cli_command"]) is not None
+    }
 
-    ai_agent = ai_agent.lower()
-    if ai_agent == "1" or ai_agent == "claude":
-        ai_agent = "claude"
-    elif ai_agent == "2" or ai_agent == "cursor":
-        ai_agent = "cursor"
-    elif ai_agent == "3" or ai_agent == "vscode with a copilot":
-        ai_agent = "vscode"
-    else:
-        ai_agent = None
 
-    if ai_agent in AI_AGENTS:
-        download_git_directory(AI_AGENTS.get(ai_agent), project_dir, force)
+def install_agent_plugin(agent_key: str) -> bool:
+    config = AGENT_PLUGINS[agent_key]
+    print_library_log(f"installing {config['display_name']} plugin", log_icon=Logging.LogIcon.STEP)
+    for cmd in config["install_commands"]:
+        try:
+            result = subprocess.run(cmd)
+        except OSError as e:
+            print_library_log(
+                f"install command failed: {' '.join(cmd)}: {e}",
+                level=Logging.Level.WARNING,
+                log_icon=Logging.LogIcon.FAILURE,
+            )
+            print_library_log(
+                f"install manually: {TOOLS_GITHUB_REPO_URL}",
+                log_icon=Logging.LogIcon.STEP,
+            )
+            return False
+        if result.returncode != 0:
+            print_library_log(
+                f"install command failed: {' '.join(cmd)}",
+                level=Logging.Level.WARNING,
+                log_icon=Logging.LogIcon.FAILURE,
+            )
+            print_library_log(
+                f"install manually: {TOOLS_GITHUB_REPO_URL}",
+                log_icon=Logging.LogIcon.STEP,
+            )
+            return False
+    print_library_log(f"{config['display_name']} plugin installed", log_icon=Logging.LogIcon.SUCCESS)
+    return True
+
+
+def setup_ai_agent():
+    installed = detect_installed_agents()
+
+    if not installed:
+        print_library_log(
+            f"no supported coding agents detected ({SUPPORTED_AGENT_DISPLAY_NAMES}); skipping plugin setup",
+            log_icon=Logging.LogIcon.STEP,
+        )
+        print_library_log(
+            f"install manually: {TOOLS_GITHUB_REPO_URL}",
+            log_icon=Logging.LogIcon.STEP,
+        )
+        return
+
+    agent_list = list(installed.items())
+    skip_num = len(agent_list) + 1
+    menu = (
+        "Installed coding agents detected. Which agent should we install the Fivetran plugin for?\n"
+        + "\n".join(f"{i}. {name}" for i, (_, name) in enumerate(agent_list, 1))
+        + f"\n{skip_num}. Skip — I'll install manually"
+    )
+
+    choice = input(f"{menu}\n\nPlease enter the number of your choice: ").strip()
+    try:
+        choice_num = int(choice)
+        if not (1 <= choice_num <= skip_num):
+            raise ValueError
+    except ValueError:
+        print_library_log("invalid choice; skipping agent setup", log_icon=Logging.LogIcon.FAILURE)
+        return
+
+    if choice_num == skip_num:
+        print_library_log("skipping plugin setup", log_icon=Logging.LogIcon.STEP)
+        print_library_log(f"install manually: {TOOLS_GITHUB_REPO_URL}", log_icon=Logging.LogIcon.STEP)
     else:
-        print_library_log("skipping AI agent setup", log_icon=Logging.LogIcon.STEP)
+        agent_key = agent_list[choice_num - 1][0]
+        if not install_agent_plugin(agent_key):
+            print_library_log(
+                "agent plugin setup failed; skipping plugin setup",
+                level=Logging.Level.WARNING,
+                log_icon=Logging.LogIcon.FAILURE,
+            )
 
 
 def validate_example_directory(files_to_download: list):
@@ -77,7 +147,7 @@ def _resolve_repo_and_path(path_prefix: str) -> tuple:
     """Returns (repo, actual_path) based on template routing rules."""
     if path_prefix.startswith(CONNECTORS_TEMPLATE_PREFIX):
         return CONNECTORS_GITHUB_REPO, path_prefix[len(CONNECTORS_TEMPLATE_PREFIX):]
-    if path_prefix in AI_AGENTS.values() or path_prefix.startswith("examples/"):
+    if path_prefix.startswith("examples/"):
         return EXAMPLES_GITHUB_REPO, path_prefix
     return CONNECTORS_GITHUB_REPO, path_prefix
 
@@ -98,7 +168,7 @@ def download_git_directory(path_prefix: str, project_dir: str, force: bool):
         for item in tree_data['tree']:
             if item['type'] == 'blob' and item['path'].startswith(actual_path):
                 relative_path = item['path'][len(actual_path):].lstrip('/')
-                if (path_prefix == TEMPLATE_CONNECTOR_PATH or path_prefix in AI_AGENTS.values()) and "readme" in relative_path.lower():
+                if path_prefix == TEMPLATE_CONNECTOR_PATH and "readme" in relative_path.lower():
                     continue
                 files_to_download.append({
                     'github_path': item['path'],
@@ -110,8 +180,7 @@ def download_git_directory(path_prefix: str, project_dir: str, force: bool):
             print_library_log("no files to download", Logging.Level.WARNING)
             return
 
-        if path_prefix not in AI_AGENTS.values():
-            validate_example_directory(files_to_download)
+        validate_example_directory(files_to_download)
 
         print_library_log(f"downloading {len(files_to_download)} files from GitHub", log_icon=Logging.LogIcon.STEP)
         download_file_from_github(files_to_download, project_dir, force, repo)

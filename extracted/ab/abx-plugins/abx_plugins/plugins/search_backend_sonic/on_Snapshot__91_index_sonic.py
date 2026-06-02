@@ -35,15 +35,17 @@ from typing import Any
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     get_extra_context,
-    load_config,
 )
-from abx_plugins.plugins.search_backend_sonic.daemon import is_sonic_backend_enabled
+from abx_plugins.plugins.search_backend_sonic.daemon import (
+    is_sonic_backend_enabled,
+    load_sonic_config,
+)
 
 
 # Extractor metadata
 PLUGIN_NAME = "index_sonic"
 PLUGIN_DIR = Path(__file__).resolve().parent.name
-CONFIG = load_config()
+CONFIG = load_sonic_config()
 SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -155,6 +157,7 @@ def index_in_sonic(snapshot_id: str, texts: list[str], config: Any) -> None:
     except ModuleNotFoundError:
         raise RuntimeError("sonic-client not installed. Run: pip install sonic-client")
     ingest_client: Any = sonic.IngestClient
+    control_client: Any = sonic.ControlClient
 
     with ingest_client(
         config.SEARCH_BACKEND_SONIC_HOST_NAME,
@@ -183,6 +186,13 @@ def index_in_sonic(snapshot_id: str, texts: list[str], config: Any) -> None:
                 chunk,
             )
 
+    with control_client(
+        config.SEARCH_BACKEND_SONIC_HOST_NAME,
+        config.SEARCH_BACKEND_SONIC_PORT,
+        config.SEARCH_BACKEND_SONIC_PASSWORD,
+    ) as control:
+        control.trigger("consolidate")
+
 
 def get_snapshot_id_from_context() -> str:
     extra_context = get_extra_context()
@@ -203,7 +213,7 @@ def main() -> None:
     text_size_kb = 0
 
     try:
-        config = load_config()
+        config = load_sonic_config()
 
         if config.ABX_RUNTIME != "archivebox":
             print("Skipping Sonic indexing (ABX_RUNTIME!=archivebox)", file=sys.stderr)

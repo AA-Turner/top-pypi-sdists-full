@@ -19,10 +19,11 @@ from enum import Enum, Flag, IntFlag
 from typing import Any, TypeVar, cast
 
 from robot.libraries.BuiltIn import BuiltIn
+from robot.utils import is_truthy  # type: ignore
 
-from .type_converter import is_truthy, type_converter
+from .type_converter import type_converter
 
-__version__ = "4.0.0"
+__version__ = "5.0.0"
 
 AssertionOperator = Enum(
     "AssertionOperator",
@@ -73,6 +74,15 @@ AssertionOperator.__doc__ = """
     | ``validate``        |                                      | Checks if given Python expression evaluates to ``True``.                           |                                      |
     | ``evaluate``        |  ``then``                            | When using this operator, the keyword does return the evaluated Python expression. |                                      |
 
+    There are three different possibilities what keyword returns when `matches` operator is used:
+    string, tuple or dictionary. What keyword returns depends on how the RegEx is formed. If RegEx
+    does not contain group(s), then keyword will return the string without modifications.
+    If RegEx contains groups, meaning (...), then keyword will return a tuple. Each tuple item
+    contains the text which is matched by the group. If there is group and group has a name,
+    (?P<name>...) syntax, then keyword returns a dictionary. In this case dictionary key is the
+    group name and value contains the matched text. If there mix of groups and groups with names,
+    then tuple is returned.
+
     Currently supported formatters for assertions are:
     |     = Formatter =     |                      = Description =                       |
     |  ``normalize spaces`` | Substitutes multiple spaces to single space from the value |
@@ -108,6 +118,19 @@ EvaluationOperators = [
     AssertionOperator["then"],
 ]
 
+
+def _matches(value, expected) -> tuple[str, ...] | dict[str, str] | None:
+    comp = re.compile(expected)
+    matches = comp.search(value)
+    if not matches:
+        return matches
+    if comp.groups == 0:
+        return matches.string
+    if len(comp.groupindex) == comp.groups:
+        return matches.groupdict()
+    return matches.groups()
+
+
 handlers: dict[AssertionOperator, tuple[Callable, str]] = {
     AssertionOperator["=="]: (lambda a, b: a == b, "should be"),
     AssertionOperator["!="]: (lambda a, b: a != b, "should not be"),
@@ -117,7 +140,7 @@ handlers: dict[AssertionOperator, tuple[Callable, str]] = {
     AssertionOperator[">="]: (lambda a, b: a >= b, "should be greater than or equal"),
     AssertionOperator["*="]: (lambda a, b: b in a, "should contain"),
     AssertionOperator["not contains"]: (lambda a, b: b not in a, "should not contain"),
-    AssertionOperator["matches"]: (lambda a, b: re.search(b, a), "should match"),
+    AssertionOperator["matches"]: (_matches, "should match"),
     AssertionOperator["^="]: (
         lambda a, b: re.search(f"^{re.escape(b)}", a),
         "should start with",
@@ -188,6 +211,10 @@ def verify_assertion(
             f"{message}{filler}`{operator}` is not a valid assertion operator"
         )
     validator, text = handler
+    if operator is AssertionOperator["matches"]:
+        if not (matches := validator(value, expected)):
+            raise_error(custom_message, expected, filler, message, text, value)
+        return matches
     if not validator(value, expected):
         raise_error(custom_message, expected, filler, message, text, value)
     return value

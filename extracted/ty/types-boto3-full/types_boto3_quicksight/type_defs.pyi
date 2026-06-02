@@ -26,6 +26,9 @@ from botocore.response import StreamingBody
 from .literals import (
     ActionConnectorSearchFilterNameEnumType,
     ActionConnectorTypeType,
+    AgentLifecycleType,
+    AgentOwnershipFilterAttributeType,
+    AgentStatusType,
     AggTypeType,
     AnalysisErrorTypeType,
     AnalysisFilterAttributeType,
@@ -65,6 +68,7 @@ from .literals import (
     CommitModeType,
     ComparisonMethodType,
     ComparisonMethodTypeType,
+    ComparisonOperatorType,
     ConditionalFormattingIconSetTypeType,
     ConnectionAuthTypeType,
     ConstantTypeType,
@@ -227,6 +231,9 @@ from .literals import (
     SnapshotFileSheetSelectionScopeType,
     SnapshotJobStatusType,
     SortDirectionType,
+    SpaceQuickSightResourceTypeType,
+    SpaceQuickSightSearchFilterNameType,
+    SpaceSearchOperatorType,
     SparklineAxisBehaviorType,
     SparklineVisualTypeType,
     SpecialValueType,
@@ -297,6 +304,9 @@ __all__ = (
     "ActiveIAMPolicyAssignmentTypeDef",
     "AdHocFilteringOptionTypeDef",
     "AdditionalNotesTypeDef",
+    "AgentSearchFilterTypeDef",
+    "AgentSummaryTypeDef",
+    "AgentTypeDef",
     "AggFunctionOutputTypeDef",
     "AggFunctionTypeDef",
     "AggFunctionUnionTypeDef",
@@ -608,6 +618,8 @@ __all__ = (
     "CreateAccountSubscriptionResponseTypeDef",
     "CreateActionConnectorRequestTypeDef",
     "CreateActionConnectorResponseTypeDef",
+    "CreateAgentRequestTypeDef",
+    "CreateAgentResponseTypeDef",
     "CreateAnalysisRequestTypeDef",
     "CreateAnalysisResponseTypeDef",
     "CreateBrandRequestTypeDef",
@@ -623,6 +635,8 @@ __all__ = (
     "CreateDataSetResponseTypeDef",
     "CreateDataSourceRequestTypeDef",
     "CreateDataSourceResponseTypeDef",
+    "CreateFlowRequestTypeDef",
+    "CreateFlowResponseTypeDef",
     "CreateFolderMembershipRequestTypeDef",
     "CreateFolderMembershipResponseTypeDef",
     "CreateFolderRequestTypeDef",
@@ -643,6 +657,8 @@ __all__ = (
     "CreateRefreshScheduleResponseTypeDef",
     "CreateRoleMembershipRequestTypeDef",
     "CreateRoleMembershipResponseTypeDef",
+    "CreateSpaceRequestTypeDef",
+    "CreateSpaceResponseTypeDef",
     "CreateTemplateAliasRequestTypeDef",
     "CreateTemplateAliasResponseTypeDef",
     "CreateTemplateRequestTypeDef",
@@ -680,6 +696,10 @@ __all__ = (
     "CustomParameterValuesOutputTypeDef",
     "CustomParameterValuesTypeDef",
     "CustomPermissionsTypeDef",
+    "CustomPromptInputParametersTypeDef",
+    "CustomPromptInputTypeDef",
+    "CustomPromptInterfaceTypeDef",
+    "CustomPromptProfileTypeDef",
     "CustomSqlOutputTypeDef",
     "CustomSqlTypeDef",
     "CustomSqlUnionTypeDef",
@@ -855,6 +875,8 @@ __all__ = (
     "DeleteAccountSubscriptionResponseTypeDef",
     "DeleteActionConnectorRequestTypeDef",
     "DeleteActionConnectorResponseTypeDef",
+    "DeleteAgentRequestTypeDef",
+    "DeleteAgentResponseTypeDef",
     "DeleteAnalysisRequestTypeDef",
     "DeleteAnalysisResponseTypeDef",
     "DeleteBrandAssignmentRequestTypeDef",
@@ -873,6 +895,8 @@ __all__ = (
     "DeleteDataSourceResponseTypeDef",
     "DeleteDefaultQBusinessApplicationRequestTypeDef",
     "DeleteDefaultQBusinessApplicationResponseTypeDef",
+    "DeleteFlowRequestTypeDef",
+    "DeleteFlowResponseTypeDef",
     "DeleteFolderMembershipRequestTypeDef",
     "DeleteFolderMembershipResponseTypeDef",
     "DeleteFolderRequestTypeDef",
@@ -895,6 +919,8 @@ __all__ = (
     "DeleteRoleCustomPermissionResponseTypeDef",
     "DeleteRoleMembershipRequestTypeDef",
     "DeleteRoleMembershipResponseTypeDef",
+    "DeleteSpaceRequestTypeDef",
+    "DeleteSpaceResponseTypeDef",
     "DeleteTemplateAliasRequestTypeDef",
     "DeleteTemplateAliasResponseTypeDef",
     "DeleteTemplateRequestTypeDef",
@@ -927,6 +953,10 @@ __all__ = (
     "DescribeActionConnectorPermissionsResponseTypeDef",
     "DescribeActionConnectorRequestTypeDef",
     "DescribeActionConnectorResponseTypeDef",
+    "DescribeAgentPermissionsRequestTypeDef",
+    "DescribeAgentPermissionsResponseTypeDef",
+    "DescribeAgentRequestTypeDef",
+    "DescribeAgentResponseTypeDef",
     "DescribeAnalysisDefinitionRequestTypeDef",
     "DescribeAnalysisDefinitionResponseTypeDef",
     "DescribeAnalysisPermissionsRequestTypeDef",
@@ -971,6 +1001,8 @@ __all__ = (
     "DescribeDataSourceResponseTypeDef",
     "DescribeDefaultQBusinessApplicationRequestTypeDef",
     "DescribeDefaultQBusinessApplicationResponseTypeDef",
+    "DescribeFlowRequestTypeDef",
+    "DescribeFlowResponseTypeDef",
     "DescribeFolderPermissionsRequestPaginateTypeDef",
     "DescribeFolderPermissionsRequestTypeDef",
     "DescribeFolderPermissionsResponseTypeDef",
@@ -1005,6 +1037,10 @@ __all__ = (
     "DescribeRoleCustomPermissionResponseTypeDef",
     "DescribeSelfUpgradeConfigurationRequestTypeDef",
     "DescribeSelfUpgradeConfigurationResponseTypeDef",
+    "DescribeSpacePermissionsRequestTypeDef",
+    "DescribeSpacePermissionsResponseTypeDef",
+    "DescribeSpaceRequestTypeDef",
+    "DescribeSpaceResponseTypeDef",
     "DescribeTemplateAliasRequestTypeDef",
     "DescribeTemplateAliasResponseTypeDef",
     "DescribeTemplateDefinitionRequestTypeDef",
@@ -1057,6 +1093,8 @@ __all__ = (
     "ExportToCSVOptionTypeDef",
     "ExportWithHiddenFieldsOptionTypeDef",
     "FailedKeyRegistrationEntryTypeDef",
+    "FailedSpaceResourceOperationTypeDef",
+    "FailedToUpdateAssociationTypeDef",
     "FieldBarSeriesItemTypeDef",
     "FieldBasedTooltipOutputTypeDef",
     "FieldBasedTooltipTypeDef",
@@ -1118,6 +1156,7 @@ __all__ = (
     "FilterTypeDef",
     "FiltersOperationOutputTypeDef",
     "FiltersOperationTypeDef",
+    "FlowDetailTypeDef",
     "FlowSummaryTypeDef",
     "FolderMemberTypeDef",
     "FolderSearchFilterTypeDef",
@@ -1407,6 +1446,8 @@ __all__ = (
     "ListActionConnectorsRequestPaginateTypeDef",
     "ListActionConnectorsRequestTypeDef",
     "ListActionConnectorsResponseTypeDef",
+    "ListAgentsRequestTypeDef",
+    "ListAgentsResponseTypeDef",
     "ListAnalysesRequestPaginateTypeDef",
     "ListAnalysesRequestTypeDef",
     "ListAnalysesResponseTypeDef",
@@ -1479,6 +1520,10 @@ __all__ = (
     "ListRoleMembershipsResponseTypeDef",
     "ListSelfUpgradesRequestTypeDef",
     "ListSelfUpgradesResponseTypeDef",
+    "ListSpaceResourcesRequestTypeDef",
+    "ListSpaceResourcesResponseTypeDef",
+    "ListSpacesRequestTypeDef",
+    "ListSpacesResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "ListTemplateAliasesRequestPaginateTypeDef",
@@ -1829,6 +1874,8 @@ __all__ = (
     "SearchActionConnectorsRequestPaginateTypeDef",
     "SearchActionConnectorsRequestTypeDef",
     "SearchActionConnectorsResponseTypeDef",
+    "SearchAgentsRequestTypeDef",
+    "SearchAgentsResponseTypeDef",
     "SearchAnalysesRequestPaginateTypeDef",
     "SearchAnalysesRequestTypeDef",
     "SearchAnalysesResponseTypeDef",
@@ -1851,6 +1898,8 @@ __all__ = (
     "SearchGroupsRequestPaginateTypeDef",
     "SearchGroupsRequestTypeDef",
     "SearchGroupsResponseTypeDef",
+    "SearchSpacesRequestTypeDef",
+    "SearchSpacesResponseTypeDef",
     "SearchTopicsRequestPaginateTypeDef",
     "SearchTopicsRequestTypeDef",
     "SearchTopicsResponseTypeDef",
@@ -1948,6 +1997,14 @@ __all__ = (
     "SnowflakeParametersTypeDef",
     "SourceTableOutputTypeDef",
     "SourceTableTypeDef",
+    "SpaceContributorTypeDef",
+    "SpaceDetailsTypeDef",
+    "SpaceQuickSightResourceDetailsTypeDef",
+    "SpaceQuickSightResourceTypeDef",
+    "SpaceQuicksightSearchFilterTypeDef",
+    "SpaceResourceOperationTypeDef",
+    "SpaceResourceSummaryTypeDef",
+    "SpaceSummaryTypeDef",
     "SpacingTypeDef",
     "SparkParametersTypeDef",
     "SparklinesOptionsTypeDef",
@@ -1970,6 +2027,7 @@ __all__ = (
     "StaticFileSourceTypeDef",
     "StaticFileTypeDef",
     "StaticFileUrlSourceOptionsTypeDef",
+    "StepAliasMappingTypeDef",
     "StringDatasetParameterDefaultValuesOutputTypeDef",
     "StringDatasetParameterDefaultValuesTypeDef",
     "StringDatasetParameterDefaultValuesUnionTypeDef",
@@ -2195,6 +2253,10 @@ __all__ = (
     "UpdateActionConnectorPermissionsResponseTypeDef",
     "UpdateActionConnectorRequestTypeDef",
     "UpdateActionConnectorResponseTypeDef",
+    "UpdateAgentPermissionsRequestTypeDef",
+    "UpdateAgentPermissionsResponseTypeDef",
+    "UpdateAgentRequestTypeDef",
+    "UpdateAgentResponseTypeDef",
     "UpdateAnalysisPermissionsRequestTypeDef",
     "UpdateAnalysisPermissionsResponseTypeDef",
     "UpdateAnalysisRequestTypeDef",
@@ -2231,6 +2293,8 @@ __all__ = (
     "UpdateDefaultQBusinessApplicationResponseTypeDef",
     "UpdateFlowPermissionsInputTypeDef",
     "UpdateFlowPermissionsOutputTypeDef",
+    "UpdateFlowRequestTypeDef",
+    "UpdateFlowResponseTypeDef",
     "UpdateFolderPermissionsRequestTypeDef",
     "UpdateFolderPermissionsResponseTypeDef",
     "UpdateFolderRequestTypeDef",
@@ -2263,6 +2327,12 @@ __all__ = (
     "UpdateSelfUpgradeConfigurationResponseTypeDef",
     "UpdateSelfUpgradeRequestTypeDef",
     "UpdateSelfUpgradeResponseTypeDef",
+    "UpdateSpacePermissionsRequestTypeDef",
+    "UpdateSpacePermissionsResponseTypeDef",
+    "UpdateSpaceRequestTypeDef",
+    "UpdateSpaceResourcesRequestTypeDef",
+    "UpdateSpaceResourcesResponseTypeDef",
+    "UpdateSpaceResponseTypeDef",
     "UpdateTemplateAliasRequestTypeDef",
     "UpdateTemplateAliasResponseTypeDef",
     "UpdateTemplatePermissionsRequestTypeDef",
@@ -2401,6 +2471,31 @@ AdditionalNotesTypeDef = TypedDict(
         "Text": NotRequired[str],
     },
 )
+
+class AgentSearchFilterTypeDef(TypedDict):
+    Name: NotRequired[AgentOwnershipFilterAttributeType]
+    Operator: NotRequired[ComparisonOperatorType]
+    Value: NotRequired[str]
+
+class AgentSummaryTypeDef(TypedDict):
+    Arn: str
+    AgentId: str
+    Name: str
+    CreatedAt: datetime
+    UpdatedAt: datetime
+    Description: NotRequired[str]
+    IconId: NotRequired[str]
+
+class CustomPromptInterfaceTypeDef(TypedDict):
+    ModelProfileId: str
+    SubscriptionId: str
+    QbsAwsAccountId: str
+    ResponseLength: NotRequired[str]
+    OutputStyle: NotRequired[str]
+    Identity: NotRequired[str]
+    Tone: NotRequired[str]
+    CustomInstructions: NotRequired[str]
+    promptSummary: NotRequired[str]
 
 class AggFunctionOutputTypeDef(TypedDict):
     Aggregation: NotRequired[AggTypeType]
@@ -3330,6 +3425,12 @@ class CreateRoleMembershipRequestTypeDef(TypedDict):
     Namespace: str
     Role: RoleType
 
+class CreateSpaceRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    SpaceId: str
+    Name: str
+    Description: NotRequired[str]
+
 class CreateTemplateAliasRequestTypeDef(TypedDict):
     AwsAccountId: str
     TemplateId: str
@@ -3382,6 +3483,18 @@ class CustomParameterValuesOutputTypeDef(TypedDict):
     IntegerValues: NotRequired[list[int]]
     DecimalValues: NotRequired[list[float]]
     DateTimeValues: NotRequired[list[datetime]]
+
+class CustomPromptInputParametersTypeDef(TypedDict):
+    ResponseLength: NotRequired[str]
+    OutputStyle: NotRequired[str]
+    Identity: NotRequired[str]
+    Tone: NotRequired[str]
+    CustomInstructions: NotRequired[str]
+
+class CustomPromptProfileTypeDef(TypedDict):
+    ModelProfileId: str
+    SubscriptionId: str
+    QbsAwsAccountId: str
 
 InputColumnTypeDef = TypedDict(
     "InputColumnTypeDef",
@@ -3760,6 +3873,10 @@ class DeleteActionConnectorRequestTypeDef(TypedDict):
     AwsAccountId: str
     ActionConnectorId: str
 
+class DeleteAgentRequestTypeDef(TypedDict):
+    AgentId: str
+    AwsAccountId: str
+
 class DeleteAnalysisRequestTypeDef(TypedDict):
     AwsAccountId: str
     AnalysisId: str
@@ -3797,6 +3914,10 @@ class DeleteDataSourceRequestTypeDef(TypedDict):
 class DeleteDefaultQBusinessApplicationRequestTypeDef(TypedDict):
     AwsAccountId: str
     Namespace: NotRequired[str]
+
+class DeleteFlowRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    FlowId: str
 
 class DeleteFolderMembershipRequestTypeDef(TypedDict):
     AwsAccountId: str
@@ -3851,6 +3972,10 @@ class DeleteRoleMembershipRequestTypeDef(TypedDict):
     Role: RoleType
     AwsAccountId: str
     Namespace: str
+
+class DeleteSpaceRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    SpaceId: str
 
 class DeleteTemplateAliasRequestTypeDef(TypedDict):
     AwsAccountId: str
@@ -3925,6 +4050,14 @@ class ResourcePermissionOutputTypeDef(TypedDict):
 class DescribeActionConnectorRequestTypeDef(TypedDict):
     AwsAccountId: str
     ActionConnectorId: str
+
+class DescribeAgentPermissionsRequestTypeDef(TypedDict):
+    AgentId: str
+    AwsAccountId: str
+
+class DescribeAgentRequestTypeDef(TypedDict):
+    AgentId: str
+    AwsAccountId: str
 
 class DescribeAnalysisDefinitionRequestTypeDef(TypedDict):
     AwsAccountId: str
@@ -4026,6 +4159,11 @@ class DescribeDataSourceRequestTypeDef(TypedDict):
 class DescribeDefaultQBusinessApplicationRequestTypeDef(TypedDict):
     AwsAccountId: str
     Namespace: NotRequired[str]
+
+class DescribeFlowRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    FlowId: str
+    PublishState: FlowPublishStateType
 
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
@@ -4134,6 +4272,20 @@ class DescribeSelfUpgradeConfigurationRequestTypeDef(TypedDict):
 
 class SelfUpgradeConfigurationTypeDef(TypedDict):
     SelfUpgradeStatus: NotRequired[SelfUpgradeStatusType]
+
+class DescribeSpacePermissionsRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    SpaceId: str
+
+class DescribeSpaceRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    SpaceId: str
+    MaxContributors: NotRequired[int]
+
+class SpaceContributorTypeDef(TypedDict):
+    rawFileSizeBytes: int
+    userName: NotRequired[str]
+    percentage: NotRequired[float]
 
 class DescribeTemplateAliasRequestTypeDef(TypedDict):
     AwsAccountId: str
@@ -4256,6 +4408,14 @@ class FailedKeyRegistrationEntryTypeDef(TypedDict):
     SenderFault: bool
     KeyArn: NotRequired[str]
 
+class SpaceQuickSightResourceDetailsTypeDef(TypedDict):
+    resourceArn: NotRequired[str]
+
+class FailedToUpdateAssociationTypeDef(TypedDict):
+    Arn: NotRequired[str]
+    ErrorMessage: NotRequired[str]
+    ErrorCode: NotRequired[str]
+
 class FieldFolderTypeDef(TypedDict):
     description: NotRequired[str]
     columns: NotRequired[Sequence[str]]
@@ -4283,6 +4443,10 @@ class SameSheetTargetVisualConfigurationOutputTypeDef(TypedDict):
 class SameSheetTargetVisualConfigurationTypeDef(TypedDict):
     TargetVisuals: NotRequired[Sequence[str]]
     TargetVisualOptions: NotRequired[Literal["ALL_VISUALS"]]
+
+class StepAliasMappingTypeDef(TypedDict):
+    StepId: str
+    StepAlias: str
 
 class FlowSummaryTypeDef(TypedDict):
     Arn: str
@@ -4582,6 +4746,11 @@ class ListActionConnectorsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
 
+class ListAgentsRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
 class ListAnalysesRequestTypeDef(TypedDict):
     AwsAccountId: str
     NextToken: NotRequired[str]
@@ -4732,6 +4901,28 @@ class SelfUpgradeRequestDetailTypeDef(TypedDict):
     RequestStatus: NotRequired[SelfUpgradeRequestStatusType]
     lastUpdateAttemptTime: NotRequired[int]
     lastUpdateFailureReason: NotRequired[str]
+
+class ListSpaceResourcesRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    SpaceId: str
+
+class ListSpacesRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+class SpaceSummaryTypeDef(TypedDict):
+    spaceId: str
+    spaceArn: NotRequired[str]
+    name: NotRequired[str]
+    description: NotRequired[str]
+    updatedAt: NotRequired[datetime]
+    consumedSourceSize: NotRequired[int]
+    consumedSourceDocCount: NotRequired[int]
+    createdAt: NotRequired[datetime]
+    createdBy: NotRequired[str]
+    createdByArn: NotRequired[str]
+    resourcesCount: NotRequired[int]
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
     ResourceArn: str
@@ -5086,6 +5277,15 @@ class SearchFlowsFilterTypeDef(TypedDict):
     Operator: SearchFilterOperatorType
     Value: str
 
+SpaceQuicksightSearchFilterTypeDef = TypedDict(
+    "SpaceQuicksightSearchFilterTypeDef",
+    {
+        "name": SpaceQuickSightSearchFilterNameType,
+        "operator": SpaceSearchOperatorType,
+        "value": str,
+    },
+)
+
 class TopicSearchFilterTypeDef(TypedDict):
     Operator: TopicFilterOperatorType
     Name: TopicFilterAttributeType
@@ -5368,6 +5568,14 @@ class UpdateDefaultQBusinessApplicationRequestTypeDef(TypedDict):
     ApplicationId: str
     Namespace: NotRequired[str]
 
+class UpdateFlowRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    FlowId: str
+    Name: NotRequired[str]
+    Description: NotRequired[str]
+    FlowDefinition: NotRequired[Mapping[str, Any]]
+    ClientToken: NotRequired[str]
+
 class UpdateFolderRequestTypeDef(TypedDict):
     AwsAccountId: str
     FolderId: str
@@ -5431,6 +5639,12 @@ class UpdateSelfUpgradeRequestTypeDef(TypedDict):
     Namespace: str
     UpgradeRequestId: str
     Action: SelfUpgradeAdminActionType
+
+class UpdateSpaceRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    SpaceId: str
+    Name: NotRequired[str]
+    Description: NotRequired[str]
 
 class UpdateTemplateAliasRequestTypeDef(TypedDict):
     AwsAccountId: str
@@ -5514,6 +5728,30 @@ class SearchActionConnectorsRequestTypeDef(TypedDict):
     Filters: Sequence[ActionConnectorSearchFilterTypeDef]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+
+class SearchAgentsRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    Filters: Sequence[AgentSearchFilterTypeDef]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class AgentTypeDef(TypedDict):
+    Name: str
+    Arn: str
+    AgentId: str
+    AgentLifecycle: AgentLifecycleType
+    AgentStatus: AgentStatusType
+    CreatedAt: datetime
+    Creator: str
+    UpdatedAt: datetime
+    Spaces: NotRequired[list[str]]
+    ActionConnectors: NotRequired[list[str]]
+    Description: NotRequired[str]
+    IconId: NotRequired[str]
+    StarterPrompts: NotRequired[list[str]]
+    WelcomeMessage: NotRequired[str]
+    CustomPromptInterface: NotRequired[CustomPromptInterfaceTypeDef]
+    ErrorMessage: NotRequired[str]
 
 AggFunctionUnionTypeDef = Union[AggFunctionTypeDef, AggFunctionOutputTypeDef]
 
@@ -6004,6 +6242,14 @@ class CreateActionConnectorResponseTypeDef(TypedDict):
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateAgentResponseTypeDef(TypedDict):
+    Arn: str
+    AgentId: str
+    AgentStatus: AgentStatusType
+    AgentName: str
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateAnalysisResponseTypeDef(TypedDict):
     Arn: str
     AnalysisId: str
@@ -6040,6 +6286,13 @@ class CreateDataSourceResponseTypeDef(TypedDict):
     Arn: str
     DataSourceId: str
     CreationStatus: ResourceStatusType
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateFlowResponseTypeDef(TypedDict):
+    Arn: str
+    FlowId: str
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6097,6 +6350,12 @@ class CreateRefreshScheduleResponseTypeDef(TypedDict):
 class CreateRoleMembershipResponseTypeDef(TypedDict):
     RequestId: str
     Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateSpaceResponseTypeDef(TypedDict):
+    spaceId: str
+    spaceArn: str
+    RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateTemplateResponseTypeDef(TypedDict):
@@ -6164,6 +6423,10 @@ class DeleteActionConnectorResponseTypeDef(TypedDict):
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DeleteAgentResponseTypeDef(TypedDict):
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DeleteAnalysisResponseTypeDef(TypedDict):
     Status: int
     Arn: str
@@ -6213,6 +6476,11 @@ class DeleteDataSourceResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteDefaultQBusinessApplicationResponseTypeDef(TypedDict):
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteFlowResponseTypeDef(TypedDict):
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6277,6 +6545,12 @@ class DeleteRoleCustomPermissionResponseTypeDef(TypedDict):
 class DeleteRoleMembershipResponseTypeDef(TypedDict):
     RequestId: str
     Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteSpaceResponseTypeDef(TypedDict):
+    spaceId: str
+    spaceArn: str
+    RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteTemplateAliasResponseTypeDef(TypedDict):
@@ -6482,6 +6756,12 @@ class GetSessionEmbedUrlResponseTypeDef(TypedDict):
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ListAgentsResponseTypeDef(TypedDict):
+    RequestId: str
+    AgentSummaries: list[AgentSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class ListAnalysesResponseTypeDef(TypedDict):
     AnalysisSummaryList: list[AnalysisSummaryTypeDef]
     Status: int
@@ -6549,6 +6829,12 @@ class RestoreAnalysisResponseTypeDef(TypedDict):
     RequestId: str
     RestorationFailedFolderArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
+
+class SearchAgentsResponseTypeDef(TypedDict):
+    AgentSummaries: list[AgentSummaryTypeDef]
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class SearchAnalysesResponseTypeDef(TypedDict):
     AnalysisSummaryList: list[AnalysisSummaryTypeDef]
@@ -6721,6 +7007,13 @@ class UpdateDefaultQBusinessApplicationResponseTypeDef(TypedDict):
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
 
+class UpdateFlowResponseTypeDef(TypedDict):
+    Arn: str
+    FlowId: str
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class UpdateFolderResponseTypeDef(TypedDict):
     Status: int
     Arn: str
@@ -6794,6 +7087,12 @@ class UpdateSPICECapacityConfigurationResponseTypeDef(TypedDict):
 class UpdateSelfUpgradeConfigurationResponseTypeDef(TypedDict):
     RequestId: str
     Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateSpaceResponseTypeDef(TypedDict):
+    spaceId: str
+    spaceArn: str
+    RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateTemplateResponseTypeDef(TypedDict):
@@ -7186,6 +7485,10 @@ class CustomValuesConfigurationOutputTypeDef(TypedDict):
     CustomValues: CustomParameterValuesOutputTypeDef
     IncludeNullValue: NotRequired[bool]
 
+class CustomPromptInputTypeDef(TypedDict):
+    ExistingPrompt: NotRequired[CustomPromptProfileTypeDef]
+    NewPrompt: NotRequired[CustomPromptInputParametersTypeDef]
+
 class CustomSqlOutputTypeDef(TypedDict):
     DataSourceArn: str
     Name: str
@@ -7372,6 +7675,13 @@ class DescribeActionConnectorPermissionsResponseTypeDef(TypedDict):
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DescribeAgentPermissionsResponseTypeDef(TypedDict):
+    Arn: str
+    AgentId: str
+    Permissions: list[ResourcePermissionOutputTypeDef]
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DescribeAnalysisPermissionsResponseTypeDef(TypedDict):
     AnalysisId: str
     AnalysisArn: str
@@ -7414,6 +7724,13 @@ class DescribeFolderResolvedPermissionsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class DescribeSpacePermissionsResponseTypeDef(TypedDict):
+    spaceId: str
+    spaceArn: str
+    Permissions: list[ResourcePermissionOutputTypeDef]
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DescribeTemplatePermissionsResponseTypeDef(TypedDict):
     TemplateId: str
     TemplateArn: str
@@ -7449,6 +7766,13 @@ class UpdateActionConnectorPermissionsResponseTypeDef(TypedDict):
     Permissions: list[ResourcePermissionOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class UpdateAgentPermissionsResponseTypeDef(TypedDict):
+    Arn: str
+    AgentId: str
+    RequestId: str
+    Permissions: list[ResourcePermissionOutputTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class UpdateAnalysisPermissionsResponseTypeDef(TypedDict):
     AnalysisArn: str
     AnalysisId: str
@@ -7463,6 +7787,13 @@ class UpdateFolderPermissionsResponseTypeDef(TypedDict):
     FolderId: str
     Permissions: list[ResourcePermissionOutputTypeDef]
     RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateSpacePermissionsResponseTypeDef(TypedDict):
+    spaceId: str
+    spaceArn: str
+    permissions: list[ResourcePermissionOutputTypeDef]
+    requestId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateTemplatePermissionsResponseTypeDef(TypedDict):
@@ -7765,6 +8096,36 @@ class DonutOptionsTypeDef(TypedDict):
     ArcOptions: NotRequired[ArcOptionsTypeDef]
     DonutCenterOptions: NotRequired[DonutCenterOptionsTypeDef]
 
+class FailedSpaceResourceOperationTypeDef(TypedDict):
+    ResourceType: SpaceQuickSightResourceTypeType
+    ErrorMessage: str
+    ResourceDetails: NotRequired[SpaceQuickSightResourceDetailsTypeDef]
+
+class SpaceQuickSightResourceTypeDef(TypedDict):
+    resourceType: SpaceQuickSightResourceTypeType
+    resourceDetails: SpaceQuickSightResourceDetailsTypeDef
+
+class SpaceResourceOperationTypeDef(TypedDict):
+    ResourceType: SpaceQuickSightResourceTypeType
+    ResourceDetails: SpaceQuickSightResourceDetailsTypeDef
+
+class SpaceResourceSummaryTypeDef(TypedDict):
+    ResourceType: SpaceQuickSightResourceTypeType
+    ResourceDetails: SpaceQuickSightResourceDetailsTypeDef
+    ResourceName: NotRequired[str]
+    UpdatedAt: NotRequired[datetime]
+
+class UpdateAgentResponseTypeDef(TypedDict):
+    Arn: str
+    AgentId: str
+    AgentStatus: AgentStatusType
+    FailedToAddSpaces: list[FailedToUpdateAssociationTypeDef]
+    FailedToRemoveSpaces: list[FailedToUpdateAssociationTypeDef]
+    FailedToAddActionConnectors: list[FailedToUpdateAssociationTypeDef]
+    FailedToRemoveActionConnectors: list[FailedToUpdateAssociationTypeDef]
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 FieldFolderUnionTypeDef = Union[FieldFolderTypeDef, FieldFolderOutputTypeDef]
 
 class FilterAggMetricsTypeDef(TypedDict):
@@ -7781,6 +8142,19 @@ class FilterOperationTargetVisualsConfigurationOutputTypeDef(TypedDict):
 
 class FilterOperationTargetVisualsConfigurationTypeDef(TypedDict):
     SameSheetTargetVisualConfiguration: NotRequired[SameSheetTargetVisualConfigurationTypeDef]
+
+class FlowDetailTypeDef(TypedDict):
+    Arn: str
+    FlowId: str
+    Name: str
+    PublishState: FlowPublishStateType
+    CreatedTime: datetime
+    FlowDefinition: dict[str, Any]
+    Description: NotRequired[str]
+    CreatedBy: NotRequired[str]
+    LastUpdatedTime: NotRequired[datetime]
+    LastUpdatedBy: NotRequired[str]
+    StepAliases: NotRequired[list[StepAliasMappingTypeDef]]
 
 class ListFlowsOutputTypeDef(TypedDict):
     FlowSummaryList: list[FlowSummaryTypeDef]
@@ -8031,6 +8405,22 @@ class UpdateSelfUpgradeResponseTypeDef(TypedDict):
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ListSpacesResponseTypeDef(TypedDict):
+    spaceId: str
+    spaceArn: str
+    SpaceSummaries: list[SpaceSummaryTypeDef]
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class SearchSpacesResponseTypeDef(TypedDict):
+    spaceId: str
+    spaceArn: str
+    SpaceSummaries: list[SpaceSummaryTypeDef]
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class ListTemplateVersionsResponseTypeDef(TypedDict):
     TemplateVersionSummaryList: list[TemplateVersionSummaryTypeDef]
     Status: int
@@ -8259,6 +8649,12 @@ class SearchFlowsInputTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class SearchSpacesRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    Filters: Sequence[SpaceQuicksightSearchFilterTypeDef]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
 class SearchTopicsRequestPaginateTypeDef(TypedDict):
     AwsAccountId: str
     Filters: Sequence[TopicSearchFilterTypeDef]
@@ -8399,6 +8795,11 @@ class SearchActionConnectorsResponseTypeDef(TypedDict):
     ActionConnectorSummaries: list[ActionConnectorSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class DescribeAgentResponseTypeDef(TypedDict):
+    Agent: AgentTypeDef
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class CascadingControlConfigurationOutputTypeDef(TypedDict):
     SourceControls: NotRequired[list[CascadingControlSourceTypeDef]]
@@ -8739,6 +9140,33 @@ class DestinationParameterValueConfigurationOutputTypeDef(TypedDict):
     SourceField: NotRequired[str]
     SourceColumn: NotRequired[ColumnIdentifierTypeDef]
 
+class CreateAgentRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    AgentId: str
+    Name: str
+    Spaces: NotRequired[Sequence[str]]
+    ActionConnectors: NotRequired[Sequence[str]]
+    Description: NotRequired[str]
+    IconId: NotRequired[str]
+    StarterPrompts: NotRequired[Sequence[str]]
+    WelcomeMessage: NotRequired[str]
+    AgentLifecycle: NotRequired[AgentLifecycleType]
+    CustomPromptInput: NotRequired[CustomPromptInputTypeDef]
+
+class UpdateAgentRequestTypeDef(TypedDict):
+    AgentId: str
+    AwsAccountId: str
+    Name: str
+    Description: NotRequired[str]
+    IconId: NotRequired[str]
+    StarterPrompts: NotRequired[Sequence[str]]
+    WelcomeMessage: NotRequired[str]
+    CustomPromptInput: NotRequired[CustomPromptInputTypeDef]
+    SpacesToAdd: NotRequired[Sequence[str]]
+    SpacesToRemove: NotRequired[Sequence[str]]
+    ActionConnectorsToAdd: NotRequired[Sequence[str]]
+    ActionConnectorsToRemove: NotRequired[Sequence[str]]
+
 CustomSqlUnionTypeDef = Union[CustomSqlTypeDef, CustomSqlOutputTypeDef]
 
 class SourceTableOutputTypeDef(TypedDict):
@@ -8960,6 +9388,37 @@ class TopicIRMetricTypeDef(TypedDict):
     DisplayFormatOptions: NotRequired[DisplayFormatOptionsTypeDef]
     NamedEntity: NotRequired[NamedEntityRefTypeDef]
 
+class UpdateSpaceResourcesResponseTypeDef(TypedDict):
+    spaceId: str
+    spaceArn: str
+    FailedResourceOperations: list[FailedSpaceResourceOperationTypeDef]
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class SpaceDetailsTypeDef(TypedDict):
+    name: NotRequired[str]
+    description: NotRequired[str]
+    resources: NotRequired[list[SpaceQuickSightResourceTypeDef]]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+    consumedSourceSize: NotRequired[int]
+    consumedSourceDocCount: NotRequired[int]
+    createdBy: NotRequired[str]
+    createdByArn: NotRequired[str]
+
+class UpdateSpaceResourcesRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    SpaceId: str
+    AddResources: NotRequired[Sequence[SpaceResourceOperationTypeDef]]
+    RemoveResources: NotRequired[Sequence[SpaceResourceOperationTypeDef]]
+
+class ListSpaceResourcesResponseTypeDef(TypedDict):
+    spaceId: str
+    spaceArn: str
+    SpaceResources: list[SpaceResourceSummaryTypeDef]
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class TopicIRFilterOptionOutputTypeDef(TypedDict):
     FilterType: NotRequired[TopicIRFilterTypeType]
     FilterClass: NotRequired[FilterClassType]
@@ -8995,6 +9454,12 @@ class CustomActionFilterOperationOutputTypeDef(TypedDict):
 class CustomActionFilterOperationTypeDef(TypedDict):
     SelectedFieldsConfiguration: FilterOperationSelectedFieldsConfigurationTypeDef
     TargetVisualsConfiguration: FilterOperationTargetVisualsConfigurationTypeDef
+
+class DescribeFlowResponseTypeDef(TypedDict):
+    Flow: FlowDetailTypeDef
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class AxisLabelOptionsTypeDef(TypedDict):
     FontConfiguration: NotRequired[FontConfigurationTypeDef]
@@ -9221,6 +9686,12 @@ class UpdateActionConnectorPermissionsRequestTypeDef(TypedDict):
     GrantPermissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
     RevokePermissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
 
+class UpdateAgentPermissionsRequestTypeDef(TypedDict):
+    AgentId: str
+    AwsAccountId: str
+    GrantPermissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
+    RevokePermissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
+
 class UpdateAnalysisPermissionsRequestTypeDef(TypedDict):
     AwsAccountId: str
     AnalysisId: str
@@ -9250,6 +9721,12 @@ class UpdateDataSourcePermissionsRequestTypeDef(TypedDict):
 class UpdateFolderPermissionsRequestTypeDef(TypedDict):
     AwsAccountId: str
     FolderId: str
+    GrantPermissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
+    RevokePermissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
+
+class UpdateSpacePermissionsRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    SpaceId: str
     GrantPermissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
     RevokePermissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
 
@@ -9356,6 +9833,14 @@ class ScrollBarOptionsTypeDef(TypedDict):
 PerformanceConfigurationUnionTypeDef = Union[
     PerformanceConfigurationTypeDef, PerformanceConfigurationOutputTypeDef
 ]
+
+class CreateFlowRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    Name: str
+    FlowDefinition: Mapping[str, Any]
+    Description: NotRequired[str]
+    Permissions: NotRequired[Sequence[PermissionUnionTypeDef]]
+    ClientToken: NotRequired[str]
 
 class UpdateFlowPermissionsInputTypeDef(TypedDict):
     AwsAccountId: str
@@ -9963,6 +10448,14 @@ class TopicColumnTypeDef(TypedDict):
     NonAdditive: NotRequired[bool]
 
 TopicIRMetricUnionTypeDef = Union[TopicIRMetricTypeDef, TopicIRMetricOutputTypeDef]
+
+class DescribeSpaceResponseTypeDef(TypedDict):
+    spaceId: str
+    spaceArn: str
+    Space: SpaceDetailsTypeDef
+    Contributors: list[SpaceContributorTypeDef]
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class ContributionAnalysisTimeRangesOutputTypeDef(TypedDict):
     StartRange: NotRequired[TopicIRFilterOptionOutputTypeDef]

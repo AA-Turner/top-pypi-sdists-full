@@ -543,7 +543,12 @@ def _response_indicates_authenticated_session(response: requests.Response) -> bo
         body = ""
 
     unauthenticated_markers = [
-        "user not authenticated",
+        # Match both "user not authenticated" and "User is not authenticated"
+        # (the literal ServiceNow REST 401 body). The earlier "user not
+        # authenticated" form missed the "is" variant, so a dead session whose
+        # probe returns 401+JSON was misread as authenticated and adopted.
+        "not authenticated",
+        "required to provide auth",
         "login with sso",
         "forgot password ?",
         "forgot password?",
@@ -582,13 +587,31 @@ def _response_redirected_through_logout(response: requests.Response) -> bool:
 
 
 def _response_confirms_browser_probe_session(response: requests.Response) -> bool:
-    """Return True only when the probe proves the session is reusable."""
-    if not _response_indicates_authenticated_session(response):
-        return False
-    if response.status_code == 401:
-        content_type = (response.headers.get("Content-Type") or "").lower()
-        return "application/json" in content_type
-    return response.status_code == 403 or 200 <= response.status_code < 300
+    """Confirm a reusable session only on POSITIVE evidence of authentication.
+
+    Structural rule: a session is trusted only when the probe returns a positive
+    authenticated signal — NOT merely the absence of a failure marker. Absence-of-
+    failure was brittle: when an instance changed how it signals an unauthenticated
+    REST call (e.g. 302->logout flipped to a bare 401+JSON after a clone), a dead
+    session slipped through and was adopted. See issue #40.
+
+      - 2xx   -> authenticated (still guard against a 200 logout-HTML body).
+      - 403   -> authenticated but unauthorized for the probe path (an
+                 authorization failure necessarily implies authentication passed).
+      - 401   -> unauthenticated BY DEFAULT. Trusted only when the body POSITIVELY
+                 indicates an ACL/permission block (some instances answer 401
+                 instead of 403 for a probe-path ACL deny). A plain or
+                 "not authenticated" 401 is rejected -> caller re-authenticates.
+      - else  -> rejected.
+    """
+    status = response.status_code
+    if 200 <= status < 300:
+        return _response_indicates_authenticated_session(response)
+    if status == 403:
+        return not _response_indicates_login_redirect(response)
+    if status == 401:
+        return _response_indicates_acl_block(response)
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -715,9 +738,13 @@ def _response_indicates_acl_block(response: requests.Response) -> bool:
         body = (response.text or "")[:2000].lower()
     except Exception:
         return False
-    # Strong session-expiry signals — definitively NOT ACL
+    # Strong session-expiry signals — definitively NOT ACL.
+    # "not authenticated" matches both "user not authenticated" and the literal
+    # "User is not authenticated" REST 401 body; "required to provide auth" is
+    # ServiceNow's detail string for an unauthenticated REST call.
     session_expiry_markers = (
-        "user not authenticated",
+        "not authenticated",
+        "required to provide auth",
         "session has expired",
         "session expired",
         "invalid session",
@@ -2096,6 +2123,25 @@ class AuthManager:
         if self._browser_cookie_expires_at is None:
             return False
         return time.time() >= self._browser_cookie_expires_at
+
+    def session_status(self) -> str:
+        """Last-known auth state for this instance — NO network call.
+
+        Explicit, deterministic state for multi-instance visibility (e.g.
+        list_instances). NOTE: `session_cached` means we hold local cookies, not
+        that the server still honours them — true liveness is verified on each
+        real request (the server can invalidate a session at any time).
+
+        Returns one of:
+          - `credentials`     : non-browser auth (basic/oauth/api_key) — header-based.
+          - `session_cached`  : browser cookies held locally and not TTL-expired.
+          - `no_session`      : no usable browser session — interactive login required.
+        """
+        if self.config.type != AuthType.BROWSER:
+            return "credentials"
+        if self._browser_cookie_header and not self._is_browser_session_expired():
+            return "session_cached"
+        return "no_session"
 
     def _should_validate_browser_session(self) -> bool:
         if not self._browser_cookie_header:
@@ -4345,12 +4391,28 @@ class AuthManager:
                     # "왜 비인증 호출이 이렇게 많아" symptom. Now any 401 that
                     # makes it to this raise contributes to the breaker.
                     self._consecutive_self_heal_count += 1
+                    consecutive = self._consecutive_self_heal_count
+                    # State-based guidance instead of an unconditional speculative
+                    # cause (the old "Likely instance-policy/ACL/X-UserToken
+                    # rotation" string led the LLM to confidently report a cause
+                    # that was usually just "session not authenticated yet").
+                    if consecutive <= 1:
+                        guidance = (
+                            "The browser session is not accepted by ServiceNow's REST API. "
+                            "Complete an interactive login (MFA) for this instance, then retry."
+                        )
+                    else:
+                        guidance = (
+                            f"Still rejected after {consecutive} re-auth attempts — a fresh "
+                            "login alone will not fix it. Likely the account's REST access or "
+                            "an instance policy on this instance (e.g. post-clone hardening / "
+                            "X-UserToken handling). Verify by calling the REST API directly in a "
+                            "logged-in browser."
+                        )
                     raise requests.HTTPError(
-                        "FRESH_SESSION_REJECTED: brand-new browser session "
-                        f"(<{self._browser_post_login_grace_seconds}s old) rejected by "
-                        f"ServiceNow with 401 (consecutive={self._consecutive_self_heal_count}). "
-                        "Re-auth would just produce another rejected session. "
-                        "Likely instance-policy/ACL/X-UserToken rotation issue.",
+                        "FRESH_SESSION_REJECTED: a freshly established browser session "
+                        f"(<{self._browser_post_login_grace_seconds}s old) was rejected by "
+                        f"ServiceNow with 401 (consecutive={consecutive}). " + guidance,
                         response=retry_response,
                     )
 

@@ -205,6 +205,19 @@ pub struct SurvivalMarginalSlopeTermSpec {
     pub logslope_offset: Array1<f64>,
     pub score_warp: Option<DeviationBlockConfig>,
     pub link_dev: Option<DeviationBlockConfig>,
+    /// Out-of-fold Stage-1 score-influence Jacobian `J = ∂z/∂θ₁` (n × p₁) for a
+    /// CTN → marginal-slope chain (issue #461, §3 of
+    /// `marginal_slope_orthogonal_design.md`). When `Some`, the score-warp build
+    /// site installs the absorbed influence block
+    /// `Z_infl = diag(s_f · β̂₀(x_i)) · J` instead of the free-spline score-warp:
+    /// the realized x-dependent Stage-1 leakage directions in η-space are
+    /// appended as a null-penalized absorbed block (gauge priority 80,
+    /// orthogonalized against marginal ⊕ logslope), making the β estimating
+    /// equation Neyman-orthogonal to `span(Z_infl)`. When `None` (raw `z` with
+    /// no Stage-1 model), the free-warp `score_warp` path is used unchanged.
+    /// Populated out-of-fold by `crossfit_score_calibration` in
+    /// `solver/workflow.rs`; mirrors the BMS spec field of the same name.
+    pub score_influence_jacobian: Option<Array2<f64>>,
     pub latent_z_policy: LatentZPolicy,
 }
 
@@ -240,6 +253,12 @@ pub struct SurvivalMarginalSlopeFitResult {
     pub time_block_penalties_len: usize,
     pub score_warp_runtime: Option<DeviationRuntime>,
     pub link_dev_runtime: Option<DeviationRuntime>,
+    /// Width `p₁` of the absorbed Stage-1 influence block (#461) when the fit
+    /// hosted a dedicated additive absorber (the trailing block). `None` when no
+    /// CTN Stage-1 chain produced an influence Jacobian. The predictor drops the
+    /// absorber's `γ`; this width lets it account for the extra trailing block
+    /// and slice `γ` out of the joint covariance.
+    pub influence_absorber_width: Option<usize>,
 }
 
 // ── Family struct ─────────────────────────────────────────────────────
@@ -276,6 +295,16 @@ struct SurvivalMarginalSlopeFamily {
     logslope_surface_ranges: Vec<std::ops::Range<usize>>,
     score_warp: Option<DeviationRuntime>,
     link_dev: Option<DeviationRuntime>,
+    /// Absorbed Stage-1 influence columns `Z̃_infl` at the training rows
+    /// (`n × p₁`), residualized against the marginal location span in the
+    /// rigid-pilot row metric (#461, design §3). When `Some`, the family hosts a
+    /// dedicated additive absorber block whose coefficient `γ` shifts the
+    /// de-nested observed index `η₁` by `+Z̃_infl[row,:]·γ` (sibling of the
+    /// per-row calibration intercept — un-`c(g)`-scaled, unlike the marginal
+    /// block which enters the time-quantile location through `q·c(g)`). The
+    /// block carries a fixed small ridge and is dropped at predict. `None` ⇒ raw
+    /// `z` with no CTN Stage-1; the free-warp `score_warp` is the fallback basis.
+    influence_absorber: Option<Array2<f64>>,
     time_linear_constraints: Option<LinearInequalityConstraints>,
     time_wiggle_knots: Option<Array1<f64>>,
     time_wiggle_degree: Option<usize>,
@@ -449,6 +478,7 @@ struct ThetaHints {
     logslope_beta: Option<Array1<f64>>,
     score_warp_beta: Option<Array1<f64>>,
     link_dev_beta: Option<Array1<f64>>,
+    influence_beta: Option<Array1<f64>>,
 }
 
 #[derive(Clone)]
@@ -682,6 +712,10 @@ struct BlockSlices {
     logslope: std::ops::Range<usize>,
     score_warp: Option<std::ops::Range<usize>>,
     link_dev: Option<std::ops::Range<usize>>,
+    /// Absorbed Stage-1 influence block (#461), trailing the flex blocks. Its
+    /// width is `p₁` (the Stage-1 coefficient count), `None` when no CTN Stage-1
+    /// chain produced an influence Jacobian.
+    influence: Option<std::ops::Range<usize>>,
     total: usize,
 }
 
@@ -704,18 +738,24 @@ enum HessBlock {
     Logslope,
     ScoreWarp,
     LinkDev,
+    /// Absorbed Stage-1 influence block (#461). Placed LAST in the canonical
+    /// layout so the existing `score_warp` (index 3) / `link_dev` (index 4)
+    /// block-state positions are undisturbed; the absorber's coordinate range
+    /// trails them and its β is dropped at predict.
+    Influence,
 }
 
 impl HessBlock {
     /// Blocks in canonical coordinate-layout order. Iterating this array is how
     /// every assembler visits blocks; the order fixes floating-point
     /// accumulation order in the matvec / bilinear paths.
-    const ALL: [HessBlock; 5] = [
+    const ALL: [HessBlock; 6] = [
         HessBlock::Time,
         HessBlock::Marginal,
         HessBlock::Logslope,
         HessBlock::ScoreWarp,
         HessBlock::LinkDev,
+        HessBlock::Influence,
     ];
 }
 
@@ -730,6 +770,7 @@ impl BlockSlices {
             HessBlock::Logslope => Some(self.logslope.clone()),
             HessBlock::ScoreWarp => self.score_warp.clone(),
             HessBlock::LinkDev => self.link_dev.clone(),
+            HessBlock::Influence => self.influence.clone(),
         }
     }
 }
@@ -739,8 +780,10 @@ fn block_slices(
     block_states: &[ParameterBlockState],
 ) -> BlockSlices {
     if !block_states.is_empty() {
-        let expected_blocks =
-            3 + usize::from(family.score_warp.is_some()) + usize::from(family.link_dev.is_some());
+        let expected_blocks = 3
+            + usize::from(family.score_warp.is_some())
+            + usize::from(family.link_dev.is_some())
+            + usize::from(family.influence_absorber.is_some());
         assert_eq!(
             block_states.len(),
             expected_blocks,
@@ -762,6 +805,13 @@ fn block_slices(
         cursor = range.end;
         range
     });
+    // Absorbed influence block trails the flex blocks: its width is the
+    // Stage-1 coefficient count `p₁` (= `Z̃_infl.ncols()`).
+    let influence = family.influence_absorber.as_ref().map(|z_tilde| {
+        let range = cursor..cursor + z_tilde.ncols();
+        cursor = range.end;
+        range
+    });
     let total = cursor;
     BlockSlices {
         time,
@@ -769,6 +819,7 @@ fn block_slices(
         logslope,
         score_warp,
         link_dev,
+        influence,
         total,
     }
 }
@@ -832,6 +883,12 @@ struct FlexPrimarySlices {
     g: usize,
     h: Option<std::ops::Range<usize>>,
     w: Option<std::ops::Range<usize>>,
+    /// Single trailing primary index for the absorbed Stage-1 influence offset
+    /// `o_infl` (#461). Unlike `g`/`h`/`w`, `o_infl` does NOT enter the de-nested
+    /// calibration cells — it is a pure additive shift of the OBSERVED index η₁,
+    /// so its only non-zero primary partial is `∂η₁/∂o_infl = 1` injected at the
+    /// observed-timepoint reconstruction (cell-coefficient partials stay zero).
+    infl: Option<usize>,
     total: usize,
 }
 
@@ -892,6 +949,15 @@ fn flex_primary_slices(family: &SurvivalMarginalSlopeFamily) -> FlexPrimarySlice
         cursor = range.end;
         range
     });
+    // The absorber contributes a single primary scalar `o_infl` (trailing all
+    // flex bases). Its full coefficient block lives in the `Influence`
+    // ParameterBlockSpec; here it is one primary channel whose row-design is
+    // `Z̃_infl[row,:]`, projected by `add_pullback`.
+    let infl = family.influence_absorber.as_ref().map(|_| {
+        let idx = cursor;
+        cursor += 1;
+        idx
+    });
     FlexPrimarySlices {
         q0,
         q1,
@@ -899,6 +965,7 @@ fn flex_primary_slices(family: &SurvivalMarginalSlopeFamily) -> FlexPrimarySlice
         g,
         h,
         w,
+        infl,
         total: cursor,
     }
 }
@@ -933,16 +1000,11 @@ struct DynamicQBlockwiseAccumulator {
     hess_score_warp: Option<Array2<f64>>,
     grad_link_dev: Option<Array1<f64>>,
     hess_link_dev: Option<Array2<f64>>,
-}
-
-#[derive(Clone)]
-struct DynamicQCoreHessianBlocks {
-    hess_time: Array2<f64>,
-    hess_marginal: Array2<f64>,
-    hess_logslope: Array2<f64>,
-    hess_time_marginal: Array2<f64>,
-    hess_time_logslope: Array2<f64>,
-    hess_marginal_logslope: Array2<f64>,
+    /// Absorbed Stage-1 influence block (#461): the trailing block-diagonal
+    /// grad/Hess over the `p₁` absorber coefficients `γ`, projected from the
+    /// single `o_infl` primary scalar through the `Z̃_infl` design row.
+    grad_influence: Option<Array1<f64>>,
+    hess_influence: Option<Array2<f64>>,
 }
 
 impl DynamicQBlockwiseAccumulator {
@@ -971,6 +1033,14 @@ impl DynamicQBlockwiseAccumulator {
                 .link_dev
                 .as_ref()
                 .map(|range| Array2::zeros((range.len(), range.len()))),
+            grad_influence: slices
+                .influence
+                .as_ref()
+                .map(|range| Array1::zeros(range.len())),
+            hess_influence: slices
+                .influence
+                .as_ref()
+                .map(|range| Array2::zeros((range.len(), range.len()))),
         }
     }
 
@@ -984,8 +1054,10 @@ impl DynamicQBlockwiseAccumulator {
         self.hess_logslope += &other.hess_logslope;
         add_optional_vector(&mut self.grad_score_warp, &other.grad_score_warp);
         add_optional_vector(&mut self.grad_link_dev, &other.grad_link_dev);
+        add_optional_vector(&mut self.grad_influence, &other.grad_influence);
         add_optional_matrix(&mut self.hess_score_warp, &other.hess_score_warp);
         add_optional_matrix(&mut self.hess_link_dev, &other.hess_link_dev);
+        add_optional_matrix(&mut self.hess_influence, &other.hess_influence);
     }
 
     fn into_family_evaluation(self) -> FamilyEvaluation {
@@ -1010,6 +1082,12 @@ impl DynamicQBlockwiseAccumulator {
             });
         }
         if let (Some(gradient), Some(hessian)) = (self.grad_link_dev, self.hess_link_dev) {
+            blockworking_sets.push(BlockWorkingSet::ExactNewton {
+                gradient,
+                hessian: SymmetricMatrix::Dense(hessian),
+            });
+        }
+        if let (Some(gradient), Some(hessian)) = (self.grad_influence, self.hess_influence) {
             blockworking_sets.push(BlockWorkingSet::ExactNewton {
                 gradient,
                 hessian: SymmetricMatrix::Dense(hessian),
@@ -1700,49 +1778,68 @@ struct BlockHessianAccumulator {
     h_gg: Array2<f64>,
     h_hh: Array2<f64>,
     h_ww: Array2<f64>,
+    /// Absorbed-influence diagonal block (#461), `p_i × p_i` (`p_i = Z̃.ncols()`).
+    h_ii: Array2<f64>,
     h_tm: Array2<f64>,
     h_tg: Array2<f64>,
     h_th: Array2<f64>,
     h_tw: Array2<f64>,
+    /// time × influence cross-block.
+    h_ti: Array2<f64>,
     h_mg: Array2<f64>,
     h_mh: Array2<f64>,
     h_mw: Array2<f64>,
+    /// marginal × influence cross-block.
+    h_mi: Array2<f64>,
     h_gh: Array2<f64>,
     h_gw: Array2<f64>,
+    /// logslope × influence cross-block.
+    h_gi: Array2<f64>,
     h_hw: Array2<f64>,
+    /// score_warp × influence cross-block.
+    h_hi: Array2<f64>,
+    /// link_dev × influence cross-block.
+    h_wi: Array2<f64>,
 }
 
 const PULLBACK_PARALLEL_MIN_CELLS: usize = 16_384;
 const PULLBACK_PARALLEL_TARGET_CELLS: usize = 65_536;
 
 impl BlockHessianAccumulator {
-    fn new(p_t: usize, p_m: usize, p_g: usize, p_h: usize, p_w: usize) -> Self {
+    fn new(p_t: usize, p_m: usize, p_g: usize, p_h: usize, p_w: usize, p_i: usize) -> Self {
         Self {
             h_tt: Array2::zeros((p_t, p_t)),
             h_mm: Array2::zeros((p_m, p_m)),
             h_gg: Array2::zeros((p_g, p_g)),
             h_hh: Array2::zeros((p_h, p_h)),
             h_ww: Array2::zeros((p_w, p_w)),
+            h_ii: Array2::zeros((p_i, p_i)),
             h_tm: Array2::zeros((p_t, p_m)),
             h_tg: Array2::zeros((p_t, p_g)),
             h_th: Array2::zeros((p_t, p_h)),
             h_tw: Array2::zeros((p_t, p_w)),
+            h_ti: Array2::zeros((p_t, p_i)),
             h_mg: Array2::zeros((p_m, p_g)),
             h_mh: Array2::zeros((p_m, p_h)),
             h_mw: Array2::zeros((p_m, p_w)),
+            h_mi: Array2::zeros((p_m, p_i)),
             h_gh: Array2::zeros((p_g, p_h)),
             h_gw: Array2::zeros((p_g, p_w)),
+            h_gi: Array2::zeros((p_g, p_i)),
             h_hw: Array2::zeros((p_h, p_w)),
+            h_hi: Array2::zeros((p_h, p_i)),
+            h_wi: Array2::zeros((p_w, p_i)),
         }
     }
 
-    fn block_dims(&self) -> (usize, usize, usize, usize, usize) {
+    fn block_dims(&self) -> (usize, usize, usize, usize, usize, usize) {
         (
             self.h_tt.nrows(),
             self.h_mm.nrows(),
             self.h_gg.nrows(),
             self.h_hh.nrows(),
             self.h_ww.nrows(),
+            self.h_ii.nrows(),
         )
     }
 
@@ -1786,7 +1883,7 @@ impl BlockHessianAccumulator {
             &family.design_exit,
             &family.design_derivative_exit,
         ];
-        let (p_t, _, _, _, _) = self.block_dims();
+        let (p_t, _, _, _, _, _) = self.block_dims();
         let tt_chunks = Self::deterministic_lhs_chunks(p_t, p_t);
         if tt_chunks.len() == 1 {
             for a in 0..3 {
@@ -2043,6 +2140,115 @@ impl BlockHessianAccumulator {
                 for w_local in 0..w_range.len() {
                     self.h_hw[[h_local, w_local]] +=
                         primary_hessian[[h_range.start + h_local, w_range.start + w_local]];
+                }
+            }
+        }
+
+        // Absorbed-influence block (#461). The absorber contributes a single
+        // primary scalar `o_infl` at index `primary.infl`, whose design row is
+        // `Z̃_infl[row,:]` (the residualized leakage columns). It projects exactly
+        // like the single-scalar logslope `g` index (primary 3 → logslope_design)
+        // but through `Z̃` and crossed with every block, plus the diagonal
+        // `h_ii = primary_hessian[[infl, infl]]·Z̃Z̃ᵀ`. `o_infl` is an additive η₁
+        // shift (∂η₁/∂o_infl = 1), so the per-block primary weights mirror the
+        // existing channels: time uses {q0,q1,qd1}, marginal {q0,q1}, logslope
+        // {g}, score_warp/link_dev their own primary ranges.
+        if let Some(infl_idx) = primary.infl {
+            let z_tilde = family.influence_absorber.as_ref().ok_or_else(|| {
+                "add_pullback: influence primary index present but no Z̃ design".to_string()
+            })?;
+            let z_row = z_tilde.row(row);
+            let p_i = z_row.len();
+
+            // Influence × influence diagonal: primary_hessian[[infl,infl]]·Z̃Z̃ᵀ.
+            let ii_weight = primary_hessian[[infl_idx, infl_idx]];
+            if ii_weight != 0.0 {
+                let z_col = z_row.view().insert_axis(Axis(1));
+                ndarray::linalg::general_mat_mul(
+                    ii_weight,
+                    &z_col,
+                    &z_row.view().insert_axis(Axis(0)),
+                    1.0,
+                    &mut self.h_ii,
+                );
+            }
+
+            // Time × influence: each time sub-design (entry/exit/deriv) crossed
+            // with Z̃ at the matching primary weight.
+            let ti_weights = [
+                primary_hessian[[0, infl_idx]],
+                primary_hessian[[1, infl_idx]],
+                primary_hessian[[2, infl_idx]],
+            ];
+            for (des, alpha) in time_designs.iter().zip(ti_weights.iter()) {
+                if *alpha == 0.0 {
+                    continue;
+                }
+                let t_chunk = des
+                    .try_row_chunk(row..row + 1)
+                    .map_err(|e| format!("add_pullback time design try_row_chunk: {e}"))?;
+                let t_row = t_chunk.row(0);
+                for (t_coeff, &t_val) in t_row.iter().enumerate() {
+                    for i_coeff in 0..p_i {
+                        self.h_ti[[t_coeff, i_coeff]] += *alpha * t_val * z_row[i_coeff];
+                    }
+                }
+            }
+
+            // Marginal × influence (marginal uses q0 + q1).
+            let mi_weight = primary_hessian[[0, infl_idx]] + primary_hessian[[1, infl_idx]];
+            if mi_weight != 0.0 {
+                let m_chunk = family
+                    .marginal_design
+                    .try_row_chunk(row..row + 1)
+                    .map_err(|e| format!("add_pullback marginal_design try_row_chunk: {e}"))?;
+                let m_row = m_chunk.row(0);
+                for (m_coeff, &m_val) in m_row.iter().enumerate() {
+                    for i_coeff in 0..p_i {
+                        self.h_mi[[m_coeff, i_coeff]] += mi_weight * m_val * z_row[i_coeff];
+                    }
+                }
+            }
+
+            // Logslope × influence (logslope uses g, primary index 3).
+            let gi_weight = primary_hessian[[3, infl_idx]];
+            if gi_weight != 0.0 {
+                let g_chunk = family
+                    .logslope_design
+                    .try_row_chunk(row..row + 1)
+                    .map_err(|e| format!("add_pullback logslope_design try_row_chunk: {e}"))?;
+                let g_row = g_chunk.row(0);
+                for (g_coeff, &g_val) in g_row.iter().enumerate() {
+                    for i_coeff in 0..p_i {
+                        self.h_gi[[g_coeff, i_coeff]] += gi_weight * g_val * z_row[i_coeff];
+                    }
+                }
+            }
+
+            // Score-warp × influence (score_warp basis is itself in the primary
+            // vector, so its row design is the identity on `h_range`).
+            if let Some(h_range) = primary.h.as_ref() {
+                for h_local in 0..h_range.len() {
+                    let weight = primary_hessian[[h_range.start + h_local, infl_idx]];
+                    if weight == 0.0 {
+                        continue;
+                    }
+                    for i_coeff in 0..p_i {
+                        self.h_hi[[h_local, i_coeff]] += weight * z_row[i_coeff];
+                    }
+                }
+            }
+
+            // Link-dev × influence (link_dev basis is in the primary vector too).
+            if let Some(w_range) = primary.w.as_ref() {
+                for w_local in 0..w_range.len() {
+                    let weight = primary_hessian[[w_range.start + w_local, infl_idx]];
+                    if weight == 0.0 {
+                        continue;
+                    }
+                    for i_coeff in 0..p_i {
+                        self.h_wi[[w_local, i_coeff]] += weight * z_row[i_coeff];
+                    }
                 }
             }
         }
@@ -2309,6 +2515,18 @@ impl BlockHessianAccumulator {
 
             (ScoreWarp, LinkDev) => self.h_hw.view(),
             (LinkDev, ScoreWarp) => self.h_hw.t(),
+
+            (Influence, Influence) => self.h_ii.view(),
+            (Time, Influence) => self.h_ti.view(),
+            (Influence, Time) => self.h_ti.t(),
+            (Marginal, Influence) => self.h_mi.view(),
+            (Influence, Marginal) => self.h_mi.t(),
+            (Logslope, Influence) => self.h_gi.view(),
+            (Influence, Logslope) => self.h_gi.t(),
+            (ScoreWarp, Influence) => self.h_hi.view(),
+            (Influence, ScoreWarp) => self.h_hi.t(),
+            (LinkDev, Influence) => self.h_wi.view(),
+            (Influence, LinkDev) => self.h_wi.t(),
         }
     }
 
@@ -2367,16 +2585,22 @@ impl BlockHessianAccumulator {
         self.h_gg += &other.h_gg;
         self.h_hh += &other.h_hh;
         self.h_ww += &other.h_ww;
+        self.h_ii += &other.h_ii;
         self.h_tm += &other.h_tm;
         self.h_tg += &other.h_tg;
         self.h_th += &other.h_th;
         self.h_tw += &other.h_tw;
+        self.h_ti += &other.h_ti;
         self.h_mg += &other.h_mg;
         self.h_mh += &other.h_mh;
         self.h_mw += &other.h_mw;
+        self.h_mi += &other.h_mi;
         self.h_gh += &other.h_gh;
         self.h_gw += &other.h_gw;
+        self.h_gi += &other.h_gi;
         self.h_hw += &other.h_hw;
+        self.h_hi += &other.h_hi;
+        self.h_wi += &other.h_wi;
     }
 
     fn diagonal(&self, slices: &BlockSlices) -> Array1<f64> {
@@ -4792,6 +5016,7 @@ impl SurvivalMarginalSlopeFamily {
         let p_g = slices.logslope.len();
         let p_h = slices.score_warp.as_ref().map_or(0, |range| range.len());
         let p_w = slices.link_dev.as_ref().map_or(0, |range| range.len());
+        let p_i = slices.influence.as_ref().map_or(0, |range| range.len());
         let row_iter = outer_row_indices(options, self.n).to_vec();
         let row_weights = outer_row_weights_by_index(options, self.n);
         // Bit-deterministic reduction: see `chunked_row_reduction`.
@@ -4806,7 +5031,7 @@ impl SurvivalMarginalSlopeFamily {
                         Array1::zeros(p_g),
                         Array1::zeros(p_h),
                         Array1::zeros(p_w),
-                        BlockHessianAccumulator::new(p_t, p_m, p_g, p_h, p_w),
+                        BlockHessianAccumulator::new(p_t, p_m, p_g, p_h, p_w, p_i),
                     )
                 },
                 |row, a| -> Result<(), String> {
@@ -4889,6 +5114,7 @@ impl SurvivalMarginalSlopeFamily {
         let p_g = slices.logslope.len();
         let p_h = slices.score_warp.as_ref().map_or(0, |range| range.len());
         let p_w = slices.link_dev.as_ref().map_or(0, |range| range.len());
+        let p_i = slices.influence.as_ref().map_or(0, |range| range.len());
         let row_iter = outer_row_indices(options, self.n).to_vec();
         let row_weights = outer_row_weights_by_index(options, self.n);
         // Bit-deterministic reduction: see `chunked_row_reduction`.
@@ -4903,7 +5129,7 @@ impl SurvivalMarginalSlopeFamily {
                         Array1::zeros(p_g),
                         Array1::zeros(p_h),
                         Array1::zeros(p_w),
-                        BlockHessianAccumulator::new(p_t, p_m, p_g, p_h, p_w),
+                        BlockHessianAccumulator::new(p_t, p_m, p_g, p_h, p_w, p_i),
                     )
                 },
                 |row, a| -> Result<(), String> {
@@ -4990,6 +5216,7 @@ impl SurvivalMarginalSlopeFamily {
         let p_g = slices.logslope.len();
         let p_h = slices.score_warp.as_ref().map_or(0, |range| range.len());
         let p_w = slices.link_dev.as_ref().map_or(0, |range| range.len());
+        let p_i = slices.influence.as_ref().map_or(0, |range| range.len());
         let primary_dim = N_PRIMARY;
         let row_iter = outer_row_indices(options, self.n).to_vec();
         let row_weights = outer_row_weights_by_index(options, self.n);
@@ -5006,7 +5233,7 @@ impl SurvivalMarginalSlopeFamily {
         // Bit-deterministic reduction: see `chunked_row_reduction`.
         let acc = chunked_row_reduction(
             row_iter.as_slice(),
-            || BlockHessianAccumulator::new(p_t, p_m, p_g, p_h, p_w),
+            || BlockHessianAccumulator::new(p_t, p_m, p_g, p_h, p_w, p_i),
             |row, acc| -> Result<(), String> {
                 let row_dir = self.row_primary_direction_from_flat_dynamic(
                     row,
@@ -5390,20 +5617,22 @@ impl SurvivalMarginalSlopeFamily {
                 .design_derivative_exit
                 .try_row_chunk(row..row + 1)
                 .map_err(|e| format!("row_dynamic_q_geometry design_derivative_exit: {e}"))?;
-            let time_row_entry = time_entry_chunk.row(0).to_owned();
-            let time_row_exit = time_exit_chunk.row(0).to_owned();
-            let time_row_deriv = time_deriv_chunk.row(0).to_owned();
-            out.dq0_time.assign(&time_row_entry.view());
-            out.dq1_time.assign(&time_row_exit.view());
-            out.dqd1_time.assign(&time_row_deriv.view());
+            // Perf (#biobank): assign the design rows directly from the chunk
+            // views into the reused `out` buffers. The previous `.to_owned()`
+            // round-trip allocated three fresh `Array1<f64>` per row only to
+            // immediately copy them in — removing it drops O(n·p_time) heap
+            // traffic with bit-identical values.
+            out.dq0_time.assign(&time_entry_chunk.row(0));
+            out.dq1_time.assign(&time_exit_chunk.row(0));
+            out.dqd1_time.assign(&time_deriv_chunk.row(0));
             if p_marginal > 0 {
                 let marginal_chunk = self
                     .marginal_design
                     .try_row_chunk(row..row + 1)
                     .map_err(|e| format!("row_dynamic_q_geometry marginal_design: {e}"))?;
-                let marginal_row = marginal_chunk.row(0).to_owned();
-                out.dq0_marginal.assign(&marginal_row.view());
-                out.dq1_marginal.assign(&marginal_row.view());
+                let marginal_row = marginal_chunk.row(0);
+                out.dq0_marginal.assign(&marginal_row);
+                out.dq1_marginal.assign(&marginal_row);
             }
             return Ok(());
         }
@@ -5424,18 +5653,27 @@ impl SurvivalMarginalSlopeFamily {
             .design_derivative_exit
             .try_row_chunk(row..row + 1)
             .map_err(|e| format!("row_dynamic_q_geometry design_derivative_exit: {e}"))?;
-        let x_entry_base = entry_chunk.row(0).slice(s![..p_base]).to_owned();
-        let x_exit_base = exit_chunk.row(0).slice(s![..p_base]).to_owned();
-        let x_deriv_base = deriv_chunk.row(0).slice(s![..p_base]).to_owned();
-        let marginal_row = if p_marginal > 0 {
-            let marginal_chunk = self
-                .marginal_design
-                .try_row_chunk(row..row + 1)
-                .map_err(|e| format!("row_dynamic_q_geometry marginal_design: {e}"))?;
-            Some(marginal_chunk.row(0).to_owned())
+        // Perf (#biobank): hold the base/marginal design rows as borrowed views
+        // into the chunk storage rather than `.to_owned()` copies. Every use
+        // below is either a `.dot(...)` or scalar indexing, both of which work
+        // directly on `ArrayView1`, so this is bit-identical while removing the
+        // per-row Array1 allocations.
+        let entry_row_view = entry_chunk.row(0);
+        let exit_row_view = exit_chunk.row(0);
+        let deriv_row_view = deriv_chunk.row(0);
+        let x_entry_base = entry_row_view.slice(s![..p_base]);
+        let x_exit_base = exit_row_view.slice(s![..p_base]);
+        let x_deriv_base = deriv_row_view.slice(s![..p_base]);
+        let marginal_chunk = if p_marginal > 0 {
+            Some(
+                self.marginal_design
+                    .try_row_chunk(row..row + 1)
+                    .map_err(|e| format!("row_dynamic_q_geometry marginal_design: {e}"))?,
+            )
         } else {
             None
         };
+        let marginal_row = marginal_chunk.as_ref().map(|chunk| chunk.row(0));
 
         let base_marginal = block_states[1].eta[row];
         let h0 = x_entry_base.dot(&beta_time_base) + self.offset_entry[row] + base_marginal;
@@ -5652,7 +5890,11 @@ impl SurvivalMarginalSlopeFamily {
     }
 
     fn flex_active(&self) -> bool {
-        self.score_warp.is_some() || self.link_dev.is_some()
+        // The absorbed influence block (#461) rides the dynamic-Q primary-jet
+        // path (it adds the `o_infl` primary coordinate), so it counts as "flex"
+        // for dispatch purposes even when no score_warp / link_dev is present —
+        // the rigid closed-form row kernel has no `o_infl` channel.
+        self.score_warp.is_some() || self.link_dev.is_some() || self.influence_absorber.is_some()
     }
 
     fn effective_flex_active(&self, block_states: &[ParameterBlockState]) -> Result<bool, String> {
@@ -5665,6 +5907,12 @@ impl SurvivalMarginalSlopeFamily {
         if self.link_dev.is_some() && self.flex_link_beta(block_states)?.is_none() {
             return Err(SurvivalMarginalSlopeError::InvalidInput {
                 reason: "missing survival link-deviation block state".to_string(),
+            }
+            .into());
+        }
+        if self.influence_absorber.is_some() && self.flex_influence_beta(block_states)?.is_none() {
+            return Err(SurvivalMarginalSlopeError::InvalidInput {
+                reason: "missing survival influence-absorber block state".to_string(),
             }
             .into());
         }
@@ -5696,6 +5944,47 @@ impl SurvivalMarginalSlopeFamily {
             .get(idx)
             .map(|state| Some(&state.beta))
             .ok_or_else(|| "missing survival link-deviation block state".to_string())
+    }
+
+    /// Coefficient `γ` of the absorbed Stage-1 influence block (#461). The
+    /// absorber is the trailing block, so its index is `3 + score_warp? +
+    /// link_dev?`. `None` when no influence Jacobian was installed.
+    fn flex_influence_beta<'a>(
+        &self,
+        block_states: &'a [ParameterBlockState],
+    ) -> Result<Option<&'a Array1<f64>>, String> {
+        if self.influence_absorber.is_none() {
+            return Ok(None);
+        }
+        let idx = 3 + usize::from(self.score_warp.is_some()) + usize::from(self.link_dev.is_some());
+        block_states
+            .get(idx)
+            .map(|state| Some(&state.beta))
+            .ok_or_else(|| "missing survival influence-absorber block state".to_string())
+    }
+
+    /// Per-row absorbed-influence index offset `o_infl[row] = Z̃_infl[row,:]·γ`.
+    /// Returns `0.0` when no absorber is installed (the additive shift vanishes),
+    /// so callers can fold it unconditionally into the de-nested observed `η₁`.
+    fn influence_index_offset(
+        &self,
+        row: usize,
+        block_states: &[ParameterBlockState],
+    ) -> Result<f64, String> {
+        let (Some(z_tilde), Some(gamma)) = (
+            self.influence_absorber.as_ref(),
+            self.flex_influence_beta(block_states)?,
+        ) else {
+            return Ok(0.0);
+        };
+        if gamma.len() != z_tilde.ncols() {
+            return Err(format!(
+                "survival influence-absorber β length {} != Z̃_infl columns {}",
+                gamma.len(),
+                z_tilde.ncols()
+            ));
+        }
+        Ok(z_tilde.row(row).dot(gamma))
     }
 
     fn denested_partition_cells(
@@ -5955,39 +6244,28 @@ impl SurvivalMarginalSlopeFamily {
         let Some(constraints) = self.effective_time_linear_constraints()? else {
             return Ok(None);
         };
-        if beta.len() != constraints.a.ncols() || delta.len() != constraints.a.ncols() {
-            return Err(SurvivalMarginalSlopeError::IncompatibleDimensions {
-                reason: format!(
-                    "survival marginal-slope time-step dimension mismatch: beta={}, delta={}, expected {}",
-                    beta.len(),
-                    delta.len(),
-                    constraints.a.ncols()
-                ),
-            }
-            .into());
-        }
-        let mut alpha = 1.0f64;
-        for row in 0..constraints.a.nrows() {
-            let a_row = constraints.a.row(row);
-            let slack = a_row.dot(beta) - constraints.b[row];
-            if slack < -1e-10 {
-                return Err(SurvivalMarginalSlopeError::MonotonicityViolation {
+        crate::families::marginal_slope_shared::feasible_step_fraction(
+            &constraints,
+            beta,
+            delta,
+            |beta_len, delta_len, expected| {
+                SurvivalMarginalSlopeError::IncompatibleDimensions {
+                    reason: format!(
+                        "survival marginal-slope time-step dimension mismatch: beta={beta_len}, delta={delta_len}, expected {expected}"
+                    ),
+                }
+                .into()
+            },
+            |row, slack| {
+                SurvivalMarginalSlopeError::MonotonicityViolation {
                     reason: format!(
                         "survival marginal-slope current time block violates derivative guard at row {row}: slack={slack:.3e}"
                     ),
                 }
-                .into());
-            }
-            let drift = a_row.dot(delta);
-            if drift < 0.0 {
-                alpha = alpha.min((slack / -drift).clamp(0.0, 1.0));
-            }
-        }
-        if alpha >= 1.0 {
-            Ok(Some(1.0))
-        } else {
-            Ok(Some((0.995 * alpha).clamp(0.0, 1.0)))
-        }
+                .into()
+            },
+        )
+        .map(Some)
     }
 
     fn effective_time_linear_constraints(
@@ -6496,8 +6774,12 @@ impl SurvivalMarginalSlopeFamily {
         let g = block_states[2].eta[row];
         let beta_h = self.flex_score_beta(block_states)?;
         let beta_w = self.flex_link_beta(block_states)?;
+        // Absorbed Stage-1 influence offset (#461): a per-row additive shift of
+        // the de-nested observed index η₁ (un-`c(g)`-scaled), `0.0` when no
+        // absorber is installed.
+        let o_infl = self.influence_index_offset(row, block_states)?;
         self.row_neglog_flex_value_from_parts(
-            row, q_geom.q0, q_geom.q1, q_geom.qd1, g, beta_h, beta_w,
+            row, q_geom.q0, q_geom.q1, q_geom.qd1, g, beta_h, beta_w, o_infl,
         )
     }
 
@@ -6510,6 +6792,7 @@ impl SurvivalMarginalSlopeFamily {
         g: f64,
         beta_h: Option<&Array1<f64>>,
         beta_w: Option<&Array1<f64>>,
+        o_infl: f64,
     ) -> Result<f64, String> {
         if survival_derivative_guard_violated(qd1, self.derivative_guard) {
             return Err(SurvivalMarginalSlopeError::MonotonicityViolation {
@@ -6543,8 +6826,14 @@ impl SurvivalMarginalSlopeFamily {
             }
             .into());
         }
-        let (eta0, _) = self.observed_denested_eta_chi(row, a0, g, beta_h, beta_w)?;
-        let (eta1, chi1) = self.observed_denested_eta_chi(row, a1, g, beta_h, beta_w)?;
+        // The absorbed-influence offset shifts the observed index η₁ additively
+        // at both the entry (eta0) and exit (eta1) calibration roots — `o_infl`
+        // is independent of the calibration intercept `a`, so the de-nesting
+        // derivative `chi1 = ∂η₁/∂a` is unchanged.
+        let (eta0_raw, _) = self.observed_denested_eta_chi(row, a0, g, beta_h, beta_w)?;
+        let (eta1_raw, chi1) = self.observed_denested_eta_chi(row, a1, g, beta_h, beta_w)?;
+        let eta0 = eta0_raw + o_infl;
+        let eta1 = eta1_raw + o_infl;
         if !chi1.is_finite() || chi1 <= 0.0 {
             return Err(SurvivalMarginalSlopeError::NumericalFailure {
                 reason: format!(
@@ -6736,6 +7025,7 @@ impl SurvivalMarginalSlopeFamily {
         d_calibration: f64,
         beta_h: Option<&Array1<f64>>,
         beta_w: Option<&Array1<f64>>,
+        o_infl: f64,
     ) -> Result<SurvivalFlexTimepointFirstOrderExact, String> {
         let p = primary.total;
         let cached =
@@ -6833,7 +7123,11 @@ impl SurvivalMarginalSlopeFamily {
         let z_obs = self.observed_score_projection(row);
         let u_obs = a + b * z_obs;
         let obs = self.observed_denested_cell_partials(row, a, b, beta_h, beta_w)?;
-        let eta = eval_coeff4_at(&obs.coeff, z_obs);
+        // Absorbed-influence offset: observed-η shift only (see
+        // `compute_survival_timepoint_exact`). `eta += o_infl`, and the trailing
+        // `infl` channel carries the direct partial `∂η₁/∂o_infl = 1` via
+        // `rho[infl]`; calibration-side `a_u`/`chi`/`chi_u`/`d_u` are untouched.
+        let eta = eval_coeff4_at(&obs.coeff, z_obs) + o_infl;
         let chi = eval_coeff4_at(&obs.dc_da, z_obs);
         let eta_aa = eval_coeff4_at(&obs.dc_daa, z_obs);
 
@@ -6842,6 +7136,9 @@ impl SurvivalMarginalSlopeFamily {
         let scale = self.probit_frailty_scale();
         rho[primary.g] = eval_coeff4_at(&obs.dc_db, z_obs);
         tau[primary.g] = eval_coeff4_at(&obs.dc_dab, z_obs);
+        if let Some(infl) = primary.infl {
+            rho[infl] = 1.0;
+        }
 
         if let Some(h_range) = primary.h.as_ref().filter(|_| self.score_warp.is_some()) {
             for local_idx in 0..h_range.len() {
@@ -6900,6 +7197,7 @@ impl SurvivalMarginalSlopeFamily {
         d_calibration: f64,
         beta_h: Option<&Array1<f64>>,
         beta_w: Option<&Array1<f64>>,
+        o_infl: f64,
         need_d_uv: bool,
     ) -> Result<SurvivalFlexTimepointExact, String> {
         let p = primary.total;
@@ -7069,7 +7367,13 @@ impl SurvivalMarginalSlopeFamily {
         let z_obs = self.observed_score_projection(row);
         let u_obs = a + b * z_obs;
         let obs = self.observed_denested_cell_partials(row, a, b, beta_h, beta_w)?;
-        let eta = eval_coeff4_at(&obs.coeff, z_obs);
+        // The absorbed-influence offset shifts the OBSERVED index η₁ additively
+        // (#461). It is independent of the calibration intercept `a`, so it
+        // touches only `eta` itself and the trailing `infl` primary partial
+        // `∂η₁/∂o_infl = 1` (set via `rho[infl]` below); every calibration-side
+        // quantity (`a_u`, `chi`, `chi_u`, `d_u`, all second partials) is
+        // untouched because `o_infl` never enters the de-nested cells.
+        let eta = eval_coeff4_at(&obs.coeff, z_obs) + o_infl;
         let chi = eval_coeff4_at(&obs.dc_da, z_obs);
         let eta_aa = eval_coeff4_at(&obs.dc_daa, z_obs);
         let eta_aaa = eval_coeff4_at(&obs.dc_daaa, z_obs);
@@ -7079,6 +7383,12 @@ impl SurvivalMarginalSlopeFamily {
         let mut tau_a = Array1::<f64>::zeros(p);
         let scale = self.probit_frailty_scale();
         rho[primary.g] = eval_coeff4_at(&obs.dc_db, z_obs);
+        // Direct observed partial of the absorber channel: `∂η₁/∂o_infl = 1`
+        // (and `a_u[infl] = 0`), so `eta_u[infl] = chi·0 + rho[infl] = 1`. All
+        // other `infl` entries (tau, tau_a, second partials) stay zero.
+        if let Some(infl) = primary.infl {
+            rho[infl] = 1.0;
+        }
         tau[primary.g] = eval_coeff4_at(&obs.dc_dab, z_obs);
         tau_a[primary.g] = eval_coeff4_at(&obs.dc_daab, z_obs);
 
@@ -7282,8 +7592,9 @@ impl SurvivalMarginalSlopeFamily {
         let g = block_states[2].eta[row];
         let beta_h = self.flex_score_beta(block_states)?;
         let beta_w = self.flex_link_beta(block_states)?;
+        let o_infl = self.influence_index_offset(row, block_states)?;
         self.compute_row_flex_primary_gradient_hessian_from_parts(
-            row, q_geom.q0, q_geom.q1, q_geom.qd1, g, beta_h, beta_w, primary,
+            row, q_geom.q0, q_geom.q1, q_geom.qd1, g, beta_h, beta_w, o_infl, primary,
         )
     }
 
@@ -7298,8 +7609,9 @@ impl SurvivalMarginalSlopeFamily {
         let g = block_states[2].eta[row];
         let beta_h = self.flex_score_beta(block_states)?;
         let beta_w = self.flex_link_beta(block_states)?;
+        let o_infl = self.influence_index_offset(row, block_states)?;
         self.compute_row_flex_primary_gradient_from_parts(
-            row, q_geom.q0, q_geom.q1, q_geom.qd1, g, beta_h, beta_w, primary,
+            row, q_geom.q0, q_geom.q1, q_geom.qd1, g, beta_h, beta_w, o_infl, primary,
         )
     }
 
@@ -7312,6 +7624,7 @@ impl SurvivalMarginalSlopeFamily {
         g: f64,
         beta_h: Option<&Array1<f64>>,
         beta_w: Option<&Array1<f64>>,
+        o_infl: f64,
         primary: &FlexPrimarySlices,
     ) -> Result<(f64, Array1<f64>), String> {
         if survival_derivative_guard_violated(qd1, self.derivative_guard) {
@@ -7339,10 +7652,10 @@ impl SurvivalMarginalSlopeFamily {
             Some((row, SurvivalInterceptSlotKind::Exit)),
         )?;
         let entry = self.compute_survival_timepoint_first_order_exact(
-            row, primary, q0, primary.q0, a0, g, d0, beta_h, beta_w,
+            row, primary, q0, primary.q0, a0, g, d0, beta_h, beta_w, o_infl,
         )?;
         let exit = self.compute_survival_timepoint_first_order_exact(
-            row, primary, q1, primary.q1, a1, g, d1, beta_h, beta_w,
+            row, primary, q1, primary.q1, a1, g, d1, beta_h, beta_w, o_infl,
         )?;
 
         if !exit.chi.is_finite() || exit.chi <= 0.0 {
@@ -7404,6 +7717,7 @@ impl SurvivalMarginalSlopeFamily {
         g: f64,
         beta_h: Option<&Array1<f64>>,
         beta_w: Option<&Array1<f64>>,
+        o_infl: f64,
         primary: &FlexPrimarySlices,
     ) -> Result<(f64, Array1<f64>, Array2<f64>), String> {
         if survival_derivative_guard_violated(qd1, self.derivative_guard) {
@@ -7431,10 +7745,10 @@ impl SurvivalMarginalSlopeFamily {
             Some((row, SurvivalInterceptSlotKind::Exit)),
         )?;
         let entry = self.compute_survival_timepoint_exact(
-            row, primary, q0, primary.q0, a0, g, d0, beta_h, beta_w, false,
+            row, primary, q0, primary.q0, a0, g, d0, beta_h, beta_w, o_infl, false,
         )?;
         let exit = self.compute_survival_timepoint_exact(
-            row, primary, q1, primary.q1, a1, g, d1, beta_h, beta_w, true,
+            row, primary, q1, primary.q1, a1, g, d1, beta_h, beta_w, o_infl, true,
         )?;
 
         if !exit.chi.is_finite() || exit.chi <= 0.0 {
@@ -8019,16 +8333,27 @@ impl SurvivalMarginalSlopeFamily {
         Ok(())
     }
 
-    fn dynamic_q_core_hessian_blocks(
+    fn accumulate_dynamic_q_core_hessian(
         &self,
         row: usize,
-        p_t: usize,
-        p_m: usize,
-        p_g: usize,
+        slices: &BlockSlices,
         q_geom: &SurvivalMarginalSlopeDynamicRow,
         primary_gradient: ndarray::ArrayView1<'_, f64>,
         primary_hessian: ArrayView2<'_, f64>,
-    ) -> Result<DynamicQCoreHessianBlocks, String> {
+        joint_hessian: &mut Array2<f64>,
+    ) -> Result<(), String> {
+        // Perf (#biobank): scatter each core block-Hessian contribution
+        // directly into `joint_hessian` as it is computed, instead of building
+        // six fresh `Array2` per row in `dynamic_q_core_hessian_blocks` and
+        // then copying them in. This removes the per-row heap traffic (6×p²
+        // allocations + zero-fills + the logslope-row `to_owned`) and the
+        // extra read/write pass over the temporaries. Each cell receives the
+        // identical `value` it did before (the temporaries were written with
+        // `=` then added here), so the accumulated result is bit-identical.
+        let p_t = slices.time.len();
+        let p_m = slices.marginal.len();
+        let p_g = slices.logslope.len();
+
         let dq_time = [&q_geom.dq0_time, &q_geom.dq1_time, &q_geom.dqd1_time];
         let dq_marginal = [
             &q_geom.dq0_marginal,
@@ -8053,14 +8378,14 @@ impl SurvivalMarginalSlopeFamily {
         let logslope_chunk = self
             .logslope_design
             .try_row_chunk(row..row + 1)
-            .map_err(|e| format!("dynamic_q_core_hessian_blocks logslope try_row_chunk: {e}"))?;
-        let logslope_row = logslope_chunk.row(0).to_owned();
+            .map_err(|e| format!("accumulate_dynamic_q_core_hessian logslope: {e}"))?;
+        let logslope_row = logslope_chunk.row(0);
 
-        // The caller is itself an outer per-row `into_par_iter` over n rows, so
-        // any inner `rayon::join` here just oversubscribes a saturated pool —
-        // each block is at most p_m^2 ≈ 9k FMAs (microseconds), far below the
-        // join+steal overhead. Build all blocks sequentially.
-        let mut hess_time = Array2::<f64>::zeros((p_t, p_t));
+        let t0 = slices.time.start;
+        let m0 = slices.marginal.start;
+        let g0 = slices.logslope.start;
+
+        // time × time
         for a in 0..p_t {
             for b in 0..p_t {
                 let mut value = 0.0;
@@ -8070,10 +8395,10 @@ impl SurvivalMarginalSlopeFamily {
                     }
                     value += primary_gradient[q_u] * d2q_time_time[q_u][[a, b]];
                 }
-                hess_time[[a, b]] = value;
+                joint_hessian[[t0 + a, t0 + b]] += value;
             }
         }
-        let mut hess_marginal = Array2::<f64>::zeros((p_m, p_m));
+        // marginal × marginal
         for a in 0..p_m {
             for b in 0..p_m {
                 let mut value = 0.0;
@@ -8084,10 +8409,11 @@ impl SurvivalMarginalSlopeFamily {
                     }
                     value += primary_gradient[q_u] * d2q_marginal_marginal[q_u][[a, b]];
                 }
-                hess_marginal[[a, b]] = value;
+                joint_hessian[[m0 + a, m0 + b]] += value;
             }
         }
-        let mut hess_logslope = Array2::<f64>::zeros((p_g, p_g));
+        // logslope × logslope (rank-1: h_gg · xxᵀ); zero cells skipped exactly
+        // as the prior `Array2::zeros`-backed block left them zero.
         let h_gg_scale = primary_hessian[[3, 3]];
         if h_gg_scale != 0.0 {
             for a in 0..p_g {
@@ -8097,11 +8423,11 @@ impl SurvivalMarginalSlopeFamily {
                 }
                 let row_scale = h_gg_scale * xa;
                 for b in 0..p_g {
-                    hess_logslope[[a, b]] = row_scale * logslope_row[b];
+                    joint_hessian[[g0 + a, g0 + b]] += row_scale * logslope_row[b];
                 }
             }
         }
-        let mut hess_time_marginal = Array2::<f64>::zeros((p_t, p_m));
+        // time × marginal (symmetric scatter)
         for a in 0..p_t {
             for b in 0..p_m {
                 let mut value = 0.0;
@@ -8112,10 +8438,11 @@ impl SurvivalMarginalSlopeFamily {
                     }
                     value += primary_gradient[q_u] * d2q_time_marginal[q_u][[a, b]];
                 }
-                hess_time_marginal[[a, b]] = value;
+                joint_hessian[[t0 + a, m0 + b]] += value;
+                joint_hessian[[m0 + b, t0 + a]] += value;
             }
         }
-        let mut hess_time_logslope = Array2::<f64>::zeros((p_t, p_g));
+        // time × logslope (symmetric scatter)
         for a in 0..p_t {
             let mut weight = 0.0;
             for q_u in 0..3 {
@@ -8123,11 +8450,13 @@ impl SurvivalMarginalSlopeFamily {
             }
             if weight != 0.0 {
                 for b in 0..p_g {
-                    hess_time_logslope[[a, b]] = weight * logslope_row[b];
+                    let value = weight * logslope_row[b];
+                    joint_hessian[[t0 + a, g0 + b]] += value;
+                    joint_hessian[[g0 + b, t0 + a]] += value;
                 }
             }
         }
-        let mut hess_marginal_logslope = Array2::<f64>::zeros((p_m, p_g));
+        // marginal × logslope (symmetric scatter)
         for a in 0..p_m {
             let mut weight = 0.0;
             for q_u in 0..3 {
@@ -8135,160 +8464,10 @@ impl SurvivalMarginalSlopeFamily {
             }
             if weight != 0.0 {
                 for b in 0..p_g {
-                    hess_marginal_logslope[[a, b]] = weight * logslope_row[b];
+                    let value = weight * logslope_row[b];
+                    joint_hessian[[m0 + a, g0 + b]] += value;
+                    joint_hessian[[g0 + b, m0 + a]] += value;
                 }
-            }
-        }
-
-        Ok(DynamicQCoreHessianBlocks {
-            hess_time,
-            hess_marginal,
-            hess_logslope,
-            hess_time_marginal,
-            hess_time_logslope,
-            hess_marginal_logslope,
-        })
-    }
-
-    fn dynamic_q_core_diagonal_hessian_blocks(
-        &self,
-        row: usize,
-        p_t: usize,
-        p_m: usize,
-        p_g: usize,
-        q_geom: &SurvivalMarginalSlopeDynamicRow,
-        primary_gradient: ndarray::ArrayView1<'_, f64>,
-        primary_hessian: ArrayView2<'_, f64>,
-    ) -> Result<(Array2<f64>, Array2<f64>, Array2<f64>), String> {
-        let dq_time = [&q_geom.dq0_time, &q_geom.dq1_time, &q_geom.dqd1_time];
-        let dq_marginal = [
-            &q_geom.dq0_marginal,
-            &q_geom.dq1_marginal,
-            &q_geom.dqd1_marginal,
-        ];
-        let d2q_time_time = [
-            &q_geom.d2q0_time_time,
-            &q_geom.d2q1_time_time,
-            &q_geom.d2qd1_time_time,
-        ];
-        let d2q_marginal_marginal = [
-            &q_geom.d2q0_marginal_marginal,
-            &q_geom.d2q1_marginal_marginal,
-            &q_geom.d2qd1_marginal_marginal,
-        ];
-        let logslope_chunk = self
-            .logslope_design
-            .try_row_chunk(row..row + 1)
-            .map_err(|e| {
-                format!("dynamic_q_core_diagonal_hessian_blocks logslope try_row_chunk: {e}")
-            })?;
-        let logslope_row = logslope_chunk.row(0).to_owned();
-
-        // Outer caller is `(0..n).into_par_iter()` — inner rayon::join here
-        // would oversubscribe a saturated pool for ≤9k-FMA blocks. Sequential.
-        let mut hess_time = Array2::<f64>::zeros((p_t, p_t));
-        for a in 0..p_t {
-            for b in 0..p_t {
-                let mut value = 0.0;
-                for q_u in 0..3 {
-                    for q_v in 0..3 {
-                        value += primary_hessian[[q_u, q_v]] * dq_time[q_u][a] * dq_time[q_v][b];
-                    }
-                    value += primary_gradient[q_u] * d2q_time_time[q_u][[a, b]];
-                }
-                hess_time[[a, b]] = value;
-            }
-        }
-        let mut hess_marginal = Array2::<f64>::zeros((p_m, p_m));
-        for a in 0..p_m {
-            for b in 0..p_m {
-                let mut value = 0.0;
-                for q_u in 0..3 {
-                    for q_v in 0..3 {
-                        value +=
-                            primary_hessian[[q_u, q_v]] * dq_marginal[q_u][a] * dq_marginal[q_v][b];
-                    }
-                    value += primary_gradient[q_u] * d2q_marginal_marginal[q_u][[a, b]];
-                }
-                hess_marginal[[a, b]] = value;
-            }
-        }
-        let mut hess_logslope = Array2::<f64>::zeros((p_g, p_g));
-        let h_gg_scale = primary_hessian[[3, 3]];
-        if h_gg_scale != 0.0 {
-            for a in 0..p_g {
-                let xa = logslope_row[a];
-                if xa == 0.0 {
-                    continue;
-                }
-                let row_scale = h_gg_scale * xa;
-                for b in 0..p_g {
-                    hess_logslope[[a, b]] = row_scale * logslope_row[b];
-                }
-            }
-        }
-        Ok((hess_time, hess_marginal, hess_logslope))
-    }
-
-    fn accumulate_dynamic_q_core_hessian(
-        &self,
-        row: usize,
-        slices: &BlockSlices,
-        q_geom: &SurvivalMarginalSlopeDynamicRow,
-        primary_gradient: ndarray::ArrayView1<'_, f64>,
-        primary_hessian: ArrayView2<'_, f64>,
-        joint_hessian: &mut Array2<f64>,
-    ) -> Result<(), String> {
-        let p_t = slices.time.len();
-        let p_m = slices.marginal.len();
-        let p_g = slices.logslope.len();
-        let blocks = self.dynamic_q_core_hessian_blocks(
-            row,
-            p_t,
-            p_m,
-            p_g,
-            q_geom,
-            primary_gradient,
-            primary_hessian,
-        )?;
-
-        for a in 0..p_t {
-            for b in 0..p_t {
-                joint_hessian[[slices.time.start + a, slices.time.start + b]] +=
-                    blocks.hess_time[[a, b]];
-            }
-        }
-        for a in 0..p_m {
-            for b in 0..p_m {
-                joint_hessian[[slices.marginal.start + a, slices.marginal.start + b]] +=
-                    blocks.hess_marginal[[a, b]];
-            }
-        }
-        for a in 0..p_g {
-            for b in 0..p_g {
-                joint_hessian[[slices.logslope.start + a, slices.logslope.start + b]] +=
-                    blocks.hess_logslope[[a, b]];
-            }
-        }
-        for a in 0..p_t {
-            for b in 0..p_m {
-                let value = blocks.hess_time_marginal[[a, b]];
-                joint_hessian[[slices.time.start + a, slices.marginal.start + b]] += value;
-                joint_hessian[[slices.marginal.start + b, slices.time.start + a]] += value;
-            }
-        }
-        for a in 0..p_t {
-            for b in 0..p_g {
-                let value = blocks.hess_time_logslope[[a, b]];
-                joint_hessian[[slices.time.start + a, slices.logslope.start + b]] += value;
-                joint_hessian[[slices.logslope.start + b, slices.time.start + a]] += value;
-            }
-        }
-        for a in 0..p_m {
-            for b in 0..p_g {
-                let value = blocks.hess_marginal_logslope[[a, b]];
-                joint_hessian[[slices.marginal.start + a, slices.logslope.start + b]] += value;
-                joint_hessian[[slices.logslope.start + b, slices.marginal.start + a]] += value;
             }
         }
         Ok(())
@@ -8337,20 +8516,80 @@ impl SurvivalMarginalSlopeFamily {
         hess_marginal: &mut Array2<f64>,
         hess_logslope: &mut Array2<f64>,
     ) -> Result<(), String> {
-        let (local_time, local_marginal, local_logslope) = self
-            .dynamic_q_core_diagonal_hessian_blocks(
-                row,
-                hess_time.nrows(),
-                hess_marginal.nrows(),
-                hess_logslope.nrows(),
-                q_geom,
-                primary_gradient,
-                primary_hessian,
-            )?;
+        // Perf (#biobank): accumulate the three diagonal block-Hessian
+        // contributions directly into the caller's per-thread workspace
+        // buffers with `+=`, rather than allocating three fresh
+        // `Array2::zeros` per row (`dynamic_q_core_diagonal_hessian_blocks`)
+        // and then folding them in with `*hess += &local`. This removes
+        // O(n·p²) heap allocation + zero-fill + a redundant add pass. The
+        // arithmetic per cell is identical: the old path wrote `value` into a
+        // zeroed local then added it here, so accumulating `value` directly is
+        // bit-identical. The logslope block skips zero cells exactly as before
+        // (adding the implicit zeros was a no-op).
+        let p_t = hess_time.nrows();
+        let p_m = hess_marginal.nrows();
+        let p_g = hess_logslope.nrows();
 
-        *hess_time += &local_time;
-        *hess_marginal += &local_marginal;
-        *hess_logslope += &local_logslope;
+        let dq_time = [&q_geom.dq0_time, &q_geom.dq1_time, &q_geom.dqd1_time];
+        let dq_marginal = [
+            &q_geom.dq0_marginal,
+            &q_geom.dq1_marginal,
+            &q_geom.dqd1_marginal,
+        ];
+        let d2q_time_time = [
+            &q_geom.d2q0_time_time,
+            &q_geom.d2q1_time_time,
+            &q_geom.d2qd1_time_time,
+        ];
+        let d2q_marginal_marginal = [
+            &q_geom.d2q0_marginal_marginal,
+            &q_geom.d2q1_marginal_marginal,
+            &q_geom.d2qd1_marginal_marginal,
+        ];
+        let logslope_chunk = self
+            .logslope_design
+            .try_row_chunk(row..row + 1)
+            .map_err(|e| format!("accumulate_dynamic_q_core_block_hessians logslope: {e}"))?;
+        let logslope_row = logslope_chunk.row(0);
+
+        for a in 0..p_t {
+            for b in 0..p_t {
+                let mut value = 0.0;
+                for q_u in 0..3 {
+                    for q_v in 0..3 {
+                        value += primary_hessian[[q_u, q_v]] * dq_time[q_u][a] * dq_time[q_v][b];
+                    }
+                    value += primary_gradient[q_u] * d2q_time_time[q_u][[a, b]];
+                }
+                hess_time[[a, b]] += value;
+            }
+        }
+        for a in 0..p_m {
+            for b in 0..p_m {
+                let mut value = 0.0;
+                for q_u in 0..3 {
+                    for q_v in 0..3 {
+                        value +=
+                            primary_hessian[[q_u, q_v]] * dq_marginal[q_u][a] * dq_marginal[q_v][b];
+                    }
+                    value += primary_gradient[q_u] * d2q_marginal_marginal[q_u][[a, b]];
+                }
+                hess_marginal[[a, b]] += value;
+            }
+        }
+        let h_gg_scale = primary_hessian[[3, 3]];
+        if h_gg_scale != 0.0 {
+            for a in 0..p_g {
+                let xa = logslope_row[a];
+                if xa == 0.0 {
+                    continue;
+                }
+                let row_scale = h_gg_scale * xa;
+                for b in 0..p_g {
+                    hess_logslope[[a, b]] += row_scale * logslope_row[b];
+                }
+            }
+        }
         Ok(())
     }
 
@@ -8400,6 +8639,34 @@ impl SurvivalMarginalSlopeFamily {
                 .slice(s![primary_range.clone(), primary_range.clone()])
                 .to_owned();
         }
+        // Absorbed-influence diagonal block (#461). Unlike the identity flex
+        // blocks above (whose basis IS the primary coordinate, so the block grad
+        // is a slice copy), the absorber's `p₁` coefficients project from the
+        // single `o_infl` primary scalar through `Z̃_infl[row,:]`:
+        //   grad_i = -primary_gradient[infl] · Z̃[row,i]
+        //   hess_ij += primary_hessian[[infl,infl]] · Z̃[row,i] · Z̃[row,j]
+        if let (Some(infl_idx), Some(gradient), Some(hessian)) = (
+            primary.infl,
+            acc.grad_influence.as_mut(),
+            acc.hess_influence.as_mut(),
+        ) {
+            let z_tilde = self.influence_absorber.as_ref().ok_or_else(|| {
+                "accumulate_dynamic_q_blockwise_row: influence primary index present but no Z̃ design"
+                    .to_string()
+            })?;
+            let z_row = z_tilde.row(row);
+            let g_infl = primary_gradient[infl_idx];
+            let h_infl = primary_hessian[[infl_idx, infl_idx]];
+            for i in 0..z_row.len() {
+                gradient[i] -= g_infl * z_row[i];
+                if h_infl != 0.0 {
+                    let hz = h_infl * z_row[i];
+                    for j in 0..z_row.len() {
+                        hessian[[i, j]] += hz * z_row[j];
+                    }
+                }
+            }
+        }
         Ok(())
     }
 
@@ -8446,6 +8713,79 @@ impl SurvivalMarginalSlopeFamily {
         let logslope_row = logslope_chunk.row(0);
         let logslope_weight = core_hessian_column[3];
         if logslope_weight != 0.0 {
+            for coeff_idx in 0..slices.logslope.len() {
+                let value = logslope_weight * logslope_row[coeff_idx];
+                joint_hessian[[slices.logslope.start + coeff_idx, joint_idx]] += value;
+                joint_hessian[[joint_idx, slices.logslope.start + coeff_idx]] += value;
+            }
+        }
+        Ok(())
+    }
+
+    /// Perf (#biobank): pre-scaled variant of
+    /// [`Self::accumulate_identity_primary_cross_hessian`]. The influence
+    /// absorber needs the `o_infl` core-Hessian column scaled by the per-row
+    /// per-coefficient factor `Z̃[row, i]`. The previous call site materialised
+    /// `&core_col.to_owned() * z_i` — two fresh `Array1` allocations per (row,
+    /// influence-coefficient) pair — purely to pass a scaled view in. Here the
+    /// scale is folded `core_hessian_column[q] * scale` *before* multiplying by
+    /// the Jacobian, exactly matching the original operand grouping
+    /// `(core_col[q] * z_i) * dq`, so every accumulated cell is bit-identical
+    /// while the per-row heap traffic in the influence-active path is removed.
+    fn accumulate_identity_primary_cross_hessian_scaled(
+        &self,
+        row: usize,
+        slices: &BlockSlices,
+        q_geom: &SurvivalMarginalSlopeDynamicRow,
+        core_hessian_column: ndarray::ArrayView1<'_, f64>,
+        scale: f64,
+        joint_block: &std::ops::Range<usize>,
+        joint_local: usize,
+        joint_hessian: &mut Array2<f64>,
+    ) -> Result<(), String> {
+        let joint_idx = joint_block.start + joint_local;
+        let dq_time = [&q_geom.dq0_time, &q_geom.dq1_time, &q_geom.dqd1_time];
+        let dq_marginal = [
+            &q_geom.dq0_marginal,
+            &q_geom.dq1_marginal,
+            &q_geom.dqd1_marginal,
+        ];
+        // Fold the scale into the three primary-q weights up front so the
+        // per-coefficient inner product reads `(core[q] * scale) * dq[q]`,
+        // matching the pre-scaled-column arithmetic exactly.
+        let scaled_core = [
+            core_hessian_column[0] * scale,
+            core_hessian_column[1] * scale,
+            core_hessian_column[2] * scale,
+        ];
+
+        for coeff_idx in 0..slices.time.len() {
+            let mut value = 0.0;
+            for q_idx in 0..3 {
+                value += scaled_core[q_idx] * dq_time[q_idx][coeff_idx];
+            }
+            joint_hessian[[slices.time.start + coeff_idx, joint_idx]] += value;
+            joint_hessian[[joint_idx, slices.time.start + coeff_idx]] += value;
+        }
+        for coeff_idx in 0..slices.marginal.len() {
+            let mut value = 0.0;
+            for q_idx in 0..3 {
+                value += scaled_core[q_idx] * dq_marginal[q_idx][coeff_idx];
+            }
+            joint_hessian[[slices.marginal.start + coeff_idx, joint_idx]] += value;
+            joint_hessian[[joint_idx, slices.marginal.start + coeff_idx]] += value;
+        }
+        let logslope_weight = core_hessian_column[3] * scale;
+        if logslope_weight != 0.0 {
+            let logslope_chunk = self
+                .logslope_design
+                .try_row_chunk(row..row + 1)
+                .map_err(|e| {
+                    format!(
+                        "accumulate_identity_primary_cross_hessian_scaled logslope try_row_chunk: {e}"
+                    )
+                })?;
+            let logslope_row = logslope_chunk.row(0);
             for coeff_idx in 0..slices.logslope.len() {
                 let value = logslope_weight * logslope_row[coeff_idx];
                 joint_hessian[[slices.logslope.start + coeff_idx, joint_idx]] += value;
@@ -8551,6 +8891,78 @@ impl SurvivalMarginalSlopeFamily {
                     right_joint,
                     primary_hessian.slice(s![left_primary.clone(), right_primary.clone()]),
                 );
+            }
+        }
+
+        // Absorbed Stage-1 influence block (#461). The absorber is a SINGLE
+        // primary scalar `o_infl` at index `primary.infl` whose `p₁` joint
+        // coefficients `γ` map to it through the residualized design row
+        // `Z̃_infl[row,:]` (NOT an identity block — unlike score_warp/link_dev
+        // whose bases are themselves primary coordinates). It therefore projects
+        // like a non-identity single-scalar channel: each γ-coefficient `i` acts
+        // as a copy of the `o_infl` primary direction scaled by `Z̃[row,i]`, so
+        // its gradient and all cross-Hessians (vs core time/marginal/logslope and
+        // vs the identity flex blocks) and its own diagonal are the `o_infl`
+        // primary entries weighted by `Z̃[row,·]`.
+        if let (Some(infl_primary), Some(infl_joint)) =
+            (flex_primary_slices(self).infl, slices.influence.as_ref())
+        {
+            let z_tilde = self.influence_absorber.as_ref().ok_or_else(|| {
+                "accumulate_dynamic_q_joint_row: influence primary index present but no Z̃ design"
+                    .to_string()
+            })?;
+            let z_row = z_tilde.row(row);
+            let core_col = primary_hessian.slice(s![0..N_PRIMARY, infl_primary]);
+            // Per-coefficient gradient + cross with core blocks (time/marginal/
+            // logslope), reusing the identity-channel core-cross helper with the
+            // `o_infl` core Hessian column scaled by `Z̃[row, i]`.
+            for i in 0..z_row.len() {
+                let z_i = z_row[i];
+                joint_gradient[infl_joint.start + i] -= primary_gradient[infl_primary] * z_i;
+                if z_i != 0.0 {
+                    // Perf (#biobank): pass the unscaled `o_infl` core-Hessian
+                    // column plus `z_i` to the pre-scaled cross-Hessian helper,
+                    // which folds the scale in `(core[q] * z_i) * dq` form —
+                    // bit-identical to the previous `&core_col.to_owned() * z_i`
+                    // path but without the two per-(row,coeff) Array1 allocations.
+                    self.accumulate_identity_primary_cross_hessian_scaled(
+                        row,
+                        slices,
+                        q_geom,
+                        core_col,
+                        z_i,
+                        infl_joint,
+                        i,
+                        joint_hessian,
+                    )?;
+                }
+            }
+            // Influence × influence diagonal: primary_hessian[[infl,infl]]·Z̃Z̃ᵀ.
+            let ii_weight = primary_hessian[[infl_primary, infl_primary]];
+            if ii_weight != 0.0 {
+                for i in 0..z_row.len() {
+                    for j in 0..z_row.len() {
+                        joint_hessian[[infl_joint.start + i, infl_joint.start + j]] +=
+                            ii_weight * z_row[i] * z_row[j];
+                    }
+                }
+            }
+            // Influence × identity-flex (score_warp/link_dev) cross-blocks: each
+            // flex coefficient `f` (a primary coordinate) crossed with each
+            // absorber coefficient `i` is `primary_hessian[[flex, infl]]·Z̃[row,i]`.
+            for (flex_primary, flex_joint) in identity_blocks {
+                for f in 0..flex_primary.len() {
+                    let weight = primary_hessian[[flex_primary.start + f, infl_primary]];
+                    if weight == 0.0 {
+                        continue;
+                    }
+                    let fj = flex_joint.start + f;
+                    for i in 0..z_row.len() {
+                        let value = weight * z_row[i];
+                        joint_hessian[[fj, infl_joint.start + i]] += value;
+                        joint_hessian[[infl_joint.start + i, fj]] += value;
+                    }
+                }
             }
         }
 
@@ -10978,6 +11390,7 @@ impl SurvivalMarginalSlopeFamily {
         let g = block_states[2].eta[row];
         let beta_h = self.flex_score_beta(block_states)?;
         let beta_w = self.flex_link_beta(block_states)?;
+        let o_infl = self.influence_index_offset(row, block_states)?;
 
         if survival_derivative_guard_violated(qd1, self.derivative_guard) {
             return Err(SurvivalMarginalSlopeError::MonotonicityViolation {
@@ -11004,10 +11417,10 @@ impl SurvivalMarginalSlopeFamily {
         )?;
 
         let entry = self.compute_survival_timepoint_exact(
-            row, &primary, q0, primary.q0, a0, g, d0, beta_h, beta_w, false,
+            row, &primary, q0, primary.q0, a0, g, d0, beta_h, beta_w, o_infl, false,
         )?;
         let exit = self.compute_survival_timepoint_exact(
-            row, &primary, q1, primary.q1, a1, g, d1, beta_h, beta_w, true,
+            row, &primary, q1, primary.q1, a1, g, d1, beta_h, beta_w, o_infl, true,
         )?;
 
         if !exit.chi.is_finite() || exit.chi <= 0.0 {
@@ -11088,6 +11501,7 @@ impl SurvivalMarginalSlopeFamily {
         let g = block_states[2].eta[row];
         let beta_h = self.flex_score_beta(block_states)?;
         let beta_w = self.flex_link_beta(block_states)?;
+        let o_infl = self.influence_index_offset(row, block_states)?;
 
         if survival_derivative_guard_violated(qd1, self.derivative_guard) {
             return Err(SurvivalMarginalSlopeError::MonotonicityViolation {
@@ -11114,10 +11528,10 @@ impl SurvivalMarginalSlopeFamily {
         )?;
 
         let entry_base = self.compute_survival_timepoint_exact(
-            row, &primary, q0, primary.q0, a0, g, d0, beta_h, beta_w, false,
+            row, &primary, q0, primary.q0, a0, g, d0, beta_h, beta_w, o_infl, false,
         )?;
         let exit_base = self.compute_survival_timepoint_exact(
-            row, &primary, q1, primary.q1, a1, g, d1, beta_h, beta_w, true,
+            row, &primary, q1, primary.q1, a1, g, d1, beta_h, beta_w, o_infl, true,
         )?;
 
         if !exit_base.chi.is_finite() || exit_base.chi <= 0.0 {
@@ -11709,6 +12123,7 @@ impl SurvivalMarginalSlopeFamily {
         let p_g = slices.logslope.len();
         let p_h = slices.score_warp.as_ref().map_or(0, |range| range.len());
         let p_w = slices.link_dev.as_ref().map_or(0, |range| range.len());
+        let p_i = slices.influence.as_ref().map_or(0, |range| range.len());
 
         // Build the psi design map once; rowwise loop does direct row_vector(row)
         // calls via the PsiDesignMap API.
@@ -11740,7 +12155,7 @@ impl SurvivalMarginalSlopeFamily {
                 Array1::zeros(p_g),
                 Array1::zeros(p_h),
                 Array1::zeros(p_w),
-                BlockHessianAccumulator::new(p_t, p_m, p_g, p_h, p_w),
+                BlockHessianAccumulator::new(p_t, p_m, p_g, p_h, p_w, p_i),
             )
         };
 
@@ -11991,6 +12406,7 @@ impl SurvivalMarginalSlopeFamily {
         let p_g = slices.logslope.len();
         let p_h = slices.score_warp.as_ref().map_or(0, |range| range.len());
         let p_w = slices.link_dev.as_ref().map_or(0, |range| range.len());
+        let p_i = slices.influence.as_ref().map_or(0, |range| range.len());
 
         struct BatchedPsiAxisAcc {
             objective_psi: f64,
@@ -12010,7 +12426,7 @@ impl SurvivalMarginalSlopeFamily {
                     score_g: Array1::zeros(p_g),
                     score_h: Array1::zeros(p_h),
                     score_w: Array1::zeros(p_w),
-                    hessian: BlockHessianAccumulator::new(p_t, p_m, p_g, p_h, p_w),
+                    hessian: BlockHessianAccumulator::new(p_t, p_m, p_g, p_h, p_w, p_i),
                 })
                 .collect()
         };
@@ -12220,6 +12636,7 @@ impl SurvivalMarginalSlopeFamily {
         let p_g = slices.logslope.len();
         let p_h = slices.score_warp.as_ref().map_or(0, |range| range.len());
         let p_w = slices.link_dev.as_ref().map_or(0, |range| range.len());
+        let p_i = slices.influence.as_ref().map_or(0, |range| range.len());
         let same_block = block_idx_i == block_idx_j;
 
         // Build psi design maps once outside the row loop; rowwise calls use
@@ -12275,7 +12692,7 @@ impl SurvivalMarginalSlopeFamily {
                 score_g: Array1::zeros(p_g),
                 score_h: Array1::zeros(p_h),
                 score_w: Array1::zeros(p_w),
-                hessian: BlockHessianAccumulator::new(p_t, p_m, p_g, p_h, p_w),
+                hessian: BlockHessianAccumulator::new(p_t, p_m, p_g, p_h, p_w, p_i),
             }
         };
 
@@ -12705,6 +13122,7 @@ impl SurvivalMarginalSlopeFamily {
         let p_g = slices.logslope.len();
         let p_h = slices.score_warp.as_ref().map_or(0, |range| range.len());
         let p_w = slices.link_dev.as_ref().map_or(0, |range| range.len());
+        let p_i = slices.influence.as_ref().map_or(0, |range| range.len());
 
         // Build the psi design map once; rowwise calls use direct row_vector(row).
         let policy = crate::resource::ResourcePolicy::default_library();
@@ -12723,7 +13141,7 @@ impl SurvivalMarginalSlopeFamily {
         // accumulators in row-chunk order for deterministic timewiggle assembly.
         let acc = chunked_row_reduction(
             row_iter.as_slice(),
-            || BlockHessianAccumulator::new(p_t, p_m, p_g, p_h, p_w),
+            || BlockHessianAccumulator::new(p_t, p_m, p_g, p_h, p_w, p_i),
             |row, acc| -> Result<(), String> {
                 let psi_row = psi_map
                     .row_vector(row)
@@ -12922,8 +13340,9 @@ impl SurvivalMarginalSlopeFamily {
         let p_g = slices.logslope.len();
         let p_h = slices.score_warp.as_ref().map_or(0, |range| range.len());
         let p_w = slices.link_dev.as_ref().map_or(0, |range| range.len());
+        let p_i = slices.influence.as_ref().map_or(0, |range| range.len());
         let p_total = slices.total;
-        let make_acc = || BlockHessianAccumulator::new(p_t, p_m, p_g, p_h, p_w);
+        let make_acc = || BlockHessianAccumulator::new(p_t, p_m, p_g, p_h, p_w, p_i);
 
         // Phase 2d: the same per-row work that yields the block-Hessian pullback
         // also yields the row negative-log-likelihood and the joint gradient.
@@ -13056,11 +13475,12 @@ impl SurvivalMarginalSlopeFamily {
         let p_g = slices.logslope.len();
         let p_h = slices.score_warp.as_ref().map_or(0, |range| range.len());
         let p_w = slices.link_dev.as_ref().map_or(0, |range| range.len());
+        let p_i = slices.influence.as_ref().map_or(0, |range| range.len());
         let row_iter = outer_row_indices(options, self.n).to_vec();
         let row_weights = outer_row_weights_by_index(options, self.n);
         let make_acc_ws = || {
             (
-                BlockHessianAccumulator::new(p_t, p_m, p_g, p_h, p_w),
+                BlockHessianAccumulator::new(p_t, p_m, p_g, p_h, p_w, p_i),
                 SurvivalMarginalSlopeDynamicRow::empty_workspace(),
             )
         };
@@ -13122,11 +13542,12 @@ impl SurvivalMarginalSlopeFamily {
         let p_g = slices.logslope.len();
         let p_h = slices.score_warp.as_ref().map_or(0, |range| range.len());
         let p_w = slices.link_dev.as_ref().map_or(0, |range| range.len());
+        let p_i = slices.influence.as_ref().map_or(0, |range| range.len());
         let row_iter = outer_row_indices(options, self.n).to_vec();
         let row_weights = outer_row_weights_by_index(options, self.n);
         let make_acc_ws = || {
             (
-                BlockHessianAccumulator::new(p_t, p_m, p_g, p_h, p_w),
+                BlockHessianAccumulator::new(p_t, p_m, p_g, p_h, p_w, p_i),
                 SurvivalMarginalSlopeDynamicRow::empty_workspace(),
             )
         };
@@ -13447,21 +13868,26 @@ impl SurvivalMarginalSlopePsiWorkspace {
     }
 }
 
-impl ExactNewtonJointPsiWorkspace for SurvivalMarginalSlopePsiWorkspace {
-    fn first_order_terms(
+impl crate::families::marginal_slope_shared::MarginalSlopePsiFamily
+    for SurvivalMarginalSlopePsiWorkspace
+{
+    fn is_sigma_aux(&self, psi_index: usize) -> bool {
+        self.family
+            .is_sigma_aux_index(&self.derivative_blocks, psi_index)
+    }
+
+    fn sigma_first_order_terms(&self) -> Result<Option<ExactNewtonJointPsiTerms>, String> {
+        self.family.sigma_exact_joint_psi_terms_with_options(
+            &self.block_states,
+            &self.specs,
+            &self.options,
+        )
+    }
+
+    fn psi_first_order_terms(
         &self,
         psi_index: usize,
     ) -> Result<Option<ExactNewtonJointPsiTerms>, String> {
-        if self
-            .family
-            .is_sigma_aux_index(&self.derivative_blocks, psi_index)
-        {
-            return self.family.sigma_exact_joint_psi_terms_with_options(
-                &self.block_states,
-                &self.specs,
-                &self.options,
-            );
-        }
         self.family.psi_terms_inner_with_options(
             &self.block_states,
             &self.derivative_blocks,
@@ -13471,7 +13897,7 @@ impl ExactNewtonJointPsiWorkspace for SurvivalMarginalSlopePsiWorkspace {
         )
     }
 
-    fn first_order_terms_all(&self) -> Result<Option<Vec<ExactNewtonJointPsiTerms>>, String> {
+    fn psi_first_order_terms_all(&self) -> Result<Option<Vec<ExactNewtonJointPsiTerms>>, String> {
         let total: usize = self.derivative_blocks.iter().map(Vec::len).sum();
         if total == 0 {
             return Ok(Some(Vec::new()));
@@ -13486,28 +13912,28 @@ impl ExactNewtonJointPsiWorkspace for SurvivalMarginalSlopePsiWorkspace {
         )
     }
 
-    fn second_order_terms(
+    fn both_sigma_aux_second_order(&self, psi_i: usize, psi_j: usize) -> bool {
+        psi_i == psi_j
+    }
+
+    fn sigma_second_order_terms(
+        &self,
+    ) -> Result<Option<ExactNewtonJointPsiSecondOrderTerms>, String> {
+        self.family
+            .sigma_exact_joint_psisecond_order_terms_with_options(&self.block_states, &self.options)
+    }
+
+    fn mixed_sigma_aux_second_order(
+        &self,
+    ) -> Result<Option<ExactNewtonJointPsiSecondOrderTerms>, String> {
+        Ok(None)
+    }
+
+    fn psi_second_order_terms(
         &self,
         psi_i: usize,
         psi_j: usize,
     ) -> Result<Option<ExactNewtonJointPsiSecondOrderTerms>, String> {
-        if self
-            .family
-            .is_sigma_aux_index(&self.derivative_blocks, psi_i)
-            || self
-                .family
-                .is_sigma_aux_index(&self.derivative_blocks, psi_j)
-        {
-            if psi_i == psi_j {
-                return self
-                    .family
-                    .sigma_exact_joint_psisecond_order_terms_with_options(
-                        &self.block_states,
-                        &self.options,
-                    );
-            }
-            return Ok(None);
-        }
         self.family.psi_second_order_terms_inner_with_options(
             &self.block_states,
             &self.derivative_blocks,
@@ -13518,28 +13944,23 @@ impl ExactNewtonJointPsiWorkspace for SurvivalMarginalSlopePsiWorkspace {
         )
     }
 
-    fn hessian_directional_derivative(
+    fn sigma_hessian_directional_derivative(
+        &self,
+        d_beta_flat: &Array1<f64>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        self.family
+            .sigma_exact_joint_psihessian_directional_derivative_with_options(
+                &self.block_states,
+                d_beta_flat,
+                &self.options,
+            )
+    }
+
+    fn psi_hessian_directional_derivative(
         &self,
         psi_index: usize,
         d_beta_flat: &Array1<f64>,
-    ) -> Result<Option<crate::solver::estimate::reml::unified::DriftDerivResult>, String> {
-        if self
-            .family
-            .is_sigma_aux_index(&self.derivative_blocks, psi_index)
-        {
-            return self
-                .family
-                .sigma_exact_joint_psihessian_directional_derivative_with_options(
-                    &self.block_states,
-                    d_beta_flat,
-                    &self.options,
-                )
-                .map(|result| {
-                    result.map(|matrix| {
-                        crate::solver::estimate::reml::unified::DriftDerivResult::Dense(matrix)
-                    })
-                });
-        }
+    ) -> Result<Option<Arc<dyn HyperOperator>>, String> {
         self.family
             .psi_hessian_directional_derivative_operator_with_options(
                 &self.block_states,
@@ -13548,9 +13969,6 @@ impl ExactNewtonJointPsiWorkspace for SurvivalMarginalSlopePsiWorkspace {
                 d_beta_flat,
                 &self.options,
             )
-            .map(|result| {
-                result.map(crate::solver::estimate::reml::unified::DriftDerivResult::Operator)
-            })
     }
 }
 
@@ -13808,6 +14226,15 @@ impl SurvivalMarginalSlopeFamily {
         if self.score_dim() != 1 {
             return Ok(None);
         }
+        // The absorbed Stage-1 influence channel (#461) adds a per-row index
+        // offset `o_infl = Z̃_infl[row,:]·γ` to η₁ that the GPU flex kernel does
+        // not yet carry (the on-device kernel emits a fixed 4-primary jet). Until
+        // the survival flex GPU kernel grows the `o_infl` primary coordinate,
+        // force CPU for absorber-active fits so the device path can never silently
+        // drop the channel; the CPU path is the source of truth.
+        if self.influence_absorber.is_some() {
+            return Ok(None);
+        }
         let n = self.n;
         let g_eta: &Array1<f64> = &block_states[2].eta;
         if g_eta.len() != n {
@@ -13835,29 +14262,43 @@ impl SurvivalMarginalSlopeFamily {
         // must equal `p = slices.total` to satisfy the GPU descriptor's
         // shape contract; mismatches force CPU fallback.
         let mut beta = vec![0.0_f64; p];
-        let copy_block = |dst: &mut [f64], range: &std::ops::Range<usize>, src: &Array1<f64>| {
-            if src.len() != range.len() {
-                return;
-            }
-            if let Some(slice) = src.as_slice() {
-                dst[range.clone()].copy_from_slice(slice);
-            } else {
-                // Non-contiguous Array1 — copy element-wise so the GPU
-                // descriptor still sees the canonical joint-block β.
-                for (offset, value) in src.iter().enumerate() {
-                    dst[range.start + offset] = *value;
+        // Returns `false` when the block β width does not match its joint
+        // slice. That invariant (`block_states[i].beta.len() ==
+        // design_i.ncols() == slice.len()`) holds for every well-formed inner
+        // state; if it is ever violated the CPU per-row path hard-errors (e.g.
+        // the `beta.len() != design_derivative_exit.ncols()` check). Silently
+        // leaving the block as zeros would feed the GPU kernel a corrupted β
+        // with no error and no fallback, so a mismatch forces CPU instead.
+        let copy_block =
+            |dst: &mut [f64], range: &std::ops::Range<usize>, src: &Array1<f64>| -> bool {
+                if src.len() != range.len() {
+                    return false;
                 }
-            }
-        };
-        copy_block(&mut beta, &slices.time, &block_states[0].beta);
-        copy_block(&mut beta, &slices.marginal, &block_states[1].beta);
-        copy_block(&mut beta, &slices.logslope, &block_states[2].beta);
+                if let Some(slice) = src.as_slice() {
+                    dst[range.clone()].copy_from_slice(slice);
+                } else {
+                    // Non-contiguous Array1 — copy element-wise so the GPU
+                    // descriptor still sees the canonical joint-block β.
+                    for (offset, value) in src.iter().enumerate() {
+                        dst[range.start + offset] = *value;
+                    }
+                }
+                true
+            };
+        let mut block_widths_match = copy_block(&mut beta, &slices.time, &block_states[0].beta)
+            && copy_block(&mut beta, &slices.marginal, &block_states[1].beta)
+            && copy_block(&mut beta, &slices.logslope, &block_states[2].beta);
         if let Some(range) = slices.score_warp.as_ref() {
-            copy_block(&mut beta, range, &block_states[3].beta);
+            block_widths_match =
+                block_widths_match && copy_block(&mut beta, range, &block_states[3].beta);
         }
         if let Some(range) = slices.link_dev.as_ref() {
             let block_index = 3 + usize::from(self.score_warp.is_some());
-            copy_block(&mut beta, range, &block_states[block_index].beta);
+            block_widths_match =
+                block_widths_match && copy_block(&mut beta, range, &block_states[block_index].beta);
+        }
+        if !block_widths_match {
+            return Ok(None);
         }
         Ok(Some(SurvivalFlexGpuRowBatch {
             n,
@@ -16919,13 +17360,17 @@ impl CustomFamily for SurvivalMarginalSlopeFamily {
         if self.per_z_logslope_active() {
             return Ok(None);
         }
-        Ok(Some(Arc::new(SurvivalMarginalSlopePsiWorkspace::new(
-            self.clone(),
-            block_states.to_vec(),
-            specs.to_vec(),
-            derivative_blocks.to_vec(),
-            BlockwiseFitOptions::default(),
-        )?)))
+        Ok(Some(Arc::new(
+            crate::families::marginal_slope_shared::MarginalSlopeExactNewtonPsiWorkspace::new(
+                SurvivalMarginalSlopePsiWorkspace::new(
+                    self.clone(),
+                    block_states.to_vec(),
+                    specs.to_vec(),
+                    derivative_blocks.to_vec(),
+                    BlockwiseFitOptions::default(),
+                )?,
+            ),
+        )))
     }
 
     fn exact_newton_joint_psi_workspace_with_options(
@@ -16944,13 +17389,17 @@ impl CustomFamily for SurvivalMarginalSlopeFamily {
             }
             None => options,
         };
-        Ok(Some(Arc::new(SurvivalMarginalSlopePsiWorkspace::new(
-            self.clone(),
-            block_states.to_vec(),
-            specs.to_vec(),
-            derivative_blocks.to_vec(),
-            options.clone(),
-        )?)))
+        Ok(Some(Arc::new(
+            crate::families::marginal_slope_shared::MarginalSlopeExactNewtonPsiWorkspace::new(
+                SurvivalMarginalSlopePsiWorkspace::new(
+                    self.clone(),
+                    block_states.to_vec(),
+                    specs.to_vec(),
+                    derivative_blocks.to_vec(),
+                    options.clone(),
+                )?,
+            ),
+        )))
     }
 
     fn block_linear_constraints(
@@ -18792,6 +19241,7 @@ fn joint_setup(
     logslope_penalties: usize,
     core_rho0_seed: &[f64],
     extra_rho0: &[f64],
+    pinned_rho_slots: &[(usize, f64)],
     initial_sigma: Option<f64>,
     kappa_options: &SpatialLengthScaleOptimizationOptions,
 ) -> ExactJointHyperSetup {
@@ -18814,8 +19264,22 @@ fn joint_setup(
             rho0vec[start + idx] = value;
         }
     }
-    let rho_lower = Array1::<f64>::from_elem(rho_dim, -12.0);
-    let rho_upper = Array1::<f64>::from_elem(rho_dim, 12.0);
+    let mut rho_lower = Array1::<f64>::from_elem(rho_dim, -12.0);
+    let mut rho_upper = Array1::<f64>::from_elem(rho_dim, 12.0);
+    // Pin fixed-ridge penalty slots (e.g. the #461 influence absorber) to a
+    // degenerate box so the outer REML optimizer can never move their log-λ:
+    // the absorber ridge is a fixed training-time leakage absorber, not a
+    // smooth/learned surface. Seed rho0 at the pinned value too so the start
+    // point is feasible.
+    for &(slot, value) in pinned_rho_slots {
+        assert!(
+            slot < rho_dim,
+            "pinned rho slot {slot} out of range (rho_dim={rho_dim})"
+        );
+        rho0vec[slot] = value;
+        rho_lower[slot] = value;
+        rho_upper[slot] = value;
+    }
     // Time block has no spatial length scales (pure B-spline on time)
     let empty_kappa = SpatialLogKappaCoords::new_with_dims(Array1::zeros(0), vec![]);
     let marginal_kappa = SpatialLogKappaCoords::from_length_scales_aniso(
@@ -18939,6 +19403,29 @@ fn validate_spec(spec: &SurvivalMarginalSlopeTermSpec) -> Result<(), String> {
             reason: "survival-marginal-slope requires finite non-negative weights".to_string(),
         }
         .into());
+    }
+    if let Some(jac) = spec.score_influence_jacobian.as_ref() {
+        // #461 absorbed influence Jacobian `J = ∂z/∂θ₁` (n × p₁): must align with
+        // the fit rows and be finite. A zero-column J carries no leakage
+        // directions; the build site treats it as no absorber, but a row
+        // mismatch or non-finite entry is a hard error (the residualization Gram
+        // and the per-row Z̃ projection both assume `n` aligned finite rows).
+        if jac.nrows() != n {
+            return Err(SurvivalMarginalSlopeError::IncompatibleDimensions {
+                reason: format!(
+                    "survival-marginal-slope score_influence_jacobian has {} rows, expected {n}",
+                    jac.nrows()
+                ),
+            }
+            .into());
+        }
+        if jac.iter().any(|&v| !v.is_finite()) {
+            return Err(SurvivalMarginalSlopeError::InvalidInput {
+                reason: "survival-marginal-slope score_influence_jacobian must be finite"
+                    .to_string(),
+            }
+            .into());
+        }
     }
     if spec.z.iter().any(|&zi| !zi.is_finite()) {
         return Err(SurvivalMarginalSlopeError::InvalidInput {
@@ -19904,6 +20391,54 @@ pub fn fit_survival_marginal_slope_terms(
         &spec.event_target,
     )
     .map_err(|e| format!("survival cross-block W metric construction: {e}"))?;
+    // Absorbed Stage-1 influence columns `Z̃_infl` (#461, design §3). When the
+    // workflow chained a CTN Stage-1 into this marginal-slope fit,
+    // `spec.score_influence_jacobian` carries the out-of-fold `J = ∂z/∂θ₁`. The
+    // realized leakage directions `Z_infl = diag(s_f·β̂₀)·J` are residualized
+    // against the marginal location span in the rigid-pilot row metric
+    // (`cross_block_pilot_w`) — keeping the logslope-aligned component — and
+    // hosted as a dedicated additive absorber block whose coefficient `γ` shifts
+    // the de-nested observed index `η₁` by `+Z̃_infl·γ`. β̂₀(x_i) is the
+    // rigid-pilot logslope `baseline_slope + logslope_offset[i]`; `s_f =
+    // probit_scale`. The math (residualize-vs-marginal/retain-logslope +
+    // fixed-ridge absorber) is the single source of truth shared with the BMS
+    // family via `marginal_slope_orthogonal`; survival differs only in the host
+    // structure — a dedicated `η₁` channel rather than BMS's widened marginal
+    // index, because the survival marginal block feeds the time-quantile
+    // location `q·c(g)` (scaled), not a flat additive index. `None` ⇒ raw `z`,
+    // and the free `score_warp` spline below is the x-free-column fallback.
+    let influence_absorber_residualized: Option<Array2<f64>> = if let Some(jac) = spec
+        .score_influence_jacobian
+        .as_ref()
+        .filter(|jac| jac.ncols() > 0)
+    {
+        // A zero-column Jacobian carries no leakage directions ⇒ no absorber.
+        use crate::families::marginal_slope_orthogonal::residualized_influence_block;
+        let marginal_dense = marginal_design
+            .design
+            .try_to_dense_by_chunks("survival marginal-slope influence-absorber marginal span")?;
+        // `β̂₀(x_i)` is the rigid-pilot logslope; `s_f = probit_scale`; `z_primary`
+        // is the OOF latent z on these rows.
+        let rigid_logslope_at_rows = &spec.logslope_offset + baseline_slope;
+        // Z̃_infl = residualize(diag(s_f·β̂₀)·J, marginal, W) — the combined core
+        // builder (single source of truth shared with the BMS absorber site). It
+        // takes the raw n×p₁ J + OOF z and encapsulates the full §3 sequence: build
+        // Z_infl, derive the weighted marginal-Gram ridge internally (max diag·1e-10,
+        // floored 1e-12), residualize, and finite-check (Err on non-finite), so this
+        // caller passes no ε and propagates the error.
+        let residualized = residualized_influence_block(
+            jac,
+            &z_primary,
+            &rigid_logslope_at_rows,
+            probit_scale,
+            marginal_dense.view(),
+            &cross_block_pilot_w,
+        )
+        .map_err(|reason| SurvivalMarginalSlopeError::NumericalFailure { reason })?;
+        Some(residualized)
+    } else {
+        None
+    };
     // `location_anchor_design` was built above (alongside the non-rigid
     // pilot η) and is reused here for the cross-block residualisation
     // calls. Keeping the construction at one site means the
@@ -20202,6 +20737,12 @@ pub fn fit_survival_marginal_slope_terms(
         }
         joint_training_design_preflight(&segments, &spec.weights)?;
     }
+    // Penalty seeds for the flex/aux blocks beyond the core (time/marginal/
+    // logslope). The absorbed influence block (#461) contributes ONE trailing
+    // fixed-ridge penalty whose log-λ is pinned (not REML-learned); its flat
+    // rho index is recorded in `pinned_rho_slots` so `joint_setup` clamps it to
+    // a degenerate box.
+    let mut pinned_rho_slots: Vec<(usize, f64)> = Vec::new();
     let extra_rho0 = {
         let mut out = Vec::new();
         if let Some(ref prepared) = score_warp_prepared {
@@ -20209,6 +20750,19 @@ pub fn fit_survival_marginal_slope_terms(
         }
         if let Some(ref prepared) = link_dev_prepared {
             out.extend(std::iter::repeat_n(0.0, prepared.block.penalties.len()));
+        }
+        if influence_absorber_residualized.is_some() {
+            let core_len = time_penalties_len
+                + marginal_design.penalties.len()
+                + logslope_design.penalties.len();
+            // The absorber's single fixed ridge sits at the trailing extra slot.
+            pinned_rho_slots.push((
+                core_len + out.len(),
+                crate::families::marginal_slope_orthogonal::INFLUENCE_ABSORBER_FIXED_LOG_LAMBDA,
+            ));
+            out.push(
+                crate::families::marginal_slope_orthogonal::INFLUENCE_ABSORBER_FIXED_LOG_LAMBDA,
+            );
         }
         out
     };
@@ -20239,6 +20793,7 @@ pub fn fit_survival_marginal_slope_terms(
         logslope_design.penalties.len(),
         &core_rho0_seed,
         &extra_rho0,
+        &pinned_rho_slots,
         initial_sigma,
         kappa_options,
     );
@@ -20710,6 +21265,14 @@ pub fn fit_survival_marginal_slope_terms(
             FlexActivation::OffForRigidPilot => (None, None),
             FlexActivation::On => (score_warp_runtime.clone(), link_dev_runtime.clone()),
         };
+        // The absorber is suppressed during the rigid-pilot pass: its pilot
+        // logslope β̂₀ and the residualization W metric are *derived from* that
+        // pilot, so it can only enter the full (non-rigid) fit (mirror of the
+        // score_warp/link_dev `FlexActivation` gating above).
+        let influence_absorber_active = match flex {
+            FlexActivation::OffForRigidPilot => None,
+            FlexActivation::On => influence_absorber_residualized.clone(),
+        };
         SurvivalMarginalSlopeFamily {
             n,
             event: Arc::clone(&event),
@@ -20729,6 +21292,7 @@ pub fn fit_survival_marginal_slope_terms(
             logslope_surface_ranges: logslope_surface_ranges.clone(),
             score_warp: score_warp_active,
             link_dev: link_dev_active,
+            influence_absorber: influence_absorber_active,
             time_linear_constraints: time_linear_constraints.clone(),
             time_wiggle_knots: spec.timewiggle_block.as_ref().map(|w| w.knots.clone()),
             time_wiggle_degree: spec.timewiggle_block.as_ref().map(|w| w.degree),
@@ -20764,6 +21328,12 @@ pub fn fit_survival_marginal_slope_terms(
         };
         let link_dev_active = match flex {
             FlexActivation::On => link_dev_prepared.as_ref(),
+            FlexActivation::OffForRigidPilot => None,
+        };
+        // The absorbed influence block (#461) is suppressed during the rigid
+        // pilot (its residualization derives FROM that pilot); active otherwise.
+        let influence_active = match flex {
+            FlexActivation::On => influence_absorber_residualized.as_ref(),
             FlexActivation::OffForRigidPilot => None,
         };
         // The warm-start hint `hints.time_beta` is seeded from the rigid
@@ -20860,6 +21430,42 @@ pub fn fit_survival_marginal_slope_terms(
             None,
             hints.link_dev_beta.clone(),
         )?;
+        // Absorbed Stage-1 influence block (#461): a trailing additive block whose
+        // design is the residualized leakage columns `Z̃_infl` and whose single
+        // fixed-ridge penalty `½·ρ·‖γ‖²` is pinned out of REML (the rho slot is
+        // clamped to `INFLUENCE_ABSORBER_FIXED_LOG_LAMBDA` by `joint_setup`). Its
+        // gauge priority (130) sits strictly between marginal (150) and logslope
+        // (120): the residualization already removes the marginal-aligned
+        // component, and the 130 tier makes the canonical-gauge RRQR demote the
+        // *logslope* direction (not the absorber) on any shared leakage axis — the
+        // discrete realization of `ψ − Π_η[ψ]`. Dropped at predict.
+        if let Some(z_tilde) = influence_active {
+            let p_i = z_tilde.ncols();
+            // The absorber's single fixed-ridge penalty is the trailing rho slot.
+            // It is the last block, so `cursor` is not advanced past it (nothing
+            // downstream consumes a further slice).
+            let rho_i = rho.slice(s![cursor..cursor + 1]).to_owned();
+            let beta_i = hints
+                .influence_beta
+                .clone()
+                .filter(|beta| beta.len() == p_i)
+                .unwrap_or_else(|| Array1::<f64>::zeros(p_i));
+            blocks.push(ParameterBlockSpec {
+                name: "influence_absorber".to_string(),
+                design: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(
+                    z_tilde.clone(),
+                )),
+                offset: Array1::zeros(z_tilde.nrows()),
+                penalties: vec![PenaltyMatrix::Dense(Array2::<f64>::eye(p_i))],
+                nullspace_dims: vec![0],
+                initial_log_lambdas: rho_i,
+                initial_beta: Some(beta_i),
+                gauge_priority: 130,
+                jacobian_callback: None,
+                stacked_design: None,
+                stacked_offset: None,
+            });
+        }
         // When timewiggle is active, replace the rigid time and marginal
         // Jacobians with the timewiggle-aware versions.  These compute
         // the full (∂q_r/∂β_t, ∂q_r/∂β_m) chain-rule corrections from
@@ -21693,6 +22299,9 @@ pub fn fit_survival_marginal_slope_terms(
         time_block_penalties_len: time_penalties_len,
         score_warp_runtime,
         link_dev_runtime,
+        influence_absorber_width: influence_absorber_residualized
+            .as_ref()
+            .map(|z_tilde| z_tilde.ncols()),
     })
 }
 
@@ -21888,6 +22497,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: None,
             link_dev: None,
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
@@ -22252,6 +22862,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp,
             link_dev,
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
@@ -22291,6 +22902,7 @@ mod tests {
             logslope_offset: Array1::zeros(2),
             score_warp: None,
             link_dev: None,
+            score_influence_jacobian: None,
             latent_z_policy: LatentZPolicy::default(),
         };
 
@@ -22321,6 +22933,7 @@ mod tests {
             logslope_offset: Array1::zeros(2),
             score_warp: None,
             link_dev: None,
+            score_influence_jacobian: None,
             latent_z_policy: LatentZPolicy::default(),
         };
 
@@ -22373,7 +22986,14 @@ mod tests {
     /// Build contiguous block slices for the given per-block widths. A flex
     /// block with width 0 is absent (`None`) and consumes no coordinates,
     /// exactly mirroring how `block_slices` lays out optional deviation blocks.
-    fn parity_make_slices(pt: usize, pm: usize, pg: usize, ph: usize, pw: usize) -> BlockSlices {
+    fn parity_make_slices(
+        pt: usize,
+        pm: usize,
+        pg: usize,
+        ph: usize,
+        pw: usize,
+        pi: usize,
+    ) -> BlockSlices {
         let mut cursor = 0usize;
         let mut take = |n: usize| {
             let r = cursor..cursor + n;
@@ -22385,6 +23005,7 @@ mod tests {
         let logslope = take(pg);
         let score_warp = (ph > 0).then(|| take(ph));
         let link_dev = (pw > 0).then(|| take(pw));
+        let influence = (pi > 0).then(|| take(pi));
         let total = cursor;
         BlockSlices {
             time,
@@ -22392,6 +23013,7 @@ mod tests {
             logslope,
             score_warp,
             link_dev,
+            influence,
             total,
         }
     }
@@ -22419,6 +23041,7 @@ mod tests {
         pg: usize,
         ph: usize,
         pw: usize,
+        pi: usize,
     ) -> BlockHessianAccumulator {
         BlockHessianAccumulator {
             h_tt: parity_sym(pt, 1.0),
@@ -22426,16 +23049,22 @@ mod tests {
             h_gg: parity_sym(pg, 3.0),
             h_hh: parity_sym(ph, 4.0),
             h_ww: parity_sym(pw, 5.0),
+            h_ii: parity_sym(pi, 6.0),
             h_tm: parity_gen(pt, pm, 10.0),
             h_tg: parity_gen(pt, pg, 11.0),
             h_th: parity_gen(pt, ph, 12.0),
             h_tw: parity_gen(pt, pw, 13.0),
+            h_ti: parity_gen(pt, pi, 20.0),
             h_mg: parity_gen(pm, pg, 14.0),
             h_mh: parity_gen(pm, ph, 15.0),
             h_mw: parity_gen(pm, pw, 16.0),
+            h_mi: parity_gen(pm, pi, 21.0),
             h_gh: parity_gen(pg, ph, 17.0),
             h_gw: parity_gen(pg, pw, 18.0),
+            h_gi: parity_gen(pg, pi, 22.0),
             h_hw: parity_gen(ph, pw, 19.0),
+            h_hi: parity_gen(ph, pi, 23.0),
+            h_wi: parity_gen(pw, pi, 24.0),
         }
     }
 
@@ -22456,6 +23085,9 @@ mod tests {
         }
         if let Some(w) = &sl.link_dev {
             out.slice_mut(s![w.clone(), w.clone()]).assign(&acc.h_ww);
+        }
+        if let Some(i) = &sl.influence {
+            out.slice_mut(s![i.clone(), i.clone()]).assign(&acc.h_ii);
         }
         let mut place =
             |r: std::ops::Range<usize>, c: std::ops::Range<usize>, m: ArrayView2<'_, f64>| {
@@ -22478,21 +23110,35 @@ mod tests {
         if let (Some(h), Some(w)) = (&sl.score_warp, &sl.link_dev) {
             place(h.clone(), w.clone(), acc.h_hw.view());
         }
+        if let Some(i) = &sl.influence {
+            place(sl.time.clone(), i.clone(), acc.h_ti.view());
+            place(sl.marginal.clone(), i.clone(), acc.h_mi.view());
+            place(sl.logslope.clone(), i.clone(), acc.h_gi.view());
+            if let Some(h) = &sl.score_warp {
+                place(h.clone(), i.clone(), acc.h_hi.view());
+            }
+            if let Some(w) = &sl.link_dev {
+                place(w.clone(), i.clone(), acc.h_wi.view());
+            }
+        }
         out
     }
 
-    const PARITY_LAYOUTS: [(usize, usize, usize, usize, usize); 4] = [
-        (2, 3, 2, 4, 3), // full: both flex blocks present
-        (2, 3, 2, 0, 0), // rigid: no flex blocks
-        (2, 3, 2, 4, 0), // score-warp only
-        (2, 3, 2, 0, 3), // link-deviation only
+    const PARITY_LAYOUTS: [(usize, usize, usize, usize, usize, usize); 7] = [
+        (2, 3, 2, 4, 3, 0), // full flex, no absorber
+        (2, 3, 2, 0, 0, 0), // rigid: no flex blocks
+        (2, 3, 2, 4, 0, 0), // score-warp only
+        (2, 3, 2, 0, 3, 0), // link-deviation only
+        (2, 3, 2, 0, 0, 5), // absorber only (no flex)
+        (2, 3, 2, 4, 3, 5), // full flex + absorber (#461)
+        (2, 3, 2, 4, 0, 5), // score-warp + absorber
     ];
 
     #[test]
     fn block_to_dense_matches_hand_scatter_bit_exact() {
-        for (pt, pm, pg, ph, pw) in PARITY_LAYOUTS {
-            let sl = parity_make_slices(pt, pm, pg, ph, pw);
-            let acc = parity_filled_accumulator(pt, pm, pg, ph, pw);
+        for (pt, pm, pg, ph, pw, pi) in PARITY_LAYOUTS {
+            let sl = parity_make_slices(pt, pm, pg, ph, pw, pi);
+            let acc = parity_filled_accumulator(pt, pm, pg, ph, pw, pi);
             let got = acc.to_dense(&sl);
             let want = parity_reference_dense(&acc, &sl);
             assert_eq!(
@@ -22506,9 +23152,9 @@ mod tests {
 
     #[test]
     fn block_diagonal_matches_dense_diagonal_bit_exact() {
-        for (pt, pm, pg, ph, pw) in PARITY_LAYOUTS {
-            let sl = parity_make_slices(pt, pm, pg, ph, pw);
-            let acc = parity_filled_accumulator(pt, pm, pg, ph, pw);
+        for (pt, pm, pg, ph, pw, pi) in PARITY_LAYOUTS {
+            let sl = parity_make_slices(pt, pm, pg, ph, pw, pi);
+            let acc = parity_filled_accumulator(pt, pm, pg, ph, pw, pi);
             let got = acc.diagonal(&sl);
             let want = parity_reference_dense(&acc, &sl).diag().to_owned();
             assert_eq!(
@@ -22522,9 +23168,9 @@ mod tests {
 
     #[test]
     fn block_operator_matvec_matches_dense_gemv() {
-        for (pt, pm, pg, ph, pw) in PARITY_LAYOUTS {
-            let sl = parity_make_slices(pt, pm, pg, ph, pw);
-            let acc = parity_filled_accumulator(pt, pm, pg, ph, pw);
+        for (pt, pm, pg, ph, pw, pi) in PARITY_LAYOUTS {
+            let sl = parity_make_slices(pt, pm, pg, ph, pw, pi);
+            let acc = parity_filled_accumulator(pt, pm, pg, ph, pw, pi);
             let dense = parity_reference_dense(&acc, &sl);
             let v = Array1::from_shape_fn(sl.total, |i| (i as f64 * 0.37).sin());
             let op = acc.into_operator(sl.clone());
@@ -22541,9 +23187,9 @@ mod tests {
 
     #[test]
     fn block_operator_bilinear_matches_dense_quadratic_form() {
-        for (pt, pm, pg, ph, pw) in PARITY_LAYOUTS {
-            let sl = parity_make_slices(pt, pm, pg, ph, pw);
-            let acc = parity_filled_accumulator(pt, pm, pg, ph, pw);
+        for (pt, pm, pg, ph, pw, pi) in PARITY_LAYOUTS {
+            let sl = parity_make_slices(pt, pm, pg, ph, pw, pi);
+            let acc = parity_filled_accumulator(pt, pm, pg, ph, pw, pi);
             let dense = parity_reference_dense(&acc, &sl);
             let v = Array1::from_shape_fn(sl.total, |i| (i as f64 * 0.37).sin());
             let u = Array1::from_shape_fn(sl.total, |i| (i as f64 * 0.53).cos());
@@ -22556,9 +23202,9 @@ mod tests {
 
     #[test]
     fn block_operator_dense_matches_accumulator_dense_bit_exact() {
-        for (pt, pm, pg, ph, pw) in PARITY_LAYOUTS {
-            let sl = parity_make_slices(pt, pm, pg, ph, pw);
-            let acc = parity_filled_accumulator(pt, pm, pg, ph, pw);
+        for (pt, pm, pg, ph, pw, pi) in PARITY_LAYOUTS {
+            let sl = parity_make_slices(pt, pm, pg, ph, pw, pi);
+            let acc = parity_filled_accumulator(pt, pm, pg, ph, pw, pi);
             let direct = acc.to_dense(&sl);
             let op = acc.into_operator(sl.clone());
             let via_op = op.to_dense();
@@ -22573,9 +23219,9 @@ mod tests {
 
     #[test]
     fn block_view_is_transpose_symmetric_across_present_pairs() {
-        for (pt, pm, pg, ph, pw) in PARITY_LAYOUTS {
-            let sl = parity_make_slices(pt, pm, pg, ph, pw);
-            let acc = parity_filled_accumulator(pt, pm, pg, ph, pw);
+        for (pt, pm, pg, ph, pw, pi) in PARITY_LAYOUTS {
+            let sl = parity_make_slices(pt, pm, pg, ph, pw, pi);
+            let acc = parity_filled_accumulator(pt, pm, pg, ph, pw, pi);
             for a in HessBlock::ALL {
                 if sl.range_of(a).is_none() {
                     continue;
@@ -22616,6 +23262,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: None,
             link_dev: None,
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
@@ -22879,6 +23526,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: Some(score_runtime.clone()),
             link_dev: Some(link_runtime.clone()),
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
@@ -22965,6 +23613,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: Some(score_runtime.clone()),
             link_dev: Some(link_runtime.clone()),
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
@@ -23009,6 +23658,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: Some(score_runtime.clone()),
             link_dev: None,
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: Some(time_wiggle_knots),
             time_wiggle_degree: Some(time_wiggle_degree),
@@ -23093,6 +23743,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: None,
             link_dev: None,
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
@@ -23140,6 +23791,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: None,
             link_dev: Some(link_runtime.clone()),
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: Some(time_wiggle_knots),
             time_wiggle_degree: Some(time_wiggle_degree),
@@ -23185,6 +23837,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: Some(score_runtime.clone()),
             link_dev: None,
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: Some(time_wiggle_knots),
             time_wiggle_degree: Some(time_wiggle_degree),
@@ -23256,6 +23909,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: Some(score_runtime.clone()),
             link_dev: None,
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: Some(time_wiggle_knots),
             time_wiggle_degree: Some(time_wiggle_degree),
@@ -23333,6 +23987,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: Some(score_runtime.clone()),
             link_dev: Some(link_runtime.clone()),
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
@@ -23436,6 +24091,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: Some(score_runtime.clone()),
             link_dev: Some(link_runtime.clone()),
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
@@ -23498,6 +24154,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: Some(score_runtime.clone()),
             link_dev: Some(link_runtime.clone()),
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
@@ -23580,6 +24237,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: Some(score_runtime.clone()),
             link_dev: Some(link_runtime.clone()),
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
@@ -23669,6 +24327,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: Some(score_runtime.clone()),
             link_dev: Some(link_runtime.clone()),
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
@@ -23759,6 +24418,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: Some(score_runtime.clone()),
             link_dev: None,
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: Some(time_wiggle_knots),
             time_wiggle_degree: Some(time_wiggle_degree),
@@ -23847,6 +24507,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: Some(score_runtime.clone()),
             link_dev: None,
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: Some(time_wiggle_knots),
             time_wiggle_degree: Some(time_wiggle_degree),
@@ -23906,6 +24567,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: Some(score_runtime.clone()),
             link_dev: Some(link_runtime.clone()),
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: Some(time_wiggle_knots),
             time_wiggle_degree: Some(time_wiggle_degree),
@@ -24001,6 +24663,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: Some(score_runtime.clone()),
             link_dev: Some(link_runtime.clone()),
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: Some(time_wiggle_knots),
             time_wiggle_degree: Some(time_wiggle_degree),
@@ -24181,6 +24844,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: Some(score_runtime.clone()),
             link_dev: Some(link_runtime.clone()),
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: Some(time_wiggle_knots),
             time_wiggle_degree: Some(time_wiggle_degree),
@@ -24256,6 +24920,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: Some(score_runtime.clone()),
             link_dev: None,
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: Some(time_wiggle_knots),
             time_wiggle_degree: Some(time_wiggle_degree),
@@ -24342,6 +25007,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: Some(score_runtime.clone()),
             link_dev: None,
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: Some(time_wiggle_knots),
             time_wiggle_degree: Some(time_wiggle_degree),
@@ -24426,6 +25092,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: None,
             link_dev: None,
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
@@ -24498,6 +25165,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: None,
             link_dev: None,
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
@@ -24615,6 +25283,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: None,
             link_dev: None,
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
@@ -24670,6 +25339,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: None,
             link_dev: None,
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
@@ -24728,6 +25398,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: None,
             link_dev: None,
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: Some(time_wiggle_knots),
             time_wiggle_degree: Some(time_wiggle_degree),
@@ -24782,6 +25453,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: None,
             link_dev: None,
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
@@ -24854,6 +25526,7 @@ mod tests {
             .expect("time derivative guard constraints"),
             score_warp: None,
             link_dev: None,
+            influence_absorber: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
             time_wiggle_ncols: 0,
@@ -24928,6 +25601,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: None,
             link_dev: None,
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
@@ -24989,6 +25663,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: None,
             link_dev: None,
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
@@ -25048,6 +25723,7 @@ mod tests {
             time_linear_constraints: Some(constraints),
             score_warp: None,
             link_dev: None,
+            influence_absorber: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
             time_wiggle_ncols: 0,
@@ -25121,6 +25797,7 @@ mod tests {
             time_linear_constraints: Some(constraints),
             score_warp: None,
             link_dev: None,
+            influence_absorber: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
             time_wiggle_ncols: 1,
@@ -25183,6 +25860,7 @@ mod tests {
             .expect("combined time constraints"),
             score_warp: None,
             link_dev: None,
+            influence_absorber: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
             time_wiggle_ncols: 1,
@@ -25256,6 +25934,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: None,
             link_dev: None,
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
@@ -25334,6 +26013,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: None,
             link_dev: None,
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
@@ -25404,6 +26084,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: None,
             link_dev: None,
+            influence_absorber: None,
             time_linear_constraints: time_derivative_guard_constraints(
                 &DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(array![[1.0, 0.0]])),
                 &array![0.2],
@@ -25476,6 +26157,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: None,
             link_dev: None,
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
@@ -25565,6 +26247,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: None,
             link_dev: None,
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
@@ -26017,6 +26700,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: None,
             link_dev: None,
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
@@ -26681,6 +27365,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: Some(score_runtime),
             link_dev: None,
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
@@ -26869,6 +27554,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: Some(score_runtime.clone()),
             link_dev: Some(link_runtime.clone()),
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: Some(time_wiggle_knots),
             time_wiggle_degree: Some(time_wiggle_degree),
@@ -27011,28 +27697,96 @@ mod tests {
     // to within 5e-8 absolute / 5e-7 relative.
     // ────────────────────────────────────────────────────────────────────
 
-    fn b10_flex_family_for_parity() -> (SurvivalMarginalSlopeFamily, Vec<ParameterBlockState>) {
+    #[derive(Clone, Copy)]
+    struct B10ParityFixture {
+        label: &'static str,
+        event: f64,
+        weight: f64,
+        z: f64,
+        q0: f64,
+        q1: f64,
+        qd1: f64,
+        score_eta: f64,
+        h_scale: f64,
+        w_scale: f64,
+    }
+
+    const B10_PARITY_FIXTURES: &[B10ParityFixture] = &[
+        B10ParityFixture {
+            label: "event_nonzero_warps",
+            event: 1.0,
+            weight: 0.75,
+            z: -0.2,
+            q0: -0.4,
+            q1: 0.6,
+            qd1: 0.85,
+            score_eta: 0.32,
+            h_scale: 0.05,
+            w_scale: 0.04,
+        },
+        B10ParityFixture {
+            label: "censored_left_tail",
+            event: 0.0,
+            weight: 1.35,
+            z: -1.15,
+            q0: -1.35,
+            q1: -0.9,
+            qd1: 0.42,
+            score_eta: -0.55,
+            h_scale: -0.035,
+            w_scale: 0.025,
+        },
+        B10ParityFixture {
+            label: "near_boundary_derivative",
+            event: 1.0,
+            weight: 0.2,
+            z: 0.95,
+            q0: 0.15,
+            q1: 1.05,
+            qd1: 0.08,
+            score_eta: 0.72,
+            h_scale: 0.015,
+            w_scale: -0.02,
+        },
+        B10ParityFixture {
+            label: "zero_warp_edge",
+            event: 0.0,
+            weight: 0.9,
+            z: 0.0,
+            q0: -0.05,
+            q1: 0.25,
+            qd1: 1.2,
+            score_eta: 0.0,
+            h_scale: 0.0,
+            w_scale: 0.0,
+        },
+    ];
+
+    fn b10_flex_family_for_parity(
+        fixture: B10ParityFixture,
+    ) -> (SurvivalMarginalSlopeFamily, Vec<ParameterBlockState>) {
         let score_runtime = test_deviation_runtime();
         let link_runtime = test_deviation_runtime();
         let family = SurvivalMarginalSlopeFamily {
             n: 1,
-            event: Arc::new(array![1.0]),
-            weights: Arc::new(array![0.75]),
-            z: Arc::new(array![-0.2].insert_axis(Axis(1))),
+            event: Arc::new(array![fixture.event]),
+            weights: Arc::new(array![fixture.weight]),
+            z: Arc::new(array![fixture.z].insert_axis(Axis(1))),
             score_covariance: unit_score_covariance(),
             gaussian_frailty_sd: None,
             derivative_guard: 1e-6,
             design_entry: DesignMatrix::from(Array2::zeros((1, 1))),
             design_exit: DesignMatrix::from(Array2::zeros((1, 1))),
             design_derivative_exit: DesignMatrix::from(Array2::zeros((1, 1))),
-            offset_entry: Arc::new(array![-0.4]),
-            offset_exit: Arc::new(array![0.6]),
-            derivative_offset_exit: Arc::new(array![0.85]),
+            offset_entry: Arc::new(array![fixture.q0]),
+            offset_exit: Arc::new(array![fixture.q1]),
+            derivative_offset_exit: Arc::new(array![fixture.qd1]),
             marginal_design: DesignMatrix::from(Array2::zeros((1, 0))),
             logslope_design: DesignMatrix::from(Array2::zeros((1, 0))),
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: Some(score_runtime.clone()),
             link_dev: Some(link_runtime.clone()),
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
@@ -27043,14 +27797,12 @@ mod tests {
         };
         let h_dim = score_runtime.basis_dim();
         let w_dim = link_runtime.basis_dim();
-        // Mild non-zero coefficients to drive the chi/D quotient terms
-        // away from the zero-warp / zero-deviation degenerate case.
         let h_beta: Array1<f64> = (0..h_dim)
-            .map(|k| 0.05 * ((k as f64 + 1.0).sin()))
+            .map(|k| fixture.h_scale * ((k as f64 + 1.0).sin()))
             .collect::<Vec<_>>()
             .into();
         let w_beta: Array1<f64> = (0..w_dim)
-            .map(|k| 0.04 * ((k as f64 + 1.0).cos()))
+            .map(|k| fixture.w_scale * ((k as f64 + 1.0).cos()))
             .collect::<Vec<_>>()
             .into();
         let block_states = vec![
@@ -27064,7 +27816,7 @@ mod tests {
             },
             ParameterBlockState {
                 beta: Array1::zeros(0),
-                eta: array![0.32],
+                eta: array![fixture.score_eta],
             },
             ParameterBlockState {
                 beta: h_beta,
@@ -27076,6 +27828,28 @@ mod tests {
             },
         ];
         (family, block_states)
+    }
+
+    fn b10_direction_set(p: usize) -> Vec<(&'static str, Array1<f64>)> {
+        let mixed: Array1<f64> = (0..p)
+            .map(|k| 0.1 + 0.07 * ((k as f64 + 1.7).sin()))
+            .collect::<Vec<_>>()
+            .into();
+        let alternating: Array1<f64> = (0..p)
+            .map(|k| if k % 2 == 0 { 0.16 } else { -0.11 })
+            .collect::<Vec<_>>()
+            .into();
+        let mut qd_axis = Array1::zeros(p);
+        if p > 2 {
+            qd_axis[2] = 1.0;
+        }
+        let zero = Array1::zeros(p);
+        vec![
+            ("mixed", mixed),
+            ("alternating", alternating),
+            ("qd_axis", qd_axis),
+            ("zero", zero),
+        ]
     }
 
     fn b10_pack_base(
@@ -27176,10 +27950,10 @@ mod tests {
         )?;
 
         let entry_base = family.compute_survival_timepoint_exact(
-            row, &primary, q0, primary.q0, a0, g, d0, beta_h, beta_w, false,
+            row, &primary, q0, primary.q0, a0, g, d0, beta_h, beta_w, 0.0, false,
         )?;
         let exit_base = family.compute_survival_timepoint_exact(
-            row, &primary, q1, primary.q1, a1, g, d1, beta_h, beta_w, true,
+            row, &primary, q1, primary.q1, a1, g, d1, beta_h, beta_w, 0.0, true,
         )?;
 
         let entry_ext1 = family.compute_survival_timepoint_directional_exact(
@@ -27245,35 +28019,14 @@ mod tests {
         }
     }
 
-    #[test]
-    fn block10_cpu_oracle_third_contraction_matches_family() {
-        let (family, block_states) = b10_flex_family_for_parity();
-        let primary = flex_primary_slices(&family);
-        let p = primary.total;
-        // Deterministic non-axis-aligned direction.
-        let dir: Array1<f64> = (0..p)
-            .map(|k| 0.1 + 0.07 * ((k as f64 + 1.7).sin()))
-            .collect::<Vec<_>>()
-            .into();
-
-        let expected = family
-            .row_flex_primary_third_contracted_exact(0, &block_states, &dir)
-            .expect("cpu third contraction");
-
-        let (
-            entry_base,
-            exit_base,
-            entry_ext,
-            exit_ext,
-            _e2,
-            _x2,
-            _eb,
-            _xb,
-            _qd1,
-            qd1_idx,
-            p_total,
-        ) = flex_primary_timepoint_jets_for_test(&family, 0, &block_states, &dir, None)
-            .expect("jets");
+    fn b10_third_oracle_from_family(
+        family: &SurvivalMarginalSlopeFamily,
+        block_states: &[ParameterBlockState],
+        dir: &Array1<f64>,
+    ) -> Vec<f64> {
+        let (entry_base, exit_base, entry_ext, exit_ext, _e2, _x2, _eb, _xb, qd1, qd1_idx, p_total) =
+            flex_primary_timepoint_jets_for_test(family, 0, block_states, dir, None)
+                .expect("third-contraction jets");
 
         let entry_b = b10_pack_base(&entry_base);
         let exit_b = b10_pack_base(&exit_base);
@@ -27283,10 +28036,7 @@ mod tests {
         let inputs = crate::gpu::survival_flex::SurvivalFlexBlock10ThirdInputs {
             p: p_total,
             qd1_index: qd1_idx,
-            qd1: family
-                .row_dynamic_q_geometry(0, &block_states)
-                .expect("q geom")
-                .qd1,
+            qd1,
             w: family.weights[0],
             d: family.event[0],
             dir: &dir_vec,
@@ -27295,30 +28045,15 @@ mod tests {
             entry_ext: &entry_d,
             exit_ext: &exit_d,
         };
-        let actual =
-            crate::gpu::survival_flex::cpu_oracle_third_contraction(&inputs).expect("oracle third");
-        assert_eq!(actual.len(), expected.nrows() * expected.ncols());
-        b10_assert_parity(&actual, &expected, "block10_third");
+        crate::gpu::survival_flex::cpu_oracle_third_contraction(&inputs).expect("oracle third")
     }
 
-    #[test]
-    fn block10_cpu_oracle_fourth_contraction_matches_family() {
-        let (family, block_states) = b10_flex_family_for_parity();
-        let primary = flex_primary_slices(&family);
-        let p = primary.total;
-        let dir_u: Array1<f64> = (0..p)
-            .map(|k| 0.08 + 0.06 * ((k as f64 + 0.4).cos()))
-            .collect::<Vec<_>>()
-            .into();
-        let dir_v: Array1<f64> = (0..p)
-            .map(|k| -0.05 + 0.09 * ((k as f64 + 1.1).sin()))
-            .collect::<Vec<_>>()
-            .into();
-
-        let expected = family
-            .row_flex_primary_fourth_contracted_exact(0, &block_states, &dir_u, &dir_v)
-            .expect("cpu fourth contraction");
-
+    fn b10_fourth_oracle_from_family(
+        family: &SurvivalMarginalSlopeFamily,
+        block_states: &[ParameterBlockState],
+        dir_u: &Array1<f64>,
+        dir_v: &Array1<f64>,
+    ) -> Vec<f64> {
         let (
             entry_base,
             exit_base,
@@ -27328,11 +28063,11 @@ mod tests {
             exit_ext2,
             entry_bi,
             exit_bi,
-            _qd1,
+            qd1,
             qd1_idx,
             p_total,
-        ) = flex_primary_timepoint_jets_for_test(&family, 0, &block_states, &dir_u, Some(&dir_v))
-            .expect("bi-jets");
+        ) = flex_primary_timepoint_jets_for_test(family, 0, block_states, dir_u, Some(dir_v))
+            .expect("fourth-contraction bi-jets");
         let entry_ext2 = entry_ext2.expect("entry ext2");
         let exit_ext2 = exit_ext2.expect("exit ext2");
         let entry_bi = entry_bi.expect("entry bi");
@@ -27351,10 +28086,7 @@ mod tests {
         let inputs = crate::gpu::survival_flex::SurvivalFlexBlock10FourthInputs {
             p: p_total,
             qd1_index: qd1_idx,
-            qd1: family
-                .row_dynamic_q_geometry(0, &block_states)
-                .expect("q geom")
-                .qd1,
+            qd1,
             w: family.weights[0],
             d: family.event[0],
             dir_u: &dir_u_v,
@@ -27368,10 +28100,53 @@ mod tests {
             entry_bi: &entry_bi_p,
             exit_bi: &exit_bi_p,
         };
-        let actual = crate::gpu::survival_flex::cpu_oracle_fourth_contraction(&inputs)
-            .expect("oracle fourth");
-        assert_eq!(actual.len(), expected.nrows() * expected.ncols());
-        b10_assert_parity(&actual, &expected, "block10_fourth");
+        crate::gpu::survival_flex::cpu_oracle_fourth_contraction(&inputs).expect("oracle fourth")
+    }
+
+    #[test]
+    fn block10_cpu_oracle_third_contraction_matches_family_shared_fixtures() {
+        for &fixture in B10_PARITY_FIXTURES {
+            let (family, block_states) = b10_flex_family_for_parity(fixture);
+            let primary = flex_primary_slices(&family);
+            for (dir_label, dir) in b10_direction_set(primary.total) {
+                let expected = family
+                    .row_flex_primary_third_contracted_exact(0, &block_states, &dir)
+                    .unwrap_or_else(|err| {
+                        panic!(
+                            "{} / {dir_label}: cpu third contraction failed: {err}",
+                            fixture.label
+                        )
+                    });
+                let actual = b10_third_oracle_from_family(&family, &block_states, &dir);
+                assert_eq!(actual.len(), expected.nrows() * expected.ncols());
+                b10_assert_parity(&actual, &expected, fixture.label);
+            }
+        }
+    }
+
+    #[test]
+    fn block10_cpu_oracle_fourth_contraction_matches_family_shared_fixtures() {
+        for &fixture in B10_PARITY_FIXTURES {
+            let (family, block_states) = b10_flex_family_for_parity(fixture);
+            let primary = flex_primary_slices(&family);
+            let dirs = b10_direction_set(primary.total);
+            let pairs = [(0usize, 0usize), (0, 1), (1, 0), (1, 2), (2, 3), (3, 0)];
+            for &(u_idx, v_idx) in &pairs {
+                let (u_label, dir_u) = &dirs[u_idx];
+                let (v_label, dir_v) = &dirs[v_idx];
+                let expected = family
+                    .row_flex_primary_fourth_contracted_exact(0, &block_states, dir_u, dir_v)
+                    .unwrap_or_else(|err| {
+                        panic!(
+                            "{} / {u_label}->{v_label}: cpu fourth contraction failed: {err}",
+                            fixture.label
+                        )
+                    });
+                let actual = b10_fourth_oracle_from_family(&family, &block_states, dir_u, dir_v);
+                assert_eq!(actual.len(), expected.nrows() * expected.ncols());
+                b10_assert_parity(&actual, &expected, fixture.label);
+            }
+        }
     }
 
     // ── flex-chain Jacobian FD tests ─────────────────────────────────────────
@@ -27424,10 +28199,10 @@ mod tests {
             let (a1, d1) = family
                 .solve_row_survival_intercept_with_slot(q_geom.q1, g, beta_h, beta_w, None)?;
             let entry_tp = family.compute_survival_timepoint_exact(
-                row, &primary, q_geom.q0, primary.q0, a0, g, d0, beta_h, beta_w, false,
+                row, &primary, q_geom.q0, primary.q0, a0, g, d0, beta_h, beta_w, 0.0, false,
             )?;
             let exit_tp = family.compute_survival_timepoint_exact(
-                row, &primary, q_geom.q1, primary.q1, a1, g, d1, beta_h, beta_w, false,
+                row, &primary, q_geom.q1, primary.q1, a1, g, d1, beta_h, beta_w, 0.0, false,
             )?;
 
             for u in 0..p {
@@ -27593,12 +28368,12 @@ mod tests {
                     .unwrap();
                 let entry = family_ref
                     .compute_survival_timepoint_exact(
-                        row, &primary, qg.q0, primary.q0, a0, g, d0, beta_h, beta_w, false,
+                        row, &primary, qg.q0, primary.q0, a0, g, d0, beta_h, beta_w, 0.0, false,
                     )
                     .unwrap();
                 let exit = family_ref
                     .compute_survival_timepoint_exact(
-                        row, &primary, qg.q1, primary.q1, a1, g, d1, beta_h, beta_w, false,
+                        row, &primary, qg.q1, primary.q1, a1, g, d1, beta_h, beta_w, 0.0, false,
                     )
                     .unwrap();
                 out[row] = entry.eta;
@@ -27668,12 +28443,12 @@ mod tests {
                     .unwrap();
                 let entry = family_ref
                     .compute_survival_timepoint_exact(
-                        row, &primary, qg.q0, primary.q0, a0, g, d0, beta_h, beta_w, false,
+                        row, &primary, qg.q0, primary.q0, a0, g, d0, beta_h, beta_w, 0.0, false,
                     )
                     .unwrap();
                 let exit = family_ref
                     .compute_survival_timepoint_exact(
-                        row, &primary, qg.q1, primary.q1, a1, g, d1, beta_h, beta_w, false,
+                        row, &primary, qg.q1, primary.q1, a1, g, d1, beta_h, beta_w, 0.0, false,
                     )
                     .unwrap();
                 out[row] = entry.eta;
@@ -27714,6 +28489,7 @@ mod tests {
             logslope_surface_ranges: empty_logslope_surface_ranges(),
             score_warp: None,
             link_dev: None,
+            influence_absorber: None,
             time_linear_constraints: None,
             time_wiggle_knots: None,
             time_wiggle_degree: None,
@@ -27782,7 +28558,7 @@ mod tests {
         p_h: usize,
         p_w: usize,
     ) -> BlockHessianAccumulator {
-        let mut acc = BlockHessianAccumulator::new(p_t, p_m, p_g, p_h, p_w);
+        let mut acc = BlockHessianAccumulator::new(p_t, p_m, p_g, p_h, p_w, 0);
         // Per-pair base offsets keep the diagonal blocks symmetric (required
         // for a valid Hessian) while making the off-diagonal blocks distinct
         // and asymmetric, so `to_dense` must place each transpose correctly.
@@ -27839,6 +28615,7 @@ mod tests {
             logslope,
             score_warp: Some(score_warp),
             link_dev: Some(link_dev),
+            influence: None,
             total,
         }
     }

@@ -4,6 +4,10 @@ from enum import StrEnum
 class SearchAttributes(StrEnum):
     otel_trace_id = "OtelTraceId"
     workflow_name = "WorkflowName"
+    user_id = "UserId"
+    customer_id = "CustomerId"
+    workspace_id = "WorkspaceId"
+    organization_id = "OrganizationId"
     allow_auto_remove = "AllowAutoRemove"
     custom_search_attributes = "CustomSearchAttributes"
 

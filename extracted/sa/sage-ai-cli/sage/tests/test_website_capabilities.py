@@ -31,13 +31,14 @@ def verify_website_capability(domain, prompt):
     
     # Verify specific details of the output format based on domain
     if domain == "websites":
-        assert "FILE: index.html" in output
+        assert "FILE: index.html" in output or "FILE: frontend/index.html" in output
         assert "Advertising Dashboard" in output
     elif domain == "mobile_apps":
-        assert "FILE: ItemListScreen.tsx" in output
+        assert "FILE: ItemListScreen.tsx" in output or "FILE: frontend/ItemListScreen.tsx" in output
     elif domain == "backend_services":
-        assert "FILE: main.py" in output
+        assert "FILE: main.py" in output or "FILE: backend/main.py" in output
         assert "from fastapi import FastAPI" in output
+
 
 
 def test_website_exhaustive_websites():

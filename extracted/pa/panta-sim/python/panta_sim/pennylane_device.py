@@ -1,10 +1,15 @@
 """PennyLane device plugin: ``qml.device("panta-sim", wires=N)`` (v0.3.5 Cut 3).
 
 PennyLane 의 ``Device`` 신 API (``pennylane.devices.Device``) 를 panta-sim
-백엔드로 구현한다. v0.3.5 범위는 **forward-only** — analytic statevector,
-sampling, expectation value, probabilities, counts 측정만 지원하며
-parameter-shift autodiff (``qml.grad``) 는 v0.7 자동 미분 마일스톤과
-통합한다.
+백엔드로 구현한다. analytic statevector, sampling, expectation value,
+probabilities, counts 측정을 지원한다.
+
+**parameter-shift autodiff (v0.7)**: 디바이스 자체는 forward-only 지만,
+QNode 의 ``diff_method="parameter-shift"`` 변환이 shifted tape 를 디바이스에
+실행시켜 gradient 를 계산하므로 ``qml.grad`` / ``qml.jacobian`` /
+``GradientDescentOptimizer`` 가 그대로 동작한다 (회전 게이트 각도가 0-dim 또는
+1-element trainable ndarray 로 전달되는 경우 [`_scalar_param`] 가 스칼라로
+변환).
 
 Wire convention:
     PennyLane 의 statevector index 는 wire 0 = MSB (big-endian) 인 반면,
@@ -31,8 +36,7 @@ v0.4.5 부터 지원:
 미지원 (v0.4.6+ 또는 그 이후):
     - ``qml.cond`` (PennyLane classical control / ``Conditional`` op) →
       명시적 ``NotImplementedError``. 대안: Qiskit 어댑터 (``qc.x(0).c_if(c, 1)``).
-    - parameter-shift gradient (``qml.grad`` / ``qml.jacobian``, v0.7),
-      var / purity / vn_entropy.
+    - var / purity / vn_entropy measurement.
 """
 
 from __future__ import annotations
@@ -52,6 +56,21 @@ _PENNYLANE_INSTALL_HINT = (
     "pennylane is required for this device — install with: "
     "pip install panta-sim[pennylane]"
 )
+
+
+def _scalar_param(x: Any) -> float:
+    """게이트 각도 파라미터를 float 로 변환한다.
+
+    PennyLane 의 parameter-shift autodiff (v0.7) 는 게이트 각도를 0-dim 또는
+    1-element ndarray (qml.numpy trainable) 로 넘길 수 있다.  numpy 2.x 에서는
+    1-element 배열에 ``float()`` 이 실패하므로 ravel 후 첫 원소를 취한다.
+    """
+    import numpy as _np
+
+    arr = _np.asarray(x)
+    if arr.ndim == 0:
+        return float(arr)
+    return float(arr.ravel()[0])
 
 
 def _lazy_import_pennylane() -> Any:
@@ -222,7 +241,7 @@ class PantaDevice:
             qubits = [self._wire_to_qubit(w, n) for w in op.wires]
 
             if method_name in ("rx", "ry", "rz"):
-                theta = float(op.parameters[0])
+                theta = _scalar_param(op.parameters[0])
                 getattr(panta_qc, method_name)(theta, qubits[0])
             else:
                 getattr(panta_qc, method_name)(*qubits)
@@ -231,7 +250,7 @@ class PantaDevice:
         if op_name == "GlobalPhase":
             # GlobalPhase(φ) = e^{-iφ} · I. panta-sim 의 unitary 가 Z-Y-Z 분해
             # 시 α = -φ 만 누적하므로 어떤 qubit 에 적용해도 회로 전체 phase 동일.
-            phi = float(op.parameters[0])
+            phi = _scalar_param(op.parameters[0])
             matrix = np.exp(-1j * phi) * np.eye(2, dtype=complex)
             panta_qc.unitary(matrix, 0)
             return

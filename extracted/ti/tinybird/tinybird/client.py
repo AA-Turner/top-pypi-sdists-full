@@ -340,10 +340,14 @@ class TinyB:
             for c in connectors
         ]
 
-    async def get_datasource(self, ds_name: str, used_by: bool = False) -> Dict[str, Any]:
+    async def get_datasource(
+        self, ds_name: str, used_by: bool = False, include_workspace_names: bool = False
+    ) -> Dict[str, Any]:
         params = {
             "attrs": "used_by" if used_by else "",
         }
+        if include_workspace_names:
+            params["include_workspace_names"] = "true"
         return await self._req(f"/v0/datasources/{ds_name}?{urlencode(params)}")
 
     async def alter_datasource(
@@ -489,12 +493,32 @@ class TinyB:
 
         return await self._req(f"/v0/dependencies?{urlencode(params)}", timeout=60)
 
-    async def datasource_share(self, datasource_id: str, current_workspace_id: str, destination_workspace_id: str):
-        params = {"origin_workspace_id": current_workspace_id, "destination_workspace_id": destination_workspace_id}
+    async def datasource_share(
+        self,
+        datasource_id: str,
+        current_workspace_id: str,
+        destination_workspace_id: Optional[str] = None,
+        destination_workspace_name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        params = {"origin_workspace_id": current_workspace_id}
+        if destination_workspace_id:
+            params["destination_workspace_id"] = destination_workspace_id
+        if destination_workspace_name:
+            params["destination_workspace_name"] = destination_workspace_name
         return await self._req(f"/v0/datasources/{datasource_id}/share", method="POST", data=params)
 
-    async def datasource_unshare(self, datasource_id: str, current_workspace_id: str, destination_workspace_id: str):
-        params = {"origin_workspace_id": current_workspace_id, "destination_workspace_id": destination_workspace_id}
+    async def datasource_unshare(
+        self,
+        datasource_id: str,
+        current_workspace_id: str,
+        destination_workspace_id: Optional[str] = None,
+        destination_workspace_name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        params = {"origin_workspace_id": current_workspace_id}
+        if destination_workspace_id:
+            params["destination_workspace_id"] = destination_workspace_id
+        if destination_workspace_name:
+            params["destination_workspace_name"] = destination_workspace_name
         return await self._req(f"/v0/datasources/{datasource_id}/share", method="DELETE", data=params)
 
     async def datasource_sync(self, datasource_id: str):

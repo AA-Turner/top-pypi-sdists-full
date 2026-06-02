@@ -1,6 +1,6 @@
 import time
 from enum import StrEnum
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, TypedDict
 
 import temporalio.workflow
 from mistralai.extra.workflows.encoding.models import EncodedPayloadOptions
@@ -26,6 +26,19 @@ class WorkflowEventType(StrEnum):
     ACTIVITY_TASK_COMPLETED = "ACTIVITY_TASK_COMPLETED"
     ACTIVITY_TASK_RETRYING = "ACTIVITY_TASK_RETRYING"
     ACTIVITY_TASK_FAILED = "ACTIVITY_TASK_FAILED"
+
+
+class EncryptedPatchValue(TypedDict):
+    """Wrapper for encrypted patch values in selective json_patch encryption.
+
+    When partial encryption mode is enabled and a patch targets an EncryptedStrField,
+    the patch value is encrypted and wrapped in this structure.
+
+    The type field acts as a discriminator to distinguish this from user data.
+    """
+
+    type: Literal["__encrypted__"]
+    value: str
 
 
 class JSONPatchBase(BaseModel):
@@ -62,7 +75,10 @@ class JSONPatchAppend(JSONPatchBase):
     op: Literal["append"] = Field(
         description="'append' is an extension for efficient string concatenation in streaming scenarios."
     )
-    value: str = Field(description="The value to use for the operation. A string to append to the existing value")
+    value: str | EncryptedPatchValue = Field(
+        description="The value to use for the operation. A string to append to the existing value, "
+        "or an EncryptedPatchValue wrapper when encryption is applied."
+    )
 
 
 JSONPatch = TypeAliasType(
@@ -751,6 +767,7 @@ __all__ = [
     # Enums
     "WorkflowEventType",
     # Payload models
+    "EncryptedPatchValue",
     "JSONPatch",
     "JSONPatchPayload",
     "JSONPayload",

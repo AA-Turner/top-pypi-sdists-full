@@ -198,6 +198,11 @@ pub fn search_hit_to_value_with_context(
     context: Option<&SearchResponseContext>,
 ) -> Value {
     let mut value = serde_json::to_value(&hit).unwrap_or(Value::Null);
+
+    // Always expose the callable flag.
+    let callable = hit.record.is_callable();
+    value["callable"] = json!(callable);
+
     if !hit.record.loaded {
         value["load_state"] = json!("unloaded");
         if let Some(skill_name) = &hit.record.skill_name {
@@ -207,6 +212,11 @@ pub fn search_hit_to_value_with_context(
                 "dcc_type": &hit.record.dcc_type,
                 "instance_id": hit.record.instance_id.to_string(),
             });
+            // If the tool belongs to a group that will need activation,
+            // hint the tool_group so the agent can activate it after load.
+            if let Some(ref tool_group) = hit.record.tool_group {
+                arguments["tool_group"] = json!(tool_group);
+            }
             attach_search_meta(&mut arguments, context);
             value["next_step"] = json!({
                 "action": "load_skill",
@@ -225,24 +235,56 @@ pub fn search_hit_to_value_with_context(
         }
     } else if hit.record.loaded {
         value["load_state"] = json!("loaded");
-        let mut arguments = json!({
-            "tool_slug": hit.record.tool_slug,
-        });
-        attach_search_meta(&mut arguments, context);
-        value["next_step"] = json!({
-            "action": "describe",
-            "arguments": arguments.clone(),
-            "mcp": {
-                "tool": "describe",
+        if let Some(group_name) = hit.record.disabled_by_group() {
+            // Tool is loaded but its progressive group is inactive.
+            value["disabled_by_group"] = json!(group_name);
+            // Provide an activate_tool_group next_step (MCP only —
+            // activate_tool_group is a gateway meta-tool, not a
+            // capability-indexed action, so there is no REST /v1/call
+            // route for it).
+            if let Some(skill_name) = &hit.record.skill_name {
+                let mut arguments = json!({
+                    "skill_name": skill_name,
+                    "dcc": &hit.record.dcc_type,
+                    "dcc_type": &hit.record.dcc_type,
+                    "tool_group": group_name,
+                    "instance_id": hit.record.instance_id.to_string(),
+                });
+                attach_search_meta(&mut arguments, context);
+                value["next_step"] = json!({
+                    "action": "activate_tool_group",
+                    "arguments": arguments.clone(),
+                    "mcp": {
+                        "tool": "activate_tool_group",
+                        "arguments": {
+                            "skill_name": skill_name,
+                            "group": group_name,
+                        },
+                        "_meta": search_meta(context),
+                    },
+                });
+            }
+        } else {
+            // Tool is loaded and callable — standard describe next_step.
+            let mut arguments = json!({
+                "tool_slug": hit.record.tool_slug,
+            });
+            attach_search_meta(&mut arguments, context);
+            value["next_step"] = json!({
+                "action": "describe",
                 "arguments": arguments.clone(),
-                "_meta": search_meta(context),
-            },
-            "rest": {
-                "method": "POST",
-                "path": "/v1/describe",
-                "body": arguments,
-            },
-        });
+                "mcp": {
+                    "tool": "describe",
+                    "arguments": arguments.clone(),
+                    "_meta": search_meta(context),
+                },
+                "rest": {
+                    "method": "POST",
+                    "path": "/v1/describe",
+                    "body": arguments,
+                },
+            });
+        }
     }
     value
 }
@@ -289,6 +331,7 @@ fn index_snapshot_generation(snapshot: &super::capability::IndexSnapshot) -> Str
         record.tool_slug.hash(&mut hasher);
         record.loaded.hash(&mut hasher);
         record.has_schema.hash(&mut hasher);
+        record.tool_group.hash(&mut hasher);
         for group in &record.available_groups {
             group.name.hash(&mut hasher);
             group.default_active.hash(&mut hasher);
@@ -742,6 +785,7 @@ mod unit_tests {
             iid,
             false, // has_schema
             loaded,
+            None,
         );
         index.upsert_instance(iid, vec![rec], InstanceFingerprint(1));
     }
@@ -834,6 +878,7 @@ mod unit_tests {
             iid,
             true,
             false,
+            None,
         )
         .with_available_groups(vec![crate::gateway::capability::CapabilityGroupInfo {
             name: "core".to_string(),
@@ -1082,5 +1127,134 @@ mod unit_tests {
         }));
 
         assert_eq!(q.instance_id, Some(iid));
+    }
+
+    // ── progressive group-aware search hit tests ──────────────────────
+
+    fn make_group_record(
+        tool_slug: &str,
+        skill_name: Option<&str>,
+        loaded: bool,
+        tool_group: Option<&str>,
+        available_groups: Vec<crate::gateway::capability::CapabilityGroupInfo>,
+    ) -> CapabilityRecord {
+        let iid = Uuid::parse_str("abcdef0123456789abcdef0123456789").unwrap();
+        CapabilityRecord::new(
+            tool_slug.to_string(),
+            tool_slug
+                .split('.')
+                .next_back()
+                .unwrap_or(tool_slug)
+                .to_string(),
+            tool_slug
+                .split('.')
+                .next_back()
+                .unwrap_or(tool_slug)
+                .to_string(),
+            skill_name.map(str::to_string),
+            "Test capability",
+            Vec::new(),
+            tool_slug.split('.').next().unwrap_or("maya").to_string(),
+            iid,
+            false,
+            loaded,
+            tool_group.map(str::to_string),
+        )
+        .with_available_groups(available_groups)
+    }
+
+    #[test]
+    fn progressive_group_inactive_generates_activate_next_step() {
+        let rec = make_group_record(
+            "maya.abcdef01.create_sphere",
+            Some("maya-modeling"),
+            true,
+            Some("modeling"),
+            vec![crate::gateway::capability::CapabilityGroupInfo {
+                name: "modeling".to_string(),
+                description: "Modeling tools".to_string(),
+                tools: vec!["create_sphere".to_string()],
+                default_active: false,
+                active: Some(false),
+            }],
+        );
+        let hit = SearchHit {
+            record: rec,
+            rank: 1,
+            score: 10,
+            match_reasons: vec![],
+        };
+        let row = search_hit_to_value(hit);
+
+        assert_eq!(row["callable"], false);
+        assert_eq!(row["load_state"], "loaded");
+        assert_eq!(row["disabled_by_group"], "modeling");
+        assert_eq!(row["next_step"]["action"], "activate_tool_group");
+        assert_eq!(row["next_step"]["arguments"]["skill_name"], "maya-modeling");
+        assert_eq!(row["next_step"]["arguments"]["tool_group"], "modeling");
+        assert_eq!(row["next_step"]["mcp"]["tool"], "activate_tool_group");
+        assert_eq!(row["next_step"]["mcp"]["arguments"]["group"], "modeling");
+        // REST block must NOT be present for activate_tool_group
+        // (gateway meta-tool, not a capability-indexed action).
+        assert!(row["next_step"].get("rest").is_none());
+    }
+
+    #[test]
+    fn progressive_group_active_generates_describe_next_step() {
+        let rec = make_group_record(
+            "maya.abcdef01.create_sphere",
+            Some("maya-modeling"),
+            true,
+            Some("modeling"),
+            vec![crate::gateway::capability::CapabilityGroupInfo {
+                name: "modeling".to_string(),
+                description: "Modeling tools".to_string(),
+                tools: vec!["create_sphere".to_string()],
+                default_active: true,
+                active: Some(true),
+            }],
+        );
+        let hit = SearchHit {
+            record: rec,
+            rank: 1,
+            score: 10,
+            match_reasons: vec![],
+        };
+        let row = search_hit_to_value(hit);
+
+        assert_eq!(row["callable"], true);
+        assert_eq!(row["load_state"], "loaded");
+        assert!(row.get("disabled_by_group").is_none());
+        assert_eq!(row["next_step"]["action"], "describe");
+        assert_eq!(
+            row["next_step"]["arguments"]["tool_slug"],
+            "maya.abcdef01.create_sphere"
+        );
+        // Standard describe next_step must include both MCP and REST.
+        assert_eq!(row["next_step"]["rest"]["path"], "/v1/describe");
+        assert_eq!(row["next_step"]["mcp"]["tool"], "describe");
+    }
+
+    #[test]
+    fn loaded_no_group_is_callable_with_describe_next_step() {
+        let rec = make_group_record(
+            "maya.abcdef01.open_scene",
+            Some("maya-scene"),
+            true,
+            None, // no group
+            vec![],
+        );
+        let hit = SearchHit {
+            record: rec,
+            rank: 1,
+            score: 10,
+            match_reasons: vec![],
+        };
+        let row = search_hit_to_value(hit);
+
+        assert_eq!(row["callable"], true);
+        assert_eq!(row["load_state"], "loaded");
+        assert!(row.get("disabled_by_group").is_none());
+        assert_eq!(row["next_step"]["action"], "describe");
     }
 }

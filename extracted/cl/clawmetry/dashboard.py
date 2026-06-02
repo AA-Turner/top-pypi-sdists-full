@@ -132,6 +132,7 @@ from routes.otel_export import bp_otel_export
 from routes.runtime_ingest import bp_runtime_ingest
 from routes.audit import bp_audit
 from routes.sla import bp_sla
+from routes.hitl import bp_hitl
 from helpers.openapi import bp_openapi
 
 # History / time-series module
@@ -159,7 +160,7 @@ except ImportError:
     metrics_service_pb2 = None
     trace_service_pb2 = None
 
-__version__ = "0.12.380"
+__version__ = "0.12.384"
 
 # Extensions (Phase 2): import the plugin host now, but defer the actual
 # load_plugins() call until after the Flask app is created below so we can
@@ -10836,7 +10837,14 @@ def detect_config(args=None):
     app.register_blueprint(bp_version_impact)
 
     app.register_blueprint(bp_cloud_relay)
-    app.register_blueprint(bp_nemoclaw)
+    # NeMo governance + approval queue is a Pro feature; the impl lives in
+    # clawmetry-pro. When that package is installed, its blueprint was
+    # already registered by ``_ext_load(app)`` above and won the URL
+    # routes; skip the OSS 402-stub registration here to avoid a Flask
+    # blueprint-name collision. When the closed package is NOT installed
+    # the OSS stub registers and returns HTTP 402 ``upgrade_required``.
+    if not _pro_loaded:
+        app.register_blueprint(bp_nemoclaw)
     app.register_blueprint(bp_skills)
     app.register_blueprint(bp_heartbeat)
     app.register_blueprint(bp_selfconfig)
@@ -10867,6 +10875,7 @@ def detect_config(args=None):
     app.register_blueprint(bp_insights)
     app.register_blueprint(bp_review)
     app.register_blueprint(bp_evals)
+    app.register_blueprint(bp_hitl)
 
     # ── v2 React SPA (opt-in) ───────────────────────────────────────────────
     # Default OFF so existing v1 users notice nothing. Enabled when the user
@@ -11348,6 +11357,9 @@ DASHBOARD_HTML = r"""
         <div class="left-nav-item left-nav-item-sub" id="left-nav-context-economics" data-tab="context-economics" onclick="switchTab('context-economics')" title="Context-window utilization over time, compaction triggers and tokens reclaimed">
           <span class="left-nav-label">Context economics</span>
         </div>
+        <div class="left-nav-item left-nav-item-sub" id="left-nav-swimlane" data-tab="swimlane" onclick="switchTab('swimlane')" title="Compare up to 4 sessions or runtimes side by side as parallel live lanes">
+          <span class="left-nav-label">Swimlane</span>
+        </div>
       </div>
 
       <div class="left-nav-item" data-tab="approvals" onclick="switchTab('approvals')" data-i18n-title="nav.approvals_tooltip" title="Cloud-mediated approval queue">
@@ -11478,6 +11490,9 @@ DASHBOARD_HTML = r"""
 <!-- TOOL CATALOG (provenance + p50/p95 latency + error rate, P1-3) -->
 {% include 'tabs/tool-catalog.html' %}
 {% include 'tabs/context-economics.html' %}
+
+<!-- SWIMLANE COMPARE — N parallel live lanes (sessions / runtimes) -->
+{% include 'tabs/swimlane.html' %}
 
 <!-- SECURITY -->
 {% include 'tabs/security.html' %}

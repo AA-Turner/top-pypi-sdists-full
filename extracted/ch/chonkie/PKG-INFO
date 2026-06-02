@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chonkie
-Version: 1.6.7
+Version: 1.6.8
 Summary: 🦛 CHONK your texts with Chonkie ✨ - The no-nonsense chunking library
 Author-email: Bhavnick Minhas <bhavnick@chonkie.ai>, Shreyash Nigam <shreyash@chonkie.ai>
 Maintainer-email: Bhavnick Minhas <bhavnick@chonkie.ai>, Shreyash Nigam <shreyash@chonkie.ai>, Hafedh Hichri <lain@chonkie.ai>
@@ -47,10 +47,10 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: tqdm>=4.64.0
 Requires-Dist: numpy>=2.0.0
-Requires-Dist: chonkie-core>=0.8.0
+Requires-Dist: chonkie-core>=0.10.2
 Requires-Dist: tenacity>=8.0.0
 Requires-Dist: httpx>=0.28.1
-Requires-Dist: tokie>=0.0.9
+Requires-Dist: tokie>=0.0.10
 Provides-Extra: hub
 Requires-Dist: huggingface-hub>=0.24.0; extra == "hub"
 Requires-Dist: jsonschema>=4.23.0; extra == "hub"

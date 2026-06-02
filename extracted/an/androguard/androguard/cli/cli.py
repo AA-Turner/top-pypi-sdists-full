@@ -651,8 +651,6 @@ def cg(
     """
     Create a call graph based on the data of Analysis and export it into a graph format.
     """
-    import matplotlib.pyplot as plt
-
     from androguard.core.analysis.analysis import ExternalMethod
     from androguard.core.bytecode import FormatClassToJava
     from androguard.misc import AnalyzeAPK
@@ -680,9 +678,11 @@ def cg(
     if show:
         try:
             import PyQt5
+            import matplotlib.pyplot as plt
+
         except ImportError:
             print(
-                "PyQt5 is not installed. In most OS you can install it by running 'pip install PyQt5'.\n"
+                "PyQt5 or matplotlib is not installed. In most OS you can install it by running 'pip install PyQt5 matplotlib'.\n"
             )
             exit()
         pos = nx.spring_layout(callgraph)

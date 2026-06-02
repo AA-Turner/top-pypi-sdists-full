@@ -5,6 +5,7 @@ from glob import glob
 
 import nox
 
+nox.options.default_venv_backend = "uv"
 nox.options.reuse_existing_virtualenvs = False
 
 # Sphinx output and source directories
@@ -35,7 +36,7 @@ AUTOBUILD_INCLUDE = [pathlib.Path("_static", "pyos.css")]
 build_command = ["-b", "html", "docs/", "docs/_build/html"]
 
 
-@nox.session(name="docs-test", python="3.11")
+@nox.session(name="docs-test", python="3.12")
 def docs_test(session):
     """A session that builds the docs statically and returns any errors that
     it finds."""
@@ -79,7 +80,7 @@ def docs_live(session):
 
 
 # Use this for venv envs nox -s test
-@nox.session(python=["3.10", "3.11", "3.12", "3.13"])
+@nox.session(python=["3.11", "3.12", "3.13", "3.14"])
 def tests(session):
     """Install requirements in a venv and run tests."""
     session.install(".[tests]")

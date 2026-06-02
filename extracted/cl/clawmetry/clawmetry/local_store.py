@@ -884,6 +884,26 @@ _DDL = [
         note         VARCHAR
     )
     """,
+    # Issue #883 — external API tracing. Captures outbound HTTP calls that are
+    # NOT LLM provider calls (those go through events as llm_call). Written by
+    # clawmetry/interceptor.py when CLAWMETRY_INTERCEPT=1; ingested by sync.py
+    # via sync_intercepted_events(). Session attribution is time-window based:
+    # query_external_calls(session_id=X) joins on session start/end timestamps.
+    """
+    CREATE TABLE IF NOT EXISTS external_api_calls (
+        id          VARCHAR PRIMARY KEY,
+        node_id     VARCHAR,
+        ts          VARCHAR NOT NULL,
+        host        VARCHAR,
+        url         VARCHAR,
+        method      VARCHAR,
+        status_code INTEGER,
+        latency_ms  DOUBLE,
+        library     VARCHAR
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_ext_api_calls_ts   ON external_api_calls(ts)",
+    "CREATE INDEX IF NOT EXISTS idx_ext_api_calls_host ON external_api_calls(host, ts)",
 ]
 
 
@@ -8215,6 +8235,81 @@ class LocalStore:
         # PRAGMA table_info columns: cid, name, type, notnull, dflt_value, pk
         return [{"name": r[1], "ctype": r[2]} for r in rows]
 
+    # ── External API call tracing (issue #883) ──────────────────────────
+
+    def ingest_external_call(self, ev: dict[str, Any], node_id: str = "") -> None:
+        """Insert one external_api_call row. Idempotent via ON CONFLICT IGNORE."""
+        import hashlib as _hashlib
+        raw_id = ev.get("ts", "") + ev.get("url", "") + ev.get("library", "")
+        row_id = _hashlib.sha256(raw_id.encode()).hexdigest()[:32]
+        with self._write_lock:
+            self._conn.execute("""
+                INSERT INTO external_api_calls
+                    (id, node_id, ts, host, url, method, status_code, latency_ms, library)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (id) DO NOTHING
+            """, [
+                row_id,
+                node_id or "",
+                ev.get("ts") or "",
+                ev.get("host") or "",
+                ev.get("url") or "",
+                (ev.get("method") or "").upper(),
+                ev.get("status_code"),
+                ev.get("latency_ms"),
+                ev.get("library") or "",
+            ])
+
+    def query_external_calls(
+        self,
+        *,
+        session_id: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        limit: int = 200,
+    ) -> list[dict[str, Any]]:
+        """Query external API call rows, optionally scoped to a session by time-window.
+
+        When ``session_id`` is given, only calls whose ``ts`` falls between the
+        session's ``started_at`` and ``updated_at`` are returned (time-window
+        attribution — no ABI changes to the interceptor required)."""
+        cols = ["id", "node_id", "ts", "host", "url", "method",
+                "status_code", "latency_ms", "library"]
+        if session_id:
+            sql = """
+                SELECT e.id, e.node_id, e.ts, e.host, e.url, e.method,
+                       e.status_code, e.latency_ms, e.library
+                FROM external_api_calls e
+                JOIN sessions s ON (
+                    e.ts >= s.started_at
+                    AND (s.updated_at IS NULL
+                         OR epoch_ms(CAST(s.updated_at AS BIGINT) * 1000)::VARCHAR >= e.ts)
+                )
+                WHERE s.session_id = ?
+                ORDER BY e.ts DESC
+                LIMIT ?
+            """
+            rows = self._fetch(sql, [session_id, int(limit)])
+        else:
+            clauses: list[str] = []
+            params: list[Any] = []
+            if since:
+                clauses.append("ts >= ?")
+                params.append(since)
+            if until:
+                clauses.append("ts <= ?")
+                params.append(until)
+            where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+            sql = f"""
+                SELECT id, node_id, ts, host, url, method,
+                       status_code, latency_ms, library
+                FROM external_api_calls {where}
+                ORDER BY ts DESC LIMIT ?
+            """
+            params.append(int(limit))
+            rows = self._fetch(sql, params)
+        return [dict(zip(cols, r)) for r in rows]
+
     # ── internals ───────────────────────────────────────────────────────
 
     def _fetch(self, sql: str, params: list[Any]) -> list[tuple]:
@@ -8676,6 +8771,23 @@ _DEFAULT_CONTEXT_WINDOW = 200_000
 _LARGE_CONTEXT_WINDOW = 1_000_000
 
 
+def _is_1m_default_model(m: str) -> bool:
+    """True for models that ship a 1M context window *by default*, so the
+    plain model string (no ``[1m]`` marker) should still size the gauge at
+    1M rather than the 200K default.
+
+    Currently the Opus 4.8 family (``claude-opus-4-8``, ``claude-opus-4.8``,
+    any ``...-opus-4-8...`` variant) ships with a 1M window. Older models
+    (opus-4-7, sonnet, haiku, claude-3-*) keep the 200K default unless they
+    carry an explicit ``[1m]`` marker. ``m`` is already lower-cased.
+    """
+    if not m:
+        return False
+    # Normalise separator: "claude-opus-4.8" / "claude-opus-4_8" -> "...4-8".
+    norm = m.replace(".", "-").replace("_", "-")
+    return ("opus-4-8" in norm) or ("opus4-8" in norm)
+
+
 def context_window_for_model(model: str, observed_tokens: int = 0) -> int:
     """Best-effort context-window size (in tokens) for ``model``.
 
@@ -8685,9 +8797,11 @@ def context_window_for_model(model: str, observed_tokens: int = 0) -> int:
     (currentContextTokens ≈ 323K) rendered as ">100%". (Surfaced
     2026-05-25.)
 
-    Two signals, in order:
+    Three signals, in order:
       1. **Model string** — a ``1m`` marker (``claude-opus-4-7[1m]``,
-         ``...-1m``) means the 1M variant.
+         ``...-1m``) means the 1M variant. Some models ship a 1M window by
+         default (Opus 4.8 family), so the plain string with no marker is
+         still treated as 1M (see ``_is_1m_default_model``).
       2. **Observed tokens** — a measured prompt can never exceed the
          model's window, so if we saw MORE than the string-derived base we
          must be on a larger variant whose marker we didn't recognise (the
@@ -8701,6 +8815,11 @@ def context_window_for_model(model: str, observed_tokens: int = 0) -> int:
     """
     m = (model or "").lower()
     if "1m" in m:  # matches [1m], -1m, _1m, "1m"
+        base = _LARGE_CONTEXT_WINDOW
+    elif _is_1m_default_model(m):
+        # Some models ship a 1M context window by default, so OpenClaw may
+        # record the plain model string (e.g. "claude-opus-4-8") with no
+        # [1m] marker. That omission must NOT downgrade the gauge to 200K.
         base = _LARGE_CONTEXT_WINDOW
     else:
         base = _DEFAULT_CONTEXT_WINDOW

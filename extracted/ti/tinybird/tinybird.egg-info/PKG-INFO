@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 4.5.9
+Version: 4.5.10
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -51,6 +51,11 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+4.5.10
+*******
+
+- `Fixed` `tb init` now persists `folder` in `tinybird.config.json`, so subsequent resource creation targets the configured project folder instead of the repository root.
 
 4.5.9
 *******

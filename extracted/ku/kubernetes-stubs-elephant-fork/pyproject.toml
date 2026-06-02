@@ -7,7 +7,7 @@ license = "Apache-2.0"
 readme = "README.md"
 
 # version will be updated by build script
-version = "36.0.1"
+version = "36.0.2"
 
 packages = [
     { include = "kubernetes_ext" },

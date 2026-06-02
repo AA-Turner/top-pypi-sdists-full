@@ -28,10 +28,24 @@ def test_ask_command_with_flags(runner):
     ])
     assert result.exit_code == 0
 
-def test_repl_slash_exit_commands(runner):
+def test_repl_slash_exit_commands(runner, monkeypatch):
     """Test that REPL exit commands like /exit, /quit, /q work."""
+    import prompt_toolkit
     for cmd in ["/exit", "/quit", "/q"]:
-        result = runner.invoke(sage_app, ["run"], input=f"{cmd}\n")
+        class DummyPromptSession:
+            def __init__(self, **kwargs):
+                class DummyLayout:
+                    class DummyContainer:
+                        def __init__(self):
+                            self.children = []
+                    def __init__(self):
+                        self.container = DummyLayout.DummyContainer()
+                self.layout = DummyLayout()
+            async def prompt_async(self, *args, **kwargs):
+                return cmd
+        
+        monkeypatch.setattr(prompt_toolkit, "PromptSession", DummyPromptSession)
+        result = runner.invoke(sage_app, ["run"])
         assert result.exit_code == 0
 
 def test_mode_violation_false_positives():

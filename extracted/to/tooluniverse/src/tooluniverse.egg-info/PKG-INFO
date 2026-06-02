@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tooluniverse
-Version: 1.2.2
+Version: 1.2.3
 Summary: A comprehensive collection of scientific tools for Agentic AI, offering integration with the ToolUniverse SDK and MCP Server to support advanced scientific workflows.
 Author-email: Shanghua Gao <shanghuagao@gmail.com>
 Project-URL: Homepage, https://github.com/mims-harvard/ToolUniverse
@@ -71,10 +71,11 @@ Requires-Dist: myst-parser>=0.18; extra == "docs"
 Requires-Dist: linkify-it-py>=2.0.0; extra == "docs"
 Requires-Dist: sphinx-autobuild>=2021.3.14; extra == "docs"
 Requires-Dist: sphinx-copybutton>=0.5.0; extra == "docs"
-Requires-Dist: sphinx-tabs>=3.2.0; extra == "docs"
+Requires-Dist: sphinx-tabs>=3.5.0; extra == "docs"
 Requires-Dist: sphinx-design>=0.3.0; extra == "docs"
 Requires-Dist: sphinx-notfound-page>=0.8; extra == "docs"
 Requires-Dist: sphinx-autodoc-typehints>=1.12.0; extra == "docs"
+Requires-Dist: sphinx-reredirects>=0.1.5; extra == "docs"
 Provides-Extra: embedding
 Requires-Dist: sentence-transformers>=5.1.0; extra == "embedding"
 Requires-Dist: faiss-cpu==1.12.0; extra == "embedding"
@@ -244,15 +245,5 @@ Full documentation: [zitniklab.hms.harvard.edu/ToolUniverse](https://zitniklab.h
       archivePrefix={arXiv},
       primaryClass={cs.AI},
       url={https://arxiv.org/abs/2509.23426}, 
-}
-
-@article{gao2025txagent,
-      title={TxAgent: An AI Agent for Therapeutic Reasoning Across a Universe of Tools},
-      author={Shanghua Gao and Richard Zhu and Zhenglun Kong and Ayush Noori and Xiaorui Su and Curtis Ginder and Theodoros Tsiligkaridis and Marinka Zitnik},
-      year={2025},
-      eprint={2503.10970},
-      archivePrefix={arXiv},
-      primaryClass={cs.AI},
-      url={https://arxiv.org/abs/2503.10970},
 }
 ```

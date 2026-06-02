@@ -67,6 +67,13 @@ def _log(msg):
 
 def _requeue(store: JobStorage, job: Job, reason: str):
     """Move job back to queue or fail if max restarts exceeded."""
+    ref = getattr(job, "instance_ref", "") or ""
+    if ref.startswith("local@"):
+        from ..heartbeat_guard import any_job_heartbeat_fresh
+        if any_job_heartbeat_fresh(store, [job.job_id], 1800):
+            _log(f"{job.job_id}: skip requeue ({reason}; fresh heartbeat)")
+            return
+
     job.restarts += 1
     if job.restarts > job.max_restarts:
         job.state = JobState.FAILED.value

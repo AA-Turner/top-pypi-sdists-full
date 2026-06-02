@@ -25,8 +25,13 @@
 //! The migration is atomic: no backend re-implements the prologue, and
 //! there is no transitional shim.
 
+// `CudaBackendParts` is intentionally NOT re-exported here: it is the internal
+// trio bundle that `probe_cuda_backend` returns and `CudaBackendContext::from_parts`
+// consumes. Callers move that value through without ever naming the type, so
+// hoisting the name into this scope is a dead re-export that `-D warnings` rejects.
+// It stays `pub(crate)` inside `linux` for the in-module producers/consumers.
 #[cfg(target_os = "linux")]
-pub(crate) use linux::{CudaBackendContext, probe_cuda_backend};
+pub(crate) use linux::{CudaBackendContext, probe_backend_with_compile, probe_cuda_backend};
 
 #[cfg(target_os = "linux")]
 mod linux {
@@ -73,6 +78,27 @@ mod linux {
             stream,
             capability,
         })
+    }
+
+    /// Probe the CUDA backend for `label` and run a backend-specific build
+    /// step on the resolved handles.
+    ///
+    /// This is [`probe_cuda_backend`] plus the one piece that genuinely
+    /// differs between backends: the NVRTC compile (and any per-backend cache
+    /// construction). The runtime resolution, context creation, and stream
+    /// selection — together with their uniform, label-attributed error
+    /// messages — live in the shared probe; `build` receives the resolved
+    /// [`CudaBackendParts`] (so it can clone the `Arc<CudaContext>` /
+    /// `Arc<CudaStream>` it needs) and returns the backend's own state `T`.
+    pub(crate) fn probe_backend_with_compile<F, T>(
+        label: &'static str,
+        build: F,
+    ) -> Result<T, GpuError>
+    where
+        F: FnOnce(&CudaBackendParts) -> Result<T, GpuError>,
+    {
+        let parts = probe_cuda_backend(label)?;
+        build(&parts)
     }
 
     /// The process-wide device handles every cudarc backend stores after a

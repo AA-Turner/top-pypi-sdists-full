@@ -211,7 +211,7 @@ from chalk.utils.notebook import resolve_script_entrypoint, resolve_train_script
 from chalk.utils.pandas_utils import is_pandas_dataframe, require_pandas
 from chalk.utils.retry import retry_call, retry_if_exception_message, wait_exponential_jitter
 from chalk.utils.string import s
-from chalk.utils.tracing import add_trace_headers, safe_trace
+from chalk.utils.tracing import current_or_new_trace_context, current_trace_context, inject_trace_context, safe_trace
 
 if TYPE_CHECKING:
     import ssl
@@ -2208,16 +2208,17 @@ https://docs.chalk.ai/cli/apply
         translate_fqns: bool = False,
         value_metrics_tag_by_features: Sequence[FeatureReference] = (),
     ) -> OnlineQueryResponseImpl:
+        trace_context = current_or_new_trace_context() if trace else current_trace_context()
         with safe_trace("query"):
             if branch is ...:
                 branch = self._branch
             extra_headers: dict[str, str] = {}
             if query_name is not None:
                 extra_headers[CHALK_QUERY_NAME_HEADER] = query_name
-            if trace:
-                extra_headers = add_trace_headers(extra_headers)
             if headers:
                 extra_headers.update(headers)
+            if trace_context is not None:
+                extra_headers = cast(dict[str, str], inject_trace_context(extra_headers, trace_context))
 
             encoded_inputs, all_warnings = recursive_encode_inputs(input)
             encoded_outputs = encode_outputs(output)
@@ -2308,6 +2309,9 @@ https://docs.chalk.ai/cli/apply
         extra_headers: dict[str, str] = {}
         if query_name is not None:
             extra_headers[CHALK_QUERY_NAME_HEADER] = query_name
+        trace_context = current_trace_context()
+        if trace_context is not None:
+            extra_headers = cast(dict[str, str], inject_trace_context(extra_headers, trace_context))
 
         buffer = BytesIO()
         buffer.write(MULTI_QUERY_MAGIC_STR)
@@ -2432,6 +2436,9 @@ https://docs.chalk.ai/cli/apply
             extra_headers[CHALK_QUERY_NAME_HEADER] = query_name
         if headers:
             extra_headers.update(headers)
+        trace_context = current_trace_context()
+        if trace_context is not None:
+            extra_headers = cast(dict[str, str], inject_trace_context(extra_headers, trace_context))
 
         now_str = None
         if now is not None:

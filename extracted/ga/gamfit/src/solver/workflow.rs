@@ -1555,11 +1555,255 @@ fn fitted_weibull_baseline_from_linear_time_beta(
     )
 }
 
+/// Penalized effective degrees of freedom for a survival transformation fit.
+///
+/// Uses exactly the mgcv definition `edf_total = p − Σ_k λ_k·tr(H⁻¹ S_k)`, where
+/// `H` is the converged penalized Hessian `X'W_HX + S(λ) + ridge·I` (held in
+/// `state.hessian`) and `S_k` is the penalty matrix of block `k` (without its
+/// `λ_k` factor, which is applied here). The per-block edf is
+/// `edf_k = block_cols_k − λ_k·tr(H⁻¹ S_k)`, clamped to `[0, block_cols_k]`.
+///
+/// Returned alongside the dense penalized Hessian so the caller can populate the
+/// inference block (`edf_total`, `edf_by_block`, `penalized_hessian`). This is the
+/// same trace formula `estimate.rs` uses for the standard GAM path; the survival
+/// path runs its own `runworking_model_pirls` optimizer and therefore never
+/// reached that block, leaving edf uncomputed (issue #565).
+fn survival_transformation_edf(
+    state: &crate::pirls::WorkingState,
+    penalty_blocks: &[PenaltyBlock],
+) -> Result<(f64, Vec<f64>, Array2<f64>), String> {
+    let h_dense = state.hessian.to_dense();
+    let p = h_dense.nrows();
+    let h_sym = crate::linalg::matrix::SymmetricMatrix::Dense(h_dense.clone());
+    // Sparse-aware factorization with ridge retry (mirrors estimate.rs) so a
+    // marginally indefinite Hessian at a boundary-constrained optimum still
+    // yields a usable trace rather than aborting the whole fit.
+    let factor = {
+        let scale = h_sym.max_abs_diag();
+        let min_step = scale * 1e-10;
+        let mut ridge = 0.0_f64;
+        let mut attempts = 0_usize;
+        loop {
+            let candidate = if ridge > 0.0 {
+                h_sym.addridge(ridge).unwrap_or_else(|_| h_sym.clone())
+            } else {
+                h_sym.clone()
+            };
+            if let Ok(f) = candidate.factorize() {
+                break f;
+            }
+            attempts += 1;
+            if attempts >= 8 {
+                return Err(
+                    "survival edf: penalized Hessian could not be factorized".to_string()
+                );
+            }
+            ridge = if ridge <= 0.0 { min_step } else { ridge * 10.0 };
+        }
+    };
+    let mut edf_by_block = vec![0.0_f64; penalty_blocks.len()];
+    let mut total_trace = 0.0_f64;
+    for (kk, block) in penalty_blocks.iter().enumerate() {
+        let block_cols = block.range.end - block.range.start;
+        if block.lambda <= 0.0 || block_cols == 0 {
+            edf_by_block[kk] = block_cols as f64;
+            continue;
+        }
+        // RHS = S_k embedded into the full p×block_cols layout: column j holds
+        // column j of S_k placed in the block rows. Solving H Z = RHS gives the
+        // block columns of H⁻¹ S_full, whose block-diagonal entries sum to
+        // tr(H⁻¹ S_k).
+        let mut rhs = Array2::<f64>::zeros((p, block_cols));
+        for c in 0..block_cols {
+            for r in 0..block_cols {
+                rhs[[block.range.start + r, c]] = block.matrix[[r, c]];
+            }
+        }
+        let sol = factor
+            .solvemulti(&rhs)
+            .map_err(|e| format!("survival edf trace solve failed: {e}"))?;
+        let mut trace = 0.0_f64;
+        for j in 0..block_cols {
+            trace += sol[[block.range.start + j, j]];
+        }
+        let lam_trace = block.lambda * trace;
+        total_trace += lam_trace;
+        edf_by_block[kk] = (block_cols as f64 - lam_trace).clamp(0.0, block_cols as f64);
+    }
+    let edf_total = (p as f64 - total_trace).clamp(0.0, p as f64);
+    if !edf_total.is_finite() || edf_by_block.iter().any(|v| !v.is_finite()) {
+        return Err("survival edf: non-finite effective degrees of freedom".to_string());
+    }
+    Ok((edf_total, edf_by_block, h_dense))
+}
+
+/// REML/LAML smoothing-parameter selection for the single-cause transformation
+/// survival baseline (issue #563).
+///
+/// The transformation path solves a constrained PIRLS (`γ ≥ 0` I-spline box) at
+/// a fixed time-penalty `λ`, which oversmooths: with `λ` pinned at its seed the
+/// monotone baseline collapses toward an affine log-cumulative-hazard and cannot
+/// recover real curvature (e.g. Gompertz convexity). This routine wraps that
+/// inner solve in a proper outer LAML optimization over `ρ = log λ` for the
+/// `num_smoothing` time-penalty blocks (the trailing stabilization ridge is held
+/// fixed), exactly as the standard GAM path and mgcv/scam do. The inner solve
+/// still honors the structural box at every candidate `λ`, so the constrained
+/// optimum stays valid; only the outer `λ` becomes data-adaptive.
+///
+/// `model` is the working model at the seed `λ`; it is cloned per candidate so
+/// the proposal never corrupts the warm model. The returned vector has one
+/// `λ_k` per penalty block (smoothing blocks at REML-selected values, the ridge
+/// at its fixed seed). Returns `None` when there are no smoothing blocks to
+/// select (e.g. the Weibull linear-time path), so the caller keeps the seed.
+fn optimize_survival_transformation_smoothing(
+    model: &crate::families::survival::WorkingModelSurvival,
+    penalty_blocks: &[PenaltyBlock],
+    num_smoothing: usize,
+    beta0: &Array1<f64>,
+    structural_lower_bounds: Option<&Array1<f64>>,
+) -> Result<Option<Vec<f64>>, String> {
+    use crate::solver::outer_strategy::{
+        Derivative, HessianResult, OuterEval, OuterProblem, SolverClass,
+    };
+    if num_smoothing == 0 {
+        return Ok(None);
+    }
+    // Full λ vector (smoothing blocks + fixed ridge), used to rebuild each
+    // candidate model. The ridge entries (indices >= num_smoothing) are frozen.
+    let seed_lambdas: Vec<f64> = penalty_blocks.iter().map(|b| b.lambda).collect();
+    let seed_rho = Array1::from_iter(
+        seed_lambdas
+            .iter()
+            .take(num_smoothing)
+            .map(|&l| l.max(1e-12).ln()),
+    );
+
+    // Evaluate the LAML objective and ρ-gradient at a smoothing-ρ proposal:
+    // set the smoothing λ, re-run the constrained inner PIRLS, evaluate the
+    // unified survival LAML, and project the gradient onto the smoothing
+    // coordinates (the trailing ridge gradient component is discarded since the
+    // ridge is fixed).
+    let eval_at = |rho_smooth: &Array1<f64>| -> Result<(f64, Array1<f64>), String> {
+        let mut candidate = model.clone();
+        let mut lambdas = seed_lambdas.clone();
+        for k in 0..num_smoothing {
+            lambdas[k] = rho_smooth[k].exp();
+        }
+        candidate.set_penalty_lambdas(&lambdas).map_err(|e| e.to_string())?;
+        let opts = crate::pirls::WorkingModelPirlsOptions {
+            max_iterations: 400,
+            convergence_tolerance: 1e-6,
+            adaptive_kkt_tolerance: None,
+            max_step_halving: 40,
+            min_step_size: 1e-12,
+            firth_bias_reduction: false,
+            coefficient_lower_bounds: structural_lower_bounds.cloned(),
+            linear_constraints: None,
+            initial_lm_lambda: None,
+            geodesic_acceleration: false,
+            arrow_schur: None,
+        };
+        let summary = crate::pirls::runworking_model_pirls(
+            &mut candidate,
+            crate::types::Coefficients::new(beta0.clone()),
+            &opts,
+            |_| {},
+        )
+        .map_err(|err| format!("survival smoothing PIRLS failed: {err}"))?;
+        let beta = summary.beta.as_ref().to_owned();
+        let state = candidate
+            .update_state(&beta)
+            .map_err(|err| format!("survival smoothing state eval failed: {err}"))?;
+        // Active-penalty ρ over ALL active blocks (smoothing + fixed ridge), in
+        // block order, as the unified survival LAML evaluator requires. The
+        // candidate's λ are exactly `lambdas` (smoothing entries from the
+        // proposal, ridge entries frozen), so build ρ from that vector directly.
+        let full_rho =
+            Array1::from_iter(lambdas.iter().filter(|&&l| l > 0.0).map(|&l| l.ln()));
+        let (cost, grad_full) = candidate
+            .unified_lamlobjective_and_rhogradient(&beta, &state, &full_rho)
+            .map_err(|err| format!("survival LAML evaluation failed: {err}"))?;
+        // Project onto the smoothing coordinates. The active-block enumeration
+        // lists the smoothing blocks first (they are constructed first and the
+        // ridge is appended last), so the leading `num_smoothing` gradient
+        // entries are exactly ∂LAML/∂ρ_smooth with the ridge held fixed.
+        if grad_full.len() < num_smoothing || !cost.is_finite() {
+            return Err("survival LAML returned an inconsistent gradient/cost".to_string());
+        }
+        let grad = grad_full.slice(s![..num_smoothing]).to_owned();
+        if grad.iter().any(|g| !g.is_finite()) {
+            return Err("survival LAML gradient is non-finite".to_string());
+        }
+        Ok((cost, grad))
+    };
+
+    let lower = seed_rho.mapv(|v| v - 12.0);
+    let upper = seed_rho.mapv(|v| v + 12.0);
+    let problem = OuterProblem::new(num_smoothing)
+        .with_solver_class(SolverClass::Primary)
+        .with_gradient(Derivative::Analytic)
+        .with_hessian(crate::solver::outer_strategy::DeclaredHessianForm::Unavailable)
+        .with_tolerance(1e-4)
+        .with_max_iter(120)
+        .with_bounds(lower, upper)
+        .with_initial_rho(seed_rho.clone())
+        .with_seed_config(crate::seeding::SeedConfig {
+            max_seeds: 1,
+            seed_budget: 1,
+            ..Default::default()
+        });
+    let context = format!(
+        "survival transformation smoothing-parameter selection (dim={num_smoothing})"
+    );
+    let mut obj = problem.build_objective(
+        (),
+        |_: &mut (), rho: &Array1<f64>| {
+            eval_at(rho)
+                .map(|(c, _)| c)
+                .map_err(crate::estimate::EstimationError::InvalidInput)
+        },
+        |_: &mut (), rho: &Array1<f64>| {
+            let (cost, gradient) =
+                eval_at(rho).map_err(crate::estimate::EstimationError::InvalidInput)?;
+            Ok(OuterEval {
+                cost,
+                gradient,
+                hessian: HessianResult::Unavailable,
+                inner_beta_hint: None,
+            })
+        },
+        None::<fn(&mut ())>,
+        None::<
+            fn(
+                &mut (),
+                &Array1<f64>,
+            )
+                -> Result<crate::solver::outer_strategy::EfsEval, crate::estimate::EstimationError>,
+        >,
+    );
+    let result = problem
+        .run(&mut obj, &context)
+        .map_err(|err| format!("{context} failed: {err}"))?;
+    // The selector improves the fit; if the outer loop does not certify
+    // convergence (rare flat-LAML plateau), fall back to the best ρ it reached
+    // rather than failing the whole fit — the seed is already a valid model.
+    let selected_rho = result.rho;
+    let mut lambdas = seed_lambdas;
+    for k in 0..num_smoothing.min(selected_rho.len()) {
+        let lam = selected_rho[k].exp();
+        if lam.is_finite() && lam > 0.0 {
+            lambdas[k] = lam;
+        }
+    }
+    Ok(Some(lambdas))
+}
+
 fn survival_unified_fit_result(
     beta: Array1<f64>,
     lambdas: Array1<f64>,
     summary: &crate::pirls::WorkingModelPirlsResult,
     state: &crate::pirls::WorkingState,
+    penalty_blocks: &[PenaltyBlock],
 ) -> Result<UnifiedFitResult, String> {
     let log_lambdas = lambdas.mapv(|v| v.max(1e-300).ln());
     let reml_score = survival_working_reml_score(state);
@@ -1572,11 +1816,37 @@ fn survival_unified_fit_result(
     crate::estimate::ensure_finite_scalar("survival fit gradient_norm", summary.lastgradient_norm)?;
     crate::estimate::ensure_finite_scalar("survival fit max_abs_eta", summary.max_abs_eta)?;
 
+    // Penalized effective degrees of freedom from the converged penalized
+    // Hessian and penalty roots (issue #565). `lambdas` is built one entry per
+    // penalty block, so `edf_by_block` aligns 1:1 with `lambdas` as the
+    // `try_from_parts` invariant requires.
+    let (edf_total, edf_by_block, penalized_hessian) =
+        survival_transformation_edf(state, penalty_blocks)?;
+    assert_eq!(edf_by_block.len(), lambdas.len());
+
+    let inference = crate::estimate::FitInference {
+        edf_by_block: edf_by_block.clone(),
+        edf_total,
+        smoothing_correction: None,
+        penalized_hessian: penalized_hessian.into(),
+        working_weights: Array1::zeros(0),
+        working_response: Array1::zeros(0),
+        reparam_qs: None,
+        dispersion: crate::estimate::Dispersion::Known(1.0),
+        beta_covariance: None,
+        beta_standard_errors: None,
+        beta_covariance_corrected: None,
+        beta_standard_errors_corrected: None,
+        beta_covariance_frequentist: None,
+        coefficient_influence: None,
+        bias_correction_beta: None,
+    };
+
     UnifiedFitResult::try_from_parts(crate::estimate::UnifiedFitResultParts {
         blocks: vec![crate::estimate::FittedBlock {
             beta: beta.clone(),
             role: crate::estimate::BlockRole::Mean,
-            edf: 0.0,
+            edf: edf_total,
             lambdas: lambdas.clone(),
         }],
         log_lambdas,
@@ -1595,7 +1865,7 @@ fn survival_unified_fit_result(
         standard_deviation: 1.0,
         covariance_conditional: None,
         covariance_corrected: None,
-        inference: None,
+        inference: Some(inference),
         fitted_link: FittedLinkState::Standard(None),
         geometry: None,
         block_states: Vec::new(),
@@ -2123,6 +2393,42 @@ fn fit_survival_transformation_model(
                     });
                 }
             }
+            // Covariate-smooth penalties (e.g. `s(x)`, `s(group, bs="re")`
+            // frailty) live in the covariate term-collection design; the survival
+            // transformation fit stacks the covariate columns at
+            // `p_time_total..p`, so each covariate penalty's local block maps to
+            // the joint range `p_time_total + col_range`. Penalizing them here
+            // (rather than leaving them to the tiny stabilization ridge) is what
+            // lets the frailty / covariate smooths shrink — and they are added
+            // BEFORE the ridge so they too become REML-selected smoothing blocks
+            // (issues #563/#565). Only zero-prior-mean blocks are admissible as a
+            // plain quadratic `λ βᵀSβ`; a non-zero centering would need an offset
+            // the survival PenaltyBlock does not model, so such blocks are left to
+            // the ridge rather than mis-applied.
+            for cov_penalty in &covariate_design.penalties {
+                let cr = &cov_penalty.col_range;
+                let block_dim = cr.end - cr.start;
+                let matches_dims = cov_penalty.local.nrows() == block_dim
+                    && cov_penalty.local.ncols() == block_dim;
+                let zero_prior = matches!(
+                    cov_penalty.prior_mean,
+                    crate::estimate::CoefficientPriorMean::Zero
+                );
+                if block_dim > 0 && matches_dims && zero_prior && cr.end <= p_cov {
+                    penalty_blocks.push(PenaltyBlock {
+                        matrix: cov_penalty.local.clone(),
+                        lambda: 1e-2,
+                        range: (p_time_total + cr.start)..(p_time_total + cr.end),
+                        nullspace_dim: 0,
+                    });
+                }
+            }
+            // The smoothing blocks are exactly those pushed above (time +
+            // covariate penalties); any ridge appended below is a FIXED
+            // stabilization, not a REML-selected smoothing parameter, so the
+            // count of smoothing blocks is recorded before the ridge is added
+            // (issue #563).
+            let num_smoothing_blocks = penalty_blocks.len();
             let ridge_range_start = if spec.likelihood_mode == SurvivalLikelihoodMode::Weibull
                 && spec.time_build.basisname == "linear"
                 && spec.timewiggle.is_none()
@@ -2216,6 +2522,7 @@ fn fit_survival_transformation_model(
                 beta0,
                 structural_lower_bounds,
                 model,
+                num_smoothing_blocks,
             ))
         };
 
@@ -2224,7 +2531,7 @@ fn fit_survival_transformation_model(
             &baseline_cfg,
             "workflow survival transformation baseline",
             |candidate| {
-                let (_, _, beta0, structural_lower_bounds, mut model) =
+                let (_, _, beta0, structural_lower_bounds, mut model, _) =
                     build_working_model(candidate)?;
                 let opts = crate::pirls::WorkingModelPirlsOptions {
                     max_iterations: 400,
@@ -2255,7 +2562,7 @@ fn fit_survival_transformation_model(
         )?;
     }
 
-    let (prepared, penalty_blocks, beta0, structural_lower_bounds, mut model) =
+    let (prepared, mut penalty_blocks, beta0, structural_lower_bounds, mut model, num_smoothing_blocks) =
         build_working_model(&baseline_cfg)?;
     if cause_count > 1 || !spec.penalty_block_gamma_priors.is_empty() {
         let beta0_flat = replicate_pooled_baseline_seed_per_cause(beta0.view(), cause_count);
@@ -2270,6 +2577,28 @@ fn fit_survival_transformation_model(
             exact_derivative_guard,
             &spec.penalty_block_gamma_priors,
         );
+    }
+    // REML/LAML-select the time-smoothing λ (issue #563). With λ pinned at its
+    // seed the monotone I-spline baseline oversmooths toward an affine
+    // log-cumulative-hazard; selecting λ from the survival LAML lets it recover
+    // real curvature. The inner solve keeps the structural γ ≥ 0 box at every
+    // candidate, so the constrained optimum stays valid; the fixed stabilization
+    // ridge is held at its seed. The selected λ is written back into both the
+    // working model and `penalty_blocks` so the final fit, edf, and warm-start
+    // cache all use the data-adaptive value.
+    if let Some(selected_lambdas) = optimize_survival_transformation_smoothing(
+        &model,
+        &penalty_blocks,
+        num_smoothing_blocks,
+        &beta0,
+        structural_lower_bounds.as_ref(),
+    )? {
+        model
+            .set_penalty_lambdas(&selected_lambdas)
+            .map_err(|e| e.to_string())?;
+        for (block, &lam) in penalty_blocks.iter_mut().zip(selected_lambdas.iter()) {
+            block.lambda = lam;
+        }
     }
     let opts = crate::pirls::WorkingModelPirlsOptions {
         max_iterations: 400,
@@ -2352,7 +2681,7 @@ fn fit_survival_transformation_model(
         } else {
             baseline_cfg
         };
-    let fit = survival_unified_fit_result(beta, lambdas, &summary, &state)?;
+    let fit = survival_unified_fit_result(beta, lambdas, &summary, &state, &penalty_blocks)?;
 
     let time_base_ncols = spec.time_build.x_exit_time.ncols();
     let time_basis = crate::families::survival_construction::SavedSurvivalTimeBasis::from_build(
@@ -2704,6 +3033,351 @@ fn fit_transformation_normal_model(
     )
 }
 
+// ---------------------------------------------------------------------------
+// Cross-fitted score calibration (Neyman-orthogonal marginal slope, #461)
+//
+// A marginal-slope Stage-2 model consumes the CTN Stage-1 latent score `z` as a
+// generated regressor. `z` depends on θ̂₁, so the β estimating equation leaks
+// Stage-1 sampling error (design `marginal_slope_orthogonal_design.md` §1-§4).
+// The two DML ingredients are (i) the realized leakage directions
+// `J = ∂z/∂θ₁` (an n × p₁ influence Jacobian, computed by the core
+// `marginal_slope_orthogonal::score_influence_jacobian`) and (ii) cross-fitting:
+// `z` and `J` are evaluated out-of-fold so own-row overfitting of θ̂₁ does not
+// bias the absorbed projection. This module owns ingredient (ii) and the
+// auto-enable detection: it partitions the rows into K folds, refits the CTN on
+// each complement with a basis frozen on the full data, and concatenates the
+// per-fold held-out `z` and `J` back into full-n order.
+// ---------------------------------------------------------------------------
+
+/// Out-of-fold Stage-1 latent score and its score-influence Jacobian for a
+/// CTN → marginal-slope chain. `z_oof` (length n) replaces the in-sample `z`
+/// the Stage-2 model consumes; `jac_oof` (n × p₁) is fed to the Stage-2 spec's
+/// `score_influence_jacobian` so the joint solve absorbs the realized leakage
+/// directions `Z_infl = diag(s_f·β̂₀)·J`.
+pub struct CrossFitScoreCalibration {
+    pub z_oof: Array1<f64>,
+    pub jac_oof: Array2<f64>,
+}
+
+/// Internal recipe describing the CTN Stage-1 fit that produced a Stage-2 `z`
+/// column. This is in-process plumbing — never a CLI flag, env var, or feature
+/// gate. The orchestration layer populates [`FitConfig::ctn_stage1`] when (and
+/// only when) the marginal-slope `z` was generated by a transformation-normal
+/// Stage-1 fit; its presence is the sole auto-enable signal for cross-fitted
+/// orthogonalization (design §5). When absent, Stage-2 falls back to the free
+/// 1-D `score_warp` spline (which spans only the x-free leakage column).
+#[derive(Clone, Debug)]
+pub struct CtnStage1Recipe {
+    /// Stage-1 response column name (the `y` the CTN transforms).
+    pub response_column: String,
+    /// Stage-1 covariate-side formula right-hand side (e.g. `"s(pc1) + s(pc2)"`),
+    /// with no `~` and no response symbol. [`crossfit_score_calibration`] parses
+    /// it and builds the CTN covariate basis exactly as
+    /// `materialize_transformation_normal` does, then FREEZES that basis once on
+    /// the full data and reuses the frozen spec for every fold's refit — so the
+    /// rebuilt covariate design has an identical column geometry across folds,
+    /// keeping `J`'s `p₁ = p_resp · p_cov` columns aligned (design §3).
+    ///
+    /// The recipe carries the formula RHS (a primitive string) rather than a
+    /// resolved [`TermCollectionSpec`] because this struct is populated both via
+    /// [`CtnStage1Recipe::new`] (set on [`FitConfig::ctn_stage1`], then
+    /// [`fit_from_formula`]) and by the gamfit FFI marshaller
+    /// (`gamfit/_calibrated_slope.py`), which can only serialize primitives over
+    /// the JSON boundary — a `TermCollectionSpec` is not serializable. Freezing on
+    /// the full Stage-2 data is equivalent to
+    /// freezing on the Stage-1 data whenever the two stages share a frame (the
+    /// calibrated-chain contract), so the column geometry still matches Stage-1.
+    pub covariate_formula_rhs: String,
+    /// Stage-1 CTN config (response basis degree / knot count / penalties).
+    /// Its `response_num_internal_knots` is the FIXED response-basis size; the
+    /// cross-fit pins it across folds so `p_resp` (and hence `p₁`) is
+    /// fold-invariant (design §3).
+    pub config: TransformationNormalConfig,
+    /// Optional Stage-1 weight column name.
+    pub weight_column: Option<String>,
+    /// Optional Stage-1 offset column name.
+    pub offset_column: Option<String>,
+}
+
+impl CtnStage1Recipe {
+    /// Build a Stage-1 CTN recipe from the Stage-1 description. This is the public
+    /// way to populate [`FitConfig::ctn_stage1`] — set it on a marginal-slope
+    /// config and run [`fit_from_formula`] (the entry IS `fit_from_formula` with
+    /// `ctn_stage1` set; there is no separate combined entry function). The
+    /// materializer then cross-fits the CTN and installs the leakage-projection
+    /// block; supplying the recipe *is* the request for orthogonalization.
+    ///
+    /// `response` is the Stage-1 CTN response column; `covariates` is the
+    /// covariate-side formula right-hand side (e.g. `"s(pc1) + s(pc2)"` — no `~`,
+    /// no response symbol). Validates both are non-empty and that `covariates`
+    /// is an RHS only.
+    pub fn new(
+        response: &str,
+        covariates: &str,
+        config: TransformationNormalConfig,
+        weight_column: Option<&str>,
+        offset_column: Option<&str>,
+    ) -> Result<Self, String> {
+        let response_column = response.trim().to_string();
+        if response_column.is_empty() {
+            return Err("CtnStage1Recipe requires a non-empty Stage-1 response column".to_string());
+        }
+        let covariate_formula_rhs = covariates.trim().to_string();
+        if covariate_formula_rhs.is_empty() {
+            return Err(
+                "CtnStage1Recipe requires a non-empty Stage-1 covariate formula RHS".to_string(),
+            );
+        }
+        if covariate_formula_rhs.contains('~') {
+            return Err(
+                "CtnStage1Recipe covariates is a right-hand side only; pass 's(pc1) + s(pc2)', \
+                 not 'score ~ s(pc1) + s(pc2)'"
+                    .to_string(),
+            );
+        }
+        Ok(Self {
+            response_column,
+            covariate_formula_rhs,
+            config,
+            weight_column: weight_column
+                .map(str::to_string)
+                .filter(|s| !s.trim().is_empty()),
+            offset_column: offset_column
+                .map(str::to_string)
+                .filter(|s| !s.trim().is_empty()),
+        })
+    }
+}
+
+/// Number of cross-fit folds for a problem of `n` rows.
+///
+/// Cross-fitting refits the CTN once per fold, so the cost is `K` full Stage-1
+/// fits. The standard DML default is `K = 5` for moderate `n`. At biobank scale
+/// each CTN refit is expensive while the out-of-fold bias from a single split is
+/// already negligible (θ̂₁ is precisely estimated on a complement of ≈ `n·(K−1)/K`
+/// rows), so `K` is reduced toward 2 as `n` grows — keeping the refit budget
+/// bounded without sacrificing OOF de-biasing. Small `n` keeps more folds (larger
+/// per-fold training complements ⇒ less OOF estimation noise), dropping below 5
+/// only when there are too few rows to populate 5 folds with a usable held-out
+/// block.
+///
+/// The schedule (no flag, no env — derived purely from `n`):
+///   - `n < 250`               : `K = min(n, 3)` (tiny data; keep ≥ 2 folds)
+///   - `250 ≤ n < 200_000`      : `K = 5` (DML moderate-n default)
+///   - `200_000 ≤ n < 2_000_000` : `K = 3` (biobank: bound refit cost, ≈ ⅔ train)
+///   - `n ≥ 2_000_000`          : `K = 2` (mega-biobank: ½ train still ample)
+fn crossfit_fold_count(n: usize) -> usize {
+    if n < 250 {
+        n.min(3).max(2)
+    } else if n < 200_000 {
+        5
+    } else if n < 2_000_000 {
+        3
+    } else {
+        2
+    }
+}
+
+/// Partition `n` rows into `k` folds of balanced, contiguous blocks.
+///
+/// Entry `f` of the returned vector holds the ascending row indices held out in
+/// fold `f`; the union over folds is exactly `0..n`. Sizes are `n / k` or
+/// `n / k + 1`, so every fold's complement size differs by at most one row,
+/// which keeps the response-basis sample cap — and therefore `p₁` — uniform
+/// across folds (design §3). Contiguous blocks let the persistent warm-start
+/// prefix cache seed each fold's CTN refit from a structurally identical prior
+/// fold.
+fn crossfit_partition(n: usize, k: usize) -> Vec<Vec<usize>> {
+    let mut folds: Vec<Vec<usize>> = Vec::with_capacity(k);
+    let base = n / k;
+    let remainder = n % k;
+    let mut start = 0usize;
+    for f in 0..k {
+        // The first `remainder` folds carry one extra row so the union is exactly n.
+        let len = base + usize::from(f < remainder);
+        let end = start + len;
+        folds.push((start..end).collect());
+        start = end;
+    }
+    folds
+}
+
+/// Gather `source[idx]` for each `idx` into a fresh contiguous `Array1`.
+fn crossfit_select_rows_1d(source: &Array1<f64>, indices: &[usize]) -> Array1<f64> {
+    Array1::from_iter(indices.iter().map(|&i| source[i]))
+}
+
+/// Cross-fitted out-of-fold `z` and score-influence Jacobian `J` for a CTN →
+/// marginal-slope chain (design §4-§5).
+///
+/// Returns `None` when no CTN Stage-1 recipe is present (`recipe` is `None`):
+/// the caller then leaves the Stage-2 spec's `score_influence_jacobian` field
+/// `None` and Stage-2 uses the supplied raw `z` with the free-warp fallback.
+///
+/// When a recipe is present, the covariate basis is built from the recipe's
+/// formula RHS and FROZEN once on the full data; every fold then refits the CTN
+/// against that frozen spec, and the response-basis knot count is pre-resolved at
+/// the *smallest* fold complement size, so every fold refits at an identical
+/// `(p_resp, p_cov)` and therefore an identical `p₁ = p_resp · p_cov` column
+/// layout — the per-fold `J` blocks concatenate into a coherent `n × p₁` matrix
+/// (design §3). For each fold `f` the CTN is refit on the complement rows, then
+/// `marginal_slope_orthogonal::score_influence_jacobian` evaluates the held-out
+/// `z` and `J` on fold `f`'s rows; results scatter back into full-n order.
+fn crossfit_score_calibration(
+    data: &Dataset,
+    col_map: &HashMap<String, usize>,
+    recipe: Option<&CtnStage1Recipe>,
+    policy: &crate::resource::ResourcePolicy,
+) -> Result<Option<CrossFitScoreCalibration>, String> {
+    let Some(recipe) = recipe else {
+        return Ok(None);
+    };
+
+    let n = data.values.nrows();
+    if n == 0 {
+        return Err("cross-fit score calibration requires a non-empty dataset".to_string());
+    }
+
+    // Stage-1 response / weights / offset, resolved against the full dataset.
+    let y_col = resolve_role_col(col_map, &recipe.response_column, "response")
+        .map_err(|e| e.to_string())?;
+    let response_full = data.values.column(y_col).to_owned();
+    let weights_full = resolve_weight_column(data, col_map, recipe.weight_column.as_deref())
+        .map_err(|e| e.to_string())?;
+    let offset_full = resolve_offset_column(data, col_map, recipe.offset_column.as_deref())
+        .map_err(|e| e.to_string())?;
+
+    // Build the CTN covariate basis from the recipe's formula RHS and FREEZE it
+    // ONCE on full data, so every fold refit reuses identical spatial centers /
+    // knots ⇒ identical p_cov across folds (design §3). The freeze is what makes
+    // the per-fold covariate designs column-aligned.
+    let parsed_cov = parse_formula(&format!(
+        "{} ~ {}",
+        recipe.response_column, recipe.covariate_formula_rhs
+    ))
+    .map_err(|e| e.to_string())?;
+    let mut frozen_notes = Vec::new();
+    let covariate_spec_raw = build_termspec_with_geometry_and_overrides(
+        &parsed_cov.terms,
+        data,
+        col_map,
+        &mut frozen_notes,
+        false,
+        policy,
+        None,
+    )
+    .map_err(|e| e.to_string())?;
+    let full_cov_design = build_term_collection_design(data.values.view(), &covariate_spec_raw)
+        .map_err(|e| e.to_string())?;
+    let frozen_cov_spec =
+        crate::smooth::freeze_term_collection_from_design(&covariate_spec_raw, &full_cov_design)
+            .map_err(|e| e.to_string())?;
+    let p_cov = full_cov_design.design.ncols();
+
+    let k = crossfit_fold_count(n);
+    let folds = crossfit_partition(n, k);
+
+    // Pre-resolve the response-basis internal-knot count at the *smallest* fold
+    // complement size. The CTN sample cap on this count is monotone in the
+    // complement size, so pinning the per-fold config to the value resolved at
+    // the smallest complement makes every fold resolve to the same count —
+    // hence a fold-invariant p_resp and an aligned p₁ across folds (design §3).
+    let min_complement = folds.iter().map(|held| n - held.len()).min().unwrap_or(n);
+    let mut fold_config = recipe.config.clone();
+    fold_config.response_num_internal_knots =
+        crate::families::transformation_normal::effective_response_num_internal_knots(
+            &recipe.config,
+            min_complement,
+            p_cov,
+        );
+
+    let mut z_oof = Array1::<f64>::zeros(n);
+    let mut jac_oof: Option<Array2<f64>> = None;
+
+    for held in &folds {
+        if held.is_empty() {
+            continue;
+        }
+        let held_set: std::collections::HashSet<usize> = held.iter().copied().collect();
+        let complement: Vec<usize> = (0..n).filter(|i| !held_set.contains(i)).collect();
+        if complement.is_empty() {
+            return Err(
+                "cross-fit fold left an empty training complement; too few rows for K folds"
+                    .to_string(),
+            );
+        }
+
+        // Refit the CTN on the complement (training) rows. The covariate design
+        // it uses comes from the frozen spec, so its column geometry matches the
+        // held-out Jacobian evaluation below and every other fold.
+        let train_cov = data.values.select(Axis(0), &complement);
+        let train_resp = crossfit_select_rows_1d(&response_full, &complement);
+        let train_weights = crossfit_select_rows_1d(&weights_full, &complement);
+        let train_offset = crossfit_select_rows_1d(&offset_full, &complement);
+
+        let fold_fit = fit_transformation_normal(
+            &train_resp,
+            &train_weights,
+            &train_offset,
+            train_cov.view(),
+            &frozen_cov_spec,
+            &fold_config,
+            &BlockwiseFitOptions::default(),
+            &SpatialLengthScaleOptimizationOptions::default(),
+            None,
+        )?;
+
+        // Evaluate the OOF score z and the OOF influence Jacobian J on fold f's
+        // held-out rows from this fold's fitted CTN.
+        let held_cov = data.values.select(Axis(0), held);
+        let held_resp = crossfit_select_rows_1d(&response_full, held);
+
+        let jac = crate::families::marginal_slope_orthogonal::score_influence_jacobian(
+            &fold_fit,
+            &held_resp,
+            held_cov.view(),
+        )?;
+
+        if jac.columns.nrows() != held.len() {
+            return Err(format!(
+                "cross-fit fold Jacobian row count {} != held-out fold size {}",
+                jac.columns.nrows(),
+                held.len()
+            ));
+        }
+        if jac.z.len() != held.len() {
+            return Err(format!(
+                "cross-fit fold OOF z length {} != held-out fold size {}",
+                jac.z.len(),
+                held.len()
+            ));
+        }
+
+        let p1 = jac.columns.ncols();
+        let jac_full = jac_oof.get_or_insert_with(|| Array2::<f64>::zeros((n, p1)));
+        if jac_full.ncols() != p1 {
+            return Err(format!(
+                "cross-fit fold p₁ mismatch: this fold has {p1} columns but a prior fold had {}; \
+                 the frozen response/covariate basis failed to align across folds",
+                jac_full.ncols()
+            ));
+        }
+
+        for (local, &global) in held.iter().enumerate() {
+            z_oof[global] = jac.z[local];
+            for c in 0..p1 {
+                jac_full[[global, c]] = jac.columns[[local, c]];
+            }
+        }
+    }
+
+    let jac_oof = jac_oof.ok_or_else(|| {
+        "cross-fit produced no folds with held-out rows; cannot assemble OOF Jacobian".to_string()
+    })?;
+
+    Ok(Some(CrossFitScoreCalibration { z_oof, jac_oof }))
+}
+
 pub fn fit_model(request: FitRequest<'_>) -> Result<FitResult, WorkflowError> {
     // Single warm-start chokepoint: open a persistent cache session
     // keyed on the FitRequest's exact family-shape fingerprint, and
@@ -2909,6 +3583,18 @@ pub struct FitConfig {
     pub z_column: Option<String>,
     /// Optional non-negative per-row training weights column.
     pub weight_column: Option<String>,
+    /// Internal CTN Stage-1 provenance for the marginal-slope `z` column.
+    ///
+    /// When the marginal-slope `z` was generated by a transformation-normal
+    /// Stage-1 fit, the orchestration layer fills this with the Stage-1 recipe.
+    /// Its presence is the sole auto-enable signal for cross-fitted, Neyman-
+    /// orthogonal score calibration (#461): the materializer cross-fits the CTN
+    /// to produce out-of-fold `z` and the score-influence Jacobian `J`, replaces
+    /// the raw `z` with `z_oof`, and absorbs `J` as a leakage-projection block in
+    /// Stage-2. This is in-process plumbing only — there is no CLI flag, env var,
+    /// or feature gate. `None` ⇒ raw `z` with the free-warp `score_warp`
+    /// fallback. See [`CtnStage1Recipe`].
+    pub ctn_stage1: Option<CtnStage1Recipe>,
 
     // Fitting options
     pub scale_dimensions: bool,
@@ -3015,6 +3701,7 @@ impl Default for FitConfig {
             logslope_formula: None,
             z_column: None,
             weight_column: None,
+            ctn_stage1: None,
             scale_dimensions: false,
             adaptive_regularization: None,
             ridge_lambda: 1e-6,
@@ -4941,10 +5628,19 @@ fn materialize_bernoulli_marginal_slope<'a>(
         .logslope_formula
         .as_deref()
         .ok_or_else(|| "Bernoulli marginal-slope requires logslope_formula".to_string())?;
-    let z_column = config
-        .z_column
-        .as_deref()
-        .ok_or_else(|| "Bernoulli marginal-slope requires z_column".to_string())?;
+    // `z_column` is OPTIONAL when a CTN Stage-1 recipe is present: the calibrated
+    // chain produces `z` out-of-fold from the cross-fitted CTN, so there is no
+    // raw dose column to read (and no throwaway pre-fit column — that round-trip
+    // is what the no-slop cutover removes, #461). Without a recipe, the primitive
+    // standalone marginal-slope still requires a raw `z_column` dose.
+    let z_column = config.z_column.as_deref();
+    if z_column.is_none() && config.ctn_stage1.is_none() {
+        return Err(WorkflowError::InvalidConfig {
+            reason: "Bernoulli marginal-slope requires z_column (or a CTN Stage-1 recipe via \
+                     ctn_stage1, which produces z by cross-fitting)"
+                .to_string(),
+        });
+    }
 
     let (_, parsed_logslope) =
         parse_matching_auxiliary_formula(logslope_formula, &parsed.response, "logslope_formula")?;
@@ -4954,13 +5650,15 @@ fn materialize_bernoulli_marginal_slope<'a>(
         }
         .into());
     }
-    validate_marginal_slope_z_column_exclusion(
-        parsed,
-        &parsed_logslope,
-        z_column,
-        "Bernoulli marginal-slope",
-        "logslope_formula",
-    )?;
+    if let Some(z_column) = z_column {
+        validate_marginal_slope_z_column_exclusion(
+            parsed,
+            &parsed_logslope,
+            z_column,
+            "Bernoulli marginal-slope",
+            "logslope_formula",
+        )?;
+    }
 
     let mut inference_notes = Vec::new();
     // Bernoulli marginal-slope: structurally operator-only at biobank scale, so
@@ -4972,7 +5670,13 @@ fn materialize_bernoulli_marginal_slope<'a>(
             marginal_slope_biobank_active: true,
         },
     );
-    let aliased_col_map = column_map_with_alias(col_map, "z", z_column);
+    // Alias `z` to the dose column only when a raw z_column is supplied; with a
+    // CTN Stage-1 chain there is no dose column and the formulas reference only
+    // the x covariates.
+    let aliased_col_map = match z_column {
+        Some(z_column) => column_map_with_alias(col_map, "z", z_column),
+        None => col_map.clone(),
+    };
     let marginalspec = build_termspec_with_geometry_and_overrides(
         &parsed.terms,
         data,
@@ -4991,8 +5695,6 @@ fn materialize_bernoulli_marginal_slope<'a>(
         &policy,
         config.smooth_overrides.as_ref(),
     )?;
-    let z_idx = resolve_role_col(col_map, z_column, "z")?;
-    let z = data.values.column(z_idx).to_owned();
     let weights = resolve_weight_column(data, col_map, config.weight_column.as_deref())?;
     let marginal_offset = resolve_offset_column(data, col_map, config.offset_column.as_deref())?;
     let logslope_offset =
@@ -5001,6 +5703,26 @@ fn materialize_bernoulli_marginal_slope<'a>(
         parsed.linkwiggle.as_ref(),
         parsed_logslope.linkwiggle.as_ref(),
     )?;
+
+    // Auto-enable Neyman-orthogonal, cross-fitted score calibration when a CTN
+    // Stage-1 recipe is present (design §5). Cross-fitting yields out-of-fold `z`
+    // (the calibrated dose, with no raw column read) and the score-influence
+    // Jacobian `J`, absorbed by Stage-2 as the realized leakage-projection block.
+    // With no CTN Stage-1 recipe, `z` is the raw dose column and the free-warp
+    // `score_warp` is the fallback basis.
+    let (z, score_influence_jacobian) =
+        match crossfit_score_calibration(data, col_map, config.ctn_stage1.as_ref(), &policy)
+            .map_err(|reason| WorkflowError::IntegrationFailed { reason })?
+        {
+            Some(calibration) => (calibration.z_oof, Some(calibration.jac_oof)),
+            None => {
+                // No recipe ⇒ a raw z_column is required (guarded above) and read here.
+                let z_column = z_column.expect("z_column presence checked when ctn_stage1 is None");
+                let z_idx = resolve_role_col(col_map, z_column, "z")?;
+                (data.values.column(z_idx).to_owned(), None)
+            }
+        };
+
     let spec = BernoulliMarginalSlopeTermSpec {
         y,
         weights,
@@ -5014,6 +5736,7 @@ fn materialize_bernoulli_marginal_slope<'a>(
         score_warp: routing.score_warp,
         link_dev: routing.link_dev,
         latent_z_policy: Default::default(),
+        score_influence_jacobian,
     };
 
     Ok(MaterializedModel {
@@ -5208,14 +5931,22 @@ fn materialize_survival<'a>(
             marginal_slope_biobank_active: survival_mode == SurvivalLikelihoodMode::MarginalSlope,
         },
     );
+    // Alias `z` to the dose column for the marginal termspec only when a raw
+    // z_column is supplied. With a CTN Stage-1 recipe there is no dose column
+    // (z is produced out-of-fold by cross-fitting) and the marginal formula
+    // references only the x covariates, so no alias is needed.
     let marginal_slope_aliased_col_map = if survival_mode == SurvivalLikelihoodMode::MarginalSlope {
-        Some(column_map_with_alias(
-            col_map,
-            "z",
-            config.z_column.as_deref().ok_or_else(|| {
-                "marginal-slope survival requires z_column in FitConfig".to_string()
-            })?,
-        ))
+        match config.z_column.as_deref() {
+            Some(z_column) => Some(column_map_with_alias(col_map, "z", z_column)),
+            None if config.ctn_stage1.is_some() => None,
+            None => {
+                return Err(WorkflowError::InvalidConfig {
+                    reason: "marginal-slope survival requires z_column in FitConfig (or a CTN \
+                             Stage-1 recipe via ctn_stage1, which produces z by cross-fitting)"
+                        .to_string(),
+                });
+            }
+        }
     } else {
         None
     };
@@ -5283,23 +6014,53 @@ fn materialize_survival<'a>(
             &policy,
             config.smooth_overrides.as_ref(),
         )?
-    } else if survival_mode == SurvivalLikelihoodMode::LocationScale {
-        termspec.clone()
     } else {
+        // No `noise_formula` ⇒ default to an empty log-σ spec for every
+        // survival likelihood (constant log-σ baseline owned by the family
+        // adapter). The previous `LocationScale`-only branch cloned the
+        // mean `termspec` here, which duplicated every threshold term onto
+        // the log-σ block. For a smooth `s(x)` on the mean that was
+        // structurally fatal: the canonical-gauge identifiability audit
+        // saw the log-σ block as exact-aliased to threshold and (per the
+        // descending priorities time=200 > threshold=150 > log_sigma=120,
+        // issue #366) attributed/dropped every log-σ column, leaving the
+        // solver's `ParameterBlockSpec` design at width 0 while the
+        // family kept the un-audited `x_log_sigma` at the smooth's width.
+        // `SurvivalLocationScaleFamily::exact_newton_joint_gradient_evaluation`
+        // then errored "joint gradient length mismatch for block 2: got
+        // <smooth width>, expected 0" on every REML startup seed (#512).
+        // The empty default routes through the same
+        // `infer_non_intercept_start_design`/`design_column_tail`
+        // contract every other mode uses (yielding a 0-column
+        // `x_log_sigma` that matches the spec), so the family and spec
+        // agree by construction.
         TermCollectionSpec {
             linear_terms: vec![],
             random_effect_terms: vec![],
             smooth_terms: vec![],
         }
     };
-    let marginal_z_column_name =
-        if survival_mode == SurvivalLikelihoodMode::MarginalSlope {
-            Some(config.z_column.as_deref().ok_or_else(|| {
-                "marginal-slope survival requires z_column in FitConfig".to_string()
-            })?)
-        } else {
-            None
-        };
+    // `z_column` is OPTIONAL for the survival marginal-slope when a CTN Stage-1
+    // recipe is present: the calibrated chain produces the single `z` surface
+    // out-of-fold from the cross-fitted CTN, so there is no raw dose column to
+    // read (no throwaway pre-fit column — the no-slop cutover, #461). Without a
+    // recipe, the primitive standalone survival marginal-slope still requires a
+    // raw `z_column` dose.
+    let marginal_z_column_name = if survival_mode == SurvivalLikelihoodMode::MarginalSlope {
+        match config.z_column.as_deref() {
+            Some(name) => Some(name),
+            None if config.ctn_stage1.is_some() => None,
+            None => {
+                return Err(WorkflowError::InvalidConfig {
+                    reason: "marginal-slope survival requires z_column in FitConfig (or a CTN \
+                             Stage-1 recipe via ctn_stage1, which produces z by cross-fitting)"
+                        .to_string(),
+                });
+            }
+        }
+    } else {
+        None
+    };
     let (
         marginal_z,
         marginal_logslopespec,
@@ -5308,9 +6069,71 @@ fn materialize_survival<'a>(
         marginal_slope_base_link,
     ) = if survival_mode == SurvivalLikelihoodMode::MarginalSlope {
         let base_link = resolve_survival_marginal_slope_base_link(parsed.linkspec.as_ref())?;
-        let default_z_column =
-            marginal_z_column_name.expect("marginal-slope z column should be available");
-        if let Some(ls_formula) = config.logslope_formula.as_deref() {
+        if marginal_z_column_name.is_none() {
+            // Calibrated chain: the CTN Stage-1 recipe produces a SINGLE z surface
+            // out-of-fold, so no dose column is read. Stand in an n×1 placeholder
+            // surface (the cross-fit below overrides column 0) and build the
+            // logslope surface from the formula (or the marginal termspec). The
+            // single-surface invariant matches the cross-fit guard further down.
+            let placeholder_z = Array2::<f64>::zeros((data.values.nrows(), 1));
+            let (logslopespec, routing) = if let Some(ls_formula) =
+                config.logslope_formula.as_deref()
+            {
+                let (_, ls_parsed) = parse_matching_auxiliary_formula(
+                    ls_formula,
+                    &parsed.response,
+                    "logslope_formula",
+                )?;
+                if ls_parsed.linkspec.is_some() {
+                    return Err(
+                        "link(...) is not supported in logslope_formula for the survival marginal-slope family"
+                            .to_string()
+                            .into(),
+                    );
+                }
+                if ls_parsed.timewiggle.is_some() {
+                    return Err(
+                        "timewiggle(...) is not supported in logslope_formula for the survival marginal-slope family"
+                            .to_string()
+                            .into(),
+                    );
+                }
+                if ls_parsed.survivalspec.is_some() {
+                    return Err(
+                        "survmodel(...) is not supported in logslope_formula for the survival marginal-slope family"
+                            .to_string()
+                            .into(),
+                    );
+                }
+                let spec = build_termspec_with_geometry_and_overrides(
+                    &ls_parsed.terms,
+                    data,
+                    col_map,
+                    &mut inference_notes,
+                    config.scale_dimensions,
+                    &policy,
+                    config.smooth_overrides.as_ref(),
+                )?;
+                let routing = route_marginal_slope_deviation_blocks(
+                    parsed.linkwiggle.as_ref(),
+                    ls_parsed.linkwiggle.as_ref(),
+                )?;
+                (spec, routing)
+            } else {
+                (
+                    termspec.clone(),
+                    route_marginal_slope_deviation_blocks(parsed.linkwiggle.as_ref(), None)?,
+                )
+            };
+            (
+                Some(placeholder_z),
+                Some(logslopespec.clone()),
+                Some(vec![logslopespec]),
+                routing,
+                Some(base_link),
+            )
+        } else if let Some(ls_formula) = config.logslope_formula.as_deref() {
+            let default_z_column = marginal_z_column_name.expect("z column present when no recipe");
             let (_, ls_parsed) =
                 parse_matching_auxiliary_formula(ls_formula, &parsed.response, "logslope_formula")?;
             if ls_parsed.linkspec.is_some() {
@@ -5369,6 +6192,7 @@ fn materialize_survival<'a>(
                 Some(base_link),
             )
         } else {
+            let default_z_column = marginal_z_column_name.expect("z column present when no recipe");
             validate_marginal_slope_z_column_exclusion(
                 parsed,
                 parsed,
@@ -5400,6 +6224,40 @@ fn materialize_survival<'a>(
     };
     let marginal_slope_score_warp = marginal_slope_deviation_routing.score_warp;
     let marginal_slope_link_dev = marginal_slope_deviation_routing.link_dev;
+
+    // Auto-enable Neyman-orthogonal, cross-fitted score calibration when the
+    // survival marginal-slope `z` was generated by a CTN Stage-1 fit (design
+    // §5). Computed once (it refits the CTN K times) — outside the per-baseline
+    // request closure below. When active it replaces the (single) CTN-generated
+    // z surface with its out-of-fold value and captures the score-influence
+    // Jacobian `J` for Stage-2's leakage-projection block. With no CTN Stage-1
+    // recipe, the raw z surfaces stand and `score_warp` is the fallback basis.
+    let crossfit_calibration = if survival_mode == SurvivalLikelihoodMode::MarginalSlope {
+        crossfit_score_calibration(data, col_map, config.ctn_stage1.as_ref(), &policy)
+            .map_err(|reason| WorkflowError::IntegrationFailed { reason })?
+    } else {
+        None
+    };
+    let (marginal_z, marginal_slope_jac_oof) = match (marginal_z, crossfit_calibration) {
+        (Some(mut z_surfaces), Some(calibration)) => {
+            // A CTN Stage-1 chain produces exactly one latent score surface; the
+            // OOF projection is defined against that single column.
+            if z_surfaces.ncols() != 1 {
+                return Err(WorkflowError::InvalidConfig {
+                    reason: format!(
+                        "cross-fitted score calibration applies to a single CTN-generated z \
+                         surface, but the survival marginal-slope model has {} z surfaces; \
+                         multi-surface logslope is incompatible with the CTN Stage-1 chain",
+                        z_surfaces.ncols()
+                    ),
+                });
+            }
+            z_surfaces.column_mut(0).assign(&calibration.z_oof);
+            (Some(z_surfaces), Some(calibration.jac_oof))
+        }
+        (z, _) => (z, None),
+    };
+
     if survival_mode == SurvivalLikelihoodMode::MarginalSlope {
         if parsed.linkwiggle.is_some() {
             inference_notes.push(
@@ -5608,6 +6466,7 @@ fn materialize_survival<'a>(
                     score_warp: marginal_slope_score_warp.clone(),
                     link_dev: marginal_slope_link_dev.clone(),
                     latent_z_policy: Default::default(),
+                    score_influence_jacobian: marginal_slope_jac_oof.clone(),
                 },
                 options: BlockwiseFitOptions {
                     compute_covariance: false,

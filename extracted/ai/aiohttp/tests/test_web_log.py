@@ -1,7 +1,7 @@
 import datetime
 import logging
 import platform
-from typing import Any, Optional
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -87,7 +87,7 @@ def test_access_logger_atoms(
 ) -> None:
     class PatchedDatetime(datetime.datetime):
         @classmethod
-        def now(cls, tz: Optional[datetime.tzinfo] = None) -> "PatchedDatetime":
+        def now(cls, tz: datetime.tzinfo | None = None) -> "PatchedDatetime":
             assert tz is not None
             # Simulate: real UTC time is 1842-12-31 16:30, convert to local tz
             utc = datetime.datetime(1842, 12, 31, 16, 30, tzinfo=datetime.timezone.utc)
@@ -145,7 +145,7 @@ def test_access_logger_dst_timezone(monkeypatch: pytest.MonkeyPatch) -> None:
 
     class PatchedDatetime(datetime.datetime):
         @classmethod
-        def now(cls, tz: Optional[datetime.tzinfo] = None) -> "PatchedDatetime":
+        def now(cls, tz: datetime.tzinfo | None = None) -> "PatchedDatetime":
             assert tz is not None
             # Simulate: real UTC time is 07:00, convert to local tz
             utc = datetime.datetime(2024, 3, 10, 7, 0, 0, tzinfo=datetime.timezone.utc)

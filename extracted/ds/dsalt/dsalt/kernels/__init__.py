@@ -7,8 +7,10 @@ from .window_utils import (
     build_rope_cache,
 )
 from .landmark_tokens_ker import (
+    hybrid_scores_per_head,
     compute_hybrid_scores,
     select_landmarks,
+    soft_landmark_weights,
     HybridEnergyLandmarkSelector,
 )
 from .sparse_attn import (
@@ -16,28 +18,39 @@ from .sparse_attn import (
     sparse_attention_forward_packed,
 )
 
-from .dsalt_triton_bwd import dsalt_triton_backward
-
-from .cross_entropy import LigerFusedLinearCrossEntropyFunction
-
+# The Triton kernels are optional: without Triton/CUDA the library stays
+# importable and uses the SDPA fallback (sparse_attn). The Triton objects are
+# ``None`` when the backend is unavailable.
 try:
+    from .dsalt_triton_bwd import dsalt_triton_backward
     from .dsalt_triton_attn import dsalt_triton_attention
+    from .cross_entropy import LigerFusedLinearCrossEntropyFunction
+    from .autotune import autotune_blocks, get_tuned_config
     _TRITON_OK = True
 except Exception:
+    dsalt_triton_backward                 = None
+    dsalt_triton_attention                = None
+    LigerFusedLinearCrossEntropyFunction  = None
+    autotune_blocks                       = None
+    get_tuned_config                      = None
     _TRITON_OK = False
 
 __all__ = [
     "dsalt_triton_backward",
     "LigerFusedLinearCrossEntropyFunction",
     "dsalt_triton_attention",
+    "autotune_blocks",
+    "get_tuned_config",
     "RMSENorm",
     "compute_window_sizes",
     "build_local_window_mask",
     "build_local_window_mask_packed",
     "apply_rotary_emb",
     "build_rope_cache",
+    "hybrid_scores_per_head",
     "compute_hybrid_scores",
     "select_landmarks",
+    "soft_landmark_weights",
     "HybridEnergyLandmarkSelector",
     "sparse_attention_forward",
     "sparse_attention_forward_packed",

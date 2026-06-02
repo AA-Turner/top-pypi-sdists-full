@@ -171,6 +171,21 @@ def cmd_create(args: list[str]) -> dict:
     recommended_mode = task_mode or ("lightweight" if (is_lightweight or recommendation["use_lightweight"]) else "full")
     mode_msg = f"Mode: {recommended_mode}" if task_mode else f"Select mode (full/lightweight/custom/quick) before running"
 
+    # Scan for custom modes from workflow.json + .kanban/workflows/ directory
+    available_modes = ["full", "lightweight", "quick", "custom"]
+    try:
+        from kanban_framework.domain.workflow_loader import scan_workflows
+        custom = scan_workflows(fs.kanban_dir)
+        # Also check workflow.json modes (may not have directory file yet)
+        from kanban_framework.infra.config import Config
+        cfg = Config(fs)
+        wf_modes = cfg.workflow.get("modes", {})
+        for name in sorted(set(list(custom.keys()) + list(wf_modes.keys()))):
+            if name not in ("full", "lightweight", "quick") and name not in available_modes:
+                available_modes.append(name)
+    except Exception:
+        pass
+
     knowledge_hints = []
     if not parsed.draft and not parsed.no_knowledge:
         try:
@@ -235,7 +250,7 @@ def cmd_create(args: list[str]) -> dict:
         "recommendation": recommendation,
         "mode_confirmation_pending": mode_confirmation_pending,
         "mode_options": {
-            "available": ["full", "lightweight", "quick", "custom"],
+            "available": available_modes,
             "recommended": recommended_mode,
             "recommendation_reason": ai.get("reason", ""),
         },

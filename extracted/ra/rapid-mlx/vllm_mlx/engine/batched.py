@@ -743,6 +743,70 @@ class BatchedEngine(BaseEngine):
         self._engine_started = False
         logger.info("BatchedEngine stopped")
 
+    def build_prompt(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict] | None = None,
+        enable_thinking: bool | None = None,
+    ) -> str:
+        """Render the chat prompt for ``messages`` + ``tools`` without starting
+        generation.
+
+        Used by:
+          * Cloud routing (``routes/chat.py``) — needs the prompt to estimate
+            new-token count before deciding whether to offload to the remote
+            LLM. Without this method, the ``hasattr(engine, "build_prompt")``
+            guard at the call site silently disables cloud routing entirely
+            (issue #500 — regression introduced when SimpleEngine was deleted
+            in #155, which previously hosted this method).
+          * Streaming chat-template eager validation — surface ``TemplateError``
+            as HTTP 400 instead of mid-stream failures.
+
+        MLLM models are intentionally rejected: cloud routing requires text
+        token estimation and the relevant guard sites already exclude
+        ``engine.is_mllm``.
+        """
+        if not self._loaded:
+            raise RuntimeError("Engine not loaded — call start() first")
+        if self._is_mllm:
+            raise RuntimeError("build_prompt is not supported for MLLM models")
+        template_tools = convert_tools_for_template(tools) if tools else None
+        return self._apply_chat_template(
+            messages,
+            tools=template_tools,
+            enable_thinking=enable_thinking,
+        )
+
+    def estimate_new_tokens(self, prompt: str) -> tuple[int, int]:
+        """Return ``(total_tokens, new_tokens)`` for ``prompt``.
+
+        Used by cloud routing (``routes/chat.py``) to decide whether the
+        request crosses the ``--cloud-threshold`` and should be offloaded
+        to the remote LLM. The ``new`` half is the count of tokens that
+        would need fresh prefill — i.e. total minus the prefix already
+        warm in cache.
+
+        BatchedEngine serves many concurrent requests over a shared
+        per-model prefix cache (``vllm_mlx/memory_cache.py``), so there is
+        no single per-engine ``_cached_token_ids`` to peek at the way
+        ``SimpleEngine`` did pre-#155. We return ``(total, total)`` —
+        conservative: any cache overlap is unaccounted for, so requests
+        will route to cloud slightly more often than strictly necessary.
+        Correctness is preserved (the threshold semantics still hold);
+        only an optional perf optimization is lost. Cache-aware variant
+        is tracked separately.
+        """
+        if not self._loaded:
+            raise RuntimeError("Engine not loaded — call start() first")
+        if self._is_mllm:
+            raise RuntimeError("estimate_new_tokens is not supported for MLLM models")
+        tokenizer = self.tokenizer
+        bos = getattr(tokenizer, "bos_token", None)
+        add_special_tokens = bos is None or not prompt.startswith(bos)
+        token_ids = tokenizer.encode(prompt, add_special_tokens=add_special_tokens)
+        total = len(token_ids)
+        return total, total
+
     def _apply_chat_template(
         self,
         messages: list[dict[str, Any]],

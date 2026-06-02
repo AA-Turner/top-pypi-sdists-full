@@ -157,6 +157,10 @@ def integration_tests(
     n: str | None = None,
 ) -> None:
     """
+    Integration tests have moved to workflow_sdk_tests/.
+    This task now delegates to the new package. For webhook plugin integration tests,
+    those remain at plugins/webhook/tests/integration.
+
     Prerequisites: Dev environment must be running in abraxas (../abraxas).
     The MISTRAL_API_KEY environment variable must be set or ../abraxas/.api_key file must exist.
     """
@@ -169,22 +173,34 @@ def integration_tests(
         logger.error("Please start the dev environment with 'cd ../abraxas && make dev'.")
         raise Exit(code=1)
 
-    test_command = "uv run --extra webhook pytest tests/ plugins/webhook/tests/integration -m integration"
-    if s:
-        test_command += " -s"
-    if k:
-        test_command += f" -k {k}"
-    if v:
-        test_command += " -v"
-    if n:
-        test_command += f" -n {n}"
-    else:
-        test_command += " -n auto"
-
     env: dict[str, str] = {"MISTRAL_API_KEY": api_key}
 
-    try:
-        result = exec_command_with_env(c, test_command, env)
-        check_exit_codes([result])
-    except Failure:
-        raise
+    exit_codes: list[int | None] = []
+
+    # Run the main integration tests from the new package
+    sdk_tests_cmd = "uv run --directory ../workflow_sdk_tests invoke integration-tests"
+    if s:
+        sdk_tests_cmd += " -s"
+    if k:
+        sdk_tests_cmd += f" -k {k}"
+    if v:
+        sdk_tests_cmd += " -v"
+    if n:
+        sdk_tests_cmd += f" -n {n}"
+    exit_codes.append(exec_command_with_env(c, sdk_tests_cmd, env))
+
+    # Run webhook plugin integration tests (still in this repo)
+    webhook_cmd = "uv run --extra webhook pytest plugins/webhook/tests/integration -m integration"
+    if s:
+        webhook_cmd += " -s"
+    if k:
+        webhook_cmd += f" -k {k}"
+    if v:
+        webhook_cmd += " -v"
+    if n:
+        webhook_cmd += f" -n {n}"
+    else:
+        webhook_cmd += " -n auto"
+    exit_codes.append(exec_command_with_env(c, webhook_cmd, env))
+
+    check_exit_codes(exit_codes)

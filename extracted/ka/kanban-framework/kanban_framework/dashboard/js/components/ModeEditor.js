@@ -1,4 +1,5 @@
 import { ref, reactive, watch, computed } from 'vue';
+import { api } from '../utils/api.js';
 
 const PHASE_ORDER = ['plan', 'plan_review', 'qa_spec', 'spec_review', 'execute', 'evaluate', 'retrospective', 'user_decision', 'archive'];
 const PHASE_LABELS = {
@@ -38,19 +39,50 @@ export const ModeEditor = {
     watch(() => props.modes, v => initModes(v));
 
     const customNames = computed(() => Object.keys(customModes));
+    const editTemplate = ref('');
+    const isNewMode = computed(() => !editName.value || !customModes[editName.value]);
+
+    const availableTemplates = computed(() => {
+      const names = [...BUILTIN_NAMES];
+      if (props.modes && typeof props.modes === 'object') {
+        for (const [n, cfg] of Object.entries(props.modes)) {
+          if (cfg && cfg.phase_order && !names.includes(n)) names.push(n);
+        }
+      }
+      return names;
+    });
 
     function startAdd() {
       editName.value = '';
+      editTemplate.value = '';
       editPhases.splice(0, editPhases.length, ...['execute']);
+    }
+
+    function applyTemplate(templateName) {
+      if (!templateName) {
+        editPhases.splice(0, editPhases.length);
+        return;
+      }
+      editTemplate.value = templateName;
+      // Copy phase_order from the template mode
+      const modes = props.modes || {};
+      const cfg = modes[templateName];
+      if (cfg && cfg.phase_order) {
+        editPhases.splice(0, editPhases.length, ...cfg.phase_order);
+      } else if (BUILTIN_ORDERS[templateName]) {
+        editPhases.splice(0, editPhases.length, ...BUILTIN_ORDERS[templateName]);
+      }
     }
 
     function startEdit(name) {
       editName.value = name;
+      editTemplate.value = '';
       editPhases.splice(0, editPhases.length, ...(customModes[name].phase_order || []));
     }
 
     function cancelEdit() {
       editName.value = '';
+      editTemplate.value = '';
       editPhases.splice(0, editPhases.length);
     }
 
@@ -68,10 +100,49 @@ export const ModeEditor = {
       editPhases[t] = tmp;
     }
 
-    function saveMode() {
+    async function saveMode() {
       if (!editName.value.trim()) return;
       const name = editName.value.trim();
-      customModes[name] = reactive({ phase_order: [...editPhases] });
+      const modeData = { phase_order: [...editPhases] };
+      // Copy phases (steps) from template if selected
+      if (editTemplate.value) {
+        let tplPhases = null;
+        const tplCfg = (props.modes || {})[editTemplate.value];
+        if (tplCfg && tplCfg.phases && tplCfg.phases.length > 0) {
+          tplPhases = tplCfg.phases;
+        } else {
+          // Fallback: fetch step definitions from API and build phases
+          try {
+            const data = await api.getStepDefinitions();
+            const defs = (data && data.steps) || {};
+            tplPhases = [];
+            for (const pid of editPhases) {
+              const phaseSteps = defs[pid];
+              if (phaseSteps && typeof phaseSteps === 'object') {
+                const steps = Object.entries(phaseSteps).map(([stepId, info]) => ({
+                  id: stepId,
+                  description: info.description || '',
+                  agent_type: info.agent_type || '',
+                  spawn_prompt: info.spawn_prompt || '',
+                  actions: info.actions || [],
+                  ...(info.after ? { after: info.after } : {}),
+                  ...(info.parallel ? { parallel: true } : {}),
+                  ...(info.user_action ? { user_action: true } : {}),
+                  ...(info.interactive ? { interactive: true } : {}),
+                  ...(info.type && info.type !== 'action' ? { type: info.type } : {}),
+                }));
+                tplPhases.push({ id: pid, steps });
+              }
+            }
+          } catch (_) {
+            tplPhases = [];
+          }
+        }
+        if (tplPhases && tplPhases.length > 0) {
+          modeData.phases = JSON.parse(JSON.stringify(tplPhases));
+        }
+      }
+      customModes[name] = reactive(modeData);
       cancelEdit();
       emitModes();
     }
@@ -89,17 +160,27 @@ export const ModeEditor = {
       const out = {};
       for (const n of BUILTIN_NAMES) {
         out[n] = { phase_order: [...BUILTIN_ORDERS[n]] };
+        // Preserve any phases/steps configured via StepEditor
+        if (props.modes && props.modes[n] && props.modes[n].phases) {
+          out[n].phases = props.modes[n].phases;
+        }
       }
       for (const [n, cfg] of Object.entries(customModes)) {
         out[n] = { phase_order: [...cfg.phase_order] };
+        // Preserve phases from customModes (e.g. from template), then from existing workflow
+        if (cfg.phases && cfg.phases.length > 0) {
+          out[n].phases = cfg.phases;
+        } else if (props.modes && props.modes[n] && props.modes[n].phases) {
+          out[n].phases = props.modes[n].phases;
+        }
       }
       emit('update:modes', out);
     }
 
     return {
       PHASE_ORDER, PHASE_LABELS, BUILTIN_NAMES, BUILTIN_ORDERS,
-      customModes, customNames, editName, editPhases,
-      startAdd, startEdit, cancelEdit, togglePhase, movePhase, saveMode, deleteMode, editSteps,
+      customModes, customNames, editName, editPhases, editTemplate, availableTemplates, isNewMode,
+      startAdd, startEdit, cancelEdit, togglePhase, movePhase, applyTemplate, saveMode, deleteMode, editSteps,
     };
   },
   template: `
@@ -113,13 +194,25 @@ export const ModeEditor = {
       </p>
 
       <!-- Edit form -->
-      <div v-if="editPhases.length > 0" class="mode-edit-form">
+      <div v-if="editPhases.length > 0 || editName !== '' || editTemplate" class="mode-edit-form">
         <div class="field-row">
           <label class="field-label">模式名称</label>
           <input type="text" v-model="editName" placeholder="如 review_only"
                  class="field-input" :disabled="!!customModes[editName]" />
         </div>
-        <div class="field-row">
+        <div class="field-row" v-if="!editTemplate && isNewMode">
+          <label class="field-label">基于模板创建 (可选)</label>
+          <select v-model="editTemplate" class="field-select" @change="applyTemplate(editTemplate)">
+            <option value="">空白创建</option>
+            <option v-for="tpl in availableTemplates" :key="tpl" :value="tpl">{{ tpl }}</option>
+          </select>
+        </div>
+        <div class="field-row" v-if="editTemplate">
+          <label class="field-label">模板</label>
+          <span class="mode-template-badge">{{ editTemplate }}</span>
+          <button class="btn btn-sm btn-secondary" @click="editTemplate = ''; editPhases.splice(0, editPhases.length)">✕ 取消模板</button>
+        </div>
+        <div class="field-row" v-if="editPhases.length > 0">
           <label class="field-label">阶段序列</label>
           <div class="mode-phase-order">
             <div v-for="(pid, idx) in editPhases" :key="pid" class="mode-phase-chip">

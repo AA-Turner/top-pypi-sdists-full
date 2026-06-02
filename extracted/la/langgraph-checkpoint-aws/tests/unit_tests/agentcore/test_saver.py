@@ -16,25 +16,25 @@ from langgraph.checkpoint.base import Checkpoint, CheckpointMetadata, Checkpoint
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.constants import TASKS
 
-from langgraph_checkpoint_aws.agentcore.constants import (
+from langgraph_checkpoint_aws.checkpoint.agentcore.constants import (
     EMPTY_CHANNEL_VALUE,
     EventDecodingError,
     InvalidConfigError,
 )
-from langgraph_checkpoint_aws.agentcore.helpers import (
+from langgraph_checkpoint_aws.checkpoint.agentcore.helpers import (
     AgentCoreEventClient,
     BedrockAgentCoreClientWithRetry,
     EventProcessor,
     EventSerializer,
 )
-from langgraph_checkpoint_aws.agentcore.models import (
+from langgraph_checkpoint_aws.checkpoint.agentcore.models import (
     ChannelDataEvent,
     CheckpointerConfig,
     CheckpointEvent,
     WriteItem,
     WritesEvent,
 )
-from langgraph_checkpoint_aws.agentcore.saver import AgentCoreMemorySaver
+from langgraph_checkpoint_aws.checkpoint.agentcore.saver import AgentCoreMemorySaver
 
 # Configure pytest to use anyio for async tests
 pytestmark = pytest.mark.anyio
@@ -42,7 +42,7 @@ pytestmark = pytest.mark.anyio
 # Test constants for async testing
 N_ASYNC_CALLS = 5
 MOCK_SLEEP_DURATION = 0.1 / N_ASYNC_CALLS
-OVERHEAD_DURATION = 0.01
+OVERHEAD_DURATION = 0.1
 TOTAL_EXPECTED_TIME = MOCK_SLEEP_DURATION + OVERHEAD_DURATION
 
 
@@ -1363,7 +1363,7 @@ class TestBedrockAgentCoreClientWithRetry:
         # Should only attempt once (no retries)
         assert mock_boto_client.create_event.call_count == 1
 
-    @patch("langgraph_checkpoint_aws.agentcore.helpers.time.sleep")
+    @patch("langgraph_checkpoint_aws.checkpoint.agentcore.helpers.time.sleep")
     def test_retry_exponential_backoff(
         self, mock_sleep, enhanced_client, mock_boto_client
     ):

@@ -12,9 +12,9 @@ from mistralai.workflows.plugins._discovery import PLUGIN_NAMESPACE, list_plugin
 logger = structlog.get_logger(__name__)
 
 _EXCLUDED_PREFIXES = (
-    "mistralai.workflows.examples",
     "mistralai.workflows.plugins.webhook.examples",
     "mistralai.workflows.plugins.mistralai.connectors.examples",
+    "mistralai_workflow_tests",
 )
 
 _BASE_PASSTHROUGH_MODULES = ("mistralai.client.models",)

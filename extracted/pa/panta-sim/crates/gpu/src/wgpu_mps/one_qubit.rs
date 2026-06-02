@@ -68,9 +68,7 @@ pub(crate) fn build_one_qubit_pipeline(
     });
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("mps_1q shader"),
-        source: wgpu::ShaderSource::Wgsl(
-            include_str!("shaders/mps_one_qubit_gate.wgsl").into(),
-        ),
+        source: wgpu::ShaderSource::Wgsl(include_str!("shaders/mps_one_qubit_gate.wgsl").into()),
     });
     let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
         label: Some("mps_1q pipeline"),
@@ -140,7 +138,7 @@ pub fn dispatch_one_qubit_gate(
     });
 
     let total = left * right;
-    let workgroups = ((total as u32) + 63) / 64;
+    let workgroups = (total as u32).div_ceil(64);
     let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
         label: Some("mps_1q dispatch"),
     });
@@ -241,13 +239,13 @@ mod tests {
     fn rand_gate_2x2(seed: u64) -> [[Complex<f64>; 2]; 2] {
         let mut state = seed;
         let mut g = [[Complex::<f64>::new(0.0, 0.0); 2]; 2];
-        for r in 0..2 {
-            for c in 0..2 {
+        for row in &mut g {
+            for elem in row.iter_mut() {
                 state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
                 let re = ((state >> 33) as f64) / (u32::MAX as f64) * 2.0 - 1.0;
                 state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
                 let im = ((state >> 33) as f64) / (u32::MAX as f64) * 2.0 - 1.0;
-                g[r][c] = Complex::new(re, im);
+                *elem = Complex::new(re, im);
             }
         }
         g
@@ -289,9 +287,7 @@ mod tests {
                         usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
                     });
 
-            dispatch_one_qubit_gate(
-                &backend, &pipeline, &bgl, &tensor_buf, &gate, left, right,
-            );
+            dispatch_one_qubit_gate(&backend, &pipeline, &bgl, &tensor_buf, &gate, left, right);
 
             let gpu_data = download_buffer(
                 backend.device(),

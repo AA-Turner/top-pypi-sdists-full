@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: specutils
-Version: 2.3.0
+Version: 2.4.0
 Summary: Package for spectroscopic astronomical data
 Author: Specutils Developers
 Author-email: coordinators@astropy.org
@@ -33,7 +33,7 @@ Provides-Extra: jwst
 Requires-Dist: stdatamodels>=1.1.0; extra == "jwst"
 Provides-Extra: docs
 Requires-Dist: sphinx<9; extra == "docs"
-Requires-Dist: sphinx-astropy; extra == "docs"
+Requires-Dist: sphinx-astropy[confv3]>=1.11; extra == "docs"
 Requires-Dist: matplotlib; extra == "docs"
 Requires-Dist: graphviz; extra == "docs"
 Dynamic: license-file

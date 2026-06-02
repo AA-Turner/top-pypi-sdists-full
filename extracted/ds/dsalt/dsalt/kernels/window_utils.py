@@ -1,15 +1,23 @@
-import time
 import torch
-import torch.nn as nn
 
 
 def compute_window_sizes(
     x_prev: torch.Tensor,
-    proj:   nn.Linear,
     n_min:  int,
     n_max:  int,
 ) -> torch.Tensor:
-    return n_min + torch.sigmoid(proj(x_prev).squeeze(-1)) * (n_max - n_min)
+    """Per-token local window size.
+
+    In this version the window is **frozen** to the characteristic value
+    ``(n_min + n_max) // 2`` (§4.2): no learnable parameter, no dependence on a
+    per-token adaptivity degree. The model's demonstrated adaptivity is that of
+    the per-head ``alpha`` in landmark selection (§4.3).
+
+    Returns a constant tensor ``[T]`` aligned with ``x_prev``.
+    """
+    T = x_prev.shape[0]
+    w = (n_min + n_max) // 2
+    return torch.full((T,), float(w), device=x_prev.device, dtype=torch.float32)
 
 
 def build_local_window_mask(
@@ -48,7 +56,7 @@ def build_local_window_mask_packed(
     abs_lo = (starts[seq_ids] + lo_rel).clamp(min=0)
     abs_hi = (starts[seq_ids] + hi_rel).clamp(max=total_len - 1)
 
-    # difference array trick — zero Python loops, fully vectorized
+    # difference array trick, zero Python loops, fully vectorized
     mask_1d = torch.zeros(total_len + 1, dtype=torch.int32, device=device)
     mask_1d.scatter_add_(0, abs_lo,       torch.ones(total_len, dtype=torch.int32, device=device))
     mask_1d.scatter_add_(0, abs_hi + 1,  -torch.ones(total_len, dtype=torch.int32, device=device))

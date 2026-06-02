@@ -21,6 +21,7 @@ DEFAULT_VERSION_LABEL = "default"
 
 LTS_RELEASE_ALIAS = "last-lts"
 CONTINUOUS_RELEASE_ALIAS = "last-continuous"
+PATCH_RELEASE_ALIAS = "last-patch"
 
 
 class DownloadTarget(NamedTuple):

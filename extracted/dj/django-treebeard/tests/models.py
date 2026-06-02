@@ -95,7 +95,7 @@ class AL_TestNodeInherited(AL_TestNode):
 
 
 class MP_TestNodeSorted(MP_Node, DescMixin):
-    steplen = 1
+    steplen = 2
     node_order_by = ["val1", "val2", "-desc"]
     val1 = models.IntegerField()
     val2 = models.IntegerField()
@@ -188,8 +188,10 @@ BASE_MODELS = [
 
 PROXY_MODELS = [AL_TestNode_Proxy, MP_TestNode_Proxy, NS_TestNode_Proxy]
 SORTED_MODELS = [AL_TestNodeSorted, MP_TestNodeSorted, NS_TestNodeSorted]
+MP_MODELS = [MP_TestNode, MP_TestNodeUuid, MP_TestNodeCustomId]
 MP_SHORTPATH_MODELS = [MP_TestNodeShortPath, MP_TestSortedNodeShortPath]
 RELATED_MODELS = [AL_TestNodeRelated, MP_TestNodeRelated, NS_TestNodeRelated]
+BENCHMARK_MODELS = [AL_TestNode, MP_TestNode, NS_TestNode]
 
 # Pairs of dependent models and base models that they depend on
 DEP_MODELS = [(AL_TestNode, AL_TestNodeSomeDep), (MP_TestNode, MP_TestNodeSomeDep), (NS_TestNode, NS_TestNodeSomeDep)]
@@ -204,6 +206,8 @@ INHERITED_MODELS = [
 INHERITED_MODELS_WITH_SORT = [
     (MP_TestNodeSorted, MP_TestNodeInheritedSorted),
 ]
+
+LT_BASE_MODELS = []
 
 if os.environ.get("DATABASE_ENGINE", "") == "psql":
 
@@ -221,7 +225,12 @@ if os.environ.get("DATABASE_ENGINE", "") == "psql":
     class LT_TestNodeInherited(LT_TestNode):
         extra_desc = models.CharField(max_length=255)
 
-    class LT_TestNodeInheritedSorted(LT_TestNodeSorted): ...
+        class Meta:
+            constraints = []  # Override parent class constraints
+
+    class LT_TestNodeInheritedSorted(LT_TestNodeSorted):
+        class Meta:
+            constraints = []  # Override parent class constraints
 
     class LT_TestNodeSomeDep(models.Model):
         node = models.ForeignKey(LT_TestNode, on_delete=models.CASCADE)
@@ -232,3 +241,5 @@ if os.environ.get("DATABASE_ENGINE", "") == "psql":
     INHERITED_MODELS.append((LT_TestNode, LT_TestNodeInherited))
     SORTED_MODELS.append(LT_TestNodeSorted)
     INHERITED_MODELS_WITH_SORT.append((LT_TestNodeSorted, LT_TestNodeInheritedSorted))
+    LT_BASE_MODELS.append(LT_TestNode)
+    BENCHMARK_MODELS.append(LT_TestNode)

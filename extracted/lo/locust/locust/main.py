@@ -180,7 +180,7 @@ def main():
     start_message = f"Starting Locust {version}"
 
     if options.otel:
-        if setup_opentelemetry():
+        if setup_opentelemetry(options.locustfile, options.profile):
             start_message += ", OpenTelemetry enabled"
 
     children = []
@@ -666,7 +666,7 @@ See https://github.com/locustio/locust/wiki/Installation#increasing-maximum-numb
     def save_html_report():
         html_report = get_html_report(environment, show_download_link=False)
         process_html_filename(options)
-        logger.info("writing html report to file: %s", options.html_file)
+        logger.debug("Writing html report to file: %s", options.html_file)
         with open(options.html_file, "w", encoding="utf-8") as file:
             file.write(html_report)
 

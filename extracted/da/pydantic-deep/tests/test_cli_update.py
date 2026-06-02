@@ -6,6 +6,7 @@ import json
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 from apps.cli.update import (
@@ -212,13 +213,19 @@ class TestRunUpdate:
     def test_uses_uv_when_available(self) -> None:
         mock_proc = MagicMock()
         mock_proc.returncode = 0
+        mock_proc.stdout = ""
+        mock_proc.stderr = ""
         with (
             patch("apps.cli.update._find_uv", return_value="/usr/bin/uv"),
             patch("subprocess.run", return_value=mock_proc) as mock_run,
         ):
             code = run_update()
         assert code == 0
-        mock_run.assert_called_once_with(["/usr/bin/uv", "tool", "upgrade", "pydantic-deep"])
+        mock_run.assert_called_once_with(
+            ["/usr/bin/uv", "tool", "upgrade", "pydantic-deep"],
+            capture_output=True,
+            text=True,
+        )
 
     def test_falls_back_to_pip_without_uv(self) -> None:
         mock_proc = MagicMock()
@@ -234,11 +241,47 @@ class TestRunUpdate:
         assert "pip" in args
         assert "pydantic-deep[cli]" in args
 
-    def test_propagates_nonzero_exit_code(self) -> None:
-        mock_proc = MagicMock()
-        mock_proc.returncode = 1
+    def test_falls_back_to_pip_when_not_uv_tool(self) -> None:
+        """uv says package is not a managed tool → fall back to pip (the #122 case)."""
+        uv_proc = MagicMock()
+        uv_proc.returncode = 1
+        uv_proc.stdout = ""
+        uv_proc.stderr = "error: `pydantic-deep` is not installed as a uv tool"
+        pip_proc = MagicMock()
+        pip_proc.returncode = 0
+
+        run_calls: list[Any] = []
+
+        def fake_run(cmd: list[str], **kwargs: Any) -> MagicMock:
+            run_calls.append(cmd)
+            if "uv" in cmd[0]:
+                return uv_proc
+            return pip_proc
+
         with (
             patch("apps.cli.update._find_uv", return_value="/usr/bin/uv"),
-            patch("subprocess.run", return_value=mock_proc),
+            patch("subprocess.run", side_effect=fake_run),
         ):
-            assert run_update() == 1
+            code = run_update()
+
+        assert code == 0
+        assert len(run_calls) == 2
+        assert "pip" in run_calls[1]
+        assert "pydantic-deep[cli]" in run_calls[1]
+
+    def test_propagates_uv_error_without_pip_fallback(self) -> None:
+        """Transient uv failure (network/lock) propagates directly — no pip fallback."""
+        uv_proc = MagicMock()
+        uv_proc.returncode = 2
+        uv_proc.stdout = ""
+        uv_proc.stderr = "network error: connection refused"
+
+        with (
+            patch("apps.cli.update._find_uv", return_value="/usr/bin/uv"),
+            patch("subprocess.run", return_value=uv_proc) as mock_run,
+        ):
+            code = run_update()
+
+        assert code == 2
+        # pip must NOT have been invoked
+        assert mock_run.call_count == 1

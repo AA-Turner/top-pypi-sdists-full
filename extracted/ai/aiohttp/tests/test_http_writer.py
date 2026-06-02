@@ -2,7 +2,7 @@
 import array
 import asyncio
 import zlib
-from typing import Generator, Iterable, Union
+from collections.abc import Generator, Iterable
 from unittest import mock
 
 import pytest
@@ -11,6 +11,7 @@ from multidict import CIMultiDict
 from aiohttp import ClientConnectionResetError, hdrs, http
 from aiohttp.base_protocol import BaseProtocol
 from aiohttp.compression_utils import ZLibBackend
+from aiohttp.helpers import DEFAULT_CHUNK_SIZE
 from aiohttp.http_writer import _serialize_headers
 
 
@@ -66,7 +67,7 @@ def decompress(data: bytes) -> bytes:
     return d.decompress(data)
 
 
-def decode_chunked(chunked: Union[bytes, bytearray]) -> bytes:
+def decode_chunked(chunked: bytes | bytearray) -> bytes:
     i = 0
     out = b""
     while i < len(chunked):
@@ -983,10 +984,11 @@ async def test_write_headers_with_compression_coalescing(
     [
         "\n",
         "\r",
+        "\x00",
     ],
 )
 def test_serialize_headers_raises_on_new_line_or_carriage_return(char: str) -> None:
-    """Verify serialize_headers raises on cr or nl in the headers."""
+    """Verify serialize_headers raises on cr, nl, or null byte in the headers."""
     status_line = "HTTP/1.1 200 OK"
     headers = CIMultiDict(
         {
@@ -1001,19 +1003,67 @@ def test_serialize_headers_raises_on_new_line_or_carriage_return(char: str) -> N
         _serialize_headers(status_line, headers)
 
 
-def test_serialize_headers_raises_on_null_byte() -> None:
+@pytest.mark.parametrize(
+    "char",
+    [chr(c) for c in (*range(0x01, 0x09), *range(0x0B, 0x20), 0x7F)],
+)
+def test_serialize_headers_raises_on_forbidden_control_chars_in_value(
+    char: str,
+) -> None:
+    """Verify serialize_headers rejects RFC 9110-forbidden CTLs in values."""
     status_line = "HTTP/1.1 200 OK"
-    headers = CIMultiDict(
-        {
-            hdrs.CONTENT_TYPE: "text/plain\x00",
-        }
-    )
+    headers = CIMultiDict({hdrs.CONTENT_TYPE: f"text/plain{char}"})
 
     with pytest.raises(
         ValueError,
-        match="null byte detected in headers",
+        match="Forbidden control character detected in headers",
     ):
         _serialize_headers(status_line, headers)
+
+
+@pytest.mark.parametrize(
+    "char",
+    [chr(c) for c in (*range(0x01, 0x09), *range(0x0B, 0x20), 0x7F)],
+)
+def test_serialize_headers_raises_on_forbidden_control_chars_in_name(
+    char: str,
+) -> None:
+    """Verify serialize_headers rejects RFC 9110-forbidden CTLs in names."""
+    status_line = "HTTP/1.1 200 OK"
+    headers = CIMultiDict({f"X-Bad{char}Header": "value"})
+
+    with pytest.raises(
+        ValueError,
+        match="Forbidden control character detected in headers",
+    ):
+        _serialize_headers(status_line, headers)
+
+
+@pytest.mark.parametrize(
+    "char",
+    [chr(c) for c in (*range(0x01, 0x09), *range(0x0B, 0x20), 0x7F)],
+)
+def test_serialize_headers_raises_on_forbidden_control_chars_in_status_line(
+    char: str,
+) -> None:
+    """Verify serialize_headers rejects RFC 9110-forbidden CTLs in status line."""
+    status_line = f"HTTP/1.1 200 OK{char}"
+    headers: CIMultiDict[str] = CIMultiDict()
+
+    with pytest.raises(
+        ValueError,
+        match="Forbidden control character detected in headers",
+    ):
+        _serialize_headers(status_line, headers)
+
+
+def test_serialize_headers_allows_htab_in_value() -> None:
+    """Verify HTAB (0x09) remains permitted in field values per RFC 9110."""
+    status_line = "HTTP/1.1 200 OK"
+    headers = CIMultiDict({hdrs.CONTENT_TYPE: "text/plain\tcharset=utf-8"})
+
+    result = _serialize_headers(status_line, headers)
+    assert b"text/plain\tcharset=utf-8" in result
 
 
 async def test_write_compressed_data_with_headers_coalescing(
@@ -1394,7 +1444,7 @@ async def test_write_drain_condition_with_small_buffer(
     protocol._drain_helper.reset_mock()  # type: ignore[attr-defined]
 
     # Write small amount of data with drain=True but buffer under limit
-    small_data = b"x" * 100  # Much less than LIMIT (2**16)
+    small_data = b"x" * 100  # Much less than LIMIT (2**18)
     await msg.write(small_data, drain=True)
 
     # Drain should NOT be called because buffer_size <= LIMIT
@@ -1423,7 +1473,7 @@ async def test_write_drain_condition_with_large_buffer(
     protocol._drain_helper.reset_mock()  # type: ignore[attr-defined]
 
     # Write large amount of data with drain=True
-    large_data = b"x" * (2**16 + 1)  # Just over LIMIT
+    large_data = b"x" * (DEFAULT_CHUNK_SIZE + 1)  # Just over LIMIT
     await msg.write(large_data, drain=True)
 
     # Drain should be called because drain=True AND buffer_size > LIMIT
@@ -1452,12 +1502,12 @@ async def test_write_no_drain_with_large_buffer(
     protocol._drain_helper.reset_mock()  # type: ignore[attr-defined]
 
     # Write large amount of data with drain=False
-    large_data = b"x" * (2**16 + 1)  # Just over LIMIT
+    large_data = b"x" * (DEFAULT_CHUNK_SIZE + 1)  # Just over LIMIT
     await msg.write(large_data, drain=False)
 
     # Drain should NOT be called because drain=False
     assert not protocol._drain_helper.called  # type: ignore[attr-defined]
-    assert msg.buffer_size == (2**16 + 1)  # Buffer not reset
+    assert msg.buffer_size == (DEFAULT_CHUNK_SIZE + 1)  # Buffer not reset
     assert large_data in buf
 
 

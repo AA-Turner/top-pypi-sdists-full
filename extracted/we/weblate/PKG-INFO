@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: weblate
-Version: 2026.6
+Version: 2026.6.1
 Summary: A web-based continuous localization system with tight version control integration
 Author-email: Michal Čihař <michal@weblate.org>
 License-Expression: GPL-3.0-or-later

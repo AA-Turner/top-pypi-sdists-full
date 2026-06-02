@@ -32,6 +32,15 @@ class ClientAddParams(TypedDict, total=False):
     Max 100 characters, alphanumeric with hyphens, underscores, and dots only.
     """
 
+    dreaming: Literal["instant", "dynamic"]
+    """Processing mode.
+
+    "dynamic" (default) groups related documents together so memories form from
+    coherent, logical units rather than one isolated entry at a time. "instant"
+    processes each document on its own right away, and bills one extra operation per
+    document.
+    """
+
     entity_context: Annotated[str, PropertyInfo(alias="entityContext")]
     """Optional entity context for this container tag.
 

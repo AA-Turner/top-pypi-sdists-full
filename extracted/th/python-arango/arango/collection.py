@@ -542,7 +542,7 @@ class Collection(ApiGroup):
         .. note::
             The load function is deprecated from version 3.8.0 onwards and is a
             no-op from version 3.9.0 onwards. It should no longer be used, as it
-            may be removed in a future version of ArangoDB.
+            is removed from ArangoDB 4.0.
 
         :return: True if collection was loaded successfully.
         :rtype: bool
@@ -566,7 +566,7 @@ class Collection(ApiGroup):
         .. note::
             The unload function is deprecated from version 3.8.0 onwards and is a
             no-op from version 3.9.0 onwards. It should no longer be used, as it
-            may be removed in a future version of ArangoDB.
+            is removed from ArangoDB 4.0.
 
         :return: True if collection was unloaded successfully.
         :rtype: bool
@@ -849,6 +849,8 @@ class Collection(ApiGroup):
     ) -> Result[Cursor]:
         """Return documents near a given coordinate.
 
+        .. warning:: This functionality is deprecated in ArangoDB 4.0.
+
         Documents returned are sorted according to distance, with the nearest
         document being the first. If there are documents of equal distance,
         they are randomly chosen from the set until the limit is reached. A geo
@@ -866,6 +868,9 @@ class Collection(ApiGroup):
         :rtype: arango.cursor.Cursor
         :raises arango.exceptions.DocumentGetError: If retrieval fails.
         """
+        m = "find_near is deprecated in ArangoDB 4.0"
+        warn(m, DeprecationWarning, stacklevel=2)
+
         assert isinstance(latitude, Number), "latitude must be a number"
         assert isinstance(longitude, Number), "longitude must be a number"
         assert is_none_or_int(limit), "limit must be a non-negative int"
@@ -971,6 +976,8 @@ class Collection(ApiGroup):
     ) -> Result[Cursor]:
         """Return documents within a given radius around a coordinate.
 
+        .. warning:: This functionality is deprecated in ArangoDB 4.0.
+
         A geo index must be defined in the collection to use this method.
 
         :param latitude: Latitude.
@@ -988,6 +995,9 @@ class Collection(ApiGroup):
         :rtype: arango.cursor.Cursor
         :raises arango.exceptions.DocumentGetError: If retrieval fails.
         """
+        m = "find_in_radius is deprecated in ArangoDB 4.0"
+        warn(m, DeprecationWarning, stacklevel=2)
+
         assert isinstance(latitude, Number), "latitude must be a number"
         assert isinstance(longitude, Number), "longitude must be a number"
         assert isinstance(radius, Number), "radius must be a number"
@@ -1140,6 +1150,11 @@ class Collection(ApiGroup):
         allow_dirty_read: bool = False,
     ) -> Result[Cursor]:
         """Return documents that match the given fulltext query.
+
+        .. warning::
+
+            Fulltext indexes are no longer supported and have been replaced
+            by ArangoSearch (inverted indexes).
 
         :param field: Document field with fulltext index.
         :type field: str
@@ -1335,112 +1350,6 @@ class Collection(ApiGroup):
 
         return self._execute(request, response_handler)
 
-    def add_hash_index(
-        self,
-        fields: Sequence[str],
-        unique: Optional[bool] = None,
-        sparse: Optional[bool] = None,
-        deduplicate: Optional[bool] = None,
-        name: Optional[str] = None,
-        in_background: Optional[bool] = None,
-    ) -> Result[Json]:
-        """Create a new hash index.
-
-        .. warning::
-
-            The index types `hash` and `skiplist` are aliases for the persistent
-            index type and should no longer be used to create new indexes. The
-            aliases will be removed in a future version.
-
-        :param fields: Document fields to index.
-        :type fields: [str]
-        :param unique: Whether the index is unique.
-        :type unique: bool | None
-        :param sparse: If set to True, documents with None in the field
-            are also indexed. If set to False, they are skipped.
-        :type sparse: bool | None
-        :param deduplicate: If set to True, inserting duplicate index values
-            from the same document triggers unique constraint errors.
-        :type deduplicate: bool | None
-        :param name: Optional name for the index.
-        :type name: str | None
-        :param in_background: Do not hold the collection lock.
-        :type in_background: bool | None
-        :return: New index details.
-        :rtype: dict
-        :raise arango.exceptions.IndexCreateError: If create fails.
-        """
-        m = "add_hash_index is deprecated. Using add_index with {'type': 'hash'} instead."  # noqa: E501
-        warn(m, DeprecationWarning, stacklevel=2)
-
-        data: Json = {"type": "hash", "fields": fields}
-
-        if unique is not None:
-            data["unique"] = unique
-        if sparse is not None:
-            data["sparse"] = sparse
-        if deduplicate is not None:
-            data["deduplicate"] = deduplicate
-        if name is not None:
-            data["name"] = name
-        if in_background is not None:
-            data["inBackground"] = in_background
-
-        return self.add_index(data, formatter=True)
-
-    def add_skiplist_index(
-        self,
-        fields: Sequence[str],
-        unique: Optional[bool] = None,
-        sparse: Optional[bool] = None,
-        deduplicate: Optional[bool] = None,
-        name: Optional[str] = None,
-        in_background: Optional[bool] = None,
-    ) -> Result[Json]:
-        """Create a new skiplist index.
-
-        .. warning::
-
-            The index types `hash` and `skiplist` are aliases for the persistent
-            index type and should no longer be used to create new indexes. The
-            aliases will be removed in a future version.
-
-        :param fields: Document fields to index.
-        :type fields: [str]
-        :param unique: Whether the index is unique.
-        :type unique: bool | None
-        :param sparse: If set to True, documents with None in the field
-            are also indexed. If set to False, they are skipped.
-        :type sparse: bool | None
-        :param deduplicate: If set to True, inserting duplicate index values
-            from the same document triggers unique constraint errors.
-        :type deduplicate: bool | None
-        :param name: Optional name for the index.
-        :type name: str | None
-        :param in_background: Do not hold the collection lock.
-        :type in_background: bool | None
-        :return: New index details.
-        :rtype: dict
-        :raise arango.exceptions.IndexCreateError: If create fails.
-        """
-        m = "add_skiplist_index is deprecated. Using add_index with {'type': 'skiplist'} instead."  # noqa: E501
-        warn(m, DeprecationWarning, stacklevel=2)
-
-        data: Json = {"type": "skiplist", "fields": fields}
-
-        if unique is not None:
-            data["unique"] = unique
-        if sparse is not None:
-            data["sparse"] = sparse
-        if deduplicate is not None:
-            data["deduplicate"] = deduplicate
-        if name is not None:
-            data["name"] = name
-        if in_background is not None:
-            data["inBackground"] = in_background
-
-        return self.add_index(data, formatter=True)
-
     def add_geo_index(
         self,
         fields: Fields,
@@ -1484,45 +1393,6 @@ class Collection(ApiGroup):
             data["inBackground"] = in_background
         if legacyPolygons is not None:
             data["legacyPolygons"] = legacyPolygons
-
-        return self.add_index(data, formatter=True)
-
-    def add_fulltext_index(
-        self,
-        fields: Sequence[str],
-        min_length: Optional[int] = None,
-        name: Optional[str] = None,
-        in_background: Optional[bool] = None,
-    ) -> Result[Json]:
-        """Create a new fulltext index.
-
-        .. warning::
-            This method is deprecated since ArangoDB 3.10 and will be removed
-            in a future version of the driver.
-
-        :param fields: Document fields to index.
-        :type fields: [str]
-        :param min_length: Minimum number of characters to index.
-        :type min_length: int | None
-        :param name: Optional name for the index.
-        :type name: str | None
-        :param in_background: Do not hold the collection lock.
-        :type in_background: bool | None
-        :return: New index details.
-        :rtype: dict
-        :raise arango.exceptions.IndexCreateError: If create fails.
-        """
-        m = "add_fulltext_index is deprecated. Using add_index with {'type': 'fulltext'} instead."  # noqa: E501
-        warn(m, DeprecationWarning, stacklevel=2)
-
-        data: Json = {"type": "fulltext", "fields": fields}
-
-        if min_length is not None:
-            data["minLength"] = min_length
-        if name is not None:
-            data["name"] = name
-        if in_background is not None:
-            data["inBackground"] = in_background
 
         return self.add_index(data, formatter=True)
 
@@ -1790,7 +1660,8 @@ class Collection(ApiGroup):
             can be used to save resources.
         :type silent: bool
         :param overwrite: If set to True, operation does not fail on duplicate
-            keys and the existing documents are replaced.
+            keys and the existing documents are replaced. **Removed** in ArangoDB
+            v4.0.0. Use overwrite_mode instead.
         :type overwrite: bool
         :param return_old: Include body of the old documents if replaced.
             Applies only when value of **overwrite** is set to True.
@@ -2611,7 +2482,8 @@ class StandardCollection(Collection):
             can be used to save resources.
         :type silent: bool
         :param overwrite: If set to True, operation does not fail on duplicate
-            key and existing document is overwritten (replace-insert).
+            key and existing document is overwritten (replace-insert). **Removed**
+            in ArangoDB v4.0.0. Use overwrite_mode instead.
         :type overwrite: bool
         :param return_old: Include body of the old document if overwritten.
             Ignored if parameter **silent** is set to True.

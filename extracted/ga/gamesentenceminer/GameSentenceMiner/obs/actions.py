@@ -721,6 +721,16 @@ def get_current_game(sanitize=False, update=True):
     return gsm_state.current_game
 
 
+def is_game_capture_active() -> bool:
+    import GameSentenceMiner.obs as _obs_pkg
+
+    svc = _obs_pkg.obs_service
+    if not svc:
+        return True
+
+    return svc.state.replay_buffer_active is not False
+
+
 # ---------------------------------------------------------------------------
 # Fit to screen
 # ---------------------------------------------------------------------------

@@ -71,6 +71,7 @@ def dl_pdfium(GClient, do_update, revision, target_os):
     if not had_pdfium or (target_os and do_update):
         if PORTABLE_MODE:
             run_cmd([sys.executable, "-m", "pip", "install", "httplib2==0.22.0"], cwd=None)
+            # TODO in install_buildtools(), check system GN version and install gn-dist if it is too old
             install_buildtools()
         log("PDFium: configure ...")
         do_update = True
@@ -113,9 +114,6 @@ def patch_pdfium(build_ver, target_os):
     if target_os == "android":
         # without this patch, we end up with a tiny binary that has no symbols
         git_apply_patch(PatchDir/"android_crossbuild.patch", PDFiumDir/"build")
-    if PORTABLE_MODE:
-        # apply patch for older GN
-        git_apply_patch(PatchDir/"legacy_gn.patch", PDFiumDir/"build")
 
 
 def get_tool(name):
@@ -154,6 +152,9 @@ def main(
         os.environ["VPYTHON_BYPASS"] = "manually managed python not supported by chrome operations"
     
     # defaults handled internally to avoid duplication with parse_args()
+    if target_cpu is None:
+        if Host.platform == PlatNames.windows_arm64:
+            target_cpu = "arm64"  # needed, even if native
     if build_target is None:
         build_target = "pdfium"
     if build_ver is None:
@@ -207,6 +208,7 @@ def main(
         config_dict["target_os"] = target_os
         if target_os == "android":
             config_dict["default_min_sdk_version"] = 21
+            #config_dict["use_mold"] = False
     
     GN = get_tool("gn")
     Ninja = get_tool("ninja")

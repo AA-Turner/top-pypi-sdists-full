@@ -65,9 +65,10 @@ use gam::predict::{
 use gam::probability::{normal_cdf, standard_normal_quantile};
 use gam::report;
 use gam::smooth::{
-    BoundedCoefficientPriorSpec, ByVarKind, LinearCoefficientGeometry, LinearTermSpec,
-    SmoothBasisSpec, SmoothTermSpec, SpatialLengthScaleOptimizationOptions, TermCollectionSpec,
-    build_term_collection_design, freeze_term_collection_from_design,
+    BoundedCoefficientPriorSpec, LinearCoefficientGeometry, LinearTermSpec, SmoothBasisSpec,
+    SmoothStructureAnalysis, SmoothTermSpec, SpatialLengthScaleOptimizationOptions,
+    TermCollectionSpec, analyze_smooth_ownership, build_term_collection_design,
+    freeze_term_collection_from_design, smooth_term_feature_cols,
 };
 use gam::smooth_test::SmoothTestScale;
 use gam::survival::{
@@ -306,6 +307,17 @@ fn classify_cli_error(message: String) -> CliError {
             ),
             None => "Matrix conditioning issue detected. Check for collinear/constant predictors and overly complex smooth bases.".to_string(),
         })
+    } else if lower.contains("duchon") && lower.contains("2*(p+s)") {
+        // A Duchon spline whose power is too low for the radial-kernel
+        // derivative a given path needs (e.g. the exact two-block spatial /
+        // transformation-normal joint, which differentiates the kernel at the
+        // origin). The basis-layer message already states the minimum
+        // admissible power; surface that as the actionable advice rather than
+        // mistaking the literal "dimension=N" for a data-shape mismatch.
+        Some(
+            "Duchon smooth is not smooth enough for this fit path. Raise its `power=...` to the minimum stated in the error above, or reduce the joint smooth's dimension."
+                .to_string(),
+        )
     } else if lower.contains("mismatch")
         || lower.contains("dimension")
         || lower.contains("shape mismatch")
@@ -1868,6 +1880,11 @@ fn run_fit_bernoulli_marginal_slope(
                 score_warp: routed_score_warp,
                 link_dev: routed_link_dev,
                 latent_z_policy: LatentZPolicy::default(),
+                // This CLI path fits the marginal-slope model directly from a raw
+                // `--z-column`; there is no in-process CTN Stage-1 chain to
+                // cross-fit, so the score-influence projection is inactive and
+                // the free-warp `score_warp` is the fallback basis (#461 §5).
+                score_influence_jacobian: None,
             },
             options,
             kappa_options: kappa_options.clone(),
@@ -1941,6 +1958,7 @@ fn run_fit_bernoulli_marginal_slope(
             frozen_marginal,
             frozen_logslope,
             solved.fit,
+            solved.marginal_design.design.ncols(),
             solved.baseline_marginal,
             solved.baseline_logslope,
             SavedLatentZNormalization {
@@ -4347,7 +4365,21 @@ fn run_survival(args: SurvivalArgs) -> Result<(), String> {
         }
         spec
     } else {
-        termspec.clone()
+        // No `--predict-noise` ⇒ default to an empty log-σ spec (constant
+        // log-σ baseline owned by the family adapter). Cloning the mean
+        // `termspec` here duplicated every threshold term onto log-σ; for a
+        // smooth `s(x)` on the mean the canonical-gauge identifiability
+        // audit then dropped every aliased log-σ column (time > threshold >
+        // log_sigma priorities, #366) so the solver's per-block spec had
+        // width 0 while the family kept x_log_sigma at the smooth width.
+        // `SurvivalLocationScaleFamily::exact_newton_joint_gradient_evaluation`
+        // then failed "joint gradient length mismatch for block 2: got
+        // <smooth width>, expected 0" on every REML startup seed (#512).
+        TermCollectionSpec {
+            linear_terms: vec![],
+            random_effect_terms: vec![],
+            smooth_terms: vec![],
+        }
     };
     let cov_design = build_term_collection_design(ds.values.view(), &termspec)
         .map_err(|e| format!("failed to build survival term collection design: {e}"))?;
@@ -4930,6 +4962,10 @@ fn run_survival(args: SurvivalArgs) -> Result<(), String> {
             score_warp: routed_score_warp.clone(),
             link_dev: routed_link_dev.clone(),
             latent_z_policy: LatentZPolicy::default(),
+            // CLI survival marginal-slope fits directly from a raw `--z-column`
+            // with no in-process CTN Stage-1 chain to cross-fit, so the
+            // score-influence projection is inactive (#461 §5).
+            score_influence_jacobian: None,
         }
         };
         if baseline_cfg.target != SurvivalBaselineTarget::Linear {
@@ -5104,6 +5140,7 @@ fn run_survival(args: SurvivalArgs) -> Result<(), String> {
                     baseline_logslope: fit.baseline_slope,
                     score_warp_runtime: fit.score_warp_runtime.as_ref(),
                     link_dev_runtime: fit.link_dev_runtime.as_ref(),
+                    influence_absorber_width: fit.influence_absorber_width,
                 },
                 SavedModelSourceMetadata {
                     training_headers: ds.headers.clone(),
@@ -7284,6 +7321,7 @@ fn build_bernoulli_marginal_slope_saved_model(
     resolved_marginalspec: TermCollectionSpec,
     resolved_logslopespec: TermCollectionSpec,
     fit_result: UnifiedFitResult,
+    p_marginal: usize,
     baseline_marginal: f64,
     baseline_logslope: f64,
     latent_z_normalization: SavedLatentZNormalization,
@@ -7313,6 +7351,7 @@ fn build_bernoulli_marginal_slope_saved_model(
             resolved_marginalspec,
             resolved_logslopespec,
             fit_result,
+            p_marginal,
             baseline_marginal,
             baseline_logslope,
             latent_z_normalization,
@@ -7485,7 +7524,11 @@ fn family_noise_parameter(fit: &UnifiedFitResult, family: LikelihoodSpec) -> Opt
     match family.response {
         ResponseFamily::Tweedie { p } => Some(p),
         ResponseFamily::NegativeBinomial { theta } => Some(theta),
-        ResponseFamily::Beta { phi } => Some(phi),
+        // Beta precision φ is estimated jointly with the mean (issue #567), so
+        // the authoritative value is the fit's scale metadata, not the seed φ on
+        // the original family spec. Fall back to the spec φ only if the fit did
+        // not record an estimated/fixed dispersion.
+        ResponseFamily::Beta { phi } => fit.likelihood_scale.fixed_phi().or(Some(phi)),
         ResponseFamily::Gamma => fit
             .likelihood_scale
             .gamma_shape()
@@ -7695,54 +7738,6 @@ fn collect_spatial_smooth_usagewarnings(
         .collect()
 }
 
-fn smooth_term_feature_cols(term: &SmoothTermSpec) -> Vec<usize> {
-    match &term.basis {
-        SmoothBasisSpec::ByVariable { inner, by_col, .. }
-        | SmoothBasisSpec::FactorSumToZero { inner, by_col, .. } => {
-            let mut cols = smooth_term_feature_cols(&SmoothTermSpec {
-                name: term.name.clone(),
-                basis: (**inner).clone(),
-                shape: term.shape,
-                joint_null_rotation: None,
-            });
-            cols.push(*by_col);
-            cols.sort_unstable();
-            cols.dedup();
-            cols
-        }
-        SmoothBasisSpec::BSpline1D { feature_col, .. } => vec![*feature_col],
-        SmoothBasisSpec::ThinPlate { feature_cols, .. }
-        | SmoothBasisSpec::Sphere { feature_cols, .. }
-        | SmoothBasisSpec::Matern { feature_cols, .. }
-        | SmoothBasisSpec::Duchon { feature_cols, .. }
-        | SmoothBasisSpec::Pca { feature_cols, .. }
-        | SmoothBasisSpec::TensorBSpline { feature_cols, .. } => feature_cols.clone(),
-        SmoothBasisSpec::BySmooth { smooth, by_kind } => {
-            let mut cols = smooth_term_feature_cols(&SmoothTermSpec {
-                name: term.name.clone(),
-                basis: (**smooth).clone(),
-                shape: term.shape,
-                joint_null_rotation: None,
-            });
-            match by_kind {
-                ByVarKind::Numeric { feature_col } | ByVarKind::Factor { feature_col, .. } => {
-                    cols.push(*feature_col)
-                }
-            }
-            cols.sort_unstable();
-            cols.dedup();
-            cols
-        }
-        SmoothBasisSpec::FactorSmooth { spec } => {
-            let mut cols = spec.continuous_cols.clone();
-            cols.push(spec.group_col);
-            cols.sort_unstable();
-            cols.dedup();
-            cols
-        }
-    }
-}
-
 fn collect_linear_smooth_overlapwarnings(
     spec: &TermCollectionSpec,
     headers: &[String],
@@ -7788,111 +7783,55 @@ fn collect_linear_smooth_overlapwarnings(
     warnings
 }
 
-fn smooth_basiswarning_family_rank(term: &SmoothTermSpec) -> u8 {
-    match &term.basis {
-        SmoothBasisSpec::ByVariable { inner, .. }
-        | SmoothBasisSpec::FactorSumToZero { inner, .. } => {
-            smooth_basiswarning_family_rank(&SmoothTermSpec {
-                name: term.name.clone(),
-                basis: (**inner).clone(),
-                shape: term.shape,
-                joint_null_rotation: None,
-            })
-        }
-        SmoothBasisSpec::BSpline1D { .. } => 0,
-        SmoothBasisSpec::TensorBSpline { .. } => 1,
-        SmoothBasisSpec::ThinPlate { .. } => 2,
-        SmoothBasisSpec::Sphere { .. } => 3,
-        SmoothBasisSpec::Matern { .. } => 4,
-        SmoothBasisSpec::Duchon { .. } => 5,
-        SmoothBasisSpec::Pca { .. } => 6,
-        SmoothBasisSpec::BySmooth { smooth, .. } => {
-            smooth_basiswarning_family_rank(&SmoothTermSpec {
-                name: term.name.clone(),
-                basis: (**smooth).clone(),
-                shape: term.shape,
-                joint_null_rotation: None,
-            })
-        }
-        SmoothBasisSpec::FactorSmooth { .. } => 7,
-    }
-}
-
-fn compare_smooth_warning_priority(
-    lhs_idx: usize,
-    lhs: &SmoothTermSpec,
-    rhs_idx: usize,
-    rhs: &SmoothTermSpec,
-) -> std::cmp::Ordering {
-    let lhs_cols = smooth_term_feature_cols(lhs);
-    let rhs_cols = smooth_term_feature_cols(rhs);
-    lhs_cols
-        .len()
-        .cmp(&rhs_cols.len())
-        .then_with(|| lhs_cols.cmp(&rhs_cols))
-        .then_with(|| {
-            smooth_basiswarning_family_rank(lhs).cmp(&smooth_basiswarning_family_rank(rhs))
-        })
-        .then_with(|| lhs.name.cmp(&rhs.name))
-        .then(lhs_idx.cmp(&rhs_idx))
-}
-
 fn collect_hierarchical_smooth_overlapwarnings(
     spec: &TermCollectionSpec,
     headers: &[String],
     label: &str,
 ) -> Vec<String> {
-    let mut ownership_order: Vec<usize> = (0..spec.smooth_terms.len()).collect();
-    ownership_order.sort_by(|&lhs, &rhs| {
-        compare_smooth_warning_priority(lhs, &spec.smooth_terms[lhs], rhs, &spec.smooth_terms[rhs])
-    });
+    let feature_label = |col: usize| {
+        headers
+            .get(col)
+            .cloned()
+            .unwrap_or_else(|| format!("#{col}"))
+    };
+    let join_feature_labels = |cols: &[usize]| {
+        cols.iter()
+            .map(|&col| feature_label(col))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+
+    let SmoothStructureAnalysis {
+        ownership_order,
+        term_feature_cols,
+        term_owners,
+        ..
+    } = analyze_smooth_ownership(&spec.smooth_terms);
 
     let mut warnings = Vec::new();
-    for (pos, &target_idx) in ownership_order.iter().enumerate() {
-        let target = &spec.smooth_terms[target_idx];
-        let target_cols = smooth_term_feature_cols(target);
-        let target_features = target_cols
-            .iter()
-            .map(|&col| {
-                headers
-                    .get(col)
-                    .cloned()
-                    .unwrap_or_else(|| format!("#{col}"))
-            })
-            .collect::<Vec<_>>()
-            .join(", ");
-        let target_set = target_cols.into_iter().collect::<BTreeSet<_>>();
-
-        let owners = ownership_order[..pos]
-            .iter()
-            .filter_map(|&owner_idx| {
-                let owner = &spec.smooth_terms[owner_idx];
-                let owner_cols = smooth_term_feature_cols(owner);
-                let owner_set = owner_cols.iter().copied().collect::<BTreeSet<_>>();
-                if !owner_set.is_subset(&target_set) {
-                    return None;
-                }
-                let owner_features = owner_cols
-                    .iter()
-                    .map(|&col| {
-                        headers
-                            .get(col)
-                            .cloned()
-                            .unwrap_or_else(|| format!("#{col}"))
-                    })
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                Some(format!("`{}` over [{}]", owner.name, owner_features))
-            })
-            .collect::<Vec<_>>();
+    for &target_idx in &ownership_order {
+        let owners = &term_owners[target_idx];
         if owners.is_empty() {
             continue;
         }
+        let target = &spec.smooth_terms[target_idx];
+        let target_features = join_feature_labels(&term_feature_cols[target_idx]);
+        let owner_descriptions = owners
+            .iter()
+            .map(|&owner_idx| {
+                format!(
+                    "`{}` over [{}]",
+                    spec.smooth_terms[owner_idx].name,
+                    join_feature_labels(&term_feature_cols[owner_idx]),
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
 
         warnings.push(format!(
             "{label}: smooth term `{}` over [{target_features}] overlaps nested or duplicate smooth term(s) {}. The fit uses automatic hierarchical ownership: those higher-priority smooth term(s) keep any shared realized subspace, and `{}` is residualized against that overlap before fitting.",
             target.name,
-            owners.join(", "),
+            owner_descriptions,
             target.name,
         ));
     }
@@ -11665,6 +11604,25 @@ mod tests {
     }
 
     #[test]
+    fn classify_cli_errorspecializes_duchon_power_too_low() {
+        // A Duchon admissibility error mentions "dimension=N" literally; ensure
+        // it is NOT misclassified as a data-shape mismatch and that the advice
+        // points at raising the power.
+        let err = classify_cli_error(
+            "transformation-normal fit failed: Underlying basis function generation failed: \
+             Invalid input: Duchon collision derivative phi^(2) psi triplet requires \
+             2*(p+s) > dimension+2; got 2*(p+s)=18, dimension=16, p=1, s=8. \
+             The exact two-block / transformation-normal path needs analytic length-scale \
+             derivatives of the kernel, which are finite only for a smoother spline: \
+             raise power to >= 9 (or reduce the joint smooth's dimension)."
+                .to_string(),
+        );
+        let advice = err.advice().expect("duchon advice");
+        assert!(advice.contains("power"));
+        assert!(!advice.contains("Shape mismatch detected"));
+    }
+
+    #[test]
     fn classify_cli_errorspecializes_thin_plate_knot_error() {
         let err = classify_cli_error(
             "failed to build term collection design: Invalid input: thin-plate spline requires at least d+1 knots (13), got 12"
@@ -12607,6 +12565,9 @@ mod tests {
                 None,
                 saved_fit_summary_fixture(),
             ),
+            // Single marginal coefficient, no influence absorber → truncation
+            // is a no-op (p_marginal == block-0 width).
+            1,
             0.0,
             0.0,
             SavedLatentZNormalization { mean: 0.2, sd: 1.3 },
@@ -12671,6 +12632,9 @@ mod tests {
                 None,
                 saved_fit_summary_fixture(),
             ),
+            // Single marginal coefficient, no influence absorber ⇒ truncation
+            // is a no-op (p_marginal == block-0 width).
+            p_marginal: 1,
             baseline_marginal: -0.2,
             baseline_logslope: 0.7,
             latent_z_normalization: SavedLatentZNormalization { mean: 1.1, sd: 2.2 },
@@ -12818,6 +12782,9 @@ mod tests {
             empty_termspec(),
             empty_termspec(),
             fit_result,
+            // Block-0 ("Mean") has a single coefficient — no influence absorber
+            // is present in the fixture, so p_marginal == block-0 width = 1.
+            1,
             0.0,
             1.0,
             SavedLatentZNormalization { mean: 1.0, sd: 2.0 },
@@ -12874,6 +12841,9 @@ mod tests {
                 None,
                 saved_fit_summary_fixture(),
             ),
+            // Single marginal coefficient, no influence absorber → truncation
+            // is a no-op (p_marginal == block-0 width).
+            1,
             0.0,
             0.0,
             SavedLatentZNormalization { mean: 0.0, sd: 1.0 },

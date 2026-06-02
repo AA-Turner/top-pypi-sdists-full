@@ -1,15 +1,15 @@
 """Stuck loop detection capability.
 
 Detects repetitive agent behavior and intervenes before the agent wastes
-tokens on unproductive loops. Uses ``after_tool_execute`` to track tool
-call patterns and raises ``ModelRetry`` or ``StuckLoopError`` when a
+tokens on unproductive loops. Uses `after_tool_execute` to track tool
+call patterns and raises `ModelRetry` or `StuckLoopError` when a
 pattern is detected.
 
 Three detection patterns:
 
-1. **Repeated identical calls** — same tool + same args N times in a row.
-2. **Alternating A-B-A-B** — two tool calls alternating back and forth.
-3. **No-op calls** — same tool returning the same result repeatedly.
+1. **Repeated identical calls** - same tool + same args N times in a row.
+2. **Alternating A-B-A-B** - two tool calls alternating back and forth.
+3. **No-op calls** - same tool returning the same result repeatedly.
 
 Example:
     ```python
@@ -37,11 +37,11 @@ from pydantic_ai.tools import ToolDefinition
 
 
 class StuckLoopError(Exception):
-    """Raised when the agent is stuck in a loop and action is ``"error"``.
+    """Raised when the agent is stuck in a loop and action is `"error"`.
 
     Attributes:
-        pattern: The detected pattern type (``"repeated"``, ``"alternating"``,
-            ``"noop"``).
+        pattern: The detected pattern type (`"repeated"`, `"alternating"`,
+            `"noop"`).
         message: Human-readable description of the stuck loop.
     """
 
@@ -75,18 +75,22 @@ def _hash_result(result: Any) -> str:
 class StuckLoopDetection(AbstractCapability[Any]):
     """Capability that detects and breaks repetitive agent loops.
 
-    Tracks tool calls via ``after_tool_execute`` and detects three
-    patterns of stuck behavior. Per-run state isolation via ``for_run()``
+    Tracks tool calls via `after_tool_execute` and detects three
+    patterns of stuck behavior. Per-run state isolation via `for_run()`
     ensures concurrent runs don't interfere.
 
     Args:
         max_repeated: Number of repetitions before triggering (default 3).
-        action: What to do when stuck — ``"warn"`` raises ``ModelRetry``
-            so the model can self-correct, ``"error"`` raises
-            ``StuckLoopError`` to abort the run.
+        action: What to do when stuck - `"warn"` raises `ModelRetry`
+            so the model can self-correct, `"error"` raises
+            `StuckLoopError` to abort the run.
         detect_repeated: Enable repeated identical call detection.
         detect_alternating: Enable A-B-A-B pattern detection.
         detect_noop: Enable no-op (same result) detection.
+        ignore_tools: Tool names exempt from all stuck-loop checks.
+            Use for polling primitives that are intentionally called
+            many times with identical arguments - e.g.
+            `{"inspect_branches"}` when forking is enabled.
     """
 
     max_repeated: int = 3
@@ -94,6 +98,7 @@ class StuckLoopDetection(AbstractCapability[Any]):
     detect_repeated: bool = True
     detect_alternating: bool = True
     detect_noop: bool = True
+    ignore_tools: set[str] = field(default_factory=set)
 
     _call_history: list[tuple[str, str]] = field(default_factory=list, init=False, repr=False)
     """Per-run history of (tool_name, args_hash) tuples."""
@@ -175,6 +180,9 @@ class StuckLoopDetection(AbstractCapability[Any]):
         result: Any,
     ) -> Any:
         """Track tool calls and detect stuck patterns."""
+        if call.tool_name in self.ignore_tools:
+            return result
+
         call_key = (call.tool_name, _hash_args(args))
         self._call_history.append(call_key)
 

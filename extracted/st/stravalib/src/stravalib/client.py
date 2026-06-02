@@ -12,7 +12,7 @@ import functools
 import logging
 import time
 from collections.abc import Iterable
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from typing import (
     TYPE_CHECKING,
@@ -27,7 +27,6 @@ from typing import (
 
 import arrow
 import pint
-import pytz
 from pydantic import BaseModel
 from requests import Session
 
@@ -342,7 +341,7 @@ class Client:
             activity_datetime = arrow.get(activity_datetime).datetime
         assert isinstance(activity_datetime, datetime)
         if activity_datetime.tzinfo:
-            activity_datetime = activity_datetime.astimezone(pytz.utc)
+            activity_datetime = activity_datetime.astimezone(timezone.utc)
 
         return calendar.timegm(activity_datetime.timetuple())
 
@@ -549,9 +548,16 @@ class Client:
         if athlete_id is None:
             athlete_id = self.get_athlete().id
 
-        raw = self.protocol.get("/athletes/{id}/stats", id=athlete_id)
-        # TODO: Better error handling - this will return a 401 if this athlete
-        #       is not the authenticated athlete.
+        try:
+            raw = self.protocol.get("/athletes/{id}/stats", id=athlete_id)
+        except exc.AccessUnauthorized as e:
+            # Re-raise with more helpful error message
+            raise exc.AccessUnauthorized(
+                f"Unable to retrieve stats for athlete {athlete_id}. "
+                "Athlete stats can only be retrieved for the currently authenticated athlete. "
+                "Ensure you are requesting stats for your own athlete ID.",
+                response=e.response,
+            ) from e
 
         return model.AthleteStats.model_validate(raw)
 
@@ -841,7 +847,7 @@ class Client:
         sport_type: SportType | None = None,
         activity_type: ActivityType | None = None,
         description: str | None = None,
-        distance: pint.Quantity | float | None = None,
+        distance: pint.Quantity[float] | float | None = None,
         trainer: bool | None = None,
         commute: bool | None = None,
     ) -> model.DetailedActivity:
@@ -935,7 +941,7 @@ class Client:
         private: bool | None = None,
         commute: bool | None = None,
         trainer: bool | None = None,
-        gear_id: int | None = None,
+        gear_id: str | None = None,
         device_name: str | None = None,
         hide_from_home: bool | None = None,
     ) -> model.DetailedActivity:
@@ -964,7 +970,7 @@ class Client:
             Whether the activity is a commute.
         trainer : bool, default=None
             Whether this is a trainer activity.
-        gear_id : int, default=None
+        gear_id : str, default=None
             Alphanumeric ID of gear (bike, shoes) used on this activity.
         description : str, default=None
             Description for the activity.
@@ -986,42 +992,33 @@ class Client:
 
         """
 
-        # Convert the kwargs into a params dict
-        params: dict[str, Any] = {}
-
-        if name is not None:
-            params["name"] = name
-
+        # These params are no longer supported by the Strava API. They are
+        # still accepted for backward compatibility, but are not sent.
         if private is not None:
             warn_param_unsupported("private")
-            params["private"] = int(private)
-
-        if commute is not None:
-            params["commute"] = int(commute)
-
-        if trainer is not None:
-            params["trainer"] = int(trainer)
-
-        if gear_id is not None:
-            params["gear_id"] = gear_id
-
-        if description is not None:
-            params["description"] = description
-
         if device_name is not None:
             warn_param_unsupported("device_name")
-            params["device_name"] = device_name
 
-        if hide_from_home is not None:
-            params["hide_from_home"] = int(hide_from_home)
+        # Build a typed payload that is sent as a JSON request body. Using
+        # UpdatableActivity ensures values are serialized as proper JSON types
+        # (e.g. booleans as ``true``/``false`` rather than ``1``/``0``), which
+        # the Strava API requires to apply the update. See GH issue #716.
+        body = strava_model.UpdatableActivity(
+            name=name,
+            description=description,
+            commute=commute,
+            trainer=trainer,
+            gear_id=gear_id,
+            hide_from_home=hide_from_home,
+        ).model_dump(mode="json", exclude_none=True)
 
-        # Validate sport and activity types
-        params = self._validate_activity_type(
-            params, activity_type, sport_type
-        )
+        # Validate sport and activity types, adding them to the payload
+        body = self._validate_activity_type(body, activity_type, sport_type)
 
         raw_activity = self.protocol.put(
-            "/activities/{activity_id}", activity_id=activity_id, **params
+            "/activities/{activity_id}",
+            activity_id=activity_id,
+            body=body,
         )
 
         return model.DetailedActivity.model_validate(
@@ -2317,8 +2314,14 @@ class ActivityUploader:
         if response.get("error"):
             self.error = response.get("error")
         elif response.get("errors"):
-            # This appears to be an undocumented API; this is a temp hack
-            self.error = str(response.get("errors"))
+            # Handle errors field which may contain a list or dict of errors
+            errors = response.get("errors")
+            if isinstance(errors, list):
+                self.error = "; ".join(str(e) for e in errors)
+            elif isinstance(errors, dict):
+                self.error = "; ".join(f"{k}: {v}" for k, v in errors.items())
+            else:
+                self.error = str(errors)
         else:
             self.error = None
 
@@ -2327,25 +2330,62 @@ class ActivityUploader:
 
     @property
     def is_processing(self) -> bool:
-        """ """
+        """Check if the activity upload is still being processed.
+
+        Returns
+        -------
+        bool
+            True if the upload is still processing (no activity_id yet and no error).
+        """
         return self.activity_id is None and self.error is None
 
     @property
     def is_error(self) -> bool:
-        """ """
+        """Check if the activity upload encountered an error.
+
+        Returns
+        -------
+        bool
+            True if an error occurred during upload.
+        """
         return self.error is not None
 
     @property
     def is_complete(self) -> bool:
-        """ """
+        """Check if the activity upload completed successfully.
+
+        Returns
+        -------
+        bool
+            True if the upload completed and an activity_id was assigned.
+        """
         return self.activity_id is not None
 
     def raise_for_error(self) -> None:
-        """ """
-        # FIXME: We need better handling of the actual responses, once those are
-        # more accurately documented.
+        """Raise an appropriate exception if the upload encountered an error.
+
+        Raises
+        ------
+        stravalib.exc.ErrorProcessingActivity
+            If the upload status indicates a processing error.
+        stravalib.exc.CreatedActivityDeleted
+            If the created activity was deleted.
+        stravalib.exc.ActivityUploadFailed
+            For other upload failures.
+        """
         if self.error:
-            raise exc.ActivityUploadFailed(self.error)
+            # Provide more context about the upload failure
+            error_msg = f"Activity upload failed: {self.error}"
+            if self.upload_id:
+                error_msg += f" (Upload ID: {self.upload_id})"
+            if self.external_id:
+                error_msg += f" (External ID: {self.external_id})"
+
+            # Check for specific error types
+            if "processing" in str(self.error).lower():
+                raise exc.ErrorProcessingActivity(error_msg)
+            else:
+                raise exc.ActivityUploadFailed(error_msg)
         elif self.status == "The created activity has been deleted.":
             raise exc.CreatedActivityDeleted(self.status)
 

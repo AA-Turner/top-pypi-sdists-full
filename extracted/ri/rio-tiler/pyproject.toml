@@ -22,7 +22,7 @@ dynamic = ["version"]
 dependencies = [
     "attrs",
     "cachetools",
-    "httpx",
+    "httpx2",
     "numexpr",
     "numpy",
     "morecantile>=5.0,<8.0",
@@ -52,16 +52,19 @@ dev = [
     "vsifile>=0.2",
     "zarr~=3.0",
     "obstore",
-    "async-geotiff>=0.3,<0.5",
+    "async-geotiff>=0.3,<0.6",
     "tilebench",
     "pre-commit",
     "IPython",
     "jupyter",
+    "ipyleaflet",
     "matplotlib",
+    "pyinstrument",
 ]
 
 performance = [
     "pytest-benchmark",
+    "pytest-async-benchmark",
     "tilebench",
 ]
 
@@ -72,6 +75,7 @@ docs = [
     "griffe-inherited-docstrings>=1.0.0",
     "mkdocstrings[python]>=0.25.1",
     "pygments",
+    "mike~=2.0",
 ]
 deploy = [
     "hatch",
@@ -89,8 +93,8 @@ zarr = [
     "zarr~=3.0",
     "obstore",
 ]
-async = [
-    "async-geotiff>=0.3,<0.5",
+geotiff = [
+    "async-geotiff>=0.5,<0.6",
     "obstore",
 ]
 
@@ -168,7 +172,7 @@ exclude = [
 max-complexity = 14
 
 [tool.bumpversion]
-current_version = "9.0.6"
+current_version = "9.1.0"
 parse = """(?x)
     (?P<major>\\d+)\\.
     (?P<minor>\\d+)\\.

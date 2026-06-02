@@ -991,3 +991,52 @@ def test_init_py_interceptor(tmp_path):
     init_path.write_text("some content")
     assert init_path.stat().st_size == 0
 
+
+def test_verify_iterate_until_green_returns_list_at_max_rounds(tmp_path, monkeypatch):
+    """Verify that _verify_iterate_until_green returns a list of VerifyReports even when loop max rounds are reached."""
+    from sage.core.dynamic_builder import _verify_iterate_until_green
+    from sage.core.install_verify import VerifyReport, StepResult, DiscoveredProject
+    
+    # 1. Setup mock functions
+    project = DiscoveredProject(kind="python", root=tmp_path)
+    reports = [VerifyReport(project=project, steps=[
+        StepResult(name="pytest", ok=False, returncode=1, log="some error", duration_s=1.0)
+    ])]
+    
+    # Mock verify_all to always return failing reports
+    monkeypatch.setattr("sage.core.dynamic_builder.verify_all", lambda path: reports)
+    
+    # Mock _attempt_repair to do nothing
+    monkeypatch.setattr("sage.core.dynamic_builder._attempt_repair", lambda *args, **kwargs: None)
+    
+    # Run _verify_iterate_until_green
+    logs = []
+    res = _verify_iterate_until_green(
+        tmp_path,
+        generate=lambda p: "",
+        log=logs.append,
+        stuck_threshold=10,  # avoid triggering stuck detection before round 8
+    )
+    
+    assert isinstance(res, list)
+    assert len(res) == 1
+    assert res[0].project.kind == "python"
+    assert any("round 8/8" in m for m in logs)
+
+
+def test_media_asset_generation_instructions(monkeypatch):
+    """Verify that build_agent_system_prompt includes the new MEDIA & ASSET GENERATION instructions."""
+    from sage.core.prompts import build_agent_system_prompt
+    from pathlib import Path
+    
+    prompt = build_agent_system_prompt(Path("."), is_local=False)
+    assert "MEDIA & ASSET GENERATION" in prompt
+    assert "programmatically generating any kind of media asset" in prompt
+    assert "ffmpeg" in prompt
+    assert "pillow" in prompt
+    
+    local_prompt = build_agent_system_prompt(Path("."), is_local=True)
+    assert "Media & Asset Generation (CRITICAL)" in local_prompt
+    assert "programmatically generate the actual file" in local_prompt
+
+

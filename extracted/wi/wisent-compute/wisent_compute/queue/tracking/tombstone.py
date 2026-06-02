@@ -23,6 +23,10 @@ _TERMINAL_TO_MARKER = {
     "uploaded":  "fixed",
     "failed":    "failed_again",
 }
+_OPPOSITE_MARKER = {
+    "fixed": "failed_again",
+    "failed_again": "fixed",
+}
 
 
 def on_transition(store, job, to_prefix: str) -> None:
@@ -43,6 +47,8 @@ def on_transition(store, job, to_prefix: str) -> None:
     })
     try:
         store._upload_text(f"{marker_prefix}/{orig}.json", body)
+        other = _OPPOSITE_MARKER[marker_prefix]
+        store._delete_blob(f"{other}/{orig}.json")
     except Exception as exc:
         sys.stderr.write(f"[tombstone] write failed for {orig}: {exc!r}\n")
         sys.stderr.flush()

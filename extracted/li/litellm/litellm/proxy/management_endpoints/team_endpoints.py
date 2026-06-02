@@ -72,7 +72,9 @@ from litellm.proxy.auth.auth_checks import (
     get_user_object,
 )
 from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+from litellm.proxy.common_utils.callback_utils import encrypt_callback_vars
 from litellm.proxy.management_endpoints.common_utils import (
+    _check_passthrough_routes_caller_permission,
     _is_user_org_admin_for_team,
     _is_user_team_admin,
     _set_object_metadata_field,
@@ -1049,6 +1051,10 @@ async def new_team(  # noqa: PLR0915
                     Member(role="admin", user_id=user_api_key_dict.user_id)
                 )
 
+        _check_passthrough_routes_caller_permission(
+            data, user_api_key_dict, entity="team"
+        )
+
         ## ADD TO MODEL TABLE
         _model_id = None
         if data.model_aliases is not None and isinstance(data.model_aliases, dict):
@@ -1150,6 +1156,11 @@ async def new_team(  # noqa: PLR0915
             else safe_dumps({})
         )
         complete_team_data_dict["router_settings"] = router_settings_json
+
+        if complete_team_data_dict.get("metadata") is not None:
+            complete_team_data_dict["metadata"] = encrypt_callback_vars(
+                complete_team_data_dict["metadata"]
+            )
 
         complete_team_data_dict = prisma_client.jsonify_team_object(
             db_data=complete_team_data_dict
@@ -1646,6 +1657,10 @@ async def update_team(  # noqa: PLR0915
             user_api_key_dict=user_api_key_dict,
         )
 
+        _check_passthrough_routes_caller_permission(
+            data, user_api_key_dict, entity="team"
+        )
+
         if data.soft_budget is not None:
             max_budget_to_check = (
                 data.max_budget
@@ -1818,6 +1833,9 @@ async def update_team(  # noqa: PLR0915
 
         # update team metadata fields
         _update_metadata_fields(updated_kv=updated_kv)
+
+        if updated_kv.get("metadata") is not None:
+            updated_kv["metadata"] = encrypt_callback_vars(updated_kv["metadata"])
 
         if "model_aliases" in updated_kv:
             updated_kv.pop("model_aliases")
@@ -4372,9 +4390,7 @@ async def list_team(
         except Exception as e:
             team_exception = """Invalid team object for team_id: {}. team_object={}.
             Error: {}
-            """.format(
-                team.team_id, team.model_dump(), str(e)
-            )
+            """.format(team.team_id, team.model_dump(), str(e))
             verbose_proxy_logger.exception(team_exception)
             continue
     # Sort the responses by team_alias

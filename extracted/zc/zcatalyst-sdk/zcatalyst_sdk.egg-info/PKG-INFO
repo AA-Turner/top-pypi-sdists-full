@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: zcatalyst_sdk
-Version: 1.3.0
+Version: 1.4.0
 Summary: Zoho Catalyst SDK for Python
 Home-page: https://catalyst.zoho.com/
 Author: Catalyst by Zoho
@@ -8,15 +8,15 @@ Author-email: support@zohocatalyst.com
 License: Apache License 2.0
 Keywords: zcatalyst,zoho,catalyst,serverless,cloud,SDK,development
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
-Requires-Python: >= 3.9
+Requires-Python: >= 3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: requests~=2.32.3
+Requires-Dist: requests~=2.34.2
 Requires-Dist: typing-extensions~=4.12.1
 
 <a href="https://zoho.com/catalyst/">

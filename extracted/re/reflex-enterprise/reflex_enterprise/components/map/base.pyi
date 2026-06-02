@@ -5,13 +5,13 @@
 # ------------------------------------------------------
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 import reflex as rx
 from reflex import ImportVar, constants
 from reflex.vars.base import VarData
 from reflex.vars.object import ObjectVar
-from reflex_base.event import EventType, PointerEventInfo
+from reflex_base.event import EventChain, EventType, PointerEventInfo
 from reflex_base.vars.base import Var
 from reflex_components_core.core.breakpoints import Breakpoints
 
@@ -80,7 +80,65 @@ class InteractiveLeafletLayer(BaseLeafletComponent):
     def create(
         cls,
         *children,
-        event_handlers: Var[dict] | dict | None = None,
+        event_handlers: Var[
+            dict[
+                Literal[
+                    "add",
+                    "click",
+                    "contextmenu",
+                    "dblclick",
+                    "drag",
+                    "dragend",
+                    "dragstart",
+                    "keydown",
+                    "keypress",
+                    "keyup",
+                    "mousedown",
+                    "mousemove",
+                    "mouseout",
+                    "mouseover",
+                    "mouseup",
+                    "move",
+                    "moveend",
+                    "movestart",
+                    "popupclose",
+                    "popupopen",
+                    "remove",
+                    "tooltipclose",
+                    "tooltipopen",
+                ],
+                EventChain | EventType,
+            ]
+        ]
+        | dict[
+            Literal[
+                "add",
+                "click",
+                "contextmenu",
+                "dblclick",
+                "drag",
+                "dragend",
+                "dragstart",
+                "keydown",
+                "keypress",
+                "keyup",
+                "mousedown",
+                "mousemove",
+                "mouseout",
+                "mouseover",
+                "mouseup",
+                "move",
+                "moveend",
+                "movestart",
+                "popupclose",
+                "popupopen",
+                "remove",
+                "tooltipclose",
+                "tooltipopen",
+            ],
+            EventChain | EventType,
+        ]
+        | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -115,7 +173,58 @@ class InteractiveLeafletLayer(BaseLeafletComponent):
         on_unmount: Optional[EventType[()]] = None,
         **props,
     ) -> "InteractiveLeafletLayer":
-        """Translate on_<event> props into a single eventHandlers dict that react-leaflet understands."""
+        """Wire layer events into react-leaflet's `eventHandlers` prop.
+
+        The `on_<event>` triggers and any values passed in the `event_handlers`
+        mapping are normalized into `EventChain` instances so they render as the
+        JS functions leaflet invokes. The args_spec for each event comes from the
+        matching `on_<event>` `EventHandler` annotation, or from
+        `LAYER_EVENT_ARGS_SPECS` for events without an alias, so handlers receive
+        the correct typed event however they are wired.
+
+        Args:
+            *children: The children of the component.
+            event_handlers: Mapping of leaflet event name to an `EventChain` or a
+                raw `EventType` (a handler, list of handlers, or lambda). Merged
+                with any `on_<event>` triggers and normalized to `EventChain`.
+            style: The style of the component.
+            key: A unique key for the component.
+            id: The id for the component.
+            ref: The Var to pass as the ref to the component.
+            class_name: The class name for the component.
+            custom_attrs: Attributes passed directly to the component.
+            on_focus: Fired when the element (or some element inside of it) receives focus. For example, it is called when the user clicks on a text input.
+            on_blur: Fired when focus has left the element (or left some element inside of it). For example, it is called when the user clicks outside of a focused text input.
+            on_click: Fired when the user clicks on an element. For example, it's called when the user clicks on a button.
+            on_context_menu: Fired when the user right-clicks on an element.
+            on_double_click: Fired when the user double-clicks on an element.
+            on_mouse_down: Fired when the user presses a mouse button on an element.
+            on_mouse_enter: Fired when the mouse pointer enters the element.
+            on_mouse_leave: Fired when the mouse pointer leaves the element.
+            on_mouse_move: Fired when the mouse pointer moves over the element.
+            on_mouse_out: Fired when the mouse pointer moves out of the element.
+            on_mouse_over: Fired when the mouse pointer moves onto the element.
+            on_mouse_up: Fired when the user releases a mouse button on an element.
+            on_scroll: Fired when the user scrolls the element.
+            on_scroll_end: Fired when scrolling ends on the element.
+            on_mount: Fired when the component is mounted to the page.
+            on_unmount: Fired when the component is removed from the page. Only called during navigation, not on page refresh.
+            on_dblclick: no description
+            on_mousedown: no description
+            on_mouseup: no description
+            on_mouseover: no description
+            on_mouseout: no description
+            on_contextmenu: no description
+            **props: The props of the component.
+
+        Returns:
+            The component instance.
+
+        Raises:
+            ValueError: If an event is supplied via both its `on_<event>` trigger
+                and `event_handlers`, or if a Var `event_handlers` mapping is
+                combined with `on_<event>` triggers (which cannot be merged).
+        """
         ...
 
 class LazyBaseLeafletComponent(BaseLeafletComponent):

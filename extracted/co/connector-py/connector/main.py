@@ -39,13 +39,6 @@ def main():
         "--output-directory",
         help="Directory for compilation",
     )
-    compile_parser.add_argument(
-        "--data-file",
-        dest="data_files",
-        action="append",
-        help="Relative path to a data file to include in the compiled bundle "
-        "(relative to connector-root-module-dir, can be specified multiple times)",
-    )
 
     args = parser.parse_args()
 
@@ -60,14 +53,12 @@ def main():
         print(spec_file_path.read_text())
         return
     elif args.command == "compile-on-prem":
-        data_files = [Path(f) for f in args.data_files] if args.data_files else None
         compile_executable_for_onprem(
             connector_root_module_dir=Path(args.connector_root_module_dir),
             app_id=args.app_id,
             exclude_modules=DEFAULT_EXCLUDE_MODULES,
             sdk_root=Path(os.path.dirname(__file__)).parent,
             compile_directory=Path(args.output_directory) if args.output_directory else None,
-            data_files=data_files,
         )
         return
 

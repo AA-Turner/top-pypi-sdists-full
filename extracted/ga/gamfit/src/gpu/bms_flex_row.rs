@@ -816,37 +816,26 @@ impl RowKernelBackend {
         static BACKEND: OnceLock<Result<RowKernelBackend, GpuError>> = OnceLock::new();
         BACKEND
             .get_or_init(|| {
-                let runtime = super::runtime::GpuRuntime::global().ok_or_else(|| {
-                    GpuError::DriverLibraryUnavailable {
-                        reason: "bms_flex_row backend: no CUDA runtime available".to_string(),
-                    }
-                })?;
-                let ctx = super::runtime::cuda_context_for(runtime.selected_device().ordinal)
-                    .ok_or_else(|| GpuError::DriverCallFailed {
-                        reason: format!(
-                            "bms_flex_row backend: failed to create CUDA context for device {}",
-                            runtime.selected_device().ordinal
-                        ),
+                super::backend_probe::probe_backend_with_compile("bms_flex_row", |parts| {
+                    let row_kernel_source =
+                        [super::numerics_device::PROBIT_NUMERICS_CU, ROW_KERNEL_BODY].concat();
+                    let ptx = cudarc::nvrtc::compile_ptx(row_kernel_source).map_err(|err| {
+                        GpuError::DriverCallFailed {
+                            reason: format!("bms_flex_row NVRTC compile failed: {err}"),
+                        }
                     })?;
-                let stream = ctx.default_stream();
-                let row_kernel_source =
-                    [super::numerics_device::PROBIT_NUMERICS_CU, ROW_KERNEL_BODY].concat();
-                let ptx = cudarc::nvrtc::compile_ptx(row_kernel_source).map_err(|err| {
-                    GpuError::DriverCallFailed {
-                        reason: format!("bms_flex_row NVRTC compile failed: {err}"),
-                    }
-                })?;
-                let module = ctx
-                    .load_module(ptx)
-                    .map_err(|err| GpuError::DriverCallFailed {
-                        reason: format!("bms_flex_row module load failed: {err}"),
-                    })?;
-                // Keep an explicit `Arc<CudaContext>` clone on the backend so
-                // callers that build `DeviceResidentRowHess` can hand it to
-                // downstream HVP / diagonal launches without re-probing the
-                // runtime. cudarc's `Arc<CudaModule>` does not expose a
-                // public `ctx()` accessor.
-                Ok(RowKernelBackend { stream, module })
+                    let module =
+                        parts
+                            .ctx
+                            .load_module(ptx)
+                            .map_err(|err| GpuError::DriverCallFailed {
+                                reason: format!("bms_flex_row module load failed: {err}"),
+                            })?;
+                    Ok(RowKernelBackend {
+                        stream: parts.stream.clone(),
+                        module,
+                    })
+                })
             })
             .as_ref()
             .map_err(GpuError::clone)
@@ -1762,30 +1751,24 @@ impl HvpKernelBackend {
         static BACKEND: OnceLock<Result<HvpKernelBackend, GpuError>> = OnceLock::new();
         BACKEND
             .get_or_init(|| {
-                let runtime = super::runtime::GpuRuntime::global().ok_or_else(|| {
-                    GpuError::DriverLibraryUnavailable {
-                        reason: "bms_flex_row hvp backend: no CUDA runtime available".to_string(),
-                    }
-                })?;
-                let ctx = super::runtime::cuda_context_for(runtime.selected_device().ordinal)
-                    .ok_or_else(|| GpuError::DriverCallFailed {
-                        reason: format!(
-                            "bms_flex_row hvp backend: failed to create CUDA context for device {}",
-                            runtime.selected_device().ordinal
-                        ),
+                super::backend_probe::probe_backend_with_compile("bms_flex_row hvp", |parts| {
+                    let ptx = cudarc::nvrtc::compile_ptx(HVP_KERNEL_SOURCE).map_err(|err| {
+                        GpuError::DriverCallFailed {
+                            reason: format!("bms_flex_row hvp NVRTC compile failed: {err}"),
+                        }
                     })?;
-                let stream = ctx.default_stream();
-                let ptx = cudarc::nvrtc::compile_ptx(HVP_KERNEL_SOURCE).map_err(|err| {
-                    GpuError::DriverCallFailed {
-                        reason: format!("bms_flex_row hvp NVRTC compile failed: {err}"),
-                    }
-                })?;
-                let module = ctx
-                    .load_module(ptx)
-                    .map_err(|err| GpuError::DriverCallFailed {
-                        reason: format!("bms_flex_row hvp module load failed: {err}"),
-                    })?;
-                Ok(HvpKernelBackend { stream, module })
+                    let module =
+                        parts
+                            .ctx
+                            .load_module(ptx)
+                            .map_err(|err| GpuError::DriverCallFailed {
+                                reason: format!("bms_flex_row hvp module load failed: {err}"),
+                            })?;
+                    Ok(HvpKernelBackend {
+                        stream: parts.stream.clone(),
+                        module,
+                    })
+                })
             })
             .as_ref()
             .map_err(GpuError::clone)
@@ -1799,6 +1782,24 @@ impl HvpKernelBackend {
 ///
 /// `marginal_design_row_major` and `logslope_design_row_major` must be
 /// row-major `[n, p_m]` and `[n, p_g]` contiguous slices.
+///
+/// #461 absorber (additive Stage-1 influence block): the orthogonalization is
+/// realized as **A2 — the marginal design widened to `[M | Z̃_infl]`** (see
+/// `src/families/bms/block_specs.rs::widen_marginal_dense_with_influence`), NOT
+/// a dedicated 5th primary coordinate. The absorber `+Z̃_infl·γ` is plain
+/// additive into the marginal index `α(x)`, so γ lives inside `β_m` of the
+/// widened block and `p_m` already counts the `p₁` influence columns. The row
+/// kernel reads the marginal index from `block_states[0].eta` (which carries
+/// `Z̃_infl·γ`) and pulls back through this same widened `marginal_design`, so
+/// the absorber rides the existing primary-coordinate `u = 0` chain with **no
+/// kernel-source change**: η, gradient, and Hessian match the CPU kernel
+/// bit-for-bit precisely because `marginal_design` and `β_m` are the matched
+/// (design, coefficient) pair the CPU path uses. The validation below pins
+/// `marginal_design.len() == n·p_m` (with `p_m` widened), so a stale narrow
+/// design against a widened `block.p_m` is rejected cleanly (CPU fallback)
+/// rather than silently computing the wrong η. The absorber is dropped at
+/// predict, where the marginal design is rebuilt without the influence columns,
+/// so the predict-time `p_m` is narrow and this path is correct there too.
 #[cfg(target_os = "linux")]
 pub(crate) fn launch_bms_flex_row_kernel_device_resident(
     inputs: BmsFlexRowKernelInputs<'_>,
@@ -2838,35 +2839,6 @@ mod tests {
     const ORACLE_SQRT_2: f64 = std::f64::consts::SQRT_2;
     const ORACLE_INV_SQRT_2PI: f64 = 0.398_942_280_401_432_7;
 
-    /// Cody-1969 Chebyshev rational `erfc` (same coefficients as
-    /// `pirls_row::libm_erfc`). Used by the oracle's Mills helper so the
-    /// reference path stays free of the optional `libm` crate dependency.
-    fn oracle_erfc(x: f64) -> f64 {
-        if !x.is_finite() {
-            return if x.is_nan() {
-                f64::NAN
-            } else if x > 0.0 {
-                0.0
-            } else {
-                2.0
-            };
-        }
-        let ax = x.abs();
-        let t = 1.0 / (1.0 + 0.5 * ax);
-        let r = t
-            * (-ax * ax - 1.265_512_23
-                + t * (1.000_023_68
-                    + t * (0.374_091_96
-                        + t * (0.096_784_18
-                            + t * (-0.186_288_06
-                                + t * (0.278_868_07
-                                    + t * (-1.135_203_98
-                                        + t * (1.488_515_87
-                                            + t * (-0.822_152_23 + t * 0.170_872_77)))))))))
-                .exp();
-        if x >= 0.0 { r } else { 2.0 - r }
-    }
-
     fn oracle_erfcx_nonnegative(x: f64) -> f64 {
         if !x.is_finite() {
             return if x > 0.0 { 0.0 } else { f64::INFINITY };
@@ -2879,7 +2851,7 @@ mod tests {
             if xx > 700.0 {
                 xx = 700.0;
             }
-            return xx.exp() * oracle_erfc(x);
+            return xx.exp() * crate::gpu::numerics_host::erfc(x);
         }
         let inv = 1.0 / x;
         let inv2 = inv * inv;
@@ -2909,7 +2881,7 @@ mod tests {
             let sqrt_2_over_pi: f64 = 0.797_884_560_802_865_4;
             (log_cdf, sqrt_2_over_pi / ex)
         } else {
-            let mut cdf = 0.5 * oracle_erfc(-x / ORACLE_SQRT_2);
+            let mut cdf = 0.5 * crate::gpu::numerics_host::erfc(-x / ORACLE_SQRT_2);
             if cdf < 1e-300 {
                 cdf = 1e-300;
             }
@@ -3442,14 +3414,10 @@ mod tests {
             let inputs_gpu = parity_inputs(&buffers);
             let gpu_out = match launch_bms_flex_row_kernel(inputs_gpu) {
                 Ok(out) => out,
-                Err(err) => {
-                    eprintln!(
-                        "[bms_flex_row parity] launch failed on CUDA host: \
-                         {err}; skipping parity (treat as CI infra outage, \
-                         not a parity regression)"
-                    );
-                    return;
-                }
+                Err(err) => panic!(
+                    "[bms_flex_row parity] launch failed on CUDA-selected host; \
+                     device/oracle parity must fail loudly on GPU CI: {err}"
+                ),
             };
 
             let n = inputs_cpu.n_rows;

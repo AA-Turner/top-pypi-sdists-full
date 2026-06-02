@@ -496,6 +496,21 @@ class Bash(
                     f"Do NOT re-run this command — the write already completed.]"
                 )
 
+        # When `echo -e` is used with \n or \t and the shell did not expand them,
+        # the output contains literal backslash-n/t. The model then loops retrying
+        # the same command. Detect this and redirect to printf or write_file.
+        # addresses pattern harness:bash:escape_loop
+        if returncode == 0:
+            import re as _re1
+            if _re1.search(r'\becho\s+-e\b', command) and _re1.search(r'\\[nt]', command):
+                if stdout and ('\\n' in stdout or '\\t' in stdout):
+                    stdout = stdout + (
+                        "\n[Hint: echo -e did not expand \\n/\\t — output contains "
+                        "literal backslash sequences. Use `printf 'line1\\nline2\\n'` "
+                        "or write_file for multi-line content. "
+                        "Do NOT repeat echo -e with the same arguments.]"
+                    )
+
         return BashResult(
             command=command, stdout=stdout, stderr=stderr, returncode=returncode
         )
@@ -832,12 +847,31 @@ class Bash(
         # loop). Returning a BashResult with returncode=1 gives the model
         # parseable feedback so it can recover. See feedback_no_tool_errors_for_loop_detection.md.
         if not args.command:
+            # Use the same sentinel text that _update_readonly_streak and
+            # _scrub_validation_error_call both check for so the streak
+            # counter fires and loop-scrub kicks in on repeated bash({}).
+            # Escalate message after 3+ consecutive empty calls so the model
+            # gets an increasingly hard directive to switch tools.
+            _ebc = self.state.__dict__.setdefault("_empty_bash_count", {"n": 0})
+            _ebc["n"] += 1
+            _n = _ebc["n"]
+            if _n >= 3:
+                _empty_msg = (
+                    f"[bash: LOOP-BREAKER — empty command called {_n} times this session] "
+                    "Bash cannot run without a 'command' field. You are stuck. "
+                    "STOP calling bash. Switch tools immediately: "
+                    "call search_replace or write_file to make file changes, "
+                    "or output a plain-text response to the user describing what you intended."
+                )
+            else:
+                _empty_msg = (
+                    "[bash: empty or placeholder command] "
+                    "'command' field is required. "
+                    'Provide a shell command: bash({"command": "<shell command>"})'
+                )
             yield BashResult(
                 command="",
-                stdout=(
-                    "Error: 'command' field is required.\n"
-                    'Usage: bash({"command": "<shell command>"})'
-                ),
+                stdout=_empty_msg,
                 stderr="",
                 returncode=1,
             )
@@ -884,13 +918,25 @@ class Bash(
         # placeholder) instead of a real shell command. Running it does nothing
         # useful and the model loops waiting for output. Catch it early.
         if args.command.strip() in ("{}", "{", "}", "{ }", ""):
-            yield BashResult(
-                command=args.command,
-                stdout=(
+            _ebc2 = self.state.__dict__.setdefault("_empty_bash_count", {"n": 0})
+            _ebc2["n"] += 1
+            _n2 = _ebc2["n"]
+            if _n2 >= 3:
+                _placeholder_msg = (
+                    f"[bash: LOOP-BREAKER — empty/placeholder command called {_n2} times this session] "
+                    "You are stuck in a loop. STOP calling bash with '{}'. "
+                    "Switch tools immediately: use search_replace or write_file for file edits, "
+                    "or output a plain-text response to the user."
+                )
+            else:
+                _placeholder_msg = (
                     "[bash: empty or placeholder command — nothing was executed. "
                     "Supply a real shell command such as `ls`, `python3 script.py`, "
                     "or `cat file.py`. Do NOT resend '{}' or an empty string.]"
-                ),
+                )
+            yield BashResult(
+                command=args.command,
+                stdout=_placeholder_msg,
                 stderr="",
                 returncode=1,
             )

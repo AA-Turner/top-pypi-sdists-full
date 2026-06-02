@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdk-gitlab-runner",
-    "version": "2.4.61",
+    "version": "2.4.62",
     "description": "Use AWS CDK to create a gitlab runner, and use gitlab runner to help you execute your Gitlab pipeline job.",
     "license": "Apache-2.0",
     "url": "https://github.com/neilkuan/cdk-gitlab-runner.git",
@@ -26,17 +26,17 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdk_gitlab_runner._jsii": [
-            "cdk-gitlab-runner@2.4.61.jsii.tgz"
+            "cdk-gitlab-runner@2.4.62.jsii.tgz"
         ],
         "cdk_gitlab_runner": [
             "py.typed"
         ]
     },
-    "python_requires": "~=3.10",
+    "python_requires": ">=3.10",
     "install_requires": [
         "aws-cdk-lib>=2.189.1, <3.0.0",
         "constructs>=10.5.1, <11.0.0",
-        "jsii>=1.132.0, <2.0.0",
+        "jsii>=1.133.0, <2.0.0",
         "publication>=0.0.3",
         "typeguard==2.13.3"
     ],
@@ -45,9 +45,11 @@ kwargs = json.loads(
         "Operating System :: OS Independent",
         "Programming Language :: JavaScript",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Typing :: Typed",
         "Development Status :: 4 - Beta",
         "License :: OSI Approved"

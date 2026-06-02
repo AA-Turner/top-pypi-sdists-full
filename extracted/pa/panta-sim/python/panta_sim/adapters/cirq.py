@@ -275,8 +275,13 @@ def to_cirq(panta_circuit: PantaCircuit) -> Any:
 
     Raises:
         ImportError: ``cirq`` 미설치.
-        ValueError: 처리할 수 없는 op 이름 (방어적).
+        ValueError: 처리할 수 없는 op 이름 (방어적), 또는 미바인딩 파라미터.
     """
+    if getattr(panta_circuit, "is_parameterized", lambda: False)():
+        raise ValueError(
+            "to_cirq: 미바인딩 파라미터가 있는 회로는 변환할 수 없습니다. "
+            "assign_parameters() 로 값을 대입한 뒤 변환하세요."
+        )
     cirq = _lazy_import_cirq()
 
     n = panta_circuit.num_qubits

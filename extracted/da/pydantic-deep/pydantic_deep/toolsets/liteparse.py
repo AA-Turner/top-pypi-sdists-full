@@ -1,16 +1,18 @@
 """LiteParse document parsing toolset.
 
 Provides tools for parsing PDFs, DOCX, images and other documents using the
-LiteParse Node.js CLI via the ``liteparse`` Python package.
+LiteParse Node.js CLI via the `liteparse` Python package.
 
 Requirements:
     - Node.js >= 18 installed on the system
-    - LiteParse CLI: ``npm install -g @llamaindex/liteparse``
-    - Python package: ``pip install pydantic-deep[liteparse]``
+    - LiteParse CLI: `npm install -g @llamaindex/liteparse`
+    - Python package: `pip install pydantic-deep[liteparse]`
 """
 
 from __future__ import annotations
 
+import contextlib
+import importlib
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -18,20 +20,41 @@ from typing import Any
 from pydantic_ai import RunContext
 from pydantic_ai.toolsets import FunctionToolset
 
+# Dynamic imports keep `liteparse` opaque to static type checkers - its API
+# shape differs between versions, so binding to `Any` here avoids both
+# missing-attribute errors when stubs are absent and unused-ignore noise when
+# stubs happen to be present.
 _HAS_LITEPARSE = False
+_LiteParse: Any = None
+# Synthetic fallback that never matches a real exception. When liteparse exposes no
+# dedicated CLI-not-found class (>=2.x dropped it), keeping a never-matching class
+# means the parse handlers fall through to the generic "Parse error" branch instead
+# of mislabelling unrelated errors as "CLI not found".
+#
+# The class identity is kept STABLE across importlib.reload(): the test suite reloads
+# this module, and regenerating the class with a fresh `type(...)` on every load would
+# break `except _CLINotFoundError` matching against the `LiteparseCliNotFoundError`
+# alias that callers (and tests) imported from the *previous* load. Reusing the value
+# already in globals() preserves identity; on first import the default builds it.
+_CLINotFoundError: type[BaseException] = globals().get(
+    "_CLINotFoundError", type("LiteparseCliNotFoundError", (Exception,), {})
+)
 
 try:
-    from liteparse import LiteParse as _LiteParse
-    from liteparse.types import CLINotFoundError as _CLINotFoundError
-
+    _LiteParse = importlib.import_module("liteparse").LiteParse
     _HAS_LITEPARSE = True
-except ImportError:  # pragma: no cover
+except (ImportError, AttributeError):  # pragma: no cover
+    pass
 
-    class _LiteParse:  # type: ignore[no-redef]
-        def __init__(self, **kwargs: Any) -> None: ...  # pragma: no cover
-
-    class _CLINotFoundError(Exception):  # type: ignore[no-redef]
-        pass  # pragma: no cover
+# Resolve the CLI-not-found error class for the friendly handler, tolerating the fact
+# that liteparse has moved/renamed it across versions. Try each known location; the
+# last successful import wins, otherwise the synthetic fallback above is kept.
+# _HAS_LITEPARSE stays tied to LiteParse alone on purpose: parsing works without this
+# class (only the CLI-specific message degrades to the generic handler), so a missing
+# error class must NOT silently disable the entire toolset.
+for _cli_err_module in ("liteparse", "liteparse.types"):
+    with contextlib.suppress(ImportError, AttributeError):
+        _CLINotFoundError = importlib.import_module(_cli_err_module).CLINotFoundError
 
 
 _NOT_INSTALLED_MSG = (
@@ -68,12 +91,12 @@ class LiteparseToolset(FunctionToolset[Any]):
 
     Requirements:
         - Node.js >= 18 on the system
-        - LiteParse CLI (auto-installed via npm on first use if ``install_if_not_available=True``)
-        - ``pip install pydantic-deep[liteparse]``
+        - LiteParse CLI (auto-installed via npm on first use if `install_if_not_available=True`)
+        - `pip install pydantic-deep[liteparse]`
 
     Tools:
-        - ``parse_document``: Extract text content from a document
-        - ``screenshot_document``: Generate page screenshots saved to the backend
+        - `parse_document`: Extract text content from a document
+        - `screenshot_document`: Generate page screenshots saved to the backend
     """
 
     def __init__(
@@ -93,11 +116,11 @@ class LiteparseToolset(FunctionToolset[Any]):
             ocr_enabled: Enable OCR for scanned documents. Defaults to True.
             ocr_language: OCR language code (e.g. "en", "fr", "de"). Defaults to "en".
             ocr_server_url: URL of HTTP OCR server. Uses built-in Tesseract if not set.
-            dpi: Rendering DPI — higher gives better OCR quality but is slower. Defaults to 150.
+            dpi: Rendering DPI - higher gives better OCR quality but is slower. Defaults to 150.
             max_pages: Maximum pages to parse per document. Defaults to 10,000.
             install_if_not_available: Auto-install CLI via npm on first use. Defaults to True.
             descriptions: Optional dict to override tool descriptions.
-                Keys: ``parse_document``, ``screenshot_document``.
+                Keys: `parse_document`, `screenshot_document`.
         """
         super().__init__(id="deep-liteparse")
         self._ocr_enabled = ocr_enabled

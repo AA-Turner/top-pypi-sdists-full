@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 from __future__ import annotations
 
 import asyncio
@@ -172,7 +171,7 @@ def test_main_passes_no_recurse_default() -> None:
         instance.__aenter__ = AsyncMock(return_value=instance)
         instance.__aexit__ = AsyncMock(return_value=None)
         cli.main([])
-        mocked.assert_called_once_with(no_recurse=True)
+        mocked.assert_called_once_with(no_recurse=True, local_ip=None)
 
 
 def test_main_passes_recurse_flag() -> None:
@@ -182,7 +181,39 @@ def test_main_passes_recurse_flag() -> None:
         instance.__aenter__ = AsyncMock(return_value=instance)
         instance.__aexit__ = AsyncMock(return_value=None)
         cli.main(["--recurse"])
-        mocked.assert_called_once_with(no_recurse=False)
+        mocked.assert_called_once_with(no_recurse=False, local_ip=None)
+
+
+def test_main_passes_local_ip_flag() -> None:
+    """--local-ip is forwarded through to DiscoverHosts."""
+    with patch("aiodiscover.cli.DiscoverHosts") as mocked:
+        instance = mocked.return_value
+        instance.async_discover = AsyncMock(return_value=[])
+        instance.__aenter__ = AsyncMock(return_value=instance)
+        instance.__aexit__ = AsyncMock(return_value=None)
+        cli.main(["--local-ip", "192.168.5.10"])
+        mocked.assert_called_once_with(no_recurse=True, local_ip="192.168.5.10")
+
+
+def test_build_parser_local_ip_default_is_none() -> None:
+    """Omitting --local-ip leaves the value at None."""
+    args = cli.build_parser().parse_args([])
+    assert args.local_ip is None
+
+
+@pytest.mark.parametrize(
+    "bad_value",
+    ["not-an-ip", "999.999.999.999", "192.168.1", "::1", "2001:db8::1"],
+)
+def test_build_parser_local_ip_rejects_invalid(
+    bad_value: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """--local-ip validates at parse time so users see argparse's friendly error."""
+    parser = cli.build_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--local-ip", bad_value])
+    err = capsys.readouterr().err
+    assert "IPv4" in err
 
 
 def test_main_keyboard_interrupt_returns_130() -> None:

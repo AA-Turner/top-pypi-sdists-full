@@ -643,8 +643,6 @@ def check_auth(
 
     Returns an AuthCheckResult that both CLI and MCP code can render.
     """
-    from datetime import datetime
-
     if profile is None:
         from notebooklm_tools.utils.config import get_config
 
@@ -745,6 +743,3 @@ def check_auth(
             profile=profile,
             details={"exception": str(exc)},
         )
-
-
-

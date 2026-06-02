@@ -98,7 +98,7 @@ _GENRE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
 # Generic "I want a game" phrases — used as a fallback signal so the
 # detector triggers even when the user hasn't named a genre or engine.
 _GAME_NOUN = re.compile(
-    r"\b(game|playable|gameplay|player(?:\s+character)?|enemies?|"
+    r"\b(game|playable|gameplay|(?<!video\s)(?<!media\s)(?<!music\s)(?<!audio\s)(?<!record\s)player(?:\s+character)?|enemies?|"
     r"\b(?:2|3)d\s+game)\b",
     re.I,
 )

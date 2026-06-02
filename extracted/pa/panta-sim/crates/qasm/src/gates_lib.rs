@@ -172,6 +172,44 @@ pub fn apply_named_gate(
             }
             circuit.swap(qubits[0], qubits[1]);
         }
+        "iswap" => {
+            if !params.is_empty() {
+                return Err(param_err("iswap", 0, params.len()));
+            }
+            if qubits.len() != 2 {
+                return Err(arity_err("iswap", 2, qubits.len()));
+            }
+            circuit.iswap(qubits[0], qubits[1]);
+        }
+        "rxx" | "ryy" | "rzz" | "rzx" | "xx_plus_yy" | "xx_minus_yy" => {
+            if params.len() != 1 {
+                return Err(param_err(name, 1, params.len()));
+            }
+            if qubits.len() != 2 {
+                return Err(arity_err(name, 2, qubits.len()));
+            }
+            match name {
+                "rxx" => circuit.rxx(params[0], qubits[0], qubits[1]),
+                "ryy" => circuit.ryy(params[0], qubits[0], qubits[1]),
+                "rzz" => circuit.rzz(params[0], qubits[0], qubits[1]),
+                "rzx" => circuit.rzx(params[0], qubits[0], qubits[1]),
+                "xx_plus_yy" => circuit.xx_plus_yy(params[0], qubits[0], qubits[1]),
+                _ => circuit.xx_minus_yy(params[0], qubits[0], qubits[1]),
+            }
+        }
+        "dcx" | "ecr" => {
+            if !params.is_empty() {
+                return Err(param_err(name, 0, params.len()));
+            }
+            if qubits.len() != 2 {
+                return Err(arity_err(name, 2, qubits.len()));
+            }
+            if name == "dcx" {
+                circuit.dcx(qubits[0], qubits[1]);
+            } else {
+                circuit.ecr(qubits[0], qubits[1]);
+            }
+        }
         // cy q,t = sdg t; cx q,t; s t  (Qiskit 표준)
         "cy" => {
             if !params.is_empty() {

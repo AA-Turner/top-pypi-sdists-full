@@ -6,14 +6,14 @@ build-backend = "setuptools.build_meta"
 include = ["kanban_framework*"]
 
 [tool.setuptools.package-data]
-kanban_framework = ["_skill/**/*", "dashboard/**/*"]
+kanban_framework = ["_skill/**/*", "dashboard/**/*", "workflows/*"]
 
 [tool.setuptools.exclude-package-data]
 kanban_framework = ["dashboard/node_modules/**", "dashboard/package-lock.json"]
 
 [project]
 name = "kanban-framework"
-version = "0.96.6"
+version = "0.99.3"
 description = "Kanban multi-agent orchestration framework for Claude Code"
 requires-python = ">=3.10"
 dependencies = [

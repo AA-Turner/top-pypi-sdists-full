@@ -328,6 +328,10 @@ class ConductorWebsocket(threading.Thread):
                                     user=body.get("authenticated_user", None),
                                     start_time=body.get("start_time", None),
                                     end_time=body.get("end_time", None),
+                                    completed_after=body.get("completed_after", None),
+                                    completed_before=body.get("completed_before", None),
+                                    dequeued_after=body.get("dequeued_after", None),
+                                    dequeued_before=body.get("dequeued_before", None),
                                     status=body.get("status", None),
                                     app_version=body.get("application_version", None),
                                     forked_from=body.get("forked_from", None),
@@ -375,6 +379,12 @@ class ConductorWebsocket(threading.Thread):
                                     user=q_body.get("authenticated_user", None),
                                     start_time=q_body.get("start_time", None),
                                     end_time=q_body.get("end_time", None),
+                                    completed_after=q_body.get("completed_after", None),
+                                    completed_before=q_body.get(
+                                        "completed_before", None
+                                    ),
+                                    dequeued_after=q_body.get("dequeued_after", None),
+                                    dequeued_before=q_body.get("dequeued_before", None),
                                     status=q_body.get("status", None),
                                     app_version=q_body.get("application_version", None),
                                     forked_from=q_body.get("forked_from", None),
@@ -892,6 +902,25 @@ class ConductorWebsocket(threading.Thread):
                             )
                             agg_body = agg_message.body
                             agg_output: list[p.WorkflowAggregateOutput] = []
+                            # Backwards compat: older clients send no select_*
+                            # flags and expect counts.
+                            select_count = agg_body.get("select_count", False)
+                            select_min_created_at = agg_body.get(
+                                "select_min_created_at", False
+                            )
+                            select_max_queue_wait_ms = agg_body.get(
+                                "select_max_queue_wait_ms", False
+                            )
+                            select_max_total_latency_ms = agg_body.get(
+                                "select_max_total_latency_ms", False
+                            )
+                            if not (
+                                select_count
+                                or select_min_created_at
+                                or select_max_queue_wait_ms
+                                or select_max_total_latency_ms
+                            ):
+                                select_count = True
                             try:
                                 agg_rows = self.dbos._sys_db.get_workflow_aggregates(
                                     group_by_status=agg_body.get(
@@ -907,12 +936,26 @@ class ConductorWebsocket(threading.Thread):
                                     group_by_application_version=agg_body.get(
                                         "group_by_application_version", False
                                     ),
+                                    select_count=select_count,
+                                    select_min_created_at=select_min_created_at,
+                                    select_max_queue_wait_ms=select_max_queue_wait_ms,
+                                    select_max_total_latency_ms=select_max_total_latency_ms,
                                     time_bucket_size_ms=agg_body.get(
                                         "time_bucket_size_ms", None
                                     ),
                                     status=agg_body.get("status", None),
                                     start_time=agg_body.get("start_time", None),
                                     end_time=agg_body.get("end_time", None),
+                                    completed_after=agg_body.get(
+                                        "completed_after", None
+                                    ),
+                                    completed_before=agg_body.get(
+                                        "completed_before", None
+                                    ),
+                                    dequeued_after=agg_body.get("dequeued_after", None),
+                                    dequeued_before=agg_body.get(
+                                        "dequeued_before", None
+                                    ),
                                     name=agg_body.get("name", None),
                                     app_version=agg_body.get("app_version", None),
                                     executor_id=agg_body.get("executor_id", None),
@@ -923,7 +966,11 @@ class ConductorWebsocket(threading.Thread):
                                 )
                                 agg_output = [
                                     p.WorkflowAggregateOutput(
-                                        group=r["group"], count=r["count"]
+                                        group=r["group"],
+                                        count=r["count"],
+                                        min_created_at=r["min_created_at"],
+                                        max_queue_wait_ms=r["max_queue_wait_ms"],
+                                        max_total_latency_ms=r["max_total_latency_ms"],
                                     )
                                     for r in agg_rows
                                 ]
@@ -935,6 +982,66 @@ class ConductorWebsocket(threading.Thread):
                                     type=p.MessageType.GET_WORKFLOW_AGGREGATES,
                                     request_id=base_message.request_id,
                                     output=agg_output,
+                                    error_message=error_message,
+                                ).to_json()
+                            )
+                        elif msg_type == p.MessageType.GET_STEP_AGGREGATES:
+                            step_agg_message = p.GetStepAggregatesRequest.from_json(
+                                message
+                            )
+                            step_agg_body = step_agg_message.body
+                            step_agg_output: list[p.StepAggregateOutput] = []
+                            # Backwards compat: older clients send no select_*
+                            # flags and expect counts.
+                            step_select_count = step_agg_body.get("select_count", False)
+                            step_select_max_duration_ms = step_agg_body.get(
+                                "select_max_duration_ms", False
+                            )
+                            if not (step_select_count or step_select_max_duration_ms):
+                                step_select_count = True
+                            try:
+                                step_agg_rows = self.dbos._sys_db.get_step_aggregates(
+                                    group_by_function_name=step_agg_body.get(
+                                        "group_by_function_name", False
+                                    ),
+                                    group_by_status=step_agg_body.get(
+                                        "group_by_status", False
+                                    ),
+                                    select_count=step_select_count,
+                                    select_max_duration_ms=step_select_max_duration_ms,
+                                    time_bucket_size_ms=step_agg_body.get(
+                                        "time_bucket_size_ms", None
+                                    ),
+                                    status=step_agg_body.get("status", None),
+                                    function_name=step_agg_body.get(
+                                        "function_name", None
+                                    ),
+                                    workflow_id_prefix=step_agg_body.get(
+                                        "workflow_id_prefix", None
+                                    ),
+                                    completed_after=step_agg_body.get(
+                                        "completed_after", None
+                                    ),
+                                    completed_before=step_agg_body.get(
+                                        "completed_before", None
+                                    ),
+                                )
+                                step_agg_output = [
+                                    p.StepAggregateOutput(
+                                        group=r["group"],
+                                        count=r["count"],
+                                        max_duration_ms=r["max_duration_ms"],
+                                    )
+                                    for r in step_agg_rows
+                                ]
+                            except Exception:
+                                error_message = f"Exception encountered when getting step aggregates: {traceback.format_exc()}"
+                                self.dbos.logger.error(error_message)
+                            websocket.send(
+                                p.GetStepAggregatesResponse(
+                                    type=p.MessageType.GET_STEP_AGGREGATES,
+                                    request_id=base_message.request_id,
+                                    output=step_agg_output,
                                     error_message=error_message,
                                 ).to_json()
                             )

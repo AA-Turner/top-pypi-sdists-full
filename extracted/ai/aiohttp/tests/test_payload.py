@@ -6,14 +6,14 @@ import unittest.mock
 from collections.abc import AsyncIterator
 from io import StringIO
 from pathlib import Path
-from typing import List, Optional, TextIO, Union
+from typing import TextIO, Union
 
 import pytest
 from multidict import CIMultiDict
 
 from aiohttp import payload
 from aiohttp.abc import AbstractStreamWriter
-from aiohttp.payload import READ_SIZE
+from aiohttp.helpers import DEFAULT_CHUNK_SIZE
 
 
 class BufferWriter(AbstractStreamWriter):
@@ -34,7 +34,7 @@ class BufferWriter(AbstractStreamWriter):
         """No-op for test writer."""
 
     def enable_compression(
-        self, encoding: str = "deflate", strategy: Optional[int] = None
+        self, encoding: str = "deflate", strategy: int | None = None
     ) -> None:
         """Compression not implemented for test writer."""
 
@@ -99,6 +99,21 @@ def test_payload_ctor() -> None:
 def test_payload_content_type() -> None:
     p = Payload("test", headers={"content-type": "application/json"})
     assert p.content_type == "application/json"
+
+
+@pytest.mark.parametrize("bad_byte", ("\r", "\n", "\x00"))
+def test_binary_headers_reject_injection_in_value(bad_byte: str) -> None:
+    p = Payload("test", headers={"X-Custom": f"value{bad_byte}Injected: bad"})
+    with pytest.raises(ValueError, match="header injection"):
+        p._binary_headers
+
+
+@pytest.mark.parametrize("bad_byte", ("\r", "\n", "\x00"))
+def test_binary_headers_reject_injection_in_name(bad_byte: str) -> None:
+    p = Payload("test")
+    p.headers[f"X-Custom{bad_byte}Injected"] = "value"
+    with pytest.raises(ValueError, match="header injection"):
+        p._binary_headers
 
 
 def test_bytes_payload_default_content_type() -> None:
@@ -180,14 +195,14 @@ class MockStreamWriter(AbstractStreamWriter):
         """Store the chunk in the written list."""
         self.written.append(bytes(chunk))
 
-    async def write_eof(self, chunk: Optional[bytes] = None) -> None:
+    async def write_eof(self, chunk: bytes | None = None) -> None:
         """write_eof implementation - no-op for tests."""
 
     async def drain(self) -> None:
         """Drain implementation - no-op for tests."""
 
     def enable_compression(
-        self, encoding: str = "deflate", strategy: Optional[int] = None
+        self, encoding: str = "deflate", strategy: int | None = None
     ) -> None:
         """Enable compression - no-op for tests."""
 
@@ -312,7 +327,7 @@ async def test_bytesio_payload_write_with_length_remaining_zero() -> None:
     original_read = bio.read
     read_calls = 0
 
-    def mock_read(size: Optional[int] = None) -> bytes:
+    def mock_read(size: int | None = None) -> bytes:
         nonlocal read_calls
         read_calls += 1
         if read_calls == 1:
@@ -331,14 +346,13 @@ async def test_bytesio_payload_write_with_length_remaining_zero() -> None:
 
 async def test_bytesio_payload_large_data_multiple_chunks() -> None:
     """Test BytesIOPayload with large data requiring multiple read chunks."""
-    chunk_size = 2**16  # 64KB (READ_SIZE)
-    data = b"x" * (chunk_size + 1000)  # Slightly larger than READ_SIZE
+    data = b"x" * (DEFAULT_CHUNK_SIZE + 1000)
     payload_bytesio = payload.BytesIOPayload(io.BytesIO(data))
     writer = MockStreamWriter()
 
     await payload_bytesio.write_with_length(writer, None)
     assert writer.get_written_bytes() == data
-    assert len(writer.get_written_bytes()) == chunk_size + 1000
+    assert len(writer.get_written_bytes()) == DEFAULT_CHUNK_SIZE + 1000
 
 
 async def test_bytesio_payload_remaining_bytes_exhausted() -> None:
@@ -355,21 +369,20 @@ async def test_bytesio_payload_remaining_bytes_exhausted() -> None:
 
 async def test_iobase_payload_exact_chunk_size_limit() -> None:
     """Test IOBasePayload with content length matching exactly one read chunk."""
-    chunk_size = 2**16  # 65536 bytes (READ_SIZE)
-    data = b"x" * chunk_size + b"extra"  # Slightly larger than one read chunk
+    data = b"x" * DEFAULT_CHUNK_SIZE + b"extra"  # Slightly larger than one read chunk
     p = payload.IOBasePayload(io.BytesIO(data))
     writer = MockStreamWriter()
 
-    await p.write_with_length(writer, chunk_size)
+    await p.write_with_length(writer, DEFAULT_CHUNK_SIZE)
     written = writer.get_written_bytes()
-    assert len(written) == chunk_size
-    assert written == data[:chunk_size]
+    assert len(written) == DEFAULT_CHUNK_SIZE
+    assert written == data[:DEFAULT_CHUNK_SIZE]
 
 
 async def test_iobase_payload_reads_in_chunks() -> None:
-    """Test IOBasePayload reads data in chunks of READ_SIZE, not all at once."""
-    # Create a large file that's multiple times larger than READ_SIZE
-    large_data = b"x" * (READ_SIZE * 3 + 1000)  # ~192KB + 1000 bytes
+    """Test IOBasePayload reads data in chunks of default size, not all at once."""
+    # Create a large file that's multiple times larger than DEFAULT_CHUNK_SIZE
+    large_data = b"x" * (DEFAULT_CHUNK_SIZE * 3 + 1000)  # ~192KB + 1000 bytes
 
     # Mock the file-like object to track read calls
     mock_file = unittest.mock.Mock(spec=io.BytesIO)
@@ -386,11 +399,11 @@ async def test_iobase_payload_reads_in_chunks() -> None:
         if call_count == 1:
             return large_data[:size]
         elif call_count == 2:
-            return large_data[READ_SIZE : READ_SIZE + size]
+            return large_data[DEFAULT_CHUNK_SIZE : DEFAULT_CHUNK_SIZE + size]
         elif call_count == 3:
-            return large_data[READ_SIZE * 2 : READ_SIZE * 2 + size]
+            return large_data[DEFAULT_CHUNK_SIZE * 2 : DEFAULT_CHUNK_SIZE * 2 + size]
         else:
-            return large_data[READ_SIZE * 3 :]
+            return large_data[DEFAULT_CHUNK_SIZE * 3 :]
 
     mock_file.read.side_effect = mock_read
 
@@ -400,25 +413,25 @@ async def test_iobase_payload_reads_in_chunks() -> None:
     # Write with a large content_length
     await payload_obj.write_with_length(writer, len(large_data))
 
-    # Verify that reads were limited to READ_SIZE
+    # Verify that reads were limited to DEFAULT_CHUNK_SIZE
     assert len(read_sizes) > 1  # Should have multiple reads
     for read_size in read_sizes:
         assert (
-            read_size <= READ_SIZE
-        ), f"Read size {read_size} exceeds READ_SIZE {READ_SIZE}"
+            read_size <= DEFAULT_CHUNK_SIZE
+        ), f"Read size {read_size} exceeds DEFAULT_CHUNK_SIZE {DEFAULT_CHUNK_SIZE}"
 
 
 async def test_iobase_payload_large_content_length() -> None:
     """Test IOBasePayload with very large content_length doesn't read all at once."""
-    data = b"x" * (READ_SIZE + 1000)
+    data = b"x" * (DEFAULT_CHUNK_SIZE + 1000)
 
     # Create a custom file-like object that tracks read sizes
     class TrackingBytesIO(io.BytesIO):
         def __init__(self, data: bytes) -> None:
             super().__init__(data)
-            self.read_sizes: List[int] = []
+            self.read_sizes: list[int] = []
 
-        def read(self, size: Optional[int] = -1) -> bytes:
+        def read(self, size: int | None = -1) -> bytes:
             self.read_sizes.append(size if size is not None else -1)
             return super().read(size)
 
@@ -430,20 +443,20 @@ async def test_iobase_payload_large_content_length() -> None:
     large_content_length = 10 * 1024 * 1024  # 10MB
     await payload_obj.write_with_length(writer, large_content_length)
 
-    # Verify no single read exceeded READ_SIZE
+    # Verify no single read exceeded DEFAULT_CHUNK_SIZE
     for read_size in tracking_file.read_sizes:
         assert (
-            read_size <= READ_SIZE
-        ), f"Read size {read_size} exceeds READ_SIZE {READ_SIZE}"
+            read_size <= DEFAULT_CHUNK_SIZE
+        ), f"Read size {read_size} exceeds DEFAULT_CHUNK_SIZE {DEFAULT_CHUNK_SIZE}"
 
     # Verify the correct amount of data was written
     assert writer.get_written_bytes() == data
 
 
 async def test_textio_payload_reads_in_chunks() -> None:
-    """Test TextIOPayload reads data in chunks of READ_SIZE, not all at once."""
-    # Create a large text file that's multiple times larger than READ_SIZE
-    large_text = "x" * (READ_SIZE * 3 + 1000)  # ~192KB + 1000 chars
+    """Test TextIOPayload reads data in chunks of default size, not all at once."""
+    # Create a large text file that's multiple times larger than DEFAULT_CHUNK_SIZE
+    large_text = "x" * (DEFAULT_CHUNK_SIZE * 3 + 1000)  # ~192KB + 1000 chars
 
     # Mock the file-like object to track read calls
     mock_file = unittest.mock.Mock(spec=io.StringIO)
@@ -461,11 +474,11 @@ async def test_textio_payload_reads_in_chunks() -> None:
         if call_count == 1:
             return large_text[:size]
         elif call_count == 2:
-            return large_text[READ_SIZE : READ_SIZE + size]
+            return large_text[DEFAULT_CHUNK_SIZE : DEFAULT_CHUNK_SIZE + size]
         elif call_count == 3:
-            return large_text[READ_SIZE * 2 : READ_SIZE * 2 + size]
+            return large_text[DEFAULT_CHUNK_SIZE * 2 : DEFAULT_CHUNK_SIZE * 2 + size]
         else:
-            return large_text[READ_SIZE * 3 :]
+            return large_text[DEFAULT_CHUNK_SIZE * 3 :]
 
     mock_file.read.side_effect = mock_read
 
@@ -475,25 +488,25 @@ async def test_textio_payload_reads_in_chunks() -> None:
     # Write with a large content_length
     await payload_obj.write_with_length(writer, len(large_text.encode("utf-8")))
 
-    # Verify that reads were limited to READ_SIZE
+    # Verify that reads were limited to DEFAULT_CHUNK_SIZE
     assert len(read_sizes) > 1  # Should have multiple reads
     for read_size in read_sizes:
         assert (
-            read_size <= READ_SIZE
-        ), f"Read size {read_size} exceeds READ_SIZE {READ_SIZE}"
+            read_size <= DEFAULT_CHUNK_SIZE
+        ), f"Read size {read_size} exceeds DEFAULT_CHUNK_SIZE {DEFAULT_CHUNK_SIZE}"
 
 
 async def test_textio_payload_large_content_length() -> None:
     """Test TextIOPayload with very large content_length doesn't read all at once."""
-    text_data = "x" * (READ_SIZE + 1000)
+    text_data = "x" * (DEFAULT_CHUNK_SIZE + 1000)
 
     # Create a custom file-like object that tracks read sizes
     class TrackingStringIO(io.StringIO):
         def __init__(self, data: str) -> None:
             super().__init__(data)
-            self.read_sizes: List[int] = []
+            self.read_sizes: list[int] = []
 
-        def read(self, size: Optional[int] = -1) -> str:
+        def read(self, size: int | None = -1) -> str:
             self.read_sizes.append(size if size is not None else -1)
             return super().read(size)
 
@@ -505,11 +518,11 @@ async def test_textio_payload_large_content_length() -> None:
     large_content_length = 10 * 1024 * 1024  # 10MB
     await payload_obj.write_with_length(writer, large_content_length)
 
-    # Verify no single read exceeded READ_SIZE
+    # Verify no single read exceeded DEFAULT_CHUNK_SIZE
     for read_size in tracking_file.read_sizes:
         assert (
-            read_size <= READ_SIZE
-        ), f"Read size {read_size} exceeds READ_SIZE {READ_SIZE}"
+            read_size <= DEFAULT_CHUNK_SIZE
+        ), f"Read size {read_size} exceeds DEFAULT_CHUNK_SIZE {DEFAULT_CHUNK_SIZE}"
 
     # Verify the correct amount of data was written
     assert writer.get_written_bytes() == text_data.encode("utf-8")
@@ -1220,6 +1233,40 @@ def test_json_payload_size() -> None:
     jp_custom = payload.JsonPayload(data_custom, encoding="utf-16")
     expected_custom = json.dumps(data_custom)
     assert jp_custom.size == len(expected_custom.encode("utf-16"))
+
+
+def test_json_bytes_payload() -> None:
+    """Test JsonBytesPayload with a bytes-returning encoder."""
+    data = {"hello": "world"}
+
+    # Test with standard library encoder
+    jp = payload.JsonBytesPayload(data, dumps=lambda x: json.dumps(x).encode("utf-8"))
+    expected = json.dumps(data).encode("utf-8")
+    assert jp.size == len(expected)
+
+    # Test with custom bytes-returning encoder (compact separators)
+    jp_custom = payload.JsonBytesPayload(
+        data, dumps=lambda x: json.dumps(x, separators=(",", ":")).encode("utf-8")
+    )
+    expected_custom = json.dumps(data, separators=(",", ":")).encode("utf-8")
+    assert jp_custom.size == len(expected_custom)
+
+
+def test_json_bytes_payload_content_type() -> None:
+    """Test JsonBytesPayload content_type."""
+    data = {"test": "data"}
+
+    # Default content type
+    jp = payload.JsonBytesPayload(data, dumps=lambda x: json.dumps(x).encode("utf-8"))
+    assert jp.content_type == "application/json"
+
+    # Custom content type
+    jp_custom = payload.JsonBytesPayload(
+        data,
+        dumps=lambda x: json.dumps(x).encode("utf-8"),
+        content_type="application/vnd.api+json",
+    )
+    assert jp_custom.content_type == "application/vnd.api+json"
 
 
 async def test_text_io_payload_size_matches_file_encoding(tmp_path: Path) -> None:

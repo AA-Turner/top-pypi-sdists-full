@@ -1402,8 +1402,12 @@ fn compute_smoothing_correction(
     let beta_trans = final_fit.beta_transformed.as_ref();
     let ct = &final_fit.reparam_result.canonical_transformed;
 
-    // Build Jacobian matrix J where column k is dβ/dρ_k
-    let mut jacobian_trans = Array2::<f64>::zeros((n_coeffs_trans, n_rho));
+    // Build the stationarity-gradient derivative matrix G_ρ where column k is
+    // ∂g(β,ρ)/∂ρ_k = λ_k S_k(β - μ_k), then delegate the IFT solve
+    // dβ/dρ = -H⁻¹G_ρ to the canonical evidence helper. This keeps the
+    // coefficient-space prediction correction and the joint-evidence
+    // Arrow-Schur path on the same hand-derived IFT identity.
+    let mut dg_drho_trans = Array2::<f64>::zeros((n_coeffs_trans, n_rho));
     for k in 0..n_rho {
         if k >= ct.len() {
             continue;
@@ -1417,19 +1421,28 @@ fn compute_smoothing_correction(
         let beta_block = beta_trans.slice(s![r.start..r.end]);
         let centered = &beta_block - &cp.prior_mean;
         let r_beta = cp.root.dot(&centered);
-        let mut s_k_beta = Array1::<f64>::zeros(n_coeffs_trans);
         for a in 0..cp.block_dim() {
-            s_k_beta[r.start + a] = (0..cp.rank())
-                .map(|row| cp.root[[row, a]] * r_beta[row])
-                .sum::<f64>();
+            dg_drho_trans[[r.start + a, k]] = lambdas[k]
+                * (0..cp.rank())
+                    .map(|row| cp.root[[row, a]] * r_beta[row])
+                    .sum::<f64>();
         }
-
-        // dβ/dρ_k = -H^{-1}(λ_k S_k(β - μ))
-        let rhs = s_k_beta.mapv(|v| -lambdas[k] * v);
-        let delta = h_chol.solvevec(&rhs);
-
-        jacobian_trans.column_mut(k).assign(&delta);
     }
+    let jacobian_trans = match crate::solver::evidence::ift_dbeta_drho_from_solver(
+        n_coeffs_trans,
+        dg_drho_trans.view(),
+        |rhs| h_chol.solvevec(rhs),
+    ) {
+        Some(jacobian) => jacobian,
+        None => {
+            log::warn!("IFT beta-rho sensitivity solve failed for smoothing correction; skipping.");
+            return SmoothingCorrectionComputation {
+                correction: None,
+                hessian_rho: None,
+                active_rank: None,
+            };
+        }
+    };
 
     // Step 2: Build V_rho by inverting the LAML Hessian in rho-space.
     // The authoritative inner-strategy path chooses the rho-space Hessian
@@ -3474,8 +3487,21 @@ where
         .dot(pirls_res.beta_transformed.as_ref());
     let beta_orig = conditioning.backtransform_beta(&beta_orig_internal);
 
-    // Weighted residual sum of squares for Gaussian models
-    let n = y_o.len() as f64;
+    // Effective sample size for dispersion/REML accounting.
+    //
+    // A prior weight of exactly 0 makes a row contribute nothing to any weighted
+    // cross-product (XᵀWX, XᵀWy) or to the weighted RSS (w_i·r_i² = 0), so such a
+    // row is statistically equivalent to an absent row. The *only* channel left by
+    // which it could still perturb the fit is an explicit observation count. To
+    // keep zero-weight rows exactly equivalent to absent rows (R's `n.ok =
+    // nobs − Σ[w==0]`, mgcv's dropped zero-weight observations), the dispersion
+    // sample size must be the count of positive-weight rows, not the raw row
+    // count. Otherwise the Gaussian scale φ̂ = weighted_rss / (n − edf) puts a
+    // numerator that already excludes zero-weight rows over a denominator that
+    // counts them, biasing φ̂ low and shrinking every SE (#584). The REML
+    // criterion's own observation count (which drives λ selection) lives in the
+    // inner-solution assembly and must apply the same positive-weight count.
+    let n = w_o.iter().filter(|&&wi| wi > 0.0).count() as f64;
     let weighted_rss = if matches!(cfg.link_function(), LinkFunction::Identity) {
         let fitted = {
             let mut eta = offset_o.clone();
@@ -3644,10 +3670,19 @@ where
 
     // Persist residual-based scale for Gaussian identity models.
     // Contract: residual standard deviation sigma, not variance.
+    //
+    // Gaussian REML scale: σ̂² = RSS / (n − edf_total), matching mgcv's gam.scale.
+    // Using the null-space dim (mp = p − rank(Σ_k S_k)) here was wrong: mp is the
+    // minimum possible edf (all smooths fully penalized to their null space), so
+    // n − mp ≥ n − edf_total, and σ̂² was systematically biased low whenever any
+    // smooth/random-effect spent real edf. edf_total ∈ [mp, p_dim] is the effective
+    // df computed just above from tr(λ_k · H⁻¹ S_k), and is exactly the residual
+    // df mgcv uses. When inference is off, edf_total is unavailable, so the MLE
+    // RSS/n is returned instead.
     let standard_deviation = match &pirls_res.likelihood.spec.response {
         ResponseFamily::Gaussian => {
             let denom = if opts.compute_inference {
-                (n - mp).max(1.0)
+                (n - edf_total).max(1.0)
             } else {
                 n.max(1.0)
             };
@@ -3778,10 +3813,16 @@ where
         // Smoothing-parameter correction (first-order delta + optional cubature).
         // Passes None for large models; compute_smoothing_correction_auto falls
         // back to first-order correction when no base covariance is supplied.
+        // `dispersion_phi` is φ̂ at the optimum (σ̂² for Gaussian, 1 for fixed-scale
+        // families). The cubature path multiplies its dispersion-free curvature
+        // block `E_ρ[H(ρ)⁻¹] − H_opt⁻¹` by this φ̂ so the FULL cubature correction
+        // lands on the same c² variance scale as `Vb = φ̂·H_opt⁻¹` (#582); the
+        // var_beta = Cov_ρ[β̂] block is already on that scale and stays unscaled.
         let smoothing_outcome = reml_state.compute_smoothing_correction_auto(
             &final_rho,
             &pirls_res,
             beta_covariance_unscaled.as_ref(),
+            dispersion_phi,
             finalgrad_norm,
         );
         smoothing_correction = smoothing_outcome.into_correction();
@@ -3846,10 +3887,24 @@ where
             None
         };
 
+        // Vp = Vb + J·V_ρ·Jᵀ, both terms on the SAME dispersion (variance) scale.
+        //
+        // The smoothing correction is built from the coefficient sensitivities
+        // J = dβ̂/dρ = −H⁻¹(λ_k S_k(β̂ − μ_k)), which are linear in β̂, and from
+        // V_ρ = (∇²_ρρ V)⁻¹. Under a Gaussian rescaling y → c·y the fit is exactly
+        // equivariant: β̂ → c·β̂ (so J → c·J), H is response-scale-invariant, the
+        // REML/LAML cost gains only a ρ-independent (n/2)·log(c²) offset (so its
+        // ρ-gradient and ρ-Hessian — hence V_ρ — are dispersion-free), and φ̂ → c²·φ̂.
+        // Therefore J·V_ρ·Jᵀ ∝ c · c⁰ · c = c², i.e. the correction is already on
+        // the c² variance scale, exactly like Vb = φ̂·H⁻¹ ∝ c². It must be added
+        // directly to Vb. Multiplying it by dispersion_phi
+        // (≈ c²) again would make the correction scale as c⁴, inflating every
+        // predict() interval for large-magnitude responses (#582). dispersion_phi is
+        // applied once, where it belongs: in Vb = scaled_covariance(H⁻¹, dispersion_phi).
         beta_covariance_corrected = match (&beta_covariance, &smoothing_correction) {
             (Some(base_cov), Some(corr)) if base_cov.as_array().dim() == corr.dim() => {
                 let mut corrected = base_cov.as_array().clone();
-                corrected += &(corr * dispersion_phi);
+                corrected += corr;
                 enforce_symmetry(&mut corrected);
                 Some(corrected)
             }
@@ -4447,7 +4502,8 @@ fn validate_likelihood_scale_estimation(
 ) -> Result<(), EstimationError> {
     match scale {
         LikelihoodScaleMetadata::ProfiledGaussian | LikelihoodScaleMetadata::Unspecified => Ok(()),
-        LikelihoodScaleMetadata::FixedDispersion { phi } => {
+        LikelihoodScaleMetadata::FixedDispersion { phi }
+        | LikelihoodScaleMetadata::EstimatedBetaPhi { phi } => {
             ensure_finite_scalar_estimation("fit_result.likelihood_scale.phi", phi)?;
             if phi > 0.0 {
                 Ok(())

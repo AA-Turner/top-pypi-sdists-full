@@ -75,13 +75,16 @@ use gam::smooth::{
     freeze_term_collection_from_design,
 };
 use gam::solver::build_analytic_penalty_registry_from_descriptors as build_analytic_penalty_registry_from_json;
-use gam::solver::reml_compare::{RemlCandidate, compare_reml_fits as compare_reml_fits_core};
+use gam::solver::reml_compare::{
+    RemlCandidate, compare_reml_fits as compare_reml_fits_core, log_bayes_factor,
+};
 use gam::survival_marginal_slope::SurvivalMarginalSlopeFitResult;
 use gam::terms::basis::{
     BasisOptions, CenterStrategy, Dense, DuchonBasisSpec, DuchonNullspaceOrder,
     DuchonOperatorPenaltySpec, MaternBasisSpec, MaternIdentifiability, MaternNu,
     OneDimensionalBoundary, OperatorPenaltySpec, PeriodicBSplineBasisSpec, SpatialIdentifiability,
-    SphereMethod, SphereWahbaKernel, SphericalSplineBasisSpec, SplineScratch,
+    SphereMethod, SphereWahbaKernel, SphericalSplineBasisSpec, SphericalSplineIdentifiability,
+    SplineScratch,
     auto_centers_1d_equal_mass, auto_knot_vector_1d_quantile, bspline_tensor_first_derivative,
     build_duchon_basis, build_duchon_basis_mixed_periodicity_auto,
     build_duchon_operator_penalty_matrices, build_matern_basis, build_periodic_bspline_basis_1d,
@@ -176,6 +179,10 @@ struct PyFitConfig {
     // Marginal-slope.
     z_column: Option<String>,
     logslope_formula: Option<String>,
+    /// Calibrated marginal-slope chain (#461): the Stage-1 CTN recipe whose
+    /// presence auto-enables cross-fitted, Neyman-orthogonal score calibration.
+    /// Mirrors `gamfit._calibrated_slope.CtnStage1.to_rust_recipe()` exactly.
+    ctn_stage1: Option<PyCtnStage1>,
 
     // Link / flexibility.
     link: Option<String>,
@@ -221,6 +228,73 @@ struct PyFitConfig {
     // copied verbatim into `FittedModelPayload.training_table_kind` so that the
     // predict-time output-container fallback survives `save`/`load`.
     training_table_kind: Option<String>,
+}
+
+/// Wire form of the Stage-1 CTN recipe for the calibrated marginal-slope chain
+/// (#461). One-to-one with `gamfit._calibrated_slope.CtnStage1.to_rust_recipe()`
+/// and with the core `gam::CtnStage1Recipe` struct; `config` overrides are
+/// applied on top of a `TransformationNormalConfig::default()`.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PyCtnStage1 {
+    response_column: String,
+    covariate_formula_rhs: String,
+    #[serde(default)]
+    config: Option<PyCtnStage1Config>,
+    #[serde(default)]
+    weight_column: Option<String>,
+    #[serde(default)]
+    offset_column: Option<String>,
+}
+
+/// Optional overrides for the Stage-1 CTN response-direction basis / penalty.
+/// Any omitted field keeps the `TransformationNormalConfig::default()` value.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PyCtnStage1Config {
+    #[serde(default)]
+    response_degree: Option<usize>,
+    #[serde(default)]
+    response_num_internal_knots: Option<usize>,
+    #[serde(default)]
+    response_penalty_order: Option<usize>,
+    #[serde(default)]
+    response_extra_penalty_orders: Option<Vec<usize>>,
+    #[serde(default)]
+    double_penalty: Option<bool>,
+}
+
+impl PyCtnStage1 {
+    /// Convert the wire form to the core `gam::CtnStage1Recipe` via its public
+    /// constructor (single source of truth for the non-empty / RHS-only
+    /// validation), folding any config overrides onto the CTN default.
+    fn into_recipe(self) -> Result<gam::CtnStage1Recipe, String> {
+        let mut config = gam::transformation_normal::TransformationNormalConfig::default();
+        if let Some(overrides) = self.config {
+            if let Some(value) = overrides.response_degree {
+                config.response_degree = value;
+            }
+            if let Some(value) = overrides.response_num_internal_knots {
+                config.response_num_internal_knots = value;
+            }
+            if let Some(value) = overrides.response_penalty_order {
+                config.response_penalty_order = value;
+            }
+            if let Some(value) = overrides.response_extra_penalty_orders {
+                config.response_extra_penalty_orders = value;
+            }
+            if let Some(value) = overrides.double_penalty {
+                config.double_penalty = value;
+            }
+        }
+        gam::CtnStage1Recipe::new(
+            &self.response_column,
+            &self.covariate_formula_rhs,
+            config,
+            self.weight_column.as_deref(),
+            self.offset_column.as_deref(),
+        )
+    }
 }
 
 #[derive(Default, Deserialize)]
@@ -2719,7 +2793,12 @@ fn bayes_factor_log_diff(model_a_bytes: Vec<u8>, model_b_bytes: Vec<u8>) -> PyRe
         fit_result_from_saved_model_for_prediction(&model_a).map_err(PyValueError::new_err)?;
     let fit_b =
         fit_result_from_saved_model_for_prediction(&model_b).map_err(PyValueError::new_err)?;
-    Ok(fit_a.reml_score - fit_b.reml_score)
+    // `reml_score` is a minimised cost (lower = better marginal likelihood),
+    // so the log Bayes factor of A over B is `score_b - score_a`, not
+    // `score_a - score_b`. Route through the shared convention so this agrees
+    // with `compare_reml_fits` (issue #575: the raw subtraction was inverted,
+    // reporting overwhelming evidence for the worse-fitting model).
+    Ok(log_bayes_factor(fit_a.reml_score, fit_b.reml_score))
 }
 
 #[pyfunction]
@@ -3989,11 +4068,16 @@ fn duchon_function_norm_penalty<'py>(
             periodic: None,
             boundary: OneDimensionalBoundary::Open,
         };
+        // Honor an explicit 1D `period` (the domain wrap) instead of
+        // auto-deriving it from the center span, which undershoots on a
+        // half-open grid and produced a non-PSD Gram (gam#580). For d>1 the
+        // per-axis periods are auto-derived in the core.
+        let periods_1d: Option<[f64; 1]> = if d == 1 { period.map(|p| [p]) } else { None };
         let built = build_duchon_basis_mixed_periodicity_auto(
             center_matrix.view(),
             &spec,
             &periodic_flags,
-            None,
+            periods_1d.as_ref().map(|p| p.as_slice()),
         )
         .map_err(|err| py_value_error(err.to_string()))?;
         // Mixed-periodicity builder emits a single Primary candidate (the
@@ -4096,6 +4180,7 @@ fn sphere_basis<'py>(
         method,
         max_degree,
         wahba_kernel,
+        identifiability: SphericalSplineIdentifiability::CenterSumToZero,
     };
     let built =
         build_spherical_spline_basis(pts, &spec).map_err(|err| py_value_error(err.to_string()))?;
@@ -4199,6 +4284,7 @@ fn sphere_basis_with_centers<'py>(
         method,
         max_degree,
         wahba_kernel,
+        identifiability: SphericalSplineIdentifiability::CenterSumToZero,
     };
     let built =
         build_spherical_spline_basis(pts, &spec).map_err(|err| py_value_error(err.to_string()))?;
@@ -7708,6 +7794,7 @@ fn build_latent_forward_design(
                 method: SphereMethod::Wahba,
                 max_degree: None,
                 wahba_kernel: SphereWahbaKernel::Sobolev,
+                identifiability: SphericalSplineIdentifiability::CenterSumToZero,
             };
             let built = build_spherical_spline_basis(t_mat.view(), &spec)
                 .map_err(|err| format!("failed to evaluate sphere latent basis: {err}"))?;
@@ -8865,6 +8952,7 @@ fn multinomial_model_metadata_pyfunc<'py>(
     out.set_item("n_active_classes", envelope.saved.n_active_classes)?;
     out.set_item("training_headers", envelope.saved.training_headers.clone())?;
     out.set_item("lambdas", envelope.saved.lambdas.clone())?;
+    out.set_item("lambdas_per_block", envelope.saved.lambdas_per_block.clone())?;
     out.set_item("iterations", envelope.saved.iterations)?;
     out.set_item("converged", envelope.saved.converged)?;
     out.set_item(
@@ -13407,7 +13495,7 @@ fn gaussian_reml_fit_formula_table_impl(
     fisher_rao_w: Option<ArrayView3<'_, f64>>,
 ) -> Result<TangentRemlMultiResult, String> {
     let dataset = dataset_with_inferred_schema(headers, rows)?;
-    let mut fit_config = parse_fit_config(config_json)?;
+    let (mut fit_config, _training_table_kind) = parse_fit_config(config_json)?;
     fit_config.family = Some("gaussian".to_string());
     fit_config.link = Some("identity".to_string());
     let materialized = materialize(&formula, &dataset, &fit_config)?;
@@ -14944,7 +15032,7 @@ fn position_basis_design(
         }
         "duchon" => {
             validate_position_period("duchon", knots_or_centers, periodic, period)?;
-            duchon_basis_1d_impl(t, knots_or_centers, basis_order, periodic)
+            duchon_basis_1d_impl(t, knots_or_centers, basis_order, periodic, period)
         }
         other => Err(format!(
             "normalized_position_basis_kind returned an unsupported basis name: {other}"
@@ -14966,7 +15054,7 @@ fn position_basis_derivative(
         }
         "duchon" => {
             validate_position_period("duchon", knots_or_centers, periodic, period)?;
-            duchon_basis_1d_derivative_impl(t, knots_or_centers, basis_order, 1, periodic)
+            duchon_basis_1d_derivative_impl(t, knots_or_centers, basis_order, 1, periodic, period)
         }
         other => Err(format!(
             "normalized_position_basis_kind returned an unsupported basis name: {other}"
@@ -15002,18 +15090,9 @@ fn bspline_position_derivative_impl(
         validate_position_period("B-spline", knots, periodic, period)?;
         return bspline_basis_derivative_impl(t, knots, degree, order, false);
     }
-    if order != 1 {
-        return Err(format!(
-            "periodic B-spline derivative supports order=1; got order={order}"
-        ));
-    }
-    periodic_position_domain(knots, period)?;
+    let (left, right, num_basis) = periodic_position_domain(knots, period)?;
     validate_vector("t", t)?;
-    Err(
-        "periodic B-spline first-derivative as a dense (N, K) matrix is no longer exposed; \
-         use periodic_bspline_input_location_first_derivative for the (N, K, 1) jet"
-            .to_string(),
-    )
+    periodic_bspline_derivative_dense(t, (left, right), degree, num_basis, order)
 }
 
 fn periodic_position_domain(
@@ -15064,9 +15143,16 @@ fn validate_position_period(
                     "{label} period must be finite and positive; got {period}"
                 ));
             }
-            if (implied - period).abs() > 1.0e-10 * period.max(1.0) {
+            // The period is the domain WRAP, not the sample/center span. Centers
+            // on a half-open grid [start, start+period) (e.g. linspace(0,1,K,
+            // endpoint=False) with period 1.0) span only `period − one_spacing`,
+            // so requiring span == period rejected every legitimate explicit
+            // period (gam#580). The only real constraint is that every center
+            // fits inside a single period, i.e. `period >= span`.
+            if period < implied - 1.0e-10 * implied.max(1.0) {
                 return Err(format!(
-                    "{label} periodic support range ({implied}) must match explicit period ({period})"
+                    "{label} explicit period ({period}) is smaller than the center span \
+                     ({implied}); every center must lie within a single period"
                 ));
             }
         } else if label != "duchon" {
@@ -22265,7 +22351,7 @@ fn sindy_library_array<'py>(
     use gam::solver::sindy::{SindyLibraryTerm, sindy_library};
     let mut terms: Vec<SindyLibraryTerm> = Vec::with_capacity(spec.len());
     for entry in spec.iter() {
-        let tuple = entry.downcast::<PyTuple>().map_err(|_| {
+        let tuple = entry.cast::<PyTuple>().map_err(|_| {
             py_value_error(
                 "sindy_library_array: each spec entry must be a (token, column, name) tuple"
                     .to_string(),
@@ -23570,11 +23656,15 @@ fn fit_dataset_impl(
     let mut progress = gam::visualizer::VisualizerSession::new(true);
     progress.set_stage("fit", "optimizing penalized likelihood");
     progress.start_workflow_open_ended("Fit");
-    let training_table_kind = fit_config_training_table_kind(config_json)?;
-    let mut fit_config = parse_fit_config(config_json)?;
+    let (mut fit_config, training_table_kind) = parse_fit_config(config_json)?;
     if let Some(w) = fisher_rao_w {
         inject_scalar_fisher_rao_weight(&mut dataset, &mut fit_config, w)?;
     }
+    // Calibrated marginal-slope chain (#461): when a CTN Stage-1 recipe is present
+    // (config.ctn_stage1), the marginal-slope materializer cross-fits the CTN and
+    // produces the calibrated `z` out-of-fold — no z_column is needed and no
+    // Stage-1 pre-fit / synthetic column round-trip is performed here. The recipe
+    // rides on fit_config straight into materialize.
     let materialized = materialize(&formula, &dataset, &fit_config)?;
     let request = materialized.request;
 
@@ -24241,8 +24331,45 @@ fn validate_formula_json_impl(
     formula: String,
     config_json: Option<&str>,
 ) -> Result<String, String> {
-    let dataset = dataset_with_inferred_schema(headers, rows)?;
-    let fit_config = parse_fit_config(config_json)?;
+    let mut dataset = dataset_with_inferred_schema(headers, rows)?;
+    let (mut fit_config, _training_table_kind) = parse_fit_config(config_json)?;
+    // Calibrated marginal-slope chain (#461): validation is purely structural and
+    // must stay cheap — it must NOT cross-fit Stage-1. When a CTN Stage-1 recipe
+    // is present, strip it and stand in a zero-valued placeholder dose column so
+    // the Stage-2 marginal-slope structure validates without any Stage-1 fit or
+    // cross-fit. The real fit produces `z` out-of-fold and needs no such column.
+    if fit_config.ctn_stage1.is_some() {
+        const VALIDATION_PLACEHOLDER_Z: &str = "__gam_validation_ctn_stage1_z";
+        fit_config.ctn_stage1 = None;
+        if dataset
+            .headers
+            .iter()
+            .any(|name| name == VALIDATION_PLACEHOLDER_Z)
+        {
+            return Err(format!(
+                "reserved validation column '{VALIDATION_PLACEHOLDER_Z}' already exists in the \
+                 input data; rename it before validating the calibrated chain"
+            ));
+        }
+        let n = dataset.values.nrows();
+        let old_cols = dataset.values.ncols();
+        let mut values = Array2::<f64>::zeros((n, old_cols + 1));
+        values.slice_mut(s![.., ..old_cols]).assign(&dataset.values);
+        dataset.values = values;
+        dataset.headers.push(VALIDATION_PLACEHOLDER_Z.to_string());
+        dataset
+            .column_kinds
+            .push(gam::inference::model::ColumnKindTag::Continuous);
+        dataset
+            .schema
+            .columns
+            .push(gam::inference::model::SchemaColumn {
+                name: VALIDATION_PLACEHOLDER_Z.to_string(),
+                kind: gam::inference::model::ColumnKindTag::Continuous,
+                levels: Vec::new(),
+            });
+        fit_config.z_column = Some(VALIDATION_PLACEHOLDER_Z.to_string());
+    }
     let materialized = materialize(&formula, &dataset, &fit_config)?;
     let (family_name, model_class, supported_by_python) = request_metadata(&materialized.request);
     let response_column = response_column_name(&formula);
@@ -27216,36 +27343,17 @@ fn periodic_harmonic_basis_derivative<'py>(
     Ok(out.into_pyarray(py).unbind())
 }
 
-/// Extract the Python-only `training_table_kind` provenance tag from the fit
-/// config JSON, if present. This is intentionally separate from
-/// [`parse_fit_config`]: the value never enters the core solver
-/// [`gam::FitConfig`] (which carries math/solver state only) — it is persisted
-/// straight onto [`FittedModelPayload::training_table_kind`] so the predict-time
-/// output-container fallback survives `save`/`load`. A blank or absent config,
-/// or a config that omits the key, yields `None`. The key, when present, must be
-/// a JSON string.
-fn fit_config_training_table_kind(config_json: Option<&str>) -> Result<Option<String>, String> {
-    let raw = match config_json {
-        Some(raw) if !raw.trim().is_empty() => raw,
-        _ => return Ok(None),
-    };
-    let value: serde_json::Value =
-        serde_json::from_str(raw).map_err(|err| format!("invalid fit config json: {err}"))?;
-    match value.get("training_table_kind") {
-        None | Some(serde_json::Value::Null) => Ok(None),
-        Some(serde_json::Value::String(kind)) => Ok(Some(kind.clone())),
-        Some(other) => Err(format!(
-            "training_table_kind must be a JSON string, got {other}"
-        )),
-    }
-}
-
-fn parse_fit_config(config_json: Option<&str>) -> Result<FitConfig, String> {
+fn parse_fit_config(config_json: Option<&str>) -> Result<(FitConfig, Option<String>), String> {
     let py_config = match config_json {
         Some(raw) if !raw.trim().is_empty() => serde_json::from_str::<PyFitConfig>(raw)
             .map_err(|err| format!("invalid fit config json: {err}"))?,
         _ => PyFitConfig::default(),
     };
+    // Python-only presentation provenance: the value never enters the core solver
+    // `FitConfig` (which carries math/solver state only). It flows straight onto
+    // `FittedModelPayload::training_table_kind` so the predict-time output-container
+    // fallback survives `save`/`load`.
+    let training_table_kind = py_config.training_table_kind;
     let mut fit_config = FitConfig::default();
     fit_config.group_metadata = parse_group_metadata(py_config.group_metadata, py_config.groups)?;
     fit_config.penalty_block_gamma_priors = parse_precision_hyperpriors(
@@ -27309,6 +27417,9 @@ fn parse_fit_config(config_json: Option<&str>) -> Result<FitConfig, String> {
     }
     if let Some(formula) = py_config.logslope_formula {
         fit_config.logslope_formula = Some(formula);
+    }
+    if let Some(stage1) = py_config.ctn_stage1 {
+        fit_config.ctn_stage1 = Some(stage1.into_recipe()?);
     }
     if let Some(link) = py_config.link {
         let trimmed = link.trim();
@@ -27412,7 +27523,7 @@ fn parse_fit_config(config_json: Option<&str>) -> Result<FitConfig, String> {
             "frailty_kind is required when frailty_sd or hazard_loading is provided".to_string(),
         );
     }
-    Ok(fit_config)
+    Ok((fit_config, training_table_kind))
 }
 
 fn parse_group_metadata(
@@ -28195,6 +28306,44 @@ fn periodic_bspline_basis_dense_via_spec(
         .map_err(|err| format!("failed to evaluate periodic B-spline basis: {err}"))
 }
 
+/// Dense `(N, K)` periodic cyclic B-spline derivative of the requested
+/// `order`, on the closed parameter circle `domain = (left, right)` with
+/// `num_basis` cyclic control points.
+///
+/// `order == 0` returns the periodic value basis (the partition of unity);
+/// `order == 1` returns the exact closed-form first derivative by squeezing
+/// the `(N, K, 1)` jet from `periodic_bspline_first_derivative_nd` — the same
+/// jet `basis_with_jet` and `PeriodicSplineCurve::evaluate_derivative` rely
+/// on, so the dense matrix and the modelling path agree to machine precision.
+/// Because the value basis is a partition of unity, each derivative row sums
+/// to ~0. Orders ≥ 2 have no exposed periodic jet and are rejected with a
+/// precise message rather than the old blanket "no longer exposed" error.
+fn periodic_bspline_derivative_dense(
+    t: ArrayView1<'_, f64>,
+    domain: (f64, f64),
+    degree: usize,
+    num_basis: usize,
+    order: usize,
+) -> Result<Array2<f64>, String> {
+    match order {
+        0 => periodic_bspline_basis_dense_via_spec(t, domain, degree, num_basis),
+        1 => {
+            let coords = column_array(t);
+            let jet =
+                periodic_bspline_first_derivative_nd(coords.view(), domain, degree, num_basis)
+                    .map_err(|err| {
+                        format!("failed to evaluate periodic B-spline derivative: {err}")
+                    })?;
+            Ok(jet.index_axis_move(Axis(2), 0))
+        }
+        _ => Err(format!(
+            "periodic B-spline derivative is available in closed form for order 0 (value) \
+             and order 1 (first derivative); order={order} (second and higher derivatives) \
+             is not exposed for the periodic cyclic basis"
+        )),
+    }
+}
+
 fn bspline_basis_impl(
     t: ArrayView1<'_, f64>,
     knots: ArrayView1<'_, f64>,
@@ -28228,11 +28377,8 @@ fn bspline_basis_derivative_impl(
     validate_vector("t", t)?;
     validate_vector("knots", knots)?;
     if periodic {
-        return Err(
-            "periodic B-spline first-derivative as a dense (N, K) matrix is no longer exposed; \
-             use periodic_bspline_input_location_first_derivative for the (N, K, 1) jet"
-                .to_string(),
-        );
+        let (left, right, num_basis) = periodic_knot_domain(knots)?;
+        return periodic_bspline_derivative_dense(t, (left, right), degree, num_basis, order);
     }
     let options = match order {
         0 => BasisOptions::value(),
@@ -28255,6 +28401,7 @@ fn duchon_basis_1d_impl(
     centers: ArrayView1<'_, f64>,
     m: usize,
     periodic: bool,
+    period: Option<f64>,
 ) -> Result<Array2<f64>, String> {
     validate_vector("t", t)?;
     validate_vector("centers", centers)?;
@@ -28275,8 +28422,16 @@ fn duchon_basis_1d_impl(
         boundary: OneDimensionalBoundary::Open,
     };
     if periodic {
-        let built = build_duchon_basis_mixed_periodicity_auto(data.view(), &spec, &[true], None)
-            .map_err(|err| format!("failed to evaluate Duchon basis: {err}"))?;
+        // Honor the explicit domain-wrap `period`; auto-derive (None) only when
+        // the caller did not supply one. Matches the penalty path (gam#580).
+        let periods_1d: Option<[f64; 1]> = period.map(|p| [p]);
+        let built = build_duchon_basis_mixed_periodicity_auto(
+            data.view(),
+            &spec,
+            &[true],
+            periods_1d.as_ref().map(|p| p.as_slice()),
+        )
+        .map_err(|err| format!("failed to evaluate Duchon basis: {err}"))?;
         return built
             .design
             .try_to_dense_by_chunks("duchon_basis_1d_impl")
@@ -28296,6 +28451,7 @@ fn duchon_basis_1d_derivative_impl(
     m: usize,
     order: usize,
     periodic: bool,
+    period: Option<f64>,
 ) -> Result<Array2<f64>, String> {
     validate_vector("t", t)?;
     validate_vector("centers", centers)?;
@@ -28308,6 +28464,7 @@ fn duchon_basis_1d_derivative_impl(
         0.0,
         duchon_nullspace_from_m(m),
         periodic,
+        if periodic { period } else { None },
         order,
     )
     .map_err(|err| format!("failed to evaluate Duchon basis derivative: {err}"))
@@ -29278,6 +29435,7 @@ fn build_bernoulli_marginal_slope_ffi_payload(
             resolved_marginalspec: frozen_marginal,
             resolved_logslopespec: frozen_logslope,
             fit_result: ms_result.fit.clone(),
+            p_marginal: ms_result.marginal_design.design.ncols(),
             baseline_marginal: ms_result.baseline_marginal,
             baseline_logslope: ms_result.baseline_logslope,
             latent_z_normalization: SavedLatentZNormalization {
@@ -29427,6 +29585,7 @@ fn build_survival_marginal_slope_ffi_payload(
             baseline_logslope: ms_result.baseline_slope,
             score_warp_runtime: ms_result.score_warp_runtime.as_ref(),
             link_dev_runtime: ms_result.link_dev_runtime.as_ref(),
+            influence_absorber_width: ms_result.influence_absorber_width,
         },
         SavedModelSourceMetadata {
             training_headers: dataset.headers.clone(),

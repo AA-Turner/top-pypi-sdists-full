@@ -376,7 +376,9 @@ class PdfPage (pdfium_i.AutoCloseable):
                 Additional rotation in degrees (0, 90, 180, or 270).
             
             crop (tuple[float, float, float, float]):
-                Amount in PDF canvas units to cut off from page borders (left, bottom, right, top). Crop is applied after rotation.
+                Amount to cut off from view (left, bottom, right, top), in PDF canvas units.
+                Rendering crop applies on bitmap level (i.e. after rotation), unlike changing the page cropbox using :meth:`.set_cropbox`.
+                Negative crop is not supported (though no exception will be raised). It may produce a larger canvas but not actually expand the rendering area, as of PDFium 7825.
             
             may_draw_forms (bool):
                 If True, render form fields (provided the document has forms and :meth:`~.PdfDocument.init_forms` was called).

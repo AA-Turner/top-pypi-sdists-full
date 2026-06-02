@@ -5,9 +5,9 @@ import pathlib
 import sys
 import urllib.parse
 import warnings
-from collections.abc import Callable, Iterable
+from collections.abc import AsyncIterator, Callable, Iterable
 from http.cookies import BaseCookie, Morsel, SimpleCookie
-from typing import Any, AsyncIterator, Optional, Protocol, Union
+from typing import Any, Protocol
 from unittest import mock
 
 import pytest
@@ -412,17 +412,17 @@ def test_ipv6_nondefault_https_port(make_request) -> None:
 
 
 def test_basic_auth(make_request) -> None:
-    req = make_request(
-        "get", "http://python.org", auth=aiohttp.BasicAuth("nkim", "1234")
-    )
+    with pytest.warns(DeprecationWarning, match="BasicAuth is deprecated"):
+        auth = aiohttp.BasicAuth("nkim", "1234")
+    req = make_request("get", "http://python.org", auth=auth)
     assert "AUTHORIZATION" in req.headers
     assert "Basic bmtpbToxMjM0" == req.headers["AUTHORIZATION"]
 
 
 def test_basic_auth_utf8(make_request) -> None:
-    req = make_request(
-        "get", "http://python.org", auth=aiohttp.BasicAuth("nkim", "секрет", "utf-8")
-    )
+    with pytest.warns(DeprecationWarning, match="BasicAuth is deprecated"):
+        auth = aiohttp.BasicAuth("nkim", "секрет", "utf-8")
+    req = make_request("get", "http://python.org", auth=auth)
     assert "AUTHORIZATION" in req.headers
     assert "Basic bmtpbTrRgdC10LrRgNC10YI=" == req.headers["AUTHORIZATION"]
 
@@ -447,9 +447,9 @@ def test_basic_auth_no_user_from_url(make_request) -> None:
 
 
 def test_basic_auth_from_url_overridden(make_request) -> None:
-    req = make_request(
-        "get", "http://garbage@python.org", auth=aiohttp.BasicAuth("nkim", "1234")
-    )
+    with pytest.warns(DeprecationWarning, match="BasicAuth is deprecated"):
+        auth = aiohttp.BasicAuth("nkim", "1234")
+    req = make_request("get", "http://garbage@python.org", auth=auth)
     assert "AUTHORIZATION" in req.headers
     assert "Basic bmtpbToxMjM0" == req.headers["AUTHORIZATION"]
     assert "python.org" == req.host
@@ -1124,7 +1124,7 @@ async def test_data_stream(loop, buf, conn) -> None:
     original_write_bytes = req.write_bytes
 
     async def _mock_write_bytes(
-        writer: AbstractStreamWriter, conn: mock.Mock, content_length: Optional[int]
+        writer: AbstractStreamWriter, conn: mock.Mock, content_length: int | None
     ) -> None:
         # Ensure the task is scheduled
         await asyncio.sleep(0)
@@ -1176,7 +1176,7 @@ async def test_data_file(loop, buf, conn) -> None:
         original_write_bytes = req.write_bytes
 
         async def _mock_write_bytes(
-            writer: AbstractStreamWriter, conn: mock.Mock, content_length: Optional[int]
+            writer: AbstractStreamWriter, conn: mock.Mock, content_length: int | None
         ) -> None:
             # Ensure the task is scheduled so _writer isn't None
             await asyncio.sleep(0)
@@ -1462,6 +1462,9 @@ async def test_custom_req_rep(loop) -> None:
                 traces=self._traces,
                 loop=self.loop,
                 session=self._session,
+                stream_writer=mock.create_autospec(
+                    AbstractStreamWriter, spec_set=True, instance=True
+                ),
             )
             self.response = resp
             nonlocal called
@@ -1667,7 +1670,24 @@ def test_get_content_length(make_request: _RequestMaker) -> None:
 
     # Invalid Content-Length header
     req.headers["Content-Length"] = "invalid"
-    with pytest.raises(ValueError, match="Invalid Content-Length header: invalid"):
+    with pytest.raises(ValueError, match="Invalid Content-Length header"):
+        req._get_content_length()
+
+
+async def test_get_content_length_invalid_formats(
+    make_request: _RequestMaker,
+) -> None:
+    req = make_request("GET", URL("http://python.org/"))
+
+    req.headers["Content-Length"] = "100"
+    assert req._get_content_length() == 100
+
+    req.headers["Content-Length"] = "-100"
+    with pytest.raises(ValueError, match="Invalid Content-Length header"):
+        req._get_content_length()
+
+    req.headers["Content-Length"] = "५"  # Devengali number 5
+    with pytest.raises(ValueError, match="Invalid Content-Length header"):
         req._get_content_length()
 
 
@@ -1701,7 +1721,7 @@ async def test_write_bytes_with_iterable_content_length_limit(
     loop: asyncio.AbstractEventLoop,
     buf: bytearray,
     conn: mock.Mock,
-    data: Union[list[bytes], bytes],
+    data: list[bytes] | bytes,
 ) -> None:
     """Test that write_bytes respects content_length limit for iterable data."""
     # Test with iterable data
@@ -2164,8 +2184,8 @@ async def test_expect100_with_body_becomes_none() -> None:
 )
 def test_content_length_for_methods(
     method: str,
-    data: Optional[bytes],
-    expected_content_length: Optional[str],
+    data: bytes | None,
+    expected_content_length: str | None,
     loop: asyncio.AbstractEventLoop,
 ) -> None:
     """Test that Content-Length header is set correctly for all HTTP methods."""

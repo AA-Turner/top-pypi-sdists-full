@@ -147,7 +147,16 @@ class _ScheduleDefinitionBase(BaseModel):
     policy: SchedulePolicy = Field(default_factory=SchedulePolicy, description="Policy for the schedule.")
 
 
-class ScheduleDefinition(_ScheduleDefinitionBase):
+class _ScheduleRequestBase(_ScheduleDefinitionBase):
+    """Intermediate base for request models that share max_executions."""
+
+    max_executions: int | None = Field(
+        default=None,
+        description="Maximum number of times this schedule will trigger a workflow execution. Once this limit is reached, no further executions are triggered automatically. null means unlimited.",  # noqa: E501
+    )
+
+
+class ScheduleDefinition(_ScheduleRequestBase):
     """Specification of the times scheduled actions may occur.
 
     The times are the union of :py:attr:`calendars`, :py:attr:`intervals`, and
@@ -157,10 +166,16 @@ class ScheduleDefinition(_ScheduleDefinitionBase):
     """
 
     schedule_id: str | None = Field(default=None, description="Unique identifier for the schedule.")
-    max_executions: int | None = Field(
-        default=None,
-        description="Maximum number of times this schedule will trigger a workflow execution. Once this limit is reached, no further executions are triggered automatically. null means unlimited.",  # noqa: E501
-    )
+
+
+class PartialScheduleDefinition(_ScheduleRequestBase):
+    """Schedule definition for partial updates.
+
+    All fields are optional (inherited from _ScheduleRequestBase). Only explicitly-set
+    fields are applied during an update; unset fields preserve the existing schedule values.
+    """
+
+    input: Any = Field(default=None, description="Input to provide to the workflow when starting it.")
 
 
 class ScheduleDefinitionOutput(_ScheduleDefinitionBase):

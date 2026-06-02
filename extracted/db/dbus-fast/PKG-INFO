@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbus-fast
-Version: 5.0.16
+Version: 5.0.17
 Summary: A faster version of dbus-next
 License: MIT
 License-File: LICENSE
@@ -29,7 +29,7 @@ Description-Content-Type: text/markdown
 
 <p align="center">
   <a href="https://github.com/bluetooth-devices/dbus-fast/actions?query=workflow%3ACI">
-    <img src="https://img.shields.io/github/workflow/status/bluetooth-devices/dbus-fast/CI/main?label=CI&logo=github&style=flat-square" alt="CI Status" >
+    <img src="https://img.shields.io/github/actions/workflow/status/bluetooth-devices/dbus-fast/ci.yml?branch=main&label=CI&logo=github&style=flat-square" alt="CI Status" >
   </a>
   <a href="https://dbus-fast.readthedocs.io">
     <img src="https://img.shields.io/readthedocs/dbus-fast.svg?logo=read-the-docs&logoColor=fff&style=flat-square" alt="Documentation Status">
@@ -93,6 +93,21 @@ This library is available on PyPi as [dbus-fast](https://pypi.org/project/dbus-f
 ```
 pip3 install dbus-fast
 ```
+
+### Installing without the Cython extension
+
+The PyPI wheels bundle an optional Cython extension that speeds up the
+marshalling/unmarshalling hot paths but adds a few MB to the installed size.
+If you're bundling `dbus-fast` into a size-sensitive application and don't
+need the extra performance, install the pure-Python version by forcing a
+source build with `SKIP_CYTHON=1`:
+
+```
+SKIP_CYTHON=1 pip3 install --no-binary dbus-fast dbus-fast
+```
+
+See the [installation docs](https://dbus-fast.readthedocs.io/en/latest/installation.html)
+for details.
 
 ## The Client Interface
 

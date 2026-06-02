@@ -36,10 +36,11 @@ from .markdown_generation_strategy import (
 )
 from .deep_crawling import DeepCrawlDecorator
 from .async_logger import AsyncLogger, AsyncLoggerBase
-from .async_configs import BrowserConfig, CrawlerRunConfig, ProxyConfig, SeedingConfig
+from .async_configs import BrowserConfig, CrawlerRunConfig, ProxyConfig, SeedingConfig, DomainMapperConfig
 from .async_dispatcher import *  # noqa: F403
 from .async_dispatcher import BaseDispatcher, MemoryAdaptiveDispatcher, RateLimiter
 from .async_url_seeder import AsyncUrlSeeder
+from .domain_mapper import DomainMapper
 
 from .utils import (
     sanitize_input_encode,
@@ -170,6 +171,7 @@ class AsyncWebCrawler:
         self.arun = self._deep_handler(self.arun)
         
         self.url_seeder: Optional[AsyncUrlSeeder] = None
+        self._domain_mapper: Optional[DomainMapper] = None
 
     async def start(self):
         """
@@ -210,7 +212,7 @@ class AsyncWebCrawler:
         url: str,
         config: CrawlerRunConfig = None,
         **kwargs,
-    ) -> RunManyReturn:
+    ) -> CrawlResultContainer:
         """
         Runs the crawler for a single source: URL (web, local file, or raw HTML).
 
@@ -237,7 +239,9 @@ class AsyncWebCrawler:
             [other parameters maintained for backwards compatibility]
 
         Returns:
-            CrawlResult: The result of crawling and processing
+            CrawlResultContainer: A single-result container that proxies
+                attribute access to the underlying CrawlResult for backwards
+                compatibility (e.g. result.markdown, result.html).
         """
         # Auto-start if not ready
         if not self.ready:
@@ -491,7 +495,11 @@ class AsyncWebCrawler:
                                 crawl_result.ssl_certificate = async_response.ssl_certificate
                                 crawl_result.network_requests = async_response.network_requests
                                 crawl_result.console_messages = async_response.console_messages
-                                crawl_result.success = bool(html)
+                                # Success when html is non-empty OR a binary
+                                # download was retrieved (PDFs, archives etc.
+                                # have empty html by design — file content is
+                                # in downloaded_files).
+                                crawl_result.success = bool(html) or bool(async_response.downloaded_files)
                                 crawl_result.session_id = getattr(config, "session_id", None)
                                 crawl_result.cache_status = "miss"
 
@@ -607,9 +615,17 @@ class AsyncWebCrawler:
                     # When fallback was attempted but FAILED, we must still re-check
                     # because the result is from a blocked proxy attempt.
                     # Also skip for raw: URLs — caller-provided content, anti-bot N/A.
+                    # Also skip for binary downloads (PDFs, archives, etc.) — content
+                    # was delivered via downloaded_files, html is empty by design,
+                    # and is_blocked() would misread "0 bytes html" as a block.
                     if crawl_result:
                         _fallback_succeeded = _crawl_stats.get("resolved_by") == "fallback_fetch"
-                        if not _fallback_succeeded and not _is_raw_url:
+                        # Skip the block check for binary downloads (PDFs, archives,
+                        # etc.) — content was delivered via downloaded_files, html is
+                        # empty by design, and is_blocked() would misread "0 bytes
+                        # html" as a block.
+                        _has_download = bool(getattr(crawl_result, "downloaded_files", None))
+                        if not _fallback_succeeded and not _is_raw_url and not _has_download:
                             _blocked, _block_reason = is_blocked(
                                 crawl_result.status_code, crawl_result.html or "")
                             if _blocked:
@@ -636,6 +652,14 @@ class AsyncWebCrawler:
                             head_html = crawl_result.html[:head_end + 7]
                             crawl_result.head_fingerprint = compute_head_fingerprint(head_html)
 
+                    # Log failure reason before COMPLETE so users can see why it failed.
+                    if crawl_result and not crawl_result.success and crawl_result.error_message:
+                        self.logger.error_status(
+                            url=cache_context.display_url,
+                            error=crawl_result.error_message,
+                            tag="ERROR",
+                        )
+
                     self.logger.url_status(
                         url=cache_context.display_url,
                         success=crawl_result.success if crawl_result else False,
@@ -656,7 +680,9 @@ class AsyncWebCrawler:
                         timing=time.perf_counter() - start_time,
                         tag="COMPLETE"
                     )
-                    cached_result.success = bool(html)
+                    # Same binary-download awareness as the live-fetch path
+                    # — a cached PDF/archive should replay as success.
+                    cached_result.success = bool(html) or bool(getattr(cached_result, "downloaded_files", None))
                     cached_result.session_id = getattr(
                         config, "session_id", None)
                     # For raw: URLs, don't fall back to the raw HTML string as redirected_url
@@ -850,10 +876,10 @@ class AsyncWebCrawler:
             )
         )
 
-        # Log processing completion
+        # Log processing completion — reflect actual content outcome
         self.logger.url_status(
             url=_url,
-            success=True,
+            success=bool(cleaned_html),
             timing=int((time.perf_counter() - t1) * 1000) / 1000,
             tag="SCRAPE"
         )
@@ -1029,7 +1055,9 @@ class AsyncWebCrawler:
             primary_cfg = config[0] if isinstance(config, list) else config
             mean_delay = getattr(primary_cfg, "mean_delay", 0.1)
             max_range = getattr(primary_cfg, "max_range", 0.3)
+            max_session_permit = max(1, int(getattr(primary_cfg, "semaphore_count", 10) or 10))
             dispatcher = MemoryAdaptiveDispatcher(
+                max_session_permit=max_session_permit,
                 rate_limiter=RateLimiter(
                     base_delay=(mean_delay, mean_delay + max_range),
                     max_delay=60.0,
@@ -1187,3 +1215,35 @@ class AsyncWebCrawler:
             )
         else:
             raise ValueError("`domain_or_domains` must be a string or a list of strings.")
+
+    async def amap_domain(
+        self,
+        domain: str,
+        config: Optional[DomainMapperConfig] = None,
+        **kwargs,
+    ) -> List[Dict[str, Any]]:
+        """
+        Discover all URLs under a domain without deep crawling.
+
+        Uses DomainMapper to combine sitemap, Common Crawl, Wayback Machine,
+        certificate transparency, path probing, robots.txt mining, feed discovery,
+        and homepage link extraction.
+
+        Args:
+            domain: Domain to map (e.g., "example.com")
+            config: DomainMapperConfig object. kwargs override config fields.
+
+        Returns:
+            List of discovered URL dicts with metadata.
+        """
+        if not self._domain_mapper:
+            self._domain_mapper = DomainMapper(
+                logger=self.logger,
+                base_directory=self.crawl4ai_folder,
+            )
+
+        mapper_config = config.clone(**kwargs) if config and kwargs else (
+            config or DomainMapperConfig(**kwargs) if kwargs else DomainMapperConfig()
+        )
+
+        return await self._domain_mapper.scan(domain, mapper_config)

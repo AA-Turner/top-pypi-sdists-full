@@ -11,6 +11,16 @@ from .schedule import ScheduleDefinition
 
 WORKFLOW_NAME_MAX_LENGTH = 128
 WORKFLOW_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
+WORKFLOW_TAG_MAX_LENGTH = 100
+
+
+def validate_workflow_tags(v: List[str]) -> List[str]:
+    cleaned = list(dict.fromkeys(t.strip() for t in v))
+    if any(not t for t in cleaned):
+        raise ValueError("Tags cannot be empty or whitespace-only")
+    if any(len(t) > WORKFLOW_TAG_MAX_LENGTH for t in cleaned):
+        raise ValueError(f"Tags must be at most {WORKFLOW_TAG_MAX_LENGTH} characters")
+    return cleaned
 
 
 class WorkflowType(StrEnum):
@@ -103,6 +113,7 @@ class Workflow(BaseModel):
         description="Whether the workflow must run associated to a user's identity",
     )
     archived: bool = Field(default=False, description="Whether the workflow is archived")
+    tags: List[str] = Field(default_factory=list, description="Tags for filtering and discovery")
 
 
 class WorkflowRegistration(BaseModel):

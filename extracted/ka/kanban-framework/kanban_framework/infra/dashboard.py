@@ -220,11 +220,47 @@ class DashboardManager:
     def _is_running(self, pid: int | None) -> bool:
         if pid is None:
             return False
+        if sys.platform == "win32":
+            # os.kill(pid, 0) does not work reliably on Windows
+            try:
+                result = subprocess.run(
+                    ["tasklist", "/FI", f"PID eq {pid}", "/NH"],
+                    capture_output=True, text=True, timeout=5
+                )
+                return f"{pid}" in result.stdout and "node" in result.stdout.lower()
+            except Exception:
+                return False
         try:
             os.kill(pid, 0)
             return True
         except (ProcessLookupError, PermissionError, OSError):
             return False
+
+    def _find_by_port(self, port: int) -> int | None:
+        """Find PID of process listening on a port. Cross-platform."""
+        if sys.platform == "win32":
+            try:
+                result = subprocess.run(
+                    ["netstat", "-ano", "-p", "TCP"],
+                    capture_output=True, text=True, timeout=10
+                )
+                for line in result.stdout.splitlines():
+                    if f":{port}" in line and "LISTENING" in line:
+                        parts = line.strip().split()
+                        return int(parts[-1])
+            except Exception:
+                pass
+        else:
+            try:
+                result = subprocess.run(
+                    ["lsof", "-ti", f":{port}"],
+                    capture_output=True, text=True, timeout=5
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    return int(result.stdout.strip().split()[0])
+            except Exception:
+                pass
+        return None
 
     def check_env(self) -> dict:
         """Pre-flight check: verify dashboard can start."""
@@ -309,24 +345,59 @@ class DashboardManager:
             s.settimeout(1)
             return s.connect_ex(("127.0.0.1", port)) == 0
 
+    # Ports blocked by Chrome/Firefox — browser refuses connection
+    _UNSAFE_PORTS = frozenset({
+        1, 7, 9, 11, 13, 15, 17, 19, 20, 21, 22, 23, 25, 37, 42, 43, 53, 69, 77, 79,
+        87, 95, 101, 102, 103, 104, 109, 110, 111, 113, 115, 117, 119, 123, 135, 137,
+        139, 143, 161, 179, 389, 427, 465, 512, 513, 514, 515, 526, 530, 531, 532,
+        540, 548, 554, 556, 563, 587, 601, 636, 989, 990, 993, 995, 1719, 1720, 1723,
+        2049, 3659, 4045, 4190, 5060, 5061, 6000, 6566, 6665, 6666, 6667, 6668, 6669,
+        6697, 10080,
+    })
+
     def start(self, port: int | None = None) -> dict:
         # Deploy first
         self.deploy()
         # Install deps
         self._ensure_node_modules()
-        # Check if already running
+        # Validate port
+        actual_port = port or self._read_port() or 3000
+        if actual_port in self._UNSAFE_PORTS:
+            return {
+                "started": False,
+                "reason": "unsafe_port",
+                "port": actual_port,
+                "hint": f"Port {actual_port} is blocked by browsers (Chrome/Firefox). Use a different port, e.g. --port {min(p for p in range(3000, 9000) if p not in self._UNSAFE_PORTS)}",
+            }
         pid = self._read_pid()
         if self._is_running(pid):
             return {"started": False, "reason": "already_running", "pid": pid}
-        # Check for port conflict from other projects
-        actual_port = port or 3000
+        # Clean up stale PID file
+        if pid and not self._is_running(pid):
+            self._pid_file().unlink(missing_ok=True)
+            pid = None
+        # Check for port conflict from stale/crashed process
         if self._port_in_use(actual_port):
-            return {
-                "started": False,
-                "reason": "port_in_use",
-                "port": actual_port,
-                "hint": f"Port {actual_port} is occupied by another process. Stop it first or use --port to pick a different one.",
-            }
+            port_pid = self._find_by_port(actual_port)
+            if port_pid and port_pid != pid:
+                # Kill the stale process occupying the port
+                self._kill_process(port_pid)
+                import time
+                time.sleep(0.5)
+                if self._port_in_use(actual_port):
+                    return {
+                        "started": False,
+                        "reason": "port_in_use",
+                        "port": actual_port,
+                        "hint": f"Port {actual_port} is occupied and could not be freed. Try --port to use a different one.",
+                    }
+            else:
+                return {
+                    "started": False,
+                    "reason": "port_in_use",
+                    "port": actual_port,
+                    "hint": f"Port {actual_port} is occupied by another process. Stop it first or use --port to pick a different one.",
+                }
         # Start server
         env = os.environ.copy()
         env["KANBAN_ROOT"] = str(self._kanban_dir)
@@ -355,12 +426,30 @@ class DashboardManager:
 
     def stop(self) -> dict:
         pid = self._read_pid()
+        port = self._read_port()
         if not self._is_running(pid):
+            # PID stale — try to find and kill by port
             self._pid_file().unlink(missing_ok=True)
+            if port:
+                port_pid = self._find_by_port(port)
+                if port_pid:
+                    self._kill_process(port_pid)
+                    self._port_file().unlink(missing_ok=True)
+                    return {"stopped": True, "pid": port_pid, "reason": "killed_by_port"}
             return {"stopped": False, "reason": "not_running"}
         self._kill_process(pid)
         self._pid_file().unlink(missing_ok=True)
+        self._port_file().unlink(missing_ok=True)
         return {"stopped": True, "pid": pid}
+
+    def _read_port(self) -> int | None:
+        port_path = self._port_file()
+        if not port_path.exists():
+            return None
+        try:
+            return int(port_path.read_text().strip())
+        except (ValueError, OSError):
+            return None
 
     def restart(self, port: int | None = None) -> dict:
         self.stop()

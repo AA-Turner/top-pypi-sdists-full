@@ -8,12 +8,70 @@ from typing import Any, Literal
 
 from pydantic_ai_backends import LocalBackend
 
+from apps.cli.config import load_config
 from apps.cli.prompts import build_cli_instructions
 from apps.cli.reminder import _build_reminder_config
 from pydantic_deep.agent import DEFAULT_INSTRUCTIONS, create_deep_agent
+from pydantic_deep.capabilities.forking import LiveForkCapability
 from pydantic_deep.capabilities.hooks import Hook, HookEvent, HookInput, HookResult
 from pydantic_deep.capabilities.message_queue import MessageQueue
 from pydantic_deep.deps import DeepAgentDeps
+
+
+def _detect_fork_test_command(backend: Any) -> str | None:
+    """Auto-detect a test command from the project root for the fork test runner.
+
+    Checks common test framework markers in `backend.root_dir` (only
+    :class:`~pydantic_ai_backends.LocalBackend` has a `root_dir`).
+    Returns a ready-to-run shell string, or `None` when nothing is
+    detected — the fork runner stays disabled in that case and
+    `auto_with_fallback` falls through to the manual picker as before.
+
+    Priority order:
+    1. `pyproject.toml` / `pytest.ini` / `setup.cfg` → pytest
+    2. `package.json` with a `test` script → npm test
+    3. `Makefile` with a `test:` or `test :` target → make test
+    """
+    root_obj = getattr(backend, "root_dir", None)
+    if root_obj is None:
+        return None
+    root = Path(root_obj)
+
+    # pytest markers
+    pyproject = root / "pyproject.toml"
+    if pyproject.exists():
+        try:
+            content = pyproject.read_text(encoding="utf-8", errors="ignore")
+            if "[tool.pytest" in content or "[tool.pytest.ini_options]" in content:
+                return "uv run pytest -q --tb=short"
+        except OSError:
+            pass
+    if (root / "pytest.ini").exists() or (root / "setup.cfg").exists():
+        return "uv run pytest -q --tb=short"
+
+    # npm / yarn / pnpm
+    pkg = root / "package.json"
+    if pkg.exists():
+        try:
+            import json
+
+            data = json.loads(pkg.read_text(encoding="utf-8", errors="ignore"))
+            if isinstance(data.get("scripts"), dict) and "test" in data["scripts"]:
+                return "npm test"
+        except (OSError, ValueError):
+            pass
+
+    # Makefile with a test target
+    makefile = root / "Makefile"
+    if makefile.exists():
+        try:
+            for line in makefile.read_text(encoding="utf-8", errors="ignore").splitlines():
+                if line.startswith("test:") or line.startswith("test "):
+                    return "make test"
+        except OSError:
+            pass
+
+    return None
 
 
 def _make_shell_allow_list_hook(allow_list: list[str]) -> Hook:
@@ -53,6 +111,7 @@ def _make_shell_allow_list_hook(allow_list: list[str]) -> Hook:
 
 def create_cli_agent(  # noqa: C901
     model: str | None = None,
+    fallback_model: str | None = None,
     working_dir: str | None = None,
     shell_allow_list: list[str] | None = None,
     on_cost_update: Any | None = None,
@@ -101,33 +160,33 @@ def create_cli_agent(  # noqa: C901
     Configuration precedence: explicit arguments > config file > defaults.
 
     Args:
-        model: Model to use. Falls back to config, then ``"anthropic:claude-sonnet-4-6"``.
+        model: Model to use. Falls back to config, then `"anthropic:claude-sonnet-4-6"`.
         working_dir: Filesystem root directory. Defaults to cwd.
         shell_allow_list: Allowed shell command prefixes. None = all allowed.
         on_cost_update: Callback for cost updates.
         on_context_update: Callback for context usage updates.
         extra_middleware: Additional middleware to include.
         backend: Override the file storage backend (e.g., DockerSandbox).
-            Takes precedence over ``sandbox``.
-        sandbox: Sandbox type: ``"local"`` or ``"docker"``. When ``"docker"``,
+            Takes precedence over `sandbox`.
+        sandbox: Sandbox type: `"local"` or `"docker"`. When `"docker"`,
             creates a DockerSandbox with the working directory mounted at
-            ``/workspace``. Falls back to ``config.sandbox``.
+            `/workspace`. Falls back to `config.sandbox`.
         sandbox_image: Docker image for the sandbox container. Falls back to
-            ``config.sandbox_image`` (default: ``python:3.12-slim``).
+            `config.sandbox_image` (default: `python:3.12-slim`).
         sandbox_env_vars: Environment variables to inject into the Docker sandbox
-            container. Falls back to ``config.sandbox_env_vars``. Only applied when
-            ``sandbox="docker"``. Values are passed at container start-time via
-            ``RuntimeConfig`` with ``cache_image=False`` so they are not baked
+            container. Falls back to `config.sandbox_env_vars`. Only applied when
+            `sandbox="docker"`. Values are passed at container start-time via
+            `RuntimeConfig` with `cache_image=False` so they are not baked
             permanently into a cached Docker image.
-        sandbox_env_file: Path to a ``.env`` file whose variables are injected into
-            the Docker sandbox container. Falls back to ``config.sandbox_env_file``.
-            Merged with ``sandbox_env_vars``; explicit ``sandbox_env_vars`` take
+        sandbox_env_file: Path to a `.env` file whose variables are injected into
+            the Docker sandbox container. Falls back to `config.sandbox_env_file`.
+            Merged with `sandbox_env_vars`; explicit `sandbox_env_vars` take
             priority over file values.
         workspace: Named Docker workspace shared across threads. When set, the
             container persists between sessions so installed packages and any
             files outside the mounted volume survive restarts. Multiple threads
             (conversation histories) can share the same workspace. The actual
-            Docker container name is ``pydantic-deep-{dir_hash}-{workspace}``.
+            Docker container name is `pydantic-deep-{dir_hash}-{workspace}`.
         include_skills: Whether to include the skills toolset.
         include_plan: Whether to include the planner subagent.
         include_memory: Whether to include persistent agent memory.
@@ -140,19 +199,18 @@ def create_cli_agent(  # noqa: C901
         session_id: Session identifier for per-session plans storage.
         extra_instructions: Additional instructions appended to the system prompt.
         skills_dir: Override skills directory path. When None, auto-discovers
-            from ``{working_dir}/.pydantic-deep/skills/``.
-        periodic_reminder: Enable periodic task reminders. ``None`` uses
-            the config default (``True`` / ``"llm"``). ``True``/``False`` overrides.
-        reminder_mode: Generator for the reminder text. ``"llm"`` (default) uses
-            ``LLMReminderGenerator``. ``"first"`` re-states first user message
-            (zero-cost). ``"context"`` uses a compact transcript (zero-cost).
-        reminder_model: Model used by the ``"llm"`` reminder generator.
-            Defaults to ``config.reminder_model``, then falls back to the main model.
+            from `{working_dir}/.pydantic-deep/skills/`.
+        periodic_reminder: Enable periodic task reminders. `None` uses
+            the config default (`True` / `"llm"`). `True`/`False` overrides.
+        reminder_mode: Generator for the reminder text. `"llm"` (default) uses
+            `LLMReminderGenerator`. `"first"` re-states first user message
+            (zero-cost). `"context"` uses a compact transcript (zero-cost).
+        reminder_model: Model used by the `"llm"` reminder generator.
+            Defaults to `config.reminder_model`, then falls back to the main model.
 
     Returns:
         Tuple of (agent, deps) ready for agent.run().
     """
-    from apps.cli.config import load_config
 
     config = load_config(config_path)
 
@@ -212,12 +270,10 @@ def create_cli_agent(  # noqa: C901
     else:
         effective_backend = backend or LocalBackend(root_dir=root)
 
-    # Build hooks list
     hooks: list[Hook] = []
     if effective_allow_list is not None:
         hooks.append(_make_shell_allow_list_hook(effective_allow_list))
 
-    # Build middleware list
     middleware: list[Any] = []
     if extra_middleware:
         middleware.extend(extra_middleware)
@@ -231,7 +287,6 @@ def create_cli_agent(  # noqa: C901
         )
     )
 
-    # Append working directory context
     # When using Docker sandbox, the agent operates inside the container at /workspace
     instruction_root = "/workspace" if effective_sandbox == "docker" else str(root.resolve())
     working_dir_section = (
@@ -359,36 +414,48 @@ def create_cli_agent(  # noqa: C901
 
     queue = MessageQueue()
 
+    # MCP servers configured via `/mcp` (enabled + authenticated ones only).
+    # Failures (missing optional dep, bad config) degrade to no MCP support.
+    # `mcp_degraded` collects servers that turn out unreachable at runtime so the
+    # TUI can tell the user *why* a server's tools are missing.
+    mcp_servers: list[Any] = []
+    mcp_degraded: set[str] = set()
+    if not lean:
+        try:
+            from apps.cli.mcp_store import build_mcp_servers_for_agent
+
+            def _on_mcp_degraded(name: str, _reason: str) -> None:
+                mcp_degraded.add(name)
+
+            mcp_servers = build_mcp_servers_for_agent(on_degraded=_on_mcp_degraded)
+        except Exception:
+            mcp_servers = []
+
     agent = create_deep_agent(
         model=effective_model,
+        fallback_model=fallback_model or config.fallback_model or None,
         instructions=instructions,
         backend=effective_backend,
         skill_directories=skill_dirs if effective_skills else None,
         interrupt_on=interrupt_on,
         model_settings=effective_model_settings or None,
-        # Filesystem & execution
         include_execute=True,
         include_filesystem=True,
-        # Planning & task management
         include_todo=effective_todo,
         include_plan=effective_plan,
         plans_dir=plans_dir,
-        # Delegation
         include_subagents=effective_subagents,
         include_builtin_subagents=effective_subagents,
-        # Skills
         include_skills=effective_skills,
         # Memory (store in .pydantic-deep/main/MEMORY.md)
         include_memory=effective_memory,
         memory_dir=".pydantic-deep",
         # Context files (auto-discover AGENTS.md, SOUL.md)
         context_discovery=_context_disc if not lean else False,
-        # Teams
         include_teams=(include_teams if include_teams is not None else config.include_teams),
-        # Document parsing
         include_liteparse=effective_liteparse,
-        # Self-improvement
         include_improve=True,
+        forking=LiveForkCapability(test_command=_detect_fork_test_command(effective_backend)),
         # Web tools — explicit params override config
         web_search=(
             web_search if web_search is not None else (config.web_search if not lean else False)
@@ -396,7 +463,6 @@ def create_cli_agent(  # noqa: C901
         web_fetch=(
             web_fetch if web_fetch is not None else (config.web_fetch if not lean else False)
         ),
-        # Thinking
         thinking=(
             thinking if thinking is not None else (config.thinking_effort if not lean else False)
         ),
@@ -406,7 +472,6 @@ def create_cli_agent(  # noqa: C901
             if session_id
             else ".pydantic-deep/messages.json"
         ),
-        # Context management
         context_manager=not lean,
         context_manager_max_tokens=None,  # auto-detect from genai-prices
         on_context_update=on_context_update,
@@ -415,19 +480,16 @@ def create_cli_agent(  # noqa: C901
         summarization_model=summarization_model,
         eviction_token_limit=20_000,
         on_eviction=on_eviction,
-        # Cost tracking
         cost_tracking=True,
         on_cost_update=on_cost_update,
-        # Output style
         output_style="concise" if not lean else None,
-        # Middleware & hooks
         hooks=hooks or None,
         middleware=middleware or None,
         toolsets=[local_context] if local_context else None,
+        mcp_servers=mcp_servers or None,
         capabilities=extra_capabilities or None,
         # Message queue for mid-run steering and follow-up delivery
         message_queue=queue,
-        # Periodic reminder
         periodic_reminder=_build_reminder_config(
             periodic_reminder, reminder_mode, config, on_reminder, reminder_model
         ),
@@ -443,6 +505,9 @@ def create_cli_agent(  # noqa: C901
         message_queue=queue,
     )
     deps._task_manager = task_mgr  # type: ignore[attr-defined]
+    # Shared set the resilient MCP wrappers fill when a server is unreachable;
+    # the chat screen surfaces these to the user after a run.
+    deps.mcp_degraded = mcp_degraded  # type: ignore[attr-defined]
     return agent, deps
 
 

@@ -11,6 +11,7 @@ import pytest
 from yarl import URL
 
 import aiohttp
+from aiohttp.abc import AbstractStreamWriter
 from aiohttp.client_reqrep import ClientRequest, ClientResponse, Fingerprint
 from aiohttp.connector import _SSL_CONTEXT_VERIFIED
 from aiohttp.helpers import TimerNoop
@@ -269,6 +270,9 @@ class TestProxy(unittest.TestCase):
             timer=TimerNoop(),
             traces=[],
             loop=self.loop,
+            stream_writer=mock.create_autospec(
+                AbstractStreamWriter, spec_set=True, instance=True
+            ),
             session=mock.Mock(),
         )
         proxy_req.send = mock.AsyncMock(return_value=proxy_resp)
@@ -338,6 +342,9 @@ class TestProxy(unittest.TestCase):
             timer=TimerNoop(),
             traces=[],
             loop=self.loop,
+            stream_writer=mock.create_autospec(
+                AbstractStreamWriter, spec_set=True, instance=True
+            ),
             session=mock.Mock(),
         )
         proxy_req.send = mock.AsyncMock(return_value=proxy_resp)
@@ -417,6 +424,9 @@ class TestProxy(unittest.TestCase):
                     timer=TimerNoop(),
                     traces=[],
                     loop=self.loop,
+                    stream_writer=mock.create_autospec(
+                        AbstractStreamWriter, spec_set=True, instance=True
+                    ),
                     session=mock.Mock(),
                 )
                 fingerprint_mock = mock.Mock(spec=Fingerprint, auto_spec=True)
@@ -516,6 +526,9 @@ class TestProxy(unittest.TestCase):
             timer=TimerNoop(),
             traces=[],
             loop=self.loop,
+            stream_writer=mock.create_autospec(
+                AbstractStreamWriter, spec_set=True, instance=True
+            ),
             session=mock.Mock(),
         )
         proxy_req.send = mock.AsyncMock(return_value=proxy_resp)
@@ -583,6 +596,9 @@ class TestProxy(unittest.TestCase):
             timer=TimerNoop(),
             traces=[],
             loop=self.loop,
+            stream_writer=mock.create_autospec(
+                AbstractStreamWriter, spec_set=True, instance=True
+            ),
             session=mock.Mock(),
         )
         proxy_req.send = mock.AsyncMock(return_value=proxy_resp)
@@ -646,6 +662,9 @@ class TestProxy(unittest.TestCase):
             timer=TimerNoop(),
             traces=[],
             loop=self.loop,
+            stream_writer=mock.create_autospec(
+                AbstractStreamWriter, spec_set=True, instance=True
+            ),
             session=mock.Mock(),
         )
         proxy_req.send = mock.AsyncMock(return_value=proxy_resp)
@@ -709,6 +728,9 @@ class TestProxy(unittest.TestCase):
             timer=TimerNoop(),
             traces=[],
             loop=self.loop,
+            stream_writer=mock.create_autospec(
+                AbstractStreamWriter, spec_set=True, instance=True
+            ),
             session=mock.Mock(),
         )
         proxy_req.send = mock.AsyncMock(return_value=proxy_resp)
@@ -777,6 +799,9 @@ class TestProxy(unittest.TestCase):
             timer=TimerNoop(),
             traces=[],
             loop=self.loop,
+            stream_writer=mock.create_autospec(
+                AbstractStreamWriter, spec_set=True, instance=True
+            ),
             session=mock.Mock(),
         )
         proxy_req.send = mock.AsyncMock(return_value=proxy_resp)
@@ -859,11 +884,13 @@ class TestProxy(unittest.TestCase):
         self.assertEqual(req.url, URL("http://localhost:1234/path"))
 
     def test_proxy_auth_property(self) -> None:
+        with pytest.warns(DeprecationWarning, match="BasicAuth is deprecated"):
+            proxy_auth = aiohttp.helpers.BasicAuth("user", "pass")
         req = aiohttp.ClientRequest(
             "GET",
             URL("http://localhost:1234/path"),
             proxy=URL("http://proxy.example.com"),
-            proxy_auth=aiohttp.helpers.BasicAuth("user", "pass"),
+            proxy_auth=proxy_auth,
             loop=self.loop,
         )
         self.assertEqual(("user", "pass", "latin1"), req.proxy_auth)
@@ -900,6 +927,9 @@ class TestProxy(unittest.TestCase):
             timer=TimerNoop(),
             traces=[],
             loop=self.loop,
+            stream_writer=mock.create_autospec(
+                AbstractStreamWriter, spec_set=True, instance=True
+            ),
             session=mock.Mock(),
         )
         proxy_req.send = mock.AsyncMock(return_value=proxy_resp)
@@ -959,10 +989,12 @@ class TestProxy(unittest.TestCase):
         spec_set=True,
     )
     def test_https_auth(self, start_connection: Any, ClientRequestMock: Any) -> None:
+        with pytest.warns(DeprecationWarning, match="BasicAuth is deprecated"):
+            auth = aiohttp.helpers.BasicAuth("user", "pass")
         proxy_req = ClientRequest(
             "GET",
             URL("http://proxy.example.com"),
-            auth=aiohttp.helpers.BasicAuth("user", "pass"),
+            auth=auth,
             loop=self.loop,
         )
         ClientRequestMock.return_value = proxy_req
@@ -976,6 +1008,9 @@ class TestProxy(unittest.TestCase):
             timer=TimerNoop(),
             traces=[],
             loop=self.loop,
+            stream_writer=mock.create_autospec(
+                AbstractStreamWriter, spec_set=True, instance=True
+            ),
             session=mock.Mock(),
         )
         proxy_req.send = mock.AsyncMock(return_value=proxy_resp)

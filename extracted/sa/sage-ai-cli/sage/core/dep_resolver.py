@@ -60,7 +60,7 @@ _BASELINE_NODE_RUNTIME: dict[str, tuple[str, ...]] = {
     "react": ("react", "react-dom", "axios"),
     "react-native-web": (
         "expo", "expo-router", "expo-status-bar", "expo-secure-store",
-        "expo-constants", "react", "react-dom", "react-native",
+        "expo-constants", "expo-asset", "react", "react-dom", "react-native",
         "react-native-web", "react-native-safe-area-context",
         "react-native-screens", "react-native-gesture-handler",
         "react-native-reanimated", "axios",
@@ -77,7 +77,7 @@ _BASELINE_NODE_DEV: dict[str, tuple[str, ...]] = {
               "@types/react-dom", "eslint"),
     "react-native-web": ("@babel/core", "babel-preset-expo", "jest", "jest-expo",
                          "@testing-library/react-native", "@testing-library/jest-native",
-                         "react-test-renderer", "typescript", "@types/react"),
+                         "react-test-renderer", "typescript", "@types/react", "@types/jest", "@types/node"),
     "nextjs": ("vitest", "@testing-library/react", "jsdom", "typescript",
                "@types/react", "@types/node", "eslint"),
     "express": ("vitest", "supertest", "typescript", "@types/node", "eslint"),

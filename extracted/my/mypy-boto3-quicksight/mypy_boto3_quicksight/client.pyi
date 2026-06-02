@@ -81,6 +81,8 @@ from .type_defs import (
     CreateAccountSubscriptionResponseTypeDef,
     CreateActionConnectorRequestTypeDef,
     CreateActionConnectorResponseTypeDef,
+    CreateAgentRequestTypeDef,
+    CreateAgentResponseTypeDef,
     CreateAnalysisRequestTypeDef,
     CreateAnalysisResponseTypeDef,
     CreateBrandRequestTypeDef,
@@ -93,6 +95,8 @@ from .type_defs import (
     CreateDataSetResponseTypeDef,
     CreateDataSourceRequestTypeDef,
     CreateDataSourceResponseTypeDef,
+    CreateFlowRequestTypeDef,
+    CreateFlowResponseTypeDef,
     CreateFolderMembershipRequestTypeDef,
     CreateFolderMembershipResponseTypeDef,
     CreateFolderRequestTypeDef,
@@ -113,6 +117,8 @@ from .type_defs import (
     CreateRefreshScheduleResponseTypeDef,
     CreateRoleMembershipRequestTypeDef,
     CreateRoleMembershipResponseTypeDef,
+    CreateSpaceRequestTypeDef,
+    CreateSpaceResponseTypeDef,
     CreateTemplateAliasRequestTypeDef,
     CreateTemplateAliasResponseTypeDef,
     CreateTemplateRequestTypeDef,
@@ -135,6 +141,8 @@ from .type_defs import (
     DeleteAccountSubscriptionResponseTypeDef,
     DeleteActionConnectorRequestTypeDef,
     DeleteActionConnectorResponseTypeDef,
+    DeleteAgentRequestTypeDef,
+    DeleteAgentResponseTypeDef,
     DeleteAnalysisRequestTypeDef,
     DeleteAnalysisResponseTypeDef,
     DeleteBrandAssignmentRequestTypeDef,
@@ -153,6 +161,8 @@ from .type_defs import (
     DeleteDataSourceResponseTypeDef,
     DeleteDefaultQBusinessApplicationRequestTypeDef,
     DeleteDefaultQBusinessApplicationResponseTypeDef,
+    DeleteFlowRequestTypeDef,
+    DeleteFlowResponseTypeDef,
     DeleteFolderMembershipRequestTypeDef,
     DeleteFolderMembershipResponseTypeDef,
     DeleteFolderRequestTypeDef,
@@ -175,6 +185,8 @@ from .type_defs import (
     DeleteRoleCustomPermissionResponseTypeDef,
     DeleteRoleMembershipRequestTypeDef,
     DeleteRoleMembershipResponseTypeDef,
+    DeleteSpaceRequestTypeDef,
+    DeleteSpaceResponseTypeDef,
     DeleteTemplateAliasRequestTypeDef,
     DeleteTemplateAliasResponseTypeDef,
     DeleteTemplateRequestTypeDef,
@@ -207,6 +219,10 @@ from .type_defs import (
     DescribeActionConnectorPermissionsResponseTypeDef,
     DescribeActionConnectorRequestTypeDef,
     DescribeActionConnectorResponseTypeDef,
+    DescribeAgentPermissionsRequestTypeDef,
+    DescribeAgentPermissionsResponseTypeDef,
+    DescribeAgentRequestTypeDef,
+    DescribeAgentResponseTypeDef,
     DescribeAnalysisDefinitionRequestTypeDef,
     DescribeAnalysisDefinitionResponseTypeDef,
     DescribeAnalysisPermissionsRequestTypeDef,
@@ -251,6 +267,8 @@ from .type_defs import (
     DescribeDataSourceResponseTypeDef,
     DescribeDefaultQBusinessApplicationRequestTypeDef,
     DescribeDefaultQBusinessApplicationResponseTypeDef,
+    DescribeFlowRequestTypeDef,
+    DescribeFlowResponseTypeDef,
     DescribeFolderPermissionsRequestTypeDef,
     DescribeFolderPermissionsResponseTypeDef,
     DescribeFolderRequestTypeDef,
@@ -283,6 +301,10 @@ from .type_defs import (
     DescribeRoleCustomPermissionResponseTypeDef,
     DescribeSelfUpgradeConfigurationRequestTypeDef,
     DescribeSelfUpgradeConfigurationResponseTypeDef,
+    DescribeSpacePermissionsRequestTypeDef,
+    DescribeSpacePermissionsResponseTypeDef,
+    DescribeSpaceRequestTypeDef,
+    DescribeSpaceResponseTypeDef,
     DescribeTemplateAliasRequestTypeDef,
     DescribeTemplateAliasResponseTypeDef,
     DescribeTemplateDefinitionRequestTypeDef,
@@ -327,6 +349,8 @@ from .type_defs import (
     GetSessionEmbedUrlResponseTypeDef,
     ListActionConnectorsRequestTypeDef,
     ListActionConnectorsResponseTypeDef,
+    ListAgentsRequestTypeDef,
+    ListAgentsResponseTypeDef,
     ListAnalysesRequestTypeDef,
     ListAnalysesResponseTypeDef,
     ListAssetBundleExportJobsRequestTypeDef,
@@ -375,6 +399,10 @@ from .type_defs import (
     ListRoleMembershipsResponseTypeDef,
     ListSelfUpgradesRequestTypeDef,
     ListSelfUpgradesResponseTypeDef,
+    ListSpaceResourcesRequestTypeDef,
+    ListSpaceResourcesResponseTypeDef,
+    ListSpacesRequestTypeDef,
+    ListSpacesResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     ListTemplateAliasesRequestTypeDef,
@@ -411,6 +439,8 @@ from .type_defs import (
     RestoreAnalysisResponseTypeDef,
     SearchActionConnectorsRequestTypeDef,
     SearchActionConnectorsResponseTypeDef,
+    SearchAgentsRequestTypeDef,
+    SearchAgentsResponseTypeDef,
     SearchAnalysesRequestTypeDef,
     SearchAnalysesResponseTypeDef,
     SearchDashboardsRequestTypeDef,
@@ -425,6 +455,8 @@ from .type_defs import (
     SearchFoldersResponseTypeDef,
     SearchGroupsRequestTypeDef,
     SearchGroupsResponseTypeDef,
+    SearchSpacesRequestTypeDef,
+    SearchSpacesResponseTypeDef,
     SearchTopicsRequestTypeDef,
     SearchTopicsResponseTypeDef,
     StartAssetBundleExportJobRequestTypeDef,
@@ -451,6 +483,10 @@ from .type_defs import (
     UpdateActionConnectorPermissionsResponseTypeDef,
     UpdateActionConnectorRequestTypeDef,
     UpdateActionConnectorResponseTypeDef,
+    UpdateAgentPermissionsRequestTypeDef,
+    UpdateAgentPermissionsResponseTypeDef,
+    UpdateAgentRequestTypeDef,
+    UpdateAgentResponseTypeDef,
     UpdateAnalysisPermissionsRequestTypeDef,
     UpdateAnalysisPermissionsResponseTypeDef,
     UpdateAnalysisRequestTypeDef,
@@ -487,6 +523,8 @@ from .type_defs import (
     UpdateDefaultQBusinessApplicationResponseTypeDef,
     UpdateFlowPermissionsInputTypeDef,
     UpdateFlowPermissionsOutputTypeDef,
+    UpdateFlowRequestTypeDef,
+    UpdateFlowResponseTypeDef,
     UpdateFolderPermissionsRequestTypeDef,
     UpdateFolderPermissionsResponseTypeDef,
     UpdateFolderRequestTypeDef,
@@ -517,6 +555,12 @@ from .type_defs import (
     UpdateSelfUpgradeConfigurationResponseTypeDef,
     UpdateSelfUpgradeRequestTypeDef,
     UpdateSelfUpgradeResponseTypeDef,
+    UpdateSpacePermissionsRequestTypeDef,
+    UpdateSpacePermissionsResponseTypeDef,
+    UpdateSpaceRequestTypeDef,
+    UpdateSpaceResourcesRequestTypeDef,
+    UpdateSpaceResourcesResponseTypeDef,
+    UpdateSpaceResponseTypeDef,
     UpdateSPICECapacityConfigurationRequestTypeDef,
     UpdateSPICECapacityConfigurationResponseTypeDef,
     UpdateTemplateAliasRequestTypeDef,
@@ -674,6 +718,16 @@ class QuickSightClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#create_action_connector)
         """
 
+    def create_agent(
+        self, **kwargs: Unpack[CreateAgentRequestTypeDef]
+    ) -> CreateAgentResponseTypeDef:
+        """
+        Creates an agent in Amazon QuickSight.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_agent.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#create_agent)
+        """
+
     def create_analysis(
         self, **kwargs: Unpack[CreateAnalysisRequestTypeDef]
     ) -> CreateAnalysisResponseTypeDef:
@@ -733,6 +787,14 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_data_source.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#create_data_source)
+        """
+
+    def create_flow(self, **kwargs: Unpack[CreateFlowRequestTypeDef]) -> CreateFlowResponseTypeDef:
+        """
+        Creates a new flow in the specified Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_flow.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#create_flow)
         """
 
     def create_folder(
@@ -836,6 +898,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_role_membership.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#create_role_membership)
+        """
+
+    def create_space(
+        self, **kwargs: Unpack[CreateSpaceRequestTypeDef]
+    ) -> CreateSpaceResponseTypeDef:
+        """
+        Creates a new Amazon QuickSight space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_space.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#create_space)
         """
 
     def create_template(
@@ -951,6 +1023,16 @@ class QuickSightClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#delete_action_connector)
         """
 
+    def delete_agent(
+        self, **kwargs: Unpack[DeleteAgentRequestTypeDef]
+    ) -> DeleteAgentResponseTypeDef:
+        """
+        Deletes an agent.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_agent.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#delete_agent)
+        """
+
     def delete_analysis(
         self, **kwargs: Unpack[DeleteAnalysisRequestTypeDef]
     ) -> DeleteAnalysisResponseTypeDef:
@@ -1039,6 +1121,14 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_default_q_business_application.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#delete_default_q_business_application)
+        """
+
+    def delete_flow(self, **kwargs: Unpack[DeleteFlowRequestTypeDef]) -> DeleteFlowResponseTypeDef:
+        """
+        Permanently deletes a flow from the specified Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_flow.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#delete_flow)
         """
 
     def delete_folder(
@@ -1151,6 +1241,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_role_membership.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#delete_role_membership)
+        """
+
+    def delete_space(
+        self, **kwargs: Unpack[DeleteSpaceRequestTypeDef]
+    ) -> DeleteSpaceResponseTypeDef:
+        """
+        Deletes an Amazon QuickSight space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_space.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#delete_space)
         """
 
     def delete_template(
@@ -1315,6 +1415,26 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_action_connector_permissions.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#describe_action_connector_permissions)
+        """
+
+    def describe_agent(
+        self, **kwargs: Unpack[DescribeAgentRequestTypeDef]
+    ) -> DescribeAgentResponseTypeDef:
+        """
+        Describes an agent.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_agent.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#describe_agent)
+        """
+
+    def describe_agent_permissions(
+        self, **kwargs: Unpack[DescribeAgentPermissionsRequestTypeDef]
+    ) -> DescribeAgentPermissionsResponseTypeDef:
+        """
+        Describes the resource permissions for an agent.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_agent_permissions.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#describe_agent_permissions)
         """
 
     def describe_analysis(
@@ -1539,6 +1659,17 @@ class QuickSightClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#describe_default_q_business_application)
         """
 
+    def describe_flow(
+        self, **kwargs: Unpack[DescribeFlowRequestTypeDef]
+    ) -> DescribeFlowResponseTypeDef:
+        """
+        Returns the full details of a flow for the latest version of the requested
+        publish state.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_flow.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#describe_flow)
+        """
+
     def describe_folder(
         self, **kwargs: Unpack[DescribeFolderRequestTypeDef]
     ) -> DescribeFolderResponseTypeDef:
@@ -1700,6 +1831,26 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_self_upgrade_configuration.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#describe_self_upgrade_configuration)
+        """
+
+    def describe_space(
+        self, **kwargs: Unpack[DescribeSpaceRequestTypeDef]
+    ) -> DescribeSpaceResponseTypeDef:
+        """
+        Describes an Amazon QuickSight space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_space.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#describe_space)
+        """
+
+    def describe_space_permissions(
+        self, **kwargs: Unpack[DescribeSpacePermissionsRequestTypeDef]
+    ) -> DescribeSpacePermissionsResponseTypeDef:
+        """
+        Describes the permissions for an Amazon QuickSight space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_space_permissions.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#describe_space_permissions)
         """
 
     def describe_template(
@@ -1929,6 +2080,14 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_action_connectors.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#list_action_connectors)
+        """
+
+    def list_agents(self, **kwargs: Unpack[ListAgentsRequestTypeDef]) -> ListAgentsResponseTypeDef:
+        """
+        Lists all agents in an Amazon QuickSight account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_agents.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#list_agents)
         """
 
     def list_analyses(
@@ -2174,6 +2333,24 @@ class QuickSightClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#list_self_upgrades)
         """
 
+    def list_space_resources(
+        self, **kwargs: Unpack[ListSpaceResourcesRequestTypeDef]
+    ) -> ListSpaceResourcesResponseTypeDef:
+        """
+        Lists the resources in an Amazon QuickSight space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_space_resources.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#list_space_resources)
+        """
+
+    def list_spaces(self, **kwargs: Unpack[ListSpacesRequestTypeDef]) -> ListSpacesResponseTypeDef:
+        """
+        Lists all Amazon QuickSight spaces in an Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_spaces.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#list_spaces)
+        """
+
     def list_tags_for_resource(
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
@@ -2353,6 +2530,16 @@ class QuickSightClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#search_action_connectors)
         """
 
+    def search_agents(
+        self, **kwargs: Unpack[SearchAgentsRequestTypeDef]
+    ) -> SearchAgentsResponseTypeDef:
+        """
+        Searches for agents based on specified filters.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/search_agents.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#search_agents)
+        """
+
     def search_analyses(
         self, **kwargs: Unpack[SearchAnalysesRequestTypeDef]
     ) -> SearchAnalysesResponseTypeDef:
@@ -2422,6 +2609,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/search_groups.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#search_groups)
+        """
+
+    def search_spaces(
+        self, **kwargs: Unpack[SearchSpacesRequestTypeDef]
+    ) -> SearchSpacesResponseTypeDef:
+        """
+        Searches for Amazon QuickSight spaces that match the specified filters.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/search_spaces.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#search_spaces)
         """
 
     def search_topics(
@@ -2556,6 +2753,26 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_action_connector_permissions.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_action_connector_permissions)
+        """
+
+    def update_agent(
+        self, **kwargs: Unpack[UpdateAgentRequestTypeDef]
+    ) -> UpdateAgentResponseTypeDef:
+        """
+        Updates an existing agent.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_agent.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_agent)
+        """
+
+    def update_agent_permissions(
+        self, **kwargs: Unpack[UpdateAgentPermissionsRequestTypeDef]
+    ) -> UpdateAgentPermissionsResponseTypeDef:
+        """
+        Updates the resource permissions for an agent.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_agent_permissions.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_agent_permissions)
         """
 
     def update_analysis(
@@ -2726,6 +2943,14 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_default_q_business_application.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_default_q_business_application)
+        """
+
+    def update_flow(self, **kwargs: Unpack[UpdateFlowRequestTypeDef]) -> UpdateFlowResponseTypeDef:
+        """
+        Updates an existing flow.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_flow.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_flow)
         """
 
     def update_flow_permissions(
@@ -2899,6 +3124,36 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_self_upgrade_configuration.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_self_upgrade_configuration)
+        """
+
+    def update_space(
+        self, **kwargs: Unpack[UpdateSpaceRequestTypeDef]
+    ) -> UpdateSpaceResponseTypeDef:
+        """
+        Updates the metadata of an Amazon QuickSight space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_space.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_space)
+        """
+
+    def update_space_permissions(
+        self, **kwargs: Unpack[UpdateSpacePermissionsRequestTypeDef]
+    ) -> UpdateSpacePermissionsResponseTypeDef:
+        """
+        Updates the permissions for an Amazon QuickSight space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_space_permissions.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_space_permissions)
+        """
+
+    def update_space_resources(
+        self, **kwargs: Unpack[UpdateSpaceResourcesRequestTypeDef]
+    ) -> UpdateSpaceResourcesResponseTypeDef:
+        """
+        Adds or removes resources from an Amazon QuickSight space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_space_resources.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/client/#update_space_resources)
         """
 
     def update_template(

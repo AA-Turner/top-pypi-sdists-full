@@ -12,9 +12,11 @@ qsim-core = { path = "../core" }
 qsim-simulator = { path = "../simulator" }
 qsim-qasm = { path = "../qasm" }
 qsim-transpiler = { path = "../transpiler" }
+qsim-stabilizer = { path = "../stabilizer" }
 pyo3 = { version = "0.23", features = ["extension-module", "generate-import-lib"] }
 numpy = "0.23"
 num-complex = "0.4"
+rand = "0.8"
 
 [features]
 default = []

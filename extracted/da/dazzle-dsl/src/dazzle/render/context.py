@@ -402,6 +402,23 @@ class PageContext(BaseModel):
     # Each entry is a dict shaped {label, icon, collapsed, children: [NavItemContext-like]}.
     nav_groups: list[dict[str, Any]] = Field(default_factory=list)
     nav_groups_by_persona: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
+    # #1324 slice 3b: the precomputed per-persona (or anon) NavModel. When set
+    # at request time, the sidebar renderer (`_build_sidebar_from_ctx`) builds
+    # the sidebar from this instead of the legacy `nav_items`/`nav_groups`
+    # producers (which stay as dead-code fallback until removed in a later
+    # task). Typed `Any` (carries a frozen `NavModel` dataclass — see
+    # `dazzle.ui.converters.nav_builder`) to avoid a render→ui import cycle:
+    # `nav_builder` transitively imports back into `dazzle.render.context`.
+    #
+    # MUST stay `Any` — NOT a TYPE_CHECKING string forward-ref. Pydantic
+    # resolves field annotations at runtime even under `from __future__ import
+    # annotations`; a `"NavModel | None"` ref that's only imported under
+    # TYPE_CHECKING leaves the model "not fully defined" (every `PageContext()`
+    # raises PydanticUserError) unless `NavModel` is in scope + `model_rebuild()`
+    # is called — and PageContext has no `arbitrary_types_allowed`, so Pydantic
+    # couldn't validate the frozen dataclass anyway. Verified: the typed variant
+    # breaks construction (#1324). Keep `Any`.
+    nav_model: Any = None
     current_route: str = "/"
     design_tokens: dict[str, str] = Field(default_factory=dict)
     theme_css: str = ""

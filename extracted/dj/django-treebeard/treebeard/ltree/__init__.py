@@ -11,12 +11,17 @@ from django.core import serializers
 from django.db import models, transaction
 from django.db.models import F, Func, OuterRef, Q, Subquery, Value
 from django.db.models.functions import Concat
+from django.dispatch import Signal
 from django.utils.translation import gettext_noop as _
 
 from treebeard.exceptions import InvalidMoveToDescendant, NodeAlreadySaved, PathOverflow
 from treebeard.models import Node
 
 from .fields import Ltree2Text, PathField, PathValue, Subpath, Text2LTree
+
+subtree_moved_right = Signal()
+subtree_moved = Signal()
+nodes_deleted = Signal()
 
 
 class InvalidLabelConstraints(Exception): ...
@@ -41,7 +46,9 @@ def generate_label(
 
     start = after or char_choices[0]
 
-    if before and before <= start:
+    if (
+        before and (before <= start) or before == f"{start}0"
+    ):  # If before == {start}0 there is no semantic gap in between
         raise InvalidLabelConstraints
 
     # Construct sets of characters for each position, appending one at the end if we need to extend the string
@@ -116,7 +123,9 @@ class LT_NodeQuerySet(models.query.QuerySet):
             return super(LT_NodeQuerySet, model.objects.none()).delete(*args, **kwargs)
 
         query = functools.reduce(operator.or_, [Q(path__descendants=path) for path in paths_to_remove])
-        return super(LT_NodeQuerySet, model.objects.filter(query)).delete(*args, **kwargs)
+        result = super(LT_NodeQuerySet, model.objects.filter(query)).delete(*args, **kwargs)
+        nodes_deleted.send(sender=model, paths_to_remove=paths_to_remove, using=self.db)
+        return result
 
     delete.alters_data = True
     delete.queryset_only = True
@@ -163,19 +172,25 @@ class LT_ComplexAddMoveHandler:
 
     def _move_subtree_right(self, start_node):
         """
-        Move the node and everything after it in the tree to the right. This is achieved simply by
+        Move the node and all siblings after it in the tree to the right. This is achieved simply by
         appending an extra character (A) to the topmost label in the path.
         """
         result_class = self.node_cls.tree_model()
         node_depth = len(start_node.path)
+
         if node_depth > 1:
-            result_class.objects.filter(path__gte=start_node.path, path__depth=node_depth).update(
+            result_class.objects.filter(
+                path__descendants=start_node.path[:-1], path__gte=start_node.path, path__depth=node_depth
+            ).update(
                 path=Concat(
                     Subpath(F("path"), 0, node_depth - 1),
                     Text2LTree(Concat(Ltree2Text(Subpath(F("path"), node_depth - 1, 1)), Value("A"))),
                 )
             )
-            result_class.objects.filter(path__gte=start_node.path, path__depth__gt=node_depth).update(
+            queryset = result_class.objects.filter(
+                path__descendants=start_node.path[:-1], path__gte=start_node.path, path__depth__gt=node_depth
+            )
+            queryset.update(
                 path=Concat(
                     Subpath(F("path"), 0, node_depth - 1),
                     Text2LTree(Concat(Ltree2Text(Subpath(F("path"), node_depth - 1, 1)), Value("A"))),
@@ -187,9 +202,16 @@ class LT_ComplexAddMoveHandler:
             result_class.objects.filter(path__gte=start_node.path, path__depth=1).update(
                 path=Text2LTree(Concat(Ltree2Text(Subpath(F("path"), 0, 1)), Value("A")))
             )
-            result_class.objects.filter(path__gte=start_node.path, path__depth__gt=1).update(
+            queryset = result_class.objects.filter(path__gte=start_node.path, path__depth__gt=1)
+            queryset.update(
                 path=Concat(Text2LTree(Concat(Ltree2Text(Subpath(F("path"), 0, 1)), Value("A"))), Subpath(F("path"), 1))
             )
+
+        subtree_moved_right.send(
+            sender=result_class,
+            path=start_node.path,
+            using=queryset.db,
+        )
 
 
 class LT_AddRootHandler:
@@ -370,22 +392,31 @@ class LT_MoveHandler(LT_ComplexAddMoveHandler):
 
         # Update the path for all the descendants of the node
         result_class = self.node_cls.tree_model()
-        result_class.objects.filter(path__descendants=self.node.path, path__depth__gt=len(self.node.path)).update(
+        old_path = self.node.path
+        queryset = result_class.objects.filter(path__descendants=old_path, path__depth__gt=len(old_path))
+        queryset.update(
             path=Concat(
                 Value(new_path, output_field=PathField()),
-                Subpath(F("path"), len(self.node.path)),
+                Subpath(F("path"), len(old_path)),
             )
         )
         # And update the path for the node itself
         self.node.path = new_path
         self.node.save()
 
+        subtree_moved.send(
+            sender=result_class,
+            old_path=old_path,
+            new_path=new_path,
+            using=queryset.db,
+        )
+
 
 class LT_Node(Node):
     """Abstract model to create your own Postgres LTree trees."""
 
     node_order_by = []
-    path = PathField(unique=True)
+    path = PathField()
 
     TREEBEARD_IDENTIFYING_FIELD = "path"
     MOVENODE_FORM_EXCLUDED_FIELDS = ("path",)
@@ -628,3 +659,10 @@ class LT_Node(Node):
 
     class Meta:
         abstract = True
+        constraints = [
+            models.UniqueConstraint(
+                name="%(app_label)s_%(class)s_deferred_unique_path",
+                fields=["path"],
+                deferrable=models.Deferrable.DEFERRED,
+            )
+        ]

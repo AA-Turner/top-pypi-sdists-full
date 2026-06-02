@@ -42,13 +42,13 @@ from fivetran_connector_sdk.connector_helper import (
     get_available_port, tester_root_dir_helper,
     check_dict, check_newer_version, cleanup_uploaded_project,
     get_destination_group, get_connection_name, get_api_key, get_state,
-    get_python_version, get_hd_agent_id, get_configuration, evaluate_project,
+    get_python_version, get_hd_agent_id, get_configuration,
     handle_connection_response, apply_memory_limit
 )
 
 # Version format: <major_version>.<minor_version>.<patch_version>
 # (where Major Version = 2, Minor Version is incremental MM from Aug 25 onwards, Patch Version is incremental within a month)
-__version__ = "2.8.3"
+__version__ = "2.9.0"
 MAX_MESSAGE_LENGTH = 128 * 1024 * 1024 # 128MB
 
 __all__ = [cls.__name__ for cls in [Logging, Operations]]
@@ -533,8 +533,7 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-    if args.command.lower() not in VALID_COMMANDS and args.command.lower() != "evaluate":
-        # evaluate command is not included in the help message but should be supported for internal use
+    if args.command.lower() not in VALID_COMMANDS:
         if not suggest_correct_command(args.command):
             raise NotImplementedError(f"invalid command: {args.command}, see `fivetran help`")
         sys.exit(1)
@@ -554,12 +553,6 @@ def main():
 
     if not connector_object:
         sys.exit(1)
-
-    if args.command.lower() == "evaluate":
-        print_library_log("evaluating connector code", log_icon=Logging.LogIcon.STEP)
-        ft_deploy_key = get_api_key(args)
-        evaluate_project(args.project_path, ft_deploy_key)
-        sys.exit(0)
 
     if args.command.lower() == "package":
         package(args.project_path, args.force)

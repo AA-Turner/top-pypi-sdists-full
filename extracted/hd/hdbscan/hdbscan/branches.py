@@ -9,7 +9,7 @@ from joblib import Parallel, delayed
 from joblib.parallel import cpu_count
 from ._hdbscan_linkage import label
 from .plots import CondensedTree, SingleLinkageTree, ApproximationGraph
-from .prediction import approximate_predict
+from .prediction import approximate_predict, _group_by_parent
 from ._hdbscan_tree import recurse_leaf_dfs
 from .hdbscan_ import _tree_to_labels
 
@@ -707,10 +707,13 @@ def _remap_edge_lists(edge_lists, internal_to_raw):
     internal_to_raw: dict
         A mapping from internal integer index to the raw integer index.
     """
+    max_key = max(internal_to_raw.keys())
+    lookup = np.empty(max_key + 1, dtype=np.intp)
+    for k, v in internal_to_raw.items():
+        lookup[k] = v
     for graph in edge_lists:
-        for edge in graph:
-            edge[0] = internal_to_raw[edge[0]]
-            edge[1] = internal_to_raw[edge[1]]
+        graph[:, 0] = lookup[graph[:, 0].astype(np.intp)]
+        graph[:, 1] = lookup[graph[:, 1].astype(np.intp)]
 
 
 def _remap_point_lists(point_lists, internal_to_raw):
@@ -724,9 +727,12 @@ def _remap_point_lists(point_lists, internal_to_raw):
     internal_to_raw: dict
         A mapping from internal integer index to the raw integer index.
     """
+    max_key = max(internal_to_raw.keys())
+    lookup = np.empty(max_key + 1, dtype=np.intp)
+    for k, v in internal_to_raw.items():
+        lookup[k] = v
     for points in point_lists:
-        for idx in range(len(points)):
-            points[idx] = internal_to_raw[points[idx]]
+        points[:] = lookup[points.astype(np.intp)]
 
 
 def _remap_labels(old_labels, finite_index, num_points, fill_value=-1):
@@ -1128,16 +1134,18 @@ class BranchDetector(BaseEstimator, ClusterMixin):
 
             self._branch_exemplars[i] = []
             raw_condensed_tree = self._condensed_trees[i]
+            # Group this tree by parent once instead of re-scanning it per leaf
+            # (see hdbscan.prediction._group_by_parent).
+            group_max_lambda, group_rows = _group_by_parent(raw_condensed_tree)
 
             for branch in selected_branches:
                 _branch_exemplars = np.array([], dtype=np.intp)
                 for leaf in recurse_leaf_dfs(branch_cluster_trees[i], np.intp(branch)):
-                    leaf_max_lambda = raw_condensed_tree["lambda_val"][
-                        raw_condensed_tree["parent"] == leaf
-                    ].max()
+                    leaf_rows = group_rows[leaf]
+                    leaf_max_lambda = group_max_lambda[leaf]
                     candidates = raw_condensed_tree["child"][
-                        (raw_condensed_tree["parent"] == leaf)
-                        & (raw_condensed_tree["lambda_val"] == leaf_max_lambda)
+                        leaf_rows[raw_condensed_tree["lambda_val"][leaf_rows]
+                                  == leaf_max_lambda]
                     ]
                     _branch_exemplars = np.hstack([_branch_exemplars, candidates])
                 ids = points[_branch_exemplars]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: harbormaster-mcp
-Version: 26.0.1
+Version: 27.0.0
 Summary: Multi-project MCP router + operator dashboard for Claude Code, Codex, Cursor. Ask any local or SSH-reachable project a question without `cd` — the project's subagent loads its own CLAUDE.md and Serena memories and answers. Ships with a live web console: KPI strip, inter-project network graph, trace waterfall, memory editor, multi-axis budgets. Part of the FleetQ ecosystem.
 Project-URL: Homepage, https://github.com/FleetQ/harbormaster
 Project-URL: Repository, https://github.com/FleetQ/harbormaster

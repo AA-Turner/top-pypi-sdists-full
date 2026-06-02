@@ -92,6 +92,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Workflows API base URL (default: http://localhost:7444).",
     )
     parser.add_argument(
+        "--deployment",
+        "--deployment-name",
+        dest="deployment_name",
+        default=os.environ.get("DEPLOYMENT_NAME", "default"),
+        help="Workflow deployment name (default: DEPLOYMENT_NAME env var, or 'default').",
+    )
+    parser.add_argument(
         "--api-key",
         default=os.environ.get("MISTRAL_API_KEY"),
         help="Mistral API key for authorization (default: MISTRAL_API_KEY env var).",
@@ -728,16 +735,20 @@ async def start_workflow(
     client: Mistral,
     workflow_name: str,
     workflow_input: BaseModel | None,
+    deployment_name: str,
     console: Optional[Console] = None,
 ) -> str:
     response = await client.workflows.execute_workflow_async(
         workflow_identifier=workflow_name,
         input=workflow_input,
-        deployment_name="default",
+        deployment_name=deployment_name,
     )
     execution_id = response.execution_id
     start_console = console or Console()
-    start_console.print(f"[green]Started workflow[/] '{workflow_name}' with execution id: {execution_id}")
+    start_console.print(
+        f"[green]Started workflow[/] '{workflow_name}' "
+        f"on deployment '{deployment_name}' with execution id: {execution_id}"
+    )
     return execution_id
 
 
@@ -937,6 +948,7 @@ async def main_async() -> None:
                 client=client,
                 workflow_name=args.workflow_name,
                 workflow_input=DynamicInput(**args.input),
+                deployment_name=args.deployment_name,
                 console=console,
             )
 

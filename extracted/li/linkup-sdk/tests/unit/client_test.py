@@ -1,18 +1,18 @@
 import json
 from datetime import date
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
+import pydantic
 import pytest
 from httpx import Response
-from pydantic import BaseModel
 from pytest_mock import MockerFixture
 
 import linkup
 
 
-class Company(BaseModel):
+class Company(pydantic.BaseModel):
     name: str
     creation_date: str
     website_url: str
@@ -86,6 +86,24 @@ test_search_parameters = [
             "maxResults": 10,
             "includeInlineCitations": True,
             "includeSources": True,
+        },
+        b'{"results": []}',
+        linkup.SearchResults(results=[]),
+    ),
+    (
+        {
+            "query": "query",
+            "depth": "standard",
+            "output_type": "searchResults",
+            "from_date": "2026-05-01T08:15:30.000Z",
+            "to_date": "2026-05-31T23:59:59.000Z",
+        },
+        {
+            "q": "query",
+            "depth": "standard",
+            "outputType": "searchResults",
+            "fromDate": "2026-05-01T08:15:30.000Z",
+            "toDate": "2026-05-31T23:59:59.000Z",
         },
         b'{"results": []}',
         linkup.SearchResults(results=[]),
@@ -174,12 +192,12 @@ test_search_parameters = [
             "website_url": "https://www.linkup.so/"
         }
         """,
-        Company(
-            name="Linkup",
-            founders_names=["Philippe Mizrahi", "Denis Charrier", "Boris Toledano"],
-            creation_date="2024",
-            website_url="https://www.linkup.so/",
-        ),
+        {
+            "name": "Linkup",
+            "founders_names": ["Philippe Mizrahi", "Denis Charrier", "Boris Toledano"],
+            "creation_date": "2024",
+            "website_url": "https://www.linkup.so/",
+        },
     ),
     (
         {
@@ -273,12 +291,12 @@ test_search_parameters = [
         }
         """,
         linkup.SearchStructuredResponse(
-            data=Company(
-                name="Linkup",
-                founders_names=["Philippe Mizrahi", "Denis Charrier", "Boris Toledano"],
-                creation_date="2024",
-                website_url="https://www.linkup.so/",
-            ),
+            data={
+                "name": "Linkup",
+                "founders_names": ["Philippe Mizrahi", "Denis Charrier", "Boris Toledano"],
+                "creation_date": "2024",
+                "website_url": "https://www.linkup.so/",
+            },
             sources=[
                 linkup.SearchTextResult(
                     type="text",
@@ -320,7 +338,7 @@ def test_search(
         ),
     )
 
-    search_response: Any = client.search(**search_kwargs)
+    search_response = cast("Any", client.search(**search_kwargs))
     expected_timeout = search_kwargs.get("timeout", None)
     request_mock.assert_called_once_with(
         method="POST",
@@ -329,6 +347,55 @@ def test_search(
         timeout=expected_timeout,
     )
     assert search_response == expected_search_response
+
+
+def test_search_structured_output_model_dump_preserves_data(
+    mocker: MockerFixture, client: linkup.Client
+) -> None:
+    mocker.patch(
+        "httpx.Client.request",
+        return_value=Response(
+            status_code=200,
+            content=b"""
+            {
+                "data": {
+                    "name": "Linkup",
+                    "founders_names": ["Philippe Mizrahi", "Denis Charrier", "Boris Toledano"],
+                    "creation_date": "2024",
+                    "website_url": "https://www.linkup.so/"
+                },
+                "sources": []
+            }
+            """,
+        ),
+    )
+
+    search_response = client.search(
+        query="query",
+        depth="standard",
+        output_type="structured",
+        structured_output_schema=Company,
+        include_sources=True,
+    )
+
+    assert search_response.model_dump()["data"] == {
+        "name": "Linkup",
+        "founders_names": ["Philippe Mizrahi", "Denis Charrier", "Boris Toledano"],
+        "creation_date": "2024",
+        "website_url": "https://www.linkup.so/",
+    }
+
+
+def test_search_structured_output_requires_schema(client: linkup.Client) -> None:
+    with pytest.raises(
+        TypeError,
+        match="structured_output_schema must be provided",
+    ):
+        client.search(
+            query="query",
+            depth="standard",
+            output_type="structured",
+        )
 
 
 @pytest.mark.asyncio
@@ -358,7 +425,7 @@ async def test_async_search(
         ),
     )
 
-    search_response: Any = await client.async_search(**search_kwargs)
+    search_response = cast("Any", await client.async_search(**search_kwargs))
     expected_timeout = search_kwargs.get("timeout", None)
     request_mock.assert_called_once_with(
         method="POST",
@@ -367,6 +434,19 @@ async def test_async_search(
         timeout=expected_timeout,
     )
     assert search_response == expected_search_response
+
+
+@pytest.mark.asyncio
+async def test_async_search_structured_output_requires_schema(client: linkup.Client) -> None:
+    with pytest.raises(
+        TypeError,
+        match="structured_output_schema must be provided",
+    ):
+        await client.async_search(
+            query="query",
+            depth="standard",
+            output_type="structured",
+        )
 
 
 test_search_error_parameters = [
@@ -638,6 +718,42 @@ def test_research(mocker: MockerFixture, client: linkup.Client) -> None:
     )
 
 
+def test_get_research_structured_output_keeps_sourced_answer_shape_raw(
+    mocker: MockerFixture, client: linkup.Client
+) -> None:
+    mocker.patch(
+        "httpx.Client.request",
+        return_value=Response(
+            status_code=200,
+            content=b"""
+            {
+                "createdAt": "2026-05-18T00:00:00.000Z",
+                "error": null,
+                "id": "bfeb26f5-f4d6-47d2-9818-7f62fbcd0b0c",
+                "input": {
+                    "outputType": "structured",
+                    "q": "query"
+                },
+                "output": {
+                    "answer": "structured answer field",
+                    "sources": []
+                },
+                "status": "completed",
+                "type": "research",
+                "updatedAt": "2026-05-18T00:00:00.000Z"
+            }
+            """,
+        ),
+    )
+
+    research_response = client.get_research("bfeb26f5-f4d6-47d2-9818-7f62fbcd0b0c")
+
+    assert research_response.output == {
+        "answer": "structured answer field",
+        "sources": [],
+    }
+
+
 @pytest.mark.asyncio
 async def test_async_research(mocker: MockerFixture, client: linkup.Client) -> None:
     request_mock = mocker.patch(
@@ -686,6 +802,55 @@ async def test_async_research(mocker: MockerFixture, client: linkup.Client) -> N
     assert research_response.output == {"summary": "done"}
     assert research_response.input.query == "query"
     assert research_response.input.structured_output_schema == {"type": "object"}
+
+
+def test_research_with_iso_datetime_string_dates(
+    mocker: MockerFixture, client: linkup.Client
+) -> None:
+    request_mock = mocker.patch(
+        "httpx.Client.request",
+        return_value=Response(
+            status_code=200,
+            content=b"""
+            {
+                "createdAt": "2026-05-18T00:00:00.000Z",
+                "error": null,
+                "id": "f93f33c8-2688-4bd0-ab11-47c8ff89f7b7",
+                "input": {
+                    "fromDate": "2026-05-01",
+                    "outputType": "sourcedAnswer",
+                    "q": "query",
+                    "toDate": "2026-05-31"
+                },
+                "output": null,
+                "status": "pending",
+                "type": "research",
+                "updatedAt": "2026-05-18T00:00:00.000Z"
+            }
+            """,
+        ),
+    )
+
+    research_response = client.research(
+        query="query",
+        output_type="sourcedAnswer",
+        from_date="2026-05-01T08:15:30.000Z",
+        to_date="2026-05-31T23:59:59.000Z",
+    )
+
+    request_mock.assert_called_once_with(
+        method="POST",
+        url="/research",
+        json={
+            "q": "query",
+            "outputType": "sourcedAnswer",
+            "fromDate": "2026-05-01T08:15:30.000Z",
+            "toDate": "2026-05-31T23:59:59.000Z",
+        },
+        timeout=None,
+    )
+    assert research_response.input.from_date == "2026-05-01"
+    assert research_response.input.to_date == "2026-05-31"
 
 
 test_fetch_parameters = [
@@ -1298,6 +1463,78 @@ def test_list_tasks(mocker: MockerFixture, client: linkup.Client) -> None:
     assert isinstance(tasks_page.data[0], linkup.ResearchTask)
     assert tasks_page.data[0].input.query == "query"
     assert tasks_page.quota.in_flight == 1
+
+
+def test_get_task_structured_search_output_keeps_search_results_shape_raw(
+    mocker: MockerFixture, client: linkup.Client
+) -> None:
+    mocker.patch(
+        "httpx.Client.request",
+        return_value=Response(
+            status_code=200,
+            content=b"""
+            {
+                "createdAt": "2026-05-18T00:00:00.000Z",
+                "error": null,
+                "id": "bfeb26f5-f4d6-47d2-9818-7f62fbcd0b0c",
+                "input": {
+                    "depth": "standard",
+                    "outputType": "structured",
+                    "q": "query",
+                    "structuredOutputSchema": {
+                        "type": "object"
+                    }
+                },
+                "output": {
+                    "results": []
+                },
+                "status": "completed",
+                "type": "search",
+                "updatedAt": "2026-05-18T00:00:00.000Z"
+            }
+            """,
+        ),
+    )
+
+    task = client.get_task("bfeb26f5-f4d6-47d2-9818-7f62fbcd0b0c")
+
+    assert isinstance(task, linkup.SearchTask)
+    assert task.output == {"results": []}
+
+
+def test_get_task_structured_search_output_without_schema_raw(
+    mocker: MockerFixture, client: linkup.Client
+) -> None:
+    mocker.patch(
+        "httpx.Client.request",
+        return_value=Response(
+            status_code=200,
+            content=b"""
+            {
+                "createdAt": "2026-05-18T00:00:00.000Z",
+                "error": null,
+                "id": "bfeb26f5-f4d6-47d2-9818-7f62fbcd0b0c",
+                "input": {
+                    "depth": "standard",
+                    "outputType": "structured",
+                    "q": "query"
+                },
+                "output": {
+                    "summary": "done"
+                },
+                "status": "completed",
+                "type": "search",
+                "updatedAt": "2026-05-18T00:00:00.000Z"
+            }
+            """,
+        ),
+    )
+
+    task = client.get_task("bfeb26f5-f4d6-47d2-9818-7f62fbcd0b0c")
+
+    assert isinstance(task, linkup.SearchTask)
+    assert task.input.structured_output_schema is None
+    assert task.output == {"summary": "done"}
 
 
 def test_list_tasks_with_multiple_filters(mocker: MockerFixture, client: linkup.Client) -> None:

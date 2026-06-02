@@ -470,8 +470,8 @@ class GeminiTitan(Exchange):
         return creds if creds else None
 
 
-class Suibets(Exchange):
-    """Suibets exchange client."""
+class SuiBets(Exchange):
+    """SuiBets exchange client."""
 
     def __init__(
         self,
@@ -480,7 +480,7 @@ class Suibets(Exchange):
         pmxt_api_key: Optional[str] = None,
     ):
         """
-        Initialize Suibets client.
+        Initialize SuiBets client.
 
         Args:
             base_url: Base URL of the PMXT sidecar server
@@ -546,3 +546,4 @@ class Router(Exchange):
 
 # Backwards-compatible aliases for exchange classes generated before underscore handling.
 Polymarket_us = PolymarketUS
+Suibets = SuiBets

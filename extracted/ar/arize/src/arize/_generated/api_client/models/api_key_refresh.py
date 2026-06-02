@@ -20,6 +20,7 @@ import json
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Any, ClassVar, Dict, List, Optional
+from typing_extensions import Annotated
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -28,7 +29,8 @@ class ApiKeyRefresh(BaseModel):
     ApiKeyRefresh
     """ # noqa: E501
     expires_at: Optional[datetime] = Field(default=None, description="Expiration timestamp for the refreshed key. If omitted, the refreshed key has no expiration (infinite lifetime). ")
-    __properties: ClassVar[List[str]] = ["expires_at"]
+    grace_period_seconds: Optional[Annotated[int, Field(le=86400, strict=True, ge=0)]] = Field(default=None, description="Grace period in seconds during which the old key remains valid after the refresh. When set, the old key's expiration is updated to `now + grace_period_seconds` instead of being immediately revoked — it expires naturally at the end of the window. If the old key already has an `expires_at` that is sooner than the grace window end, the shorter value is used (the grace period cannot extend a key's original lifetime). Defaults to 0 (immediate revocation). Maximum is 86400 (24 hours). ")
+    __properties: ClassVar[List[str]] = ["expires_at", "grace_period_seconds"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -86,7 +88,8 @@ class ApiKeyRefresh(BaseModel):
                 raise ValueError("Error due to additional fields (not defined in ApiKeyRefresh) in the input: " + _key)
 
         _obj = cls.model_validate({
-            "expires_at": obj.get("expires_at")
+            "expires_at": obj.get("expires_at"),
+            "grace_period_seconds": obj.get("grace_period_seconds")
         })
         return _obj
 

@@ -110,10 +110,22 @@ fn write_body_slice(
             Instruction::ApplyGate { gate, targets } => {
                 write_gate_call(out, gate, targets, dialect);
             }
+            Instruction::ApplyUnitary { targets, .. } => {
+                // OpenQASM 2.0/3.0 표준에 임의 unitary 행렬 표기가 없으므로 주석으로
+                // 보존 (round-trip 불가).  사용자에게 분해 후 export 를 권장.
+                out.push_str(&format!(
+                    "// panta-sim arbitrary unitary on q{targets:?} (omitted: no QASM representation)\n"
+                ));
+            }
             Instruction::ApplyNoise { channel, target } => {
                 // OpenQASM 2.0/3.0 표준에 노이즈 채널 표기가 없으므로 주석으로 보존.
                 // 다른 시뮬레이터는 이 라인을 무시; panta-sim 의 from_qasm 도 무시 (재구성하지 않음).
                 out.push_str(&format!("// panta-sim noise: {channel:?} on q[{target}]\n"));
+            }
+            Instruction::ApplyNoise2 { channel, q0, q1 } => {
+                out.push_str(&format!(
+                    "// panta-sim noise2: {channel:?} on q[{q0}],q[{q1}]\n"
+                ));
             }
             Instruction::Measure { qubit, cbit } => {
                 write_measure(out, *qubit, *cbit, dialect);
@@ -388,6 +400,15 @@ fn write_gate_call(out: &mut String, gate: &Gate, targets: &[usize], dialect: Qa
             ));
         }
         Gate::SWAP => two(out, "swap", targets),
+        Gate::ISwap => two(out, "iswap", targets),
+        Gate::Rxx(theta) => two_param1(out, "rxx", *theta, targets),
+        Gate::Ryy(theta) => two_param1(out, "ryy", *theta, targets),
+        Gate::Rzz(theta) => two_param1(out, "rzz", *theta, targets),
+        Gate::Dcx => two(out, "dcx", targets),
+        Gate::Ecr => two(out, "ecr", targets),
+        Gate::Rzx(theta) => two_param1(out, "rzx", *theta, targets),
+        Gate::XxPlusYy(theta) => two_param1(out, "xx_plus_yy", *theta, targets),
+        Gate::XxMinusYy(theta) => two_param1(out, "xx_minus_yy", *theta, targets),
         Gate::Toffoli => three(out, "ccx", targets),
         Gate::Fredkin => three(out, "cswap", targets),
     }

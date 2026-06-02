@@ -1,4 +1,3 @@
-import io
 import os
 import re
 import ast
@@ -54,7 +53,6 @@ from fivetran_connector_sdk.constants import (
     UTF_8,
     CONNECTION_SCHEMA_NAME_PATTERN,
     TABLES,
-    EVALUATION_MARKDOWN,
     REDACTED_VALUE,
 )
 
@@ -491,9 +489,9 @@ def validate_requirements_file(project_path: str, is_deploy: bool, version: str)
 
     update_version_requirements = verify_version_mismatch_deps(is_deploy, requirements, tmp_requirements)
     update_missing_requirements = verify_missing_deps(is_deploy, requirements, tmp_requirements)
-    update_unused_requirements = verify_unused_deps(is_deploy, requirements, tmp_requirements)
+    log_unused_deps_if_present(is_deploy, requirements, tmp_requirements)
 
-    if update_version_requirements or update_missing_requirements or update_unused_requirements:
+    if update_version_requirements or update_missing_requirements:
         with open(requirements_file_path, "w", encoding=UTF_8) as file:
             file.write("\n".join(requirements.values()))
             print_library_log(f"`{REQUIREMENTS_TXT}` has been updated successfully.")
@@ -503,27 +501,14 @@ def validate_requirements_file(project_path: str, is_deploy: bool, version: str)
     if is_deploy: print_library_log(f"Validation of {REQUIREMENTS_TXT} completed.")
 
 
-def verify_unused_deps(is_deploy, requirements, tmp_requirements):
+def log_unused_deps_if_present(is_deploy, requirements, tmp_requirements, file_name=REQUIREMENTS_TXT):
 
     unused_deps = list(requirements.keys() - tmp_requirements.keys() -
                        {"fivetran_connector_sdk", "fivetran-connector-sdk", "requests"})
     if not unused_deps:
-        return False
+        return
 
-    handle_unused_deps(unused_deps, is_deploy)
-    if not is_deploy:
-        return False
-
-    confirm = input(f"Would you like us to update {REQUIREMENTS_TXT} to remove the unused libraries? (y/N):")
-    if confirm.lower() == "n":
-        print_library_log(
-            f"Changes identified for unused libraries have been ignored. These changes have NOT been made to {REQUIREMENTS_TXT}.")
-        return False
-    elif confirm.lower() == "y":
-        for requirement in unused_deps:
-            del requirements[requirement]
-        print_library_log(f"Successfully removed unused libraries from {REQUIREMENTS_TXT}.")
-    return True
+    log_unused_deps(unused_deps, is_deploy, file_name)
 
 
 def verify_missing_deps(is_deploy, requirements, tmp_requirements):
@@ -611,7 +596,7 @@ def run_pipreqs_with_retries(is_deploy, project_path, tmp_requirements_file_path
                 Logging.Level.WARNING)
 
 
-def handle_unused_deps(unused_deps, is_deploy, file_name=REQUIREMENTS_TXT):
+def log_unused_deps(unused_deps, is_deploy, file_name=REQUIREMENTS_TXT):
     level = Logging.Level.WARNING if is_deploy else Logging.Level.INFO
     print_library_log("The following dependencies are not needed, "
                       f"they are already installed or not in use. Remove them from {file_name}:", level)
@@ -688,9 +673,9 @@ def validate_pyproject_file(project_path: str, is_deploy: bool):
     This method generates a temporary requirements file using `pipreqs`, compares
     it with the dependencies declared in `pyproject.toml`, and checks for version
     mismatches, missing dependencies, and unused dependencies. On deploy/package,
-    surfaces three separate `(Y/n)` prompts (one per issue category) — default `Y`
-    continues, `n` aborts. The `pyproject.toml` file is never edited; users must
-    fix issues manually.
+    surfaces `(Y/n)` prompts for version mismatches and missing dependencies —
+    default `Y` continues, `n` aborts. Unused dependencies are logged without a
+    prompt. The `pyproject.toml` file is never edited; users must fix issues manually.
 
     Skips validation on Python < 3.11 (`tomllib` not available).
 
@@ -725,23 +710,9 @@ def validate_pyproject_file(project_path: str, is_deploy: bool):
 
     verify_pyproject_version_mismatch_deps(is_deploy, requirements, tmp_requirements)
     verify_pyproject_missing_deps(is_deploy, requirements, tmp_requirements)
-    verify_pyproject_unused_deps(is_deploy, requirements, tmp_requirements)
+    log_unused_deps_if_present(is_deploy, requirements, tmp_requirements, PYPROJECT_TOML)
 
     if is_deploy: print_library_log(f"Validation of {PYPROJECT_TOML} completed.")
-
-
-def verify_pyproject_unused_deps(is_deploy, requirements, tmp_requirements):
-    unused_deps = list(requirements.keys() - tmp_requirements.keys() -
-                       {"fivetran_connector_sdk", "fivetran-connector-sdk", "requests"})
-    if not unused_deps:
-        return
-
-    handle_unused_deps(unused_deps, is_deploy, PYPROJECT_TOML)
-    if not is_deploy:
-        return
-
-    prompt_pyproject_continue_or_abort(
-        f"Some libraries are declared in {PYPROJECT_TOML} but not used. Continue? (Y/n):")
 
 
 def verify_pyproject_missing_deps(is_deploy, requirements, tmp_requirements):
@@ -788,20 +759,6 @@ def prompt_pyproject_continue_or_abort(prompt_message: str):
         print_library_log(f"Aborting. Fix {PYPROJECT_TOML} and try again.", Logging.Level.SEVERE)
         sys.exit(1)
 
-
-def evaluate_project(project_path: str, deploy_key: str):
-    print_library_log(f"evaluating '{project_path}'", log_icon=Logging.LogIcon.STEP)
-    package_file_path = create_package(project_path)
-    try:
-        evaluation_report = evaluate(package_file_path, project_path, deploy_key)
-        if not evaluation_report:
-            print_library_log(
-                "evaluation failed; no report was generated",
-                Logging.Level.SEVERE
-            )
-            sys.exit(1)
-    finally:
-        delete_file_if_exists(package_file_path)
 
 def package_project(project_path: str, deploy_key: str) -> str:
     """Packages the project for deployment.
@@ -1400,156 +1357,6 @@ def dir_walker(top, project_root=None, parent_patterns=None, skip_tracker=None):
     for name in dirs:
         new_path = os.path.join(top, name)
         yield from dir_walker(new_path, project_root, combined_patterns, skip_tracker)
-
-
-def render_section(lines, title, items):
-    """
-    Renders a section of the markdown report.
-    Args:
-        lines (list): The list of lines to append to.
-        title (str): The title of the section.
-        items (list): The list of items in the section.
-    """
-    lines.extend([f"## {title}", ""])
-    if not items:
-        lines.extend(["_No recommendations._", ""])
-        return
-    for index, item in enumerate(items, 1):
-        issue = item.get("issue", "(missing issue)")
-        lines.append(f"### {index}. {issue}")
-        if recommendation := item.get("recommendation"):
-            lines.append(f"- **Recommendation:** {recommendation}")
-        if current_code := item.get("current_code"):
-            fenced_code = f"```python\n{current_code.rstrip()}\n```"
-            lines += ["\n**Current Code:**", fenced_code]
-        if fix := item.get("code_fix"):
-            fenced_code = f"```python\n{fix.rstrip()}\n```"
-            lines += ["\n**Code Fix:**", fenced_code]
-        lines.append("")
-
-
-def render_markdown(report):
-    """
-    Renders the evaluation report as markdown.
-    Args:
-        report (dict): The evaluation report.
-    """
-    lines = []
-    lines += ["# Evaluation Report", ""]
-    overall_score = report.get("score")
-    if overall_score:
-        lines += [f"**Overall Score:** {overall_score}", ""]
-
-    subscore = report.get("subscores") or {}
-    if subscore:
-        lines += ["## Subscores", "", "| Metric | Score |", "|---|---:|"]
-        lines += [f"| {key} | {value} |" for key, value in subscore.items()]
-        lines.append("")
-
-    render_section(lines, "Required", report.get("required"))
-    render_section(lines, "Good to Have", report.get("good_to_have"))
-
-    return "\n".join(lines)
-
-
-def save_evaluation_report(evaluation_report, project_path: str):
-    """Saves the evaluation report to a file in the project path.
-    Args:
-        evaluation_report: The evaluation data.
-        project_path: The path to the project.
-    """
-    # Save evaluation report
-    working_dir = os.path.join(project_path, OUTPUT_FILES_DIR)
-    os.makedirs(working_dir, exist_ok=True)
-    report_path = os.path.join(working_dir, EVALUATION_MARKDOWN)
-    markdown_content = render_markdown(evaluation_report)
-    try:
-        with open(report_path, 'w', encoding=UTF_8) as report_file:
-            report_file.write(markdown_content)
-        print_library_log(f"evaluation report saved to {report_path}", log_icon=Logging.LogIcon.SUCCESS)
-    except Exception as e:
-        print_library_log(f"failed to save evaluation report: {e}", level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
-
-
-def print_evaluation_summary(evaluation_data):
-    """
-    Prints a summary of the evaluation data to the console.
-    Args:
-        evaluation_data (dict): The evaluation data.
-    """
-    print("Evaluation Summary")
-    print("─" * 20)
-
-    print(f"Overall score: {evaluation_data.get('score')}")
-    subscores = evaluation_data.get("subscores", {})
-    if subscores:
-        print("Subscores:")
-        for name, value in subscores.items():
-            print(f"  {name:<14}: {value}")
-
-    required = evaluation_data.get("required", [])
-    good_to_have = evaluation_data.get("good_to_have", [])
-
-    if required:
-        print(f"Required Issues ({len(required)}):")
-        for item in required:
-            print(f"  • {item.get('issue')}")
-
-    if good_to_have:
-        print(f"Good-to-have Issues ({len(good_to_have)}):")
-        for item in good_to_have:
-            print(f"  • {item.get('issue')}")
-
-
-def evaluate(local_path: str, project_path:str, deploy_key: str):
-    """Uploads the local code file for evaluation and returns the evaluation report.
-
-    The server responds with a file containing JSON. This function streams the
-    file safely, parses the JSON, and prints it.
-
-    Args:
-        local_path (str): The local file path.
-        project_path (str): The path to the project.
-        deploy_key (str): The deployment key.
-
-    Returns:
-        dict | None: Parsed evaluation report if successful, None otherwise.
-    """
-    print_library_log("uploading project for evaluation", log_icon=Logging.LogIcon.STEP)
-
-    with open(local_path, 'rb') as f:
-        response = rq.post(
-            f"{constants.PRODUCTION_BASE_URL}{constants.EVALUATE_ENDPOINT}",
-            files={'file': f},
-            headers={
-                "Authorization": f"Basic {deploy_key}",
-                "User-Agent": get_user_agent()},
-            stream=True  # stream to handle file responses safely
-        )
-
-    if response.ok:
-        try:
-            buffer = io.BytesIO()
-            for chunk in response.iter_content(chunk_size=8192):
-                buffer.write(chunk)
-            buffer.seek(0)
-
-            evaluation_data = json.load(buffer)
-            save_evaluation_report(evaluation_data, project_path)
-            print_evaluation_summary(evaluation_data)
-
-            return evaluation_data
-
-        except json.JSONDecodeError as e:
-            print_library_log(f"failed to parse evaluation report error: {e}", level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
-            return None
-
-    print_library_log(
-        f"failed to upload project for evaluation error: {response.text}",
-        level=Logging.Level.SEVERE,
-        log_icon=Logging.LogIcon.FAILURE
-    )
-    return None
 
 
 def upload_package(local_path: str, deploy_key: str) -> Optional[str]:

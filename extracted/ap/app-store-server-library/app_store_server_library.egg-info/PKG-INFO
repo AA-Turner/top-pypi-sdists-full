@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: app-store-server-library
-Version: 3.1.1
+Version: 3.1.2
 Summary: The App Store Server Library
 License: MIT
 Classifier: License :: OSI Approved :: MIT License
@@ -11,7 +11,7 @@ License-File: NOTICE.txt
 Requires-Dist: attrs>=21.3.0
 Requires-Dist: PyJWT<3,>=2.6.0
 Requires-Dist: requests<3,>=2.28.0
-Requires-Dist: cryptography>=40.0.0
+Requires-Dist: cryptography>=43.0.0
 Requires-Dist: pyOpenSSL>=23.1.1
 Requires-Dist: asn1==3.2.0
 Requires-Dist: cattrs>=23.1.2

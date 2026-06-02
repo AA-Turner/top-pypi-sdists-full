@@ -14,6 +14,7 @@ from .motion_group_models_api import MotionGroupModelsApi
 from .nova_cloud_api import NOVACloudApi
 from .program_api import ProgramApi
 from .robot_configurations_api import RobotConfigurationsApi
+from .session_api import SessionApi
 from .store_collision_components_api import StoreCollisionComponentsApi
 from .store_collision_setups_api import StoreCollisionSetupsApi
 from .store_object_api import StoreObjectApi
@@ -41,6 +42,7 @@ __all__ = [
     "NOVACloudApi",
     "ProgramApi",
     "RobotConfigurationsApi",
+    "SessionApi",
     "StoreCollisionComponentsApi",
     "StoreCollisionSetupsApi",
     "StoreObjectApi",

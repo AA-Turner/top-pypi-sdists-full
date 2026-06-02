@@ -26,6 +26,9 @@ __all__ = (
     "ActionConnectorErrorTypeType",
     "ActionConnectorSearchFilterNameEnumType",
     "ActionConnectorTypeType",
+    "AgentLifecycleType",
+    "AgentOwnershipFilterAttributeType",
+    "AgentStatusType",
     "AggTypeType",
     "AnalysisErrorTypeType",
     "AnalysisFilterAttributeType",
@@ -77,6 +80,7 @@ __all__ = (
     "CommitModeType",
     "ComparisonMethodType",
     "ComparisonMethodTypeType",
+    "ComparisonOperatorType",
     "ConditionalFormattingIconDisplayOptionType",
     "ConditionalFormattingIconSetTypeType",
     "ConnectionAuthTypeType",
@@ -296,6 +300,9 @@ __all__ = (
     "SnapshotFileSheetSelectionScopeType",
     "SnapshotJobStatusType",
     "SortDirectionType",
+    "SpaceQuickSightResourceTypeType",
+    "SpaceQuickSightSearchFilterNameType",
+    "SpaceSearchOperatorType",
     "SparklineAxisBehaviorType",
     "SparklineVisualTypeType",
     "SpecialValueType",
@@ -393,6 +400,14 @@ ActionConnectorTypeType = Literal[
     "SMARTSHEET",
     "ZENDESK_SUITE",
 ]
+AgentLifecycleType = Literal["PREVIEW", "PUBLISHED"]
+AgentOwnershipFilterAttributeType = Literal[
+    "AGENT_NAME",
+    "DIRECT_QUICKSIGHT_OWNER",
+    "DIRECT_QUICKSIGHT_SOLE_OWNER",
+    "DIRECT_QUICKSIGHT_VIEWER_OR_OWNER",
+]
+AgentStatusType = Literal["ACTIVE", "CREATING", "FAILED", "UPDATING"]
 AggTypeType = Literal[
     "AVERAGE",
     "COLUMN",
@@ -545,6 +560,7 @@ ComparisonMethodTypeType = Literal[
     "POP_OVERTIME_DIFF_AS_PERC",
     "RUNNING_SUM",
 ]
+ComparisonOperatorType = Literal["StringEquals", "StringLike"]
 ConditionalFormattingIconDisplayOptionType = Literal["ICON_ONLY"]
 ConditionalFormattingIconSetTypeType = Literal[
     "BARS",
@@ -1112,6 +1128,20 @@ SnapshotFileFormatTypeType = Literal["CSV", "EXCEL", "PDF"]
 SnapshotFileSheetSelectionScopeType = Literal["ALL_VISUALS", "SELECTED_VISUALS"]
 SnapshotJobStatusType = Literal["COMPLETED", "FAILED", "QUEUED", "RUNNING"]
 SortDirectionType = Literal["ASC", "DESC"]
+SpaceQuickSightResourceTypeType = Literal[
+    "ACTION_CONNECTOR", "ARTIFACT", "DASHBOARD", "DATA_SET", "KNOWLEDGE_BASE", "SPACE", "TOPIC"
+]
+SpaceQuickSightSearchFilterNameType = Literal[
+    "CONSUMED_SOURCE_SIZE",
+    "CONTRIBUTED_BY",
+    "CREATED_BY",
+    "DIRECT_QUICKSIGHT_OWNER",
+    "DIRECT_QUICKSIGHT_SOLE_OWNER",
+    "DIRECT_QUICKSIGHT_VIEWER_OR_OWNER",
+    "SPACE_ID",
+    "SPACE_NAME",
+]
+SpaceSearchOperatorType = Literal["NUMBER_RANGE", "STRING_EQUALS", "STRING_LIKE"]
 SparklineAxisBehaviorType = Literal["INDEPENDENT", "SHARED"]
 SparklineVisualTypeType = Literal["AREA_LINE", "LINE"]
 SpecialValueType = Literal["EMPTY", "NULL", "OTHER"]

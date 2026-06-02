@@ -494,6 +494,74 @@ impl<F: Real> DensityMatrix<F> {
         }
     }
 
+    /// 2-큐비트 Kraus 채널 ``ρ' = Σᵢ Kᵢ ρ Kᵢ†`` (Kᵢ 는 4×4, 큐비트 q0/q1).
+    ///
+    /// 4×4 블록 (q0,q1 의 row/col 비트로 인덱스) 단위로 독립 갱신.  블록의
+    /// 2-큐비트 값 ``a = 2·q1비트 + q0비트`` (q0 = LSB).  v0.7.2 (correlated noise).
+    pub fn apply_kraus_2q(&mut self, kraus: &[Matrix4x4<F>], q0: usize, q1: usize) {
+        assert!(q0 != q1, "apply_kraus_2q: q0 == q1 ({q0})");
+        assert!(
+            q0 < self.n_qubits && q1 < self.n_qubits,
+            "apply_kraus_2q: target 범위 벗어남 (n_qubits={})",
+            self.n_qubits
+        );
+        assert!(!kraus.is_empty(), "apply_kraus_2q: kraus 가 비었음");
+        let dim = self.dim;
+        let b0 = 1usize << q0;
+        let b1 = 1usize << q1;
+        let mask = b0 | b1;
+        // 2-큐비트 값 a → row/col 오프셋.  a 의 bit0=q0, bit1=q1.
+        let off = [0usize, b0, b1, b0 | b1];
+        for row_base in 0..dim {
+            if row_base & mask != 0 {
+                continue; // 블록 base (q0,q1 비트 = 0) 만 순회.
+            }
+            for col_base in 0..dim {
+                if col_base & mask != 0 {
+                    continue;
+                }
+                // 4×4 블록 추출: block[a][b] = ρ[row_base+off[a]][col_base+off[b]].
+                let mut block = [[zero::<F>(); 4]; 4];
+                for (a, &oa) in off.iter().enumerate() {
+                    let r = row_base + oa;
+                    for (b, &ob) in off.iter().enumerate() {
+                        block[a][b] = self.data[r * dim + (col_base + ob)];
+                    }
+                }
+                // new = Σ_k K · block · K†.
+                let mut new = [[zero::<F>(); 4]; 4];
+                for k in kraus {
+                    let mut kb = [[zero::<F>(); 4]; 4]; // K · block
+                    for (i, krow) in k.iter().enumerate() {
+                        for j in 0..4 {
+                            let mut s = zero::<F>();
+                            for (a, &kia) in krow.iter().enumerate() {
+                                s = s + kia * block[a][j];
+                            }
+                            kb[i][j] = s;
+                        }
+                    }
+                    for i in 0..4 {
+                        for j in 0..4 {
+                            // (KB · K†)[i][j] = Σ_a KB[i][a] · conj(K[j][a]).
+                            let mut s = zero::<F>();
+                            for a in 0..4 {
+                                s = s + kb[i][a] * k[j][a].conj();
+                            }
+                            new[i][j] = new[i][j] + s;
+                        }
+                    }
+                }
+                for (a, &oa) in off.iter().enumerate() {
+                    let r = row_base + oa;
+                    for (b, &ob) in off.iter().enumerate() {
+                        self.data[r * dim + (col_base + ob)] = new[a][b];
+                    }
+                }
+            }
+        }
+    }
+
     /// 단일 큐비트 측정 결과 0 의 확률 `P(q=0) = Tr(P_0 ρ)`.
     ///
     /// `P_0 = |0⟩⟨0|_q ⊗ I` projector — q-th bit 가 0 인 대각선 원소만 합산.

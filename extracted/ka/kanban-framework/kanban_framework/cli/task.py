@@ -66,17 +66,26 @@ def cmd_init(args: list[str]) -> dict:
             d.mkdir(parents=True)
             created.append(str(d.relative_to(root)))
 
-    # Copy workflow presets if missing
+    # Copy workflow presets (overwrite to ensure latest version)
     workflows_dir = fs.kanban_dir / "workflows"
     from kanban_framework.infra.filesystem import Filesystem as FS
     skill_src = FS.find_skill_dir()
-    preset_src = skill_src / "workflows"
-    if preset_src.is_dir():
-        for preset_file in preset_src.glob("*.json"):
-            dst = workflows_dir / preset_file.name
-            if not dst.exists():
-                dst.write_text(preset_file.read_text(encoding="utf-8"), encoding="utf-8")
+    # Try multiple paths for workflow presets — prefer package dir (has full step data)
+    for preset_src in (Path(__file__).resolve().parent.parent / "workflows",
+                       skill_src / "workflows"):
+        if preset_src.is_dir():
+            copied_one = False
+            for preset_file in preset_src.glob("*.json"):
+                dst = workflows_dir / preset_file.name
+                content = preset_file.read_text(encoding="utf-8")
+                # Skip placeholder files (< 1KB)
+                if len(content) < 512:
+                    continue
+                dst.write_text(content, encoding="utf-8")
                 created.append(f"workflows/{preset_file.name}")
+                copied_one = True
+            if copied_one:
+                break
 
     # Sync skill files to .claude/skills/kanban/ (SKILL.md, rules, references, workflows)
     skill_dst = root / ".claude" / "skills" / "kanban"
@@ -268,19 +277,70 @@ def cmd_show(args: list[str]) -> dict:
 def cmd_clean(args: list[str]) -> dict:
     if not args:
         return {"error": "task_id or --all required"}
+    if args[0] in ("--help", "-h", "help"):
+        return {
+            "usage": "kanban clean [<task_id>|--all|--before <date>]",
+            "examples": [
+                "kanban clean TASK-001",
+                "kanban clean --all",
+                "kanban clean --before 2026-01-01",
+            ],
+        }
     fs, _, tm = _resolve()
 
     if "--all" in args:
+        import shutil
         cleaned = []
-        for f in sorted(fs.kanban_dir.glob("archive/TASK-*.json")):
-            task_id = f.stem
-            f.unlink()
-            cleaned.append(task_id)
+        for d in sorted(fs.kanban_dir.glob("archive/TASK-*")):
+            if d.is_dir() and (d / "task.json").is_file():
+                task_id = d.name
+                shutil.rmtree(d)
+                cleaned.append(task_id)
+            elif d.is_file() and d.suffix == ".json":
+                task_id = d.stem
+                d.unlink()
+                cleaned.append(task_id)
         return {"cleaned": cleaned, "count": len(cleaned)}
 
+    if "--before" in args:
+        before_idx = args.index("--before")
+        if before_idx + 1 < len(args):
+            before_date = args[before_idx + 1]
+            import shutil, time as _time
+            cleaned = []
+            cutoff = _time.mktime(_time.strptime(before_date, "%Y-%m-%d"))
+            for d in sorted(fs.kanban_dir.glob("archive/TASK-*")):
+                if d.is_dir() and (d / "task.json").is_file():
+                    data = __import__('json').loads((d / "task.json").read_text(encoding="utf-8"))
+                    archived_at = data.get("archived_at", 0)
+                    if archived_at < cutoff:
+                        shutil.rmtree(d)
+                        cleaned.append(d.name)
+            return {"cleaned": cleaned, "count": len(cleaned)}
+        return {"error": "--before requires a date (YYYY-MM-DD)"}
+
     task_id = args[0]
-    tm.delete(task_id)
-    return {"message": f"cleaned {task_id}"}
+    if not task_id.startswith("TASK-"):
+        return {"error": f"task_id must start with TASK-: '{task_id}'"}
+    # Only clean archived tasks — active tasks must be archived first
+    archive_dir = fs.kanban_dir / "archive" / task_id
+    if archive_dir.is_dir() and (archive_dir / "task.json").is_file():
+        import shutil
+        shutil.rmtree(archive_dir)
+        return {"message": f"cleaned archived {task_id}"}
+    # Check old flat format
+    flat_archive = fs.kanban_dir / "archive" / f"{task_id}.json"
+    if flat_archive.is_file():
+        flat_archive.unlink()
+        return {"message": f"cleaned archived {task_id}"}
+    # Task is still active — refuse to delete
+    task_dir = fs.task_dir(task_id)
+    if task_dir.is_dir():
+        return {
+            "error": f"task {task_id} is still active — archive first",
+            "hint": f"kanban decide {task_id} --action approve_and_archive",
+        }
+    return {"error": f"task {task_id} not found"}
 
 
 def cmd_promote(args: list[str]) -> dict:

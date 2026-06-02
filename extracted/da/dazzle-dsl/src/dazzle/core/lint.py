@@ -18,6 +18,7 @@ from .validator import (
     validate_lifecycles,
     validate_money_fields,
     validate_notifications,
+    validate_persona_nav_refs,
     validate_process_step_service_refs,
     validate_rbac_matrix_diagnostics,
     validate_role_references_against_enum,
@@ -27,6 +28,7 @@ from .validator import (
     validate_slas,
     validate_surfaces,
     validate_tenancy_partition_key,
+    validate_transition_invocations,
     validate_ux_specs,
     validate_visibility_bool_field_scope_coverage,
     validate_webhooks,
@@ -145,6 +147,11 @@ def lint_appspec(
     all_errors.extend(errors)
     all_warnings.extend(warnings)
 
+    # #1319 / ADR-0032 — transition `invoke <flow>(...)` cross-references
+    errors, warnings = validate_transition_invocations(appspec)
+    all_errors.extend(errors)
+    all_warnings.extend(warnings)
+
     errors, warnings = validate_slas(appspec)
     all_errors.extend(errors)
     all_warnings.extend(warnings)
@@ -195,6 +202,12 @@ def lint_appspec(
 
     # Fitness repr_fields declaration (Agent-Led Fitness v1)
     errors, warnings = validate_fitness_repr_fields(appspec)
+    all_errors.extend(errors)
+    all_warnings.extend(warnings)
+
+    # Persona nav_ref resolution (#1324 — `uses nav <name>` must reference
+    # a declared top-level `nav <name>:` block)
+    errors, warnings = validate_persona_nav_refs(appspec)
     all_errors.extend(errors)
     all_warnings.extend(warnings)
 

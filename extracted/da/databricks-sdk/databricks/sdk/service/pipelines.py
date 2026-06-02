@@ -841,6 +841,10 @@ class GetPipelineResponse:
     name: Optional[str] = None
     """A human friendly identifier for the pipeline, taken from the `spec`."""
 
+    parameters: Optional[Dict[str, str]] = None
+    """Key/value map of default parameters to use for pipeline execution. Maximum total size: 10k
+    characters (JSON format)"""
+
     pipeline_id: Optional[str] = None
     """The ID of the pipeline."""
 
@@ -879,6 +883,8 @@ class GetPipelineResponse:
             body["latest_updates"] = [v.as_dict() for v in self.latest_updates]
         if self.name is not None:
             body["name"] = self.name
+        if self.parameters:
+            body["parameters"] = self.parameters
         if self.pipeline_id is not None:
             body["pipeline_id"] = self.pipeline_id
         if self.run_as:
@@ -912,6 +918,8 @@ class GetPipelineResponse:
             body["latest_updates"] = self.latest_updates
         if self.name is not None:
             body["name"] = self.name
+        if self.parameters:
+            body["parameters"] = self.parameters
         if self.pipeline_id is not None:
             body["pipeline_id"] = self.pipeline_id
         if self.run_as:
@@ -937,6 +945,7 @@ class GetPipelineResponse:
             last_modified=d.get("last_modified", None),
             latest_updates=_repeated_dict(d, "latest_updates", UpdateStateInfo),
             name=d.get("name", None),
+            parameters=d.get("parameters", None),
             pipeline_id=d.get("pipeline_id", None),
             run_as=_from_dict(d, "run_as", RunAs),
             run_as_user_name=d.get("run_as_user_name", None),
@@ -2758,31 +2767,52 @@ class PipelineDeployment:
     kind: DeploymentKind
     """The deployment method that manages the pipeline."""
 
+    deployment_id: Optional[str] = None
+    """ID of the deployment that manages this pipeline. Only set when `kind` is `BUNDLE`. Used to look
+    up deployment metadata from the Deployment Metadata service."""
+
     metadata_file_path: Optional[str] = None
     """The path to the file containing metadata about the deployment."""
+
+    version_id: Optional[str] = None
+    """ID of the version of the deployment that produced this pipeline. Only set when `kind` is
+    `BUNDLE`. Identifies a specific snapshot of the deployment in the Deployment Metadata service."""
 
     def as_dict(self) -> dict:
         """Serializes the PipelineDeployment into a dictionary suitable for use as a JSON request body."""
         body = {}
+        if self.deployment_id is not None:
+            body["deployment_id"] = self.deployment_id
         if self.kind is not None:
             body["kind"] = self.kind.value
         if self.metadata_file_path is not None:
             body["metadata_file_path"] = self.metadata_file_path
+        if self.version_id is not None:
+            body["version_id"] = self.version_id
         return body
 
     def as_shallow_dict(self) -> dict:
         """Serializes the PipelineDeployment into a shallow dictionary of its immediate attributes."""
         body = {}
+        if self.deployment_id is not None:
+            body["deployment_id"] = self.deployment_id
         if self.kind is not None:
             body["kind"] = self.kind
         if self.metadata_file_path is not None:
             body["metadata_file_path"] = self.metadata_file_path
+        if self.version_id is not None:
+            body["version_id"] = self.version_id
         return body
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> PipelineDeployment:
         """Deserializes the PipelineDeployment from a dictionary."""
-        return cls(kind=_enum(d, "kind", DeploymentKind), metadata_file_path=d.get("metadata_file_path", None))
+        return cls(
+            deployment_id=d.get("deployment_id", None),
+            kind=_enum(d, "kind", DeploymentKind),
+            metadata_file_path=d.get("metadata_file_path", None),
+            version_id=d.get("version_id", None),
+        )
 
 
 @dataclass
@@ -4964,7 +4994,7 @@ class PipelinesAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("POST", f"/api/2.0/pipelines/{pipeline_id}/environment/apply", headers=headers)
         return ApplyEnvironmentRequestResponse.from_dict(res)
@@ -5156,7 +5186,7 @@ class PipelinesAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("POST", f"/api/2.0/pipelines/{pipeline_id}/clone", body=body, headers=headers)
         return ClonePipelineResponse.from_dict(res)
@@ -5184,6 +5214,7 @@ class PipelinesAPI:
         libraries: Optional[List[PipelineLibrary]] = None,
         name: Optional[str] = None,
         notifications: Optional[List[Notifications]] = None,
+        parameters: Optional[Dict[str, str]] = None,
         photon: Optional[bool] = None,
         restart_window: Optional[RestartWindow] = None,
         root_path: Optional[str] = None,
@@ -5241,6 +5272,9 @@ class PipelinesAPI:
           Friendly identifier for this pipeline.
         :param notifications: List[:class:`Notifications`] (optional)
           List of notification settings for this pipeline.
+        :param parameters: Dict[str,str] (optional)
+          Key/value map of default parameters to use for pipeline execution. Maximum total size: 10k
+          characters (JSON format)
         :param photon: bool (optional)
           Whether Photon is enabled for this pipeline.
         :param restart_window: :class:`RestartWindow` (optional)
@@ -5312,6 +5346,8 @@ class PipelinesAPI:
             body["name"] = name
         if notifications is not None:
             body["notifications"] = [v.as_dict() for v in notifications]
+        if parameters is not None:
+            body["parameters"] = parameters
         if photon is not None:
             body["photon"] = photon
         if restart_window is not None:
@@ -5341,7 +5377,7 @@ class PipelinesAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("POST", "/api/2.0/pipelines", body=body, headers=headers)
         return CreatePipelineResponse.from_dict(res)
@@ -5372,7 +5408,7 @@ class PipelinesAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         self._api.do("DELETE", f"/api/2.0/pipelines/{pipeline_id}", query=query, headers=headers)
 
@@ -5390,7 +5426,7 @@ class PipelinesAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", f"/api/2.0/pipelines/{pipeline_id}", headers=headers)
         return GetPipelineResponse.from_dict(res)
@@ -5410,7 +5446,7 @@ class PipelinesAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", f"/api/2.0/permissions/pipelines/{pipeline_id}/permissionLevels", headers=headers)
         return GetPipelinePermissionLevelsResponse.from_dict(res)
@@ -5430,7 +5466,7 @@ class PipelinesAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", f"/api/2.0/permissions/pipelines/{pipeline_id}", headers=headers)
         return PipelinePermissions.from_dict(res)
@@ -5452,7 +5488,7 @@ class PipelinesAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", f"/api/2.0/pipelines/{pipeline_id}/updates/{update_id}", headers=headers)
         return GetUpdateResponse.from_dict(res)
@@ -5507,7 +5543,7 @@ class PipelinesAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         while True:
             json = self._api.do("GET", f"/api/2.0/pipelines/{pipeline_id}/events", query=query, headers=headers)
@@ -5565,7 +5601,7 @@ class PipelinesAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         while True:
             json = self._api.do("GET", "/api/2.0/pipelines", query=query, headers=headers)
@@ -5611,7 +5647,7 @@ class PipelinesAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", f"/api/2.0/pipelines/{pipeline_id}/updates", query=query, headers=headers)
         return ListUpdatesResponse.from_dict(res)
@@ -5639,7 +5675,7 @@ class PipelinesAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("PUT", f"/api/2.0/permissions/pipelines/{pipeline_id}", body=body, headers=headers)
         return PipelinePermissions.from_dict(res)
@@ -5717,7 +5753,7 @@ class PipelinesAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("POST", f"/api/2.0/pipelines/{pipeline_id}/updates", body=body, headers=headers)
         return StartUpdateResponse.from_dict(res)
@@ -5739,7 +5775,7 @@ class PipelinesAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         op_response = self._api.do("POST", f"/api/2.0/pipelines/{pipeline_id}/stop", headers=headers)
         return Wait(self.wait_get_pipeline_idle, pipeline_id=pipeline_id)
@@ -5771,6 +5807,7 @@ class PipelinesAPI:
         libraries: Optional[List[PipelineLibrary]] = None,
         name: Optional[str] = None,
         notifications: Optional[List[Notifications]] = None,
+        parameters: Optional[Dict[str, str]] = None,
         photon: Optional[bool] = None,
         restart_window: Optional[RestartWindow] = None,
         root_path: Optional[str] = None,
@@ -5831,6 +5868,9 @@ class PipelinesAPI:
           Friendly identifier for this pipeline.
         :param notifications: List[:class:`Notifications`] (optional)
           List of notification settings for this pipeline.
+        :param parameters: Dict[str,str] (optional)
+          Key/value map of default parameters to use for pipeline execution. Maximum total size: 10k
+          characters (JSON format)
         :param photon: bool (optional)
           Whether Photon is enabled for this pipeline.
         :param restart_window: :class:`RestartWindow` (optional)
@@ -5902,6 +5942,8 @@ class PipelinesAPI:
             body["name"] = name
         if notifications is not None:
             body["notifications"] = [v.as_dict() for v in notifications]
+        if parameters is not None:
+            body["parameters"] = parameters
         if photon is not None:
             body["photon"] = photon
         if restart_window is not None:
@@ -5931,7 +5973,7 @@ class PipelinesAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         self._api.do("PUT", f"/api/2.0/pipelines/{pipeline_id}", body=body, headers=headers)
 
@@ -5957,7 +5999,7 @@ class PipelinesAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("PATCH", f"/api/2.0/permissions/pipelines/{pipeline_id}", body=body, headers=headers)
         return PipelinePermissions.from_dict(res)

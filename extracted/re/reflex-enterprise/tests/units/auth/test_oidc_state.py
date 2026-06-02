@@ -2,12 +2,13 @@
 
 import time
 from collections.abc import Iterator, Mapping
-from types import TracebackType
+from types import MethodType, TracebackType
 from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
 import reflex as rx
+import wrapt
 from joserfc import jwk, jwt
 
 from reflex_enterprise.auth.oidc import utils as oidc_utils
@@ -20,6 +21,25 @@ USERINFO_URL = "https://test-issuer.example.com/userinfo"
 TOKEN_URL = "https://test-issuer.example.com/token"
 JWKS_URL = "https://test-issuer.example.com/jwks"
 AUTHORIZATION_URL = "https://test-issuer.example.com/authorize"
+
+
+class _RebindingStateProxy(wrapt.ObjectProxy):
+    """Minimal stand-in for reflex's ``StateProxy`` used to reproduce ENG-9663.
+
+    Like ``reflex.istate.proxy.StateProxy``, this is a ``wrapt.ObjectProxy`` --
+    so ``self.__class__`` resolves to the wrapped state's real class while
+    ``type(self)`` is the proxy type -- and it rebinds bound methods so that
+    ``self`` inside a handler is the proxy rather than the wrapped instance.
+    That combination is exactly what turns a stray
+    ``type(self).<event_handler>`` lookup into
+    ``AttributeError: type object 'StateProxy' has no attribute ...``.
+    """
+
+    def __getattr__(self, name: str) -> Any:
+        value = super().__getattr__(name)  # pyright: ignore[reportAttributeAccessIssue]
+        if isinstance(value, MethodType) and value.__self__ is self.__wrapped__:
+            value = type(value)(value.__func__, self)
+        return value
 
 
 class FakeResponse:
@@ -646,6 +666,42 @@ async def test_get_userinfo_uses_id_token_claims_after_refresh_when_no_userinfo_
     stub_call_event_from_computed_var.assert_not_called()
 
 
+async def test_redirect_to_login_does_not_toast_when_userinfo_fetch_fails(
+    state, fake_client, signing_key, stub_call_event_from_computed_var, monkeypatch
+):
+    """When userinfo cannot be fetched, redirect_to_login should not toast "logged in"."""
+    state._access_token_data = access_token_data("at-1")
+    state._id_token = make_id_token(signing_key)
+    fake_client.get_responses[USERINFO_URL] = FakeResponse(
+        status=401, text="invalid_token"
+    )
+
+    async def _no_popup(self):
+        return False
+
+    monkeypatch.setattr(UserinfoAuthState, "_use_popup_flow", _no_popup)
+
+    result = await state.redirect_to_login()
+
+    # No "You are logged in" toast should appear in the result.
+    assert "You are logged in" not in repr(result)
+    # The authorization-request branch should still build a redirect to the
+    # provider's authorize endpoint — otherwise a silent failure there would
+    # let this test pass with result=None.
+    assert result is not None
+    assert AUTHORIZATION_URL in repr(result)
+    # Tokens were present but userinfo failed, so reset_auth must be queued.
+    stub_call_event_from_computed_var.assert_awaited()
+    reset_targets = [
+        call.args[1]
+        for call in stub_call_event_from_computed_var.await_args_list
+        if len(call.args) >= 2
+    ]
+    assert any(target is UserinfoAuthState.reset_auth for target in reset_targets), (
+        reset_targets
+    )
+
+
 async def test_get_userinfo_refresh_sends_expected_token_request(
     state, fake_client, signing_key
 ):
@@ -674,3 +730,35 @@ async def test_get_userinfo_refresh_sends_expected_token_request(
     assert payload["client_id"] == AUDIENCE
     headers = refresh_calls[0]["headers"]
     assert headers["Content-Type"] == "application/x-www-form-urlencoded"
+
+
+async def test_get_userinfo_resets_auth_through_state_proxy(
+    state, fake_client, stub_call_event_from_computed_var
+):
+    """Regression test for ENG-9663.
+
+    When the state is reached through a ``StateProxy`` (e.g. from a background
+    task), ``type(self)`` is the proxy class, which has no event handlers, so
+    ``type(self).reset_auth`` raised ``AttributeError``. The handlers must use
+    ``self.__class__`` so the lookup resolves through the proxy to the wrapped
+    state's real class. This exercises ``_get_userinfo`` (the path in the
+    original traceback) with ``self`` wrapped in such a proxy.
+    """
+    proxy = _RebindingStateProxy(state)
+    # Sanity check that the proxy actually reproduces the failure condition:
+    # the bare proxy type has no event handler, but self.__class__ does.
+    assert type(proxy) is _RebindingStateProxy
+    assert proxy.__class__ is type(state)
+    assert not hasattr(type(proxy), "reset_auth")
+    assert hasattr(proxy.__class__, "reset_auth")
+
+    # No tokens -> reset_auth must be resolved and chained without raising
+    # AttributeError on the proxy type.
+    result = await proxy._get_userinfo()
+
+    assert result is None
+    stub_call_event_from_computed_var.assert_awaited_once()
+    # reset_auth was resolved via self.__class__ to the real state class.
+    passed_self, passed_handler = stub_call_event_from_computed_var.call_args.args
+    assert passed_self is proxy
+    assert passed_handler is type(state).reset_auth

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: llama_cpp_python
-Version: 0.3.24
+Version: 0.3.25
 Summary: Python bindings for the llama.cpp library
 Author-Email: Andrei Betlen <abetlen@gmail.com>
 License: MIT
@@ -11,6 +11,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Project-URL: Homepage, https://github.com/abetlen/llama-cpp-python
 Project-URL: Issues, https://github.com/abetlen/llama-cpp-python/issues
 Project-URL: Documentation, https://llama-cpp-python.readthedocs.io/en/latest/
@@ -175,7 +176,8 @@ CMAKE_ARGS="-DGGML_CUDA=on" pip install llama-cpp-python
 
 It is also possible to install a pre-built wheel with CUDA support. As long as your system meets some requirements:
 
-- CUDA Version is 12.1, 12.2, 12.3, 12.4 or 12.5
+- CUDA Version is 11.8, 12.1, 12.2, 12.3, 12.4, 12.5, 13.0 or 13.2
+- NVIDIA GPU compute capability is 6.0 through 8.9 for CUDA 11.8 wheels, 6.0 or newer for CUDA 12 wheels, or 7.5 or newer for CUDA 13 wheels
 - Python Version is 3.10, 3.11 or 3.12
 
 ```bash
@@ -184,11 +186,14 @@ pip install llama-cpp-python \
 ```
 
 Where `<cuda-version>` is one of the following:
+- `cu118`: CUDA 11.8
 - `cu121`: CUDA 12.1
 - `cu122`: CUDA 12.2
 - `cu123`: CUDA 12.3
 - `cu124`: CUDA 12.4
 - `cu125`: CUDA 12.5
+- `cu130`: CUDA 13.0
+- `cu132`: CUDA 13.2
 
 For example, to install the CUDA 12.1 wheel:
 
@@ -556,6 +561,7 @@ Below are the supported multi-modal models and their respective chat handlers (P
 | [llama-3-vision-alpha](https://huggingface.co/abetlen/llama-3-vision-alpha-gguf) | `Llama3VisionAlphaChatHandler` | `llama-3-vision-alpha` |
 | [minicpm-v-2.6](https://huggingface.co/openbmb/MiniCPM-V-2_6-gguf) | `MiniCPMv26ChatHandler` | `minicpm-v-2.6` |
 | [qwen2.5-vl](https://huggingface.co/unsloth/Qwen2.5-VL-3B-Instruct-GGUF) | `Qwen25VLChatHandler` | `qwen2.5-vl` |
+| [gemma-4](https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF) | `Gemma4ChatHandler` | `gemma4` |
 
 Then you'll need to use a custom chat handler to load the clip model and process the chat messages and images.
 

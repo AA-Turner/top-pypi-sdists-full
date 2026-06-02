@@ -93,9 +93,7 @@ pub(crate) fn build_contract_pipeline(
     });
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("mps_contract shader"),
-        source: wgpu::ShaderSource::Wgsl(
-            include_str!("shaders/mps_two_site_contract.wgsl").into(),
-        ),
+        source: wgpu::ShaderSource::Wgsl(include_str!("shaders/mps_two_site_contract.wgsl").into()),
     });
     let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
         label: Some("mps_contract pipeline"),
@@ -120,6 +118,7 @@ pub(crate) fn build_contract_pipeline(
 /// - `m_out_buf`:   `chi_l * 2 * 2 * chi_r * 8` bytes
 ///
 /// All buffers must already be allocated on `backend.device()`.
+#[allow(clippy::too_many_arguments)]
 pub fn dispatch_two_site_contract(
     backend: &WgpuMpsBackend,
     pipeline: &wgpu::ComputePipeline,
@@ -193,7 +192,7 @@ pub fn dispatch_two_site_contract(
     });
 
     // Dispatch.
-    let workgroups = ((total as u32) + 63) / 64;
+    let workgroups = (total as u32).div_ceil(64);
     let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
         label: Some("mps_contract dispatch"),
     });
@@ -300,11 +299,7 @@ mod tests {
         result
     }
 
-    fn upload_complex(
-        device: &wgpu::Device,
-        label: &str,
-        data: &[Complex<f32>],
-    ) -> wgpu::Buffer {
+    fn upload_complex(device: &wgpu::Device, label: &str, data: &[Complex<f32>]) -> wgpu::Buffer {
         let raw: Vec<[f32; 2]> = data.iter().map(|c| [c.re, c.im]).collect();
         device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some(label),
@@ -330,13 +325,13 @@ mod tests {
     fn rand_gate(seed: u64) -> [[Complex<f64>; 4]; 4] {
         let mut state = seed;
         let mut g = [[Complex::<f64>::new(0.0, 0.0); 4]; 4];
-        for r in 0..4 {
-            for c in 0..4 {
+        for row in &mut g {
+            for elem in row.iter_mut() {
                 state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
                 let re = ((state >> 33) as f64) / (u32::MAX as f64) * 2.0 - 1.0;
                 state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
                 let im = ((state >> 33) as f64) / (u32::MAX as f64) * 2.0 - 1.0;
-                g[r][c] = Complex::new(re, im);
+                *elem = Complex::new(re, im);
             }
         }
         g
@@ -390,8 +385,7 @@ mod tests {
             });
 
             dispatch_two_site_contract(
-                &backend, &pipeline, &bgl, &tl_buf, &tr_buf, &gate, chi_l, chi_m, chi_r,
-                &m_out_buf,
+                &backend, &pipeline, &bgl, &tl_buf, &tr_buf, &gate, chi_l, chi_m, chi_r, &m_out_buf,
             );
 
             let gpu_out = download_buffer(backend.device(), backend.queue(), &m_out_buf, out_len);

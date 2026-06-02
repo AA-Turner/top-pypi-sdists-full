@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wads
-Version: 0.1.100
+Version: 0.1.102
 Summary: Tools for packaging and publishing to pypi for those who just do not want to deal with it
 Project-URL: Homepage, https://github.com/i2mint/wads
 Author: Thor Whalen
@@ -19,11 +19,13 @@ Requires-Dist: build; extra == 'all'
 Requires-Dist: epythet; extra == 'all'
 Requires-Dist: requests; extra == 'all'
 Requires-Dist: ruamel-yaml; extra == 'all'
+Requires-Dist: tomlkit; extra == 'all'
 Requires-Dist: wheel; extra == 'all'
 Provides-Extra: create
 Requires-Dist: build; extra == 'create'
 Requires-Dist: requests; extra == 'create'
 Requires-Dist: ruamel-yaml; extra == 'create'
+Requires-Dist: tomlkit; extra == 'create'
 Requires-Dist: wheel; extra == 'create'
 Provides-Extra: docs
 Requires-Dist: epythet; extra == 'docs'

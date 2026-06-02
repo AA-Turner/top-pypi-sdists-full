@@ -21,6 +21,9 @@ from mistralai.workflows.core._events.event_context import (
     _background_event_publisher,
 )
 from mistralai.workflows.core._events.event_utils import create_base_event_fields
+from mistralai.workflows.core._registration.registration_activity import (
+    REGISTER_EXECUTION_ACTIVITY_NAME,
+)
 from mistralai.workflows.core.definition.workflow_definition import (
     get_workflow_display_name,
 )
@@ -69,6 +72,12 @@ class _EventActivityInboundInterceptor(temporalio.worker.ActivityInboundIntercep
         activity_info = temporalio.activity.info()
         task_id = activity_info.activity_id
         activity_name = activity_info.activity_type
+
+        # Skip event emission for the registration activity — it is an
+        # internal implementation detail that should not appear in SSE streams.
+        if activity_name == REGISTER_EXECUTION_ACTIVITY_NAME:
+            return await self.next.execute_activity(input)
+
         attempt = activity_info.attempt
 
         max_attempts = 1

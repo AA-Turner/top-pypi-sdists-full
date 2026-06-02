@@ -1,6 +1,6 @@
 """Tests for `simplemma` package."""
 
-from typing import Mapping
+from collections.abc import Mapping
 
 import pytest
 
@@ -453,6 +453,24 @@ def test_subwords() -> None:
     )
 
 
+def test_numeric_tokens() -> None:
+    """Numeric tokens are returned unchanged regardless of language."""
+    assert (
+        Lemmatizer().lemmatize("2024", lang="en")
+        == lemmatize("2024", lang="en")
+        == "2024"
+    )
+    assert lemmatize("123", lang=("de", "en")) == "123"
+    # unicode numerals also count as numeric: the short-circuit returns the
+    # token verbatim instead of lowercasing it (which would yield "ⅻ")
+    assert "Ⅻ".isnumeric()
+    assert lemmatize("Ⅻ", lang="en") == "Ⅻ"
+    # near-misses are NOT numeric: the strategy falls through to a normal
+    # lookup (returning None here) rather than short-circuiting on the token
+    assert DefaultStrategy().get_lemma("2024", "en") == "2024"
+    assert DefaultStrategy().get_lemma("12.5", "en") is None
+
+
 def test_is_known() -> None:
     with pytest.raises(TypeError):
         assert is_known(None, lang="en") is None  # type: ignore[arg-type]
@@ -545,6 +563,23 @@ def test_get_lemmas_in_text() -> None:
             "doblaje",
             "de",
             "película",
+            ".",
+        ]
+    )
+    # test for Esperanto
+    text = "Mi vidas la pomon."
+    assert (
+        list(
+            Lemmatizer(
+                lemmatization_strategy=DefaultStrategy(greedy=False)
+            ).get_lemmas_in_text(text, lang="eo")
+        )
+        == text_lemmatizer(text, lang="eo", greedy=False)
+        == [
+            "mi",
+            "vidi",
+            "la",
+            "pomo",
             ".",
         ]
     )

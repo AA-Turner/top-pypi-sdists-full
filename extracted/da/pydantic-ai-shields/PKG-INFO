@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai-shields
-Version: 0.3.3
+Version: 0.3.4
 Summary: Guardrail capabilities for Pydantic AI — cost tracking, tool permissions, input/output guards
 Project-URL: Homepage, https://github.com/vstorm-co/pydantic-ai-shields
 Project-URL: Documentation, https://vstorm-co.github.io/pydantic-ai-shields/

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qiskit-ionq
-Version: 1.0.2
+Version: 1.0.3
 Summary: Qiskit provider for IonQ backends
 Home-page: https://github.com/qiskit-community/qiskit-ionq
 Author: IonQ
@@ -31,7 +31,7 @@ Requires-Dist: requests>=2.24.0
 Requires-Dist: importlib-metadata>=4.11.4
 Requires-Dist: python-dotenv>=1.0.1
 Provides-Extra: test
-Requires-Dist: qiskit>=2.0.0; extra == "test"
+Requires-Dist: qiskit[qasm3-import]>=2.0.0; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: requests-mock>=1.8.0; extra == "test"
 Requires-Dist: pytest-cov>=2.10.1; extra == "test"
@@ -139,6 +139,35 @@ print(job.result(sharpen=True).get_counts())
 # counts by sampling from these probabilities. The raw probabilities are also accessible:
 print(job.result().get_probabilities())
 ```
+
+### Compilation as a service (`dry_run`)
+
+IonQ Cloud can compile a circuit and return the result _without_ executing it on a QPU. This is useful for inspecting the post-compilation circuit, estimating gate counts, or validating native-gate output before paying for shots.
+
+Set `dry_run=True` on `backend.run(...)` and then read the compiled circuit back via `job.compiled_circuit(...)`:
+
+```python
+backend = provider.get_backend("ionq_qpu.forte-1")
+
+job = backend.run(qc, dry_run=True)
+job.wait_for_final_state()
+
+native_json = job.compiled_circuit(lang="native")   # IonQ-native JSON
+qasm3       = job.compiled_circuit(lang="qasm3")    # OpenQASM 3
+```
+
+Dry-run jobs produce no measurement results, so calling `job.result()` on one raises `IonQJobError` directing you to `compiled_circuit(...)`.
+
+### Per-shot memory (`memory`)
+
+QPU and noisy-simulator jobs can return per-shot measurement outcomes. Pass `memory=True` on `backend.run(...)` to opt in (the default is `False`, matching the `qiskit` and `qiskit-aer` `backend.run` convention), then call `job.get_memory()` to retrieve the per-shot bitstrings:
+
+```python
+job = backend.run(qc, shots=1000, memory=True)
+memory = job.get_memory()       # ['11', '00', '11', '00', ...]
+```
+
+The ideal simulator does not produce per-shot data; calling `get_memory()` on a job submitted without `memory=True` raises `IonQBackendError`.
 
 ### Basis gates and transpilation
 

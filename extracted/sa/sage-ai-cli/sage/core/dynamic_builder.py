@@ -261,6 +261,7 @@ def _verify_iterate_until_green(
     last_fail_count: int | None = None
     flat_rounds = 0
     _MAX_ROUNDS = 8  # hard safety cap — prevents truly infinite loops on cloud models
+    reports: list[VerifyReport] = []
 
     while rounds < _MAX_ROUNDS:
         rounds += 1
@@ -293,6 +294,8 @@ def _verify_iterate_until_green(
                 if step.ok:
                     continue
                 _attempt_repair(report.project, step, generate=generate, log=log)
+
+    return reports
 
 
 def _missing_modules_from_log(log_text: str, project_root: Path) -> list[str]:
@@ -546,7 +549,17 @@ def _attempt_repair(
                 continue
             if rel_path in _PROTECTED_TEMPLATE_PATHS:
                 continue
-            is_rn = "frontend/" in rel_path and project.kind == "node"
+            is_rn = False
+            if project.kind == "node":
+                pkg_path = project.root / "package.json"
+                if pkg_path.exists():
+                    try:
+                        import json as _json
+                        pkg_data = _json.loads(pkg_path.read_text("utf-8", errors="replace"))
+                        all_deps = {**pkg_data.get("dependencies", {}), **pkg_data.get("devDependencies", {})}
+                        is_rn = "react-native" in all_deps or "expo" in all_deps
+                    except Exception:
+                        pass
             vresult = validate_generated_file(new_content, rel_path, is_rn_frontend=is_rn)
             if not vresult.ok:
                 all_ok = False

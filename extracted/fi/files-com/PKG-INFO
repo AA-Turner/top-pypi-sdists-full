@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: files_com
-Version: 1.6.372
+Version: 1.6.374
 Summary: Python bindings for the Files.com API
 License: MIT
 Requires-Python: >=3.5
@@ -460,7 +460,7 @@ Every Site has an implicit Default workspace (ID `0`). Resources that are not ex
 
 ### SDK Support
 
-We are still in the process of adding Workspaces support to each SDK. If you require Workspaces support right now, you need to use the REST API.
+We are still in the process of adding Workspaces support to each SDK. If you require Workspaces support right now, you need to use the REST API or the CLI.
 <div></div>
 
 ### Using Workspaces with the REST API
@@ -593,6 +593,7 @@ files_sdk.error.FolderAdminPermissionRequiredError -> files_sdk.error.NotAuthori
 |`PartNumberTooLargeError`|  `BadRequestError` |
 |`PathCannotHaveTrailingWhitespaceError`|  `BadRequestError` |
 |`ReauthenticationNeededFieldsError`|  `BadRequestError` |
+|`RequestBodyTooLargeError`|  `BadRequestError` |
 |`RequestParamsContainInvalidCharacterError`|  `BadRequestError` |
 |`RequestParamsInvalidError`|  `BadRequestError` |
 |`RequestParamsRequiredError`|  `BadRequestError` |
@@ -656,6 +657,7 @@ files_sdk.error.FolderAdminPermissionRequiredError -> files_sdk.error.NotAuthori
 |`ReauthenticationFailedFinalError`|  `NotAuthorizedError` |
 |`ReauthenticationNeededActionError`|  `NotAuthorizedError` |
 |`RecaptchaFailedError`|  `NotAuthorizedError` |
+|`RemoteDesktopDebugLoggingDisabledError`|  `NotAuthorizedError` |
 |`SelfManagedRequiredError`|  `NotAuthorizedError` |
 |`SiteAdminOrPartnerAdminPermissionRequiredError`|  `NotAuthorizedError` |
 |`SiteAdminOrWorkspaceAdminOrFolderAdminPermissionRequiredError`|  `NotAuthorizedError` |

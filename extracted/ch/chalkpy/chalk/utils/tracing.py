@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import contextlib
+import secrets
 import threading
 import time
 import types
-from typing import TYPE_CHECKING, Callable, Mapping, Union
+from typing import TYPE_CHECKING, Callable, Mapping, TypeAlias, Union
 
 from chalk.utils._datadog_version import can_use_datadog_statsd
 from chalk.utils._otel_version import can_use_otel_trace
@@ -12,6 +13,10 @@ from chalk.utils.log_with_context import get_logger
 
 if TYPE_CHECKING:
     from opentelemetry import trace as otel_trace
+
+    TraceContext: TypeAlias = otel_trace.SpanContext
+else:
+    TraceContext = object
 
 
 class Once:
@@ -47,7 +52,6 @@ class Once:
 
 
 _TRACING_CONFIGURED = Once()
-
 _logger = get_logger(__name__)
 
 if can_use_otel_trace:
@@ -82,6 +86,45 @@ if can_use_otel_trace:
         configure_tracing("chalkpy")
         return otel_trace.get_current_span().get_span_context()
 
+    def current_trace_context() -> TraceContext | None:  # pyright: ignore[reportRedeclaration]
+        span_context = otel_trace.get_current_span().get_span_context()
+        if not span_context.is_valid:
+            return None
+        return span_context
+
+    def current_or_new_trace_context() -> TraceContext:  # pyright: ignore[reportRedeclaration]
+        trace_context = current_trace_context()
+        if trace_context is not None:
+            return trace_context
+        trace_id = 0
+        while trace_id == 0:
+            trace_id = secrets.randbits(128)
+        span_id = 0
+        while span_id == 0:
+            span_id = secrets.randbits(64)
+        return otel_trace.SpanContext(
+            trace_id=trace_id,
+            span_id=span_id,
+            is_remote=False,
+            trace_flags=otel_trace.TraceFlags(otel_trace.TraceFlags.SAMPLED),
+            trace_state=otel_trace.TraceState(),
+        )
+
+    def inject_trace_context(  # pyright: ignore[reportRedeclaration]
+        carrier: None | Mapping[str, Union[str, bytes]],
+        trace_context: TraceContext | None = None,
+    ) -> dict[str, Union[str, bytes]]:
+        output = dict(carrier if carrier is not None else {})
+        if trace_context is None:
+            trace_context = current_trace_context()
+        if trace_context is None:
+            return output
+        if not trace_context.is_valid:
+            return output
+        context = otel_trace.set_span_in_context(otel_trace.NonRecordingSpan(trace_context))
+        otel_inject(output, context=context)
+        return output
+
     @contextlib.contextmanager
     def safe_activate_trace_context(  # pyright: ignore[reportRedeclaration]
         ctx: otel_trace.SpanContext | None,  # pyright: ignore[reportPrivateImportUsage]
@@ -95,23 +138,6 @@ if can_use_otel_trace:
             otel_context.detach(token)
         else:
             yield
-
-    def add_trace_headers(  # pyright: ignore[reportRedeclaration]
-        input_headers: None | dict[str, str]
-    ) -> dict[str, str]:
-        configure_tracing("chalkpy")
-        current_span_ctx = otel_trace.get_current_span().get_span_context()
-        new_span_ctx = otel_trace.SpanContext(
-            trace_id=current_span_ctx.trace_id,
-            span_id=current_span_ctx.span_id,
-            is_remote=current_span_ctx.is_remote,
-            trace_flags=otel_trace.TraceFlags(otel_trace.TraceFlags.SAMPLED),
-            trace_state=current_span_ctx.trace_state,
-        )
-        ctx = otel_trace.set_span_in_context(otel_trace.NonRecordingSpan(new_span_ctx))
-        headers: dict[str, str] = dict(input_headers if input_headers is not None else {})
-        otel_inject(headers, context=ctx)
-        return headers
 
 else:
     _logger.debug("no trace packages found, tracing will not work")
@@ -129,16 +155,23 @@ else:
     def safe_current_trace_context() -> None:  # pyright: ignore[reportRedeclaration]
         return
 
+    def current_trace_context() -> None:  # pyright: ignore[reportRedeclaration]
+        return None
+
+    def current_or_new_trace_context() -> None:  # pyright: ignore[reportRedeclaration]
+        return None
+
+    def inject_trace_context(  # pyright: ignore[reportRedeclaration]
+        carrier: None | Mapping[str, Union[str, bytes]],
+        trace_context: TraceContext | None = None,
+    ) -> dict[str, Union[str, bytes]]:
+        return dict(carrier if carrier is not None else {})
+
     @contextlib.contextmanager
     def safe_activate_trace_context(  # pyright: ignore[reportRedeclaration]
         ctx: None,
     ):
         yield
-
-    def add_trace_headers(headers: None | dict[str, str]) -> dict[str, str]:  # pyright: ignore[reportRedeclaration]
-        if headers is None:
-            return {}
-        return headers
 
 
 if can_use_datadog_statsd:

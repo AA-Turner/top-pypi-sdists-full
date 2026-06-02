@@ -988,6 +988,33 @@ def validate_ux_specs(appspec: ir.AppSpec) -> tuple[list[str], list[str]]:
     return errors, warnings
 
 
+def validate_persona_nav_refs(appspec: ir.AppSpec) -> tuple[list[str], list[str]]:
+    """Validate that each persona's `uses nav <name>` resolves (#1324).
+
+    A persona binds a single sidebar via ``uses nav <name>`` (parsed into
+    ``PersonaSpec.nav_ref``). The referenced name MUST match a declared
+    top-level ``nav <name>:`` block (collected into ``AppSpec.navs``).
+    An unresolved reference is a validation ERROR.
+
+    Returns:
+        Tuple of (errors, warnings)
+    """
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    declared_navs = {nav.name for nav in appspec.navs}
+    for persona in appspec.personas:
+        if persona.nav_ref is None:
+            continue
+        if persona.nav_ref not in declared_navs:
+            errors.append(
+                f"persona '{persona.id}' uses nav '{persona.nav_ref}', but no "
+                f"`nav {persona.nav_ref}:` is declared"
+            )
+
+    return errors, warnings
+
+
 def _validate_condition_fields(
     condition: ir.ConditionExpr,
     entity: ir.EntitySpec | None,
@@ -2466,7 +2493,17 @@ def validate_atomic_flows(appspec: ir.AppSpec) -> tuple[list[str], list[str]]:
                         f"{value.above_field}; only '.id' is supported in this release."
                     )
 
-        for step in flow.steps:
+        # #1315 — validate `above`-ref resolution against the EXECUTION order
+        # (the FK-derived order when set, else declared). A create-DAG the author
+        # wrote out-of-order is reordered parent-before-child by the linker, so
+        # its forward `above`-refs are legal; a flow with no derived order is
+        # checked in declared order (an `above`-ref to a not-yet-created entity
+        # is still an error there).
+        if flow.derived_step_order is not None:
+            ordered_steps = [flow.steps[i] for i in flow.derived_step_order]
+        else:
+            ordered_steps = list(flow.steps)
+        for step in ordered_steps:
             is_update = isinstance(step, ir.FlowUpdate)
             kind = "update" if is_update else "create"
 
@@ -2505,6 +2542,188 @@ def validate_atomic_flows(appspec: ir.AppSpec) -> tuple[list[str], list[str]]:
 
             if not is_update:
                 seen_entities.add(step.entity)
+
+        # #1318 / ADR-0031 — flow-level aggregate invariants. Each invariant
+        # asserts `<agg_fn>(<entity>.<field> where <filter>) <op> <rhs>` at
+        # commit; here we statically check its references resolve and that it
+        # names a lockable anchor row.
+        _NUMERIC_KINDS = {
+            ir.FieldTypeKind.INT,
+            ir.FieldTypeKind.FLOAT,
+            ir.FieldTypeKind.DECIMAL,
+            ir.FieldTypeKind.MONEY,
+        }
+        for inv in flow.invariants:
+            inv_prefix = f"{prefix}: invariant {inv.agg_fn}({inv.entity}...)"
+
+            target = entity_map.get(inv.entity)
+            if target is None:
+                errors.append(f"{inv_prefix}: unknown entity '{inv.entity}'.")
+                continue
+
+            target_field_map = {f.name: f for f in target.fields}
+
+            # sum requires an existing numeric field; count takes no field.
+            if inv.agg_fn == ir.FlowAggregateFn.SUM:
+                fld = target_field_map.get(inv.field) if inv.field else None
+                if fld is None:
+                    errors.append(
+                        f"{inv_prefix}: sum field '{inv.field}' does not exist on '{inv.entity}'."
+                    )
+                elif fld.type.kind not in _NUMERIC_KINDS:
+                    errors.append(
+                        f"{inv_prefix}: sum field '{inv.field}' on '{inv.entity}' is "
+                        f"not numeric (got {fld.type.kind})."
+                    )
+
+            # The load-bearing rejection: an aggregate with no lockable anchor.
+            if inv.anchor_entity is None or inv.anchor_input is None:
+                errors.append(
+                    f"{inv_prefix}: unanchored aggregate invariant: needs a "
+                    f"`<fk> = input.<name>` filter term naming a lockable anchor "
+                    f"row (see ADR-0031)."
+                )
+            elif inv.anchor_input not in input_names:
+                errors.append(
+                    f"{inv_prefix}: anchor references undeclared input '{inv.anchor_input}'."
+                )
+
+            # Filter columns must exist on the target entity (allow the `_id`
+            # FK-suffix spelling, matching the column-naming convention).
+            for column, _kind, _value in inv.raw_filter:
+                if column not in target_field_map and (column + "_id") not in target_field_map:
+                    errors.append(
+                        f"{inv_prefix}: filter references unknown column '{column}' "
+                        f"on '{inv.entity}'."
+                    )
+
+            # RHS: literal needs no check; the field form must resolve to a
+            # numeric field on the named input's referenced entity.
+            rhs = inv.rhs
+            if rhs.anchor_input is not None:
+                rhs_input = next((i for i in flow.inputs if i.name == rhs.anchor_input), None)
+                if rhs_input is None:
+                    errors.append(
+                        f"{inv_prefix}: RHS references undeclared input '{rhs.anchor_input}'."
+                    )
+                else:
+                    rhs_entity_name = rhs_input.type.ref_entity
+                    rhs_entity = entity_map.get(rhs_entity_name) if rhs_entity_name else None
+                    if rhs_entity is None:
+                        errors.append(
+                            f"{inv_prefix}: RHS input '{rhs.anchor_input}' does not "
+                            f"reference a known entity."
+                        )
+                    else:
+                        rhs_field_map = {f.name: f for f in rhs_entity.fields}
+                        rhs_field = (
+                            rhs_field_map.get(rhs.anchor_field) if rhs.anchor_field else None
+                        )
+                        if rhs_field is None:
+                            errors.append(
+                                f"{inv_prefix}: RHS field '{rhs.anchor_field}' does not "
+                                f"exist on '{rhs_entity.name}'."
+                            )
+                        elif rhs_field.type.kind not in _NUMERIC_KINDS:
+                            errors.append(
+                                f"{inv_prefix}: RHS field '{rhs.anchor_field}' on "
+                                f"'{rhs_entity.name}' is not numeric "
+                                f"(got {rhs_field.type.kind})."
+                            )
+            elif rhs.literal is None:
+                errors.append(f"{inv_prefix}: invariant RHS is empty.")
+
+    return errors, warnings
+
+
+def validate_transition_invocations(appspec: ir.AppSpec) -> tuple[list[str], list[str]]:
+    """Validate transition ``invoke <flow>(...)`` cross-references (#1319, ADR-0032).
+
+    Slice A surface checks (the shared-transaction runtime wiring is Slice B):
+
+    - the invoked flow exists in ``appspec.atomic_flows``;
+    - every binding names a real input of that flow;
+    - every *required* flow input is bound;
+    - a ``self`` binding targets a flow input that is a ``ref`` to the entity that
+      owns the state machine (a light shape check — the transitioning row is what
+      ``self`` resolves to).
+    """
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    flows_by_name = {f.name: f for f in (appspec.atomic_flows or [])}
+
+    for entity in appspec.domain.entities or []:
+        sm = entity.state_machine
+        if sm is None:
+            continue
+        for t in sm.transitions:
+            inv = t.invoke_flow
+            if inv is None:
+                continue
+            prefix = (
+                f"entity '{entity.name}' transition {t.from_state} -> {t.to_state}: "
+                f"invoke {inv.flow_name}"
+            )
+            # v1 limit (ADR-0032 Slice B): the shared-tx path reads the row back on
+            # the flow connection with a plain SELECT, which does not reproduce the
+            # soft-delete / temporal / subtype-JOIN logic the normal read applies.
+            # Reject invoke on those entity types until the shared read handles them.
+            if getattr(entity, "soft_delete", None) or getattr(entity, "temporal", None):
+                errors.append(
+                    f"{prefix} on a soft-delete/temporal entity is not supported in this "
+                    "release (transition invoke is v1-limited to plain entities)."
+                )
+            if getattr(entity, "subtype_of", None) or getattr(entity, "subtypes", None):
+                errors.append(
+                    f"{prefix} on a subtype-polymorphic entity is not supported in this "
+                    "release (transition invoke is v1-limited to plain entities)."
+                )
+            # A guarded effect needs a principal; an `auto` (scheduled/system)
+            # transition has none, so reject `invoke` on it at validate time
+            # (ADR-0032 — the service-principal story for system transitions is
+            # deferred). A manual (user-triggered) transition carries the PUT caller.
+            if t.trigger == ir.TransitionTrigger.AUTO:
+                errors.append(
+                    f"{prefix} on an `auto` transition: a transition-invoked atomic flow "
+                    "needs an authenticated principal, which an auto/scheduled transition "
+                    "lacks (ADR-0032 — use a manual transition)."
+                )
+            flow = flows_by_name.get(inv.flow_name)
+            if flow is None:
+                errors.append(f"{prefix} references unknown atomic flow '{inv.flow_name}'.")
+                continue
+
+            flow_inputs = {fi.name: fi for fi in flow.inputs}
+            bound = {b.flow_input for b in inv.bindings}
+
+            for b in inv.bindings:
+                if b.flow_input not in flow_inputs:
+                    errors.append(
+                        f"{prefix} binds unknown input '{b.flow_input}' "
+                        f"(flow '{inv.flow_name}' has {sorted(flow_inputs)})."
+                    )
+                elif b.source_kind == ir.InvokeSourceKind.SELF:
+                    # `self` is the transitioning row → the bound input should be a
+                    # ref to this entity.
+                    fi = flow_inputs[b.flow_input]
+                    ref_entity = getattr(fi.type, "ref_entity", None)
+                    if ref_entity is not None and ref_entity != entity.name:
+                        errors.append(
+                            f"{prefix} binds `self` to input '{b.flow_input}', which is a "
+                            f"ref {ref_entity}, not ref {entity.name} (the transitioning entity)."
+                        )
+                elif b.source_kind == ir.InvokeSourceKind.INPUT and not b.source_name:
+                    # An `input.<name>` binding must carry the transition input name
+                    # (the runtime resolves the value from it in Slice B).
+                    errors.append(
+                        f"{prefix} binds input '{b.flow_input}' from a transition input "
+                        "but names no source (expected `input.<name>`)."
+                    )
+
+            for name, fi in flow_inputs.items():
+                if fi.required and name not in bound:
+                    errors.append(f"{prefix} does not bind required input '{name}'.")
 
     return errors, warnings
 

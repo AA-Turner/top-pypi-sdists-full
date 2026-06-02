@@ -640,6 +640,22 @@ class ProviderConfig_AssetsTaniumCloudMock(UncheckedBaseModel):
             extra = pydantic.Extra.allow
 
 
+class ProviderConfig_AssetsTenableCloud(UncheckedBaseModel):
+    type: typing.Literal["assets_tenable_cloud"] = "assets_tenable_cloud"
+    credential: TenableCloudCredential
+    url: typing.Optional[str] = None
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
 class ProviderConfig_ChatMicrosoftCopilot(UncheckedBaseModel):
     type: typing.Literal["chat_microsoft_copilot"] = "chat_microsoft_copilot"
     credential: CopilotChatCredential
@@ -894,6 +910,7 @@ class ProviderConfig_EdrCrowdstrikeMock(UncheckedBaseModel):
 class ProviderConfig_EdrDefender(UncheckedBaseModel):
     type: typing.Literal["edr_defender"] = "edr_defender"
     credential: DefenderCredential
+    security_url: str
     tenant_id: str
     url: str
 
@@ -2594,6 +2611,7 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_AssetsSevcoMock,
         ProviderConfig_AssetsTaniumCloud,
         ProviderConfig_AssetsTaniumCloudMock,
+        ProviderConfig_AssetsTenableCloud,
         ProviderConfig_ChatMicrosoftCopilot,
         ProviderConfig_ChatMicrosoftTeams,
         ProviderConfig_ChatSlack,

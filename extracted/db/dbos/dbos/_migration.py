@@ -8,7 +8,7 @@ from ._logger import dbos_logger
 # autocommit (CREATE/DROP INDEX CONCURRENTLY cannot run inside a transaction
 # block on Postgres). On CockroachDB, schema changes are inherently online,
 # so this set is ignored and the regular transactional path is used.
-_ONLINE_MIGRATIONS = {22, 23, 24, 25, 26, 27, 29, 30, 31, 32, 34, 35}
+_ONLINE_MIGRATIONS = {22, 23, 24, 25, 26, 27, 29, 30, 31, 32, 34, 35, 37}
 
 
 def _concurrently(is_cockroach: bool) -> str:
@@ -615,9 +615,9 @@ def get_dbos_migration_twentyone(schema: str) -> str:
 CREATE TABLE "{schema}".queues (
     queue_id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
     name TEXT NOT NULL UNIQUE,
-    concurrency INTEGER,
-    worker_concurrency INTEGER,
-    rate_limit_max INTEGER,
+    concurrency INT4,
+    worker_concurrency INT4,
+    rate_limit_max INT4,
     rate_limit_period_sec DOUBLE PRECISION,
     priority_enabled BOOLEAN NOT NULL DEFAULT FALSE,
     partition_queue BOOLEAN NOT NULL DEFAULT FALSE,
@@ -707,6 +707,152 @@ def get_dbos_migration_thirtyfive(schema: str, is_cockroach: bool) -> str:
     return f'DROP INDEX {c} IF EXISTS "{schema}"."idx_workflow_status_queue_status_started"'
 
 
+def get_dbos_migration_thirtysix(schema: str) -> str:
+    # ADD COLUMN with no default is catalog-only; the partial index built in
+    # the same transaction covers zero rows, so no CONCURRENTLY is needed.
+    return f"""
+ALTER TABLE "{schema}"."workflow_status" ADD COLUMN IF NOT EXISTS "completed_at" BIGINT;
+CREATE INDEX IF NOT EXISTS "idx_workflow_status_completed_at" ON "{schema}"."workflow_status" ("completed_at") WHERE "completed_at" IS NOT NULL;
+"""
+
+
+def get_dbos_migration_thirtyseven(schema: str, is_cockroach: bool) -> str:
+    c = _concurrently(is_cockroach)
+    return f'CREATE INDEX {c} IF NOT EXISTS "idx_workflow_status_started_at" ON "{schema}"."workflow_status" ("started_at_epoch_ms") WHERE "started_at_epoch_ms" IS NOT NULL'
+
+
+def get_dbos_migration_thirtyeight(schema: str, is_cockroach: bool) -> str:
+    migration = f"""
+DROP FUNCTION IF EXISTS "{schema}".enqueue_workflow(
+    TEXT, TEXT, JSON[], JSON, TEXT, TEXT, TEXT, TEXT, BIGINT, BIGINT, TEXT, INTEGER, TEXT
+);
+
+CREATE OR REPLACE FUNCTION "{schema}".enqueue_workflow(
+    workflow_name TEXT,
+    queue_name TEXT,
+    positional_args JSON[] DEFAULT ARRAY[]::JSON[],
+    named_args JSON DEFAULT '{{}}'::JSON,
+    class_name TEXT DEFAULT NULL,
+    config_name TEXT DEFAULT NULL,
+    workflow_id TEXT DEFAULT NULL,
+    app_version TEXT DEFAULT NULL,
+    timeout_ms BIGINT DEFAULT NULL,
+    deadline_epoch_ms BIGINT DEFAULT NULL,
+    deduplication_id TEXT DEFAULT NULL,
+    priority INT4 DEFAULT NULL,
+    queue_partition_key TEXT DEFAULT NULL,
+    authenticated_user TEXT DEFAULT NULL,
+    authenticated_roles TEXT DEFAULT NULL,
+    delay_until_epoch_ms BIGINT DEFAULT NULL
+) RETURNS TEXT AS $$
+DECLARE
+    v_workflow_id TEXT;
+    v_serialized_inputs TEXT;
+    v_owner_xid TEXT;
+    v_now BIGINT;
+    v_recovery_attempts INT4 := 0;
+    v_priority INT4;
+    v_status TEXT;
+BEGIN
+
+    -- Validate required parameters
+    IF workflow_name IS NULL OR workflow_name = '' THEN
+        RAISE EXCEPTION 'Workflow name cannot be null or empty';
+    END IF;
+    IF queue_name IS NULL OR queue_name = '' THEN
+        RAISE EXCEPTION 'Queue name cannot be null or empty';
+    END IF;
+    IF named_args IS NOT NULL AND jsonb_typeof(named_args::jsonb) != 'object' THEN
+        RAISE EXCEPTION 'Named args must be a JSON object';
+    END IF;
+    IF workflow_id IS NOT NULL AND workflow_id = '' THEN
+        RAISE EXCEPTION 'Workflow ID cannot be an empty string if provided.';
+    END IF;
+    IF delay_until_epoch_ms IS NOT NULL AND delay_until_epoch_ms < 0 THEN
+        RAISE EXCEPTION 'delay_until_epoch_ms must be >= 0';
+    END IF;
+
+    v_workflow_id := COALESCE(workflow_id, gen_random_uuid()::TEXT);
+    v_owner_xid := gen_random_uuid()::TEXT;
+    v_priority := COALESCE(priority, 0);
+    v_serialized_inputs := json_build_object(
+        'positionalArgs', positional_args,
+        'namedArgs', named_args
+    )::TEXT;
+    v_now := EXTRACT(epoch FROM now()) * 1000;
+    v_status := CASE WHEN delay_until_epoch_ms IS NULL THEN 'ENQUEUED' ELSE 'DELAYED' END;
+
+    INSERT INTO "{schema}".workflow_status (
+        workflow_uuid, status, inputs,
+        name, class_name, config_name,
+        queue_name, deduplication_id, priority, queue_partition_key,
+        application_version,
+        created_at, updated_at, recovery_attempts,
+        workflow_timeout_ms, workflow_deadline_epoch_ms,
+        parent_workflow_id, owner_xid, serialization,
+        authenticated_user, authenticated_roles,
+        delay_until_epoch_ms
+    ) VALUES (
+        v_workflow_id, v_status, v_serialized_inputs,
+        workflow_name, class_name, config_name,
+        queue_name, deduplication_id, v_priority, queue_partition_key,
+        app_version,
+        v_now, v_now, v_recovery_attempts,
+        timeout_ms, deadline_epoch_ms,
+        NULL, v_owner_xid, 'portable_json',
+        authenticated_user, authenticated_roles,
+        delay_until_epoch_ms
+    )
+    ON CONFLICT (workflow_uuid)
+    DO UPDATE SET
+        updated_at = EXCLUDED.updated_at;
+
+    RETURN v_workflow_id;
+
+EXCEPTION
+    WHEN unique_violation THEN
+        RAISE EXCEPTION 'DBOS queue duplicated'
+            USING DETAIL = format('Workflow %s with queue %s and deduplication ID %s already exists', v_workflow_id, queue_name, deduplication_id),
+                ERRCODE = 'unique_violation';
+END;
+$$ LANGUAGE plpgsql;
+"""
+    if not is_cockroach:
+        migration += f"""
+ALTER FUNCTION "{schema}".enqueue_workflow(
+    TEXT, TEXT, JSON[], JSON, TEXT, TEXT, TEXT, TEXT, BIGINT, BIGINT, TEXT, INT4, TEXT, TEXT, TEXT, BIGINT
+) SET search_path = pg_catalog, pg_temp;
+"""
+    return migration
+
+
+def get_dbos_migration_thirtynine(schema: str, use_listen_notify: bool) -> str:
+    # Gated on use_listen_notify only, matching the notifications/workflow_events
+    # triggers in migration one. Deployments without LISTEN/NOTIFY (e.g.
+    # CockroachDB) set use_listen_notify=False and use the polling fallback.
+    if not use_listen_notify:
+        return ""
+    return f"""
+-- Create streams notification function
+CREATE OR REPLACE FUNCTION "{schema}".streams_function() RETURNS TRIGGER AS $$
+DECLARE
+    payload text := NEW.workflow_uuid || '::' || NEW.key;
+BEGIN
+    PERFORM pg_notify('dbos_streams_channel', payload);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+ALTER FUNCTION "{schema}".streams_function() SET search_path = pg_catalog, pg_temp;
+
+-- Create streams trigger
+DROP TRIGGER IF EXISTS dbos_streams_trigger ON "{schema}".streams;
+CREATE TRIGGER dbos_streams_trigger
+AFTER INSERT ON "{schema}".streams
+FOR EACH ROW EXECUTE FUNCTION "{schema}".streams_function();
+"""
+
+
 def get_dbos_migrations(
     schema: str, use_listen_notify: bool, is_cockroach: bool = False
 ) -> list[str]:
@@ -746,6 +892,10 @@ def get_dbos_migrations(
         get_dbos_migration_thirtythree(schema),
         get_dbos_migration_thirtyfour(schema, is_cockroach),
         get_dbos_migration_thirtyfive(schema, is_cockroach),
+        get_dbos_migration_thirtysix(schema),
+        get_dbos_migration_thirtyseven(schema, is_cockroach),
+        get_dbos_migration_thirtyeight(schema, is_cockroach),
+        get_dbos_migration_thirtynine(schema, use_listen_notify),
     ]
 
 
@@ -985,6 +1135,13 @@ sqlite_migration_thirtyfive = (
     'DROP INDEX IF EXISTS "idx_workflow_status_queue_status_started"'
 )
 
+sqlite_migration_thirtysix = """
+ALTER TABLE workflow_status ADD COLUMN "completed_at" BIGINT;
+CREATE INDEX IF NOT EXISTS "idx_workflow_status_completed_at" ON "workflow_status" ("completed_at") WHERE "completed_at" IS NOT NULL;
+"""
+
+sqlite_migration_thirtyseven = 'CREATE INDEX IF NOT EXISTS "idx_workflow_status_started_at" ON "workflow_status" ("started_at_epoch_ms") WHERE "started_at_epoch_ms" IS NOT NULL'
+
 sqlite_migrations = [
     sqlite_migration_one,
     sqlite_migration_two,
@@ -1020,4 +1177,6 @@ sqlite_migrations = [
     sqlite_migration_thirtythree,
     sqlite_migration_thirtyfour,
     sqlite_migration_thirtyfive,
+    sqlite_migration_thirtysix,
+    sqlite_migration_thirtyseven,
 ]

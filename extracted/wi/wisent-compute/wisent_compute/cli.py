@@ -42,8 +42,8 @@ def main():
 
 @main.command()
 @click.argument("command")
-@click.option("--provider", default="gcp",
-              help="Preferred provider (gcp/azure/aws/local). With --any-provider this is just a hint.")
+@click.option("--provider", required=True,
+              help="Provider to submit to (gcp/azure/aws/local). Required; no implicit cloud default.")
 @click.option("--batch", "batch_file", default=None, help="File with commands")
 @click.option("--spot/--no-spot", default=DEFAULT_PREEMPTIBLE,
               help="Dispatch on Spot/Preemptible GPUs (cheaper, can be preempted).")

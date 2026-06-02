@@ -472,6 +472,36 @@ def _is_recipient_verified_globally(recipient: str) -> bool:
         except Exception:
             pass
 
+        # Get contacts from backend
+        try:
+            contacts = be.list_contacts()
+            for c in contacts:
+                c_email = (c.get("email") or "").lower().strip()
+                if c_email:
+                    verified_set.add(c_email)
+                    if c_email.startswith("phone:"):
+                        p_num = c_email.replace("phone:", "")
+                        norm_p = _normalize_e164_globally(p_num)
+                        if norm_p:
+                            verified_set.add(norm_p)
+                            p_digits = re.sub(r"\D", "", norm_p)
+                            if len(p_digits) == 11 and p_digits.startswith("1"):
+                                p_digits = p_digits[1:]
+                            verified_set.add(p_digits)
+                imsg = (c.get("imessage_address") or "").lower().strip()
+                if imsg:
+                    verified_set.add(imsg)
+                    if "@" not in imsg:
+                        norm_imsg = _normalize_e164_globally(imsg)
+                        if norm_imsg:
+                            verified_set.add(norm_imsg)
+                            imsg_digits = re.sub(r"\D", "", norm_imsg)
+                            if len(imsg_digits) == 11 and imsg_digits.startswith("1"):
+                                imsg_digits = imsg_digits[1:]
+                            verified_set.add(imsg_digits)
+        except Exception:
+            pass
+
     except Exception:
         pass
 
@@ -526,6 +556,7 @@ def _send_imessage(recipient: str, text: str, attachment_paths: list[str] | None
         return False
 
     if sys.platform != "darwin":
+        logger.warning("iMessage is only supported on macOS/darwin. Current platform is %s. Skipping.", sys.platform)
         return False
     safe_text = text.replace("\\", "\\\\").replace('"', '\\"')
     safe_to   = recipient.replace("\\", "\\\\").replace('"', '\\"')
@@ -703,6 +734,7 @@ def _send_macos_sms(recipient: str, text: str) -> bool:
         return False
 
     if sys.platform != "darwin":
+        logger.warning("macOS SMS relay is only supported on macOS/darwin. Current platform is %s. Skipping.", sys.platform)
         return False
     safe_text = text.replace("\\", "\\\\").replace('"', '\\"')
     safe_to   = recipient.replace("\\", "\\\\").replace('"', '\\"')
@@ -768,31 +800,57 @@ def _send_macos_sms(recipient: str, text: str) -> bool:
 
 
 def _kdeconnectd_running() -> tuple[bool, str]:
-    """Check whether KDE Connect can reach a paired device.
+    """Check whether KDE Connect daemon is running/active.
 
-    The Mac App Store build of KDE Connect always prints a DBus activation
-    error to stderr ("name org.kde.kdeconnect was not provided by any .service
-    files"), but `--send-sms` and `--list-devices` both still WORK — the CLI
-    has a network-discovery fallback that bypasses DBus. So we ignore stderr
-    entirely and treat "at least one paired+reachable device" as healthy.
+    If the daemon is running, but no devices are paired, returns True with a warning,
+    so that diagnostics and startup do not report a hard error.
     """
     cli = _find_kdeconnect_cli()
     if not cli:
         return False, "kdeconnect-cli not installed"
+
+    from sage.core.kdeconnect_listener import _is_daemon_running
+    daemon_alive = _is_daemon_running()
+
+    # Also check if SAGE's takeover listener is active
+    from sage.core.sms_bridge import _active_bridge_instance
+    takeover_active = False
+    if _active_bridge_instance and getattr(_active_bridge_instance, "_kde_listener", None):
+        takeover_active = True
+
+    if not daemon_alive and not takeover_active:
+        return False, "kdeconnectd daemon is not running"
+
     try:
         r = subprocess.run([cli, "--list-available", "--id-only"],
                            capture_output=True, text=True, timeout=5)
+        import re
         devices = []
         for line in (r.stdout or "").splitlines():
             line = line.strip()
-            if not line or "devices found" in line.lower() or " " in line:
+            if not line or "devices found" in line.lower():
                 continue
-            devices.append(line)
-        if not devices:
-            return False, "no paired+reachable KDE Connect devices"
+            line_clean = re.sub(r'^[\-\*\+\s]+', '', line)
+            if ":" in line_clean:
+                parts = line_clean.split(":")
+                id_candidate = parts[-1].strip().split()[0]
+                devices.append(id_candidate)
+            else:
+                words = line_clean.split()
+                if words:
+                    devices.append(words[0])
+
+        valid_devices = []
+        for raw_device_id in devices:
+            device_id = re.sub(r'[^\w\-]', '', raw_device_id)
+            if device_id:
+                valid_devices.append(device_id)
+
+        if not valid_devices:
+            return True, "no paired+reachable KDE Connect devices online"
         return True, ""
     except Exception as exc:
-        return False, f"kdeconnect-cli probe failed: {exc}"
+        return True, f"kdeconnect-cli probe failed but daemon is alive: {exc}"
 
 
 def _start_kdeconnectd_macos() -> bool:
@@ -852,13 +910,16 @@ def _send_via_kdeconnect(phone_number: str, text: str) -> bool:
     if not cli:
         return False
 
-    # Try to start daemon on macOS if not running
-    if sys.platform == "darwin" and "pytest" not in sys.modules:
+    # Try to start daemon cross-platform if not running
+    if "pytest" not in sys.modules:
         try:
-            from sage.core.kdeconnect_listener import _is_daemon_running
+            from sage.core.kdeconnect_listener import _is_daemon_running, _start_os_daemon
             if not _is_daemon_running():
                 logger.info("kdeconnectd is not running — attempting to start it")
-                _start_kdeconnectd_macos()
+                _start_os_daemon()
+                # Give the daemon a moment to register
+                import time as _t
+                _t.sleep(2)
         except Exception as exc:
             logger.debug("Failed to check/start daemon: %s", exc)
 
@@ -967,7 +1028,11 @@ def _find_recent_files(working_dir: Path, start_time: float) -> list[str]:
     """Find files in the working directory modified since start_time, up to 50MB."""
     import os
     found = []
-    ignored_dirs = {".git", ".sage", "venv", ".venv", "node_modules", "__pycache__", "target"}
+    ignored_dirs = {
+        ".git", ".sage", "venv", ".venv", "node_modules", "__pycache__", "target",
+        "Library", "Pictures", "Music", "Movies", "Desktop", "Downloads", "Public",
+        "Applications", ".Trash"
+    }
     
     # We walk the directory
     for root, dirs, files in os.walk(str(working_dir)):
@@ -1160,7 +1225,11 @@ class SAGEMessageBridge:
         self._stop = threading.Event()
         self._bridge_email = ""
         self._announced = False
-        self._log_fp = SMS_LOG_FILE.open("a", buffering=1, encoding="utf-8")
+        try:
+            self._log_fp = SMS_LOG_FILE.open("a", buffering=1, encoding="utf-8")
+        except PermissionError:
+            import io
+            self._log_fp = io.StringIO()
         # Tracks the last seen Messages chat.db ROWID so we only process new
         # inbound iMessage / SMS after the bridge starts (not the entire
         # historical chat log).
@@ -1261,6 +1330,29 @@ class SAGEMessageBridge:
                 if local_digits in verified_set:
                     return True
 
+        # Check against cached contacts list
+        try:
+            self._refresh_phone_contacts()
+            if recipient_clean in self._email_contacts_cache:
+                return True
+            if e164 and e164 in self._phone_contacts_cache:
+                return True
+            if digits and digits in self._phone_contacts_cache:
+                return True
+            if "@" in recipient_clean:
+                local = recipient_clean.split("@")[0]
+                if local.isdigit():
+                    norm_local = self._normalize_e164(local)
+                    if norm_local and norm_local in self._phone_contacts_cache:
+                        return True
+                    local_digits = re.sub(r"\D", "", local)
+                    if len(local_digits) == 11 and local_digits.startswith("1"):
+                        local_digits = local_digits[1:]
+                    if local_digits and local_digits in self._phone_contacts_cache:
+                        return True
+        except Exception:
+            pass
+
         return False
 
     def _log(self, msg: str) -> None:
@@ -1298,6 +1390,23 @@ class SAGEMessageBridge:
                 OS_CERT,
                 OS_KDC_DIR,
             )
+            import logging
+            kdc_logger = logging.getLogger("sage.kdeconnect_listener")
+            class BridgeLogRedirectHandler(logging.Handler):
+                def __init__(self, bridge_log_fn):
+                    super().__init__()
+                    self.bridge_log_fn = bridge_log_fn
+                def emit(self, record):
+                    try:
+                        self.bridge_log_fn(self.format(record))
+                    except Exception:
+                        pass
+            if not any(isinstance(h, BridgeLogRedirectHandler) for h in kdc_logger.handlers):
+                h = BridgeLogRedirectHandler(self._log)
+                h.setFormatter(logging.Formatter("%(message)s"))
+                kdc_logger.addHandler(h)
+                kdc_logger.setLevel(logging.INFO)
+                kdc_logger.propagate = False
         except Exception as exc:
             self._log(f"KDE Connect listener not available: {exc}")
             return
@@ -2820,8 +2929,8 @@ class SAGEMessageBridge:
                     continue
 
                 self._bridge_email = resp.get("display_email") or resp.get("bridge_email", "")
-                self._user_email = resp.get("user_email", "").lower().strip()
-                self._user_phone = resp.get("user_phone", "").strip()
+                self._user_email = (resp.get("user_email") or "").lower().strip()
+                self._user_phone = (resp.get("user_phone") or "").strip()
                 if self._user_phone:
                     try:
                         phone_file = Path.home() / ".sage" / "verified_phone.txt"
@@ -2928,7 +3037,8 @@ class SAGEMessageBridge:
                 break
             except Exception as exc:
                 if not self._stop.is_set():
-                    self._log(f"Connection error: {exc} — retrying in {reconnect_delay}s")
+                    import traceback
+                    self._log(f"Connection error: {exc} — retrying in {reconnect_delay}s\n{traceback.format_exc()}")
                     time.sleep(reconnect_delay)
                     reconnect_delay = min(reconnect_delay * 2, 60)
 

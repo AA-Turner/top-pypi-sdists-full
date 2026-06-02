@@ -1962,7 +1962,7 @@ def import_prowler_cli(
     Consumes Prowler's native JSON shape (CheckID + Status PASS/FAIL/MANUAL)
     rather than its ASFF translation — Prowler-specific fields like
     Risk and Remediation come through, and customers running Prowler
-    in Comp-AI-style workflows skip the ASFF translation step.
+    in multi-tool aggregation workflows skip the ASFF translation step.
 
     Honest scope:
     - File-based ingestion only. No Prowler invocation. Customer runs
@@ -2656,7 +2656,7 @@ def inventory(
       - efterlev-out/reports/inventory/inventory-<ts>.html (one-page)
 
     Hand the HTML to a 3PAO scoping meeting; feed the JSON to any
-    OSCAL / RegScale / Paramify importer.
+    OSCAL importer.
     """
     from efterlev.primitives.generate import (
         GenerateInventoryInput,

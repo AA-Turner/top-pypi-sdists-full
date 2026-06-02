@@ -8,13 +8,15 @@ import logging
 import pickle
 import shlex
 import warnings
+from itertools import chain
 from typing import List, Optional, IO, Any, Iterable
 
 from urllib.request import getproxies
 from contextlib import ExitStack, closing
 
 from AnyQt.QtGui import QFont, QColor, QPalette
-from AnyQt.QtCore import Qt, QSettings, QTimer, QUrl, QDir
+from AnyQt.QtCore import Qt, QSettings, QTimer, QUrl, QDir, QObject, QEvent
+from AnyQt.QtWidgets import QWidget
 
 from orangecanvas import localization
 from .utils.after_exit import run_after_exit
@@ -27,9 +29,10 @@ from . import utils, config
 from .gui.splashscreen import SplashScreen
 from .gui.utils import macos_set_nswindow_tabbing as _macos_set_nswindow_tabbing
 
-from .registry import WidgetRegistry, set_global_registry
+from .registry import WidgetRegistry, set_global_registry, InputSignal, OutputSignal
 from .registry.qt import QtRegistryHandler
 from .registry import cache
+from .scheme.link import resolve_types
 
 log = logging.getLogger(__name__)
 
@@ -96,6 +99,18 @@ class Main:
         config.set_default(cfg)
         # Init config
         config.init()
+
+    def install_shadow_remover(self):
+        class ShadowRemover(QObject):
+            def eventFilter(self, obj, event):
+                if event.type() == QEvent.Type.Polish:
+                    if isinstance(obj, QWidget) and obj.isWindow():
+                        obj.setWindowFlags(
+                            obj.windowFlags() | Qt.WindowType.NoDropShadowWindowHint)
+                return super().eventFilter(obj, event)
+
+        self.__remover = ShadowRemover()
+        self.application.installEventFilter(self.__remover)
 
     def show_splash_message(self, message: str, color=QColor()):
         """Display splash screen message"""
@@ -172,8 +187,20 @@ class Main:
         self.registry = widget_registry
         if language_changed:
             localization.update_last_used_language()
+        self.preimport_signal_types()
         self.close_splash_screen()
         return widget_registry
+
+    def preimport_signal_types(self):
+        def iter_all_signals(reg: WidgetRegistry) -> Iterable[InputSignal | OutputSignal]:
+            widgets = reg.widgets()
+            return chain.from_iterable(
+                chain(w.inputs, w.outputs) for w in widgets
+            )
+        types = set(chain.from_iterable(
+            sig.types for sig in iter_all_signals(self.registry))
+        )
+        resolve_types(types)
 
     def setup_application(self):
         # sys.argv[0] must be in QApplication's argv list.
@@ -201,6 +228,8 @@ class Main:
         with ExitStack() as stack:
             self.stack = stack
             self.setup_application()
+            if self.options.no_shadow:
+                self.install_shadow_remover()
             stack.callback(self.tear_down_application)
             self.setup_sys_redirections()
             stack.callback(self.tear_down_sys_redirections)
@@ -524,6 +553,11 @@ def arg_parser():
     parser.add_argument(
         "--config", help="Configuration namespace",
         type=str, default=None,
+    )
+
+    parser.add_argument(
+        "--no-shadow", help="Disable drop shadows in the UI",
+        action="store_true", default=False
     )
 
     deprecated = parser.add_argument_group("Deprecated")

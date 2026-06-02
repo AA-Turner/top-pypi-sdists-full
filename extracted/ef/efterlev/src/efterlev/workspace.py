@@ -71,7 +71,7 @@ evidence:
 
 - Worked example with three manifests:
   https://github.com/lhassa8/govnotes-demo/tree/main/.efterlev/manifests
-- Format reference: https://efterlev.com (search for "Evidence Manifest")
+- Format reference: https://docs.efterlev.org (search for "Evidence Manifest")
 - Why these go in source control: they're part of your compliance posture and
   should go through code review like any other change. The attestor is named,
   the dates are recorded, and a 3PAO can read this directory directly.

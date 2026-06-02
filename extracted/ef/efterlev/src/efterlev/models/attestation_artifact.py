@@ -1,7 +1,7 @@
 """FRMR-compatible attestation artifact — the v1 Phase 2 primary output.
 
 `AttestationArtifact` is the shape Efterlev serializes to disk for
-downstream consumption (3PAO review, RegScale OSCAL-Hub ingestion v1.5+,
+downstream consumption (3PAO review, OSCAL-consumer ingestion v1.5+,
 CSP package assembly). It is structurally inspired by the FRMR
 documentation format — theme-keyed KSI indicators, top-level `info` block,
 canonical JSON — but carries attestation data rather than catalog data, so

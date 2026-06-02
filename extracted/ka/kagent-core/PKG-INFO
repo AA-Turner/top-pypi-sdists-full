@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kagent-core
-Version: 0.9.4
+Version: 0.9.5
 Summary: kagent common library for kagent python packages
 Requires-Python: >=3.10
 Requires-Dist: a2a-sdk[http-server]>=0.3.23

@@ -6,14 +6,15 @@ import json
 import sys
 import warnings
 from collections import deque
+from collections.abc import Awaitable, Callable, Iterator
 from http.cookies import BaseCookie, SimpleCookie
-from typing import Any, Awaitable, Callable, Iterator, List, Optional, cast
+from types import MappingProxyType
+from typing import Any, cast
 from unittest import mock
 from uuid import uuid4
 
 import pytest
 from multidict import CIMultiDict, MultiDict
-from re_assert import Matches
 from yarl import URL
 
 import aiohttp
@@ -433,10 +434,8 @@ def test_connector_loop(loop: asyncio.AbstractEventLoop) -> None:
                 return ClientSession(connector=connector, loop=loop)
 
             loop.run_until_complete(make_sess())
-        assert (
-            Matches("Session and connector has to use same event loop")
-            == str(ctx.value).strip()
-        )
+        expected = "Session and connector has to use same event loop"
+        assert str(ctx.value).startswith(expected)
         another_loop.run_until_complete(connector.close())
 
 
@@ -705,7 +704,7 @@ async def test_ws_connect_unix_socket_allowed_protocols(
     original_connect = session._connector.connect
 
     async def connect(
-        req: ClientRequest, traces: List[Trace], timeout: aiohttp.ClientTimeout
+        req: ClientRequest, traces: list[Trace], timeout: aiohttp.ClientTimeout
     ) -> Connection:
         conn = await original_connect(req, traces, timeout)
         connections.append(conn)
@@ -744,13 +743,25 @@ async def test_cookie_jar_usage(loop: Any, aiohttp_client: Any) -> None:
             self._filter_cookies_mock = mock.Mock(return_value=BaseCookie())
             self._clear_mock = mock.Mock()
             self._clear_domain_mock = mock.Mock()
-            self._items: List[Any] = []
+            self._items: list[Any] = []
+
+        @property
+        def unsafe(self) -> bool:
+            return False
 
         @property
         def quote_cookie(self) -> bool:
             return True
 
-        def clear(self, predicate: Optional[abc.ClearCookiePredicate] = None) -> None:
+        @property
+        def cookies(self) -> MappingProxyType[tuple[str, str], SimpleCookie]:
+            return MappingProxyType({})
+
+        @property
+        def host_only_cookies(self) -> frozenset[tuple[str, str]]:
+            return frozenset()
+
+        def clear(self, predicate: abc.ClearCookiePredicate | None = None) -> None:
             self._clear_mock(predicate)
 
         def clear_domain(self, domain: str) -> None:
@@ -771,6 +782,9 @@ async def test_cookie_jar_usage(loop: Any, aiohttp_client: Any) -> None:
     jar = MockCookieJar()
 
     assert jar.quote_cookie is True
+    assert jar.unsafe is False
+    assert jar.cookies == MappingProxyType({})
+    assert jar.host_only_cookies == frozenset()
     assert len(jar) == 0
     assert list(jar) == []
     jar.clear()
@@ -827,6 +841,27 @@ async def test_cookies_with_not_quoted_cookie_jar(
     assert resp.request_info.headers.get("Cookie", "") == "name=val=foobar"
 
 
+async def test_cookies_with_unsafe_cookie_jar(
+    aiohttp_server: AiohttpServer,
+) -> None:
+    async def handler(request: web.Request) -> web.Response:
+        return web.Response()
+
+    app = web.Application()
+    app.router.add_route("GET", "/", handler)
+    server = await aiohttp_server(app)
+    jar = CookieJar(unsafe=True)
+    # Use an IP-based URL to verify that ad-hoc cookies are sent
+    # when the session cookie jar has unsafe=True.
+    ip_url = server.make_url("/")
+    assert ip_url.host is not None
+    assert ip_url.host.count(".") == 3  # Sanity check it looks like an IP address
+    cookies = {"adhoc": "value"}
+    async with aiohttp.ClientSession(cookie_jar=jar) as sess:
+        async with sess.request("GET", ip_url, cookies=cookies) as resp:
+            assert "adhoc=value" in resp.request_info.headers.get("Cookie", "")
+
+
 async def test_session_default_version(loop: asyncio.AbstractEventLoop) -> None:
     session = aiohttp.ClientSession()
     assert session.version == aiohttp.HttpVersion11
@@ -855,7 +890,10 @@ def test_proxy_str(session, params) -> None:
     ]
 
 
-async def test_default_proxy(loop: asyncio.AbstractEventLoop) -> None:
+@pytest.mark.filterwarnings(
+    r"ignore:The 'proxy_auth' parameter is deprecated:DeprecationWarning"
+)
+async def test_default_proxy() -> None:
     proxy_url = URL("http://proxy.example.com")
     proxy_auth = mock.Mock()
     proxy_url2 = URL("http://proxy.example2.com")
@@ -1013,7 +1051,7 @@ async def test_request_tracing_url_params(loop: Any, aiohttp_client: Any) -> Non
         for m in mocks:
             m.reset_mock()
 
-    def to_trace_urls(mock_func: mock.Mock) -> List[URL]:
+    def to_trace_urls(mock_func: mock.Mock) -> list[URL]:
         return [call_args[0][-1].url for call_args in mock_func.call_args_list]
 
     def to_url(path: str) -> URL:
@@ -1387,6 +1425,10 @@ async def test_netrc_auth_from_home_directory(auth_server: TestServer) -> None:
 
 
 @pytest.mark.usefixtures("netrc_default_contents")
+@pytest.mark.filterwarnings(
+    r"ignore:The 'auth' parameter is deprecated:DeprecationWarning",
+    r"ignore:BasicAuth is deprecated:DeprecationWarning",
+)
 async def test_netrc_auth_overridden_by_explicit_auth(auth_server: TestServer) -> None:
     """Test that explicit auth parameter overrides netrc authentication."""
     async with (
@@ -1399,6 +1441,24 @@ async def test_netrc_auth_overridden_by_explicit_auth(auth_server: TestServer) -
         text = await resp.text()
         # Base64 encoded "explicit_user:explicit_pass" is "ZXhwbGljaXRfdXNlcjpleHBsaWNpdF9wYXNz"
         assert text == "auth:Basic ZXhwbGljaXRfdXNlcjpleHBsaWNpdF9wYXNz"
+
+
+async def test_client_session_auth_deprecated() -> None:
+    """ClientSession(auth=...) emits a DeprecationWarning."""
+    with pytest.warns(DeprecationWarning, match="'auth' parameter is deprecated"):
+        session = ClientSession(
+            auth=aiohttp.helpers._basic_auth_no_warn("user", "pass")
+        )
+    await session.close()
+
+
+async def test_client_session_proxy_auth_deprecated() -> None:
+    """ClientSession(proxy_auth=...) emits a DeprecationWarning."""
+    with pytest.warns(DeprecationWarning, match="'proxy_auth' parameter is deprecated"):
+        session = ClientSession(
+            proxy_auth=aiohttp.helpers._basic_auth_no_warn("user", "pass")
+        )
+    await session.close()
 
 
 @pytest.mark.usefixtures("netrc_other_host")

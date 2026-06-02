@@ -18,6 +18,7 @@ from .payload import (
     WorkflowContext,
 )
 from .schedule import (
+    PartialScheduleDefinition,
     ScheduleCalendar,
     ScheduleDefinition,
     ScheduleDefinitionOutput,
@@ -51,6 +52,7 @@ __all__ = [
     "NetworkEncodedBase",
     "NetworkEncodedInput",
     "NetworkEncodedResult",
+    "PartialScheduleDefinition",
     "PayloadMetadataKeys",
     "PayloadWithContext",
     "QueryDefinition",

@@ -65,6 +65,10 @@ def _kde_config_candidates() -> list[Path]:
             home / "Library" / "Application Support" / "kdeconnect",
         ]
     elif sys.platform == "win32":
+        local_appdata = os.environ.get("LOCALAPPDATA")
+        if local_appdata:
+            # Microsoft Store package candidate
+            paths.append(Path(local_appdata) / "Packages" / "KDEe.V.KDEConnect_7vt06qxq7ptv8" / "LocalCache" / "Local" / "kdeconnect")
         for env in ("LOCALAPPDATA", "APPDATA"):
             base = os.environ.get(env)
             if base:
@@ -333,6 +337,34 @@ def _recv_packet(sock, buf: bytearray) -> dict | None:
         return None
 
 
+def _recv_packet_raw_exact(sock) -> dict | None:
+    """Read a JSON packet from a raw socket up to exactly the newline character.
+
+    This avoids reading any subsequent bytes (e.g. the TLS ClientHello) into a
+    local buffer, which would cause the SSL wrap_socket handshake to fail.
+    """
+    buf = bytearray()
+    while b"\n" not in buf:
+        try:
+            chunk = sock.recv(1)
+        except OSError as exc:
+            if getattr(exc, "errno", None) in (57, 32):
+                if not buf: return None
+                break
+            raise
+        if not chunk:
+            if not buf: return None
+            break
+        buf.extend(chunk)
+    if b"\n" not in buf:
+        return None
+    line, _, _ = bytes(buf).partition(b"\n")
+    try:
+        return json.loads(line.decode("utf-8"))
+    except Exception:
+        return None
+
+
 # ── Daemon lifecycle ──────────────────────────────────────────────────────
 
 _DAEMON_NAMES = (
@@ -480,6 +512,8 @@ def _free_port_1716() -> int:
 
     killed = 0
     for pid in pids:
+        if pid == os.getpid():
+            continue
         try:
             if sys.platform == "win32":
                 subprocess.run(
@@ -510,11 +544,12 @@ def _stop_os_daemon() -> bool:
     """
     try:
         if sys.platform == "win32":
-            # Pass 1: kill by image name.
-            subprocess.run(
-                ["taskkill", "/IM", "kdeconnectd.exe", "/F", "/T"],
-                capture_output=True, timeout=5,
-            )
+            # Pass 1: kill indicator and app so they don't auto-respawn the daemon
+            for proc_name in ("kdeconnect-indicator.exe", "kdeconnect-app.exe", "kdeconnectd.exe"):
+                subprocess.run(
+                    ["taskkill", "/IM", proc_name, "/F", "/T"],
+                    capture_output=True, timeout=5,
+                )
             # Pass 2: enumerate any survivors and kill by PID. Some
             # Windows builds spawn helper processes that don't go down
             # on /IM alone.
@@ -535,6 +570,20 @@ def _stop_os_daemon() -> bool:
                 logger.debug("Per-PID kill loop failed: %s", exc)
         else:
             # POSIX: pkill, then SIGKILL stragglers.
+            # 1. On Linux, try stopping via systemd user service first to prevent systemd auto-respawn
+            if sys.platform.startswith("linux"):
+                try:
+                    subprocess.run(
+                        ["systemctl", "--user", "stop", "kdeconnect"],
+                        capture_output=True, timeout=5,
+                    )
+                    subprocess.run(
+                        ["systemctl", "--user", "stop", "kdeconnect-app"],
+                        capture_output=True, timeout=5,
+                    )
+                except Exception:
+                    pass
+
             subprocess.run(
                 ["pkill", "-x", "kdeconnectd"],
                 capture_output=True, timeout=5,
@@ -560,6 +609,36 @@ def _stop_os_daemon() -> bool:
 
 def _start_os_daemon() -> None:
     """Restart kdeconnectd in the background (used on shutdown)."""
+    # 1. On Linux, try starting via systemd user service first if enabled
+    if sys.platform.startswith("linux"):
+        try:
+            r = subprocess.run(
+                ["systemctl", "--user", "is-enabled", "kdeconnect"],
+                capture_output=True, text=True, timeout=3,
+            )
+            if r.returncode == 0:
+                subprocess.run(
+                    ["systemctl", "--user", "start", "kdeconnect"],
+                    capture_output=True, timeout=5,
+                )
+                return
+        except Exception:
+            pass
+
+        try:
+            r = subprocess.run(
+                ["systemctl", "--user", "is-enabled", "kdeconnect-app"],
+                capture_output=True, text=True, timeout=3,
+            )
+            if r.returncode == 0:
+                subprocess.run(
+                    ["systemctl", "--user", "start", "kdeconnect-app"],
+                    capture_output=True, timeout=5,
+                )
+                return
+        except Exception:
+            pass
+
     daemon = _find_kdeconnectd()
     if not daemon:
         logger.info("kdeconnectd not found on this machine — nothing to restart.")
@@ -589,6 +668,41 @@ def _start_os_daemon() -> None:
             )
     except Exception as exc:
         logger.warning("Couldn't restart kdeconnectd: %s", exc)
+
+
+def _load_trusted_certs_into_context(ctx: ssl.SSLContext) -> bool:
+    """Load all trusted client certificates from the config directory as trusted CAs.
+
+    This allows mutual TLS verification (ssl.CERT_REQUIRED) to succeed with self-signed
+    pinned client certificates.
+    """
+    try:
+        import configparser
+        trusted_path = OS_KDC_DIR / "trusted_devices"
+        if not trusted_path.exists():
+            return False
+        
+        parser = configparser.ConfigParser()
+        parser.read(trusted_path, encoding="utf-8")
+        pems = []
+        for section in parser.sections():
+            if parser.has_option(section, "certificate"):
+                val = parser.get(section, "certificate").strip('"').replace(r"\n", "\n")
+                if "-----BEGIN CERTIFICATE-----" in val:
+                    pems.append(val)
+        
+        if not pems:
+            return False
+            
+        cadata = "\n".join(pems)
+        ctx.load_verify_locations(cadata=cadata)
+        if hasattr(ssl, "VERIFY_X509_STRICT"):
+            ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
+        ctx.verify_mode = ssl.CERT_REQUIRED
+        return True
+    except Exception as exc:
+        logger.warning("Failed to load trusted client certificates: %s", exc)
+    return False
 
 
 # ── Listener ──────────────────────────────────────────────────────────────
@@ -899,8 +1013,7 @@ class KDEConnectInboundListener:
                 return
 
             # Plain text path: peer sends identity unencrypted first
-            buf = bytearray()
-            peer_pkt = _recv_packet(sock, buf)
+            peer_pkt = _recv_packet_raw_exact(sock)
             if not peer_pkt or peer_pkt.get("type") != "kdeconnect.identity":
                 sock.close(); return
             body = peer_pkt.get("body", {}) or {}
@@ -914,18 +1027,10 @@ class KDEConnectInboundListener:
             except OSError:
                 sock.close(); return
 
-            # TCP-server-side: TLS server. CERT_NONE because Android KDE
-            # Connect uses self-signed certs and pins peers by SHA256
-            # fingerprint out-of-band (during pairing), not via CA chain.
-            # CERT_OPTIONAL was the previous setting and silently rejected
-            # every real phone with CERTIFICATE_VERIFY_FAILED — Python's
-            # CERT_OPTIONAL tries to verify against the system trust
-            # store, which never contains a phone's self-signed cert.
-            # That single bug was the root cause of inbound SMS never
-            # arriving at SAGE on the user's machine.
             ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
             ctx.load_cert_chain(certfile=str(self._cert), keyfile=str(self._key))
-            ctx.verify_mode = ssl.CERT_NONE
+            if not _load_trusted_certs_into_context(ctx):
+                ctx.verify_mode = ssl.CERT_NONE
             ctx.minimum_version = ssl.TLSVersion.TLSv1_2
             try:
                 tls = ctx.wrap_socket(sock, server_side=True,
@@ -942,12 +1047,10 @@ class KDEConnectInboundListener:
 
     def _handle_tls_first_inbound(self, sock: socket.socket, addr) -> None:
         """Paired Pixel reconnect: it sends TLS ClientHello immediately."""
-        # CERT_NONE: see comment in _handle_inbound_tcp above. The phone's
-        # self-signed cert can't be verified via CA chain; KDE Connect's
-        # trust model is fingerprint-pinning at pair time.
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         ctx.load_cert_chain(certfile=str(self._cert), keyfile=str(self._key))
-        ctx.verify_mode = ssl.CERT_NONE
+        if not _load_trusted_certs_into_context(ctx):
+            ctx.verify_mode = ssl.CERT_NONE
         ctx.minimum_version = ssl.TLSVersion.TLSv1_2
 
         try:
@@ -1119,8 +1222,7 @@ class KDEConnectInboundListener:
         # Identity exchange: TCP CLIENT (us) sends first
         try:
             _send_packet(sock, _identity_packet(self._device_id, self._actual_name, KDC_PORT))
-            buf = bytearray()
-            peer_pkt = _recv_packet(sock, buf)
+            peer_pkt = _recv_packet_raw_exact(sock)
         except Exception as exc:
             logger.warning("Identity exchange with %s failed: %s", peer_name, exc)
             sock.close()

@@ -512,15 +512,23 @@ pub(super) fn build_diagonal_penalty_from_kronecker(
     let mut diag = Array1::<f64>::zeros(p);
     let mut positive_indices = Vec::new();
 
+    const KRONECKER_STRUCTURAL_ZERO_TOL: f64 = 1e-12;
     let mut multi_idx = vec![0usize; d];
     let mut flat = 0usize;
     loop {
-        let mut sigma = kron_result.penalty_shrinkage_ridge;
+        let mut sigma = 0.0;
+        let mut structural_sigma = 0.0;
         for k in 0..d {
-            sigma += lambdas[k] * kron_result.marginal_eigenvalues[k][multi_idx[k]];
+            let marginal_eigenvalue = kron_result.marginal_eigenvalues[k][multi_idx[k]];
+            structural_sigma += marginal_eigenvalue;
+            sigma += lambdas[k] * marginal_eigenvalue;
         }
         if kron_result.has_double_penalty && lambdas.len() > d {
+            structural_sigma += 1.0;
             sigma += lambdas[d];
+        }
+        if structural_sigma > KRONECKER_STRUCTURAL_ZERO_TOL {
+            sigma += kron_result.penalty_shrinkage_ridge;
         }
         diag[flat] = sigma;
         if sigma > 0.0 {
@@ -958,7 +966,25 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
         return result;
     }
 
-    if matches!(link_function, LinkFunction::Identity) {
+    if matches!(link_function, LinkFunction::Identity) && linear_constraints.is_none() {
+        // Gaussian-Identity zero-iteration exact solve. The unconstrained
+        // penalized least-squares system is linear, so for an identity link a
+        // single solve is the exact minimizer and no PIRLS iteration is needed.
+        //
+        // This shortcut is only valid in the *unconstrained* convex program.
+        // When shape/box/linear inequality constraints are present (e.g. a
+        // `shape=monotone_increasing` smooth, whose cumulative-sum box-reparam
+        // bounds `γ_j ≥ 0` are folded into `linear_constraints` above), the
+        // minimizer is the solution of an inequality-constrained QP, not the
+        // plain normal-equations solve. Taking this branch then returns the
+        // unconstrained β, which generically violates the constraints and is
+        // rejected by the REML startup KKT gate (`enforce_constraint_kkt`),
+        // aborting the whole fit. Gating on `linear_constraints.is_none()`
+        // routes every constrained Identity fit to the iterative loop below,
+        // which builds a feasible initial point and solves the exact QP via
+        // the active-set solver — mirroring the gate already enforced on the
+        // GPU Gaussian-PLS path in `try_gaussian_pls_gpu`.
+        //
         // Apply the Gaussian-Identity fixed-data cache only when every
         // precondition for the short-circuit's exact reuse holds: the family
         // really is Gaussian (z = y), there is no Firth bias-reduction term,

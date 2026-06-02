@@ -151,6 +151,7 @@ from ..runtime.false_positive_rules import (
 )
 from ..runtime.package_intent import build_package_request_artifact, extract_package_intent_request
 from ..runtime.runner import (
+    GuardSyncAuthorizationExpiredError,
     GuardSyncNotConfiguredError,
     extract_prompt_requests,
     guard_run,
@@ -192,6 +193,7 @@ from .connect_flow import (
     DEFAULT_GUARD_CONNECT_URL,
     DEFAULT_GUARD_SYNC_URL,
     build_connect_status_payload,
+    run_guard_browser_connect_command,
     run_guard_device_connect_command,
 )
 from .docs import build_install_connect_docs_payload
@@ -850,6 +852,12 @@ def _configure_guard_parser(guard_parser: argparse.ArgumentParser) -> None:
     connect_parser.add_argument("--connect-url", default=DEFAULT_GUARD_CONNECT_URL, type=_guard_http_url)
     connect_parser.add_argument("--wait-timeout-seconds", type=int, default=180)
     connect_parser.add_argument("--headless", action="store_true")
+    connect_parser.add_argument(
+        "--no-browser",
+        action="store_true",
+        dest="headless",
+        help="Alias for --headless. Start Device Code approval without opening a browser.",
+    )
     connect_parser.add_argument("--json", action="store_true")
 
     sync_parser = guard_subparsers.add_parser("sync", help="Sync receipts to the configured Guard endpoint")
@@ -931,7 +939,7 @@ def _configure_guard_parser(guard_parser: argparse.ArgumentParser) -> None:
 
     service_login_parser = service_subparsers.add_parser(
         "login",
-        help="Save a hosted-runtime Guard Cloud token and runtime profile",
+        help="Redirect to `hol-guard connect`; pasted hosted-runtime tokens are retired",
     )
     _add_guard_common_args(service_login_parser)
     service_login_parser.add_argument("--runtime", choices=_SERVICE_RUNTIME_CHOICES, required=True)
@@ -2140,10 +2148,15 @@ def run_guard_command(
         if adv_sub == "sync":
             try:
                 payload = _validated_supply_chain_sync_payload(sync_supply_chain_bundle(store))
-            except GuardSyncNotConfiguredError:
+            except GuardSyncNotConfiguredError as error:
+                status = (
+                    "auth_expired"
+                    if isinstance(error, GuardSyncAuthorizationExpiredError)
+                    else "no_cloud_sync_configured"
+                )
                 _emit(
                     "advisories_sync",
-                    {"generated_at": _now(), "status": "no_cloud_sync_configured"},
+                    {"generated_at": _now(), "status": status, "error": _guard_sync_failure_message(error)},
                     getattr(args, "json", False),
                 )
             except RuntimeError as error:
@@ -2319,6 +2332,7 @@ def run_guard_command(
             store=store,
             connect_url=args.connect_url,
             open_browser=True,
+            wait_timeout_seconds=int(getattr(args, "wait_timeout_seconds", 180) or 180),
         )
         if payload is None:
             return exit_code
@@ -2341,6 +2355,7 @@ def run_guard_command(
                 store=store,
                 connect_url=args.connect_url,
                 open_browser=True,
+                wait_timeout_seconds=int(getattr(args, "wait_timeout_seconds", 180) or 180),
             )
             if payload is None:
                 return exit_code
@@ -2351,6 +2366,10 @@ def run_guard_command(
                 store=store,
                 connect_url=args.connect_url,
                 open_browser=False,
+                wait_timeout_seconds=int(getattr(args, "wait_timeout_seconds", 180) or 180),
+                announce_copy=None
+                if getattr(args, "json", False)
+                else _announce_guard_device_connect_copy,
             )
             if payload is None:
                 return exit_code
@@ -2383,8 +2402,8 @@ def run_guard_command(
     if args.guard_command == "sync":
         try:
             payload = sync_receipts(store)
-        except GuardSyncNotConfiguredError:
-            message = _guard_sync_prerequisite_message()
+        except GuardSyncNotConfiguredError as error:
+            message = _guard_sync_failure_message(error)
             if getattr(args, "json", False):
                 _emit("sync", {"synced": False, "error": message}, True)
             else:
@@ -2404,8 +2423,8 @@ def run_guard_command(
         if cloud_command == "sync-intel":
             try:
                 payload = _validated_supply_chain_sync_payload(sync_supply_chain_bundle(store))
-            except GuardSyncNotConfiguredError:
-                message = _guard_sync_prerequisite_message()
+            except GuardSyncNotConfiguredError as error:
+                message = _guard_sync_failure_message(error)
                 if getattr(args, "json", False):
                     _emit("cloud-sync-intel", {"synced": False, "error": message}, True)
                 else:
@@ -2457,8 +2476,8 @@ def run_guard_command(
         if supply_chain_command == "sync":
             try:
                 payload = _validated_supply_chain_sync_payload(sync_supply_chain_bundle(store))
-            except GuardSyncNotConfiguredError:
-                message = _guard_sync_prerequisite_message()
+            except GuardSyncNotConfiguredError as error:
+                message = _guard_sync_failure_message(error)
                 if getattr(args, "json", False):
                     _emit("supply-chain-sync", {"synced": False, "error": message}, True)
                 else:
@@ -2496,7 +2515,7 @@ def run_guard_command(
                 payload = _guard_service_sync_payload(store)
             except (GuardSyncNotConfiguredError, RuntimeError) as error:
                 message = (
-                    _guard_service_sync_prerequisite_message()
+                    _guard_service_sync_failure_message(error)
                     if isinstance(error, GuardSyncNotConfiguredError)
                     else str(error)
                 )
@@ -6639,7 +6658,7 @@ _CODEX_GIT_GLOBAL_VALUE_FLAGS = frozenset(
 )
 _CODEX_SOURCE_SEARCH_PREFIXES = tuple(f"{part}/" for part in sorted(SOURCE_INSPECTION_PARTS))
 _CODEX_SOURCE_SEARCH_EXTENSIONS = SOURCE_INSPECTION_EXTENSIONS
-_CODEX_BENIGN_SOURCE_DOTFILES = SOURCE_INSPECTION_BENIGN_DOTFILES
+_CODEX_BENIGN_SOURCE_DOTFILES = SOURCE_INSPECTION_BENIGN_DOTFILES | frozenset({".worktrees"})
 _CODEX_BENIGN_SECRET_FIXTURE_ASSIGNMENT_PATTERN = re.compile(
     r"""(?ix)
     \s*
@@ -6866,10 +6885,17 @@ def _codex_command_is_read_only_source_inspection(
         return False
     chained_segments = _split_codex_safe_read_only_chain(command)
     if chained_segments is not None:
-        return all(
-            _codex_command_is_read_only_source_inspection(segment, cwd=cwd, home_dir=home_dir)
-            for segment in chained_segments
-        )
+        current_cwd = cwd
+        saw_source_inspection = False
+        for segment in chained_segments:
+            cd_cwd = _codex_safe_source_cd_cwd(segment, cwd=current_cwd, home_dir=home_dir)
+            if cd_cwd is not None:
+                current_cwd = cd_cwd
+                continue
+            if not _codex_command_is_read_only_source_inspection(segment, cwd=current_cwd, home_dir=home_dir):
+                return False
+            saw_source_inspection = True
+        return saw_source_inspection
     segments = _split_codex_safe_read_only_pipeline(command)
     if segments is None:
         return _codex_command_is_read_only_source_search(
@@ -6886,6 +6912,27 @@ def _codex_command_is_read_only_source_inspection(
     ):
         return False
     return all(_codex_command_is_bounded_read_only_filter(segment) for segment in filter_segments)
+
+
+def _codex_safe_source_cd_cwd(command_text: str, *, cwd: Path | None, home_dir: Path | None) -> Path | None:
+    try:
+        parts = shlex.split(command_text)
+    except ValueError:
+        return None
+    if len(parts) != 2 or parts[0] != "cd":
+        return None
+    base_dir = (cwd or Path.cwd()).resolve()
+    target = _codex_resolve_source_like_path(parts[1], cwd=cwd, home_dir=home_dir)
+    if target is None or not target.exists() or not target.is_dir():
+        return None
+    target = target.resolve()
+    try:
+        target.relative_to(base_dir)
+    except ValueError:
+        return None
+    if _path_contains_symlink(target, base_dir=base_dir):
+        return None
+    return target
 
 
 def _split_codex_safe_read_only_chain(command: str) -> list[str] | None:
@@ -7960,16 +8007,15 @@ def _codex_search_target_is_source_like(target: str, *, cwd: Path | None, home_d
         return False
     if target_is_known_skill_doc_path(stripped, home_dir=home_dir):
         return True
-    if stripped.startswith("~"):
-        return False
     if any(char in stripped for char in ("*", "?", "{", "}")):
         return False
-    target_path = Path(stripped)
     base_dir = (cwd or Path.cwd()).resolve()
+    target_path = _codex_resolve_source_like_path(stripped, cwd=base_dir, home_dir=home_dir)
+    if target_path is None:
+        return False
     if target_path.is_absolute():
-        unresolved_candidate = target_path
         try:
-            candidate = unresolved_candidate.resolve(strict=False)
+            candidate = target_path.resolve(strict=False)
             relative_candidate = candidate.relative_to(base_dir)
         except (RuntimeError, ValueError):
             return False
@@ -8005,9 +8051,29 @@ def _codex_search_target_is_source_like(target: str, *, cwd: Path | None, home_d
         return True
     if any(normalized.startswith(prefix) for prefix in _CODEX_SOURCE_SEARCH_PREFIXES):
         return True
+    if any(part in SOURCE_INSPECTION_PARTS for part in lowered_parts):
+        return True
     if Path(stripped).name.lower() in _CODEX_BENIGN_SOURCE_DOTFILES:
         return True
     return Path(stripped).suffix.lower() in _CODEX_SOURCE_SEARCH_EXTENSIONS
+
+
+def _codex_resolve_source_like_path(target: str, *, cwd: Path | None, home_dir: Path | None) -> Path | None:
+    stripped = target.strip().strip("'\"")
+    if not stripped:
+        return None
+    if stripped.startswith("~"):
+        if home_dir is None:
+            return None
+        if stripped == "~":
+            return home_dir.resolve()
+        if not stripped.startswith("~/"):
+            return None
+        return (home_dir / stripped[2:]).resolve(strict=False)
+    target_path = Path(stripped)
+    if target_path.is_absolute():
+        return target_path
+    return (cwd or Path.cwd()).resolve() / target_path
 
 
 def _codex_absolute_search_target_is_source_like(target_path: Path) -> bool:
@@ -8750,8 +8816,26 @@ def _run_guard_device_connect_flow(
     *,
     store: GuardStore,
     connect_url: str,
+    announce_copy=None,
 ) -> dict[str, object]:
-    return run_guard_device_connect_command(store=store, connect_url=connect_url)
+    return run_guard_device_connect_command(
+        store=store,
+        connect_url=connect_url,
+        announce_copy=announce_copy,
+    )
+
+
+def _run_guard_browser_connect_flow(
+    *,
+    store: GuardStore,
+    connect_url: str,
+    wait_timeout_seconds: int,
+) -> dict[str, object]:
+    return run_guard_browser_connect_command(
+        store=store,
+        connect_url=connect_url,
+        wait_timeout_seconds=wait_timeout_seconds,
+    )
 
 
 def _build_guard_device_connect_payload(
@@ -8759,19 +8843,33 @@ def _build_guard_device_connect_payload(
     store: GuardStore,
     connect_url: str,
     open_browser: bool,
+    wait_timeout_seconds: int = 180,
+    announce_copy=None,
 ) -> tuple[dict[str, object] | None, int]:
     try:
-        payload = _run_guard_device_connect_flow(store=store, connect_url=connect_url)
+        payload = (
+            _run_guard_browser_connect_flow(
+                store=store,
+                connect_url=connect_url,
+                wait_timeout_seconds=wait_timeout_seconds,
+            )
+            if open_browser
+            else _run_guard_device_connect_flow(
+                store=store,
+                connect_url=connect_url,
+                announce_copy=announce_copy,
+            )
+        )
     except json.JSONDecodeError as error:
-        print(f"Guard Device Code authorization failed: {error}", file=sys.stderr)
+        print(f"Guard authorization failed: {error}", file=sys.stderr)
         return None, 1
     except ValueError as error:
         print(str(error), file=sys.stderr)
         return None, 2
-    except (RuntimeError, urllib.error.URLError, http.client.HTTPException) as error:
-        print(f"Guard Device Code authorization failed: {error}", file=sys.stderr)
+    except (RuntimeError, TimeoutError, urllib.error.URLError, http.client.HTTPException) as error:
+        print(f"Guard authorization failed: {error}", file=sys.stderr)
         return None, 1
-    if open_browser:
+    if open_browser and str(payload.get("connect_mode") or "") == "device_code":
         _open_guard_device_next_action(payload)
     return payload, 0
 
@@ -8785,6 +8883,19 @@ def _open_guard_device_next_action(payload: dict[str, object]) -> None:
         payload["browser_opened"] = bool(webbrowser.open(target))
 
 
+def _announce_guard_device_connect_copy(payload: dict[str, object]) -> None:
+    user_code = _optional_string(payload.get("user_code")) or "unknown"
+    target = _optional_string(payload.get("verification_uri_complete")) or _optional_string(
+        payload.get("verification_uri")
+    )
+    if target is None:
+        return
+    print("HOL Guard headless approval")
+    print(f"1. Open {target}")
+    print(f"2. Enter code {user_code}")
+    print("3. Keep this terminal open while HOL Guard waits for approval.")
+
+
 def _manual_guard_login_payload(
     *,
     args: argparse.Namespace,
@@ -8794,7 +8905,7 @@ def _manual_guard_login_payload(
     if manual_token is None:
         return None
     print(
-        "Raw Guard tokens are no longer accepted. Run `hol-guard connect` to sign in with OAuth Device Code.",
+        "Manual token login is retired. Run `hol-guard connect` to sign in with OAuth Device Code.",
         file=sys.stderr,
     )
     return None, 2
@@ -8839,15 +8950,14 @@ def _guard_service_login_payload(
 ) -> tuple[dict[str, object], int]:
     runtime = str(args.runtime)
     label = str(args.label).strip()
-    workspace = _optional_string(args.workspace) or ""
+    workspace = _optional_string(getattr(args, "workspace", None)) or ""
     if getattr(args, "token", None) is not None:
         return {
             "logged_in": False,
-            "error": "Raw hosted-runtime Guard tokens are no longer accepted.",
-            "next_action": {
-                "command": "hol-guard connect --headless",
-                "message": "Use OAuth Device Code to connect headless or hosted runtimes.",
-            },
+            "error": (
+                "Hosted runtime token login is retired. "
+                "Run `hol-guard connect --headless` or `hol-guard connect` instead."
+            ),
             "service": {
                 "runtime": runtime,
                 "label": label,
@@ -8869,10 +8979,13 @@ def _guard_service_login_payload(
 
 
 def _guard_service_sync_prerequisite_message() -> str:
-    return (
-        "Hosted Guard runtime is not configured yet. Run `hol-guard connect --headless` "
-        "to approve this runtime with OAuth Device Code first."
-    )
+    return "Hosted Guard runtime is not configured yet. Run `hol-guard connect` first."
+
+
+def _guard_service_sync_failure_message(error: GuardSyncNotConfiguredError) -> str:
+    if isinstance(error, GuardSyncAuthorizationExpiredError):
+        return str(error)
+    return _guard_service_sync_prerequisite_message()
 
 
 def _guard_service_status_payload(store: GuardStore) -> dict[str, object]:
@@ -8937,6 +9050,12 @@ def _guard_sync_prerequisite_message() -> str:
         "Guard Cloud is not connected yet. Run `hol-guard connect` to sign in and pair this machine, "
         "or use `hol-guard login` as a compatibility alias for the same browser flow."
     )
+
+
+def _guard_sync_failure_message(error: GuardSyncNotConfiguredError) -> str:
+    if isinstance(error, GuardSyncAuthorizationExpiredError):
+        return str(error)
+    return _guard_sync_prerequisite_message()
 
 
 def _build_abom_payload(store: GuardStore) -> dict[str, object]:

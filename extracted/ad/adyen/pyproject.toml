@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "Adyen"
-version = "15.0.1"
+version = "15.0.2"
 description = "Adyen Python Api"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -15,7 +15,6 @@ maintainers = [
     {name = "Adyen", email = "support@adyen.com"},
 ]
 keywords = ["payments", "adyen", "fintech"]
-dependencies = ["pydantic>=2.0"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",

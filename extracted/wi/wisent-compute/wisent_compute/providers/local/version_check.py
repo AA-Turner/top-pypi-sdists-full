@@ -19,7 +19,7 @@ import time
 import urllib.request
 from importlib.metadata import PackageNotFoundError, version as _local_version
 
-_PACKAGES = ("wisent-compute", "wisent", "wisent-tools")
+_PACKAGES = ("wisent-compute", "wisent", "wisent-tools", "wisent-extractors")
 _CACHE: dict[str, tuple[float, str]] = {}
 # Lower than the previous 300s so a freshly-published wheel reaches
 # running agents within a single agent-loop iteration's network round

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: async-substrate-interface
-Version: 2.0.4
+Version: 2.1.0
 Summary: Asyncio library for interacting with substrate. Mostly API-compatible with py-substrate-interface
 Author: Opentensor Foundation
 Author-email: BD Himes <b@latent.to>
@@ -213,6 +213,29 @@ For instructions on setting up GPG key signing,
 see [GitHub's documentation on signing commits](https://docs.github.com/en/authentication/managing-commit-signature-verification/signing-commits).
 
 > **Note:** Pull requests containing unsigned commits will not be merged.
+
+## Cyscale Installation Issue
+
+Because cyscale uses the same namespace as py-scale-codec (scalecodec), there can be some difficulties with
+upgrades.
+
+First try the basic
+
+```shell
+pip uninstall scalecodec cyscale -y
+pip install -U cyscale --force-reinstall
+```
+
+If this does not work, it usually means you have other dependent packages (usually bittensor and/or bittensor-cli).
+Reinstalling these should resolve your issues:
+
+```shell
+pip uninstall scalecodec cyscale bittensor bittensor-cli -y
+# only one of the following is required
+pip install -U bittensor[cli] --force-reinstall  # for both bittensor SDK and CLI
+pip install -U bittensor-cli --force-reinstall   # for just bittensor CLI (btcli)
+pip install -U bittensor --force-reinstall       # for just bittensor SDK
+```
 
 ## License
 

@@ -1,4 +1,5 @@
 # HTTP client functional tests against aiohttp.web server
+from __future__ import annotations  # TODO(PY311): Remove
 
 import asyncio
 import datetime
@@ -14,17 +15,9 @@ import tarfile
 import time
 import zipfile
 import zlib
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import suppress
-from typing import (
-    Any,
-    AsyncIterator,
-    Awaitable,
-    Callable,
-    List,
-    NoReturn,
-    Optional,
-    Type,
-)
+from typing import Any, NoReturn
 from unittest import mock
 
 try:
@@ -33,7 +26,7 @@ try:
     except ImportError:
         import brotli
 except ImportError:
-    brotli = None  # pragma: no cover
+    brotli = None
 
 try:
     from backports.zstd import ZstdCompressor
@@ -59,9 +52,8 @@ from aiohttp.client_exceptions import (
     TooManyRedirects,
 )
 from aiohttp.client_reqrep import ClientRequest
-from aiohttp.compression_utils import DEFAULT_MAX_DECOMPRESS_SIZE
 from aiohttp.connector import Connection
-from aiohttp.http_exceptions import DecompressSizeError
+from aiohttp.helpers import DEFAULT_CHUNK_SIZE
 from aiohttp.http_writer import StreamWriter
 from aiohttp.payload import (
     AsyncIterablePayload,
@@ -74,6 +66,16 @@ from aiohttp.payload import (
 from aiohttp.pytest_plugin import AiohttpClient, AiohttpServer
 from aiohttp.test_utils import TestClient, TestServer, unused_port
 from aiohttp.typedefs import Handler
+
+pytestmark = [
+    pytest.mark.filterwarnings(r"ignore:BasicAuth is deprecated:DeprecationWarning"),
+    pytest.mark.filterwarnings(
+        r"ignore:The 'auth' parameter is deprecated:DeprecationWarning"
+    ),
+    pytest.mark.filterwarnings(
+        r"ignore:The 'proxy_auth' parameter is deprecated:DeprecationWarning"
+    ),
+]
 
 
 @pytest.fixture(autouse=True)
@@ -831,6 +833,12 @@ async def test_tcp_connector_fingerprint_ok(
     async with client.get("/") as resp:
         assert resp.status == 200
 
+    # Abort the SSL shutdown explicitly so the pooled TLS transport is
+    # released before the test loop tears down. Otherwise a slow graceful
+    # close can outlive the loop, and the teardown gc.collect() finalises
+    # the still-open socket as an unraisable ResourceWarning.
+    await connector.close(abort_ssl=True)
+
 
 async def test_tcp_connector_fingerprint_fail(
     aiohttp_server,
@@ -1151,17 +1159,17 @@ async def test_read_timeout_between_chunks(aiohttp_client, mocker) -> None:
     async def handler(request):
         resp = aiohttp.web.StreamResponse()
         await resp.prepare(request)
-        # write data 4 times, with pauses. Total time 2 seconds.
+        # write data 4 times, with pauses. Total time 0.4 seconds.
         for _ in range(4):
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.1)
             await resp.write(b"data\n")
         return resp
 
     app = web.Application()
     app.add_routes([web.get("/", handler)])
 
-    # A timeout of 0.2 seconds should apply per read.
-    timeout = aiohttp.ClientTimeout(sock_read=1)
+    # The read timeout should apply per read, not to the whole response.
+    timeout = aiohttp.ClientTimeout(sock_read=0.2)
     client = await aiohttp_client(app, timeout=timeout)
 
     res = b""
@@ -1747,7 +1755,7 @@ async def test_GET_DEFLATE(aiohttp_client: AiohttpClient) -> None:
         self: ClientRequest,
         writer: StreamWriter,
         conn: Connection,
-        content_length: Optional[int] = None,
+        content_length: int | None = None,
     ) -> None:
         nonlocal write_mock, writelines_mock
         original_write = writer._write
@@ -2252,7 +2260,28 @@ async def test_json_custom(aiohttp_client) -> None:
         await client.post("/", data="some data", json={"some": "data"})
 
 
-async def test_expect_continue(aiohttp_client) -> None:
+async def test_json_serialize_bytes(aiohttp_client: AiohttpClient) -> None:
+    """Test ClientSession.json_serialize_bytes with bytes-returning encoder."""
+
+    async def handler(request: web.Request) -> web.Response:
+        assert request.content_type == "application/json"
+        data = await request.json()
+        return web.Response(body=aiohttp.JsonPayload(data))
+
+    json_bytes_encoder = mock.Mock(side_effect=lambda x: json.dumps(x).encode("utf-8"))
+
+    app = web.Application()
+    app.router.add_post("/", handler)
+    client = await aiohttp_client(app, json_serialize_bytes=json_bytes_encoder)
+
+    async with client.post("/", json={"some": "data"}) as resp:
+        assert resp.status == 200
+        assert json_bytes_encoder.called
+        content = await resp.json()
+    assert content == {"some": "data"}
+
+
+async def test_expect_continue(aiohttp_client: AiohttpClient) -> None:
     expect_called = False
 
     async def handler(request):
@@ -2441,12 +2470,11 @@ async def test_payload_decompress_size_limit(aiohttp_client: AiohttpClient) -> N
     When a compressed payload expands beyond the configured limit,
     we raise DecompressSizeError.
     """
-    # Create a highly compressible payload that exceeds the decompression limit.
-    # 64MiB of repeated bytes compresses to ~32KB but expands beyond the
-    # 32MiB per-call limit.
-    original = b"A" * (64 * 2**20)
+    # Create a highly compressible payload.
+    payload_size = 2 * 2**20
+    original = b"A" * payload_size
     compressed = zlib.compress(original)
-    assert len(original) > DEFAULT_MAX_DECOMPRESS_SIZE
+    assert len(original) > DEFAULT_CHUNK_SIZE
 
     async def handler(request: web.Request) -> web.Response:
         # Send compressed data with Content-Encoding header
@@ -2461,11 +2489,11 @@ async def test_payload_decompress_size_limit(aiohttp_client: AiohttpClient) -> N
     async with client.get("/") as resp:
         assert resp.status == 200
 
-        with pytest.raises(aiohttp.ClientPayloadError) as exc_info:
-            await resp.read()
+        received = 0
+        async for chunk in resp.content.iter_chunked(1024):
+            received += len(chunk)
 
-        assert isinstance(exc_info.value.__cause__, DecompressSizeError)
-        assert "Decompressed data exceeds" in str(exc_info.value.__cause__)
+        assert received == payload_size
 
 
 @pytest.mark.skipif(brotli is None, reason="brotli is not installed")
@@ -2474,10 +2502,11 @@ async def test_payload_decompress_size_limit_brotli(
 ) -> None:
     """Test that brotli decompression size limit triggers DecompressSizeError."""
     assert brotli is not None
-    # Create a highly compressible payload that exceeds the decompression limit.
-    original = b"A" * (64 * 2**20)
+    # Create a highly compressible payload
+    payload_size = 2 * 2**20
+    original = b"A" * payload_size
     compressed = brotli.compress(original)
-    assert len(original) > DEFAULT_MAX_DECOMPRESS_SIZE
+    assert len(original) > DEFAULT_CHUNK_SIZE
 
     async def handler(request: web.Request) -> web.Response:
         resp = web.Response(body=compressed)
@@ -2491,11 +2520,11 @@ async def test_payload_decompress_size_limit_brotli(
     async with client.get("/") as resp:
         assert resp.status == 200
 
-        with pytest.raises(aiohttp.ClientPayloadError) as exc_info:
-            await resp.read()
+        received = 0
+        async for chunk in resp.content.iter_chunked(1024):
+            received += len(chunk)
 
-        assert isinstance(exc_info.value.__cause__, DecompressSizeError)
-        assert "Decompressed data exceeds" in str(exc_info.value.__cause__)
+        assert received == payload_size
 
 
 @pytest.mark.skipif(ZstdCompressor is None, reason="backports.zstd is not installed")
@@ -2504,11 +2533,12 @@ async def test_payload_decompress_size_limit_zstd(
 ) -> None:
     """Test that zstd decompression size limit triggers DecompressSizeError."""
     assert ZstdCompressor is not None
-    # Create a highly compressible payload that exceeds the decompression limit.
-    original = b"A" * (64 * 2**20)
+    # Create a highly compressible payload.
+    payload_size = 2 * 2**20
+    original = b"A" * payload_size
     compressor = ZstdCompressor()
     compressed = compressor.compress(original) + compressor.flush()
-    assert len(original) > DEFAULT_MAX_DECOMPRESS_SIZE
+    assert len(original) > DEFAULT_CHUNK_SIZE
 
     async def handler(request: web.Request) -> web.Response:
         resp = web.Response(body=compressed)
@@ -2522,11 +2552,11 @@ async def test_payload_decompress_size_limit_zstd(
     async with client.get("/") as resp:
         assert resp.status == 200
 
-        with pytest.raises(aiohttp.ClientPayloadError) as exc_info:
-            await resp.read()
+        received = 0
+        async for chunk in resp.content.iter_chunked(1024):
+            received += len(chunk)
 
-        assert isinstance(exc_info.value.__cause__, DecompressSizeError)
-        assert "Decompressed data exceeds" in str(exc_info.value.__cause__)
+        assert received == payload_size
 
 
 async def test_bad_payload_chunked_encoding(aiohttp_client: AiohttpClient) -> None:
@@ -2911,7 +2941,7 @@ async def test_set_cookies_max_age(aiohttp_client) -> None:
         assert 200 == resp.status
         cookie_names = {c.key for c in client.session.cookie_jar}
         assert cookie_names == {"c1", "c2", "c3"}
-        await asyncio.sleep(2)
+        await asyncio.sleep(1.1)
         cookie_names = {c.key for c in client.session.cookie_jar}
         assert cookie_names == {"c1", "c2"}
 
@@ -3366,7 +3396,7 @@ async def test_creds_in_auth_and_redirect_url(
             host: str,
             port: int = 0,
             family: socket.AddressFamily = socket.AF_INET,
-        ) -> List[ResolveResult]:
+        ) -> list[ResolveResult]:
             server = etc_hosts[(host, port)]
             assert server.port is not None
 
@@ -3564,8 +3594,20 @@ async def test_auth_persist_on_redirect_to_other_host_with_global_auth(
     async with aiohttp.ClientSession(
         connector=connector, auth=aiohttp.BasicAuth("user", "pass")
     ) as client:
-        resp = await client.get(url_from)
-        assert resp.status == 200
+        async with client.get(
+            url_from,
+            headers={
+                "Proxy-Authorization": "Basic dXNlcjpwYXNz",
+                "Cookie": "a=b",
+            },
+        ) as resp:
+            assert resp.status == 200
+        async with client.get(
+            url_from,
+            headers={"Proxy-Authorization": "Basic dXNlcjpwYXNz"},
+            cookies={"a": "b"},
+        ) as resp:
+            assert resp.status == 200
 
 
 async def test_drop_auth_on_redirect_to_other_host_with_global_auth_and_base_url(
@@ -4611,7 +4653,7 @@ async def test_rejected_upload(
     [(42, TypeError), ("InvalidUrl", InvalidURL)],
 )
 async def test_request_with_wrong_proxy(
-    aiohttp_client: AiohttpClient, value: Any, exc_type: Type[Exception]
+    aiohttp_client: AiohttpClient, value: Any, exc_type: type[Exception]
 ) -> None:
     app = web.Application()
     session = await aiohttp_client(app)
@@ -5020,7 +5062,7 @@ async def test_string_payload_redirect(aiohttp_client: AiohttpClient) -> None:
 
 
 async def test_async_iterable_payload_redirect(aiohttp_client: AiohttpClient) -> None:
-    """Test that AsyncIterablePayload cannot be reused across redirects."""
+    """Test redirecting consumed AsyncIterablePayload raises an error."""
     data_received = []
 
     async def redirect_handler(request: web.Request) -> web.Response:
@@ -5048,17 +5090,50 @@ async def test_async_iterable_payload_redirect(aiohttp_client: AiohttpClient) ->
 
     payload = AsyncIterablePayload(async_gen())
 
-    resp = await client.post("/redirect", data=payload)
-    assert resp.status == 200
-    text = await resp.text()
-    # AsyncIterablePayload is consumed after first use, so redirect gets empty body
-    assert text == "Received: "
+    with pytest.raises(
+        aiohttp.ClientPayloadError,
+        match="Cannot follow redirect with a consumed request body",
+    ):
+        await client.post("/redirect", data=payload)
 
-    # Only the first endpoint should have received data
+    # Only the first endpoint should have received data.
     expected_data = b"".join(chunks)
-    assert len(data_received) == 2
-    assert data_received[0] == ("redirect", expected_data)
-    assert data_received[1] == ("final", b"")  # Empty after being consumed
+    assert data_received == [("redirect", expected_data)]
+
+
+@pytest.mark.parametrize("status", (301, 302))
+async def test_async_iterable_payload_redirect_non_post_301_302(
+    aiohttp_client: AiohttpClient, status: int
+) -> None:
+    """Test consumed async iterable body raises on 301/302 for non-POST methods."""
+    data_received = []
+
+    async def redirect_handler(request: web.Request) -> web.Response:
+        data = await request.read()
+        data_received.append(("redirect", data))
+        return web.Response(status=status, headers={"Location": "/final_destination"})
+
+    app = web.Application()
+    app.router.add_put("/redirect", redirect_handler)
+
+    client = await aiohttp_client(app)
+
+    chunks = [b"chunk1", b"chunk2", b"chunk3"]
+
+    async def async_gen() -> AsyncIterator[bytes]:
+        for chunk in chunks:
+            yield chunk
+
+    payload = AsyncIterablePayload(async_gen())
+
+    with pytest.raises(
+        aiohttp.ClientPayloadError,
+        match="Cannot follow redirect with a consumed request body",
+    ):
+        await client.put("/redirect", data=payload)
+
+    expected_data = b"".join(chunks)
+    assert data_received == [("redirect", expected_data)]
 
 
 async def test_buffered_reader_payload_redirect(aiohttp_client: AiohttpClient) -> None:
@@ -5400,7 +5475,7 @@ async def test_amazon_like_cookie_scenario(aiohttp_client: AiohttpClient) -> Non
 
         async def resolve(
             self, host: str, port: int = 0, family: int = 0
-        ) -> List[ResolveResult]:
+        ) -> list[ResolveResult]:
             if host in ("amazon.it", "www.amazon.it"):
                 return [
                     {
@@ -5802,3 +5877,173 @@ async def test_stream_reader_total_raw_bytes(aiohttp_client: AiohttpClient) -> N
         data = await resp.content.read()
         assert resp.content.total_raw_bytes == len(data)
         assert resp.content.total_raw_bytes == int(resp.headers["Content-Length"])
+
+
+async def test_output_size_bytes(aiohttp_client: AiohttpClient) -> None:
+    async def handler(request: web.Request) -> web.Response:
+        await request.read()
+        return web.Response()
+
+    app = web.Application()
+    app.router.add_post("/", handler)
+    client = await aiohttp_client(app)
+
+    body = b"x" * 1024
+    async with client.post("/", data=body) as resp:
+        assert resp.output_size >= len(body)
+
+
+async def test_output_size_multipart(aiohttp_client: AiohttpClient) -> None:
+    async def handler(request: web.Request) -> web.Response:
+        await request.read()
+        return web.Response()
+
+    app = web.Application()
+    app.router.add_post("/", handler)
+    client = await aiohttp_client(app)
+
+    mpwriter = aiohttp.MultipartWriter("form-data")
+    mpwriter.append(b"x" * 4096)
+    mpwriter.append(b"y" * 2048)
+    expected_body_size = mpwriter.size
+    assert expected_body_size is not None
+
+    async with client.post("/", data=mpwriter) as resp:
+        assert resp.output_size >= expected_body_size
+
+
+async def test_output_size_keepalive_isolated(
+    aiohttp_client: AiohttpClient,
+) -> None:
+    """Each request on a keep-alive connection has its own counter."""
+    transports: set[object] = set()
+
+    async def handler(request: web.Request) -> web.Response:
+        transports.add(request.transport)
+        await request.read()
+        return web.Response()
+
+    app = web.Application()
+    app.router.add_post("/", handler)
+    connector = aiohttp.TCPConnector(limit=1, force_close=False)
+    client = await aiohttp_client(app, connector=connector)
+    body = b"x" * 65536
+
+    async with client.post("/", data=body) as resp1:
+        size1 = resp1.output_size
+
+    async with client.post("/", data=body) as resp2:
+        size2 = resp2.output_size
+
+    assert len(transports) == 1  # Check keep-alive worked.
+    assert size1 >= len(body)
+    assert size1 == size2
+
+
+async def test_output_size_progress(aiohttp_client: AiohttpClient) -> None:
+    """output_size advances by exactly one chunk per yield."""
+
+    async def handler(request: web.Request) -> web.StreamResponse:
+        response = web.StreamResponse()
+        await response.prepare(request)
+        # Flush headers + a chunk so resp.start() returns on the client
+        # side before we read the body.
+        await response.write(b"x")
+        await request.read()
+        return response
+
+    app = web.Application()
+    app.router.add_post("/", handler)
+    client = await aiohttp_client(app)
+
+    chunk_size = 4096
+    chunk = b"z" * chunk_size
+    num_chunks = 8
+    sample_taken = asyncio.Event()
+    next_chunk = asyncio.Event()
+
+    async def gated_body() -> AsyncIterator[bytes]:
+        for _ in range(num_chunks):
+            yield chunk
+            sample_taken.clear()
+            next_chunk.set()
+            await sample_taken.wait()
+
+    async with client.post("/", data=gated_body()) as resp:
+        samples: list[int] = []
+        for _ in range(num_chunks):
+            await next_chunk.wait()
+            next_chunk.clear()
+            samples.append(resp.output_size)
+            assert not resp.upload_complete.done()
+            sample_taken.set()
+        await resp.upload_complete
+        assert resp.upload_complete.done()
+        await resp.read()
+
+    # Each sample after the first reflects exactly one more chunk on the wire.
+    chunked_framing = len(f"{chunk_size:x}".encode()) + 4
+    deltas = [samples[i] - samples[i - 1] for i in range(1, len(samples))]
+    assert deltas == [chunk_size + chunked_framing] * (num_chunks - 1)
+
+
+async def test_output_size_get_request(aiohttp_client: AiohttpClient) -> None:
+    """GET request with no body still reports the request header byte count."""
+
+    async def handler(request: web.Request) -> web.Response:
+        return web.Response()
+
+    app = web.Application()
+    app.router.add_get("/", handler)
+    client = await aiohttp_client(app)
+
+    async with client.get("/") as resp:
+        assert resp.output_size >= 0
+
+
+async def test_output_size_writer_released(aiohttp_client: AiohttpClient) -> None:
+    """Writer is dropped once body upload completes; output_size survives."""
+
+    async def handler(request: web.Request) -> web.Response:
+        await request.read()
+        return web.Response()
+
+    app = web.Application()
+    app.router.add_post("/", handler)
+    client = await aiohttp_client(app)
+
+    body = b"x" * 1024
+    async with client.post("/", data=body) as resp:
+        await resp.read()
+        assert resp._stream_writer is None
+    assert resp.output_size >= len(body)
+
+
+async def test_upload_complete_no_body(aiohttp_client: AiohttpClient) -> None:
+    async def handler(request: web.Request) -> web.Response:
+        return web.Response()
+
+    app = web.Application()
+    app.router.add_get("/", handler)
+    client = await aiohttp_client(app)
+
+    async with client.get("/") as resp:
+        assert resp.upload_complete.done()
+
+
+async def test_upload_complete_late_access(aiohttp_client: AiohttpClient) -> None:
+    """Accessing upload_complete after the upload finished returns a done future."""
+
+    async def handler(request: web.Request) -> web.Response:
+        await request.read()
+        return web.Response()
+
+    app = web.Application()
+    app.router.add_post("/", handler)
+    client = await aiohttp_client(app)
+
+    async with client.post("/", data=b"x" * 1024) as resp:
+        await resp.read()
+        # Writer task is done; future is created lazily on this first access.
+        assert resp._upload_complete is None
+        assert resp.upload_complete.done()

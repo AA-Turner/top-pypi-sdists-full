@@ -378,8 +378,11 @@ class SportType(
             "AlpineSki",
             "BackcountrySki",
             "Badminton",
+            "Basketball",
             "Canoeing",
+            "Cricket",
             "Crossfit",
+            "Dance",
             "EBikeRide",
             "Elliptical",
             "EMountainBikeRide",
@@ -394,6 +397,8 @@ class SportType(
             "Kitesurf",
             "MountainBikeRide",
             "NordicSki",
+            "Padel",
+            "PhysicalTherapy",
             "Pickleball",
             "Pilates",
             "Racquetball",
@@ -419,6 +424,7 @@ class SportType(
             "VirtualRide",
             "VirtualRow",
             "VirtualRun",
+            "Volleyball",
             "Walk",
             "WeightTraining",
             "Wheelchair",
@@ -432,8 +438,11 @@ class SportType(
         "AlpineSki",
         "BackcountrySki",
         "Badminton",
+        "Basketball",
         "Canoeing",
+        "Cricket",
         "Crossfit",
+        "Dance",
         "EBikeRide",
         "Elliptical",
         "EMountainBikeRide",
@@ -448,6 +457,8 @@ class SportType(
         "Kitesurf",
         "MountainBikeRide",
         "NordicSki",
+        "Padel",
+        "PhysicalTherapy",
         "Pickleball",
         "Pilates",
         "Racquetball",
@@ -473,6 +484,7 @@ class SportType(
         "VirtualRide",
         "VirtualRow",
         "VirtualRun",
+        "Volleyball",
         "Walk",
         "WeightTraining",
         "Wheelchair",
@@ -545,6 +557,10 @@ class SummaryActivity(MetaActivity):
     commute: bool | None = None
     """
     Whether this activity is a commute
+    """
+    device_name: str | None = None
+    """
+    The name of the device used to record the activity
     """
     device_watts: bool | None = None
     """
@@ -939,7 +955,7 @@ class Waypoint(BaseModel):
     """
     A description of the waypoint (optional)
     """
-    distance_into_route: int | None = None
+    distance_into_route: float | None = None
     """
     The number meters along the route that the waypoint is located
     """

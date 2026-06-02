@@ -130,11 +130,11 @@
     __esExport("QuillInput", quill_1.QuillInput);
     var radio_button_group_1 = require("25e2d7c208") /* ./radio_button_group */;
     __esExport("RadioButtonGroup", radio_button_group_1.RadioButtonGroup);
-    var react_component_1 = require("d89e70455a") /* ./react_component */;
+    var react_component_1 = require("93ad10c64c") /* ./react_component */;
     __esExport("ReactComponent", react_component_1.ReactComponent);
     var reactive_html_1 = require("d5752cda5a") /* ./reactive_html */;
     __esExport("ReactiveHTML", reactive_html_1.ReactiveHTML);
-    var reactive_esm_1 = require("5cb5357866") /* ./reactive_esm */;
+    var reactive_esm_1 = require("74cc5c8ee7") /* ./reactive_esm */;
     __esExport("ReactiveESM", reactive_esm_1.ReactiveESM);
     var singleselect_1 = require("4155401209") /* ./singleselect */;
     __esExport("SingleSelect", singleselect_1.SingleSelect);
@@ -778,7 +778,7 @@
 "1f663ffe94": /* models/anywidget_component.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
-    const reactive_esm_1 = require("5cb5357866") /* ./reactive_esm */;
+    const reactive_esm_1 = require("74cc5c8ee7") /* ./reactive_esm */;
     class AnyWidgetModelAdapter {
         constructor(model) {
             this.view = null;
@@ -942,7 +942,7 @@ export default {render}`;
         _a.prototype.default_view = AnyWidgetComponentView;
     })();
 },
-"5cb5357866": /* models/reactive_esm.js */ function _(require, module, exports, __esModule, __esExport) {
+"74cc5c8ee7": /* models/reactive_esm.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b, _c;
     __esModule();
     exports.model_getter = model_getter;
@@ -966,6 +966,7 @@ export default {render}`;
     const kinds_1 = require("@bokehjs/core/kinds");
     const layout_dom_1 = require("@bokehjs/models/layouts/layout_dom");
     const types_1 = require("@bokehjs/core/util/types");
+    const ui_element_1 = require("@bokehjs/models/ui/ui_element");
     const event_to_object_1 = require("a572dba9cd") /* ./event-to-object */;
     const html_1 = require("4c04683fdc") /* ./html */;
     const layout_1 = require("dab42e6dad") /* ./layout */;
@@ -1367,11 +1368,12 @@ export default {render}`;
                 const children = (0, types_1.isArray)(child_model) ? child_model : [child_model];
                 for (const subchild of children) {
                     const view = this._child_views.get(subchild);
-                    if (!view) {
+                    if (!view || this._child_rendered.get(view)) {
                         continue;
                     }
                     const parent = view.el.parentNode;
-                    if (parent && !this._child_rendered.has(view)) {
+                    if (parent) {
+                        this._child_rendered.set(view, false);
                         this.rerender_(view);
                         this._child_rendered.set(view, true);
                     }
@@ -1381,7 +1383,7 @@ export default {render}`;
             this.after_render();
         }
         has_finished() {
-            if (!super.has_finished()) {
+            if (!ui_element_1.UIElementView.prototype.has_finished.call(this)) {
                 return false;
             }
             if (this.is_layout_root && !this._layout_computed) {
@@ -29524,7 +29526,7 @@ ${namesToRegister
         }));
     })();
 },
-"d89e70455a": /* models/react_component.js */ function _(require, module, exports, __esModule, __esExport) {
+"93ad10c64c": /* models/react_component.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
     const build_views_1 = require("@bokehjs/core/build_views");
@@ -29532,7 +29534,7 @@ ${namesToRegister
     const array_1 = require("@bokehjs/core/util/array");
     const assert_1 = require("@bokehjs/core/util/assert");
     const types_1 = require("@bokehjs/core/util/types");
-    const reactive_esm_1 = require("5cb5357866") /* ./reactive_esm */;
+    const reactive_esm_1 = require("74cc5c8ee7") /* ./reactive_esm */;
     class HostedStyleSheet extends dom_1.InlineStyleSheet {
         constructor(css, id, persistent = false, host_id = "") {
             super(css, id, persistent);
@@ -29981,6 +29983,9 @@ async function render(id) {
 
     render() {
       const child = this.state.rendered
+      if  (this.view) {
+        this.props.parent._child_rendered.set(this.view, false)
+      }
       const class_name = (this.use_shadow_dom ?
         "child-wrapper" : this.view.model.class_name.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()
       )
@@ -41368,5 +41373,5 @@ ${compiled}`;
         util_1.vtkns.FullScreenRenderWindowSynchronized = FullScreenRenderWindowSynchronized;
     }
 },
-}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"5fa2fb81b3","models/layout":"dab42e6dad","models/util":"aa07eb54cc","models/anywidget_component":"1f663ffe94","models/reactive_esm":"5cb5357866","models/event-to-object":"a572dba9cd","models/html":"4c04683fdc","styles/models/html.css":"9b8139e439","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"31556103c8","models/column":"b273e5b2fb","styles/models/card.css":"6342ac8e26","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"1bec1b1fcc","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"b90fc40725","models/data":"be689f0377","styles/models/tabulator.css":"3d732ff91f","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"d58ba73420","models/lumagl":"16d69e2b49","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"96e805ccb5","models/echarts":"ec1ecef6a0","models/feed":"f9c84aaf3d","models/file_download":"84a13dddfb","models/file_dropper":"8531319d94","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"33e664043e","styles/models/jsoneditor.css":"317a12d360","models/katex":"f672d71a9f","models/location":"9012b81346","models/mathjax":"d889a68424","models/modal":"9a342a6757","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"59dbae0a77","styles/models/plotly.css":"3d56c75186","models/progress":"b1f4d68596","models/quill":"a8f2a01dfe","models/radio_button_group":"25e2d7c208","models/react_component":"d89e70455a","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"fffb4344f7","models/terminal":"a961b5ae5e","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"22dbf7c070","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
+}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"5fa2fb81b3","models/layout":"dab42e6dad","models/util":"aa07eb54cc","models/anywidget_component":"1f663ffe94","models/reactive_esm":"74cc5c8ee7","models/event-to-object":"a572dba9cd","models/html":"4c04683fdc","styles/models/html.css":"9b8139e439","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"31556103c8","models/column":"b273e5b2fb","styles/models/card.css":"6342ac8e26","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"1bec1b1fcc","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"b90fc40725","models/data":"be689f0377","styles/models/tabulator.css":"3d732ff91f","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"d58ba73420","models/lumagl":"16d69e2b49","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"96e805ccb5","models/echarts":"ec1ecef6a0","models/feed":"f9c84aaf3d","models/file_download":"84a13dddfb","models/file_dropper":"8531319d94","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"33e664043e","styles/models/jsoneditor.css":"317a12d360","models/katex":"f672d71a9f","models/location":"9012b81346","models/mathjax":"d889a68424","models/modal":"9a342a6757","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"59dbae0a77","styles/models/plotly.css":"3d56c75186","models/progress":"b1f4d68596","models/quill":"a8f2a01dfe","models/radio_button_group":"25e2d7c208","models/react_component":"93ad10c64c","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"fffb4344f7","models/terminal":"a961b5ae5e","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"22dbf7c070","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
 //# sourceMappingURL=panel.js.map

@@ -335,19 +335,65 @@ def sms_start(
             SMS_PID_FILE.unlink(missing_ok=True)
 
     # Build re-exec command, forwarding any overrides
-    sage_bin = shutil.which("sage") or sys.executable
-    cmd: list[str] = (
-        [sage_bin, "sms", "start", "--foreground"]
-        if sage_bin != sys.executable
-        else [sys.executable, "-m", "sage", "sms", "start", "--foreground"]
-    )
+    if sys.platform == "win32":
+        cmd = [sys.executable, "-m", "sage", "sms", "start", "--foreground"]
+    else:
+        sage_bin = shutil.which("sage") or sys.executable
+        cmd = (
+            [sage_bin, "sms", "start", "--foreground"]
+            if sage_bin != sys.executable
+            else [sys.executable, "-m", "sage", "sms", "start", "--foreground"]
+        )
     if directory: cmd += ["--dir", cfg.working_dir]
     if model:     cmd += ["--model", cfg.model]
     if name:      cmd += ["--name", cfg.computer_name]
 
     SMS_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    log_fp = open(SMS_LOG_FILE, "a")
-    proc = _sp.Popen(cmd, stdout=log_fp, stderr=_sp.STDOUT, start_new_session=True)
+    if sys.platform == "win32":
+        # WMI Win32_Process.Create breaks away from any parent Job Object or console tree on Windows,
+        # ensuring the daemon survives parent CLI exit in all Windows environments.
+        # Inside the child process, self._log_fp opens SMS_LOG_FILE directly and writes all log lines.
+        quoted_args = []
+        for x in cmd:
+            if " " in x or "\\" in x or "/" in x:
+                quoted_args.append(f'"{x}"')
+            else:
+                quoted_args.append(x)
+        cmd_str = " ".join(quoted_args)
+        ps_script = (
+            f"$res = Invoke-CimMethod -ClassName Win32_Process -MethodName Create "
+            f"-Arguments @{{ CommandLine = '{cmd_str}' }}; "
+            f"if ($res.ReturnValue -eq 0) {{ echo $res.ProcessId }} else {{ exit $res.ReturnValue }}"
+        )
+        try:
+            r = _sp.run(
+                ["powershell", "-NoProfile", "-Command", ps_script],
+                capture_output=True, text=True, check=True, timeout=10
+            )
+            child_pid = None
+            for line in reversed(r.stdout.strip().splitlines()):
+                if line.strip().isdigit():
+                    child_pid = int(line.strip())
+                    break
+            if child_pid is None:
+                raise ValueError("No PID returned from WMI CreateProcess")
+            class MockProc:
+                def __init__(self, pid):
+                    self.pid = pid
+            proc = MockProc(child_pid)
+        except Exception as exc:
+            # Fallback to standard Popen if WMI fails (should not happen on modern Windows)
+            log_fp = open(SMS_LOG_FILE, "a")
+            proc = _sp.Popen(
+                cmd,
+                stdout=log_fp,
+                stderr=_sp.STDOUT,
+                creationflags=0x00000008 | 0x08000000,
+                close_fds=False,
+            )
+    else:
+        log_fp = open(SMS_LOG_FILE, "a")
+        proc = _sp.Popen(cmd, stdout=log_fp, stderr=_sp.STDOUT, start_new_session=True)
     SMS_PID_FILE.write_text(str(proc.pid))
 
     renderer.console.print("\n[bold green]✦ SAGE Message Bridge started[/bold green]")
@@ -694,22 +740,40 @@ def sms_kde_takeover() -> None:
     """
     import subprocess as _sp
     import time as _t
+    import sys
+    from sage.core.kdeconnect_listener import _stop_os_daemon
 
     renderer.console.print("\n[bold]SAGE — KDE Connect Takeover[/bold]\n")
-    # Step 1: quit KDE Connect.app
-    quit_script = 'tell application "KDE Connect" to quit'
-    try:
-        _sp.run(["osascript", "-e", quit_script],
-                capture_output=True, timeout=10)
-    except Exception as exc:
-        renderer.warning(f"Couldn't quit KDE Connect.app via AppleScript: {exc}")
-
-    # Pkill any leftover daemon (the GUI app's quit may not stop it)
-    for proc in ("kdeconnectd", "kdeconnect-app"):
+    # Quit GUI/App cleanly if possible
+    if sys.platform == "darwin":
+        quit_script = 'tell application "KDE Connect" to quit'
         try:
-            _sp.run(["pkill", "-x", proc], capture_output=True, timeout=5)
+            _sp.run(["osascript", "-e", quit_script],
+                    capture_output=True, timeout=10)
+        except Exception as exc:
+            renderer.warning(f"Couldn't quit KDE Connect.app via AppleScript: {exc}")
+        
+        # Kill GUI app if still running
+        try:
+            _sp.run(["pkill", "-x", "kdeconnect-app"], capture_output=True, timeout=5)
         except Exception:
             pass
+    elif sys.platform == "win32":
+        try:
+            _sp.run(["taskkill", "/IM", "kdeconnect-app.exe", "/F", "/T"], capture_output=True, timeout=5)
+        except Exception:
+            pass
+    else:
+        try:
+            _sp.run(["pkill", "-x", "kdeconnect-app"], capture_output=True, timeout=5)
+        except Exception:
+            pass
+
+    # Stop the daemon cross-platform
+    renderer.console.print("[dim]Stopping OS daemon…[/dim]")
+    stopped = _stop_os_daemon()
+    if not stopped:
+        renderer.warning("OS kdeconnectd could not be stopped or is still running.")
     _t.sleep(2)
 
     # Verify port 1716 is now free
@@ -722,8 +786,8 @@ def sms_kde_takeover() -> None:
     except OSError as exc:
         sock.close()
         renderer.error(
-            f"Port 1716 still in use ({exc}). Quit KDE Connect.app manually "
-            "from the menu bar, then run this command again."
+            f"Port 1716 still in use ({exc}). Quit KDE Connect manually "
+            "from the menu bar or task manager, then run this command again."
         )
         raise typer.Exit(1)
 
@@ -738,6 +802,14 @@ def sms_kde_takeover() -> None:
         renderer.error(f"Bridge restart failed: {exc}")
         raise typer.Exit(1)
 
+    revert_msg = ""
+    if sys.platform == "darwin":
+        revert_msg = "open /Applications/KDE Connect.app"
+    elif sys.platform == "win32":
+        revert_msg = "open KDE Connect from the Start Menu"
+    else:
+        revert_msg = "start KDE Connect from your applications menu"
+
     renderer.success("Bridge restarted with KDE Connect listener.")
     renderer.console.print(
         "\n[bold]Next:[/bold]\n"
@@ -745,7 +817,7 @@ def sms_kde_takeover() -> None:
         "  2. Under [bold]Available devices[/bold], tap [bold]'SAGE Bridge'[/bold].\n"
         "  3. Tap [bold]Pair[/bold] — SAGE auto-accepts on this end.\n"
         "  4. Send any text from your Android — sage will reply to your phone.\n"
-        "\n[dim]To revert: open /Applications/KDE Connect.app and restart "
+        f"\n[dim]To revert: {revert_msg} and restart "
         "the bridge.[/dim]\n"
     )
 
@@ -988,7 +1060,11 @@ def sms_diagnose() -> None:
                         if not line_str or "devices found" in line_str.lower() or " " in line_str:
                             continue
                         paired.append(line_str)
-                    line(OK, f"KDE Connect: {len(paired)} paired+reachable device(s)")
+                    if paired:
+                        line(OK, f"KDE Connect: {len(paired)} paired+reachable device(s)")
+                    else:
+                        line(WARN, f"KDE Connect: no paired+reachable device(s) online",
+                             "Open the KDE Connect GUI app on your computer and phone, and ensure they are paired on the same Wi-Fi.")
                 except Exception as exc:
                     line(WARN, f"KDE Connect probe failed: {exc}")
             else:

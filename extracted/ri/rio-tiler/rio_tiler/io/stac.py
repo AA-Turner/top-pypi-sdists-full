@@ -10,7 +10,7 @@ from typing import Any, TypedDict
 from urllib.parse import urlparse
 
 import attr
-import httpx
+import httpx2 as httpx
 import pystac
 import rasterio
 from affine import Affine
@@ -21,7 +21,7 @@ from rasterio.crs import CRS
 from rasterio.features import bounds as featureBounds
 from rasterio.transform import array_bounds, from_bounds
 
-from rio_tiler.constants import WEB_MERCATOR_TMS, WGS84_CRS
+from rio_tiler.constants import STAC_ALTERNATE_KEY, WEB_MERCATOR_TMS, WGS84_CRS
 from rio_tiler.errors import InvalidAssetName, MissingAssets
 from rio_tiler.io.base import BaseReader, MultiBaseReader
 from rio_tiler.io.rasterio import Reader
@@ -49,8 +49,6 @@ DEFAULT_VALID_TYPE = {
     "application/x-hdf5",
     "application/x-hdf",
 }
-
-STAC_ALTERNATE_KEY = os.environ.get("RIO_TILER_STAC_ALTERNATE_KEY", None)
 
 
 def aws_get_object(
@@ -181,7 +179,7 @@ def _get_assets(
         yield asset
 
 
-def _to_pystac_item(item: dict | pystac.Item | None) -> pystac.Item | None:
+def _to_pystac_item(item: dict | pystac.Item) -> pystac.Item:
     """Attr converter to convert to Dict to pystac.Item
 
     Args:

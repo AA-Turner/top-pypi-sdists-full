@@ -1,9 +1,4 @@
-"""ArchiveBox-side helpers for serving an in-browser WACZ/WARC replay viewer.
-
-This module is consulted by ``archivebox.core.views._serve_snapshot_replay``
-and ``archivebox.misc.serve_static`` via conditional imports. archivebox does
-not depend on this plugin at all — if the import fails the relevant code
-paths just fall through to default static-file serving.
+"""Helpers for serving an in-browser WACZ/WARC replay viewer.
 
 The viewer is fully hermetic: every asset (``ui.js``, ``sw.js``, the embed
 HTML, and the WACZ itself) is served from the snapshot host. We rely on the
@@ -71,7 +66,7 @@ def is_replay_target(filename_or_path: str) -> bool:
 
 def find_extension_dir(config) -> Path | None:
     """Resolve the unpacked archivewebpage chrome extension on disk."""
-    ext_root = Path(config.PERSONAS_DIR) / config.ACTIVE_PERSONA / "chrome_extensions"
+    ext_root = Path(config.CHROME_EXTENSIONS_DIR).expanduser()
     for child in ext_root.glob(f"*__{_EXTENSION_NAME}"):
         return child
     return None
@@ -120,6 +115,19 @@ def serve_replay_asset(rel_path: str, config) -> ReplayAssetResponse | None:
         # URLs once the worker activates.
         headers["Service-Worker-Allowed"] = "/"
     return body, content_type, headers
+
+
+def serve_replay_asset_response(rel_path: str, config, response_factory):
+    """Build a framework response for an archivewebpage /replay/* viewer asset."""
+    replay_asset = serve_replay_asset(rel_path, config)
+    if replay_asset is None:
+        return None
+
+    body, content_type, headers = replay_asset
+    response = response_factory(body, content_type=content_type)
+    for key, value in headers.items():
+        response.headers[key] = value
+    return response
 
 
 def _first_archived_url(wacz_path: Path) -> str:
@@ -187,6 +195,41 @@ def render_preview_html(
         .replace("{{ output_path_raw }}", html_escape(filename, quote=True))
         .replace("{{ output_path }}", html_escape(output_path, quote=True))
         .replace("{{ archived_url }}", html_escape(archived_url, quote=True))
+    )
+
+
+def render_preview_response(
+    filename: str,
+    output_path: str,
+    *,
+    wacz_path: Path | None = None,
+    fallback_url: str = "",
+    last_modified: str = "",
+    etag: str = "",
+    cache_control: str = "",
+    content_encoding: str = "",
+) -> tuple[str, str, dict[str, str]]:
+    headers = {
+        "Content-Disposition": f'inline; filename="{Path(filename).stem}.html"',
+        **preview_response_headers(),
+    }
+    if last_modified:
+        headers["Last-Modified"] = last_modified
+    if etag:
+        headers["ETag"] = etag
+    if cache_control:
+        headers["Cache-Control"] = cache_control
+    if content_encoding:
+        headers["Content-Encoding"] = content_encoding
+    return (
+        render_preview_html(
+            filename,
+            output_path,
+            wacz_path=wacz_path,
+            fallback_url=fallback_url,
+        ),
+        "text/html; charset=utf-8",
+        headers,
     )
 
 

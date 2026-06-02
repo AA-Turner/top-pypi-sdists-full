@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, NamedTuple, overload
 
 from ._binding import RustExtensionUnavailableError, extension_status, rust_module
+from ._calibrated_slope import CtnStage1, normalize_ctn_stage1
 from ._cuda import cuda_diagnostics as _cuda_diagnostics
 from ._cuda import cuda_subprocess_env as _cuda_subprocess_env
 from ._cuda import cuda_subprocess_library_dirs as _cuda_subprocess_library_dirs
@@ -220,6 +221,7 @@ def _build_fit_payload(
     offset: str | None,
     weights: str | None,
     transformation_normal: bool | None,
+    transformation_normal_stage1: Any | None = None,
     survival_likelihood: str | None,
     baseline_target: str | None,
     baseline_scale: float | None,
@@ -247,8 +249,10 @@ def _build_fit_payload(
         "offset": offset,
         "weights": weights,
     }
+    ctn_stage1_recipe = normalize_ctn_stage1(transformation_normal_stage1)
     kwarg_items: dict[str, Any] = {
         "transformation_normal": transformation_normal,
+        "ctn_stage1": ctn_stage1_recipe.to_rust_recipe() if ctn_stage1_recipe else None,
         "survival_likelihood": survival_likelihood,
         "baseline_target": baseline_target,
         "baseline_scale": baseline_scale,
@@ -745,6 +749,7 @@ def fit(
     offset: str | None = ...,
     weights: str | None = ...,
     transformation_normal: bool | None = ...,
+    transformation_normal_stage1: CtnStage1 | Mapping[str, Any] | None = ...,
     survival_likelihood: str | None = ...,
     baseline_target: str | None = ...,
     baseline_scale: float | None = ...,
@@ -783,6 +788,7 @@ def fit(
     offset: str | None = ...,
     weights: str | None = ...,
     transformation_normal: bool | None = ...,
+    transformation_normal_stage1: CtnStage1 | Mapping[str, Any] | None = ...,
     survival_likelihood: str | None = ...,
     baseline_target: str | None = ...,
     baseline_scale: float | None = ...,
@@ -820,6 +826,7 @@ def fit(
     offset: str | None = None,
     weights: str | None = None,
     transformation_normal: bool | None = None,
+    transformation_normal_stage1: CtnStage1 | Mapping[str, Any] | None = None,
     survival_likelihood: str | None = None,
     baseline_target: str | None = None,
     baseline_scale: float | None = None,
@@ -866,6 +873,21 @@ def fit(
     transformation_normal:
         Fit a conditional transformation-normal model (``h(Y|x) ~ N(0,1))``).
         Corresponds to ``--transformation-normal``.
+    transformation_normal_stage1:
+        Stage-1 CTN recipe for a *calibrated* marginal-slope chain
+        (:class:`gamfit.CtnStage1`, or a mapping of its fields). Supply it on a
+        marginal-slope model (``family="bernoulli-marginal-slope"`` or a
+        survival ``survival_likelihood="marginal-slope"``) to auto-enable the
+        cross-fitted, Neyman-orthogonal score calibration of #461: the Rust core
+        fits the CTN ``h(Y|x) ~ N(0,1)`` per fold, derives an out-of-fold latent
+        score ``z`` that replaces the in-sample one, and absorbs the Stage-1
+        score-influence directions so the fitted slope surface ``β(x)`` is
+        insensitive to Stage-1 calibration error. There is no boolean to toggle
+        orthogonalization — supplying this recipe *is* the request (magic by
+        default). Omit it (and pass a raw ``z_column`` instead) for the legacy
+        free-warp ``score_warp`` fallback. All numerics stay in Rust; this only
+        marshals the recipe. The Stage-1 ``response`` column must exist in
+        ``data`` alongside the Stage-2 response and covariates.
     survival_likelihood:
         Survival likelihood formulation. One of ``"transformation"``,
         ``"weibull"``, ``"location-scale"``, ``"marginal-slope"``,
@@ -1130,6 +1152,7 @@ def fit(
         offset=offset,
         weights=weights,
         transformation_normal=transformation_normal,
+        transformation_normal_stage1=transformation_normal_stage1,
         survival_likelihood=survival_likelihood,
         baseline_target=baseline_target,
         baseline_scale=baseline_scale,
@@ -1169,6 +1192,7 @@ def fit_array(
     offset: str | None = None,
     weights: str | None = None,
     transformation_normal: bool | None = None,
+    transformation_normal_stage1: CtnStage1 | Mapping[str, Any] | None = None,
     survival_likelihood: str | None = None,
     baseline_target: str | None = None,
     baseline_scale: float | None = None,
@@ -1215,6 +1239,7 @@ def fit_array(
         offset=offset,
         weights=weights,
         transformation_normal=transformation_normal,
+        transformation_normal_stage1=transformation_normal_stage1,
         survival_likelihood=survival_likelihood,
         baseline_target=baseline_target,
         baseline_scale=baseline_scale,
@@ -1339,6 +1364,7 @@ def validate_formula(
     offset: str | None = None,
     weights: str | None = None,
     transformation_normal: bool | None = None,
+    transformation_normal_stage1: CtnStage1 | Mapping[str, Any] | None = None,
     survival_likelihood: str | None = None,
     baseline_target: str | None = None,
     baseline_scale: float | None = None,
@@ -1375,6 +1401,7 @@ def validate_formula(
         offset=offset,
         weights=weights,
         transformation_normal=transformation_normal,
+        transformation_normal_stage1=transformation_normal_stage1,
         survival_likelihood=survival_likelihood,
         baseline_target=baseline_target,
         baseline_scale=baseline_scale,
@@ -2252,13 +2279,21 @@ def _resolve_position_basis_inputs(
     basis: str | None,
     basis_order: int | None,
     periodic: bool,
-) -> tuple[str, str, int, Any, Any, Any]:
+    period: float | None = None,
+) -> tuple[str, str, int, Any, Any, Any, float | None]:
     """Resolve the shared position-basis FFI inputs for every positions face.
 
     All four position-based Gaussian REML entrypoints (forward / backward /
     batched / batched-backward) opened with this identical preamble. Returns
-    ``(display_kind, effective_kind, order, t_np, knots_np, penalty_np)``.
+    ``(display_kind, effective_kind, order, t_np, knots_np, penalty_np,
+    eff_period)``. ``eff_period`` is the domain-wrap period the basis and penalty
+    must share: the explicit ``period`` when given, else (for periodic Duchon) a
+    value auto-derived from the resolved knots so the half-open grid wraps
+    cleanly (gam#580). The caller passes ``eff_period`` to the FFI basis build so
+    basis and penalty stay consistent.
     """
+    import numpy as np
+
     display_kind = str(
         basis if basis is not None else basis_kind if basis_kind is not None else "bspline"
     )
@@ -2271,6 +2306,20 @@ def _resolve_position_basis_inputs(
         label="knots_or_centers",
         degree=order,
     )
+    # Resolve the effective wrap period for periodic Duchon. The period is the
+    # domain wrap, not the knot span: on a half-open grid the knots span only
+    # (period − one_spacing). When the caller gives no explicit period, derive it
+    # as span + one mean knot spacing so points near the two ends are a single
+    # spacing apart across the wrap (an undersized period gave a non-PSD Gram —
+    # gam#580). Non-periodic / non-Duchon bases ignore this.
+    eff_period = period
+    kind_norm = str(display_kind).strip().lower().replace("_", "").replace("-", "")
+    if periodic and period is None and kind_norm in {"duchon", "duchonspline", "thinplate", "thinplatespline", "tps"}:
+        k = np.asarray(knots_np, dtype=float)
+        if k.size >= 2:
+            span = float(k.max() - k.min())
+            mean_spacing = span / max(k.size - 1, 1)
+            eff_period = span + mean_spacing
     # Auto-knot derivation may downgrade the degree for small n (#340); the
     # resolved knot vector is clamped for ``eff_order``, so the penalty and the
     # downstream FFI basis build must both use the effective order to stay
@@ -2281,8 +2330,9 @@ def _resolve_position_basis_inputs(
         basis_kind=display_kind,
         basis_order=eff_order,
         periodic=periodic,
+        period=eff_period,
     )
-    return display_kind, effective_kind, eff_order, t_np, knots_np, penalty_np
+    return display_kind, effective_kind, eff_order, t_np, knots_np, penalty_np, eff_period
 
 
 def gaussian_reml_fit_positions(
@@ -2310,7 +2360,7 @@ def gaussian_reml_fit_positions(
     """
     import numpy as np
 
-    display_kind, effective_kind, order, t_np, knots_np, penalty_np = (
+    display_kind, effective_kind, order, t_np, knots_np, penalty_np, eff_period = (
         _resolve_position_basis_inputs(
             t,
             basis_kind,
@@ -2319,6 +2369,7 @@ def gaussian_reml_fit_positions(
             basis=basis,
             basis_order=basis_order,
             periodic=periodic,
+            period=period,
         )
     )
     try:
@@ -2330,7 +2381,7 @@ def gaussian_reml_fit_positions(
             penalty_np,
             order,
             bool(periodic),
-            None if period is None else float(period),
+            None if eff_period is None else float(eff_period),
             None if weights is None else _numeric_vector(weights, "weights"),
             None if init_lambda is None else float(init_lambda),
             None if by is None else _numeric_vector(by, "by"),
@@ -2376,7 +2427,7 @@ def gaussian_reml_fit_positions_backward(
     ``knots_or_centers`` and ``penalty`` accept the same auto-derived
     defaults as :func:`gaussian_reml_fit_positions`.
     """
-    display_kind, effective_kind, order, t_np, knots_np, penalty_np = (
+    display_kind, effective_kind, order, t_np, knots_np, penalty_np, eff_period = (
         _resolve_position_basis_inputs(
             t,
             basis_kind,
@@ -2385,6 +2436,7 @@ def gaussian_reml_fit_positions_backward(
             basis=basis,
             basis_order=basis_order,
             periodic=periodic,
+            period=period,
         )
     )
     try:
@@ -2404,7 +2456,7 @@ def gaussian_reml_fit_positions_backward(
             forward_state,
             order,
             bool(periodic),
-            None if period is None else float(period),
+            None if eff_period is None else float(eff_period),
             None if weights is None else _numeric_vector(weights, "weights"),
             None if init_lambda is None else float(init_lambda),
             None if by is None else _numeric_vector(by, "by"),
@@ -2440,7 +2492,7 @@ def gaussian_reml_fit_positions_batched(
     """
     import numpy as np
 
-    display_kind, effective_kind, order, t_np, knots_np, penalty_np = (
+    display_kind, effective_kind, order, t_np, knots_np, penalty_np, eff_period = (
         _resolve_position_basis_inputs(
             t,
             basis_kind,
@@ -2449,6 +2501,7 @@ def gaussian_reml_fit_positions_batched(
             basis=basis,
             basis_order=basis_order,
             periodic=periodic,
+            period=period,
         )
     )
     try:
@@ -2461,7 +2514,7 @@ def gaussian_reml_fit_positions_batched(
             penalty_np,
             order,
             bool(periodic),
-            None if period is None else float(period),
+            None if eff_period is None else float(eff_period),
             None if weights is None else _numeric_vector(weights, "weights"),
             None if init_lambda is None else float(init_lambda),
             None if by is None else _numeric_vector(by, "by"),
@@ -2510,7 +2563,7 @@ def gaussian_reml_fit_positions_batched_backward(
     """
     offsets = _index_vector(row_offsets, "row_offsets")
     batch = int(offsets.size - 1)
-    display_kind, effective_kind, order, t_np, knots_np, penalty_np = (
+    display_kind, effective_kind, order, t_np, knots_np, penalty_np, eff_period = (
         _resolve_position_basis_inputs(
             t,
             basis_kind,
@@ -2519,6 +2572,7 @@ def gaussian_reml_fit_positions_batched_backward(
             basis=basis,
             basis_order=basis_order,
             periodic=periodic,
+            period=period,
         )
     )
     try:
@@ -2539,7 +2593,7 @@ def gaussian_reml_fit_positions_batched_backward(
             forward_state,
             order,
             bool(periodic),
-            None if period is None else float(period),
+            None if eff_period is None else float(eff_period),
             None if weights is None else _numeric_vector(weights, "weights"),
             None if init_lambda is None else float(init_lambda),
             None if by is None else _numeric_vector(by, "by"),
@@ -3407,7 +3461,27 @@ def _index_vector(values: Any, label: str) -> Any:
     if arr.size == 0:
         raise ValueError(f"{label} cannot be empty")
     if arr.dtype != np.dtype(np.uintp):
-        raise TypeError(f"{label} must be a numpy uintp array for zero-copy FFI")
+        # Coerce integer-valued input (torch tensor, int64/lists, integral
+        # floats) to the uintp layout the FFI needs, instead of rejecting it.
+        # This mirrors how `t`/`y` are coerced and keeps the call site
+        # symmetric (see issue gam#581).
+        kind = arr.dtype.kind
+        if kind in ("i", "u"):
+            if kind == "i" and np.any(arr < 0):
+                raise ValueError(f"{label} must be non-negative")
+        elif kind == "f":
+            if not np.all(np.isfinite(arr)):
+                raise ValueError(f"{label} must contain only finite values")
+            if np.any(arr < 0) or np.any(arr != np.floor(arr)):
+                raise TypeError(
+                    f"{label} must be integer-valued; got non-integer float entries"
+                )
+        else:
+            raise TypeError(
+                f"{label} must be an integer array (or integral numeric); "
+                f"got dtype {arr.dtype}"
+            )
+        arr = np.ascontiguousarray(arr.astype(np.uintp))
     if label == "row_offsets":
         if arr.size < 2:
             raise ValueError("row_offsets must contain at least start and stop offsets")
@@ -3612,6 +3686,7 @@ def _resolve_position_penalty(
     basis_kind: str,
     basis_order: int,
     periodic: bool,
+    period: float | None = None,
 ) -> Any:
     """Resolve the canonical single-λ penalty for position-based REML helpers.
 
@@ -3646,7 +3721,11 @@ def _resolve_position_penalty(
                     knots_or_centers,
                     m=int(basis_order),
                     periodic=bool(periodic),
-                    period=None,
+                    # Honor the explicit domain-wrap period so the periodic Gram
+                    # matches the basis (both now use the same period). Passing
+                    # None here auto-derived the center span and produced a
+                    # non-PSD penalty (gam#580).
+                    period=period,
                 )
             if penalty_kind in {"triple-operator", "tripleoperator", "operator"}:
                 raise ValueError(

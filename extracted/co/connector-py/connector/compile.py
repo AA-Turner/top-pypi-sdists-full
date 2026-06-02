@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import PyInstaller.__main__
+import tomli
 
 DEFAULT_EXCLUDE_MODULES = (
     "IPython",
@@ -25,10 +26,63 @@ DEFAULT_EXCLUDE_MODULES = (
 
 __all__ = (
     "compile_executable_for_onprem",
+    "collect_package_data_files",
     "DEFAULT_EXCLUDE_MODULES",
     "get_about_path_from_package",
     "get_version_from_package",
 )
+
+
+def collect_package_data_files(connector_root_dir: Path) -> list[tuple[Path, str]]:
+    """
+    Read ``[tool.setuptools.package-data]`` from ``connector_root_dir/pyproject.toml``
+    and return ``(absolute_source, bundle_destination)`` pairs.
+
+    The destination is package-relative (e.g. ``sap_s_4hana/instructions``) so
+    PyInstaller places each file where ``Path(__file__).parent`` expects it at
+    runtime. PyInstaller does not honor setuptools' ``package-data`` declaration on
+    its own, so we resolve it here and feed the files in via ``--add-data``.
+
+    Returns an empty list when there is no ``pyproject.toml`` or no
+    ``package-data`` table (a no-op for connectors without data files).
+    """
+    pyproject_path = connector_root_dir / "pyproject.toml"
+    if not pyproject_path.is_file():
+        return []
+
+    with pyproject_path.open("rb") as f:
+        pyproject = tomli.load(f)
+
+    package_data = pyproject.get("tool", {}).get("setuptools", {}).get("package-data", {})
+    if not package_data:
+        return []
+
+    collected: list[tuple[Path, str]] = []
+    for package, patterns in package_data.items():
+        # Skip wildcards keys since they are overly broad
+        if package in ("", "*"):
+            print(
+                f"Skipping unsupported wildcard package-data key {package!r} in "
+                f"{pyproject_path}",
+                file=sys.stderr,
+            )
+            continue
+
+        package_path = package.replace(".", "/")
+        package_dir = connector_root_dir / package_path
+        for pattern in patterns:
+            for source in sorted(package_dir.glob(pattern)):
+                if not source.is_file():
+                    continue
+                relative_parent = source.relative_to(package_dir).parent
+                destination = (
+                    package_path
+                    if relative_parent == Path(".")
+                    else f"{package_path}/{relative_parent}"
+                )
+                collected.append((source.resolve(), destination))
+
+    return collected
 
 
 def compile_executable_for_onprem(
@@ -38,29 +92,20 @@ def compile_executable_for_onprem(
     exclude_modules: Iterable[str],
     sdk_root: Path,
     compile_directory: Path | None = None,
-    data_files: Iterable[Path] | None = None,
 ) -> None:
     connector_main_path = connector_root_module_dir / "main.py"
     module_name = os.path.basename(connector_root_module_dir)
     connector_root_dir = connector_root_module_dir.parent
 
-    # Resolve data files relative to connector_root_module_dir and preserve structure
-    resolved_data_files: list[tuple[Path, str]] = []  # (absolute_path, relative_destination)
-    if data_files:
-        for data_file in data_files:
-            # Only accept relative paths
-            if data_file.is_absolute():
-                raise ValueError(
-                    f"Data file paths must be relative to connector-root-module-dir, "
-                    f"got absolute path: {data_file}"
-                )
-
-            resolved_path = connector_root_module_dir / data_file
-            destination = str(data_file.parent) if data_file.parent != Path(".") else "."
-
-            if not resolved_path.exists():
-                raise FileNotFoundError(f"Data file not found: {resolved_path}")
-            resolved_data_files.append((resolved_path, destination))
+    # Collect package-data files declared in the connector's pyproject.toml, since
+    # PyInstaller doesn't honor setuptools' package-data declaration on its own.
+    resolved_data_files = collect_package_data_files(connector_root_dir)
+    if resolved_data_files:
+        print(
+            f"Auto-collected {len(resolved_data_files)} package-data file(s): "
+            f"{', '.join(str(src) for src, _ in resolved_data_files)}",
+            file=sys.stderr,
+        )
 
     fs_timestamp = re.sub(r"\W", "-", datetime.datetime.now(datetime.timezone.utc).isoformat())
     timestamped_build_dir = Path(os.getcwd()) / "compiled" / f"{app_id}-{fs_timestamp}"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ramp-packer
-Version: 2.5.17
+Version: 2.5.18
 Summary: Packs for Redis modules into a distributable format
 License: BSD-2-Clause
 License-File: LICENSE

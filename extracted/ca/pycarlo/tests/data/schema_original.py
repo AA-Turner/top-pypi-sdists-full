@@ -67,11 +67,25 @@ class AccessKeyIndexEnum(sgqlc.types.Enum):
 class AccountHealthMetricId(sgqlc.types.Enum):
     """Enumeration Choices:
 
+    * `ACKNOWLEDGEMENT_RATE`None
+    * `COVERAGE_TREND`None
+    * `MONITOR_COVERAGE_RATIO`None
     * `STATUS_UPDATE_RATE`None
+    * `TIME_TO_FIRST_RESPONSE`None
+    * `TIME_TO_RESOLVE`None
+    * `VISITOR_REACH_RATIO`None
     """
 
     __schema__ = schema
-    __choices__ = ("STATUS_UPDATE_RATE",)
+    __choices__ = (
+        "ACKNOWLEDGEMENT_RATE",
+        "COVERAGE_TREND",
+        "MONITOR_COVERAGE_RATIO",
+        "STATUS_UPDATE_RATE",
+        "TIME_TO_FIRST_RESPONSE",
+        "TIME_TO_RESOLVE",
+        "VISITOR_REACH_RATIO",
+    )
 
 
 class AccountHealthPillar(sgqlc.types.Enum):
@@ -317,6 +331,7 @@ class AgentModelAuthType(sgqlc.types.Enum):
     * `AZURE_STORAGE_ACCOUNT_KEYS`: Azure Storage Account Shared Key
     * `AZURE_STORAGE_SERVICE_PRINCIPAL`: Azure Storage Service
       Principal
+    * `CUSTOM_AUTH_HEADERS`: Custom Authorization Headers
     * `GCP_JSON_SERVICE_ACCOUNT_KEY`: GCP JSON Service Account Key
     * `GCP_WORKLOAD_IDENTITY_FEDERATION`: GCP Workload Identity
       Federation
@@ -334,6 +349,7 @@ class AgentModelAuthType(sgqlc.types.Enum):
         "AZURE_FUNCTION_SERVICE_PRINCIPAL",
         "AZURE_STORAGE_ACCOUNT_KEYS",
         "AZURE_STORAGE_SERVICE_PRINCIPAL",
+        "CUSTOM_AUTH_HEADERS",
         "GCP_JSON_SERVICE_ACCOUNT_KEY",
         "GCP_WORKLOAD_IDENTITY_FEDERATION",
         "MCD_SHA512",
@@ -1113,6 +1129,7 @@ class AuthTypeEnum(sgqlc.types.Enum):
     * `AZURE_FUNCTION_SERVICE_PRINCIPAL`None
     * `AZURE_STORAGE_ACCOUNT_KEYS`None
     * `AZURE_STORAGE_SERVICE_PRINCIPAL`None
+    * `CUSTOM_AUTH_HEADERS`None
     * `GCP_JSON_SERVICE_ACCOUNT_KEY`None
     * `GCP_WORKLOAD_IDENTITY_FEDERATION`None
     * `MCD_SHA512`None
@@ -1129,6 +1146,7 @@ class AuthTypeEnum(sgqlc.types.Enum):
         "AZURE_FUNCTION_SERVICE_PRINCIPAL",
         "AZURE_STORAGE_ACCOUNT_KEYS",
         "AZURE_STORAGE_SERVICE_PRINCIPAL",
+        "CUSTOM_AUTH_HEADERS",
         "GCP_JSON_SERVICE_ACCOUNT_KEY",
         "GCP_WORKLOAD_IDENTITY_FEDERATION",
         "MCD_SHA512",
@@ -5571,11 +5589,13 @@ class PiiType(sgqlc.types.Enum):
 class PlatformAgentType(sgqlc.types.Enum):
     """Enumeration Choices:
 
+    * `DATABRICKS_MLFLOW_KA`None
+    * `DATABRICKS_MLFLOW_SDK`None
     * `SNOWFLAKE`None
     """
 
     __schema__ = schema
-    __choices__ = ("SNOWFLAKE",)
+    __choices__ = ("DATABRICKS_MLFLOW_KA", "DATABRICKS_MLFLOW_SDK", "SNOWFLAKE")
 
 
 class PlatformServiceSupportCode(sgqlc.types.Enum):
@@ -8065,6 +8085,7 @@ class WebhookServiceTypes(sgqlc.types.Enum):
     """Enumeration Choices:
 
     * `DATABRICKS`None
+    * `GITHUB`None
     * `GITLAB`None
     * `JIRA`None
     * `OPSGENIE`None
@@ -8073,7 +8094,7 @@ class WebhookServiceTypes(sgqlc.types.Enum):
     """
 
     __schema__ = schema
-    __choices__ = ("DATABRICKS", "GITLAB", "JIRA", "OPSGENIE", "PAGERDUTY", "SERVICENOW")
+    __choices__ = ("DATABRICKS", "GITHUB", "GITLAB", "JIRA", "OPSGENIE", "PAGERDUTY", "SERVICENOW")
 
 
 class WebhookStatusValue(sgqlc.types.Enum):
@@ -17656,7 +17677,8 @@ class AgentCapability(sgqlc.types.Type):
     credit_budget = sgqlc.types.Field("AgentCapabilityCreditBudget", graphql_name="creditBudget")
     """The configured per-day credit budget for this capability, or null
     when no budget is configured. Only the monitoring capability
-    supports a credit budget in v1.1.1.
+    supports a credit budget in v1.1.1. Always null on accounts that
+    are not on the per-monitor credit consumption pricing model.
     """
 
     consumption = sgqlc.types.Field("AgentCapabilityCreditConsumption", graphql_name="consumption")
@@ -17667,6 +17689,8 @@ class AgentCapability(sgqlc.types.Type):
     assigned to this domain (customer-authored monitors live in the
     general billing pool and are excluded). Resolution is lazy — the
     per-item rollup runs only when the client selects this field.
+    Always null on accounts that are not on the per-monitor credit
+    consumption pricing model.
     """
 
 
@@ -20381,12 +20405,29 @@ class AvailableFilterAggregatedValue(sgqlc.types.Type):
 
 class AvailablePlatformAgentData(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("name", "database_name", "schema_name")
+    __field_names__ = (
+        "name",
+        "database_name",
+        "schema_name",
+        "platform_agent_type",
+        "table_prefix",
+        "requires_manual_trace_storage_setup",
+    )
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
 
     database_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="databaseName")
 
     schema_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="schemaName")
+
+    platform_agent_type = sgqlc.types.Field(
+        sgqlc.types.non_null(PlatformAgentType), graphql_name="platformAgentType"
+    )
+
+    table_prefix = sgqlc.types.Field(String, graphql_name="tablePrefix")
+
+    requires_manual_trace_storage_setup = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="requiresManualTraceStorageSetup"
+    )
 
 
 class AwsAgentExternalId(sgqlc.types.Type):
@@ -24092,7 +24133,9 @@ class CreateOrUpdateComparisonMonitor(sgqlc.types.Type):
     )
     """Spec-derived daily credit estimate. Computed from the provided
     input config, not from persisted DB state — so dry-run, draft, and
-    full create/update all return a consistent preview.
+    full create/update all return a consistent preview. Only populated
+    for accounts on the per-monitor credit consumption pricing model;
+    null otherwise.
 
     Arguments:
 
@@ -24396,7 +24439,9 @@ class CreateOrUpdateMetricMonitor(sgqlc.types.Type):
     )
     """Spec-derived daily credit estimate. Computed from the provided
     input config, not from persisted DB state — so dry-run, draft, and
-    full create/update all return a consistent preview.
+    full create/update all return a consistent preview. Only populated
+    for accounts on the per-monitor credit consumption pricing model;
+    null otherwise.
 
     Arguments:
 
@@ -24583,7 +24628,9 @@ class CreateOrUpdateTableMonitor(sgqlc.types.Type):
     )
     """Spec-derived daily credit estimate. Computed from the provided
     input config, not from persisted DB state — so dry-run, draft, and
-    full create/update all return a consistent preview.
+    full create/update all return a consistent preview. Only populated
+    for accounts on the per-monitor credit consumption pricing model;
+    null otherwise.
 
     Arguments:
 
@@ -77299,7 +77346,7 @@ class Query(sgqlc.types.Type):
         args=sgqlc.types.ArgDict(
             (
                 ("group_name", sgqlc.types.Arg(String, graphql_name="groupName", default=None)),
-                ("name_search", sgqlc.types.Arg(String, graphql_name="nameSearch", default=None)),
+                ("search", sgqlc.types.Arg(String, graphql_name="search", default=None)),
                 ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
                 ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
@@ -77308,17 +77355,20 @@ class Query(sgqlc.types.Type):
         ),
     )
     """(experimental) Get authorization groups for the user's account
-    with Relay-style pagination and optional substring search on group
-    name. Supports the standard `first`/`after` cursor arguments for
-    forward pagination.
+    with Relay-style pagination and an optional substring search.
+    Supports the standard `first`/`after` cursor arguments for forward
+    pagination.
 
     Arguments:
 
     * `group_name` (`String`): Optional exact group-name filter. If
       provided, returns at most that single group (overrides
-      `nameSearch`).
-    * `name_search` (`String`): Optional case-insensitive substring
-      filter on group name. Ignored when `groupName` is also provided.
+      `search`).
+    * `search` (`String`): Optional case-insensitive substring filter.
+      Matches against the group's name, label, description, SSO group
+      mapping, the names of its restricted domains and connections,
+      and the labels of its assigned roles. Ignored when `groupName`
+      is also provided.
     * `before` (`String`)None
     * `after` (`String`)None
     * `first` (`Int`)None
@@ -98409,6 +98459,8 @@ class DbtJob(sgqlc.types.Type, Node):
         "mcon",
         "last_run_date",
         "last_webhook_received",
+        "environment_id",
+        "environment_name",
         "dbt_job_executions",
         "dbt_runs",
         "generates_alerts",
@@ -98447,6 +98499,12 @@ class DbtJob(sgqlc.types.Type, Node):
 
     last_webhook_received = sgqlc.types.Field(DateTime, graphql_name="lastWebhookReceived")
     """Timestamp of the last webhook event received for this job"""
+
+    environment_id = sgqlc.types.Field(String, graphql_name="environmentId")
+    """External dbt Cloud environment identifier (dbt Cloud only)"""
+
+    environment_name = sgqlc.types.Field(String, graphql_name="environmentName")
+    """dbt Cloud environment name (dbt Cloud only)"""
 
     dbt_job_executions = sgqlc.types.Field(
         sgqlc.types.non_null(DbtJobExecutionConnection),

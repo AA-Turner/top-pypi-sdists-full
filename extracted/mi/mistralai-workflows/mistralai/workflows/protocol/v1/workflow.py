@@ -18,12 +18,14 @@ from mistralai.workflows.models import (
     EventProgressStatus,
     EventType,
     NetworkEncodedInput,
+    PartialScheduleDefinition,
     ScheduleDefinition,
     ScheduleDefinitionOutput,
     Workflow,
     WorkflowRegistration,
     WorkflowSpecWithTaskQueue,
 )
+from mistralai.workflows.models.workflow import validate_workflow_tags
 from mistralai.workflows.protocol.v1.tempo import TempoGetTraceResponse
 
 CoercedStr: TypeAlias = Annotated[str, BeforeValidator(lambda v: str(v) if isinstance(v, uuid.UUID) else v)]
@@ -188,6 +190,7 @@ class WorkflowBasicDefinition(BaseModel):
     description: str | None = Field(default=None, description="A description of the workflow")
     metadata: WorkflowMetadata = Field(default_factory=WorkflowMetadata, description="Workflow metadata")
     archived: bool = Field(description="Whether the workflow is archived")
+    tags: List[str] = Field(default_factory=list, description="Workflow tags")
 
 
 class WorkflowWithWorkerStatus(Workflow):
@@ -228,6 +231,38 @@ class WorkflowArchiveResponse(BaseModel):
 class WorkflowUnarchiveResponse(WorkflowArchiveResponse): ...
 
 
+class WorkflowBulkArchiveRequest(BaseModel):
+    workflow_ids: list[uuid.UUID] = Field(max_length=100, description="List of workflow IDs to archive")
+
+
+class WorkflowBulkUnarchiveRequest(BaseModel):
+    workflow_ids: list[uuid.UUID] = Field(max_length=100, description="List of workflow IDs to unarchive")
+
+
+class WorkflowBulkError(BaseModel):
+    workflow_id: uuid.UUID = Field(description="The requested workflow ID")
+    workflow: Workflow | None = Field(default=None, description="The workflow, if found")
+    message: str = Field(description="Error message describing why the operation failed")
+
+
+class WorkflowBulkArchiveResponse(BaseModel):
+    archived: list[Workflow] = Field(description="Workflows that were successfully archived or were already archived")
+    errored: list[WorkflowBulkError] = Field(
+        default_factory=list,
+        description="Workflows that could not be archived and the corresponding error messages",
+    )
+
+
+class WorkflowBulkUnarchiveResponse(BaseModel):
+    unarchived: list[Workflow] = Field(
+        description="Workflows that were successfully unarchived or were already unarchived"
+    )
+    errored: list[WorkflowBulkError] = Field(
+        default_factory=list,
+        description="Workflows that could not be unarchived and the corresponding error messages",
+    )
+
+
 class WorkflowExecutionStatus(StrEnum):
     RUNNING = "RUNNING"
     """Workflow execution is running.
@@ -259,9 +294,9 @@ class WorkflowExecutionStatus(StrEnum):
     """
 
     RETRYING_AFTER_ERROR = "RETRYING_AFTER_ERROR"
-    """Workflow execution has encountered an error and is retrying.
+    """Deprecated. Kept for client compatibility and no longer returned by Abraxas.
     This is a custom status not present in Temporal.
-    Temporal keeps the workflow in RUNNING state until it succeeds or fails.
+    Temporal keeps a workflow in RUNNING state until it succeeds or fails.
     """
 
     @classmethod
@@ -328,6 +363,14 @@ class WorkflowUpdateRequest(BaseModel):
     available_in_chat_assistant: bool | None = Field(
         None, description="Whether to make the workflow available in the chat assistant"
     )
+    tags: List[str] | None = Field(None, description="New tags. Replaces the existing tag list.")
+
+    @field_validator("tags")
+    @classmethod
+    def _validate_tags(cls, v: List[str] | None) -> List[str] | None:
+        if v is None:
+            return v
+        return validate_workflow_tags(v)
 
     @model_validator(mode="after")
     def validate_display_name_not_empty(self) -> Self:
@@ -644,6 +687,13 @@ class WorkflowScheduleResponse(BaseModel):
 
 class WorkflowScheduleListResponse(BaseModel):
     schedules: List[ScheduleDefinitionOutput] = Field(description="A list of workflow schedules")
+    next_page_token: str | None = Field(default=None, description="Token for the next page of results")
+
+
+class WorkflowScheduleUpdateRequest(BaseModel):
+    schedule: PartialScheduleDefinition = Field(
+        description="Partial schedule definition to update. Unset fields preserve existing values.",
+    )
 
 
 class WorkflowChatAssistantPublishRequest(BaseModel):

@@ -13,48 +13,48 @@ from stravalib.util.limiter import (
 # 2023 developer program:
 
 fake_response_unenrolled = {
-    "Status": "404 Not Found",
-    "X-Request-Id": "a1a4a4973962ffa7e0f18d7c485fe741",
-    "Content-Encoding": "gzip",
-    "Content-Length": "104",
-    "Connection": "keep-alive",
-    "X-RateLimit-Limit": "600,30000",
-    "X-UA-Compatible": "IE=Edge,chrome=1",
-    "Cache-Control": "no-cache, private",
-    "Date": "Tue, 14 Nov 2017 11:29:15 GMT",
-    "X-FRAME-OPTIONS": "DENY",
-    "Content-Type": "application/json; charset=UTF-8",
-    "X-RateLimit-Usage": "4,67",
+    "status": "404 Not Found",
+    "x-request-id": "a1a4a4973962ffa7e0f18d7c485fe741",
+    "content-encoding": "gzip",
+    "content-length": "104",
+    "connection": "keep-alive",
+    "x-ratelimit-limit": "600,30000",
+    "x-ua-compatible": "IE=Edge,chrome=1",
+    "cache-control": "no-cache, private",
+    "date": "Tue, 14 Nov 2017 11:29:15 GMT",
+    "x-frame-options": "DENY",
+    "content-type": "application/json; charset=UTF-8",
+    "x-ratelimit-usage": "4,67",
 }
 
 fake_response_unenrolled_limit_exceeded = fake_response_unenrolled | {
-    "X-RateLimit-Usage": "601, 602"
+    "x-ratelimit-usage": "601, 602"
 }
 
 fake_response_unenrolled_no_rates = {
-    "Status": "200 OK",
-    "X-Request-Id": "d465159561420f6e0239dc24429a7cf3",
-    "Content-Encoding": "gzip",
-    "Content-Length": "371",
-    "Connection": "keep-alive",
-    "X-UA-Compatible": "IE=Edge,chrome=1",
-    "Cache-Control": "max-age=0, private, must-revalidate",
-    "Date": "Tue, 14 Nov 2017 13:19:31 GMT",
-    "X-FRAME-OPTIONS": "DENY",
-    "Content-Type": "application/json; charset=UTF-8",
+    "status": "200 OK",
+    "x-request-id": "d465159561420f6e0239dc24429a7cf3",
+    "content-encoding": "gzip",
+    "content-length": "371",
+    "connection": "keep-alive",
+    "x-ua-compatible": "IE=Edge,chrome=1",
+    "cache-control": "max-age=0, private, must-revalidate",
+    "date": "Tue, 14 Nov 2017 13:19:31 GMT",
+    "x-frame-options": "DENY",
+    "content-type": "application/json; charset=UTF-8",
 }
 
 # Example responses for Strava 3rd party apps that are enrolled:
-fake_reponse_enrolled = fake_response_unenrolled | {
-    "X-ReadRateLimit-Usage": "2,32",
-    "X-ReadRateLimit-Limit": "300,15000",
+fake_response_enrolled = fake_response_unenrolled | {
+    "x-readratelimit-usage": "2,32",
+    "x-readratelimit-limit": "300,15000",
 }
 
-fake_reponse_enrolled_read_limit_exceeded = fake_reponse_enrolled | {
-    "X-ReadRateLimit-Usage": "301,302"
+fake_response_enrolled_read_limit_exceeded = fake_response_enrolled | {
+    "x-readratelimit-usage": "301,302"
 }
-fake_reponse_enrolled_overall_limit_exceeded = fake_reponse_enrolled | {
-    "X-RateLimit-Usage": "601,602"
+fake_response_enrolled_overall_limit_exceeded = fake_response_enrolled | {
+    "x-ratelimit-usage": "601,602"
 }
 
 
@@ -66,8 +66,8 @@ fake_reponse_enrolled_overall_limit_exceeded = fake_reponse_enrolled | {
         (fake_response_unenrolled, "POST", (4, 67, 600, 30000)),
         (fake_response_unenrolled_no_rates, "GET", None),
         (fake_response_unenrolled_no_rates, "PUT", None),
-        (fake_reponse_enrolled, "GET", (2, 32, 300, 15000)),
-        (fake_reponse_enrolled, "PUT", (4, 67, 600, 30000)),
+        (fake_response_enrolled, "GET", (2, 32, 300, 15000)),
+        (fake_response_enrolled, "PUT", (4, 67, 600, 30000)),
     ),
 )
 def test_get_rates_from_response_headers(
@@ -137,3 +137,77 @@ def test_get_wait_time(
         )
         == expected_wait_time
     )
+
+
+@pytest.mark.parametrize(
+    "priority,rates,seconds_until_short_limit,seconds_until_long_limit,expected_wait_time",
+    (
+        # Test 1: "low" priority should respect 15-min limit when tighter
+        # Bug scenario: end of day with many daily requests left but few 15-min
+        (
+            "low",
+            RequestRate(595, 20000, 600, 30000),
+            600,
+            300,
+            120.0,  # max(600/5, 300/10000) = max(120, 0.03) = 120
+        ),
+        # Test 2: "medium" priority should respect daily limit when >50% used
+        (
+            "medium",
+            RequestRate(50, 29990, 600, 30000),  # 99.97% of daily used
+            600,
+            43200,
+            4320.0,  # max(600/550, 43200/10) = max(1.09, 4320) = 4320
+        ),
+        # Test 3: "medium" priority ignores daily limit when <50% used
+        (
+            "medium",
+            RequestRate(550, 5000, 600, 30000),  # 16.67% of daily used
+            600,
+            43200,
+            12.0,  # Only short_wait: 600/50 = 12 (ignores long_wait)
+        ),
+        # Test 4: "low" priority normal case (daily is tighter)
+        (
+            "low",
+            RequestRate(100, 28000, 600, 30000),
+            600,
+            43200,
+            21.6,  # max(600/500, 43200/2000) = max(1.2, 21.6) = 21.6
+        ),
+        # Test 5: "high" priority unchanged (no wait when under limits)
+        (
+            "high",
+            RequestRate(595, 29990, 600, 30000),
+            600,
+            300,
+            0,  # Still returns 0
+        ),
+        # Test 6: Extreme case - very few requests left in both windows
+        (
+            "low",
+            RequestRate(599, 29999, 600, 30000),
+            300,
+            300,
+            300.0,  # max(300/1, 300/1) = 300
+        ),
+    ),
+)
+def test_get_wait_time_respects_both_limits(
+    priority,
+    rates,
+    seconds_until_short_limit,
+    seconds_until_long_limit,
+    expected_wait_time,
+):
+    """Test that rate limiter respects BOTH short-term and long-term limits.
+
+    This addresses issue #615 where the limiter could violate the 15-minute
+    limit when many daily requests remained at day's end.
+    """
+    rule = SleepingRateLimitRule(priority=priority)
+    actual_wait = rule._get_wait_time(
+        rates, seconds_until_short_limit, seconds_until_long_limit
+    )
+    # Use pytest.approx for floating point comparison
+    assert actual_wait == pytest.approx(expected_wait_time, rel=1e-2)

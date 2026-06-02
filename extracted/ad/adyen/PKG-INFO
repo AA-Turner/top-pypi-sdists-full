@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Adyen
-Version: 15.0.1
+Version: 15.0.2
 Summary: Adyen Python Api
 Home-page: https://github.com/Adyen/adyen-python-api-library
 Author: Adyen
@@ -23,7 +23,6 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
-Requires-Dist: pydantic>=2.0
 Provides-Extra: requests
 Requires-Dist: requests>=2.25.0; extra == "requests"
 Provides-Extra: pycurl

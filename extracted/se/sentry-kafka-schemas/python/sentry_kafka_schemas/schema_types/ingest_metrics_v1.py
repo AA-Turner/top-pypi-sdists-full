@@ -1,4 +1,4 @@
-from typing import Union, List, Required, TypedDict, Dict, Literal
+from typing import List, Required, TypedDict, Dict, Union, Literal
 
 
 CounterMetricValue = Union[int, float]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 2.6.9
+Version: 2.6.10
 Summary: The programming language for agentic software.
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 License:                                  Apache License
@@ -353,6 +353,7 @@ Provides-Extra: evm
 Requires-Dist: web3; extra == "evm"
 Provides-Extra: exa
 Requires-Dist: exa_py>=2.0.0; extra == "exa"
+Provides-Extra: you-com
 Provides-Extra: seltz
 Requires-Dist: seltz>=0.2.0; extra == "seltz"
 Provides-Extra: fal
@@ -460,7 +461,6 @@ Provides-Extra: chromadb
 Requires-Dist: chromadb; extra == "chromadb"
 Provides-Extra: lancedb
 Requires-Dist: lancedb>=0.26.0; extra == "lancedb"
-Requires-Dist: tantivy; extra == "lancedb"
 Provides-Extra: pylance
 Requires-Dist: pylance; extra == "pylance"
 Provides-Extra: qdrant
@@ -746,7 +746,7 @@ Read the full guide [here](https://docs.agno.com/coding-agents).
 ## Community
 
 - [X](https://x.com/AgnoAgi): follow for releases and demos
-- [Newsletter](https://www.agno.com/the-agno-loop-newsleter): monthly updates on what's shipping
+- [Newsletter](https://www.agno.com/the-agno-loop-newsletter): monthly updates on what's shipping
 
 ## Contributing
 

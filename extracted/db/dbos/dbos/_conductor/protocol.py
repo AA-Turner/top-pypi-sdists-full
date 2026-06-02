@@ -3,7 +3,7 @@ from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Dict, List, Optional, Type, TypedDict, TypeVar, Union
 
-from dbos._serialization import Serializer
+from dbos._serialization import Serializer, safe_deserialize_schedule_context
 from dbos._sys_db import (
     NotificationInfo,
     StepInfo,
@@ -46,6 +46,7 @@ class MessageType(str, Enum):
     GET_WORKFLOW_NOTIFICATIONS = "get_workflow_notifications"
     GET_WORKFLOW_STREAMS = "get_workflow_streams"
     GET_WORKFLOW_AGGREGATES = "get_workflow_aggregates"
+    GET_STEP_AGGREGATES = "get_step_aggregates"
     FORK_FROM_FAILURE = "fork_from_failure"
     LIST_QUEUES = "list_queues"
     GET_QUEUE = "get_queue"
@@ -165,6 +166,10 @@ class ListWorkflowsBody(TypedDict, total=False):
     authenticated_user: Optional[Union[str, List[str]]]
     start_time: Optional[str]
     end_time: Optional[str]
+    completed_after: Optional[str]
+    completed_before: Optional[str]
+    dequeued_after: Optional[str]
+    dequeued_before: Optional[str]
     status: Optional[Union[str, List[str]]]
     application_version: Optional[Union[str, List[str]]]
     forked_from: Optional[Union[str, List[str]]]
@@ -210,6 +215,7 @@ class WorkflowsOutput:
     ParentWorkflowID: Optional[str]
     DequeuedAt: Optional[str]
     DelayUntilEpochMS: Optional[str]
+    CompletedAt: Optional[str]
 
     @classmethod
     def from_workflow_information(cls, info: WorkflowStatus) -> "WorkflowsOutput":
@@ -243,6 +249,9 @@ class WorkflowsOutput:
             if info.delay_until_epoch_ms is not None
             else None
         )
+        completed_at_str = (
+            str(info.completed_at) if info.completed_at is not None else None
+        )
 
         return cls(
             WorkflowUUID=info.workflow_id,
@@ -271,6 +280,7 @@ class WorkflowsOutput:
             ParentWorkflowID=info.parent_workflow_id,
             DequeuedAt=dequeued_at_str,
             DelayUntilEpochMS=delay_until_epoch_ms_str,
+            CompletedAt=completed_at_str,
         )
 
 
@@ -326,6 +336,10 @@ class ListQueuedWorkflowsBody(TypedDict, total=False):
     authenticated_user: Optional[Union[str, List[str]]]
     start_time: Optional[str]
     end_time: Optional[str]
+    completed_after: Optional[str]
+    completed_before: Optional[str]
+    dequeued_after: Optional[str]
+    dequeued_before: Optional[str]
     status: Optional[Union[str, List[str]]]
     application_version: Optional[Union[str, List[str]]]
     forked_from: Optional[Union[str, List[str]]]
@@ -532,8 +546,16 @@ class ScheduleOutput:
         *,
         load_context: bool = True,
     ) -> "ScheduleOutput":
-        context_str = (
-            str(serializer.deserialize(s["context"])) if load_context else None
+        context_str: Optional[str] = (
+            str(
+                safe_deserialize_schedule_context(
+                    serializer,
+                    s["schedule_name"],
+                    serialized_context=s["context"],
+                )
+            )
+            if load_context
+            else None
         )
         return cls(
             schedule_id=s["schedule_id"],
@@ -744,10 +766,18 @@ class GetWorkflowAggregatesBody(TypedDict, total=False):
     group_by_queue_name: bool
     group_by_executor_id: bool
     group_by_application_version: bool
+    select_count: bool
+    select_min_created_at: bool
+    select_max_queue_wait_ms: bool
+    select_max_total_latency_ms: bool
     time_bucket_size_ms: int
     status: Optional[List[str]]
     start_time: Optional[str]
     end_time: Optional[str]
+    completed_after: Optional[str]
+    completed_before: Optional[str]
+    dequeued_after: Optional[str]
+    dequeued_before: Optional[str]
     name: Optional[List[str]]
     app_version: Optional[List[str]]
     executor_id: Optional[List[str]]
@@ -763,12 +793,46 @@ class GetWorkflowAggregatesRequest(BaseMessage):
 @dataclass
 class WorkflowAggregateOutput:
     group: Dict[str, Optional[str]]
-    count: int
+    count: Optional[int] = None
+    min_created_at: Optional[int] = None
+    max_queue_wait_ms: Optional[int] = None
+    max_total_latency_ms: Optional[int] = None
 
 
 @dataclass
 class GetWorkflowAggregatesResponse(BaseMessage):
     output: List[WorkflowAggregateOutput]
+    error_message: Optional[str] = None
+
+
+class GetStepAggregatesBody(TypedDict, total=False):
+    group_by_function_name: bool
+    group_by_status: bool
+    select_count: bool
+    select_max_duration_ms: bool
+    time_bucket_size_ms: int
+    status: Optional[List[str]]
+    function_name: Optional[List[str]]
+    workflow_id_prefix: Optional[List[str]]
+    completed_after: Optional[str]
+    completed_before: Optional[str]
+
+
+@dataclass
+class GetStepAggregatesRequest(BaseMessage):
+    body: GetStepAggregatesBody
+
+
+@dataclass
+class StepAggregateOutput:
+    group: Dict[str, Optional[str]]
+    count: Optional[int] = None
+    max_duration_ms: Optional[int] = None
+
+
+@dataclass
+class GetStepAggregatesResponse(BaseMessage):
+    output: List[StepAggregateOutput]
     error_message: Optional[str] = None
 
 

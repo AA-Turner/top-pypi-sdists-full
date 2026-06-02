@@ -4,7 +4,7 @@ import base64
 import json
 import time
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from pydantic import BaseModel, Field
@@ -14,11 +14,17 @@ from temporalio.converter import DataConverter
 from temporalio.testing import WorkflowEnvironment
 
 from mistralai.workflows import activity, workflow
-from mistralai.workflows.core.definition.workflow_definition import get_workflow_definition
+from mistralai.workflows.core._registration.execution_registration_interceptor import (
+    ExecutionRegistrationInterceptor,
+)
+from mistralai.workflows.core._registration.registration_activity import (
+    _register_execution,
+)
+from mistralai.workflows.core.definition.workflow_definition import _on_behalf_of_by_name, get_workflow_definition
 from mistralai.workflows.core.temporal.context_handler_interceptor import ContextHandlerInterceptor
 from mistralai.workflows.core.temporal.payload_converter import MistralWorkflowsPayloadConverter
 from mistralai.workflows.models import PayloadWithContext, WorkflowContext
-from mistralai.workflows.worker_client.models import ExecutorIdentityTokenResponse
+from mistralai.workflows.worker_client.models import ExecutorIdentityTokenResponse, RegisterExecutionResponse
 from mistralai.workflows.worker_client.sdk import PrivateWorkerClient
 
 from .fixtures_continue_as_new import (
@@ -171,22 +177,33 @@ class TestContinueAsNewContextPropagation:
             mint_calls.append({"execution_token": kwargs.get("execution_token", "")})
             return ExecutorIdentityTokenResponse(token=_make_jwt(time.time() + 3600))
 
-        interceptor = ContextHandlerInterceptor()
+        mock_worker_client = AsyncMock(spec=PrivateWorkerClient)
+        mock_worker_client.register_execution_async = AsyncMock(
+            return_value=RegisterExecutionResponse(execution_id="test-can-jwt", created=True)
+        )
+
+        interceptors = [ContextHandlerInterceptor(), ExecutionRegistrationInterceptor()]
         data_converter = DataConverter(payload_converter_class=MistralWorkflowsPayloadConverter)
 
         async with await WorkflowEnvironment.start_time_skipping(
             data_converter=data_converter,
         ) as env:
-            with patch.object(
-                PrivateWorkerClient,
-                "executor_identity_token_async",
-                side_effect=mock_mint,
+            with (
+                patch.object(
+                    PrivateWorkerClient,
+                    "executor_identity_token_async",
+                    side_effect=mock_mint,
+                ),
+                patch(
+                    "mistralai.workflows.core._registration.registration_activity.get_worker_client",
+                    return_value=mock_worker_client,
+                ),
             ):
                 async with create_test_worker(
                     env,
                     workflows=[JWTPropagationContinueAsNewWorkflow],
-                    activities=[api_call_with_credentials],
-                    interceptors=[interceptor],
+                    activities=[api_call_with_credentials, _register_execution],
+                    interceptors=interceptors,
                 ):
                     wf = get_workflow_definition(JWTPropagationContinueAsNewWorkflow)
                     assert wf is not None
@@ -209,9 +226,8 @@ class TestContinueAsNewContextPropagation:
                     )
                     await handle.result()
 
-        # JWT cache may deduplicate calls, but the workflow completing proves
-        # the continued run had a valid execution token (otherwise the hook
-        # raises WorkflowError from _resolve_execution_token).
+        # First run reuses the incoming token; continued run gets a new one.
+        # Both runs must complete (proving each had a valid token for the hook).
         assert len(mint_calls) >= 1
         assert mint_calls[0]["execution_token"] == "test-token-abc"
 
@@ -237,15 +253,18 @@ class TestContinueAsNewContextPropagation:
         Single-exec variants also verify that a *new* execution sees the
         flipped registry value.
         """
-        from mistralai.workflows.core.definition.workflow_definition import _on_behalf_of_by_name
-
         mint_calls: list[dict] = []
 
         def mock_mint(**kwargs: Any) -> ExecutorIdentityTokenResponse:
             mint_calls.append({"execution_token": kwargs.get("execution_token", "")})
             return ExecutorIdentityTokenResponse(token=_make_jwt(time.time() + 3600))
 
-        interceptor = ContextHandlerInterceptor()
+        mock_worker_client = AsyncMock(spec=PrivateWorkerClient)
+        mock_worker_client.register_execution_async = AsyncMock(
+            return_value=RegisterExecutionResponse(execution_id="test-obo-reg", created=True)
+        )
+
+        interceptors = [ContextHandlerInterceptor(), ExecutionRegistrationInterceptor()]
         data_converter = DataConverter(payload_converter_class=MistralWorkflowsPayloadConverter)
 
         def _make_arg(token: str) -> PayloadWithContext:
@@ -269,16 +288,22 @@ class TestContinueAsNewContextPropagation:
             async with await WorkflowEnvironment.start_time_skipping(
                 data_converter=data_converter,
             ) as env:
-                with patch.object(
-                    PrivateWorkerClient,
-                    "executor_identity_token_async",
-                    side_effect=mock_mint,
+                with (
+                    patch.object(
+                        PrivateWorkerClient,
+                        "executor_identity_token_async",
+                        side_effect=mock_mint,
+                    ),
+                    patch(
+                        "mistralai.workflows.core._registration.registration_activity.get_worker_client",
+                        return_value=mock_worker_client,
+                    ),
                 ):
                     async with create_test_worker(
                         env,
                         workflows=[workflow_cls],
-                        activities=[set_obo_flag, api_call_with_credentials],
-                        interceptors=[interceptor],
+                        activities=[set_obo_flag, api_call_with_credentials, _register_execution],
+                        interceptors=interceptors,
                     ):
                         wf = get_workflow_definition(workflow_cls)
 

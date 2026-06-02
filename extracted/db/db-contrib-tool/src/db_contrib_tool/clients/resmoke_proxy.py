@@ -19,10 +19,13 @@ class MultiversionConfig(BaseModel):
 
     * last_lts_fcv: Version of the last LTS release.
     * last_continuous_fcv: Version of the last continuous release.
+    * last_patch_version: Version of the last patch release (populated only when
+      resmoke is invoked with `--include-last-patch`).
     """
 
     last_lts_fcv: str
     last_continuous_fcv: str
+    last_patch_version: Optional[str] = None
 
 
 class ResmokeProxy:
@@ -36,6 +39,16 @@ class ResmokeProxy:
         """
         self.resmoke_cmd = resmoke_cmd
         self.multiversion_constants: Optional[MultiversionConfig] = None
+        self.include_last_patch: bool = False
+
+    def enable_last_patch(self) -> None:
+        """Request that multiversion-config be invoked with --include-last-patch."""
+        if (
+            self.multiversion_constants is not None
+            and self.multiversion_constants.last_patch_version is None
+        ):
+            self.multiversion_constants = None
+        self.include_last_patch = True
 
     @classmethod
     def with_cmd(cls, resmoke_cmd: str) -> ResmokeProxy:
@@ -52,7 +65,10 @@ class ResmokeProxy:
         if self.multiversion_constants is None:
             cmd = self.resmoke_cmd
             file_name = "multiversion-config.yml"
-            cmd.append(f"multiversion-config --config-file-output={file_name}")
+            subcmd = f"multiversion-config --config-file-output={file_name}"
+            if self.include_last_patch:
+                subcmd += " --include-last-patch"
+            cmd.append(subcmd)
             try:
                 subprocess.run(" ".join(cmd), capture_output=True, check=True, shell=True)
             except subprocess.CalledProcessError as e:

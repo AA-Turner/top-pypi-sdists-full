@@ -2,11 +2,6 @@ import os
 
 import pytest
 
-WORKFLOW_EXAMPLE_HELLO_WORLD = "example-hello-world-workflow"
-WORKFLOW_EXAMPLE_LONG_HELLO_WORLD = "example-long-hello-world-workflow"
-WORKFLOW_EXAMPLE_INTERACTIVE_GAME = "example-interactive-game-workflow"
-WORKFLOW_SIMPLE_CHATBOT = "simple-chatbot-workflow"
-
 DEFAULT_TEST_TASK_QUEUE = "example-dev-worker"
 TEST_TASK_QUEUE = os.getenv("DEPLOYMENT_NAME", DEFAULT_TEST_TASK_QUEUE)
 

@@ -4,6 +4,7 @@ from .core.config.config import AppConfig as WorkflowsConfig
 from .core.config.config import config
 from .core.definition.workflow_definition import get_workflow_definition
 from .core.dependencies.dependency_injector import DependencyInjector, Depends
+from .core.discovery import discover_all_workflows_in_package
 from .core.execution.concurrency import (
     ExtraItemParams,
     GetItemFromIndexParams,
@@ -48,6 +49,7 @@ __all__ = [
     "config",
     "Depends",
     "DependencyInjector",
+    "discover_all_workflows_in_package",
     "WorkflowError",
     "ActivityError",
     "Schedule",

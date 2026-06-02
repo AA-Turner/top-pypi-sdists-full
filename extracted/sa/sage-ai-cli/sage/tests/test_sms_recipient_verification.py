@@ -17,6 +17,11 @@ class DummyBackend:
             {"provider_id": "google.com", "email": "linked@gmail.com"},
             {"provider_id": "apple.com", "phone_number": "+15555551234"}
         ]
+    def list_contacts(self):
+        return [
+            {"email": "phone:4085073140", "device_type": "android", "label": "My Pixel"},
+            {"email": "phone:6696498725", "device_type": "apple", "label": "My iPhone"}
+        ]
     def _get(self, path):
         if path == "/billing/me":
             return {"email": "primary@example.com"}

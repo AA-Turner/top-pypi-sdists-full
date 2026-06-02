@@ -8,11 +8,16 @@ from django.core import serializers
 from django.db import connections, models, router, transaction
 from django.db.models import F, Func, OuterRef, Q, Subquery, Value
 from django.db.models.functions import Concat, Greatest, Length, Substr
+from django.dispatch import Signal
 from django.utils.translation import gettext_noop as _
 
 from treebeard.exceptions import InvalidMoveToDescendant, NodeAlreadySaved, PathOverflow
 from treebeard.models import Node
 from treebeard.numconv import NumConv
+from treebeard.utils import prepare_dumpdata_for_loading
+
+path_updated = Signal()
+nodes_deleted = Signal()
 
 
 class MP_NodeQuerySet(models.query.QuerySet):
@@ -71,7 +76,12 @@ class MP_NodeQuerySet(models.query.QuerySet):
         query = Q(pk__in=pks_to_remove)
         for path in paths_to_remove:
             query |= Q(path__startswith=path)
-        return super(MP_NodeQuerySet, model.objects.filter(query)).delete(*args, **kwargs)
+        count, deletion_map = super(MP_NodeQuerySet, model.objects.filter(query)).delete(*args, **kwargs)
+        if count > 0:
+            nodes_deleted.send(
+                sender=model, pks_to_remove=pks_to_remove, paths_to_remove=paths_to_remove, using=self.db
+            )
+        return count, deletion_map
 
     delete.alters_data = True
     delete.queryset_only = True
@@ -193,7 +203,11 @@ class MP_ComplexAddMoveHandler:
             update_kwargs["depth"] = Length(new_path_value) / self.node_cls.steplen
         update_kwargs["path"] = new_path_value
 
-        self.node_cls.tree_model().objects.filter(path__startswith=oldpath).update(**update_kwargs)
+        model = self.node_cls.tree_model()
+        queryset = model.objects.filter(path__startswith=oldpath)
+        update_count = queryset.update(**update_kwargs)
+        if update_count > 0:
+            path_updated.send(sender=model, old_path=oldpath, new_path=newpath, using=queryset.db)
 
 
 class MP_AddRootHandler:
@@ -351,8 +365,6 @@ class MP_MoveHandler(MP_ComplexAddMoveHandler):
     def process(self):
         self.pos = self.node._prepare_pos_var_for_move(self.pos)
 
-        oldpath = self.node.path
-
         # initialize variables and if moving to a child, updates "move to
         # child" to become a "move to sibling" if possible (if it can't
         # be done, it means that we are  adding the first child)
@@ -361,24 +373,35 @@ class MP_MoveHandler(MP_ComplexAddMoveHandler):
         if self.target.is_descendant_of(self.node):
             raise InvalidMoveToDescendant(_("Can't move node to a descendant."))
 
-        if oldpath == self.target.path and (
-            (self.pos == "left")
-            or (self.pos in ("right", "last-sibling") and self.target.path == self.target.get_last_sibling().path)
-            or (self.pos == "first-sibling" and self.target.path == self.target.get_first_sibling().path)
-        ):
-            # special cases, not actually moving the node so no need to UPDATE
-            return
-
         if self.pos == "sorted-sibling":
             siblings = self.node.get_sorted_pos_queryset(self.target.get_siblings(), self.node)
-            first = siblings.first()
-            newpos = first._get_lastpos_in_path() if first else None
-            if newpos is None:
+            if first := siblings.first():
+                newpos = first._get_lastpos_in_path()
+                if self.node._get_lastpos_in_path() == newpos - 1:
+                    # The node is already in the right place, nothing to do
+                    return
+            else:
+                newpos = None
                 self.pos = "last-sibling"
 
-        # generate the sql that will do the actual moving of nodes
+        # Handle special cases where nothing needs to be done
+        if newdepth == self.node.get_depth():
+            if self.pos == "first-sibling" and self.node == self.target.get_first_sibling():
+                return
+
+            if self.pos == "last-sibling" and self.node == self.target.get_last_sibling():
+                return
+
+        if self.node == self.target and (
+            # Moving a node to left/right of itself is a noop
+            self.pos == "left"
+            or (self.pos in ("right", "last-sibling") and self.target == self.target.get_last_sibling())
+        ):
+            return
+
+        # Move nodes
         oldpath, newpath = self.reorder_nodes_before_add_or_move(
-            self.pos, newpos, newdepth, self.target, siblings, oldpath, True
+            self.pos, newpos, newdepth, self.target, siblings, self.node.path, True
         )
 
         self.update_parent_counts_after_move(oldpath, newpath)
@@ -737,9 +760,10 @@ class MP_Node(Node):
 
     @classmethod
     def _rewrite_node_path(cls, old_path, new_path):
-        cls.objects.filter(path__startswith=old_path).update(
-            path=Concat(Value(new_path), Substr("path", len(old_path) + 1))
-        )
+        queryset = cls.objects.filter(path__startswith=old_path)
+        update_count = queryset.update(path=Concat(Value(new_path), Substr("path", len(old_path) + 1)))
+        if update_count > 0:
+            path_updated.send(sender=cls, old_path=old_path, new_path=new_path, using=queryset.db)
 
     @classmethod
     def get_tree(cls, parent=None):
@@ -911,6 +935,9 @@ class MP_Node(Node):
 
     def get_root(self):
         """:returns: the root node for the current node object."""
+        if self.is_root():
+            return self
+
         return self.tree_model().objects.get(path=self.path[0 : self.steplen])
 
     def is_root(self):
@@ -929,8 +956,11 @@ class MP_Node(Node):
         if self.is_root():
             return self.tree_model().objects.none()
 
-        paths = [self.path[0:pos] for pos in range(0, len(self.path), self.steplen)[1:]]
-        return self.tree_model().objects.filter(path__in=paths).order_by("depth")
+        return (
+            self.tree_model()
+            .objects.alias(ref_path=Value(self._get_parent_path_from_path(self.path)))
+            .filter(ref_path__startswith=F("path"))
+        )
 
     def get_parent(self, update=False):
         """
@@ -1005,6 +1035,100 @@ class MP_Node(Node):
     def _get_children_path_interval(cls, path):
         """:returns: An interval of all possible children paths for a node."""
         return (path + cls.alphabet[0] * cls.steplen, path + cls.alphabet[-1] * cls.steplen)
+
+    @classmethod
+    @transaction.atomic
+    def load_bulk(
+        cls,
+        bulk_data,
+        parent=None,
+        keep_ids=False,
+        bulk_create=False,
+        batch_size=1000,
+    ) -> list:
+        """
+        Loads a list/dictionary structure to the tree.
+
+        :param bulk_data:
+
+            The data that will be loaded, the structure is a list of
+            dictionaries with 2 keys:
+
+            - ``data``: will store arguments that will be passed for object
+                creation, and
+
+            - ``children``: a list of dictionaries, each one has it's own
+                ``data`` and ``children`` keys (a recursive structure)
+
+        :param parent:
+
+            The node that will receive the structure as children, if not
+            specified the first level of the structure will be loaded as root
+            nodes
+
+        :param keep_ids:
+
+            If enabled, loads the nodes with the same primary keys that are
+            given in the structure. Will error if there are nodes without
+            primary key info or if the primary keys are already used.
+
+        :param bulk_create:
+
+            Whether to bulk create objects using Django's ``bulk_create()`` method. Only works
+            for models without multi-table inheritance. Also does not work with
+            MySQL and MSSQL database backends.
+
+        :param batch_size:
+
+            The batch size for ``bulk_create()`` when creating descendant nodes.
+            Default is 1000.
+
+        :returns: A list of the added node ids.
+
+        The ordering of nodes in the loaded data is preserved. If this
+        needs to be corrected (e.g., to cater for a new `node_order_by`)
+        then `fix_tree()` can be run separately on the imported subtree.
+        """
+
+        if not bulk_create:
+            return super().load_bulk(bulk_data, parent=parent, keep_ids=keep_ids)
+
+        conn = connections[router.db_for_write(cls)]
+        if not conn.features.can_return_rows_from_bulk_insert or conn.vendor == "microsoft":
+            raise ValueError("Database backend does not support bulk load. Use load_bulk without bulk_create=True.")
+
+        added = []
+        bulk_data = prepare_dumpdata_for_loading(cls, data=bulk_data, keep_ids=keep_ids)
+        children_to_create = []
+
+        def _build_children(parent_node, children) -> None:
+            child_depth = parent_node.depth + 1
+
+            for i, child in enumerate(children):
+                child_obj = cls(
+                    depth=child_depth,
+                    numchild=len(child["children"]),
+                    path=cls._get_path(parent_node.path, child_depth, i + 1),
+                    **child["data"],
+                )
+
+                children_to_create.append(child_obj)
+
+                # Recursively process grandchildren
+                _build_children(child_obj, child["children"])
+
+        # Create first level of the bulk data using standard operations, since there may be existing siblings
+        for node_struct in bulk_data:
+            node_struct["data"]["numchild"] = len(node_struct["children"])  # Set numchild manually
+            node_obj = parent.add_child(**node_struct["data"]) if parent else cls.add_root(**node_struct["data"])
+            added.append(node_obj.pk)
+            _build_children(node_obj, node_struct["children"])
+
+        # Bulk create descendants
+        created = cls.objects.bulk_create(children_to_create, batch_size=batch_size)
+        added.extend([obj.pk for obj in created])
+
+        return added
 
     class Meta:
         """Abstract model."""

@@ -5,10 +5,13 @@ system prompt at agent creation time. They control how the agent formats
 and presents its responses.
 
 Built-in styles:
-    - ``concise``: Minimal output, code-only, no explanations
-    - ``explanatory``: Step-by-step reasoning, examples, definitions
-    - ``formal``: Professional, structured, numbered sections
-    - ``conversational``: Friendly, casual, uses analogies
+    - `concise`: Minimal output, code-only, no explanations
+    - `explanatory`: Step-by-step reasoning, examples, definitions
+    - `formal`: Professional, structured, numbered sections
+    - `conversational`: Friendly, casual, uses analogies
+    - `markdown`: Well-formed markdown with headings and fenced code
+    - `json-only`: Strict JSON output, no preamble or commentary
+    - `bullet`: Bulleted lists only, no paragraphs
 
 Example:
     ```python
@@ -110,11 +113,53 @@ Use a friendly, conversational tone:
 - Keep technical accuracy while being approachable""",
 )
 
+MARKDOWN_STYLE = OutputStyle(
+    name="markdown",
+    description="Well-formed markdown with headings and fenced code",
+    content="""\
+Format every response as well-formed markdown:
+- Use ATX headings (`#`, `##`, `###`) to structure non-trivial responses
+- Wrap every code snippet in a fenced code block with a language tag
+- Use inline backticks for file paths, identifiers, and commands
+- Use tables for tabular data; use bulleted or numbered lists where appropriate
+- Never reply with raw prose only — always include at least one markdown element
+- Do not wrap the entire response in a single outer code fence""",
+)
+
+JSON_ONLY_STYLE = OutputStyle(
+    name="json-only",
+    description="Strict JSON output, no preamble or commentary",
+    content="""\
+Output strictly valid JSON and nothing else:
+- The entire response MUST be a single JSON value (object or array)
+- No preamble, no trailing commentary, no explanations
+- No markdown code fences around the JSON
+- No comments inside the JSON (JSON does not support comments)
+- Use double-quoted keys and strings; no trailing commas
+- If you cannot answer in JSON, return `{"error": "<short reason>"}`
+- Downstream tooling will parse the output directly — any non-JSON content will break it""",
+)
+
+BULLET_STYLE = OutputStyle(
+    name="bullet",
+    description="Bulleted lists only, no paragraphs",
+    content="""\
+Answer every question as a bulleted list:
+- Use `-` for every bullet; no paragraphs and no prose-only replies
+- One idea per bullet; keep each bullet short (ideally one sentence)
+- Nest with two-space indentation when sub-points are needed
+- Code snippets may appear inside a bullet as fenced code blocks
+- Do not include intro or outro sentences outside the list""",
+)
+
 BUILTIN_STYLES: dict[str, OutputStyle] = {
     "concise": CONCISE_STYLE,
     "explanatory": EXPLANATORY_STYLE,
     "formal": FORMAL_STYLE,
     "conversational": CONVERSATIONAL_STYLE,
+    "markdown": MARKDOWN_STYLE,
+    "json-only": JSON_ONLY_STYLE,
+    "bullet": BULLET_STYLE,
 }
 """Registry of built-in output styles, keyed by name."""
 
@@ -155,7 +200,7 @@ def _parse_frontmatter(content: str) -> tuple[dict[str, Any], str]:
 def load_style_from_file(path: str | Path) -> OutputStyle:
     """Load an OutputStyle from a markdown file with frontmatter.
 
-    The file should have YAML-style frontmatter with at least a ``name``
+    The file should have YAML-style frontmatter with at least a `name`
     field, followed by the style content:
 
     ```markdown
@@ -175,7 +220,8 @@ def load_style_from_file(path: str | Path) -> OutputStyle:
 
     Raises:
         FileNotFoundError: If the file doesn't exist.
-        ValueError: If the file has no ``name`` in frontmatter.
+        ValueError: If the file has no `name` in frontmatter or an empty
+            content body.
     """
     file_path = Path(path)
     content = file_path.read_text(encoding="utf-8")
@@ -184,6 +230,9 @@ def load_style_from_file(path: str | Path) -> OutputStyle:
     name = frontmatter.get("name")
     if not name:
         raise ValueError(f"Style file {path} must have a 'name' in frontmatter")
+
+    if not body.strip():
+        raise ValueError(f"Style file {path} has no content body")
 
     return OutputStyle(
         name=str(name),
@@ -195,9 +244,9 @@ def load_style_from_file(path: str | Path) -> OutputStyle:
 def discover_styles(directory: str | Path) -> dict[str, OutputStyle]:
     """Discover output styles from markdown files in a directory.
 
-    Scans the directory for ``*.md`` files, parses each as a style file
+    Scans the directory for `*.md` files, parses each as a style file
     (frontmatter + body), and returns a dict keyed by style name.
-    Files without a ``name`` in frontmatter are skipped.
+    Files without a `name` in frontmatter are skipped.
 
     Args:
         directory: Path to the styles directory.
@@ -230,9 +279,9 @@ def resolve_style(
     """Resolve a style by name or pass through an OutputStyle instance.
 
     Resolution order:
-    1. If ``style`` is an OutputStyle, return it directly.
-    2. If ``style`` is a string, look up in built-in styles.
-    3. If not found, search in ``styles_dir`` directories.
+    1. If `style` is an OutputStyle, return it directly.
+    2. If `style` is a string, look up in built-in styles.
+    3. If not found, search in `styles_dir` directories.
     4. If still not found, raise ValueError.
 
     Args:

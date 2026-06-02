@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: locust
-Version: 2.44.0
+Version: 2.44.1
 Summary: Developer-friendly load testing framework
 Project-URL: homepage, https://locust.io/
 Project-URL: repository, https://github.com/locustio/locust
@@ -142,12 +142,25 @@ Locust's code base is intentionally kept small and doesn't solve everything out 
 * [Use a totally custom load shape/profile](https://docs.locust.io/en/latest/custom-load-shape.html#custom-load-shape)
 * [...](https://github.com/locustio/locust/wiki/Extensions)
 
+## VS Code extension
+
+Microsoft has built an excellent [VS Code extension](https://learn.microsoft.com/azure/app-testing/load-testing/quickstart-create-run-load-tests-from-visual-studio-code) that uses [Copilot](https://github.com/features/copilot) to help you create and run Locust tests. Here's a video to get you started:
+
+[![Youtube video](https://img.youtube.com/vi/J4pIBwocmvE/maxresdefault.jpg)](https://youtu.be/J4pIBwocmvE)
+
+## Azure Load Testing
+
+Azure offers [a managed load-testing service](https://marketplace.visualstudio.com/items?itemName=ms-azure-load-testing.microsoft-testing) that lets you run and scale Locust tests easily. 
+
+* Scalable and flexible, with no need to host your own infrastructure
+* If your application is hosted on Azure, it can combine test results with detailed resource metrics to help pinpoint bottlenecks and optimize performance.
+* Integrates well with Azure DevOps and GitHub for CI/CD pipelines, enabling automated performance testing as part of your development workflow.
+
 ## Links
 
 * Documentation: [docs.locust.io](https://docs.locust.io)
 * Support/Questions: [StackOverflow](https://stackoverflow.com/questions/tagged/locust)
-* Github Discussions: [Github Discussions](https://github.com/orgs/locustio/discussions)
-* Chat/discussion: [Slack](https://locustio.slack.com) [(signup)](https://communityinviter.com/apps/locustio/locust)
+* Chat/discussion: [Discord](https://discord.gg/faeXQY82Zs)
 
 ## Authors
 
@@ -155,6 +168,10 @@ Locust's code base is intentionally kept small and doesn't solve everything out 
 * UI: [Andrew Baldwin](https://github.com/andrewbaldwin44)
 * Original creator: [Jonatan Heyman](https://github.com/heyman)
 * Massive thanks to [all of our contributors](https://github.com/locustio/locust/graphs/contributors)
+
+## Special thanks
+
+* [Microsoft](https://marketplace.visualstudio.com/items?itemName=ms-azure-load-testing.microsoft-testing) contributes to and sponsors the continued maintenance of Locust ❤️
 
 ## License
 

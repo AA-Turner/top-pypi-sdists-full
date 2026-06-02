@@ -1,16 +1,36 @@
-use qsim_core::{Gate, NoiseChannel};
+use num_complex::Complex;
+use qsim_core::{Gate, NoiseChannel, NoiseChannel2};
 
 /// 회로에 추가되는 개별 명령.
 #[derive(Debug, Clone)]
 pub enum Instruction {
     /// 게이트 적용 명령.
     ApplyGate { gate: Gate, targets: Vec<usize> },
+    /// 임의 k-큐비트 유니터리 직접 적용 (v0.6.8).
+    ///
+    /// `matrix` 는 `2^k × 2^k` row-major (`matrix[row * 2^k + col]`, `f64`).
+    /// `targets` 는 k 개의 큐비트 인덱스 — 행렬 sub-index 비트 `j` 가
+    /// `targets[j]` 에 대응 (`targets[0]` = LSB).  현재 statevector 백엔드
+    /// (CPU / trajectory) 에서 지원되며 [`qsim_core::operations::apply_multi_qubit_gate`]
+    /// 로 적용된다.  MPS / GPU / density 백엔드는 명시적 에러를 반환한다.
+    ApplyUnitary {
+        matrix: Vec<Complex<f64>>,
+        targets: Vec<usize>,
+    },
     /// 단일 큐비트 노이즈 채널 적용 (v0.4 stochastic trajectory).
     /// 실행 시 [`crate::engine::ExecutionEngine`] 의 RNG 로 Kraus 연산자 하나를
     /// 샘플링·적용·재정규화 한다.
     ApplyNoise {
         channel: NoiseChannel,
         target: usize,
+    },
+    /// 2-큐비트 상관 노이즈 채널 적용 (v0.7.2 trajectory).
+    /// 실행 시 4×4 Kraus 연산자 하나를 ‖Kᵢψ‖² 로 샘플링·적용·재정규화.
+    /// statevector / density / MPS (CPU) 에서 지원, GPU 백엔드는 미지원.
+    ApplyNoise2 {
+        channel: NoiseChannel2,
+        q0: usize,
+        q1: usize,
     },
     /// 특정 큐비트 측정 명령.
     ///

@@ -4,13 +4,13 @@ import pathlib
 import platform
 import ssl
 import sys
+from collections.abc import Awaitable, Callable
 from contextlib import suppress
 from re import match as match_regex
-from typing import Awaitable, Callable
+from typing import TYPE_CHECKING
 from unittest import mock
 from uuid import uuid4
 
-import proxy
 import pytest
 from yarl import URL
 
@@ -21,7 +21,22 @@ from aiohttp.helpers import IS_MACOS, IS_WINDOWS
 from aiohttp.pytest_plugin import AiohttpServer
 from aiohttp.test_utils import TestServer
 
+if TYPE_CHECKING:
+    import proxy
+else:
+    proxy = pytest.importorskip("proxy")
+
 ASYNCIO_SUPPORTS_TLS_IN_TLS = sys.version_info >= (3, 11)
+
+pytestmark = [
+    pytest.mark.filterwarnings(r"ignore:BasicAuth is deprecated:DeprecationWarning"),
+    pytest.mark.filterwarnings(
+        r"ignore:The 'auth' parameter is deprecated:DeprecationWarning"
+    ),
+    pytest.mark.filterwarnings(
+        r"ignore:The 'proxy_auth' parameter is deprecated:DeprecationWarning"
+    ),
+]
 
 
 @pytest.fixture
@@ -771,10 +786,7 @@ async def test_proxy_from_env_http_with_auth_from_netrc(
     proxy = await proxy_test_server()
     auth = aiohttp.BasicAuth("user", "pass")
     netrc_file = tmp_path / "test_netrc"
-    netrc_file_data = "machine 127.0.0.1 login {} password {}".format(
-        auth.login,
-        auth.password,
-    )
+    netrc_file_data = f"machine 127.0.0.1 login {auth.login} password {auth.password}"
     with netrc_file.open("w") as f:
         f.write(netrc_file_data)
     mocker.patch.dict(
@@ -797,10 +809,7 @@ async def test_proxy_from_env_http_without_auth_from_netrc(
     proxy = await proxy_test_server()
     auth = aiohttp.BasicAuth("user", "pass")
     netrc_file = tmp_path / "test_netrc"
-    netrc_file_data = "machine 127.0.0.2 login {} password {}".format(
-        auth.login,
-        auth.password,
-    )
+    netrc_file_data = f"machine 127.0.0.2 login {auth.login} password {auth.password}"
     with netrc_file.open("w") as f:
         f.write(netrc_file_data)
     mocker.patch.dict(

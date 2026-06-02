@@ -4,7 +4,7 @@ use num_complex::Complex;
 use qsim_core::complex::Real;
 use qsim_core::operations::{
     apply_controlled_gate, apply_controlled_swap, apply_doubly_controlled_gate,
-    apply_single_qubit_gate, apply_two_qubit_gate,
+    apply_multi_qubit_gate, apply_single_qubit_gate, apply_two_qubit_gate,
 };
 use qsim_core::{DensityMatrix, Gate, StateVector};
 use qsim_gpu::wgpu_backend::{WgpuDensityOp, WgpuGateOp};
@@ -22,6 +22,14 @@ use crate::result::{Backend, Precision, SimulationResult};
 /// MIMIQ default 와 동일.  사용자가 [`ExecutionEngine::with_mps_bond_dim`]
 /// 으로 override 가능.
 pub const DEFAULT_MPS_MAX_BOND_DIM: usize = 64;
+
+/// v0.6.8: arbitrary unitary (`Instruction::ApplyUnitary`) 는 현재
+/// statevector 백엔드 (CPU / trajectory) 에서만 지원된다.  density / MPS /
+/// GPU 경로에 도달하면 이 메시지로 panic — Python binding 이 사전 검증으로
+/// 친화 ValueError 를 던지므로 정상 사용에선 도달하지 않는다.
+const UNITARY_UNSUPPORTED_MSG: &str =
+    "arbitrary unitary (qc.unitary) 는 현재 method='statevector' (CPU) 에서만 \
+     지원됩니다 — density_matrix / mps / wgpu / cuda 백엔드는 미지원";
 
 /// 회로 실행 엔진.
 pub struct ExecutionEngine {
@@ -129,13 +137,31 @@ impl ExecutionEngine {
                 },
                 Err(e) => panic!("wgpu statevector backend 실패: {e}"),
             },
-            (Backend::WgpuDensity, _) => match self.run_wgpu_density(circuit, shots) {
-                Ok((counts, rho)) => SimulationResult::DensityF32 {
-                    counts,
-                    density: rho,
-                },
-                Err(e) => panic!("wgpu density backend 실패: {e}"),
-            },
+            (Backend::WgpuDensity, _) => {
+                // 2q correlated custom Kraus (ApplyNoise2) 는 wgpu density shader
+                // 미지원 (1q Kraus 만) — CPU density (apply_kraus_2q) 로 폴백해
+                // 정확한 결과를 낸다.  wgpu_mps 가 noise 를 CPU trajectory 로
+                // 폴백하는 것과 동일 관례 (panic 대신 정확한 결과).
+                let has_2q_kraus = circuit
+                    .instructions()
+                    .iter()
+                    .any(|i| matches!(i, Instruction::ApplyNoise2 { .. }));
+                if has_2q_kraus {
+                    let (counts, rho) = self.run_typed_density::<f32>(circuit, shots);
+                    SimulationResult::DensityF32 {
+                        counts,
+                        density: rho,
+                    }
+                } else {
+                    match self.run_wgpu_density(circuit, shots) {
+                        Ok((counts, rho)) => SimulationResult::DensityF32 {
+                            counts,
+                            density: rho,
+                        },
+                        Err(e) => panic!("wgpu density backend 실패: {e}"),
+                    }
+                }
+            }
             (Backend::CudaStatevector, Precision::F32) => {
                 match self.run_cuda_statevector(circuit, shots) {
                     Ok((counts, sv)) => SimulationResult::F32 {
@@ -156,11 +182,12 @@ impl ExecutionEngine {
                 }
             }
             (Backend::CpuMps, Precision::F64) => {
-                let (counts, sv, final_norm_sq, truncation_error_sum, observed_max_bond_dim) =
+                let (counts, sv, mps, final_norm_sq, truncation_error_sum, observed_max_bond_dim) =
                     self.run_mps_typed::<f64>(circuit, shots);
                 SimulationResult::MpsF64 {
                     counts,
                     statevector: sv,
+                    mps: mps.map(Arc::new),
                     max_bond_dim: self.max_bond_dim,
                     trunc_threshold: self.mps_trunc_threshold,
                     final_norm_sq,
@@ -169,11 +196,12 @@ impl ExecutionEngine {
                 }
             }
             (Backend::CpuMps, Precision::F32) => {
-                let (counts, sv, final_norm_sq, truncation_error_sum, observed_max_bond_dim) =
+                let (counts, sv, mps, final_norm_sq, truncation_error_sum, observed_max_bond_dim) =
                     self.run_mps_typed::<f32>(circuit, shots);
                 SimulationResult::MpsF32 {
                     counts,
                     statevector: sv,
+                    mps: mps.map(Arc::new),
                     max_bond_dim: self.max_bond_dim,
                     trunc_threshold: self.mps_trunc_threshold,
                     final_norm_sq,
@@ -190,6 +218,9 @@ impl ExecutionEngine {
                 SimulationResult::MpsF32 {
                     counts,
                     statevector: sv,
+                    // WgpuMps: 호스트 MPS 가 보존되지 않음 → expectation 은
+                    // statevector (N≤20) 경로만.
+                    mps: None,
                     max_bond_dim: self.max_bond_dim,
                     trunc_threshold: self.mps_trunc_threshold,
                     final_norm_sq,
@@ -238,6 +269,19 @@ impl ExecutionEngine {
                 }
             }
             (Backend::WgpuDensity, _) => {
+                // 2q correlated custom Kraus 는 wgpu density shader 미지원 →
+                // CPU density (apply_kraus_2q) 폴백 (정확).  run() 경로와 동일.
+                let has_2q_kraus = circuit
+                    .instructions()
+                    .iter()
+                    .any(|i| matches!(i, Instruction::ApplyNoise2 { .. }));
+                if has_2q_kraus {
+                    let (counts, rho) = self.run_typed_density::<f32>(circuit, shots);
+                    return Ok(SimulationResult::DensityF32 {
+                        counts,
+                        density: rho,
+                    });
+                }
                 let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
                     self.run_wgpu_density(circuit, shots)
                 }));
@@ -302,10 +346,12 @@ impl ExecutionEngine {
         // v0.5.8: noise 회로 hybrid trajectory.
         // v0.5.9: dynamic 회로 (Reset / IfEq / IfElse / WhileLoop / ForLoop /
         // Switch / mid-circuit Measure) 도 같은 trajectory path 에서 처리.
-        let has_noise = circuit
-            .instructions()
-            .iter()
-            .any(|i| matches!(i, Instruction::ApplyNoise { .. }));
+        let has_noise = circuit.instructions().iter().any(|i| {
+            matches!(
+                i,
+                Instruction::ApplyNoise { .. } | Instruction::ApplyNoise2 { .. }
+            )
+        });
         let has_dynamic = circuit.has_dynamic();
         if has_noise || has_dynamic {
             return self.run_wgpu_statevector_trajectory(circuit, shots);
@@ -315,11 +361,20 @@ impl ExecutionEngine {
         for inst in circuit.instructions() {
             match inst {
                 Instruction::ApplyGate { .. } | Instruction::MeasureAll => {}
+                Instruction::ApplyUnitary { .. } => {
+                    return Err(GpuError::Unsupported(
+                        "wgpu statevector 는 arbitrary unitary (qc.unitary) 를 \
+                         지원하지 않습니다 — method='statevector' 사용"
+                            .into(),
+                    ));
+                }
                 Instruction::Measure { .. } => {
                     // explicit Measure 는 회로 끝의 trailing 만 허용 (cbit map).
                     // 중간 위치는 dynamic 으로 분류되므로 has_dynamic check 로 거부.
                 }
-                Instruction::ApplyNoise { .. } => unreachable!("noise 는 trajectory path"),
+                Instruction::ApplyNoise { .. } | Instruction::ApplyNoise2 { .. } => {
+                    unreachable!("noise 는 trajectory path")
+                }
                 Instruction::Reset { .. }
                 | Instruction::IfEq { .. }
                 | Instruction::IfElse { .. }
@@ -403,11 +458,154 @@ impl ExecutionEngine {
     ///
     /// 성능: dynamic op 가 적은 큰 회로 (N≥20) 에서 GPU 가속 의미 있음.
     /// 잦으면 round-trip 비용 ↑ — 작은 N 은 `backend='cpu'` 권장.
+    /// v0.6.10: GPU-resident trajectory.  적격 (mid-circuit Measure/Reset 전용
+    /// dynamic 회로, N≤27, noise/control-flow/MeasureAll 없음) 이면
+    /// `Some(Ok((counts, sv)))`, 부적격이면 `Ok(None)` 을 반환해 호출자가
+    /// 기존 경로로 폴백하게 한다.
+    ///
+    /// state 를 [`create_zero_state_buffer`] 로 GPU 에 두고, gate batch 는
+    /// [`apply_ops_to_buffer`], 측정은 [`measure_qubit_gpu`] (GPU prob 계산 +
+    /// GPU Philox uniform) 로 처리 — instruction 사이에 statevector 를
+    /// download/upload 하지 않는다.  counts 는 기존 trajectory 와 동일하게 cbit
+    /// register (LSB-first) 에서 만든다.
+    ///
+    /// [`create_zero_state_buffer`]: qsim_gpu::WgpuStatevectorBackend::create_zero_state_buffer
+    /// [`apply_ops_to_buffer`]: qsim_gpu::WgpuStatevectorBackend::apply_ops_to_buffer
+    /// [`measure_qubit_gpu`]: qsim_gpu::WgpuStatevectorBackend::measure_qubit_gpu
+    #[allow(clippy::type_complexity)]
+    fn try_wgpu_resident_trajectory(
+        &self,
+        circuit: &Circuit,
+        shots: usize,
+    ) -> Result<Option<(std::collections::HashMap<String, usize>, StateVector<f32>)>, GpuError>
+    {
+        let n = circuit.num_qubits();
+        // K=1 (single buffer) 만 — N>27 은 buffer-split 이라 GPU-resident measure
+        // (single state_buffer) 불가.
+        if n > 27 {
+            return Ok(None);
+        }
+        // 적격성: 모든 instruction 이 ApplyGate / Measure / Reset 이고, Measure
+        // 또는 Reset 이 하나 이상 (dynamic).  noise / control-flow / MeasureAll /
+        // ApplyUnitary 가 있으면 부적격.
+        let mut n_measure_reset = 0usize;
+        for inst in circuit.instructions() {
+            match inst {
+                Instruction::ApplyGate { .. } => {}
+                Instruction::Measure { .. } | Instruction::Reset { .. } => n_measure_reset += 1,
+                _ => return Ok(None),
+            }
+        }
+        if n_measure_reset == 0 {
+            return Ok(None);
+        }
+
+        let backend = qsim_gpu::cached_wgpu_statevector_backend()?;
+        let dim = 1usize << n;
+        let n_cbits = circuit.num_cbits();
+        let lambda = circuit.global_phase();
+        let phase = if lambda != 0.0 {
+            Some(Complex::new(lambda.cos() as f32, lambda.sin() as f32))
+        } else {
+            None
+        };
+        let mut rng = match self.seed {
+            Some(seed) => StdRng::seed_from_u64(seed),
+            None => StdRng::from_entropy(),
+        };
+        // f32 X matrix (Reset 의 |1⟩→|0⟩ flip 용).
+        let x_op = |q: usize| WgpuGateOp::Single {
+            matrix: [
+                [Complex::new(0.0, 0.0), Complex::new(1.0, 0.0)],
+                [Complex::new(1.0, 0.0), Complex::new(0.0, 0.0)],
+            ],
+            target: q,
+        };
+
+        let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        let mut last_sv: Vec<Complex<f32>> = vec![Complex::new(0.0, 0.0); dim];
+        let trajectories = shots.max(1);
+
+        for _shot in 0..trajectories {
+            let storage = backend.create_zero_state_buffer(dim);
+            let mut cbits: Vec<u8> = vec![0; n_cbits];
+            // 이 shot 의 measure/reset uniform 을 GPU Philox 로 한 번에 생성.
+            let shot_seed: u64 = rng.gen();
+            let uniforms = backend.generate_uniforms(shot_seed, n_measure_reset)?;
+            let mut u_idx = 0usize;
+            let mut pending: Vec<WgpuGateOp> = Vec::new();
+
+            for inst in circuit.instructions() {
+                match inst {
+                    Instruction::ApplyGate { gate, targets } => {
+                        convert_gate_to_wgpu_ops(gate, targets, &mut pending)?;
+                    }
+                    Instruction::Measure { qubit, cbit } => {
+                        if !pending.is_empty() {
+                            backend.apply_ops_to_buffer(&storage, &pending, dim)?;
+                            pending.clear();
+                        }
+                        let u = uniforms[u_idx];
+                        u_idx += 1;
+                        let outcome = backend.measure_qubit_gpu(&storage, dim, *qubit, u)?;
+                        if *cbit < cbits.len() {
+                            cbits[*cbit] = outcome;
+                        }
+                    }
+                    Instruction::Reset { qubit } => {
+                        if !pending.is_empty() {
+                            backend.apply_ops_to_buffer(&storage, &pending, dim)?;
+                            pending.clear();
+                        }
+                        let u = uniforms[u_idx];
+                        u_idx += 1;
+                        let outcome = backend.measure_qubit_gpu(&storage, dim, *qubit, u)?;
+                        if outcome == 1 {
+                            backend.apply_ops_to_buffer(&storage, &[x_op(*qubit)], dim)?;
+                        }
+                    }
+                    _ => unreachable!("eligibility 가 다른 instruction 을 배제함"),
+                }
+            }
+            if !pending.is_empty() {
+                backend.apply_ops_to_buffer(&storage, &pending, dim)?;
+            }
+
+            let mut sv = backend.download_state_buffer(&storage, dim)?;
+            if let Some(p) = phase {
+                for amp in &mut sv {
+                    *amp *= p;
+                }
+            }
+
+            if shots > 0 && n_cbits > 0 {
+                let bits: String = (0..n_cbits)
+                    .rev()
+                    .map(|i| if cbits[i] != 0 { '1' } else { '0' })
+                    .collect();
+                *counts.entry(bits).or_insert(0) += 1;
+            }
+            last_sv = sv;
+        }
+
+        let mut final_state = StateVector::<f32>::new(n);
+        final_state.amplitudes_mut().copy_from_slice(&last_sv);
+        Ok(Some((counts, final_state)))
+    }
+
     fn run_wgpu_statevector_trajectory(
         &self,
         circuit: &Circuit,
         shots: usize,
     ) -> Result<(std::collections::HashMap<String, usize>, StateVector<f32>), GpuError> {
+        // v0.6.10: GPU-resident fast path — mid-circuit Measure/Reset 만 있는
+        // dynamic 회로 (noise / control-flow / MeasureAll 없음, N≤27) 는 state
+        // 를 GPU 버퍼에 상주시킨 채 gate batch + measure_qubit_gpu (GPU prob +
+        // GPU Philox uniform) 로 처리해 instruction 마다의 full round-trip 을
+        // 제거한다.  부적격이면 None → 기존 CPU-hybrid 경로로 폴백.
+        if let Some(res) = self.try_wgpu_resident_trajectory(circuit, shots)? {
+            return Ok(res);
+        }
         let backend = qsim_gpu::cached_wgpu_statevector_backend()?;
         let n = circuit.num_qubits();
         let dim = 1usize << n;
@@ -562,10 +760,12 @@ impl ExecutionEngine {
             None => StdRng::from_entropy(),
         };
 
-        let has_noise = circuit
-            .instructions()
-            .iter()
-            .any(|i| matches!(i, Instruction::ApplyNoise { .. }));
+        let has_noise = circuit.instructions().iter().any(|i| {
+            matches!(
+                i,
+                Instruction::ApplyNoise { .. } | Instruction::ApplyNoise2 { .. }
+            )
+        });
 
         if has_noise || circuit.has_dynamic() {
             self.run_typed_trajectory::<F>(circuit, shots, &mut rng)
@@ -600,7 +800,10 @@ impl ExecutionEngine {
                 Instruction::ApplyGate { gate, targets } => {
                     apply_gate_typed(&mut state, gate, targets);
                 }
-                Instruction::ApplyNoise { .. } => {
+                Instruction::ApplyUnitary { matrix, targets } => {
+                    apply_unitary_typed(&mut state, matrix, targets);
+                }
+                Instruction::ApplyNoise { .. } | Instruction::ApplyNoise2 { .. } => {
                     unreachable!("run_typed_unitary called with noise instruction")
                 }
                 Instruction::Measure { qubit, cbit } => {
@@ -712,8 +915,14 @@ impl ExecutionEngine {
             Instruction::ApplyGate { gate, targets } => {
                 apply_gate_typed(state, gate, targets);
             }
+            Instruction::ApplyUnitary { matrix, targets } => {
+                apply_unitary_typed(state, matrix, targets);
+            }
             Instruction::ApplyNoise { channel, target } => {
                 channel.apply_to(state, *target, rng);
+            }
+            Instruction::ApplyNoise2 { channel, q0, q1 } => {
+                channel.apply_to(state, *q0, *q1, rng);
             }
             Instruction::Measure { qubit, cbit } => {
                 let outcome = measurement::measure_qubit_inplace(state, *qubit, rng);
@@ -854,10 +1063,12 @@ impl ExecutionEngine {
             .iter()
             .any(|i| matches!(i, Instruction::MeasureAll));
         let has_dynamic = circuit.has_dynamic();
-        let has_noise = circuit
-            .instructions()
-            .iter()
-            .any(|i| matches!(i, Instruction::ApplyNoise { .. }));
+        let has_noise = circuit.instructions().iter().any(|i| {
+            matches!(
+                i,
+                Instruction::ApplyNoise { .. } | Instruction::ApplyNoise2 { .. }
+            )
+        });
 
         // Dynamic 회로는 cbit 분기가 측정 결과에 의존 → trajectory 모드.
         // 그렇지 않으면 단일 ρ 진화 + (있다면) 끝에서 sampling.
@@ -872,9 +1083,16 @@ impl ExecutionEngine {
                     Instruction::ApplyGate { gate, targets } => {
                         apply_gate_typed_density(&mut rho, gate, targets);
                     }
+                    Instruction::ApplyUnitary { .. } => {
+                        panic!("{}", UNITARY_UNSUPPORTED_MSG);
+                    }
                     Instruction::ApplyNoise { channel, target } => {
                         let kraus = channel.kraus_operators::<F>();
                         rho.apply_kraus_1q(&kraus, *target);
+                    }
+                    Instruction::ApplyNoise2 { channel, q0, q1 } => {
+                        let kraus = channel.kraus_operators::<F>();
+                        rho.apply_kraus_2q(&kraus, *q0, *q1);
                     }
                     Instruction::Measure { qubit, cbit } => {
                         explicit_measures.push((*qubit, *cbit));
@@ -963,9 +1181,16 @@ impl ExecutionEngine {
             Instruction::ApplyGate { gate, targets } => {
                 apply_gate_typed_density(rho, gate, targets);
             }
+            Instruction::ApplyUnitary { .. } => {
+                panic!("{}", UNITARY_UNSUPPORTED_MSG);
+            }
             Instruction::ApplyNoise { channel, target } => {
                 let kraus = channel.kraus_operators::<F>();
                 rho.apply_kraus_1q(&kraus, *target);
+            }
+            Instruction::ApplyNoise2 { channel, q0, q1 } => {
+                let kraus = channel.kraus_operators::<F>();
+                rho.apply_kraus_2q(&kraus, *q0, *q1);
             }
             Instruction::Measure { qubit, cbit } => {
                 let outcome = rho.measure_collapse(*qubit, rng);
@@ -1084,10 +1309,12 @@ impl ExecutionEngine {
 
         // v0.5.12: noise / dynamic 회로는 hybrid trajectory path 진입 (wgpu
         // v0.5.8/9 패턴 복제 — cuda 호출 swap).
-        let has_noise = circuit
-            .instructions()
-            .iter()
-            .any(|i| matches!(i, Instruction::ApplyNoise { .. }));
+        let has_noise = circuit.instructions().iter().any(|i| {
+            matches!(
+                i,
+                Instruction::ApplyNoise { .. } | Instruction::ApplyNoise2 { .. }
+            )
+        });
         let has_dynamic = circuit.has_dynamic();
         if has_noise || has_dynamic {
             return self.run_cuda_statevector_trajectory(circuit, shots);
@@ -1307,10 +1534,12 @@ impl ExecutionEngine {
                     .into(),
             ));
         }
-        let has_noise = circuit
-            .instructions()
-            .iter()
-            .any(|i| matches!(i, Instruction::ApplyNoise { .. }));
+        let has_noise = circuit.instructions().iter().any(|i| {
+            matches!(
+                i,
+                Instruction::ApplyNoise { .. } | Instruction::ApplyNoise2 { .. }
+            )
+        });
         if has_noise {
             return Err(GpuError::Unsupported(
                 "cuda statevector f64: noise 회로는 v0.5.x patch — \
@@ -1444,6 +1673,8 @@ impl ExecutionEngine {
                     explicit_measures.push((*qubit, *cbit));
                 }
                 Instruction::MeasureAll => has_measure_all = true,
+                // 2q correlated Kraus (ApplyNoise2) 는 호출부에서 CPU density 로
+                // 라우팅되므로 여기 도달하지 않는다 (up-front 검사).
                 _ => unreachable!("dynamic instruction 은 이미 거부됨"),
             }
         }
@@ -1511,6 +1742,7 @@ impl ExecutionEngine {
     /// v0.6.5: generic over [`qsim_mps::MpsScalar`] (`f32` / `f64`).
     /// Body is the v0.6.3 logic with `Mps<F>` everywhere; gate matrices
     /// flow through `apply_gate_to_mps::<F>` which converts on entry.
+    #[allow(clippy::type_complexity)]
     fn run_mps_typed<F: qsim_mps::MpsScalar>(
         &self,
         circuit: &Circuit,
@@ -1518,6 +1750,7 @@ impl ExecutionEngine {
     ) -> (
         std::collections::HashMap<String, usize>,
         Option<StateVector<F>>,
+        Option<qsim_mps::Mps<F>>,
         f64,
         f64,
         usize,
@@ -1527,6 +1760,7 @@ impl ExecutionEngine {
 
     /// v0.6.6 Cut 6: run_mps_typed with optional SVD provider injection.
     /// v0.6.7: `Backend::WgpuMps` now uses `run_wgpu_mps` (GPU-resident).
+    #[allow(clippy::type_complexity)]
     fn run_mps_typed_with_provider<F: qsim_mps::MpsScalar>(
         &self,
         circuit: &Circuit,
@@ -1535,6 +1769,7 @@ impl ExecutionEngine {
     ) -> (
         std::collections::HashMap<String, usize>,
         Option<StateVector<F>>,
+        Option<qsim_mps::Mps<F>>,
         f64,
         f64,
         usize,
@@ -1544,10 +1779,12 @@ impl ExecutionEngine {
         // v0.6.5: detect noise / dynamic instructions and route to the
         // trajectory engine.  Static circuits (no noise, no dynamic ops)
         // take the cheaper v0.6.3 fast path immediately below.
-        let has_noise = circuit
-            .instructions()
-            .iter()
-            .any(|inst| matches!(inst, Instruction::ApplyNoise { .. }));
+        let has_noise = circuit.instructions().iter().any(|inst| {
+            matches!(
+                inst,
+                Instruction::ApplyNoise { .. } | Instruction::ApplyNoise2 { .. }
+            )
+        });
         let has_dynamic = circuit.instructions().iter().any(|inst| {
             matches!(
                 inst,
@@ -1560,7 +1797,11 @@ impl ExecutionEngine {
             )
         });
         if has_noise || has_dynamic {
-            return self.run_mps_trajectory_with_provider::<F>(circuit, shots, svd_provider);
+            // trajectory 결과는 mixed state → observable 기댓값이 정의되지 않음.
+            // mps = None (expectation 미지원).
+            let (counts, sv, fnorm, terr, obs) =
+                self.run_mps_trajectory_with_provider::<F>(circuit, shots, svd_provider);
+            return (counts, sv, None, fnorm, terr, obs);
         }
 
         let mut mps = qsim_mps::Mps::<F>::with_threshold(
@@ -1579,6 +1820,9 @@ impl ExecutionEngine {
                 Instruction::ApplyGate { gate, targets } => {
                     apply_gate_to_mps::<F>(&mut mps, gate, targets);
                 }
+                Instruction::ApplyUnitary { .. } => {
+                    panic!("{}", UNITARY_UNSUPPORTED_MSG);
+                }
                 Instruction::Measure { qubit, cbit } => {
                     explicit_measures.push((*qubit, *cbit));
                 }
@@ -1586,6 +1830,7 @@ impl ExecutionEngine {
                     has_measure_all = true;
                 }
                 Instruction::ApplyNoise { .. }
+                | Instruction::ApplyNoise2 { .. }
                 | Instruction::Reset { .. }
                 | Instruction::IfEq { .. }
                 | Instruction::IfElse { .. }
@@ -1602,21 +1847,29 @@ impl ExecutionEngine {
         // v0.6.3: cumulative discarded-weight metric (Schollwöck §4.5.3).
         let truncation_error_sum = mps.truncation_error_sum();
 
-        // Branch: shots == 0 → statevector contract (small-N debug path).
+        // Branch: shots == 0.  N ≤ 20 → dense-SV contract (debug + expectation).
+        // v0.7: N > 20 → no dense SV (would OOM); keep the MPS so observable
+        // expectation (`expectation_pauli`, O(N·χ³)) still works for large-N VQE.
         if shots == 0 {
-            assert!(
-                n_qubits <= 20,
-                "MPS shots=0 requires n_qubits ≤ 20 for statevector contract; \
-                 use shots > 0 for direct sampling at larger N"
-            );
             let observed = mps.observed_max_bond_dim();
-            let mps_amplitudes = mps.statevector();
-            let mut state: StateVector<F> = StateVector::new(n_qubits);
-            state.amplitudes_mut().copy_from_slice(&mps_amplitudes);
-            apply_global_phase::<F>(&mut state, circuit.global_phase());
+            if n_qubits <= 20 {
+                let mps_amplitudes = mps.statevector();
+                let mut state: StateVector<F> = StateVector::new(n_qubits);
+                state.amplitudes_mut().copy_from_slice(&mps_amplitudes);
+                apply_global_phase::<F>(&mut state, circuit.global_phase());
+                return (
+                    std::collections::HashMap::new(),
+                    Some(state),
+                    Some(mps),
+                    final_norm_sq,
+                    truncation_error_sum,
+                    observed,
+                );
+            }
             return (
                 std::collections::HashMap::new(),
-                Some(state),
+                None,
+                Some(mps),
                 final_norm_sq,
                 truncation_error_sum,
                 observed,
@@ -1654,6 +1907,7 @@ impl ExecutionEngine {
             return (
                 counts,
                 Some(state),
+                Some(mps),
                 final_norm_sq,
                 truncation_error_sum,
                 observed,
@@ -1680,7 +1934,16 @@ impl ExecutionEngine {
             std::collections::HashMap::new()
         };
 
-        (counts, None, final_norm_sq, truncation_error_sum, observed)
+        // v0.7: retain the (right-canonicalised) MPS so observable expectation
+        // works at N > 20 even though no dense statevector is built.
+        (
+            counts,
+            None,
+            Some(mps),
+            final_norm_sq,
+            truncation_error_sum,
+            observed,
+        )
     }
 
     /// v0.6.7: GPU-resident MPS — all site tensors stay in GPU buffers.
@@ -1710,10 +1973,12 @@ impl ExecutionEngine {
         let n_qubits = circuit.num_qubits();
 
         // Detect noise/dynamic: fall back to CPU MPS trajectory.
-        let has_noise = circuit
-            .instructions()
-            .iter()
-            .any(|inst| matches!(inst, Instruction::ApplyNoise { .. }));
+        let has_noise = circuit.instructions().iter().any(|inst| {
+            matches!(
+                inst,
+                Instruction::ApplyNoise { .. } | Instruction::ApplyNoise2 { .. }
+            )
+        });
         let has_dynamic = circuit.instructions().iter().any(|inst| {
             matches!(
                 inst,
@@ -1732,8 +1997,8 @@ impl ExecutionEngine {
         }
 
         // Phase 1: Initialize GPU-resident state.
-        let gpu_backend = qsim_gpu::cached_wgpu_mps_backend()
-            .expect("wgpu MPS backend init failed");
+        let gpu_backend =
+            qsim_gpu::cached_wgpu_mps_backend().expect("wgpu MPS backend init failed");
         let svd = CpuSvdAdapter;
         let mut mps = qsim_mps::Mps::<f32>::with_threshold(
             n_qubits,
@@ -1766,6 +2031,9 @@ impl ExecutionEngine {
                         &svd,
                     );
                 }
+                Instruction::ApplyUnitary { .. } => {
+                    panic!("{}", UNITARY_UNSUPPORTED_MSG);
+                }
                 Instruction::Measure { qubit, cbit } => {
                     explicit_measures.push((*qubit, *cbit));
                 }
@@ -1773,6 +2041,7 @@ impl ExecutionEngine {
                     has_measure_all = true;
                 }
                 Instruction::ApplyNoise { .. }
+                | Instruction::ApplyNoise2 { .. }
                 | Instruction::Reset { .. }
                 | Instruction::IfEq { .. }
                 | Instruction::IfElse { .. }
@@ -2011,8 +2280,14 @@ impl ExecutionEngine {
             Instruction::ApplyGate { gate, targets } => {
                 apply_gate_to_mps::<F>(mps, gate, targets);
             }
+            Instruction::ApplyUnitary { .. } => {
+                panic!("{}", UNITARY_UNSUPPORTED_MSG);
+            }
             Instruction::ApplyNoise { channel, target } => {
                 apply_noise_to_mps::<F, _>(mps, channel, *target, rng);
+            }
+            Instruction::ApplyNoise2 { channel, q0, q1 } => {
+                apply_noise2_to_mps::<F, _>(mps, channel, *q0, *q1, rng);
             }
             Instruction::Measure { qubit, cbit } => {
                 // Single-qubit measure: needs right-canonical form for
@@ -2203,7 +2478,109 @@ fn apply_noise_to_mps<F: qsim_mps::MpsScalar, R: Rng>(
             }
             mps.normalize();
         }
+        NoiseChannel::PhaseDamping { gamma } => {
+            // K_0 = diag(1, √(1-γ)), K_1 = diag(0, √γ).  p(K_1) = γ·p_one.
+            mps.right_canonicalize();
+            let p_one = mps.single_qubit_probability(target).to_f64().unwrap_or(0.0);
+            let p_k1 = gamma * p_one;
+            let r: f64 = rng.gen();
+            use num_complex::Complex;
+            if r < p_k1 {
+                // K_1 = diag(0, √γ) — projects onto |1⟩.
+                let s = gamma.sqrt();
+                let k1: [[Complex<f64>; 2]; 2] = [
+                    [Complex::new(0.0, 0.0), Complex::new(0.0, 0.0)],
+                    [Complex::new(0.0, 0.0), Complex::new(s, 0.0)],
+                ];
+                mps.apply_one_qubit(&k1, target);
+            } else {
+                // K_0 = diag(1, √(1-γ)).
+                let g = (1.0 - gamma).sqrt();
+                let k0: [[Complex<f64>; 2]; 2] = [
+                    [Complex::new(1.0, 0.0), Complex::new(0.0, 0.0)],
+                    [Complex::new(0.0, 0.0), Complex::new(g, 0.0)],
+                ];
+                mps.apply_one_qubit(&k0, target);
+            }
+            mps.normalize();
+        }
+        NoiseChannel::GeneralizedAmplitudeDamping { gamma, p } => {
+            // 4 Kraus.  trajectory: ‖K_iψ‖² from single-qubit marginal (p0,p1).
+            mps.right_canonicalize();
+            let p1 = mps.single_qubit_probability(target).to_f64().unwrap_or(0.0);
+            let p0 = 1.0 - p1;
+            let n0 = p * (p0 + (1.0 - gamma) * p1);
+            let n1 = p * gamma * p1;
+            let n2 = (1.0 - p) * ((1.0 - gamma) * p0 + p1);
+            // n3 = (1-p)·γ·p0 — remainder.
+            use num_complex::Complex;
+            let g = (1.0 - gamma).sqrt();
+            let s = gamma.sqrt();
+            let z = Complex::new(0.0, 0.0);
+            let c = |x: f64| Complex::new(x, 0.0);
+            let r: f64 = rng.gen();
+            let k: [[Complex<f64>; 2]; 2] = if r < n0 {
+                // K_0 ∝ diag(1, √(1-γ)).
+                [[c(1.0), z], [z, c(g)]]
+            } else if r < n0 + n1 {
+                // K_1 ∝ √γ |0⟩⟨1|.
+                [[z, c(s)], [z, z]]
+            } else if r < n0 + n1 + n2 {
+                // K_2 ∝ diag(√(1-γ), 1).
+                [[c(g), z], [z, c(1.0)]]
+            } else {
+                // K_3 ∝ √γ |1⟩⟨0|.
+                [[z, z], [c(s), z]]
+            };
+            mps.apply_one_qubit(&k, target);
+            mps.normalize();
+        }
+        NoiseChannel::Custom { kraus_ops } => {
+            // 일반 단일 큐비트 Kraus: ‖K_iψ‖² 를 K_i 적용 클론의 norm 으로
+            // 계산 (off-diagonal 까지 정확).  trace-preserving 이면 Σ pᵢ = 1.
+            let mut cdf = Vec::with_capacity(kraus_ops.len());
+            let mut acc = 0.0_f64;
+            for k in kraus_ops.iter() {
+                let mut clone = mps.clone();
+                clone.apply_one_qubit(k, target);
+                acc += clone.norm_squared().max(0.0);
+                cdf.push(acc);
+            }
+            let r: f64 = rng.gen::<f64>() * acc.max(1e-300);
+            let idx = cdf
+                .iter()
+                .position(|&c| r < c)
+                .unwrap_or(kraus_ops.len() - 1);
+            mps.apply_one_qubit(&kraus_ops[idx], target);
+            mps.normalize();
+        }
     }
+}
+
+/// 2-큐비트 상관 노이즈를 MPS trajectory 로 적용한다 (v0.7.2).
+///
+/// 각 4×4 Kraus 를 (SWAP chain 으로 임의 q0,q1 지원하는) `apply_two_qubit_to_mps`
+/// 로 클론에 적용해 ‖Kᵢψ‖² 를 구하고, 하나를 샘플링·적용·재정규화한다.
+fn apply_noise2_to_mps<F: qsim_mps::MpsScalar, R: Rng>(
+    mps: &mut qsim_mps::Mps<F>,
+    channel: &qsim_core::NoiseChannel2,
+    q0: usize,
+    q1: usize,
+    rng: &mut R,
+) {
+    let kraus = channel.kraus_operators::<f64>();
+    let mut cdf = Vec::with_capacity(kraus.len());
+    let mut acc = 0.0_f64;
+    for k in &kraus {
+        let mut clone = mps.clone();
+        apply_two_qubit_to_mps(&mut clone, k, q0, q1);
+        acc += clone.norm_squared().max(0.0);
+        cdf.push(acc);
+    }
+    let r: f64 = rng.gen::<f64>() * acc.max(1e-300);
+    let idx = cdf.iter().position(|&c| r < c).unwrap_or(kraus.len() - 1);
+    apply_two_qubit_to_mps(mps, &kraus[idx], q0, q1);
+    mps.normalize();
 }
 
 /// MPS-direct sampling 의 `Vec<bool>` outcome (v0.6.3, was u64 in v0.6.1)
@@ -2255,7 +2632,9 @@ fn encode_mps_counts_with_cbits(
 ///
 /// 1q gate 는 `Gate::matrix_2x2::<f64>()` 그대로 사용.  2q gate 는 LSB
 /// (`col = q1·2 + q0`) 컨벤션의 4×4 행렬을 만들어 `apply_two_qubit_adjacent`
-/// 에 전달.  3q gate (`Toffoli`/`Fredkin`) 는 panic — Python 측에서 사전 검증.
+/// 에 전달.  v0.6.8: 3q gate (`Toffoli`/`Fredkin`) 는 1q + CNOT 표준 분해
+/// ([`decompose_toffoli_to_mps`]) 로 처리 — 각 2q step 이 SVD 를 거치므로 빠듯한
+/// chi_max 에선 `truncation_error_sum` 이 누적될 수 있다.
 fn apply_gate_to_mps<F: qsim_mps::MpsScalar>(
     mps: &mut qsim_mps::Mps<F>,
     gate: &Gate,
@@ -2332,13 +2711,91 @@ fn apply_gate_to_mps<F: qsim_mps::MpsScalar>(
             let swap = Gate::swap_matrix::<f64>();
             apply_two_qubit_to_mps(mps, &swap, targets[0], targets[1]);
         }
-        Gate::Toffoli | Gate::Fredkin => {
-            panic!(
-                "MPS backend (v0.6.0) does not support 3-qubit gates (Toffoli/Fredkin); \
-                 use method='statevector' or transpile to 1q + 2q"
+        Gate::ISwap => {
+            apply_two_qubit_to_mps(mps, &Gate::iswap_matrix::<f64>(), targets[0], targets[1]);
+        }
+        Gate::Rxx(t) => {
+            apply_two_qubit_to_mps(mps, &Gate::rxx_matrix::<f64>(*t), targets[0], targets[1]);
+        }
+        Gate::Ryy(t) => {
+            apply_two_qubit_to_mps(mps, &Gate::ryy_matrix::<f64>(*t), targets[0], targets[1]);
+        }
+        Gate::Rzz(t) => {
+            apply_two_qubit_to_mps(mps, &Gate::rzz_matrix::<f64>(*t), targets[0], targets[1]);
+        }
+        Gate::Dcx => {
+            apply_two_qubit_to_mps(mps, &Gate::dcx_matrix::<f64>(), targets[0], targets[1]);
+        }
+        Gate::Ecr => {
+            apply_two_qubit_to_mps(mps, &Gate::ecr_matrix::<f64>(), targets[0], targets[1]);
+        }
+        Gate::Rzx(t) => {
+            apply_two_qubit_to_mps(mps, &Gate::rzx_matrix::<f64>(*t), targets[0], targets[1]);
+        }
+        Gate::XxPlusYy(t) => {
+            apply_two_qubit_to_mps(
+                mps,
+                &Gate::xx_plus_yy_matrix::<f64>(*t),
+                targets[0],
+                targets[1],
             );
         }
+        Gate::XxMinusYy(t) => {
+            apply_two_qubit_to_mps(
+                mps,
+                &Gate::xx_minus_yy_matrix::<f64>(*t),
+                targets[0],
+                targets[1],
+            );
+        }
+        Gate::Toffoli => {
+            // v0.6.8: 3-qubit gate 를 1q + 2q (CNOT) 로 분해해 MPS 에 적용.
+            // targets = [control1, control2, target].
+            decompose_toffoli_to_mps(mps, targets[0], targets[1], targets[2]);
+        }
+        Gate::Fredkin => {
+            // v0.6.8: Fredkin(c, t1, t2) = CNOT(t2→t1) · Toffoli(c, t1, t2) · CNOT(t2→t1).
+            // targets = [control, target1, target2].
+            let (c, t1, t2) = (targets[0], targets[1], targets[2]);
+            let x = Gate::X.matrix_2x2::<f64>();
+            apply_controlled_to_mps(mps, &x, t2, t1);
+            decompose_toffoli_to_mps(mps, c, t1, t2);
+            apply_controlled_to_mps(mps, &x, t2, t1);
+        }
     }
+}
+
+/// v0.6.8: Toffoli(c1, c2, t) 를 6-CNOT 표준 분해 (Nielsen & Chuang Fig 4.9)
+/// 로 MPS 에 적용.  모든 게이트가 1q (H/T/Tdg) 또는 CNOT 이므로 기존 MPS
+/// helper 를 재사용하며, 비인접 큐비트는 `apply_controlled_to_mps` 내부의
+/// SWAP chain 으로 자동 처리된다.  각 2q gate 가 SVD 를 거치므로 chi_max 가
+/// 빠듯하면 `truncation_error_sum` 이 누적될 수 있다.
+fn decompose_toffoli_to_mps<F: qsim_mps::MpsScalar>(
+    mps: &mut qsim_mps::Mps<F>,
+    c1: usize,
+    c2: usize,
+    t: usize,
+) {
+    let h = Gate::H.matrix_2x2::<f64>();
+    let t_gate = Gate::T.matrix_2x2::<f64>();
+    let tdg = Gate::Tdg.matrix_2x2::<f64>();
+    let x = Gate::X.matrix_2x2::<f64>();
+
+    mps.apply_one_qubit(&h, t);
+    apply_controlled_to_mps(mps, &x, c2, t);
+    mps.apply_one_qubit(&tdg, t);
+    apply_controlled_to_mps(mps, &x, c1, t);
+    mps.apply_one_qubit(&t_gate, t);
+    apply_controlled_to_mps(mps, &x, c2, t);
+    mps.apply_one_qubit(&tdg, t);
+    apply_controlled_to_mps(mps, &x, c1, t);
+    mps.apply_one_qubit(&t_gate, c2);
+    mps.apply_one_qubit(&t_gate, t);
+    apply_controlled_to_mps(mps, &x, c1, c2);
+    mps.apply_one_qubit(&h, t);
+    mps.apply_one_qubit(&t_gate, c1);
+    mps.apply_one_qubit(&tdg, c2);
+    apply_controlled_to_mps(mps, &x, c1, c2);
 }
 
 /// 2-큐비트 게이트의 일반 4×4 형태를 MPS 에 dispatch.
@@ -2527,35 +2984,107 @@ fn apply_gate_to_gpu_mps(
         // Two-qubit gates — dispatch via GPU.
         Gate::CNOT => {
             let u = Gate::X.matrix_2x2::<f64>();
-            dispatch_controlled_to_gpu_mps(gpu, mps, &u, targets[0], targets[1], max_bond_dim, trunc_threshold, svd);
+            dispatch_controlled_to_gpu_mps(
+                gpu,
+                mps,
+                &u,
+                targets[0],
+                targets[1],
+                max_bond_dim,
+                trunc_threshold,
+                svd,
+            );
         }
         Gate::CY => {
             let u = Gate::Y.matrix_2x2::<f64>();
-            dispatch_controlled_to_gpu_mps(gpu, mps, &u, targets[0], targets[1], max_bond_dim, trunc_threshold, svd);
+            dispatch_controlled_to_gpu_mps(
+                gpu,
+                mps,
+                &u,
+                targets[0],
+                targets[1],
+                max_bond_dim,
+                trunc_threshold,
+                svd,
+            );
         }
         Gate::CH => {
             let u = Gate::H.matrix_2x2::<f64>();
-            dispatch_controlled_to_gpu_mps(gpu, mps, &u, targets[0], targets[1], max_bond_dim, trunc_threshold, svd);
+            dispatch_controlled_to_gpu_mps(
+                gpu,
+                mps,
+                &u,
+                targets[0],
+                targets[1],
+                max_bond_dim,
+                trunc_threshold,
+                svd,
+            );
         }
         Gate::CRx(theta) => {
             let u = Gate::Rx(*theta).matrix_2x2::<f64>();
-            dispatch_controlled_to_gpu_mps(gpu, mps, &u, targets[0], targets[1], max_bond_dim, trunc_threshold, svd);
+            dispatch_controlled_to_gpu_mps(
+                gpu,
+                mps,
+                &u,
+                targets[0],
+                targets[1],
+                max_bond_dim,
+                trunc_threshold,
+                svd,
+            );
         }
         Gate::CRy(theta) => {
             let u = Gate::Ry(*theta).matrix_2x2::<f64>();
-            dispatch_controlled_to_gpu_mps(gpu, mps, &u, targets[0], targets[1], max_bond_dim, trunc_threshold, svd);
+            dispatch_controlled_to_gpu_mps(
+                gpu,
+                mps,
+                &u,
+                targets[0],
+                targets[1],
+                max_bond_dim,
+                trunc_threshold,
+                svd,
+            );
         }
         Gate::CRz(theta) => {
             let u = Gate::Rz(*theta).matrix_2x2::<f64>();
-            dispatch_controlled_to_gpu_mps(gpu, mps, &u, targets[0], targets[1], max_bond_dim, trunc_threshold, svd);
+            dispatch_controlled_to_gpu_mps(
+                gpu,
+                mps,
+                &u,
+                targets[0],
+                targets[1],
+                max_bond_dim,
+                trunc_threshold,
+                svd,
+            );
         }
         Gate::CP(lambda) => {
             let u = Gate::P(*lambda).matrix_2x2::<f64>();
-            dispatch_controlled_to_gpu_mps(gpu, mps, &u, targets[0], targets[1], max_bond_dim, trunc_threshold, svd);
+            dispatch_controlled_to_gpu_mps(
+                gpu,
+                mps,
+                &u,
+                targets[0],
+                targets[1],
+                max_bond_dim,
+                trunc_threshold,
+                svd,
+            );
         }
         Gate::CU3(theta, phi, lambda) => {
             let u = Gate::U(*theta, *phi, *lambda).matrix_2x2::<f64>();
-            dispatch_controlled_to_gpu_mps(gpu, mps, &u, targets[0], targets[1], max_bond_dim, trunc_threshold, svd);
+            dispatch_controlled_to_gpu_mps(
+                gpu,
+                mps,
+                &u,
+                targets[0],
+                targets[1],
+                max_bond_dim,
+                trunc_threshold,
+                svd,
+            );
         }
         Gate::CU(theta, phi, lambda, gamma) => {
             let u_base = Gate::U(*theta, *phi, *lambda).matrix_2x2::<f64>();
@@ -2564,26 +3093,155 @@ fn apply_gate_to_gpu_mps(
                 [u_base[0][0] * phase, u_base[0][1] * phase],
                 [u_base[1][0] * phase, u_base[1][1] * phase],
             ];
-            dispatch_controlled_to_gpu_mps(gpu, mps, &u, targets[0], targets[1], max_bond_dim, trunc_threshold, svd);
+            dispatch_controlled_to_gpu_mps(
+                gpu,
+                mps,
+                &u,
+                targets[0],
+                targets[1],
+                max_bond_dim,
+                trunc_threshold,
+                svd,
+            );
         }
         Gate::CZ => {
             let cz = Gate::cz_matrix::<f64>();
-            dispatch_2q_to_gpu_mps(gpu, mps, &cz, targets[0], targets[1], max_bond_dim, trunc_threshold, svd);
+            dispatch_2q_to_gpu_mps(
+                gpu,
+                mps,
+                &cz,
+                targets[0],
+                targets[1],
+                max_bond_dim,
+                trunc_threshold,
+                svd,
+            );
         }
         Gate::SWAP => {
             let swap = Gate::swap_matrix::<f64>();
-            dispatch_2q_to_gpu_mps(gpu, mps, &swap, targets[0], targets[1], max_bond_dim, trunc_threshold, svd);
+            dispatch_2q_to_gpu_mps(
+                gpu,
+                mps,
+                &swap,
+                targets[0],
+                targets[1],
+                max_bond_dim,
+                trunc_threshold,
+                svd,
+            );
         }
-        Gate::Toffoli | Gate::Fredkin => {
-            panic!(
-                "MPS backend does not support 3-qubit gates (Toffoli/Fredkin); \
-                 use method='statevector' or transpile to 1q + 2q"
+        Gate::ISwap
+        | Gate::Rxx(_)
+        | Gate::Ryy(_)
+        | Gate::Rzz(_)
+        | Gate::Dcx
+        | Gate::Ecr
+        | Gate::Rzx(_)
+        | Gate::XxPlusYy(_)
+        | Gate::XxMinusYy(_) => {
+            let m = match gate {
+                Gate::ISwap => Gate::iswap_matrix::<f64>(),
+                Gate::Rxx(t) => Gate::rxx_matrix::<f64>(*t),
+                Gate::Ryy(t) => Gate::ryy_matrix::<f64>(*t),
+                Gate::Rzz(t) => Gate::rzz_matrix::<f64>(*t),
+                Gate::Dcx => Gate::dcx_matrix::<f64>(),
+                Gate::Ecr => Gate::ecr_matrix::<f64>(),
+                Gate::Rzx(t) => Gate::rzx_matrix::<f64>(*t),
+                Gate::XxPlusYy(t) => Gate::xx_plus_yy_matrix::<f64>(*t),
+                Gate::XxMinusYy(t) => Gate::xx_minus_yy_matrix::<f64>(*t),
+                _ => unreachable!(),
+            };
+            dispatch_2q_to_gpu_mps(
+                gpu,
+                mps,
+                &m,
+                targets[0],
+                targets[1],
+                max_bond_dim,
+                trunc_threshold,
+                svd,
+            );
+        }
+        Gate::Toffoli => {
+            // v0.6.8: 1q + CNOT 분해 (CPU MPS 와 동일 시퀀스, GPU helper 사용).
+            decompose_toffoli_to_gpu_mps(
+                gpu,
+                mps,
+                targets[0],
+                targets[1],
+                targets[2],
+                max_bond_dim,
+                trunc_threshold,
+                svd,
+            );
+        }
+        Gate::Fredkin => {
+            let (c, t1, t2) = (targets[0], targets[1], targets[2]);
+            let x = Gate::X.matrix_2x2::<f64>();
+            dispatch_controlled_to_gpu_mps(
+                gpu,
+                mps,
+                &x,
+                t2,
+                t1,
+                max_bond_dim,
+                trunc_threshold,
+                svd,
+            );
+            decompose_toffoli_to_gpu_mps(gpu, mps, c, t1, t2, max_bond_dim, trunc_threshold, svd);
+            dispatch_controlled_to_gpu_mps(
+                gpu,
+                mps,
+                &x,
+                t2,
+                t1,
+                max_bond_dim,
+                trunc_threshold,
+                svd,
             );
         }
     }
 }
 
+/// v0.6.8: GPU MPS 용 Toffoli 분해 (6-CNOT 표준, [`decompose_toffoli_to_mps`] 와 동일).
+#[allow(clippy::too_many_arguments)]
+fn decompose_toffoli_to_gpu_mps(
+    gpu: &mut GpuMpsTensors,
+    mps: &mut qsim_mps::Mps<f32>,
+    c1: usize,
+    c2: usize,
+    t: usize,
+    max_bond_dim: usize,
+    trunc_threshold: f64,
+    svd: &dyn GpuSvdProvider,
+) {
+    let h = Gate::H.matrix_2x2::<f64>();
+    let t_gate = Gate::T.matrix_2x2::<f64>();
+    let tdg = Gate::Tdg.matrix_2x2::<f64>();
+    let x = Gate::X.matrix_2x2::<f64>();
+    let cx = |gpu: &mut GpuMpsTensors, mps: &mut qsim_mps::Mps<f32>, c: usize, tg: usize| {
+        dispatch_controlled_to_gpu_mps(gpu, mps, &x, c, tg, max_bond_dim, trunc_threshold, svd);
+    };
+
+    gpu.apply_one_qubit(t, &h);
+    cx(gpu, mps, c2, t);
+    gpu.apply_one_qubit(t, &tdg);
+    cx(gpu, mps, c1, t);
+    gpu.apply_one_qubit(t, &t_gate);
+    cx(gpu, mps, c2, t);
+    gpu.apply_one_qubit(t, &tdg);
+    cx(gpu, mps, c1, t);
+    gpu.apply_one_qubit(c2, &t_gate);
+    gpu.apply_one_qubit(t, &t_gate);
+    cx(gpu, mps, c1, c2);
+    gpu.apply_one_qubit(t, &h);
+    gpu.apply_one_qubit(c1, &t_gate);
+    gpu.apply_one_qubit(c2, &tdg);
+    cx(gpu, mps, c1, c2);
+}
+
 /// Dispatch a controlled-1q gate to GPU MPS.
+#[allow(clippy::too_many_arguments)]
 fn dispatch_controlled_to_gpu_mps(
     gpu: &mut GpuMpsTensors,
     mps: &mut qsim_mps::Mps<f32>,
@@ -2618,6 +3276,7 @@ fn dispatch_controlled_to_gpu_mps(
 }
 
 /// Dispatch a 2q gate (4x4 matrix) to GPU MPS, handling qubit ordering.
+#[allow(clippy::too_many_arguments)]
 fn dispatch_2q_to_gpu_mps(
     gpu: &mut GpuMpsTensors,
     mps: &mut qsim_mps::Mps<f32>,
@@ -2635,10 +3294,20 @@ fn dispatch_2q_to_gpu_mps(
     } else {
         swap_4x4_axes(matrix)
     };
-    dispatch_2q_gate_on_gpu(gpu, mps, &m_norm, lo, hi, max_bond_dim, trunc_threshold, svd);
+    dispatch_2q_gate_on_gpu(
+        gpu,
+        mps,
+        &m_norm,
+        lo,
+        hi,
+        max_bond_dim,
+        trunc_threshold,
+        svd,
+    );
 }
 
 /// Core 2q gate dispatch: GPU path with χ<8 CPU fallback.
+#[allow(clippy::too_many_arguments)]
 fn dispatch_2q_gate_on_gpu(
     gpu: &mut GpuMpsTensors,
     mps: &mut qsim_mps::Mps<f32>,
@@ -2667,7 +3336,8 @@ fn dispatch_2q_gate_on_gpu(
         }
     } else {
         // GPU path.
-        let trunc_err = gpu.apply_two_qubit_gate(lo, hi, matrix, max_bond_dim, trunc_threshold, svd);
+        let trunc_err =
+            gpu.apply_two_qubit_gate(lo, hi, matrix, max_bond_dim, trunc_threshold, svd);
         mps.add_truncation_error(trunc_err);
         // Sync bond dims back to host MPS so metadata stays consistent.
         for &site in &involved {
@@ -2765,6 +3435,34 @@ fn convert_gate_to_cuda_ops(
         Gate::SWAP => {
             ops.push(CudaGateOp::Two {
                 matrix: Gate::swap_matrix::<f32>(),
+                q0: targets[0],
+                q1: targets[1],
+            });
+            Ok(())
+        }
+        Gate::ISwap
+        | Gate::Rxx(_)
+        | Gate::Ryy(_)
+        | Gate::Rzz(_)
+        | Gate::Dcx
+        | Gate::Ecr
+        | Gate::Rzx(_)
+        | Gate::XxPlusYy(_)
+        | Gate::XxMinusYy(_) => {
+            let matrix = match gate {
+                Gate::ISwap => Gate::iswap_matrix::<f32>(),
+                Gate::Rxx(t) => Gate::rxx_matrix::<f32>(*t),
+                Gate::Ryy(t) => Gate::ryy_matrix::<f32>(*t),
+                Gate::Rzz(t) => Gate::rzz_matrix::<f32>(*t),
+                Gate::Dcx => Gate::dcx_matrix::<f32>(),
+                Gate::Ecr => Gate::ecr_matrix::<f32>(),
+                Gate::Rzx(t) => Gate::rzx_matrix::<f32>(*t),
+                Gate::XxPlusYy(t) => Gate::xx_plus_yy_matrix::<f32>(*t),
+                Gate::XxMinusYy(t) => Gate::xx_minus_yy_matrix::<f32>(*t),
+                _ => unreachable!(),
+            };
+            ops.push(CudaGateOp::Two {
+                matrix,
                 q0: targets[0],
                 q1: targets[1],
             });
@@ -2924,6 +3622,34 @@ fn convert_gate_to_cuda_ops_f64(
         Gate::SWAP => {
             ops.push(CudaGateOpF64::Two {
                 matrix: Gate::swap_matrix::<f64>(),
+                q0: targets[0],
+                q1: targets[1],
+            });
+            Ok(())
+        }
+        Gate::ISwap
+        | Gate::Rxx(_)
+        | Gate::Ryy(_)
+        | Gate::Rzz(_)
+        | Gate::Dcx
+        | Gate::Ecr
+        | Gate::Rzx(_)
+        | Gate::XxPlusYy(_)
+        | Gate::XxMinusYy(_) => {
+            let matrix = match gate {
+                Gate::ISwap => Gate::iswap_matrix::<f64>(),
+                Gate::Rxx(t) => Gate::rxx_matrix::<f64>(*t),
+                Gate::Ryy(t) => Gate::ryy_matrix::<f64>(*t),
+                Gate::Rzz(t) => Gate::rzz_matrix::<f64>(*t),
+                Gate::Dcx => Gate::dcx_matrix::<f64>(),
+                Gate::Ecr => Gate::ecr_matrix::<f64>(),
+                Gate::Rzx(t) => Gate::rzx_matrix::<f64>(*t),
+                Gate::XxPlusYy(t) => Gate::xx_plus_yy_matrix::<f64>(*t),
+                Gate::XxMinusYy(t) => Gate::xx_minus_yy_matrix::<f64>(*t),
+                _ => unreachable!(),
+            };
+            ops.push(CudaGateOpF64::Two {
+                matrix,
                 q0: targets[0],
                 q1: targets[1],
             });
@@ -3175,6 +3901,34 @@ fn convert_gate_to_density_ops(
             });
             Ok(())
         }
+        Gate::ISwap
+        | Gate::Rxx(_)
+        | Gate::Ryy(_)
+        | Gate::Rzz(_)
+        | Gate::Dcx
+        | Gate::Ecr
+        | Gate::Rzx(_)
+        | Gate::XxPlusYy(_)
+        | Gate::XxMinusYy(_) => {
+            let matrix = match gate {
+                Gate::ISwap => Gate::iswap_matrix::<f32>(),
+                Gate::Rxx(t) => Gate::rxx_matrix::<f32>(*t),
+                Gate::Ryy(t) => Gate::ryy_matrix::<f32>(*t),
+                Gate::Rzz(t) => Gate::rzz_matrix::<f32>(*t),
+                Gate::Dcx => Gate::dcx_matrix::<f32>(),
+                Gate::Ecr => Gate::ecr_matrix::<f32>(),
+                Gate::Rzx(t) => Gate::rzx_matrix::<f32>(*t),
+                Gate::XxPlusYy(t) => Gate::xx_plus_yy_matrix::<f32>(*t),
+                Gate::XxMinusYy(t) => Gate::xx_minus_yy_matrix::<f32>(*t),
+                _ => unreachable!(),
+            };
+            ops.push(WgpuDensityOp::Two {
+                matrix,
+                q0: targets[0],
+                q1: targets[1],
+            });
+            Ok(())
+        }
         Gate::CY => {
             ops.push(WgpuDensityOp::Controlled1q {
                 matrix: Gate::Y.matrix_2x2::<f32>(),
@@ -3309,6 +4063,34 @@ fn convert_gate_to_wgpu_ops(
             });
             Ok(())
         }
+        Gate::ISwap
+        | Gate::Rxx(_)
+        | Gate::Ryy(_)
+        | Gate::Rzz(_)
+        | Gate::Dcx
+        | Gate::Ecr
+        | Gate::Rzx(_)
+        | Gate::XxPlusYy(_)
+        | Gate::XxMinusYy(_) => {
+            let matrix = match gate {
+                Gate::ISwap => Gate::iswap_matrix::<f32>(),
+                Gate::Rxx(t) => Gate::rxx_matrix::<f32>(*t),
+                Gate::Ryy(t) => Gate::ryy_matrix::<f32>(*t),
+                Gate::Rzz(t) => Gate::rzz_matrix::<f32>(*t),
+                Gate::Dcx => Gate::dcx_matrix::<f32>(),
+                Gate::Ecr => Gate::ecr_matrix::<f32>(),
+                Gate::Rzx(t) => Gate::rzx_matrix::<f32>(*t),
+                Gate::XxPlusYy(t) => Gate::xx_plus_yy_matrix::<f32>(*t),
+                Gate::XxMinusYy(t) => Gate::xx_minus_yy_matrix::<f32>(*t),
+                _ => unreachable!(),
+            };
+            ops.push(WgpuGateOp::Two {
+                matrix,
+                q0: targets[0],
+                q1: targets[1],
+            });
+            Ok(())
+        }
         Gate::CY => {
             ops.push(WgpuGateOp::Controlled1q {
                 matrix: Gate::Y.matrix_2x2::<f32>(),
@@ -3421,6 +4203,33 @@ fn apply_gate_typed_density<F: Real>(rho: &mut DensityMatrix<F>, gate: &Gate, ta
         Gate::SWAP => {
             let sw = Gate::swap_matrix::<F>();
             rho.apply_unitary_2q(&sw, targets[0], targets[1]);
+        }
+        Gate::ISwap => {
+            rho.apply_unitary_2q(&Gate::iswap_matrix::<F>(), targets[0], targets[1]);
+        }
+        Gate::Rxx(t) => {
+            rho.apply_unitary_2q(&Gate::rxx_matrix::<F>(*t), targets[0], targets[1]);
+        }
+        Gate::Ryy(t) => {
+            rho.apply_unitary_2q(&Gate::ryy_matrix::<F>(*t), targets[0], targets[1]);
+        }
+        Gate::Rzz(t) => {
+            rho.apply_unitary_2q(&Gate::rzz_matrix::<F>(*t), targets[0], targets[1]);
+        }
+        Gate::Dcx => {
+            rho.apply_unitary_2q(&Gate::dcx_matrix::<F>(), targets[0], targets[1]);
+        }
+        Gate::Ecr => {
+            rho.apply_unitary_2q(&Gate::ecr_matrix::<F>(), targets[0], targets[1]);
+        }
+        Gate::Rzx(t) => {
+            rho.apply_unitary_2q(&Gate::rzx_matrix::<F>(*t), targets[0], targets[1]);
+        }
+        Gate::XxPlusYy(t) => {
+            rho.apply_unitary_2q(&Gate::xx_plus_yy_matrix::<F>(*t), targets[0], targets[1]);
+        }
+        Gate::XxMinusYy(t) => {
+            rho.apply_unitary_2q(&Gate::xx_minus_yy_matrix::<F>(*t), targets[0], targets[1]);
         }
         Gate::CY => {
             let m = Gate::Y.matrix_2x2::<F>();
@@ -3584,7 +4393,31 @@ impl Default for ExecutionEngine {
 }
 
 /// generic 게이트 적용. f32/f64 양쪽에 monomorphize 된다.
-fn apply_gate_typed<F: Real>(state: &mut StateVector<F>, gate: &Gate, targets: &[usize]) {
+/// v0.6.8: 임의 k-큐비트 유니터리를 statevector 에 적용.  instruction 에
+/// 저장된 `f64` 행렬을 정밀도 `F` 로 다운캐스트한 뒤
+/// [`apply_multi_qubit_gate`] 에 위임한다.
+pub(crate) fn apply_unitary_typed<F: Real>(
+    state: &mut StateVector<F>,
+    matrix: &[Complex<f64>],
+    targets: &[usize],
+) {
+    let conv: Vec<Complex<F>> = matrix
+        .iter()
+        .map(|c| {
+            Complex::new(
+                F::from(c.re).expect("f64→F cast"),
+                F::from(c.im).expect("f64→F cast"),
+            )
+        })
+        .collect();
+    apply_multi_qubit_gate(state, &conv, targets);
+}
+
+pub(crate) fn apply_gate_typed<F: Real>(
+    state: &mut StateVector<F>,
+    gate: &Gate,
+    targets: &[usize],
+) {
     match gate {
         // 단일 큐비트 게이트
         Gate::H
@@ -3619,6 +4452,43 @@ fn apply_gate_typed<F: Real>(state: &mut StateVector<F>, gate: &Gate, targets: &
         Gate::SWAP => {
             let swap = Gate::swap_matrix::<F>();
             apply_two_qubit_gate(state, &swap, targets[0], targets[1]);
+        }
+        Gate::ISwap => {
+            apply_two_qubit_gate(state, &Gate::iswap_matrix::<F>(), targets[0], targets[1]);
+        }
+        Gate::Rxx(t) => {
+            apply_two_qubit_gate(state, &Gate::rxx_matrix::<F>(*t), targets[0], targets[1]);
+        }
+        Gate::Ryy(t) => {
+            apply_two_qubit_gate(state, &Gate::ryy_matrix::<F>(*t), targets[0], targets[1]);
+        }
+        Gate::Rzz(t) => {
+            apply_two_qubit_gate(state, &Gate::rzz_matrix::<F>(*t), targets[0], targets[1]);
+        }
+        Gate::Dcx => {
+            apply_two_qubit_gate(state, &Gate::dcx_matrix::<F>(), targets[0], targets[1]);
+        }
+        Gate::Ecr => {
+            apply_two_qubit_gate(state, &Gate::ecr_matrix::<F>(), targets[0], targets[1]);
+        }
+        Gate::Rzx(t) => {
+            apply_two_qubit_gate(state, &Gate::rzx_matrix::<F>(*t), targets[0], targets[1]);
+        }
+        Gate::XxPlusYy(t) => {
+            apply_two_qubit_gate(
+                state,
+                &Gate::xx_plus_yy_matrix::<F>(*t),
+                targets[0],
+                targets[1],
+            );
+        }
+        Gate::XxMinusYy(t) => {
+            apply_two_qubit_gate(
+                state,
+                &Gate::xx_minus_yy_matrix::<F>(*t),
+                targets[0],
+                targets[1],
+            );
         }
         // 2큐비트 controlled-1q 게이트 (v0.4.6) — apply_controlled_gate 패턴 재사용.
         // 1q matrix 를 만들어 control / target 인덱스로 그대로 위임.
@@ -3755,6 +4625,141 @@ mod tests {
 
         let counts = result.counts();
         assert_eq!(counts.get("111"), Some(&100));
+    }
+
+    /// v0.6.8: MPS 백엔드의 3-qubit gate 분해가 statevector 와 일치하는지 검증.
+    /// 모든 입력 basis 상태 (3큐비트 = 8개) 에 대해 Toffoli 의 MPS statevector
+    /// 가 CpuStatevector 결과와 1e-10 이내로 일치해야 한다.
+    #[test]
+    fn test_mps_toffoli_matches_statevector() {
+        for input in 0u8..8 {
+            let build = || {
+                let mut c = Circuit::new(3);
+                if input & 1 != 0 {
+                    c.x(0);
+                }
+                if input & 2 != 0 {
+                    c.x(1);
+                }
+                if input & 4 != 0 {
+                    c.x(2);
+                }
+                c.ccx(0, 1, 2);
+                c
+            };
+            let sv = ExecutionEngine::with_seed(1)
+                .with_backend(Backend::CpuStatevector)
+                .run(&build(), 0);
+            let mps = ExecutionEngine::with_seed(1)
+                .with_backend(Backend::CpuMps)
+                .with_mps_bond_dim(8)
+                .run(&build(), 0);
+            let sv_amps = sv.statevector_f64().unwrap().amplitudes().to_vec();
+            let mps_amps = mps
+                .statevector_f64()
+                .expect("N=3 MPS returns dense statevector")
+                .amplitudes()
+                .to_vec();
+            for (a, b) in sv_amps.iter().zip(mps_amps.iter()) {
+                assert!(
+                    (a - b).norm() < 1e-10,
+                    "Toffoli MPS mismatch for input {input}: {a} vs {b}"
+                );
+            }
+        }
+    }
+
+    /// v0.6.8: MPS 백엔드의 Fredkin (controlled-SWAP) 분해 검증.
+    #[test]
+    fn test_mps_fredkin_matches_statevector() {
+        for input in 0u8..8 {
+            let build = || {
+                let mut c = Circuit::new(3);
+                if input & 1 != 0 {
+                    c.x(0);
+                }
+                if input & 2 != 0 {
+                    c.x(1);
+                }
+                if input & 4 != 0 {
+                    c.x(2);
+                }
+                // Fredkin(control=0, target1=1, target2=2).
+                c.cswap(0, 1, 2);
+                c
+            };
+            let sv = ExecutionEngine::with_seed(1)
+                .with_backend(Backend::CpuStatevector)
+                .run(&build(), 0);
+            let mps = ExecutionEngine::with_seed(1)
+                .with_backend(Backend::CpuMps)
+                .with_mps_bond_dim(8)
+                .run(&build(), 0);
+            let sv_amps = sv.statevector_f64().unwrap().amplitudes().to_vec();
+            let mps_amps = mps
+                .statevector_f64()
+                .expect("N=3 MPS returns dense statevector")
+                .amplitudes()
+                .to_vec();
+            for (a, b) in sv_amps.iter().zip(mps_amps.iter()) {
+                assert!(
+                    (a - b).norm() < 1e-10,
+                    "Fredkin MPS mismatch for input {input}: {a} vs {b}"
+                );
+            }
+        }
+    }
+
+    /// v0.6.8: arbitrary unitary 직접 적용이 동등 native 게이트와 일치.
+    /// 2-큐비트 CNOT 행렬을 `circuit.unitary` 로 적용한 결과가 `circuit.cx`
+    /// 와 statevector 1e-12 이내로 같아야 한다.
+    #[test]
+    fn test_apply_unitary_matches_native_cnot() {
+        use num_complex::Complex;
+        let cnot = Gate::cnot_matrix::<f64>();
+        let flat: Vec<Complex<f64>> = cnot.iter().flat_map(|r| r.iter().copied()).collect();
+
+        for &(q0, q1) in &[(0usize, 1usize), (1, 0)] {
+            let mut via_gate = Circuit::new(2);
+            via_gate.h(0);
+            via_gate.h(1);
+            via_gate.cx(q0, q1);
+
+            let mut via_unitary = Circuit::new(2);
+            via_unitary.h(0);
+            via_unitary.h(1);
+            via_unitary.unitary(flat.clone(), vec![q0, q1]);
+
+            let a = ExecutionEngine::with_seed(1)
+                .with_backend(Backend::CpuStatevector)
+                .run(&via_gate, 0);
+            let b = ExecutionEngine::with_seed(1)
+                .with_backend(Backend::CpuStatevector)
+                .run(&via_unitary, 0);
+            let aa = a.statevector_f64().unwrap().amplitudes().to_vec();
+            let bb = b.statevector_f64().unwrap().amplitudes().to_vec();
+            for (x, y) in aa.iter().zip(bb.iter()) {
+                assert!((x - y).norm() < 1e-12, "unitary≠cnot q0={q0} q1={q1}");
+            }
+        }
+    }
+
+    /// v0.6.8: 단일 큐비트 arbitrary unitary 도 동등 native (H) 와 일치.
+    #[test]
+    fn test_apply_unitary_single_qubit() {
+        let h = Gate::H.matrix_2x2::<f64>();
+        let flat = vec![h[0][0], h[0][1], h[1][0], h[1][1]];
+        let mut via_unitary = Circuit::new(1);
+        via_unitary.unitary(flat, vec![0]);
+        let mut via_gate = Circuit::new(1);
+        via_gate.h(0);
+        let a = ExecutionEngine::with_seed(1).run(&via_gate, 0);
+        let b = ExecutionEngine::with_seed(1).run(&via_unitary, 0);
+        let aa = a.statevector_f64().unwrap().amplitudes().to_vec();
+        let bb = b.statevector_f64().unwrap().amplitudes().to_vec();
+        for (x, y) in aa.iter().zip(bb.iter()) {
+            assert!((x - y).norm() < 1e-12);
+        }
     }
 
     #[test]
@@ -5077,13 +6082,27 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "shots=0 requires n_qubits ≤ 20")]
-    fn mps_panics_shots_zero_above_20_qubits() {
-        // v0.6.1: N>20 + shots=0 still panics — caller can't get statevector
-        // and didn't ask for counts.
+    fn mps_shots_zero_above_20_qubits_retains_mps_for_expectation() {
+        // v0.7: N>20 + shots=0 no longer panics — no dense statevector is
+        // built, but the MPS is retained so observable expectation
+        // (expectation_pauli) works for large-N VQE.
         let circuit = Circuit::new(21);
         let engine = ExecutionEngine::new().with_backend(Backend::CpuMps);
-        let _ = engine.run(&circuit, 0);
+        let result = engine.run(&circuit, 0);
+        match result {
+            SimulationResult::MpsF64 {
+                statevector, mps, ..
+            } => {
+                assert!(statevector.is_none(), "N>20 should not build dense SV");
+                let mps = mps.expect("N>20 shots=0 must retain MPS");
+                // |0...0>: <Z_0> = +1.
+                let mut paulis = vec![0u8; 21];
+                paulis[0] = 3;
+                let z0 = mps.expectation_pauli(&paulis);
+                assert!((z0.re - 1.0).abs() < 1e-9 && z0.im.abs() < 1e-9);
+            }
+            _ => panic!("expected MpsF64"),
+        }
     }
 
     #[test]
@@ -5185,12 +6204,17 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "does not support 3-qubit gates")]
-    fn mps_panics_on_toffoli() {
+    fn mps_toffoli_now_supported_via_decomposition() {
+        // v0.6.8: Toffoli (and Fredkin) are now supported on the MPS
+        // backend via 1q + CNOT decomposition.  Was a hard panic in
+        // v0.6.7.  Correctness vs statevector is covered by
+        // test_mps_toffoli_matches_statevector.
         let mut circuit = Circuit::new(3);
         circuit.ccx(0, 1, 2);
-        let engine = ExecutionEngine::new().with_backend(Backend::CpuMps);
-        let _ = engine.run(&circuit, 0);
+        let engine = ExecutionEngine::new()
+            .with_backend(Backend::CpuMps)
+            .with_mps_bond_dim(8);
+        let _ = engine.run(&circuit, 0); // must not panic.
     }
 
     #[test]

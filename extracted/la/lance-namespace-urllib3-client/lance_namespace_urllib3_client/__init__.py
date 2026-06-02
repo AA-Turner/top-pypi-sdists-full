@@ -14,7 +14,7 @@
 """  # noqa: E501
 
 
-__version__ = "0.7.7"
+__version__ = "0.8.0"
 
 # import apis into sdk package
 from lance_namespace_urllib3_client.api.data_api import DataApi
@@ -40,6 +40,7 @@ from lance_namespace_urllib3_client.exceptions import ApiException
 # import models into sdk package
 from lance_namespace_urllib3_client.models.add_columns_entry import AddColumnsEntry
 from lance_namespace_urllib3_client.models.add_virtual_column_entry import AddVirtualColumnEntry
+from lance_namespace_urllib3_client.models.add_virtual_column_output_entry import AddVirtualColumnOutputEntry
 from lance_namespace_urllib3_client.models.alter_columns_entry import AlterColumnsEntry
 from lance_namespace_urllib3_client.models.alter_table_add_columns_request import AlterTableAddColumnsRequest
 from lance_namespace_urllib3_client.models.alter_table_add_columns_response import AlterTableAddColumnsResponse

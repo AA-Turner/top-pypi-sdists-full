@@ -17,40 +17,51 @@ cpdef np.ndarray[np.double_t, ndim=2] mst_linkage_core(
                                np.ndarray[np.double_t,
                                           ndim=2] distance_matrix):
 
-    cdef np.ndarray[np.intp_t, ndim=1] node_labels
-    cdef np.ndarray[np.intp_t, ndim=1] current_labels
-    cdef np.ndarray[np.double_t, ndim=1] current_distances
-    cdef np.ndarray[np.double_t, ndim=1] left
-    cdef np.ndarray[np.double_t, ndim=1] right
-    cdef np.ndarray[np.double_t, ndim=2] result
+    cdef np.intp_t dim = distance_matrix.shape[0]
+    cdef np.ndarray[np.double_t, ndim=2] result_arr = np.zeros((dim - 1, 3))
+    cdef np.ndarray[np.int8_t, ndim=1] in_tree_arr = np.zeros(dim, dtype=np.int8)
+    cdef np.ndarray[np.double_t, ndim=1] current_distances_arr = np.full(dim, DBL_MAX)
+    cdef np.ndarray[np.intp_t, ndim=1] current_sources_arr = np.zeros(dim, dtype=np.intp)
 
-    cdef np.ndarray label_filter
+    cdef np.double_t *current_distances = <np.double_t *> current_distances_arr.data
+    cdef np.intp_t *current_sources = <np.intp_t *> current_sources_arr.data
+    cdef np.int8_t *in_tree = <np.int8_t *> in_tree_arr.data
+    cdef np.double_t[:, ::1] result = (<np.double_t[:dim - 1, :3:1]> (
+        <np.double_t *> result_arr.data))
+    cdef np.double_t[:, ::1] dist_view = distance_matrix
 
-    cdef np.intp_t current_node
-    cdef np.intp_t new_node_index
+    cdef np.intp_t current_node = 0
+    cdef np.intp_t source_node
     cdef np.intp_t new_node
-    cdef np.intp_t i
+    cdef np.intp_t i, j
+    cdef np.double_t new_distance, d
 
-    result = np.zeros((distance_matrix.shape[0] - 1, 3))
-    node_labels = np.arange(distance_matrix.shape[0], dtype=np.intp)
-    current_node = 0
-    current_distances = np.inf * np.ones(distance_matrix.shape[0])
-    current_labels = node_labels
-    for i in range(1, node_labels.shape[0]):
-        label_filter = current_labels != current_node
-        current_labels = current_labels[label_filter]
-        left = current_distances[label_filter]
-        right = distance_matrix[current_node][current_labels]
-        current_distances = np.where(left < right, left, right)
+    for i in range(1, dim):
+        in_tree[current_node] = 1
+        new_distance = DBL_MAX
+        new_node = 0
+        source_node = 0
 
-        new_node_index = np.argmin(current_distances)
-        new_node = current_labels[new_node_index]
-        result[i - 1, 0] = <double> current_node
+        for j in range(dim):
+            if in_tree[j]:
+                continue
+
+            d = dist_view[current_node, j]
+            if d < current_distances[j]:
+                current_distances[j] = d
+                current_sources[j] = current_node
+
+            if current_distances[j] < new_distance:
+                new_distance = current_distances[j]
+                source_node = current_sources[j]
+                new_node = j
+
+        result[i - 1, 0] = <double> source_node
         result[i - 1, 1] = <double> new_node
-        result[i - 1, 2] = current_distances[new_node_index]
+        result[i - 1, 2] = new_distance
         current_node = new_node
 
-    return result
+    return result_arr
 
 
 cpdef np.ndarray[np.double_t, ndim=2] mst_linkage_core_vector(

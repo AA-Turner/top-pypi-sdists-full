@@ -19,7 +19,7 @@ from azure.mgmt.web.models import (DatabaseType, ConnectionStringType, BuiltInAu
 
 from ._completers import get_hostname_completion_list
 from ._constants import (FUNCTIONS_VERSIONS, LOGICAPPS_NODE_RUNTIME_VERSIONS, WINDOWS_OS_NAME, LINUX_OS_NAME,
-                         DEPLOYMENT_STORAGE_AUTH_TYPES)
+                         DEPLOYMENT_STORAGE_AUTH_TYPES, UPDATE_STRATEGY_TYPES)
 
 from ._validators import (validate_timeout_value, validate_site_create, validate_asp_create,
                           validate_ase_create, validate_ip_address,
@@ -339,6 +339,10 @@ subscription than the app service environment, please use the resource ID for --
         c.argument('end_to_end_encryption_enabled', options_list=['--end-to-end-encryption-enabled', '-e'],
                    help='Enable or disable end-to-end encryption between the Front End and the Workers.',
                    arg_type=get_three_state_flag(return_label=True))
+        c.argument('site_scoped_certs',
+                   options_list=['--site-scoped-certs'],
+                   help='Enable or disable site-scoped certificates.',
+                   arg_type=get_three_state_flag(return_label=True))
         c.argument('min_tls_version',
                    help="The minimum version of TLS required for SSL requests, e.g., '1.0', '1.1', '1.2'")
         c.argument('min_tls_cipher_suite', options_list=['--min-tls-cipher-suite'],
@@ -401,9 +405,9 @@ subscription than the app service environment, please use the resource ID for --
         c.argument('slot', options_list=['--slot', '-s'], help='Name of the web app slot. Default to the productions slot if not specified.')
 
     with self.argument_context('webapp list-runtimes') as c:
-        c.argument('linux', action='store_true', help='list runtime stacks for linux based web apps', deprecate_info=c.deprecate(redirect="--os-type"))
         c.argument('os_type', options_list=["--os", "--os-type"], help="limit the output to just windows or linux runtimes", arg_type=get_enum_type([LINUX_OS_NAME, WINDOWS_OS_NAME]))
-        c.argument('show_runtime_details', action='store_true', help="show detailed versions of runtime stacks")
+        c.argument('runtime', options_list=["--runtime"], help="limit the output to a specific runtime family", arg_type=get_enum_type(['dotnet', 'node', 'php', 'python', 'java']))
+        c.argument('support', options_list=["--support"], help="filter by support lifecycle status. Default: supported", arg_type=get_enum_type(['supported', 'active', 'near', 'eol', 'all']))
 
     with self.argument_context('functionapp list-runtimes') as c:
         c.argument('os_type', options_list=["--os", "--os-type"], help="limit the output to just windows or linux runtimes", arg_type=get_enum_type([LINUX_OS_NAME, WINDOWS_OS_NAME]))
@@ -471,6 +475,10 @@ subscription than the app service environment, please use the resource ID for --
         c.argument('platform_release_channel', options_list=['--platform-release-channel'],
                    help='Set the platform release channel for the web app. Possible values: Latest, Standard, Extended.',
                    arg_type=get_enum_type(PLATFORM_RELEASE_CHANNEL_TYPES))
+        c.argument('site_scoped_certs',
+                   options_list=['--site-scoped-certs'],
+                   help='Enable or disable site-scoped certificates.',
+                   arg_type=get_three_state_flag(return_label=True))
 
     with self.argument_context('webapp browse') as c:
         c.argument('logs', options_list=['--logs', '-l'], action='store_true',
@@ -694,6 +702,10 @@ subscription than the app service environment, please use the resource ID for --
         c.argument('setting_names', nargs='+', help="space-separated always-ready setting names")
         c.argument('settings', nargs='+', help="space-separated configuration for the number of pre-allocated instances in the format `<name>=<value>`")
 
+    with self.argument_context('functionapp update-strategy config') as c:
+        c.argument('strategy_type', options_list=['--type'], arg_type=get_enum_type(UPDATE_STRATEGY_TYPES),
+                   help="The update strategy type. Allowed values: Recreate, RollingUpdate.")
+
     with self.argument_context('webapp config connection-string list') as c:
         c.argument('name', arg_type=webapp_name_arg_type, id_part=None)
 
@@ -785,6 +797,19 @@ subscription than the app service environment, please use the resource ID for --
         c.argument('name', arg_type=webapp_name_arg_type, id_part=None)
         c.argument('resource_group', arg_type=resource_group_name_type)
         c.argument('slot', options_list=['--slot', '-s'], help="the name of the slot. Default to the productions slot if not specified")
+
+    with self.argument_context('webapp log startup') as c:
+        c.argument('name', arg_type=webapp_name_arg_type, id_part=None)
+        c.argument('resource_group', arg_type=resource_group_name_type)
+        c.argument('slot', options_list=['--slot', '-s'], help="the name of the slot. Default to the production slot if not specified")
+        c.argument('instance', options_list=['--instance'], help='Filter by worker instance name.')
+
+    with self.argument_context('webapp log startup list') as c:
+        c.argument('outcome', options_list=['--outcome'], help='Filter by startup outcome.',
+                   arg_type=get_enum_type(['success', 'failure']))
+
+    with self.argument_context('webapp log startup show') as c:
+        c.argument('filename', options_list=['--filename', '-f'], help='Name of a specific startup log file to display. If not specified, shows the latest log (preferring failures).')
 
     with self.argument_context('functionapp log deployment show') as c:
         c.argument('name', arg_type=functionapp_name_arg_type, id_part=None)

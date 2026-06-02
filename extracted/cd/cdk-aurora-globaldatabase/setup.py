@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdk-aurora-globaldatabase",
-    "version": "2.4.62",
+    "version": "2.4.63",
     "description": "cdk-aurora-globaldatabase is an AWS CDK construct library that provides Cross Region Create Global Aurora RDS Databases.",
     "license": "Apache-2.0",
     "url": "https://github.com/neilkuan/cdk-aurora-globaldatabase.git",
@@ -26,17 +26,17 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdk_aurora_globaldatabase._jsii": [
-            "cdk-aurora-globaldatabase@2.4.62.jsii.tgz"
+            "cdk-aurora-globaldatabase@2.4.63.jsii.tgz"
         ],
         "cdk_aurora_globaldatabase": [
             "py.typed"
         ]
     },
-    "python_requires": "~=3.10",
+    "python_requires": ">=3.10",
     "install_requires": [
         "aws-cdk-lib>=2.126.0, <3.0.0",
         "constructs>=10.5.1, <11.0.0",
-        "jsii>=1.132.0, <2.0.0",
+        "jsii>=1.133.0, <2.0.0",
         "publication>=0.0.3",
         "typeguard==2.13.3"
     ],
@@ -45,9 +45,11 @@ kwargs = json.loads(
         "Operating System :: OS Independent",
         "Programming Language :: JavaScript",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Typing :: Typed",
         "Development Status :: 4 - Beta",
         "License :: OSI Approved"

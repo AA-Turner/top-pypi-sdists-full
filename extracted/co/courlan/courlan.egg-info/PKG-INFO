@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: courlan
-Version: 1.3.2
+Version: 1.4.0
 Summary: Clean, filter and sample URLs to optimize data collection – includes spam, content type and language filters.
 Author-email: Adrien Barbaresi <barbaresi@bbaw.de>
-License: Apache 2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/adbar/courlan
 Project-URL: Blog, https://adrien.barbaresi.eu/blog/
 Project-URL: Tracker, https://github.com/adbar/courlan/issues
@@ -14,37 +14,35 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Security
 Classifier: Topic :: Text Processing :: Filters
 Classifier: Topic :: Text Processing :: Linguistic
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: babel>=2.16.0
 Requires-Dist: tld>=0.13
 Requires-Dist: urllib3<3,>=1.26
 Provides-Extra: dev
-Requires-Dist: black; extra == "dev"
-Requires-Dist: flake8; extra == "dev"
-Requires-Dist: mypy; extra == "dev"
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: types-urllib3; extra == "dev"
+Requires-Dist: ruff==0.15.15; extra == "dev"
+Requires-Dist: mypy==2.1.0; extra == "dev"
+Requires-Dist: pytest==9.0.3; extra == "dev"
+Requires-Dist: pytest-cov==7.1.0; extra == "dev"
+Requires-Dist: pytest-httpserver==1.1.5; extra == "dev"
+Dynamic: license-file
 
 # coURLan: Clean, filter, normalize, and sample URLs
 
@@ -52,7 +50,7 @@ Requires-Dist: types-urllib3; extra == "dev"
 [![Python package](https://img.shields.io/pypi/v/courlan.svg)](https://pypi.python.org/pypi/courlan)
 [![Python versions](https://img.shields.io/pypi/pyversions/courlan.svg)](https://pypi.python.org/pypi/courlan)
 [![Code Coverage](https://img.shields.io/codecov/c/github/adbar/courlan.svg)](https://codecov.io/gh/adbar/courlan)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 
 ## Why coURLan?
@@ -108,19 +106,20 @@ CC BY 2.0).
 
 ## Installation
 
-This package is compatible with with all common versions of Python, it
-is tested on Linux, macOS and Windows systems.
+This package requires Python 3.10 or higher and is tested on Linux, macOS
+and Windows systems.
 
 Courlan is available on the package repository [PyPI](https://pypi.org/)
 and can notably be installed with the Python package manager `pip`:
 
 ``` bash
-$ pip install courlan # pip3 install on systems where both Python 2 and 3 are installed
+$ pip install courlan
 $ pip install --upgrade courlan # to make sure you have the latest version
 $ pip install git+https://github.com/adbar/courlan.git # latest available code (see build status above)
 ```
 
 The last version to support Python 3.6 and 3.7 is `courlan==1.2.0`.
+The last version to support Python 3.8 and 3.9 is `courlan==1.3.2`.
 
 
 ## Python
@@ -216,8 +215,19 @@ Link extraction and preprocessing:
 # other options: external_bool, no_filter, language, strict, redirects, ...
 ```
 
-The `filter_links()` function provides additional filters for crawling purposes:
-use of robots.txt rules and link priorization. See `courlan.core` for details.
+The `filter_links()` function provides additional filters for crawling
+purposes: use of robots.txt rules and link prioritization. It returns two
+lists: regular links and priority (navigation) links.
+
+``` python
+>>> from courlan import filter_links
+>>> doc = '<html><body><a href="page1.html">1</a><a href="/tag/listing">Tag</a></body></html>'
+>>> links, links_priority = filter_links(doc, "https://example.org")
+>>> links
+['https://example.org/page1.html']
+>>> links_priority
+['https://example.org/tag/listing']
+```
 
 Determine if a link leads to another host:
 
@@ -286,7 +296,7 @@ Helper function, scrub and normalize:
 
 ``` python
 >>> from courlan import clean_url
->>> clean_url('HTTPS://WWW.DWDS.DE:80/')
+>>> clean_url('HTTPS://WWW.DWDS.DE:443/')
 'https://www.dwds.de'
 ```
 
@@ -338,7 +348,7 @@ the path `/path/testpage` within the domain `https://example.org`. It
 features the following methods:
 
 - URL management
-   - `add_urls(urls=[], appendleft=None, visited=False)`: Add a
+   - `add_urls(urls=None, appendleft=None, visited=False)`: Add a
      list of URLs to the (possibly) existing one. Optional:
      append certain URLs to the left, specify if the URLs have
      already been visited.
@@ -359,16 +369,15 @@ features the following methods:
    - `find_known_urls(domain)`: Get all already known URLs for the
      given domain (ex. `https://example.org`).
    - `find_unvisited_urls(domain)`: Get all unvisited URLs for the given domain.
-   - `get_unvisited_domains()`: Return all domains which have not been all visited.
    - `reset()`: Re-initialize the URL store.
 
 - Crawling and downloads
    - `get_url(domain)`: Retrieve a single URL and consider it to
      be visited (with corresponding timestamp).
    - `get_rules(domain)`: Return the stored crawling rules for the given website.
-   - `store_rules(website, rules=None)`: Store crawling rules for a given website.
+   - `store_rules(website, rules)`: Store crawling rules for a given website.
    - `get_crawl_delay()`: Return the delay as extracted from robots.txt, or a given default.
-   - `get_download_urls(max_urls=100, time_limit=10)`: Get a list of immediately
+   - `get_download_urls(time_limit=10, max_urls=10000)`: Get a list of immediately
      downloadable URLs according to the given time limit per domain.
    - `establish_download_schedule(max_urls=100, time_limit=10)`:
      Get up to the specified number of URLs along with a suitable
@@ -459,32 +468,25 @@ Details of strict URL filtering can be reviewed and changed in the file
 locally](https://packaging.python.org/tutorials/installing-packages/#installing-from-a-local-src-tree).
 
 
-## Contributing
-
-[Contributions](https://github.com/adbar/courlan/blob/master/CONTRIBUTING.md)
-are welcome!
-
-Feel free to file issues on the [dedicated
-page](https://github.com/adbar/courlan/issues).
-
-
 ## Author
 
-Developed with practical applications of academic research in mind, this software
-is part of a broader effort to derive information from web documents.
-Extracting and pre-processing web texts to the exacting standards of
-scientific research presents a substantial challenge.
-This software package simplifies text data collection and enhances corpus quality,
-it is currently used to build [text databases for research](https://www.dwds.de/d/k-web).
+Initially launched to create text databases for research purposes
+at the Berlin-Brandenburg Academy of Sciences (DWDS and ZDL units),
+this package continues to be maintained but its future development
+depends on community support.
 
-- Barbaresi, A. "[Trafilatura: A Web Scraping Library and
-  Command-Line Tool for Text Discovery and
-  Extraction](https://aclanthology.org/2021.acl-demo.15/)."
-  *Proceedings of ACL/IJCNLP 2021: System Demonstrations*, 2021, pp. 122-131.
+**If you value this software or depend on it for your product, consider
+sponsoring it and contributing to its codebase**. Your support
+[on GitHub](https://github.com/sponsors/adbar) or [ko-fi.com](https://ko-fi.com/adbarbaresi)
+will help maintain and enhance this package.
+Visit the [Contributing page](https://github.com/adbar/courlan/blob/master/CONTRIBUTING.md)
+for more information.
 
-Contact: see [homepage](https://adrien.barbaresi.eu/).
+Reach out via the software repository or the [contact
+page](https://adrien.barbaresi.eu/) for inquiries, collaborations, or
+feedback.
 
-Software ecosystem: see [this
+For more on Courlan's' software ecosystem see [this
 graphic](https://github.com/adbar/trafilatura/blob/master/docs/software-ecosystem.png).
 
 

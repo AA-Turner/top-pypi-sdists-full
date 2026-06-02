@@ -91,8 +91,21 @@ if TYPE_CHECKING:
         CustomTaskTimedOutAttributes,
         CustomTaskTimedOutAttributesTypedDict,
     )
+    from .deploymentauthorizedcredentiallistresponse import (
+        DeploymentAuthorizedCredentialListResponse,
+        DeploymentAuthorizedCredentialListResponseTypedDict,
+    )
+    from .deploymentauthorizedcredentialrequest import (
+        DeploymentAuthorizedCredentialRequest,
+        DeploymentAuthorizedCredentialRequestTypedDict,
+    )
+    from .deploymentauthorizedcredentialresponse import (
+        DeploymentAuthorizedCredentialResponse,
+        DeploymentAuthorizedCredentialResponseTypedDict,
+    )
     from .deploymentlocation import DeploymentLocation, DeploymentLocationTypedDict
     from .encodedpayloadoptions import EncodedPayloadOptions
+    from .encryptedpatchvalue import EncryptedPatchValue, EncryptedPatchValueTypedDict
     from .executoridentityrequest import (
         ExecutorIdentityRequest,
         ExecutorIdentityRequestTypedDict,
@@ -106,9 +119,14 @@ if TYPE_CHECKING:
         ExecutorIdentityTokenResponseTypedDict,
     )
     from .failure import Failure, FailureTypedDict
-    from .jsonpatch import JSONPatch, JSONPatchTypedDict
+    from .jsonpatch_input import JSONPatchInput, JSONPatchInputTypedDict
     from .jsonpatchadd import JSONPatchAdd, JSONPatchAddTypedDict
-    from .jsonpatchappend import JSONPatchAppend, JSONPatchAppendTypedDict
+    from .jsonpatchappend import (
+        JSONPatchAppend,
+        JSONPatchAppendTypedDict,
+        Value,
+        ValueTypedDict,
+    )
     from .jsonpatchpayload_input import (
         JSONPatchPayloadInput,
         JSONPatchPayloadInputTypedDict,
@@ -120,6 +138,10 @@ if TYPE_CHECKING:
     from .jsonpatchremove import JSONPatchRemove, JSONPatchRemoveTypedDict
     from .jsonpatchreplace import JSONPatchReplace, JSONPatchReplaceTypedDict
     from .jsonpayload_input import JSONPayloadInput, JSONPayloadInputTypedDict
+    from .list_deployment_authorized_credentials_v1_workflows_deployments_authorized_credentials_getop import (
+        ListDeploymentAuthorizedCredentialsV1WorkflowsDeploymentsAuthorizedCredentialsGetRequest,
+        ListDeploymentAuthorizedCredentialsV1WorkflowsDeploymentsAuthorizedCredentialsGetRequestTypedDict,
+    )
     from .locationtype import LocationType
     from .querydefinition import QueryDefinition, QueryDefinitionTypedDict
     from .registerexecutionrequest import (
@@ -297,9 +319,17 @@ __all__ = [
     "CustomTaskTimedOutAttributesTypedDict",
     "CustomTaskTimedOutInput",
     "CustomTaskTimedOutInputTypedDict",
+    "DeploymentAuthorizedCredentialListResponse",
+    "DeploymentAuthorizedCredentialListResponseTypedDict",
+    "DeploymentAuthorizedCredentialRequest",
+    "DeploymentAuthorizedCredentialRequestTypedDict",
+    "DeploymentAuthorizedCredentialResponse",
+    "DeploymentAuthorizedCredentialResponseTypedDict",
     "DeploymentLocation",
     "DeploymentLocationTypedDict",
     "EncodedPayloadOptions",
+    "EncryptedPatchValue",
+    "EncryptedPatchValueTypedDict",
     "ExecutorIdentityRequest",
     "ExecutorIdentityRequestTypedDict",
     "ExecutorIdentityResponse",
@@ -308,11 +338,12 @@ __all__ = [
     "ExecutorIdentityTokenResponseTypedDict",
     "Failure",
     "FailureTypedDict",
-    "JSONPatch",
     "JSONPatchAdd",
     "JSONPatchAddTypedDict",
     "JSONPatchAppend",
     "JSONPatchAppendTypedDict",
+    "JSONPatchInput",
+    "JSONPatchInputTypedDict",
     "JSONPatchPayloadInput",
     "JSONPatchPayloadInputTypedDict",
     "JSONPatchPayloadValueInput",
@@ -321,9 +352,10 @@ __all__ = [
     "JSONPatchRemoveTypedDict",
     "JSONPatchReplace",
     "JSONPatchReplaceTypedDict",
-    "JSONPatchTypedDict",
     "JSONPayloadInput",
     "JSONPayloadInputTypedDict",
+    "ListDeploymentAuthorizedCredentialsV1WorkflowsDeploymentsAuthorizedCredentialsGetRequest",
+    "ListDeploymentAuthorizedCredentialsV1WorkflowsDeploymentsAuthorizedCredentialsGetRequestTypedDict",
     "Loc",
     "LocTypedDict",
     "LocationType",
@@ -352,6 +384,8 @@ __all__ = [
     "UpdateDefinitionTypedDict",
     "ValidationError",
     "ValidationErrorTypedDict",
+    "Value",
+    "ValueTypedDict",
     "WorkerHeartbeatRequest",
     "WorkerHeartbeatRequestTypedDict",
     "WorkerHeartbeatResponse",
@@ -455,9 +489,17 @@ _dynamic_imports: dict[str, str] = {
     "CustomTaskTimedOutInputTypedDict": ".customtasktimedout_input",
     "CustomTaskTimedOutAttributes": ".customtasktimedoutattributes",
     "CustomTaskTimedOutAttributesTypedDict": ".customtasktimedoutattributes",
+    "DeploymentAuthorizedCredentialListResponse": ".deploymentauthorizedcredentiallistresponse",
+    "DeploymentAuthorizedCredentialListResponseTypedDict": ".deploymentauthorizedcredentiallistresponse",
+    "DeploymentAuthorizedCredentialRequest": ".deploymentauthorizedcredentialrequest",
+    "DeploymentAuthorizedCredentialRequestTypedDict": ".deploymentauthorizedcredentialrequest",
+    "DeploymentAuthorizedCredentialResponse": ".deploymentauthorizedcredentialresponse",
+    "DeploymentAuthorizedCredentialResponseTypedDict": ".deploymentauthorizedcredentialresponse",
     "DeploymentLocation": ".deploymentlocation",
     "DeploymentLocationTypedDict": ".deploymentlocation",
     "EncodedPayloadOptions": ".encodedpayloadoptions",
+    "EncryptedPatchValue": ".encryptedpatchvalue",
+    "EncryptedPatchValueTypedDict": ".encryptedpatchvalue",
     "ExecutorIdentityRequest": ".executoridentityrequest",
     "ExecutorIdentityRequestTypedDict": ".executoridentityrequest",
     "ExecutorIdentityResponse": ".executoridentityresponse",
@@ -466,12 +508,14 @@ _dynamic_imports: dict[str, str] = {
     "ExecutorIdentityTokenResponseTypedDict": ".executoridentitytokenresponse",
     "Failure": ".failure",
     "FailureTypedDict": ".failure",
-    "JSONPatch": ".jsonpatch",
-    "JSONPatchTypedDict": ".jsonpatch",
+    "JSONPatchInput": ".jsonpatch_input",
+    "JSONPatchInputTypedDict": ".jsonpatch_input",
     "JSONPatchAdd": ".jsonpatchadd",
     "JSONPatchAddTypedDict": ".jsonpatchadd",
     "JSONPatchAppend": ".jsonpatchappend",
     "JSONPatchAppendTypedDict": ".jsonpatchappend",
+    "Value": ".jsonpatchappend",
+    "ValueTypedDict": ".jsonpatchappend",
     "JSONPatchPayloadInput": ".jsonpatchpayload_input",
     "JSONPatchPayloadInputTypedDict": ".jsonpatchpayload_input",
     "JSONPatchPayloadValueInput": ".jsonpatchpayloadvalue_input",
@@ -482,6 +526,8 @@ _dynamic_imports: dict[str, str] = {
     "JSONPatchReplaceTypedDict": ".jsonpatchreplace",
     "JSONPayloadInput": ".jsonpayload_input",
     "JSONPayloadInputTypedDict": ".jsonpayload_input",
+    "ListDeploymentAuthorizedCredentialsV1WorkflowsDeploymentsAuthorizedCredentialsGetRequest": ".list_deployment_authorized_credentials_v1_workflows_deployments_authorized_credentials_getop",
+    "ListDeploymentAuthorizedCredentialsV1WorkflowsDeploymentsAuthorizedCredentialsGetRequestTypedDict": ".list_deployment_authorized_credentials_v1_workflows_deployments_authorized_credentials_getop",
     "LocationType": ".locationtype",
     "QueryDefinition": ".querydefinition",
     "QueryDefinitionTypedDict": ".querydefinition",

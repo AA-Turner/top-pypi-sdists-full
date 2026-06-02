@@ -1,9 +1,10 @@
 # /// script
 # requires-python = ">=3.14"
 # dependencies = [
-#     "attoworld>=2026.1.2",
+#     "attoworld>=2026.1.8",
 #     "marimo>=0.23.8",
 #     "numpy>=2.4.6",
+#     "pyside6>=6.11.1",
 # ]
 # [tool.marimo.display]
 # theme = "dark"
@@ -11,8 +12,8 @@
 
 import marimo
 
-__generated_with = "0.21.0"
-app = marimo.App(width="medium")
+__generated_with = "0.23.8"
+app = marimo.App(width="medium", app_title="Frog")
 
 
 @app.cell
@@ -27,7 +28,7 @@ async def _():
         import zipfile
         mo._runtime.context.get_context().marimo_config["runtime"]["output_max_bytes"] = 10000000000
         await micropip.install(
-            "https://nickkarpowicz.github.io/wheels/attoworld-2026.1.4-cp312-cp312-emscripten_3_1_58_wasm32.whl"
+            "https://nickkarpowicz.github.io/wheels/attoworld-2026.1.6-cp312-cp312-emscripten_3_1_58_wasm32.whl"
         )
         def display_download_link_from_file(
             path, output_name, mime_type="text/plain"
@@ -42,11 +43,8 @@ async def _():
                     )
                 )
     else:
-        import tkinter as tk
-        from tkinter import filedialog
-
-        root = tk.Tk()
-        root.withdraw()
+        from PySide6.QtWidgets import QApplication, QFileDialog
+        qtapp = QApplication(sys.argv)
 
     import attoworld as aw
     import numpy as np
@@ -55,9 +53,9 @@ async def _():
 
     aw.plot.set_style("nick_dark")
     return (
+        QFileDialog,
         aw,
         display_download_link_from_file,
-        filedialog,
         is_in_web_notebook,
         mo,
         np,
@@ -220,7 +218,6 @@ def _(is_in_web_notebook, loaded_settings, mo):
         bin_fblock,
         bin_median,
         bin_offset,
-        bin_save_button,
         bin_size,
         bin_spatial_chirp_correction,
         bin_t0,
@@ -324,12 +321,18 @@ def _(mo):
 
 
 @app.cell
-def _(mo, spectral_constraint_file):
+def _(aw, mo, spectral_constraint_file):
     spectral_constraint_format = mo.ui.dropdown(options=["Columns", "Text with headers"], value="Text with headers")
     spectral_constraint_data = spectral_constraint_file.contents()
+    constraint_calibration_selector = mo.ui.dropdown(options=[e.value for e in aw.spectrum.CalibrationData],label="Calibration:")
     if spectral_constraint_data is not None:
         mo.output.append(spectral_constraint_format)
-    return spectral_constraint_data, spectral_constraint_format
+        mo.output.append(constraint_calibration_selector)
+    return (
+        constraint_calibration_selector,
+        spectral_constraint_data,
+        spectral_constraint_format,
+    )
 
 
 @app.cell
@@ -365,6 +368,7 @@ def _(mo, spectral_constraint_data, spectral_constraint_format):
 @app.cell
 def _(
     aw,
+    constraint_calibration_selector,
     mo,
     spectral_constraint_bandpass_f0,
     spectral_constraint_bandpass_order,
@@ -392,6 +396,11 @@ def _(
                     spectrum_field=spectral_constraint_intensity_header.value,
                     is_data_string=True
                 )
+        if constraint_calibration_selector.value is not None:
+            constraint_calibration = aw.data.SpectrometerCalibration.from_npz(
+                aw.spectrum.get_calibration_path() / constraint_calibration_selector.value
+            )
+            spectral_constraint = constraint_calibration.apply_to_spectrum(spectral_constraint)
         spectral_constraint = spectral_constraint.to_bandpassed(spectral_constraint_bandpass_f0.value * 1e12,spectral_constraint_bandpass_sigma.value * 1e12,int(spectral_constraint_bandpass_order.value))
         mo.output.append(mo.md("### Loaded spectral constraint:"))
         spectral_constraint.plot_with_group_delay()
@@ -582,6 +591,8 @@ def _(
             zip.write(f"{file_base.value}.Ek.dat")
             zip.write(f"{file_base.value}.Speck.dat")
             zip.write(f"{file_base.value}.yml")
+            zip.write(f"{file_base.value}_negative_dazzler_phase.txt")
+            zip.write(f"{file_base.value}_positive_dazzler_phase.txt")
         display_download_link_from_file(
             f"{file_base.value}.zip",
             output_name=f"{file_base.value}.zip",
@@ -591,13 +602,11 @@ def _(
 
 
 @app.cell
-def _(filedialog, is_in_web_notebook, mo, result, save_button):
+def _(QFileDialog, is_in_web_notebook, mo, result, save_button):
     mo.stop(not save_button.value)
     if not is_in_web_notebook:
-        _file_path = filedialog.asksaveasfilename(
-            title="Save File", filetypes=[("All Files", "*.*")]
-        )
-
+        _file_path, _file_type = QFileDialog.getSaveFileName(
+                None, "Save file", "", "All Files (*)")
         if (_file_path is not None) and (result is not None) and (_file_path != ""):
             result.save(_file_path)
             result.save_yaml(_file_path + ".yml")
@@ -605,28 +614,26 @@ def _(filedialog, is_in_web_notebook, mo, result, save_button):
 
 
 @app.cell
-def _(filedialog, is_in_web_notebook, mo, plot, result, save_plot_button):
+def _(
+    QFileDialog,
+    is_in_web_notebook,
+    mo,
+    pathlib,
+    plot,
+    result,
+    save_plot_button,
+):
     mo.stop(not save_plot_button.value)
     if not is_in_web_notebook:
-        _file_path = filedialog.asksaveasfilename(
-            title="Save File", filetypes=[("SVG files", "*.svg"), ("PDF files", "*.pdf")]
-        )
-
+        _file_path, _file_type = QFileDialog.getSaveFileName(
+                None, "Save file", "", "SVG files (*.svg);;PDF files (*.pdf)", "SVG files (*.svg)")
         if _file_path is not None and result is not None:
+            if pathlib.Path(_file_path).suffix is "":
+                if _file_type == "PDF files (*.pdf)":
+                    _file_path += ".pdf"
+                else:
+                    _file_path += ".svg"
             plot.savefig(_file_path)
-    return
-
-
-@app.cell
-def _(bin_save_button, bin_settings, filedialog, is_in_web_notebook, mo):
-    if not is_in_web_notebook:
-        mo.stop(not bin_save_button.value)
-        _file_path = filedialog.asksaveasfilename(
-            title="Save File", filetypes=[("YAML files", "*.yml")]
-        )
-
-        if _file_path is not None and bin_settings is not None:
-            bin_settings.save_yaml(_file_path)
     return
 
 

@@ -1,10 +1,6 @@
 from mistralai.workflows.testing.constants import (
     DEFAULT_TEST_TASK_QUEUE,
     TEST_TASK_QUEUE,
-    WORKFLOW_EXAMPLE_HELLO_WORLD,
-    WORKFLOW_EXAMPLE_INTERACTIVE_GAME,
-    WORKFLOW_EXAMPLE_LONG_HELLO_WORLD,
-    WORKFLOW_SIMPLE_CHATBOT,
     min_api_version,
 )
 from mistralai.workflows.testing.event_comparison import compare_itemwise, sort_json_patch
@@ -53,10 +49,6 @@ __all__ = [
     "DEFAULT_TEST_TASK_QUEUE",
     "TEST_TASK_QUEUE",
     "min_api_version",
-    "WORKFLOW_EXAMPLE_HELLO_WORLD",
-    "WORKFLOW_EXAMPLE_INTERACTIVE_GAME",
-    "WORKFLOW_EXAMPLE_LONG_HELLO_WORLD",
-    "WORKFLOW_SIMPLE_CHATBOT",
     "compare_itemwise",
     "sort_json_patch",
     "workflow_started",

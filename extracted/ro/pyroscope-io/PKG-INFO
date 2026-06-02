@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyroscope-io
-Version: 1.0.10
+Version: 1.0.11
 Summary: Pyroscope Python integration
 Author-email: Tolya Korniltsev <anatoly.korniltsev@grafana.com>
 Maintainer-email: Tolyan Korniltsev <anatoly.korniltsev@grafana.com>

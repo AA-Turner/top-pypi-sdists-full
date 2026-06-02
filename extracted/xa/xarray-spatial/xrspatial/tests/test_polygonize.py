@@ -26,7 +26,7 @@ except ImportError:
     sp = None
 
 
-from ..polygonize import polygonize
+from ..polygonize import _polygonize_dask, polygonize
 from .general_checks import cuda_and_cupy_available, dask_array_available
 
 
@@ -323,6 +323,74 @@ def test_polygonize_dask_matches_numpy_big(chunks):
 
     for val in areas_np:
         assert val in areas_da, f"Value {val} missing from dask result"
+        assert_allclose(areas_da[val], areas_np[val],
+                        err_msg=f"Area mismatch for value {val}")
+
+
+def _assert_polygonize_results_equal(result_a, result_b):
+    """Assert two (values, polygons) results are element-wise identical."""
+    vals_a, polys_a = result_a
+    vals_b, polys_b = result_b
+    assert_allclose(vals_a, vals_b)
+    assert len(polys_a) == len(polys_b)
+    for pa, pb in zip(polys_a, polys_b):
+        assert len(pa) == len(pb)
+        for ra, rb in zip(pa, pb):
+            assert_allclose(ra, rb)
+
+
+@dask_array_available
+@pytest.mark.parametrize("batch_size", [1, 2, 3, 100])
+def test_polygonize_dask_batch_size_invariant(batch_size):
+    """Batched dask compute gives byte-identical output regardless of batch.
+
+    The raster is split into 3x3 = 9 chunks, so batch_size=1 (one compute
+    per chunk, the old serial behaviour) and larger batches all exercise
+    the row-major task ordering.  Batching is a performance change only:
+    every batch_size, including ones that force multiple batches, must
+    produce the exact same values and polygon vertices as batch_size=1.
+    """
+    shape = (15, 18)
+    rng = np.random.default_rng(28403)
+    data = rng.integers(low=0, high=3, size=shape, dtype=np.int64)
+    mask = rng.uniform(0, 1, size=shape) < 0.9
+
+    raster_da = xr.DataArray(da.from_array(data, chunks=(5, 6)))
+    mask_da = xr.DataArray(da.from_array(mask, chunks=(5, 6)))
+
+    # batch_size=1 reproduces the pre-batching serial per-chunk loop.
+    result_serial = _polygonize_dask(
+        raster_da.data, mask_da.data, connectivity_8=False,
+        transform=None, batch_size=1)
+    result_batched = _polygonize_dask(
+        raster_da.data, mask_da.data, connectivity_8=False,
+        transform=None, batch_size=batch_size)
+
+    _assert_polygonize_results_equal(result_serial, result_batched)
+
+
+@dask_array_available
+@pytest.mark.parametrize("batch_size", [1, 4, 100])
+def test_polygonize_dask_batched_matches_numpy_areas(batch_size):
+    """Batched multi-chunk dask areas match numpy for every batch size."""
+    shape = (15, 18)
+    rng = np.random.default_rng(28403)
+    data = rng.integers(low=0, high=3, size=shape, dtype=np.int64)
+    mask = rng.uniform(0, 1, size=shape) < 0.9
+
+    vals_np, polys_np = polygonize(
+        xr.DataArray(data), mask=xr.DataArray(mask), connectivity=4)
+    areas_np = _area_by_value(vals_np, polys_np)
+
+    raster_da = xr.DataArray(da.from_array(data, chunks=(5, 6)))
+    mask_da = xr.DataArray(da.from_array(mask, chunks=(5, 6)))
+    vals_da, polys_da = _polygonize_dask(
+        raster_da.data, mask_da.data, connectivity_8=False,
+        transform=None, batch_size=batch_size)
+    areas_da = _area_by_value(vals_da, polys_da)
+
+    assert set(areas_np) == set(areas_da)
+    for val in areas_np:
         assert_allclose(areas_da[val], areas_np[val],
                         err_msg=f"Area mismatch for value {val}")
 
@@ -1456,8 +1524,16 @@ class TestPolygonizeTransformPropagation:
         assert all_ys.max() <= 3.0 + 1e-6
 
     def test_no_transform_info_yields_pixel_coords(self):
-        """A raster with no transform info keeps pixel-space coords."""
-        raster = self._raster()  # no attrs
+        """A raster with no transform info keeps pixel-space coords.
+
+        Build a coordless raster here rather than using ``_raster()``:
+        that helper sets integer-index coords (``np.arange(3)``), and
+        since #2607 those coords are themselves a transform source
+        (resolving to a -0.5 pixel-corner origin), so they would no
+        longer exercise the "genuinely no transform info" path.
+        """
+        data = np.array([[1, 1, 2], [1, 1, 2], [2, 2, 2]], dtype=np.int32)
+        raster = xr.DataArray(data, dims=('y', 'x'))  # no coords, no attrs
         _, polys = polygonize(raster, return_type='numpy')
         all_xs = np.concatenate([p[0][:, 0] for p in polys])
         all_ys = np.concatenate([p[0][:, 1] for p in polys])
@@ -1617,6 +1693,172 @@ class TestPolygonizeTransformPropagation:
         _, polys = polygonize(raster, return_type='numpy')
         all_xs = np.concatenate([p[0][:, 0] for p in polys])
         assert all_xs.min() >= 1_000_000.0 - 1e-6
+
+
+# --- coords-based transform auto-detection tests (issue #2607) ---
+#
+# polygonize auto-detected attrs['transform'] and rio.transform() but not
+# the raster's own x/y coords -- the xarray/xrspatial standard
+# georeferencing channel.  A coords-georeferenced raster with a crs attr
+# produced a GeoDataFrame whose .crs lied about pixel-space geometries,
+# the same misalignment #2536 fixed for the transform attr.
+
+class TestPolygonizeCoordsTransform:
+    """polygonize derives a transform from x/y coords when no other
+    transform source is available (#2607)."""
+
+    # 10 m pixels, centres so the implied corner origin is (1e6, 5e6).
+    @staticmethod
+    def _coords():
+        xs = 1_000_000.0 + 10.0 * np.arange(3) + 5.0  # centres
+        ys = 5_000_000.0 - 10.0 * np.arange(3) - 5.0
+        return ys, xs
+
+    @staticmethod
+    def _data():
+        return np.array([[1, 1, 2], [1, 1, 2], [2, 2, 2]], dtype=np.int32)
+
+    def _raster(self, data=None, **attrs):
+        ys, xs = self._coords()
+        if data is None:
+            data = self._data()
+        return xr.DataArray(
+            data, dims=('y', 'x'),
+            coords={'y': ys, 'x': xs}, attrs=attrs)
+
+    def test_coords_transform_numpy(self):
+        """Coords-derived transform lands geometries in CRS space."""
+        raster = self._raster()
+        _, polys = polygonize(raster, return_type='numpy')
+        all_xs = np.concatenate([p[0][:, 0] for p in polys])
+        all_ys = np.concatenate([p[0][:, 1] for p in polys])
+        # Corner extent: centres span 1e6..1e6+20, so corners 1e6..1e6+30.
+        assert all_xs.min() >= 1_000_000.0 - 1e-6
+        assert all_xs.max() <= 1_000_000.0 + 30.0 + 1e-6
+        assert all_ys.max() <= 5_000_000.0 + 1e-6
+        assert all_ys.min() >= 5_000_000.0 - 30.0 - 1e-6
+
+    @pytest.mark.skipif(gpd is None, reason="geopandas not installed")
+    def test_coords_transform_geopandas_crs_matches_geometry(self):
+        """The geopandas .crs no longer lies about pixel-space geometry."""
+        raster = self._raster(crs='EPSG:3857')
+        df = polygonize(raster, return_type='geopandas')
+        assert df.crs is not None and df.crs.to_epsg() == 3857
+        bounds = df.geometry.total_bounds  # [minx, miny, maxx, maxy]
+        assert bounds[0] >= 1_000_000.0 - 1e-6
+        assert bounds[2] <= 1_000_000.0 + 30.0 + 1e-6
+        assert bounds[1] >= 5_000_000.0 - 30.0 - 1e-6
+        assert bounds[3] <= 5_000_000.0 + 1e-6
+
+    def test_transform_attr_beats_coords(self):
+        """attrs['transform'] takes precedence over coords."""
+        # Coords imply origin 1e6; the attr puts origin at 0.
+        identity10 = (10.0, 0.0, 0.0, 0.0, 10.0, 0.0)
+        raster = self._raster(transform=identity10)
+        _, polys = polygonize(raster, return_type='numpy')
+        all_xs = np.concatenate([p[0][:, 0] for p in polys])
+        # Origin 0, 10 m pixels, 3 cols -> max 30, not ~1e6.
+        assert all_xs.max() <= 30.0 + 1e-6
+
+    def test_explicit_transform_beats_coords(self):
+        """An explicit transform= overrides coords-derived transform."""
+        raster = self._raster()
+        identity = np.array([1.0, 0.0, 0.0, 0.0, 1.0, 0.0])
+        _, polys = polygonize(
+            raster, transform=identity, return_type='numpy')
+        all_xs = np.concatenate([p[0][:, 0] for p in polys])
+        assert all_xs.max() <= 3.0 + 1e-6
+
+    def test_irregular_coords_yield_no_coords_transform(self):
+        """The coords fallback bails on unevenly spaced coords.
+
+        ``_transform_from_coords`` is the no-rioxarray fallback (step 3 in
+        ``_detect_raster_transform``).  When rioxarray is installed it owns
+        step 2 and will average irregular spacing into a transform, so this
+        guards the lower-level helper directly rather than the full pipeline.
+        """
+        from ..polygonize import _transform_from_coords
+        ys, _ = self._coords()
+        raster = xr.DataArray(
+            self._data(), dims=('y', 'x'),
+            coords={'y': ys, 'x': [0.0, 1.0, 5.0]})  # irregular x
+        assert _transform_from_coords(raster) is None
+
+    def test_single_pixel_coords_fall_back(self):
+        """A length-1 coord dim has no spacing; fall back to pixel space."""
+        raster = xr.DataArray(
+            np.array([[7]], dtype=np.int32), dims=('y', 'x'),
+            coords={'y': [5_000_000.0], 'x': [1_000_000.0]})
+        _, polys = polygonize(raster, return_type='numpy')
+        all_xs = np.concatenate([p[0][:, 0] for p in polys])
+        assert all_xs.max() <= 2.0 + 1e-6  # nx padded to 2 internally
+
+    def test_no_coords_yields_pixel_space(self):
+        """No coords at all -> pixel-space output (unchanged behaviour)."""
+        raster = xr.DataArray(self._data(), dims=('y', 'x'))
+        _, polys = polygonize(raster, return_type='numpy')
+        all_xs = np.concatenate([p[0][:, 0] for p in polys])
+        assert all_xs.max() <= 3.0 + 1e-6
+
+    def test_no_georef_marker_suppresses_coords(self):
+        """_xrspatial_no_georef opts out of coords auto-detection too."""
+        raster = self._raster(_xrspatial_no_georef=True)
+        _, polys = polygonize(raster, return_type='numpy')
+        all_xs = np.concatenate([p[0][:, 0] for p in polys])
+        assert all_xs.max() <= 3.0 + 1e-6
+
+    def test_coords_transform_with_non_yx_dim_names(self):
+        """Coords detection uses the raster's actual dim names, not 'y'/'x'.
+
+        get_dataarray_resolution treats dims[-1] as x and dims[-2] as y,
+        so a raster dimensioned ('lat', 'lon') must still be georeferenced
+        from its coords.
+        """
+        ys, xs = self._coords()
+        raster = xr.DataArray(
+            self._data(), dims=('lat', 'lon'),
+            coords={'lat': ys, 'lon': xs})
+        _, polys = polygonize(raster, return_type='numpy')
+        all_xs = np.concatenate([p[0][:, 0] for p in polys])
+        assert all_xs.min() >= 1_000_000.0 - 1e-6
+
+    @pytest.mark.skipif(da is None, reason="dask not installed")
+    def test_coords_transform_dask(self):
+        """Dask backend honours the coords-derived transform."""
+        ys, xs = self._coords()
+        raster = xr.DataArray(
+            da.from_array(self._data(), chunks=(2, 2)),
+            dims=('y', 'x'), coords={'y': ys, 'x': xs})
+        _, polys = polygonize(raster, return_type='numpy')
+        all_xs = np.concatenate([p[0][:, 0] for p in polys])
+        assert all_xs.min() >= 1_000_000.0 - 1e-6
+        assert all_xs.max() <= 1_000_000.0 + 30.0 + 1e-6
+
+    @cuda_and_cupy_available
+    def test_coords_transform_cupy(self):
+        """CuPy backend honours the coords-derived transform."""
+        import cupy as cp
+        ys, xs = self._coords()
+        raster = xr.DataArray(
+            cp.asarray(self._data()),
+            dims=('y', 'x'), coords={'y': ys, 'x': xs})
+        _, polys = polygonize(raster, return_type='numpy')
+        all_xs = np.concatenate([p[0][:, 0] for p in polys])
+        assert all_xs.min() >= 1_000_000.0 - 1e-6
+        assert all_xs.max() <= 1_000_000.0 + 30.0 + 1e-6
+
+    @cuda_and_cupy_available
+    def test_coords_transform_dask_cupy(self):
+        """Dask+CuPy backend honours the coords-derived transform."""
+        import cupy as cp
+        ys, xs = self._coords()
+        raster = xr.DataArray(
+            da.from_array(cp.asarray(self._data()), chunks=(2, 2)),
+            dims=('y', 'x'), coords={'y': ys, 'x': xs})
+        _, polys = polygonize(raster, return_type='numpy')
+        all_xs = np.concatenate([p[0][:, 0] for p in polys])
+        assert all_xs.min() >= 1_000_000.0 - 1e-6
+        assert all_xs.max() <= 1_000_000.0 + 30.0 + 1e-6
 
 
 # --- atol / rtol tolerance parameter tests (issue #2173) ---

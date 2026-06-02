@@ -27,6 +27,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .fields import FieldType
 from .location import SourceLocation
+from .predicates import CompOp
 
 
 class FlowFieldValueKind(StrEnum):
@@ -114,6 +115,75 @@ class FlowUpdate(BaseModel):
 AtomicFlowStep = Annotated[FlowCreate | FlowUpdate, Field(discriminator="kind")]
 
 
+class FlowAuditMode(StrEnum):
+    """How a flow's per-step audit fact is recorded (#1317, ADR-0029 invariant 5).
+
+    - ``ASYNC`` (default): one ``allow`` fact per committed step is enqueued on
+      the async ``AuditLogger`` *after* the flow commits (best-effort; dropped on
+      queue overflow / crash before drain). The shipped #1313 slice-1e behaviour.
+    - ``STRICT``: each committed step's audit row is written to the dedicated
+      ``_dazzle_atomic_audit`` side-table on the flow's **own connection, inside
+      the transaction**, so the audit commits or rolls back atomically with the
+      mutation (no drop, no async-drainer race). The upgrade path for flows that
+      need a guaranteed trail.
+    """
+
+    ASYNC = "async"
+    STRICT = "strict"
+
+
+class FlowAggregateFn(StrEnum):
+    """Aggregate function in a flow-level invariant (#1318, ADR-0031)."""
+
+    SUM = "sum"
+    COUNT = "count"
+
+
+class InvariantRhs(BaseModel):
+    """Right-hand bound of a flow invariant: a literal OR an anchor-row field.
+
+    Exactly one form is populated: ``literal`` for `= 0` / `<= 1000`; the
+    ``anchor_input`` + ``anchor_field`` pair for `<= input.budget.total`.
+    """
+
+    literal: int | float | None = None
+    anchor_input: str | None = None
+    anchor_field: str | None = None
+
+    model_config = ConfigDict(frozen=True)
+
+
+class FlowInvariant(BaseModel):
+    """A flow-level aggregate invariant (#1318, ADR-0031).
+
+    Asserts ``<agg_fn>(<entity>.<field> where <filter>) <op> <rhs>`` holds at
+    commit, else the whole flow rolls back. ``anchor_entity`` / ``anchor_input``
+    are ``None`` in raw parser output and derived by the linker (the lockable
+    anchor row the invariant's ``FOR UPDATE`` pins); ``None`` after linking ⇒
+    unanchored ⇒ rejected by the validator.
+
+    ``raw_filter`` carries the parser-captured ``where`` filter terms — a
+    conjunction (AND) of ``<column> = (input.<name> | literal)`` equalities — as
+    a frozen tuple of ``(column, kind, value)`` triples where ``kind`` ∈
+    {"input", "literal"}. v1 enforces the filter by building ``WHERE`` SQL
+    directly from ``raw_filter`` (resolving input/literal values against the
+    flow inputs at enforcement); a compiled ``ScopePredicate`` form is a
+    deliberately-deferred richer-filter extension (ADR-0031 honest limits).
+    """
+
+    agg_fn: FlowAggregateFn
+    entity: str
+    field: str | None  # None only for COUNT
+    anchor_entity: str | None
+    anchor_input: str | None
+    op: CompOp
+    rhs: InvariantRhs
+    raw_filter: tuple[tuple[str, str, str], ...] = ()
+    location: SourceLocation | None = None
+
+    model_config = ConfigDict(frozen=True)
+
+
 class FlowFailureMode(StrEnum):
     """How the framework handles a create failure mid-flow."""
 
@@ -135,8 +205,17 @@ class AtomicFlowSpec(BaseModel):
     intent: str | None = None
     permit_execute: list[str]  # role names allowed to execute the flow
     on_failure: FlowFailureMode = FlowFailureMode.ROLLBACK_ALL
+    audit_mode: FlowAuditMode = FlowAuditMode.ASYNC  # #1317 — per-flow `audit:` opt-in
     inputs: list[FlowInput]
     steps: list[AtomicFlowStep]
+    invariants: list[FlowInvariant] = []
+    derived_step_order: list[int] | None = None
+    """#1315 — execution order as indices into ``steps``, derived parent-before-child
+    from the FK graph at link time for the **create-DAG family** (all-create, no
+    same-entity repeat, no FK cycle). ``None`` ⇒ run ``steps`` in declared order
+    (updates / same-entity / cyclic FKs, where order is temporal/semantic, not
+    structural). Declared ``steps`` order is preserved either way (provenance +
+    analysis); the executor consumes this when set."""
     location: SourceLocation | None = None
 
     model_config = ConfigDict(frozen=True)

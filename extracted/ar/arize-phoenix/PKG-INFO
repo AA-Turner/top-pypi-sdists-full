@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix
-Version: 16.3.0
+Version: 16.5.0
 Summary: AI Observability and Evaluation
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -61,7 +61,7 @@ Requires-Dist: sqlean-py<3.50,>=3.45.1; platform_system == 'Windows'
 Requires-Dist: sqlean-py>=3.45.1; platform_system != 'Windows' and python_version < '3.14'
 Requires-Dist: sqlean-py>=3.50; platform_system != 'Windows' and python_version >= '3.14'
 Requires-Dist: starlette>=0.37.0
-Requires-Dist: strawberry-graphql==0.314.3
+Requires-Dist: strawberry-graphql==0.316.0
 Requires-Dist: tqdm
 Requires-Dist: typing-extensions>=4.6
 Requires-Dist: uvicorn
@@ -92,7 +92,7 @@ Requires-Dist: opentelemetry-sdk==1.41.1; extra == 'container'
 Requires-Dist: opentelemetry-semantic-conventions==0.62b1; extra == 'container'
 Requires-Dist: prometheus-client; extra == 'container'
 Requires-Dist: py-grpc-prometheus; extra == 'container'
-Requires-Dist: strawberry-graphql[opentelemetry]==0.314.3; extra == 'container'
+Requires-Dist: strawberry-graphql[opentelemetry]==0.316.0; extra == 'container'
 Requires-Dist: types-aiobotocore-bedrock-runtime>=3.6.0; extra == 'container'
 Requires-Dist: uvloop; (platform_system != 'Windows') and extra == 'container'
 Requires-Dist: vercel>=0.5.8; extra == 'container'

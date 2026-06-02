@@ -503,7 +503,6 @@ def persist_tinybird_config(root_folder: str, project_type: str, dev_mode: str, 
     config_path = Path(root_folder) / "tinybird.config.json"
     config_data: Dict[str, Any] = {}
     created = not config_path.exists()
-    include = [folder]
 
     if config_path.exists():
         try:
@@ -516,17 +515,17 @@ def persist_tinybird_config(root_folder: str, project_type: str, dev_mode: str, 
     if project_type == "typescript":
         updates = {
             "devMode": dev_mode,
-            "include": include,
+            "folder": folder,
         }
-        keys_to_remove = ("type", "projectType", "project_type", "dev_mode", "sdk", "folder")
-        preferred_order = ("devMode", "include")
+        keys_to_remove = ("type", "projectType", "project_type", "dev_mode", "sdk", "include")
+        preferred_order = ("devMode", "folder")
     else:
         updates = {
             "dev_mode": dev_mode,
-            "include": include,
+            "folder": folder,
         }
-        keys_to_remove = ("type", "projectType", "project_type", "devMode", "sdk", "folder")
-        preferred_order = ("dev_mode", "include")
+        keys_to_remove = ("type", "projectType", "project_type", "devMode", "sdk", "include")
+        preferred_order = ("dev_mode", "folder")
 
     changed = False
     for key in keys_to_remove:

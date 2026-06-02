@@ -413,6 +413,50 @@ def fix_react_native_package_json(frontend_root: Path) -> int:
     return 1 if changed else 0
 
 
+# ──────────────────────── fix_react_native_jest_config ──────────────────
+
+
+def fix_react_native_jest_config(frontend_root: Path) -> int:
+    """Ensure React Native projects have a properly configured jest.config.js.
+
+    Specifically, it needs 'jest-expo' preset and transformIgnorePatterns to avoid
+    syntax errors when parsing react-native node_modules.
+    """
+    pkg = frontend_root / "package.json"
+    if not pkg.exists():
+        return 0
+    try:
+        data = _json.loads(pkg.read_text("utf-8", errors="replace"))
+        all_deps = {**data.get("dependencies", {}), **data.get("devDependencies", {})}
+        is_rn = "react-native" in all_deps or "expo" in all_deps
+        if not is_rn:
+            return 0
+    except Exception:
+        return 0
+
+    jest_cfg = frontend_root / "jest.config.js"
+    expected_content = """module.exports = {
+  preset: 'jest-expo',
+  transformIgnorePatterns: [
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg)',
+  ],
+};
+"""
+    if jest_cfg.exists():
+        try:
+            content = jest_cfg.read_text("utf-8")
+            if "jest-expo" in content and "transformIgnorePatterns" in content:
+                return 0
+        except Exception:
+            pass
+
+    try:
+        jest_cfg.write_text(expected_content, encoding="utf-8")
+        return 1
+    except Exception:
+        return 0
+
+
 # ──────────────────────── fix_framework_collision ──────────────────────
 
 
@@ -909,6 +953,10 @@ def run_code_doctors(
         if n_rn:
             log("  [doctor] fixed React Native package.json (jest-expo, removed vitest)")
             report.files_touched += n_rn
+        n_rn_jest = fix_react_native_jest_config(frontend)
+        if n_rn_jest:
+            log("  [doctor] fixed React Native jest.config.js (preset: jest-expo and transformIgnorePatterns)")
+            report.files_touched += n_rn_jest
         # Web projects using vitest: remove Jest-only --watchAll flag
         n_vitest = fix_vitest_test_script(frontend)
         if n_vitest:
@@ -936,14 +984,25 @@ def run_code_doctors(
 
     # ── 2. Frontend: framework collision fix ──
     if fix_framework and frontend.is_dir():
-        # Apply only to files under frontend/app/ or frontend/src/
-        for p in _frontend_files(frontend):
-            rel = str(p.relative_to(frontend))
-            if rel.startswith("app/") or rel.startswith("src/"):
-                n = fix_framework_collision_rn(p)
-                if n:
-                    report.framework_collisions_fixed += n
-                    report.files_touched += 1
+        # Only run React Native substitutions if this is a React Native project
+        is_rn = False
+        pkg_path = frontend / "package.json"
+        if pkg_path.exists():
+            try:
+                pkg_data = _json.loads(pkg_path.read_text("utf-8", errors="replace"))
+                all_deps = {**pkg_data.get("dependencies", {}), **pkg_data.get("devDependencies", {})}
+                is_rn = "react-native" in all_deps or "expo" in all_deps
+            except Exception:
+                pass
+        if is_rn:
+            # Apply only to files under frontend/app/ or frontend/src/
+            for p in _frontend_files(frontend):
+                rel = str(p.relative_to(frontend))
+                if rel.startswith("app/") or rel.startswith("src/"):
+                    n = fix_framework_collision_rn(p)
+                    if n:
+                        report.framework_collisions_fixed += n
+                        report.files_touched += 1
         log(f"  [doctor] fixed {report.framework_collisions_fixed} "
             f"react-router-dom/HTML collisions in frontend files")
 

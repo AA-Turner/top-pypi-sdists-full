@@ -8,7 +8,7 @@ from textual.reactive import reactive
 from textual.widget import Widget
 from textual.widgets import Static
 
-_SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+from apps.cli.widgets.spinner import Spinner
 
 
 def _fmt(count: int) -> str:
@@ -43,29 +43,29 @@ class DeepHeader(Widget):
     model_name: reactive[str] = reactive("")
     is_streaming: reactive[bool] = reactive(False)
     is_thinking: reactive[bool] = reactive(False)
-    elapsed: reactive[float] = reactive(0.0)
     total_input_tokens: reactive[int] = reactive(0)
     total_output_tokens: reactive[int] = reactive(0)
     total_cost: reactive[float] = reactive(0.0)
 
-    _spinner_index: int = 0
     _timer_handle: object | None = None
     _width: int = 80
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._spinner = Spinner()
 
     def compose(self) -> ComposeResult:
         yield Static(id="header-content")
 
     def on_mount(self) -> None:
-        self._timer_handle = self.set_interval(1 / 12, self._tick)
+        self._timer_handle = self._spinner.start_on(
+            self,
+            gate=lambda: self.is_streaming,
+            on_advance=self._refresh_content,
+        )
 
     def on_resize(self, event: Resize) -> None:
         self._width = event.size.width
-        self._refresh_content()
-
-    def _tick(self) -> None:
-        if self.is_streaming:
-            self._spinner_index = (self._spinner_index + 1) % len(_SPINNER_FRAMES)
-            self.elapsed += 1 / 12
         self._refresh_content()
 
     def watch_version(self) -> None:
@@ -79,8 +79,7 @@ class DeepHeader(Widget):
 
     def watch_is_streaming(self, streaming: bool) -> None:
         if streaming:
-            self.elapsed = 0.0
-            self._spinner_index = 0
+            self._spinner.reset()
         self._refresh_content()
 
     def watch_is_thinking(self) -> None:
@@ -104,13 +103,12 @@ class DeepHeader(Widget):
             parts.append(self.branch)
 
         if self.is_streaming:
-            frame = _SPINNER_FRAMES[self._spinner_index]
+            frame = self._spinner.frame
+            elapsed = self._spinner.elapsed
             if self.is_thinking:
-                parts.append(
-                    f"[bold]{frame}[/bold] [italic]thinking...[/italic] {self.elapsed:.0f}s"
-                )
+                parts.append(f"[bold]{frame}[/bold] [italic]thinking...[/italic] {elapsed:.0f}s")
             else:
-                parts.append(f"[bold]{frame}[/bold] {self.elapsed:.0f}s")
+                parts.append(f"[bold]{frame}[/bold] {elapsed:.0f}s")
             content.update("  ·  ".join(parts))
         else:
             if self.model_name:

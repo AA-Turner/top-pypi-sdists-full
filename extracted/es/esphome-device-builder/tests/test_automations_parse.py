@@ -109,6 +109,38 @@ def test_parse_inline_on_click_surfaces_trigger_params() -> None:
     assert [a.action_id for a in tree.actions] == ["switch.toggle"]
 
 
+def test_parse_on_value_range_float_params_are_json_serialisable() -> None:
+    """Decimal on_value_range thresholds round-trip as plain floats."""
+    parsed = parse_device_yaml(_load("sensor_on_value_range_float.yaml"))
+    tree = parsed[0].automation
+    assert tree.trigger_id == "sensor.on_value_range"
+    assert tree.trigger_params == {"above": 3.14, "below": 25.5}
+    assert type(tree.trigger_params["above"]) is float  # not ScalarFloat
+    # The real regression: the WS layer must be able to serialise the result.
+    orjson.dumps([p.to_dict() for p in parsed])
+
+
+# ---------------------------------------------------------------------------
+# LVGL actions — oversized forms fall back to raw-YAML editing
+# ---------------------------------------------------------------------------
+
+
+def test_parse_oversized_lvgl_action_falls_back_to_raw_yaml() -> None:
+    """An oversized LVGL action parses as an unknown id (raw-YAML fallback)."""
+    parsed = parse_device_yaml(_load("lvgl_action_unsupported.yaml"))
+    assert len(parsed) == 1
+    assert parsed[0].error is not None
+    assert parsed[0].automation.actions == []
+
+
+def test_parse_small_lvgl_action_stays_editable() -> None:
+    """A small LVGL action (``lvgl.pause``) still decomposes normally."""
+    parsed = parse_device_yaml(_load("lvgl_action_small_editable.yaml"))
+    assert len(parsed) == 1
+    assert parsed[0].error is None
+    assert [a.action_id for a in parsed[0].automation.actions] == ["lvgl.pause"]
+
+
 # ---------------------------------------------------------------------------
 # Top-level blocks
 # ---------------------------------------------------------------------------
@@ -139,8 +171,9 @@ def test_parse_interval_block() -> None:
     assert item.location.index == 0
     assert item.automation.trigger_params["interval"] == "60s"
     assert [a.action_id for a in item.automation.actions] == ["lambda"]
-    # Lambda body is surfaced as the {_lambda: source} sentinel.
-    lambda_body = item.automation.actions[0].params.get("id") or item.automation.actions[0].params
+    # Lambda body is surfaced as the {_lambda: source} sentinel under the
+    # lambda action's ``lambda`` shorthand key (its config-entry key).
+    lambda_body = item.automation.actions[0].params["lambda"]
     assert (
         isinstance(lambda_body, dict)
         and "_lambda" in lambda_body
@@ -296,9 +329,9 @@ def test_parse_lambda_action_surfaces_lambda_sentinel() -> None:
     actions = parsed[0].automation.actions
     assert len(actions) == 1
     assert actions[0].action_id == "lambda"
-    # The single-arg shortcut surfaces under the ``id`` key; the
-    # value carries the lambda sentinel.
-    body = actions[0].params.get("id") or actions[0].params
+    # The bare scalar surfaces under the lambda action's ``lambda``
+    # shorthand key (its config-entry key); the value carries the sentinel.
+    body = actions[0].params["lambda"]
     assert isinstance(body, dict)
     assert "_lambda" in body
     assert "ESP_LOGI" in body["_lambda"]
@@ -314,10 +347,10 @@ def test_parse_tagged_lambda_scalars_render_as_sentinel() -> None:
     assert [a.action_id for a in script_actions] == ["delay"]
     assert script_actions[0].params == {"id": {"_lambda": "return 0;"}}
 
-    # Interval: ``- lambda: !lambda |`` block → params={"id": {"_lambda": "<body>"}}.
+    # Interval: ``- lambda: !lambda |`` block → params={"lambda": {"_lambda": "<body>"}}.
     interval_actions = by_kind["interval"].automation.actions
     assert [a.action_id for a in interval_actions] == ["lambda"]
-    interval_body = interval_actions[0].params.get("id") or interval_actions[0].params
+    interval_body = interval_actions[0].params["lambda"]
     assert isinstance(interval_body, dict)
     assert interval_body.get("_lambda", "").strip().endswith("return;")
 

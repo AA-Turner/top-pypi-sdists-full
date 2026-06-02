@@ -6,7 +6,8 @@ use pyo3::types::PyDict;
 
 use qsim_core::Gate;
 use qsim_simulator::{
-    Backend, Circuit, ExecutionEngine, Instruction, NoiseChannel, Precision, SimulationResult,
+    Backend, Circuit, ExecutionEngine, Instruction, NoiseChannel, NoiseChannel2, PathOptimizer,
+    Precision, SimulationResult,
 };
 
 /// Python에서 사용 가능한 양자 회로 클래스.
@@ -129,6 +130,51 @@ impl PyCircuit {
     fn swap(&mut self, qubit0: usize, qubit1: usize) -> PyResult<()> {
         self.check_qs(&[qubit0, qubit1], "swap")?;
         self.inner.swap(qubit0, qubit1);
+        Ok(())
+    }
+    fn iswap(&mut self, qubit0: usize, qubit1: usize) -> PyResult<()> {
+        self.check_qs(&[qubit0, qubit1], "iswap")?;
+        self.inner.iswap(qubit0, qubit1);
+        Ok(())
+    }
+    fn rxx(&mut self, theta: f64, qubit0: usize, qubit1: usize) -> PyResult<()> {
+        self.check_qs(&[qubit0, qubit1], "rxx")?;
+        self.inner.rxx(theta, qubit0, qubit1);
+        Ok(())
+    }
+    fn ryy(&mut self, theta: f64, qubit0: usize, qubit1: usize) -> PyResult<()> {
+        self.check_qs(&[qubit0, qubit1], "ryy")?;
+        self.inner.ryy(theta, qubit0, qubit1);
+        Ok(())
+    }
+    fn rzz(&mut self, theta: f64, qubit0: usize, qubit1: usize) -> PyResult<()> {
+        self.check_qs(&[qubit0, qubit1], "rzz")?;
+        self.inner.rzz(theta, qubit0, qubit1);
+        Ok(())
+    }
+    fn dcx(&mut self, qubit0: usize, qubit1: usize) -> PyResult<()> {
+        self.check_qs(&[qubit0, qubit1], "dcx")?;
+        self.inner.dcx(qubit0, qubit1);
+        Ok(())
+    }
+    fn ecr(&mut self, qubit0: usize, qubit1: usize) -> PyResult<()> {
+        self.check_qs(&[qubit0, qubit1], "ecr")?;
+        self.inner.ecr(qubit0, qubit1);
+        Ok(())
+    }
+    fn rzx(&mut self, theta: f64, qubit0: usize, qubit1: usize) -> PyResult<()> {
+        self.check_qs(&[qubit0, qubit1], "rzx")?;
+        self.inner.rzx(theta, qubit0, qubit1);
+        Ok(())
+    }
+    fn xx_plus_yy(&mut self, theta: f64, qubit0: usize, qubit1: usize) -> PyResult<()> {
+        self.check_qs(&[qubit0, qubit1], "xx_plus_yy")?;
+        self.inner.xx_plus_yy(theta, qubit0, qubit1);
+        Ok(())
+    }
+    fn xx_minus_yy(&mut self, theta: f64, qubit0: usize, qubit1: usize) -> PyResult<()> {
+        self.check_qs(&[qubit0, qubit1], "xx_minus_yy")?;
+        self.inner.xx_minus_yy(theta, qubit0, qubit1);
         Ok(())
     }
     fn cy(&mut self, control: usize, target: usize) -> PyResult<()> {
@@ -274,6 +320,59 @@ impl PyCircuit {
         Ok(())
     }
 
+    /// 임의 k-큐비트 (k ≥ 1) 유니터리를 직접 적용한다 (v0.6.8).
+    ///
+    /// `matrix` 는 `2^k × 2^k` 복소 행렬, `targets` 는 k 개의 큐비트 인덱스
+    /// (행렬 sub-index 비트 `j` ↔ `targets[j]`, `targets[0]` = LSB).
+    /// 1-큐비트 ZYZ 분해 (`unitary`) 와 달리 행렬을 그대로 보존해
+    /// statevector 백엔드에서 직접 적용한다 (다른 백엔드는 실행 시 거부).
+    /// unitarity 검증은 Python 측 (`QuantumCircuit.unitary`) 에서 수행한다.
+    fn apply_unitary(
+        &mut self,
+        matrix: PyReadonlyArray2<Complex<f64>>,
+        targets: Vec<usize>,
+    ) -> PyResult<()> {
+        let arr = matrix.as_array();
+        let k = targets.len();
+        if k == 0 {
+            return Err(PyValueError::new_err(
+                "unitary: targets 는 비어 있을 수 없음",
+            ));
+        }
+        let dim = 1usize << k;
+        if arr.shape() != [dim, dim] {
+            return Err(PyValueError::new_err(format!(
+                "unitary: matrix shape {:?} 가 targets 수 {k} (2^k = {dim}) 와 불일치",
+                arr.shape()
+            )));
+        }
+        let nq = self.inner.num_qubits();
+        for &t in &targets {
+            if t >= nq {
+                return Err(PyValueError::new_err(format!(
+                    "unitary: qubit 인덱스 {t} 가 범위를 벗어남 (n_qubits={nq})"
+                )));
+            }
+        }
+        for i in 0..k {
+            for j in (i + 1)..k {
+                if targets[i] == targets[j] {
+                    return Err(PyValueError::new_err(format!(
+                        "unitary: targets 중복 {targets:?} (distinct 해야 함)"
+                    )));
+                }
+            }
+        }
+        let mut flat = Vec::with_capacity(dim * dim);
+        for r in 0..dim {
+            for c in 0..dim {
+                flat.push(arr[[r, c]]);
+            }
+        }
+        self.inner.unitary(flat, targets);
+        Ok(())
+    }
+
     /// 회로에 peephole 최적화 패스를 in-place 로 적용한다.
     ///
     /// Cut C 에서 실제 패스 (회전 합성, 항등식, trivial drop) 가 활성화되며,
@@ -282,6 +381,23 @@ impl PyCircuit {
     fn transpile(&mut self, max_iters: usize) -> usize {
         let stats = qsim_transpiler::peephole_optimize(&mut self.inner, max_iters);
         stats.passes
+    }
+
+    /// 회로를 **CX + 임의 1-큐비트** basis 로 변환한 새 회로를 반환한다 (v0.8.3).
+    ///
+    /// 모든 2/3-큐비트 게이트 (CZ/CY/SWAP/iSWAP/DCX/CRx/CRy/CRz/CP/CH/RXX/RYY/
+    /// RZZ/RZX/Toffoli/Fredkin) 를 표준 항등식으로 CX + 1q 회전으로 분해한다.
+    /// KAK 합성이 필요한 게이트 (CU/CU3/ECR/XXPlusYY/XXMinusYY) 를 만나면
+    /// `ValueError` — Python `unitary(M, q, decompose="cx")` 사용 권장.
+    fn transpile_cx_basis(&self) -> PyResult<PyCircuit> {
+        let circ = qsim_transpiler::transpile_to_cx_basis(&self.inner)
+            .map_err(|e| PyValueError::new_err(format!("{e}")))?;
+        Ok(PyCircuit { inner: circ })
+    }
+
+    /// 회로가 CX + 1q basis 인지 (모든 2/3q 게이트가 CX 인지) 검사한다.
+    fn is_cx_basis(&self) -> bool {
+        qsim_transpiler::is_cx_basis(&self.inner)
     }
 
     /// 회로의 누적된 글로벌 phase (라디안).
@@ -305,7 +421,24 @@ impl PyCircuit {
                 self.inner.num_qubits()
             )));
         }
-        self.inner.add_noise(channel.inner, qubit);
+        self.inner.add_noise(channel.inner.clone(), qubit);
+        Ok(())
+    }
+
+    /// 2-큐비트 상관 노이즈 채널 적용 (v0.7.2).
+    fn add_noise_2q(&mut self, channel: &PyNoiseChannel2, q0: usize, q1: usize) -> PyResult<()> {
+        let n = self.inner.num_qubits();
+        if q0 >= n || q1 >= n {
+            return Err(PyValueError::new_err(format!(
+                "add_noise_2q: qubit ({q0},{q1}) 가 범위를 벗어남 (n_qubits={n})"
+            )));
+        }
+        if q0 == q1 {
+            return Err(PyValueError::new_err(format!(
+                "add_noise_2q: q0 == q1 ({q0})"
+            )));
+        }
+        self.inner.add_noise_2q(channel.inner.clone(), q0, q1);
         Ok(())
     }
 
@@ -511,12 +644,26 @@ impl PyCircuit {
                         Gate::CU3(theta, phi, lam) => ("cu3", vec![*theta, *phi, *lam]),
                         Gate::CU(theta, phi, lam, gam) => ("cu", vec![*theta, *phi, *lam, *gam]),
                         Gate::SWAP => ("swap", vec![]),
+                        Gate::ISwap => ("iswap", vec![]),
+                        Gate::Rxx(theta) => ("rxx", vec![*theta]),
+                        Gate::Ryy(theta) => ("ryy", vec![*theta]),
+                        Gate::Rzz(theta) => ("rzz", vec![*theta]),
+                        Gate::Dcx => ("dcx", vec![]),
+                        Gate::Ecr => ("ecr", vec![]),
+                        Gate::Rzx(theta) => ("rzx", vec![*theta]),
+                        Gate::XxPlusYy(theta) => ("xx_plus_yy", vec![*theta]),
+                        Gate::XxMinusYy(theta) => ("xx_minus_yy", vec![*theta]),
                         Gate::Toffoli => ("ccx", vec![]),
                         Gate::Fredkin => ("cswap", vec![]),
                     };
                     out.push((name.to_string(), targets.clone(), params));
                 }
-                Instruction::ApplyNoise { .. } => {
+                Instruction::ApplyUnitary { targets, .. } => {
+                    // 행렬은 (name, qubits, f64-params) 형식으로 표현 불가 —
+                    // draw / _ops 에는 이름과 큐비트만 노출 (box 로 렌더).
+                    out.push(("unitary".to_string(), targets.clone(), vec![]));
+                }
+                Instruction::ApplyNoise { .. } | Instruction::ApplyNoise2 { .. } => {
                     // Noise 명령은 Python `_ops` 형식으로 노출하지 않는다 (Cut C 에서
                     // 별도 NoiseModel 클래스가 채널을 관리). draw / to_qiskit 등 기존
                     // 어댑터가 noise 를 모르므로 skip 이 안전.
@@ -637,13 +784,105 @@ impl PyNoiseChannel {
         Ok(Self { inner })
     }
 
+    /// Phase-damping 채널: T2 (위상 디코히어런스) 모델. γ ∈ [0, 1].
+    #[staticmethod]
+    fn phase_damping(gamma: f64) -> PyResult<Self> {
+        let inner = NoiseChannel::phase_damping(gamma).map_err(PyValueError::new_err)?;
+        Ok(Self { inner })
+    }
+
+    /// Generalized amplitude damping: 유한 온도 T1. γ, p ∈ [0, 1] (p=1 → amplitude damping).
+    #[staticmethod]
+    fn generalized_amplitude_damping(gamma: f64, p: f64) -> PyResult<Self> {
+        let inner =
+            NoiseChannel::generalized_amplitude_damping(gamma, p).map_err(PyValueError::new_err)?;
+        Ok(Self { inner })
+    }
+
+    /// 사용자 정의 단일 큐비트 Kraus 채널.  `kraus_ops` 는 2×2 행렬의 리스트,
+    /// 각 원소는 `[[(re,im),(re,im)],[(re,im),(re,im)]]` (row-major).
+    /// trace-preserving (`Σ K_i† K_i = I`) 을 검증한다.
+    #[staticmethod]
+    fn custom(kraus_ops: Vec<Vec<Vec<(f64, f64)>>>) -> PyResult<Self> {
+        let mut ops: Vec<[[Complex<f64>; 2]; 2]> = Vec::with_capacity(kraus_ops.len());
+        for (i, k) in kraus_ops.iter().enumerate() {
+            if k.len() != 2 || k[0].len() != 2 || k[1].len() != 2 {
+                return Err(PyValueError::new_err(format!(
+                    "custom: Kraus 연산자 {i} 가 2×2 가 아닙니다"
+                )));
+            }
+            ops.push([
+                [
+                    Complex::new(k[0][0].0, k[0][0].1),
+                    Complex::new(k[0][1].0, k[0][1].1),
+                ],
+                [
+                    Complex::new(k[1][0].0, k[1][0].1),
+                    Complex::new(k[1][1].0, k[1][1].1),
+                ],
+            ]);
+        }
+        let inner = NoiseChannel::custom(ops).map_err(PyValueError::new_err)?;
+        Ok(Self { inner })
+    }
+
     fn __repr__(&self) -> String {
-        match self.inner {
+        match &self.inner {
             NoiseChannel::BitFlip { p } => format!("NoiseChannel.bit_flip(p={p})"),
             NoiseChannel::PhaseFlip { p } => format!("NoiseChannel.phase_flip(p={p})"),
             NoiseChannel::Depolarizing { p } => format!("NoiseChannel.depolarizing(p={p})"),
             NoiseChannel::AmplitudeDamping { gamma } => {
                 format!("NoiseChannel.amplitude_damping(gamma={gamma})")
+            }
+            NoiseChannel::PhaseDamping { gamma } => {
+                format!("NoiseChannel.phase_damping(gamma={gamma})")
+            }
+            NoiseChannel::GeneralizedAmplitudeDamping { gamma, p } => {
+                format!("NoiseChannel.generalized_amplitude_damping(gamma={gamma}, p={p})")
+            }
+            NoiseChannel::Custom { kraus_ops } => {
+                format!("NoiseChannel.custom({} Kraus ops)", kraus_ops.len())
+            }
+        }
+    }
+}
+
+/// 2-큐비트 상관 노이즈 채널 (v0.7.2).
+#[pyclass(name = "NoiseChannel2")]
+#[derive(Clone)]
+struct PyNoiseChannel2 {
+    inner: NoiseChannel2,
+}
+
+#[pymethods]
+impl PyNoiseChannel2 {
+    /// 사용자 정의 2-큐비트 Kraus 채널.  `kraus_ops` 는 4×4 행렬의 리스트, 각
+    /// 원소는 `[[(re,im); 4]; 4]` (row-major).  trace-preserving 검증.
+    #[staticmethod]
+    fn custom(kraus_ops: Vec<Vec<Vec<(f64, f64)>>>) -> PyResult<Self> {
+        let mut ops: Vec<[[Complex<f64>; 4]; 4]> = Vec::with_capacity(kraus_ops.len());
+        for (idx, k) in kraus_ops.iter().enumerate() {
+            if k.len() != 4 || k.iter().any(|row| row.len() != 4) {
+                return Err(PyValueError::new_err(format!(
+                    "custom: Kraus 연산자 {idx} 가 4×4 가 아닙니다"
+                )));
+            }
+            let mut m = [[Complex::new(0.0, 0.0); 4]; 4];
+            for (i, row) in k.iter().enumerate() {
+                for (j, &(re, im)) in row.iter().enumerate() {
+                    m[i][j] = Complex::new(re, im);
+                }
+            }
+            ops.push(m);
+        }
+        let inner = NoiseChannel2::custom(ops).map_err(PyValueError::new_err)?;
+        Ok(Self { inner })
+    }
+
+    fn __repr__(&self) -> String {
+        match &self.inner {
+            NoiseChannel2::Custom { kraus_ops } => {
+                format!("NoiseChannel2.custom({} Kraus ops)", kraus_ops.len())
             }
         }
     }
@@ -656,6 +895,29 @@ impl PyNoiseChannel {
 #[pyclass(name = "SimulationResult")]
 struct PySimulationResult {
     inner: SimulationResult,
+}
+
+impl PySimulationResult {
+    /// statevector 가 있는 결과면 큐비트 수, 아니면 None.
+    fn num_qubits_of_statevector(&self) -> Option<usize> {
+        match &self.inner {
+            SimulationResult::F64 { statevector, .. } => Some(statevector.num_qubits()),
+            SimulationResult::F32 { statevector, .. } => Some(statevector.num_qubits()),
+            SimulationResult::MpsF64 {
+                statevector: Some(sv),
+                ..
+            } => Some(sv.num_qubits()),
+            SimulationResult::MpsF32 {
+                statevector: Some(sv),
+                ..
+            } => Some(sv.num_qubits()),
+            SimulationResult::MpsF64 { mps: Some(mps), .. } => Some(mps.num_qubits()),
+            SimulationResult::MpsF32 { mps: Some(mps), .. } => Some(mps.num_qubits()),
+            SimulationResult::DensityF64 { density, .. } => Some(density.num_qubits()),
+            SimulationResult::DensityF32 { density, .. } => Some(density.num_qubits()),
+            _ => None,
+        }
+    }
 }
 
 #[pymethods]
@@ -764,6 +1026,91 @@ impl PySimulationResult {
                 ))
             }
         }
+    }
+
+    /// Pauli observable `H = Σ cᵢ Pᵢ` 의 기댓값 `⟨ψ|H|ψ⟩` 를 계산한다 (v0.7).
+    ///
+    /// `terms` 의 각 원소는 `(paulis, coeff)` — `paulis[q] ∈ {0=I,1=X,2=Y,3=Z}`
+    /// (큐비트 `q`), `coeff` 는 복소 계수.  Python `SimulationResult.expectation`
+    /// 가 Pauli string / SparsePauliOp 를 이 형식으로 변환해 호출한다.
+    ///
+    /// statevector 백엔드 (F64 / F32 / dense 가 있는 MPS) 에서 동작하며 2ⁿ 행렬을
+    /// 만들지 않고 직접 계산한다.  Hermitian observable 이면 결과는 실수 —
+    /// 실수부를 반환한다.
+    fn expectation(&self, terms: Vec<(Vec<u8>, f64, f64)>) -> PyResult<f64> {
+        // 각 Pauli string 길이가 큐비트 수와 일치하는지 검증 (release 빌드는
+        // core 의 debug_assert 가 꺼져 있으므로 여기서 친화 에러).
+        if let Some(nq) = self.num_qubits_of_statevector() {
+            for (paulis, _, _) in &terms {
+                if paulis.len() != nq {
+                    return Err(PyValueError::new_err(format!(
+                        "expectation(): Pauli string 길이 {} 가 큐비트 수 {nq} 와 불일치",
+                        paulis.len()
+                    )));
+                }
+            }
+        }
+        let pairs: Vec<(Complex<f64>, Vec<u8>)> = terms
+            .into_iter()
+            .map(|(p, re, im)| (Complex::new(re, im), p))
+            .collect();
+        let value = match &self.inner {
+            SimulationResult::F64 { statevector, .. } => {
+                qsim_core::expectation_pauli_sum(statevector, &pairs)
+            }
+            SimulationResult::F32 { statevector, .. } => {
+                qsim_core::expectation_pauli_sum(statevector, &pairs)
+            }
+            SimulationResult::MpsF64 {
+                statevector: Some(sv),
+                ..
+            } => qsim_core::expectation_pauli_sum(sv, &pairs),
+            SimulationResult::MpsF32 {
+                statevector: Some(sv),
+                ..
+            } => qsim_core::expectation_pauli_sum(sv, &pairs),
+            // v0.7: N>20 (dense SV 없음) — MPS-direct expectation_pauli.
+            SimulationResult::MpsF64 {
+                statevector: None,
+                mps: Some(mps),
+                ..
+            } => pairs
+                .iter()
+                .map(|(c, p)| c * mps.expectation_pauli(p))
+                .sum(),
+            SimulationResult::MpsF32 {
+                statevector: None,
+                mps: Some(mps),
+                ..
+            } => pairs
+                .iter()
+                .map(|(c, p)| c * mps.expectation_pauli(p))
+                .sum(),
+            SimulationResult::MpsF64 {
+                statevector: None,
+                mps: None,
+                ..
+            }
+            | SimulationResult::MpsF32 {
+                statevector: None,
+                mps: None,
+                ..
+            } => {
+                return Err(PyValueError::new_err(
+                    "expectation(): MPS 결과에 statevector 도 MPS 도 없습니다 \
+                     (trajectory/noise 회로는 expectation 미지원 — mixed state). \
+                     정적 회로로 실행하세요",
+                ));
+            }
+            // v0.7: density backend → Tr(ρH) (noisy observable expectation).
+            SimulationResult::DensityF64 { density, .. } => {
+                qsim_core::expectation_pauli_sum_density(density, &pairs)
+            }
+            SimulationResult::DensityF32 { density, .. } => {
+                qsim_core::expectation_pauli_sum_density(density, &pairs)
+            }
+        };
+        Ok(value.re)
     }
 
     /// 확률 벡터를 numpy 배열로 반환한다.
@@ -920,11 +1267,727 @@ fn run(
     Ok(PySimulationResult { inner })
 }
 
+/// `θ` 가 `k·π/2` 에 가까우면 사분면 인덱스 `k mod 4` (∈ {0,1,2,3}) 를 반환.
+/// 그 외 (비-Clifford 각도) 면 `None`.
+fn clifford_quarter(theta: f64) -> Option<u8> {
+    use std::f64::consts::PI;
+    let q = theta / (PI / 2.0);
+    let r = q.round();
+    if (q - r).abs() > 1e-9 {
+        return None;
+    }
+    Some((r.rem_euclid(4.0)) as u8)
+}
+
+/// 단일 `Gate` 를 [`CliffordOp`] 시퀀스로 변환한다.  비-Clifford 면 `Err`.
+fn gate_to_clifford(
+    gate: &Gate,
+    targets: &[usize],
+) -> Result<Vec<qsim_stabilizer::CliffordOp>, String> {
+    use qsim_stabilizer::CliffordOp as C;
+    let a = targets.first().copied().unwrap_or(0);
+    let b = targets.get(1).copied().unwrap_or(0);
+    // Rz(k·π/2) → I/S/Z/Sdg, Rx → I/Sx/X/Sxdg, P(λ) → I/S/Z/Sdg.
+    let rz_like = |k: u8, a: usize| -> Vec<C> {
+        match k {
+            0 => vec![],
+            1 => vec![C::S(a)],
+            2 => vec![C::Z(a)],
+            _ => vec![C::Sdg(a)],
+        }
+    };
+    let rx_like = |k: u8, a: usize| -> Vec<C> {
+        match k {
+            0 => vec![],
+            1 => vec![C::Sx(a)],
+            2 => vec![C::X(a)],
+            _ => vec![C::Sxdg(a)],
+        }
+    };
+    let ops = match gate {
+        Gate::H => vec![C::H(a)],
+        Gate::X => vec![C::X(a)],
+        Gate::Y => vec![C::Y(a)],
+        Gate::Z => vec![C::Z(a)],
+        Gate::S => vec![C::S(a)],
+        Gate::Sdg => vec![C::Sdg(a)],
+        Gate::Sx => vec![C::Sx(a)],
+        Gate::Sxdg => vec![C::Sxdg(a)],
+        Gate::Id => vec![],
+        Gate::CNOT => vec![C::Cnot(a, b)],
+        Gate::CZ => vec![C::Cz(a, b)],
+        Gate::CY => vec![C::Cy(a, b)],
+        Gate::SWAP => vec![C::Swap(a, b)],
+        Gate::ISwap => vec![C::Iswap(a, b)],
+        Gate::Dcx => vec![C::Dcx(a, b)],
+        Gate::Rz(t) | Gate::P(t) => clifford_quarter(*t)
+            .map(|k| rz_like(k, a))
+            .ok_or_else(|| format!("Rz/P({t}) 은 π/2 의 배수 각도만 Clifford 입니다"))?,
+        Gate::Rx(t) => clifford_quarter(*t)
+            .map(|k| rx_like(k, a))
+            .ok_or_else(|| format!("Rx({t}) 은 π/2 의 배수 각도만 Clifford 입니다"))?,
+        Gate::Ry(t) => {
+            // Ry(0)=I, Ry(π)=Y; 그 외 (±π/2 포함) 는 분해가 복잡해 거부.
+            let k = clifford_quarter(*t)
+                .ok_or_else(|| format!("Ry({t}) 은 0 또는 π 만 Clifford 로 지원합니다"))?;
+            match k {
+                0 => vec![],
+                2 => vec![C::Y(a)],
+                _ => {
+                    return Err(format!(
+                        "Ry({t}) (±π/2) 는 stabilizer 백엔드에서 미지원입니다"
+                    ))
+                }
+            }
+        }
+        Gate::Rzz(t) => match clifford_quarter(*t) {
+            // Rzz(π/2) = e^{-iπ/4 ZZ} 는 Clifford: CX·(I⊗S†? )... 단순화 위해
+            // π 의 배수만 (I 또는 Z⊗Z) 지원, ±π/2 는 거부.
+            Some(0) => vec![],
+            Some(2) => vec![C::Z(a), C::Z(b)],
+            _ => return Err(format!("Rzz({t}) 은 π 의 배수만 Clifford 로 지원합니다")),
+        },
+        other => {
+            return Err(format!(
+                "비-Clifford 게이트 {other:?} — stabilizer 백엔드 미지원 (T/Tdg/일반 회전 등)"
+            ))
+        }
+    };
+    Ok(ops)
+}
+
+/// 단일 `Gate` 를 near-Clifford [`CtGate`] 시퀀스로 변환 (Clifford + T/Tdg).
+fn gate_to_ct(
+    gate: &Gate,
+    targets: &[usize],
+) -> Result<Vec<qsim_stabilizer::clifford_t::CtGate>, String> {
+    use qsim_stabilizer::clifford_t::CtGate as C;
+    let a = targets.first().copied().unwrap_or(0);
+    let b = targets.get(1).copied().unwrap_or(0);
+    let rz_like = |k: u8, a: usize| -> Vec<C> {
+        match k {
+            0 => vec![],
+            1 => vec![C::S(a)],
+            2 => vec![C::Z(a)],
+            _ => vec![C::Sdg(a)],
+        }
+    };
+    let rx_like = |k: u8, a: usize| -> Vec<C> {
+        match k {
+            0 => vec![],
+            1 => vec![C::Sx(a)],
+            2 => vec![C::X(a)],
+            _ => vec![C::Sxdg(a)],
+        }
+    };
+    let ops = match gate {
+        Gate::H => vec![C::H(a)],
+        Gate::X => vec![C::X(a)],
+        Gate::Y => vec![C::Y(a)],
+        Gate::Z => vec![C::Z(a)],
+        Gate::S => vec![C::S(a)],
+        Gate::Sdg => vec![C::Sdg(a)],
+        Gate::Sx => vec![C::Sx(a)],
+        Gate::Sxdg => vec![C::Sxdg(a)],
+        Gate::Id => vec![],
+        Gate::T => vec![C::T(a)],
+        Gate::Tdg => vec![C::Tdg(a)],
+        Gate::CNOT => vec![C::Cnot(a, b)],
+        Gate::CZ => vec![C::Cz(a, b)],
+        Gate::CY => vec![C::Cy(a, b)],
+        Gate::SWAP => vec![C::Swap(a, b)],
+        Gate::ISwap => vec![C::Iswap(a, b)],
+        Gate::Dcx => vec![C::Dcx(a, b)],
+        Gate::Rz(t) => clifford_quarter(*t)
+            .map(|k| rz_like(k, a))
+            .ok_or_else(|| format!("Rz({t}) 은 π/2 배수만 지원 (T 는 t 게이트 사용)"))?,
+        Gate::P(t) => {
+            // p(π/4)=T, p(-π/4)=Tdg, π/2 배수=Clifford.
+            let q4 = *t / (std::f64::consts::FRAC_PI_4);
+            if (q4 - q4.round()).abs() < 1e-9 {
+                let kk = (q4.round().rem_euclid(8.0)) as i32;
+                match kk {
+                    0 => vec![],
+                    1 => vec![C::T(a)],
+                    2 => vec![C::S(a)],
+                    3 => vec![C::S(a), C::T(a)],
+                    4 => vec![C::Z(a)],
+                    5 => vec![C::Z(a), C::T(a)],
+                    6 => vec![C::Sdg(a)],
+                    _ => vec![C::Tdg(a)],
+                }
+            } else {
+                return Err(format!("P({t}) 은 π/4 배수만 지원"));
+            }
+        }
+        Gate::Rx(t) => clifford_quarter(*t)
+            .map(|k| rx_like(k, a))
+            .ok_or_else(|| format!("Rx({t}) 은 π/2 배수만 지원"))?,
+        other => {
+            return Err(format!(
+                "near-Clifford 백엔드 미지원 게이트 {other:?} (Clifford + T/Tdg 만)"
+            ))
+        }
+    };
+    Ok(ops)
+}
+
+/// near-Clifford (Clifford+T) 회로의 amplitude `⟨x|C|0…0⟩` 를 정확히 계산한다.
+///
+/// T 게이트를 stabilizer 항의 간섭 합으로 분해 (T 당 항 2배) → 큰 N · 적은
+/// T-count 회로의 진폭을 statevector 없이 정확히 (전역 위상 포함) 계산.
+/// T-count 가 크면 (≳25) 항 폭발로 비현실적.  noise/dynamic/임의 unitary 거부.
+/// `low_rank=True` 면 Bravyi–Gosset rank-2 블록 분해 (항 수 `2^{⌈t/2⌉}`),
+/// 아니면 직접 분해 (`2ᵗ`).
+#[pyfunction]
+#[pyo3(signature = (circuit, bitstring, low_rank = false))]
+fn clifford_t_amplitude(
+    py: Python<'_>,
+    circuit: &PyCircuit,
+    bitstring: Vec<u8>,
+    low_rank: bool,
+) -> PyResult<(f64, f64)> {
+    let n = circuit.inner.num_qubits();
+    if bitstring.len() != n {
+        return Err(PyValueError::new_err(format!(
+            "bitstring 길이 {} != n_qubits {n}",
+            bitstring.len()
+        )));
+    }
+    let mut gates: Vec<qsim_stabilizer::clifford_t::CtGate> = Vec::new();
+    for inst in circuit.inner.instructions() {
+        match inst {
+            Instruction::ApplyGate { gate, targets } => {
+                gates.extend(gate_to_ct(gate, targets).map_err(PyValueError::new_err)?);
+            }
+            Instruction::Measure { .. } | Instruction::MeasureAll => {}
+            other => {
+                return Err(PyValueError::new_err(format!(
+                    "near-Clifford 백엔드는 Clifford+T 게이트만 지원합니다: {other:?}"
+                )));
+            }
+        }
+    }
+    let t_count = gates
+        .iter()
+        .filter(|g| {
+            matches!(
+                g,
+                qsim_stabilizer::clifford_t::CtGate::T(_)
+                    | qsim_stabilizer::clifford_t::CtGate::Tdg(_)
+            )
+        })
+        .count();
+    // low_rank 은 2^{⌈t/2⌉} 항이라 더 큰 T 허용.
+    let cap = if low_rank { 50 } else { 30 };
+    if t_count > cap {
+        return Err(PyValueError::new_err(format!(
+            "T-count={t_count} 이 너무 큽니다 (≤{cap})"
+        )));
+    }
+    let amp = py.allow_threads(move || {
+        if low_rank {
+            qsim_stabilizer::clifford_t::clifford_t_amplitude_lowrank(n, &gates, &bitstring)
+        } else {
+            qsim_stabilizer::clifford_t::clifford_t_amplitude_fast(n, &gates, &bitstring)
+        }
+    });
+    Ok((amp.re, amp.im))
+}
+
+/// near-Clifford (Clifford+T) 회로를 다중 체인 Metropolis-Hastings MCMC 로
+/// 샘플링 (근사).  타깃 `∝ |⟨x|ψ⟩|²` (amplitude 는 정확).  `(counts, r_hat)`
+/// 반환 — `counts` 는 measure-all dict, `r_hat` 은 Gelman-Rubin 수렴 진단
+/// (체인 1개거나 표본 부족 시 `None`).
+#[pyfunction]
+#[pyo3(signature = (circuit, shots = 1024, burn_in = 1000, thin = 2, chains = 4, seed = None))]
+fn clifford_t_sample(
+    py: Python<'_>,
+    circuit: &PyCircuit,
+    shots: usize,
+    burn_in: usize,
+    thin: usize,
+    chains: usize,
+    seed: Option<u64>,
+) -> PyResult<(std::collections::HashMap<String, usize>, Option<f64>)> {
+    let n = circuit.inner.num_qubits();
+    let mut gates: Vec<qsim_stabilizer::clifford_t::CtGate> = Vec::new();
+    for inst in circuit.inner.instructions() {
+        match inst {
+            Instruction::ApplyGate { gate, targets } => {
+                gates.extend(gate_to_ct(gate, targets).map_err(PyValueError::new_err)?);
+            }
+            Instruction::Measure { .. } | Instruction::MeasureAll => {}
+            other => {
+                return Err(PyValueError::new_err(format!(
+                    "near-Clifford 백엔드는 Clifford+T 게이트만 지원합니다: {other:?}"
+                )));
+            }
+        }
+    }
+    let t_count = gates
+        .iter()
+        .filter(|g| {
+            matches!(
+                g,
+                qsim_stabilizer::clifford_t::CtGate::T(_)
+                    | qsim_stabilizer::clifford_t::CtGate::Tdg(_)
+            )
+        })
+        .count();
+    if t_count > 30 {
+        return Err(PyValueError::new_err(format!(
+            "T-count={t_count} 이 너무 큽니다 (≤30)"
+        )));
+    }
+    let (samples, r_hat) = py.allow_threads(move || {
+        qsim_stabilizer::clifford_t::clifford_t_sample_diagnostic(
+            n, &gates, shots, burn_in, thin, chains, seed,
+        )
+    });
+    let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for bits in &samples {
+        let key: String = (0..n)
+            .rev()
+            .map(|q| if bits[q] != 0 { '1' } else { '0' })
+            .collect();
+        *counts.entry(key).or_insert(0) += 1;
+    }
+    Ok((counts, r_hat))
+}
+
+/// near-Clifford (Clifford+T) 회로의 Pauli-sum 기댓값 `⟨ψ|H|ψ⟩`.
+///
+/// `terms` 는 `(pauli_string, re, im)` 리스트 — `pauli[n-1-q]` 가 큐비트 `q`
+/// (Qiskit 규약, I/X/Y/Z).  비용 `O(#terms · 2^{2t} · n²)` 라 T-count 가 작을 때
+/// (≲12) 적합.  전역 위상 무관.  비-Clifford(비-T)/noise/동적 회로는 `ValueError`.
+#[pyfunction]
+#[pyo3(signature = (circuit, terms))]
+fn clifford_t_expectation(
+    py: Python<'_>,
+    circuit: &PyCircuit,
+    terms: Vec<(String, f64, f64)>,
+) -> PyResult<(f64, f64)> {
+    let n = circuit.inner.num_qubits();
+    let mut gates: Vec<qsim_stabilizer::clifford_t::CtGate> = Vec::new();
+    for inst in circuit.inner.instructions() {
+        match inst {
+            Instruction::ApplyGate { gate, targets } => {
+                gates.extend(gate_to_ct(gate, targets).map_err(PyValueError::new_err)?);
+            }
+            Instruction::Measure { .. } | Instruction::MeasureAll => {}
+            other => {
+                return Err(PyValueError::new_err(format!(
+                    "near-Clifford 백엔드는 Clifford+T 게이트만 지원합니다: {other:?}"
+                )));
+            }
+        }
+    }
+    let t_count = gates
+        .iter()
+        .filter(|g| {
+            matches!(
+                g,
+                qsim_stabilizer::clifford_t::CtGate::T(_)
+                    | qsim_stabilizer::clifford_t::CtGate::Tdg(_)
+            )
+        })
+        .count();
+    if t_count > 16 {
+        return Err(PyValueError::new_err(format!(
+            "expectation 은 T-count ≤ 16 만 지원합니다 (입력 {t_count}): 비용 2^(2t)"
+        )));
+    }
+    // Pauli 문자열 → (px, pz) (pauli[n-1-q] = qubit q).
+    let mut parsed: Vec<(Vec<bool>, Vec<bool>, Complex<f64>)> = Vec::with_capacity(terms.len());
+    for (s, re, im) in &terms {
+        if s.len() != n {
+            return Err(PyValueError::new_err(format!(
+                "pauli 문자열 길이 {} != n_qubits {n}",
+                s.len()
+            )));
+        }
+        let mut px = vec![false; n];
+        let mut pz = vec![false; n];
+        for (pos, ch) in s.chars().enumerate() {
+            let q = n - 1 - pos;
+            match ch {
+                'I' => {}
+                'X' => px[q] = true,
+                'Y' => {
+                    px[q] = true;
+                    pz[q] = true;
+                }
+                'Z' => pz[q] = true,
+                _ => {
+                    return Err(PyValueError::new_err(format!(
+                        "지원하지 않는 Pauli 문자 {ch:?} (I/X/Y/Z)"
+                    )))
+                }
+            }
+        }
+        parsed.push((px, pz, Complex::new(*re, *im)));
+    }
+    let val = py.allow_threads(move || {
+        let mut acc = Complex::new(0.0, 0.0);
+        for (px, pz, coeff) in &parsed {
+            acc += *coeff * qsim_stabilizer::clifford_t::clifford_t_expectation(n, &gates, px, pz);
+        }
+        acc
+    });
+    Ok((val.re, val.im))
+}
+
+/// Stabilizer (Clifford) 백엔드로 회로를 샘플링해 측정 카운트를 반환한다.
+///
+/// 회로가 Clifford (H/S/CNOT 군 + π/2 배수 회전) 면 Aaronson–Gottesman tableau
+/// 로 **다항시간** 시뮬레이션해 수천 큐비트까지 동작한다.  비-Clifford 게이트나
+/// noise / mid-circuit measure / reset / control-flow 를 만나면 `ValueError`.
+/// 반환 키는 다른 백엔드와 동일한 MSB-first 비트열 (`{qubit n-1 … qubit 0}`).
+#[pyfunction]
+#[pyo3(signature = (circuit, shots = 1024, seed = None, depolarizing = 0.0))]
+fn stabilizer_counts(
+    py: Python<'_>,
+    circuit: &PyCircuit,
+    shots: usize,
+    seed: Option<u64>,
+    depolarizing: f64,
+) -> PyResult<std::collections::HashMap<String, usize>> {
+    if !(0.0..=1.0).contains(&depolarizing) {
+        return Err(PyValueError::new_err(
+            "depolarizing 은 [0,1] 범위여야 합니다",
+        ));
+    }
+    let n = circuit.inner.num_qubits();
+    let mut ops: Vec<qsim_stabilizer::CliffordOp> = Vec::new();
+    for inst in circuit.inner.instructions() {
+        match inst {
+            Instruction::ApplyGate { gate, targets } => {
+                let mapped = gate_to_clifford(gate, targets).map_err(PyValueError::new_err)?;
+                ops.extend(mapped);
+            }
+            // 회로 끝 측정은 stabilizer 샘플링이 암묵적으로 수행 — 무시.
+            Instruction::Measure { .. } | Instruction::MeasureAll => {}
+            other => {
+                return Err(PyValueError::new_err(format!(
+                    "stabilizer 백엔드는 Clifford 게이트만 지원합니다 \
+                     (noise / mid-circuit measure / reset / control-flow / 임의 \
+                     unitary 미지원): {other:?}"
+                )));
+            }
+        }
+    }
+    let samples = py.allow_threads(move || {
+        qsim_stabilizer::sample_counts_depolarizing(n, &ops, shots, seed, depolarizing)
+    });
+    let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for bits in &samples {
+        // bits[q] (q=0 LSB) → 정수 → MSB-first 폭 n 비트열.
+        let mut outcome: u128 = 0;
+        for (q, &bit) in bits.iter().enumerate() {
+            if bit != 0 {
+                outcome |= 1u128 << q;
+            }
+        }
+        let key: String = (0..n)
+            .rev()
+            .map(|q| if (outcome >> q) & 1 == 1 { '1' } else { '0' })
+            .collect();
+        *counts.entry(key).or_insert(0) += 1;
+    }
+    Ok(counts)
+}
+
+/// optimizer 문자열 → [`PathOptimizer`].
+fn parse_optimizer(
+    optimizer: &str,
+    trials: usize,
+    iters: usize,
+    restarts: usize,
+    seed: Option<u64>,
+) -> PyResult<PathOptimizer> {
+    let s = seed.unwrap_or(0);
+    match optimizer {
+        "greedy" => Ok(PathOptimizer::Greedy),
+        "random-greedy" | "random_greedy" => Ok(PathOptimizer::RandomGreedy { trials, seed: s }),
+        "sa" | "simulated-annealing" | "simulated_annealing" => {
+            Ok(PathOptimizer::SimulatedAnnealing {
+                iters,
+                restarts,
+                seed: s,
+            })
+        }
+        "partition" | "hgp" => Ok(PathOptimizer::Partition { trials, seed: s }),
+        "hyper" | "auto" => Ok(PathOptimizer::Hyper {
+            effort: restarts.max(1),
+            seed: s,
+        }),
+        other => Err(PyValueError::new_err(format!(
+            "optimizer 는 'greedy' / 'random-greedy' / 'sa' / 'partition' / \
+             'hyper' 여야 합니다 (입력: {other:?})"
+        ))),
+    }
+}
+
+/// Tensor Network Contraction: amplitude `⟨bitstring|C|0…0⟩` (deep/large 회로).
+#[pyfunction]
+#[pyo3(signature = (circuit, bitstring, optimizer="random-greedy", trials=32, iters=200, restarts=4, seed=None, gpu=false, max_width=0.0, max_slices=30))]
+#[allow(clippy::too_many_arguments)]
+fn tensornet_amplitude(
+    py: Python<'_>,
+    circuit: &PyCircuit,
+    bitstring: Vec<u8>,
+    optimizer: &str,
+    trials: usize,
+    iters: usize,
+    restarts: usize,
+    seed: Option<u64>,
+    gpu: bool,
+    max_width: f64,
+    max_slices: usize,
+) -> PyResult<(f64, f64)> {
+    let opt = parse_optimizer(optimizer, trials, iters, restarts, seed)?;
+    let circ = circuit.inner.clone();
+    let amp = py
+        .allow_threads(move || {
+            if max_width > 0.0 {
+                // 자동 slicing (메모리 한계 안에서 큰 회로) — CPU.
+                qsim_simulator::tensornet_backend::run_amplitude_sliced(
+                    &circ, &bitstring, opt, max_width, max_slices,
+                )
+            } else if gpu {
+                qsim_simulator::tensornet_backend::run_amplitude_gpu(&circ, &bitstring, opt)
+            } else {
+                qsim_simulator::tensornet_backend::run_amplitude(&circ, &bitstring, opt)
+            }
+        })
+        .map_err(PyValueError::new_err)?;
+    Ok((amp.re, amp.im))
+}
+
+/// Tensor Network Contraction: **여러 비트열의 amplitude 를 배치** 로 (path 1회
+/// 최적화 + rayon 병렬 contraction).  XEB 등 다수 amplitude 계산에 적합.
+/// 반환은 `(re, im)` 튜플 리스트.
+#[pyfunction]
+#[pyo3(signature = (circuit, bitstrings, optimizer="random-greedy", trials=32, iters=200, restarts=4, seed=None))]
+#[allow(clippy::too_many_arguments)]
+fn tensornet_amplitude_batch(
+    py: Python<'_>,
+    circuit: &PyCircuit,
+    bitstrings: Vec<Vec<u8>>,
+    optimizer: &str,
+    trials: usize,
+    iters: usize,
+    restarts: usize,
+    seed: Option<u64>,
+) -> PyResult<Vec<(f64, f64)>> {
+    let opt = parse_optimizer(optimizer, trials, iters, restarts, seed)?;
+    let circ = circuit.inner.clone();
+    let amps = py
+        .allow_threads(move || {
+            qsim_simulator::tensornet_backend::run_amplitude_batch(&circ, &bitstrings, opt)
+        })
+        .map_err(PyValueError::new_err)?;
+    Ok(amps.into_iter().map(|a| (a.re, a.im)).collect())
+}
+
+/// Tensor Network Contraction: statevector + sampling (작은 N) → SimulationResult.
+#[pyfunction]
+#[pyo3(signature = (circuit, shots=0, seed=None, optimizer="random-greedy", trials=32, iters=200, restarts=4, gpu=false))]
+#[allow(clippy::too_many_arguments)]
+fn tensornet_run(
+    py: Python<'_>,
+    circuit: &PyCircuit,
+    shots: usize,
+    seed: Option<u64>,
+    optimizer: &str,
+    trials: usize,
+    iters: usize,
+    restarts: usize,
+    gpu: bool,
+) -> PyResult<PySimulationResult> {
+    let opt = parse_optimizer(optimizer, trials, iters, restarts, seed)?;
+    let circ = circuit.inner.clone();
+    let inner = py
+        .allow_threads(move || {
+            let sv = if gpu {
+                qsim_simulator::tensornet_backend::run_statevector_gpu(&circ, opt)?
+            } else {
+                qsim_simulator::tensornet_backend::run_statevector(&circ, opt)?
+            };
+            let counts = if shots > 0 {
+                // sampling 은 statevector 로부터 (CPU) — sv 재사용.
+                let probs: Vec<f64> = sv.amplitudes().iter().map(|a| a.norm_sqr()).collect();
+                sample_from_probs(&probs, shots, seed, circ.num_qubits())
+            } else {
+                std::collections::HashMap::new()
+            };
+            Ok::<_, String>(SimulationResult::F64 {
+                counts,
+                statevector: sv,
+            })
+        })
+        .map_err(PyValueError::new_err)?;
+    Ok(PySimulationResult { inner })
+}
+
+/// 확률 분포 (panta LSB index) 에서 shots 샘플 → Qiskit 표기 counts.
+fn sample_from_probs(
+    probs: &[f64],
+    shots: usize,
+    seed: Option<u64>,
+    n: usize,
+) -> std::collections::HashMap<String, usize> {
+    use rand::{Rng, SeedableRng};
+    let total: f64 = probs.iter().sum();
+    let mut rng = match seed {
+        Some(s) => rand::rngs::StdRng::seed_from_u64(s),
+        None => rand::rngs::StdRng::from_entropy(),
+    };
+    let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for _ in 0..shots {
+        let r = rng.gen::<f64>() * total;
+        let mut acc = 0.0;
+        let mut idx = probs.len() - 1;
+        for (i, &p) in probs.iter().enumerate() {
+            acc += p;
+            if r <= acc {
+                idx = i;
+                break;
+            }
+        }
+        let mut s = String::with_capacity(n);
+        for q in (0..n).rev() {
+            s.push(if (idx >> q) & 1 == 1 { '1' } else { '0' });
+        }
+        *counts.entry(s).or_insert(0) += 1;
+    }
+    counts
+}
+
+/// 분산 슬라이싱 계획 `(n_slices, n_configs, log2_width_per_worker, log10_flops)`.
+#[pyfunction]
+#[pyo3(signature = (circuit, optimizer="hyper", trials=32, iters=200, restarts=4, seed=None, max_width=27.0, max_slices=40))]
+#[allow(clippy::too_many_arguments)]
+fn tensornet_plan(
+    py: Python<'_>,
+    circuit: &PyCircuit,
+    optimizer: &str,
+    trials: usize,
+    iters: usize,
+    restarts: usize,
+    seed: Option<u64>,
+    max_width: f64,
+    max_slices: usize,
+) -> PyResult<(usize, u64, f64, f64)> {
+    let opt = parse_optimizer(optimizer, trials, iters, restarts, seed)?;
+    let circ = circuit.inner.clone();
+    py.allow_threads(move || {
+        qsim_simulator::tensornet_backend::plan_amplitude(&circ, opt, max_width, max_slices)
+    })
+    .map_err(PyValueError::new_err)
+}
+
+/// 분산 슬라이싱 worker: `worker_id`/`n_workers` 의 부분합 amplitude.  모든 worker
+/// 부분합을 더하면 전체 amplitude (멀티노드 reduce 모델).
+#[pyfunction]
+#[pyo3(signature = (circuit, bitstring, n_workers, worker_id, optimizer="hyper", trials=32, iters=200, restarts=4, seed=None, max_width=27.0, max_slices=40))]
+#[allow(clippy::too_many_arguments)]
+fn tensornet_amplitude_worker(
+    py: Python<'_>,
+    circuit: &PyCircuit,
+    bitstring: Vec<u8>,
+    n_workers: u64,
+    worker_id: u64,
+    optimizer: &str,
+    trials: usize,
+    iters: usize,
+    restarts: usize,
+    seed: Option<u64>,
+    max_width: f64,
+    max_slices: usize,
+) -> PyResult<(f64, f64)> {
+    let opt = parse_optimizer(optimizer, trials, iters, restarts, seed)?;
+    let circ = circuit.inner.clone();
+    let amp = py
+        .allow_threads(move || {
+            qsim_simulator::tensornet_backend::run_amplitude_worker(
+                &circ, &bitstring, opt, max_width, max_slices, n_workers, worker_id,
+            )
+        })
+        .map_err(PyValueError::new_err)?;
+    Ok((amp.re, amp.im))
+}
+
+/// Tensor Network Contraction: Pauli-sum 기댓값 `⟨ψ|H|ψ⟩` (deep 회로).
+/// `terms` = `[(pauli_string, coeff_re, coeff_im), …]` (Qiskit 라벨 — 오른쪽 끝
+/// 문자 = 큐비트 0).
+#[pyfunction]
+#[pyo3(signature = (circuit, terms, optimizer="random-greedy", trials=32, iters=200, restarts=4, seed=None))]
+#[allow(clippy::too_many_arguments)]
+fn tensornet_expectation(
+    py: Python<'_>,
+    circuit: &PyCircuit,
+    terms: Vec<(String, f64, f64)>,
+    optimizer: &str,
+    trials: usize,
+    iters: usize,
+    restarts: usize,
+    seed: Option<u64>,
+) -> PyResult<(f64, f64)> {
+    let opt = parse_optimizer(optimizer, trials, iters, restarts, seed)?;
+    let terms_c: Vec<(String, Complex<f64>)> = terms
+        .into_iter()
+        .map(|(p, re, im)| (p, Complex::new(re, im)))
+        .collect();
+    let circ = circuit.inner.clone();
+    let val = py
+        .allow_threads(move || {
+            qsim_simulator::tensornet_backend::run_expectation(&circ, &terms_c, opt)
+        })
+        .map_err(PyValueError::new_err)?;
+    Ok((val.re, val.im))
+}
+
+/// Tensor Network contraction 비용 추정 `(log10_flops, log2_width)` — 회로가 TN
+/// 으로 다룰 만한지 판단 (width = peak 중간 텐서 큐비트 수).
+#[pyfunction]
+#[pyo3(signature = (circuit, optimizer="random-greedy", trials=32, iters=200, restarts=4, seed=None))]
+#[allow(clippy::too_many_arguments)]
+fn tensornet_contraction_cost(
+    py: Python<'_>,
+    circuit: &PyCircuit,
+    optimizer: &str,
+    trials: usize,
+    iters: usize,
+    restarts: usize,
+    seed: Option<u64>,
+) -> PyResult<(f64, f64)> {
+    let opt = parse_optimizer(optimizer, trials, iters, restarts, seed)?;
+    let circ = circuit.inner.clone();
+    let cost = py
+        .allow_threads(move || qsim_simulator::tensornet_backend::contraction_cost(&circ, opt))
+        .map_err(PyValueError::new_err)?;
+    Ok((cost.0, cost.1))
+}
+
 #[pymodule]
 fn qsim_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyCircuit>()?;
     m.add_class::<PySimulationResult>()?;
     m.add_class::<PyNoiseChannel>()?;
+    m.add_class::<PyNoiseChannel2>()?;
     m.add_function(wrap_pyfunction!(run, m)?)?;
+    m.add_function(wrap_pyfunction!(tensornet_amplitude, m)?)?;
+    m.add_function(wrap_pyfunction!(tensornet_run, m)?)?;
+    m.add_function(wrap_pyfunction!(tensornet_expectation, m)?)?;
+    m.add_function(wrap_pyfunction!(tensornet_contraction_cost, m)?)?;
+    m.add_function(wrap_pyfunction!(tensornet_plan, m)?)?;
+    m.add_function(wrap_pyfunction!(tensornet_amplitude_worker, m)?)?;
+    m.add_function(wrap_pyfunction!(stabilizer_counts, m)?)?;
+    m.add_function(wrap_pyfunction!(clifford_t_amplitude, m)?)?;
+    m.add_function(wrap_pyfunction!(clifford_t_expectation, m)?)?;
+    m.add_function(wrap_pyfunction!(clifford_t_sample, m)?)?;
+    m.add_function(wrap_pyfunction!(tensornet_amplitude_batch, m)?)?;
     Ok(())
 }

@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: efterlev
-Version: 0.1.214
+Version: 0.1.215
 Summary: Repo-native, agent-first compliance scanner for FedRAMP and DoD Impact Levels
-Project-URL: Homepage, https://efterlev.com
-Project-URL: Documentation, https://efterlev.com
+Project-URL: Homepage, https://efterlev.org
+Project-URL: Documentation, https://docs.efterlev.org
 Project-URL: Repository, https://github.com/efterlev/efterlev
 Project-URL: Issues, https://github.com/efterlev/efterlev/issues
 Author: Efterlev contributors
@@ -29,7 +29,7 @@ Requires-Dist: pathspec<2,>=0.12
 Requires-Dist: platformdirs<5,>=4.0
 Requires-Dist: prompt-toolkit<4,>=3.0
 Requires-Dist: pydantic<3,>=2.6
-Requires-Dist: python-hcl2<9,>=4.3
+Requires-Dist: python-hcl2<6,>=4.3
 Requires-Dist: python-multipart<1,>=0.0.27
 Requires-Dist: pyyaml<7,>=6.0.3
 Requires-Dist: rich<16,>=13.7
@@ -103,8 +103,8 @@ Pronounced "EF-ter-lev." From Swedish *efterlevnad* (compliance).
 **Recommended: pasted-prompt onboarding.** Open [Claude Code](https://claude.com/claude-code) (or Cursor, Codex, Kiro, any AI assistant with shell access), paste the canonical prompt at [`docs/ai-quickstart-prompt.md`](./docs/ai-quickstart-prompt.md), and the assistant drives the full pipeline end-to-end:
 
 - Confirms your repo root (catches the silent 20%-coverage-loss footgun where a Terraform subdir hides workflows + manifests)
-- Asks which LLM backend you want — **Anthropic API**, **AWS Bedrock** (GovCloud-compatible), or **Claude Code subscription** (Pro/Max users; **zero per-call billing**, v0.1.148+)
-- Installs Efterlev (detects pipx vs uv automatically; handles macOS PATH gotchas)
+- Asks which LLM backend you want — **Anthropic API**, **OpenAI** (gpt-5.4-mini), **AWS Bedrock** (GovCloud-compatible), or **Claude Code subscription** (Pro/Max users; **zero per-call billing**, v0.1.148+)
+- Installs Efterlev with `uv` (fetches Python 3.12 automatically; handles the stock-Mac / Anaconda-Python and PATH gotchas that trip up a plain `pip install`)
 - If your path has no Terraform at all, offers to clone `lhassa8/govnotes-demo` as a turnkey FedRAMP-shaped test fixture (151 resources across TF + CFN + 5 GitHub workflows + 9 procedural manifests)
 - Runs `init → scan → agent gap → agent document → poam → oscal` with per-stage wall-clock timing
 - Briefs you on the top 3 KSIs to focus on, the readiness scorecard, and offers a 3PAO submission package zip
@@ -114,29 +114,33 @@ This is an unusual onboarding pattern for a security tool — most ship docs or 
 
 Cost (first run): ~$1–5 on Sonnet 4.6 / Anthropic API, or ~$3–10 on Opus, or **$0 on Claude Code Pro/Max subscription**. Cache hits on re-runs are free on every backend (v0.1.151+). Wall time: 10–25 minutes for the first run, subsecond per stage on cache hit.
 
-**Alternative: drive it yourself with the CLI.**
+**Or run it yourself.** Efterlev needs Python 3.12+. The cleanest install on any machine is [`uv`](https://docs.astral.sh/uv/): it fetches the right Python for you, and the only prerequisite is `curl` (already on macOS and most Linux). A plain `pip install` fails on a stock Mac or an Anaconda `(base)` env because their default Python is older than 3.12 — `uv` sidesteps that.
 
 ```bash
-pipx install efterlev
+curl -LsSf https://astral.sh/uv/install.sh | sh    # skip if you already have uv
+```
+
+Then pick your commitment level:
+
+```bash
+# 1. Just see it. No API key, nothing installed permanently:
+uvx efterlev studio                        # runs in a throwaway env; opens a local browser app on sample data
+
+# 2. Run the full pipeline (needs an LLM key — see below):
+uv tool install efterlev
+efterlev quickstart                        # bundled sample; init+scan are keyless, the AI stages need a key
+
+# 3. Run it against your own repo:
 cd path/to/your-repo                       # repo root, NOT a Terraform subdir
-efterlev init --target . --force --llm-backend=anthropic    # or claude_code / bedrock
+efterlev init --target . --force --llm-backend=anthropic   # or openai / claude_code / bedrock
 efterlev report run                        # init → scan → gap → document → poam → oscal
 ```
 
-Or try it against a bundled fixture first:
+> **Already on pip?** If you have Python 3.12+, `pipx install efterlev` (or `pip install efterlev`) works fine. `uv` is the lead only because it removes the Python-version wall that bites a fresh laptop.
 
-```bash
-pipx install efterlev
-efterlev quickstart                        # ~3 min on Sonnet, ~$0.30; runs init+scan only
-                                           # without ANTHROPIC_API_KEY set
-```
+**Which steps need an LLM key?** `efterlev studio` and the `init` / `scan` steps are fully keyless. The AI stages (`gap`, `document`, `poam`, `report run`, and `quickstart`'s classification) need exactly one backend: an `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`, AWS Bedrock, or a Claude Code Pro/Max subscription ($0 per call). Configure it with `efterlev init --llm-backend …`.
 
-**Just want to *see* it? — Efterlev Studio (the visual experience).**
-
-```bash
-pipx install efterlev
-efterlev studio            # opens a local browser app on sample data — no key, no setup
-```
+**More on Efterlev Studio (the visual experience).**
 
 `efterlev studio` (or just bare `efterlev` on a terminal) opens a local,
 browser-based map of your FedRAMP 20x posture: evidence streams in from your
@@ -300,7 +304,7 @@ For deeper architectural detail, see [docs/architecture.md](./docs/architecture.
 - **Detector sources:** 57 Terraform (KSI-mapped) + 5 GitHub workflows + 4 supplementary
 - **Three agents:** Gap (Opus 4.7), Documentation (Sonnet 4.6), Remediation (Opus 4.7)
 - **Three LLM backends (maintainer-validated):** Anthropic API (default) + AWS Bedrock (`[bedrock]` extra, GovCloud-deployable) + **Claude Code subscription** (Pro/Max users; zero per-call billing via the local `claude` CLI, v0.1.148+; init defaults to Opus 4.7 on this backend since all models bill against the same quota, v0.1.158+). **Bedrock Claude Haiku 4.5 maintainer-validated at 111/112 = 99.1% precision + 100% recall across all 5 labeled fixtures** (v0.1.118 — see [`docs/benchmark-2026-05.md`](./docs/benchmark-2026-05.md)); same model on Anthropic API hit 111/111 = 100%. Quality-neutral switch — GovCloud customers get the same classification quality at ~$0.40 per fixture eval.
-- **OpenAI backend (v0.1.213, recommended model: `gpt-5.4-mini`):** for customers without Claude access. `--llm-backend=openai --llm-model=gpt-5.4-mini` routes through OpenAI Chat Completions; install with `pipx install 'efterlev[openai]'` and set `OPENAI_API_KEY`. Maintainer-validated on the `csp-starter-cfn` fixture:
+- **OpenAI backend (v0.1.213, recommended model: `gpt-5.4-mini`):** for customers without Claude access. `--llm-backend=openai --llm-model=gpt-5.4-mini` routes through OpenAI Chat Completions; install with `uv tool install 'efterlev[openai]'` (or `pipx install 'efterlev[openai]'`) and set `OPENAI_API_KEY`. Maintainer-validated on the `csp-starter-cfn` fixture:
 
   | Model | status_precision | status_recall | Notes |
   |---|---|---|---|
@@ -310,7 +314,7 @@ For deeper architectural detail, see [docs/architecture.md](./docs/architecture.
   | Anthropic Haiku 4.5 *(reference baseline, v0.1.81)* | 100% (23/23) | 100% (23/23) | Single dispatch |
 
   The `gpt-5.4-mini` row reflects **three re-runs** on `csp-starter-cfn`: recall was 100% every time, while precision varied 79–96% (it intermittently over-flags *procedural* KSIs as `not_implemented` — false POA&M items a reviewer removes, never a missed real gap). The other rows are single dispatches. Quality holds end-to-end against real CloudFormation through the Gap Agent's hallucination guard (it rejects any classification citing evidence IDs not in the prompt, and any positive classification with no citation at all). Single-fixture reading at v0.1.213; broader sweep follows the v0.1.118 Bedrock-Haiku pattern. See [`LIMITATIONS.md`](./LIMITATIONS.md) "OpenAI backend" section for the model-by-model detail.
-- **2402 tests passing;** mypy strict + ruff check + ruff format clean across 297 source files; 46 CLI commands; full E2E pipeline smoke (real Anthropic API call against a synthetic fixture) runs as a required check on every PR
+- **2403 tests passing;** mypy strict + ruff check + ruff format clean across 297 source files; 46 CLI commands; full E2E pipeline smoke (real Anthropic API call against a synthetic fixture) runs as a required check on every PR
 
 **Coverage relative to FedRAMP 20x Phase 2's 70% automated-validation threshold:** the threshold applies to the customer's whole authorization package, not to any single tool. Efterlev covers 37 KSIs at the IaC layer pre-deploy (post-Tier-2 serverless backlog); AWS-native services (Config, Security Hub, CloudTrail, Inspector, GuardDuty) cover roughly 14 KSIs at the runtime layer. Honest union: ~38 of 63 KSIs (~60%) — distinct layers, not double-counted. Reaching 70% takes both. See [docs/aws-coexistence.md](./docs/aws-coexistence.md) for the strategic mapping and [docs/csx-mapping.md](./docs/csx-mapping.md) for how the outputs map to CSX-SUM / MAS / ORD.
 
@@ -343,7 +347,7 @@ Exposes every CLI verb as an MCP tool over stdio. Point Claude Code (or any MCP 
 
 ## Documentation
 
-Full docs site: **[efterlev.com](https://efterlev.com)** — quickstart, concepts, tutorials (CI integration, GovCloud deployment, writing detectors, customizing agent prompts), CLI reference, and comparisons against Paramify, Comp AI, Vanta/Drata, and traditional consulting.
+Full docs site: **[docs.efterlev.org](https://docs.efterlev.org)** — quickstart, concepts, tutorials (CI integration, GovCloud deployment, writing detectors, customizing agent prompts), and CLI reference.
 
 In this repo:
 
@@ -359,7 +363,7 @@ In this repo:
 - [`docs/icp.md`](./docs/icp.md) — Ideal Customer Profile; the lens behind every product decision
 - [`docs/followups.md`](./docs/followups.md) — tracked work, deferred items, what's shipped vs pending
 - [`docs/v0.2-eval-harness-plan.md`](./docs/v0.2-eval-harness-plan.md) — design sketch for the v0.2 agent-quality harness
-- [`CHANGELOG.md`](./CHANGELOG.md) — release-by-release record (200+ patch versions, v0.1.214 current)
+- [`CHANGELOG.md`](./CHANGELOG.md) — release-by-release record (200+ patch versions, v0.1.215 current)
 - [`docs/benchmark-2026-05.md`](./docs/benchmark-2026-05.md) — time-to-FRMR benchmark methodology (numbers populated by maintainer dispatch)
 - [`docs/cfn-detector-parity.md`](./docs/cfn-detector-parity.md) + [`docs/cfn-detector-parity.csv`](./docs/cfn-detector-parity.csv) — per-detector CFN coverage matrix (regenerated by `scripts/build_cfn_parity_table.py`)
 - [`DECISIONS.md`](./DECISIONS.md) — append-only design-decision log
@@ -376,7 +380,7 @@ We want contributors. The detector library is designed to make the common contri
 
 ## Status, governance, license
 
-**Status:** v0.1.214 is current — 200+ patch releases since v0.1.0 (2026-04-29), each shipped under a per-fix regression-test discipline and the full CI gate (mypy strict, ruff, doc-drift check, real-API E2E smoke). The scanner reads Terraform, CloudFormation (default-on since v0.1.99), and Python CDK source (v0.1.131); the agents emit FRMR attestations plus OSCAL 1.0.4 POA&M and Component-Definition; and runtime-tool findings (AWS Security Hub / Config / Prowler) ingest into the same provenance store (v0.1.124). Classification quality is maintainer-validated at 100% precision + 100% recall on the Terraform fixtures (67/67 across 3) and 44/44 on the CloudFormation fixtures, with Bedrock Claude Haiku 4.5 confirmed quality-neutral for GovCloud deployments. The CloudFormation validation detail is in [`evals/PHASE_2_LITE_CFN_VALIDATION.md`](./evals/PHASE_2_LITE_CFN_VALIDATION.md); per-detector CFN coverage in [`docs/cfn-detector-parity.md`](./docs/cfn-detector-parity.md). Per-release detail is in [`CHANGELOG.md`](./CHANGELOG.md); verify a published artifact with `bash scripts/verify-release.sh v0.1.207` (PEP 740 PyPI attestations + cosign keyless OIDC + SLSA provenance on `ghcr.io/efterlev/efterlev`).
+**Status:** v0.1.215 is current — 200+ patch releases since v0.1.0 (2026-04-29), each shipped under a per-fix regression-test discipline and the full CI gate (mypy strict, ruff, doc-drift check, real-API E2E smoke). The scanner reads Terraform, CloudFormation (default-on since v0.1.99), and Python CDK source (v0.1.131); the agents emit FRMR attestations plus OSCAL 1.0.4 POA&M and Component-Definition; and runtime-tool findings (AWS Security Hub / Config / Prowler) ingest into the same provenance store (v0.1.124). Classification quality is maintainer-validated at 100% precision + 100% recall on the Terraform fixtures (67/67 across 3) and 44/44 on the CloudFormation fixtures, with Bedrock Claude Haiku 4.5 confirmed quality-neutral for GovCloud deployments. The CloudFormation validation detail is in [`evals/PHASE_2_LITE_CFN_VALIDATION.md`](./evals/PHASE_2_LITE_CFN_VALIDATION.md); per-detector CFN coverage in [`docs/cfn-detector-parity.md`](./docs/cfn-detector-parity.md). Per-release detail is in [`CHANGELOG.md`](./CHANGELOG.md); verify a published artifact with `bash scripts/verify-release.sh v0.1.207` (PEP 740 PyPI attestations + cosign keyless OIDC + SLSA provenance on `ghcr.io/efterlev/efterlev`).
 
 **Governance:** Benevolent-dictator model today (`@lhassa8`), transitioning to a technical steering committee at 10 sustained-activity contributors. Full model in [GOVERNANCE.md](./GOVERNANCE.md). Architectural decisions: [DECISIONS.md](./DECISIONS.md). The project may eventually be donated to a neutral foundation (OpenSSF / Linux Foundation / CNCF) if contributor diversity warrants — that decision is not made and not time-boxed.
 

@@ -41,12 +41,16 @@ from .archetype import (
 from .atomic_flows import (
     AtomicFlowSpec,
     AtomicFlowStep,
+    FlowAggregateFn,
+    FlowAuditMode,
     FlowCreate,
     FlowFailureMode,
     FlowFieldValue,
     FlowFieldValueKind,
     FlowInput,
+    FlowInvariant,
     FlowUpdate,
+    InvariantRhs,
 )
 
 # Audit trail (#956)
@@ -683,6 +687,9 @@ from .sla import (
 # State Machines (v0.7.0)
 from .state_machine import (
     AutoTransitionSpec,
+    InvokeBinding,
+    InvokeFlowSpec,
+    InvokeSourceKind,
     StateMachineSpec,
     StateTransition,
     TimeUnit,
@@ -1057,6 +1064,10 @@ __all__ = [
     "FlowCreate",
     "FlowUpdate",
     "FlowFailureMode",
+    "FlowAuditMode",
+    "FlowAggregateFn",
+    "FlowInvariant",
+    "InvariantRhs",
     # Layout
     "AttentionSignalKind",
     "LayoutSignal",
@@ -1078,6 +1089,9 @@ __all__ = [
     "TimeUnit",
     "TransitionTrigger",
     "TransitionGuard",
+    "InvokeSourceKind",
+    "InvokeBinding",
+    "InvokeFlowSpec",
     "AutoTransitionSpec",
     "StateTransition",
     "StateMachineSpec",

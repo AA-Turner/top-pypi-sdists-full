@@ -1,4 +1,5 @@
 import asyncio
+import json
 import traceback
 import warnings
 from collections import defaultdict
@@ -20,6 +21,9 @@ from temporalio.worker.workflow_sandbox import SandboxedWorkflowRunner
 from mistralai.workflows.client import translate_model
 from mistralai.workflows.core._events.event_context import EventContext
 from mistralai.workflows.core._events.event_interceptor import EventInterceptor
+from mistralai.workflows.core._registration.execution_registration_interceptor import (
+    ExecutionRegistrationInterceptor,
+)
 from mistralai.workflows.core.activity import activity, get_all_temporal_activities
 from mistralai.workflows.core.config import config_discovery
 from mistralai.workflows.core.config.config import AppConfig, config
@@ -121,6 +125,17 @@ async def _register_workflow_specs(
         )
         return translate_model(WorkflowSpecsRegisterResponse, result)
     except Exception as exc:
+        if isinstance(exc, SDKError) and exc.status_code == HTTPStatus.FORBIDDEN:
+            try:
+                body = json.loads(exc.body)
+                if admin_url := body.get("admin_panel_url"):
+                    logger.error(
+                        "OBO workflow registration failed: deployment is not hardened. "
+                        "Add authorized credentials at the link below",
+                        admin_panel_url=admin_url,
+                    )
+            except (json.JSONDecodeError, ValueError, AttributeError, TypeError):
+                pass
         raise WorkflowsException.from_api_client_error(
             exc, message="Failed to register workflow specs", code=ErrorCode.POST_WORKFLOWS_REGISTER_ERROR
         ) from exc
@@ -423,8 +438,12 @@ async def _run_worker(workflows: List[ClassType]) -> None:
             payload_offloading_config=config.worker.temporal_payload_offloading,
             payload_encryption_config=config.worker.temporal_payload_encryption,
         )
+        # Order matters: ContextHandler must run first (unwraps WorkflowContext),
+        # then ExecutionRegistration (registers run + sets token), then Event
+        # (emits lifecycle events that may need the token).
         extra_interceptors: List[Interceptor] = [
             ContextHandlerInterceptor(),
+            ExecutionRegistrationInterceptor(),
             EventInterceptor(),
         ]
 

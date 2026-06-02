@@ -44,10 +44,12 @@ from dbos._serialization import (
     DefaultSerializer,
     Serializer,
     WorkflowSerializationFormat,
+    safe_deserialize_schedule_context,
     serialize_args,
 )
 from dbos._sys_db import (
     ClientScheduleInput,
+    SendMessage,
     StepInfo,
     SystemDatabase,
     VersionInfo,
@@ -185,6 +187,9 @@ class DBOSClient:
             schema=dbos_system_schema,
             serializer=serializer,
             executor_id=None,
+            # The client does not run a notification listener thread, so stream
+            # reads cannot be woken by LISTEN/NOTIFY and instead poll the offset.
+            use_listen_notify=False,
         )
         self._sys_db.check_connection()
 
@@ -495,13 +500,15 @@ class DBOSClient:
         serialization_type: Optional[
             WorkflowSerializationFormat
         ] = WorkflowSerializationFormat.DEFAULT,
+        send_to_forks: bool = False,
     ) -> None:
-        self._sys_db.send_direct(
-            destination_id,
-            message,
-            topic,
-            message_uuid=idempotency_key,
+        self._sys_db.send_bulk(
+            [SendMessage(destination_id, message, topic, idempotency_key)],
             serialization_type=serialization_type,
+            workflow_id=None,
+            function_id=None,
+            function_name="DBOS.send",
+            send_to_forks=send_to_forks,
         )
 
     async def send_async(
@@ -514,6 +521,7 @@ class DBOSClient:
         serialization_type: Optional[
             WorkflowSerializationFormat
         ] = WorkflowSerializationFormat.DEFAULT,
+        send_to_forks: bool = False,
     ) -> None:
         return await asyncio.to_thread(
             self.send,
@@ -522,6 +530,51 @@ class DBOSClient:
             topic,
             idempotency_key,
             serialization_type=serialization_type,
+            send_to_forks=send_to_forks,
+        )
+
+    def send_bulk(
+        self,
+        messages: List[SendMessage],
+        *,
+        serialization_type: Optional[
+            WorkflowSerializationFormat
+        ] = WorkflowSerializationFormat.DEFAULT,
+        send_to_forks: bool = False,
+    ) -> None:
+        """Send many messages to workflow executions in a single transaction.
+
+        If `send_to_forks` is set, every message is also delivered to all
+        workflows recursively forked from its destination.
+        """
+        self._sys_db.send_bulk(
+            messages,
+            serialization_type=serialization_type,
+            workflow_id=None,
+            function_id=None,
+            function_name="DBOS.send_bulk",
+            send_to_forks=send_to_forks,
+        )
+
+    async def send_bulk_async(
+        self,
+        messages: List[SendMessage],
+        *,
+        serialization_type: Optional[
+            WorkflowSerializationFormat
+        ] = WorkflowSerializationFormat.DEFAULT,
+        send_to_forks: bool = False,
+    ) -> None:
+        """Send many messages to workflow executions in a single transaction.
+
+        If `send_to_forks` is set, every message is also delivered to all
+        workflows recursively forked from its destination.
+        """
+        return await asyncio.to_thread(
+            self.send_bulk,
+            messages,
+            serialization_type=serialization_type,
+            send_to_forks=send_to_forks,
         )
 
     def get_event(self, workflow_id: str, key: str, timeout_seconds: float = 60) -> Any:
@@ -664,6 +717,10 @@ class DBOSClient:
         status: Optional[str | list[str]] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
+        completed_after: Optional[str] = None,
+        completed_before: Optional[str] = None,
+        dequeued_after: Optional[str] = None,
+        dequeued_before: Optional[str] = None,
         name: Optional[str | list[str]] = None,
         app_version: Optional[str | list[str]] = None,
         forked_from: Optional[str | list[str]] = None,
@@ -686,6 +743,10 @@ class DBOSClient:
             status=status,
             start_time=start_time,
             end_time=end_time,
+            completed_after=completed_after,
+            completed_before=completed_before,
+            dequeued_after=dequeued_after,
+            dequeued_before=dequeued_before,
             name=name,
             app_version=app_version,
             forked_from=forked_from,
@@ -711,6 +772,10 @@ class DBOSClient:
         status: Optional[str | list[str]] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
+        completed_after: Optional[str] = None,
+        completed_before: Optional[str] = None,
+        dequeued_after: Optional[str] = None,
+        dequeued_before: Optional[str] = None,
         name: Optional[str | list[str]] = None,
         app_version: Optional[str | list[str]] = None,
         forked_from: Optional[str | list[str]] = None,
@@ -734,6 +799,10 @@ class DBOSClient:
             status=status,
             start_time=start_time,
             end_time=end_time,
+            completed_after=completed_after,
+            completed_before=completed_before,
+            dequeued_after=dequeued_after,
+            dequeued_before=dequeued_before,
             name=name,
             app_version=app_version,
             forked_from=forked_from,
@@ -759,6 +828,10 @@ class DBOSClient:
         status: Optional[str | list[str]] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
+        completed_after: Optional[str] = None,
+        completed_before: Optional[str] = None,
+        dequeued_after: Optional[str] = None,
+        dequeued_before: Optional[str] = None,
         name: Optional[str | list[str]] = None,
         app_version: Optional[str | list[str]] = None,
         forked_from: Optional[str | list[str]] = None,
@@ -779,6 +852,10 @@ class DBOSClient:
             status=status,
             start_time=start_time,
             end_time=end_time,
+            completed_after=completed_after,
+            completed_before=completed_before,
+            dequeued_after=dequeued_after,
+            dequeued_before=dequeued_before,
             name=name,
             app_version=app_version,
             forked_from=forked_from,
@@ -803,6 +880,10 @@ class DBOSClient:
         status: Optional[str | list[str]] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
+        completed_after: Optional[str] = None,
+        completed_before: Optional[str] = None,
+        dequeued_after: Optional[str] = None,
+        dequeued_before: Optional[str] = None,
         name: Optional[str | list[str]] = None,
         app_version: Optional[str | list[str]] = None,
         forked_from: Optional[str | list[str]] = None,
@@ -824,6 +905,10 @@ class DBOSClient:
             status=status,
             start_time=start_time,
             end_time=end_time,
+            completed_after=completed_after,
+            completed_before=completed_before,
+            dequeued_after=dequeued_after,
+            dequeued_before=dequeued_before,
             name=name,
             app_version=app_version,
             forked_from=forked_from,
@@ -903,7 +988,9 @@ class DBOSClient:
         )
         return WorkflowHandleClientAsyncPolling[Any](forked_workflow_id, self._sys_db)
 
-    def read_stream(self, workflow_id: str, key: str) -> Generator[Any, Any, None]:
+    def read_stream(
+        self, workflow_id: str, key: str, *, offset: int = 0
+    ) -> Generator[Any, Any, None]:
         """
         Read values from a stream as a generator.
         This function reads values from a stream identified by the workflow_id and key,
@@ -912,30 +999,40 @@ class DBOSClient:
         Args:
             workflow_id: The ID of the workflow that wrote to the stream
             key: The stream key to read from
+            offset: The offset to start reading from (defaults to 0, the start of the stream)
 
         Yields:
             The values written to the stream in order
         """
-        offset = 0
-        while True:
-            try:
-                value = self._sys_db.read_stream(workflow_id, key, offset)
-                if value == _dbos_stream_closed_sentinel:
-                    break
-                yield value
-                offset += 1
-            except ValueError:
-                # Poll the offset until a value arrives or the workflow terminates
-                status = get_workflow(self._sys_db, workflow_id)
-                if status is None:
-                    break
-                if not workflow_is_active(status.status):
-                    break
-                time.sleep(1.0)
-                continue
+        event, payload = self._sys_db.register_stream_listener(workflow_id, key)
+        try:
+            while True:
+                # Clear before reading so a notification arriving after the read
+                # leaves the event set and the wait below returns immediately.
+                event.clear()
+                try:
+                    value = self._sys_db.read_stream(workflow_id, key, offset)
+                    if value == _dbos_stream_closed_sentinel:
+                        break
+                    yield value
+                    offset += 1
+                except ValueError:
+                    # No value yet: stop if the workflow is done, else wait for a
+                    # notification. Workflow completion fires none, so the wait
+                    # is bounded by the polling interval to notice termination.
+                    status = get_workflow(self._sys_db, workflow_id)
+                    if status is None:
+                        break
+                    if not workflow_is_active(status.status):
+                        break
+                    event.wait(
+                        timeout=self._sys_db._notification_listener_polling_interval_sec
+                    )
+        finally:
+            self._sys_db.unregister_stream_listener(payload)
 
     async def read_stream_async(
-        self, workflow_id: str, key: str
+        self, workflow_id: str, key: str, *, offset: int = 0
     ) -> AsyncGenerator[Any, None]:
         """
         Read values from a stream as an async generator.
@@ -945,31 +1042,47 @@ class DBOSClient:
         Args:
             workflow_id: The ID of the workflow that wrote to the stream
             key: The stream key to read from
+            offset: The offset to start reading from (defaults to 0, the start of the stream)
 
         Yields:
             The values written to the stream in order
         """
-        offset = 0
-        while True:
-            try:
-                value = await asyncio.to_thread(
-                    self._sys_db.read_stream, workflow_id, key, offset
-                )
-                if value == _dbos_stream_closed_sentinel:
-                    break
-                yield value
-                offset += 1
-            except ValueError:
-                # Poll the offset until a value arrives or the workflow terminates
-                status = await asyncio.to_thread(
-                    get_workflow, self._sys_db, workflow_id
-                )
-                if status is None:
-                    break
-                if not workflow_is_active(status.status):
-                    break
-                await asyncio.sleep(1.0)
-                continue
+        event, payload = self._sys_db.register_stream_listener(workflow_id, key)
+        try:
+            while True:
+                # Clear before reading so a notification arriving after the read
+                # leaves the event set and the wait below returns immediately.
+                event.clear()
+                try:
+                    value = await asyncio.to_thread(
+                        self._sys_db.read_stream, workflow_id, key, offset
+                    )
+                    if value == _dbos_stream_closed_sentinel:
+                        break
+                    yield value
+                    offset += 1
+                except ValueError:
+                    # No value yet: stop if the workflow is done, else wait for a
+                    # notification. Poll the event with short asyncio sleeps (no
+                    # held thread), bounded by the fallback re-check interval.
+                    status = await asyncio.to_thread(
+                        get_workflow, self._sys_db, workflow_id
+                    )
+                    if status is None:
+                        break
+                    if not workflow_is_active(status.status):
+                        break
+                    deadline = (
+                        time.time()
+                        + self._sys_db._notification_listener_polling_interval_sec
+                    )
+                    while not event.is_set():
+                        remaining = deadline - time.time()
+                        if remaining <= 0:
+                            break
+                        await asyncio.sleep(min(remaining, 0.1))
+        finally:
+            self._sys_db.unregister_stream_listener(payload)
 
     # ── Schedule API ──────────────────────────────────────────────
 
@@ -1045,15 +1158,21 @@ class DBOSClient:
             schedule_name_prefix=schedule_name_prefix,
         )
         for s in schedules:
-            s["context"] = self._sys_db.serializer.deserialize(s["context"])
+            s["context"] = safe_deserialize_schedule_context(
+                self._sys_db.serializer,
+                s["schedule_name"],
+                serialized_context=s["context"],
+            )
         return schedules
 
     def get_schedule(self, name: str) -> Optional[WorkflowSchedule]:
         """Return the schedule with the given name, or ``None`` if it does not exist."""
         schedule = self._sys_db.get_schedule(name)
         if schedule is not None:
-            schedule["context"] = self._sys_db.serializer.deserialize(
-                schedule["context"]
+            schedule["context"] = safe_deserialize_schedule_context(
+                self._sys_db.serializer,
+                schedule["schedule_name"],
+                serialized_context=schedule["context"],
             )
         return schedule
 

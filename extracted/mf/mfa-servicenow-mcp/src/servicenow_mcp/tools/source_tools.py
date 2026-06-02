@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import re
+import threading
 import time
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
@@ -32,6 +33,7 @@ from servicenow_mcp.tools.source_resume import (
     params_fingerprint,
     save_stage,
 )
+from servicenow_mcp.utils.atomic_io import atomic_write_text
 from servicenow_mcp.utils.config import ServerConfig
 from servicenow_mcp.utils.download_map import (
     map_sys_ids,
@@ -1757,8 +1759,40 @@ def _collect_downloaded_names(scope_root: Path, table: str, id_field: str) -> Se
     return names
 
 
-_DEP_MAX_WORKERS = 3  # max concurrent API calls during dep resolution
+# Download concurrency cap. A single application scope can hold thousands of
+# records across ~24 source types; fetched serially that overruns the client's
+# 120s call timeout (a real scope measured ~4 min). Source types are mutually
+# independent (own query, own scope_root/<table> dir), so we fan them out under
+# this cap. Kept deliberately low so we stay well under per-instance rate limits
+# / bot detection — the win is parallelism, not flooding the instance.
+_DOWNLOAD_MAX_WORKERS = 4
+_DEP_MAX_WORKERS = _DOWNLOAD_MAX_WORKERS  # max concurrent API calls during dep resolution
 _DEP_CHUNK_SIZE = 30  # names per API query chunk (smaller = safer under rate limits)
+
+# Markers that mean "no point retrying or fanning out more requests": the
+# session/account can't authenticate to the API. Re-auth either already failed
+# or would just produce another rejected session. When one parallel worker hits
+# this, the rest abort instead of each firing the same doomed call (the "401
+# bomb" — N source types × _DOWNLOAD_MAX_WORKERS all 401-ing at once).
+_AUTH_FAILURE_MARKERS = (
+    "fresh_session_rejected",
+    "acl_blocked",
+    "not authenticated",
+    "401",
+)
+
+
+def _text_indicates_auth_failure(text: str) -> bool:
+    """True when a message/error string carries an auth-failure marker."""
+    t = (text or "").lower()
+    return any(marker in t for marker in _AUTH_FAILURE_MARKERS)
+
+
+def _is_auth_failure(exc: Exception) -> bool:
+    """True when an exception indicates an unrecoverable auth failure."""
+    return _text_indicates_auth_failure(str(exc))
+
+
 _DEP_MAX_DEPTH_DEFAULT = 2  # transitive resolution passes (conservative default)
 _DEP_MAX_DEPTH_CAP = 6  # hard ceiling — each extra pass fans out more API calls
 
@@ -1800,6 +1834,7 @@ def _download_dep_records(
     effective_page_size = min(page_size, 10) if cfg["source_fields"] else page_size
 
     chunks = _chunked(names, _DEP_CHUNK_SIZE)
+    use_inner_page_parallel = len(chunks) <= 1
 
     def _fetch_chunk(chunk: List[str]) -> List[Dict[str, Any]]:
         escaped = ",".join(_escape_query_fragment(n) for n in chunk)
@@ -1812,6 +1847,12 @@ def _download_dep_records(
                 fields=",".join(all_fields),
                 page_size=effective_page_size,
                 max_records=500,
+                # If dependency names split into multiple chunks, this function
+                # already fans out chunk queries via _DEP_MAX_WORKERS. Keep
+                # inner pagination sequential in that case so one download job
+                # does not stack chunk-level and page-level parallelism. A
+                # single chunk keeps the normal page fetch parallelism.
+                parallel=use_inner_page_parallel,
                 display_value=False,
             )
         except Exception as exc:
@@ -2012,13 +2053,13 @@ def _safe_filename(value: str) -> str:
 
 
 def _dl_write_file(path: Path, content: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8")
+    # Atomic: an interrupted download never leaves a truncated file that
+    # resume-skip would later trust as "already downloaded".
+    atomic_write_text(path, content)
 
 
 def _dl_write_json(path: Path, payload: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    atomic_write_text(path, json.dumps(payload, indent=2, ensure_ascii=False))
 
 
 def _resolve_scope_root(
@@ -2124,10 +2165,30 @@ def _download_source_types(
     deletion_candidates: Dict[str, List[str]] = {}
     total_files = 0
 
-    for source_type in source_types:
+    # Tripped by the first worker that hits an unrecoverable auth failure, so
+    # the remaining (queued) types bail immediately instead of each re-firing
+    # the same doomed call against a dead session.
+    auth_failure = threading.Event()
+
+    def _process_one_type(source_type):
+        # Per-type LOCAL accumulators. Threads never touch the shared outer
+        # accumulators — each type's partial result is merged back in input
+        # order after the parallel run, so output stays deterministic.
+        type_results: Dict[str, Dict[str, Any]] = {}
+        manifest_entries: List[Dict[str, Any]] = []
+        warnings: List[str] = []
+        deletion_candidates: Dict[str, List[str]] = {}
+        total_files = 0
+
+        # Fail-fast: a sibling type already proved auth is dead. Skip silently
+        # (the originating type carries the actionable error) — no 401 bomb.
+        if auth_failure.is_set():
+            type_results[source_type] = {"count": 0, "skipped": "auth_failure_abort"}
+            return type_results, manifest_entries, warnings, deletion_candidates, total_files
+
         if source_type not in SOURCE_CONFIG:
             warnings.append(f"Unknown source type: {source_type}")
-            continue
+            return type_results, manifest_entries, warnings, deletion_candidates, total_files
 
         source_cfg = SOURCE_CONFIG[source_type]
         table = source_cfg["table"]
@@ -2181,6 +2242,10 @@ def _download_source_types(
                             max_records=max_per_type,
                             display_value=False,
                             fail_silently=True,
+                            # Serial paging: types already fan out under the
+                            # _DOWNLOAD_MAX_WORKERS cap, so this worker must not
+                            # also borrow the shared page pool (would stack >cap).
+                            parallel=False,
                         )
                         if r.get("sys_id")
                     }
@@ -2209,6 +2274,9 @@ def _download_source_types(
                     max_records=max_per_type,
                     display_value=False,
                     fail_silently=False,
+                    # Serial paging — see reconcile call above. Per-type workers
+                    # run under the cap; the shared page pool stays unused here.
+                    parallel=False,
                 )
                 _last_exc = None
                 break
@@ -2229,13 +2297,23 @@ def _download_source_types(
                     break
         if _last_exc is not None:
             logger.error("Failed to download %s: %s", source_type, _last_exc)
-            warnings.append(f"{source_type}: fetch failed — {_last_exc}")
+            # Auth failure → trip the shared flag so queued types abort instead
+            # of re-firing. Re-auth already failed (or would); retrying is just
+            # a 401 bomb. The error message stays actionable ("re-login needed").
+            if _is_auth_failure(_last_exc):
+                auth_failure.set()
+                warnings.append(
+                    f"{source_type}: auth failed — {_last_exc}. Download aborted; "
+                    "remaining source types skipped. Re-authenticate and retry."
+                )
+            else:
+                warnings.append(f"{source_type}: fetch failed — {_last_exc}")
             type_results[source_type] = {"count": 0, "error": str(_last_exc)}
-            continue
+            return type_results, manifest_entries, warnings, deletion_candidates, total_files
 
         if not records:
             type_results[source_type] = {"count": 0}
-            continue
+            return type_results, manifest_entries, warnings, deletion_candidates, total_files
 
         # Completeness guard: sn_query_all returns exactly `max_per_type` rows
         # only when the scope holds at least that many, so hitting the cap means
@@ -2352,24 +2430,15 @@ def _download_source_types(
                 }
             )
 
-        # Parallel retry: individually fetch records whose source was empty in batch
+        # Serial retry: the concurrency budget is already spent fanning out
+        # source types, so empty-source records are re-fetched serially here.
+        # Keeps total in-flight API calls at the cap instead of workers × types.
         if retry_records:
             _src_fields = list(source_cfg["source_fields"])
-            with ThreadPoolExecutor(max_workers=2) as executor:
-                futures = [
-                    executor.submit(
-                        _retry_empty_source,
-                        config,
-                        auth_manager,
-                        table,
-                        _src_fields,
-                        source_type,
-                        rec,
-                        warnings,
-                    )
-                    for rec in retry_records
-                ]
-                type_file_count += sum(f.result() for f in futures)
+            for rec in retry_records:
+                type_file_count += _retry_empty_source(
+                    config, auth_manager, table, _src_fields, source_type, rec, warnings
+                )
 
         merge_map_file(
             type_dir / "_map.json",
@@ -2402,6 +2471,21 @@ def _download_source_types(
             "capped": capped,
         }
         total_files += type_file_count
+        return type_results, manifest_entries, warnings, deletion_candidates, total_files
+
+    # Fan out source types under the concurrency cap. They are independent
+    # (own query, own scope_root/<table> dir — verified no two types share a
+    # table), so the only shared state is the merged result, combined below in
+    # input order for deterministic output. pool.map preserves that order.
+    with ThreadPoolExecutor(max_workers=_DOWNLOAD_MAX_WORKERS) as pool:
+        per_type_results = list(pool.map(_process_one_type, source_types))
+
+    for tr, me, wn, dc, fc in per_type_results:
+        type_results.update(tr)
+        manifest_entries.extend(me)
+        warnings.extend(wn)
+        deletion_candidates.update(dc)
+        total_files += fc
 
     return {
         "type_results": type_results,
@@ -2961,6 +3045,119 @@ class DownloadAppSourcesParams(BaseModel):
         default=True,
         description="Replay finished stages from a prior timed-out call; skip re-downloading them.",
     )
+    background: bool = Field(
+        default=False,
+        description="Run in background; call again (same args) to poll progress, then result.",
+    )
+
+
+# Background download jobs (no new tool: download_app_sources(background=true)
+# starts one and polls it). Keyed by (instance host, scope, params fingerprint)
+# so polling with the same args maps to the same job. The work runs in a daemon
+# thread; progress is also on disk (source_resume), so a server/thread death is
+# survivable — a later call resumes from disk.
+_BG_JOBS: Dict[str, Dict[str, Any]] = {}
+_BG_JOBS_LOCK = threading.Lock()
+
+
+def _bg_job_key(instance_host: str, scope: str, fingerprint: str) -> str:
+    return f"{instance_host}|{scope}|{fingerprint}"
+
+
+def _bg_progress_snapshot(scope_root: Path, fingerprint: str) -> Dict[str, Any]:
+    """Cheap, disk-derived progress — works even across a server restart."""
+    prog = load_progress(scope_root, fingerprint) or {}
+    files = sum(int((v or {}).get("files") or 0) for v in prog.values() if isinstance(v, dict))
+    return {"stages_done": sorted(prog.keys()), "files_so_far": files}
+
+
+def _run_or_poll_background(
+    config: ServerConfig,
+    auth_manager: AuthManager,
+    params: DownloadAppSourcesParams,
+    scope_root: Path,
+    fingerprint: str,
+) -> Dict[str, Any]:
+    """Start the download in a daemon thread, or report an existing job's state.
+
+    Same tool, same args: first call starts, later calls poll, and once finished
+    a call returns the full sync result. No second tool, no client-side timeout —
+    the thread runs as long as it needs while polls stay fast.
+    """
+    instance_host = urlparse(config.instance_url).hostname or config.instance_url
+    key = _bg_job_key(instance_host, params.scope, fingerprint)
+    snapshot = _bg_progress_snapshot(scope_root, fingerprint)
+
+    with _BG_JOBS_LOCK:
+        job = _BG_JOBS.get(key)
+        # A job marked running whose thread has died was interrupted (server
+        # restart / kill). Disk progress survived, so allow a restart that
+        # resumes — never report a dead thread as still running.
+        if job and job["status"] == "running":
+            thread = job.get("thread")
+            if thread is None or not thread.is_alive():
+                job["status"] = "interrupted"
+
+        if job is not None and job["status"] == "running":
+            return {
+                "success": True,
+                "background": True,
+                "status": "running",
+                "scope": params.scope,
+                "progress": snapshot,
+                "message": "Download still running. Call again (same args) to poll.",
+            }
+        if job is not None and job["status"] == "done":
+            return job["result"]
+        if job is not None and job["status"] == "failed":
+            return {
+                "success": False,
+                "background": True,
+                "status": "failed",
+                "scope": params.scope,
+                "error": job.get("error"),
+                "progress": snapshot,
+            }
+
+        # No job, or a prior one was interrupted → (re)start. Resume picks up any
+        # disk progress, so a restart never re-downloads completed stages.
+        # `new_job` is a distinct, definitely-non-None local so the worker
+        # closure indexes a dict, not the dict|None from _BG_JOBS.get() above.
+        sync_params = params.model_copy(update={"background": False})
+        new_job: Dict[str, Any] = {
+            "status": "running",
+            "thread": None,
+            "result": None,
+            "error": None,
+            "scope": params.scope,
+        }
+
+        def _worker() -> None:
+            try:
+                result = download_app_sources(config, auth_manager, sync_params)
+                with _BG_JOBS_LOCK:
+                    new_job["status"] = "done"
+                    new_job["result"] = result
+            except BaseException as exc:  # noqa: BLE001 — surfaced via poll
+                with _BG_JOBS_LOCK:
+                    new_job["status"] = "failed"
+                    new_job["error"] = str(exc)
+
+        thread = threading.Thread(target=_worker, name=f"dl-{params.scope}", daemon=True)
+        new_job["thread"] = thread
+        _BG_JOBS[key] = new_job
+        thread.start()
+        return {
+            "success": True,
+            "background": True,
+            "status": "started",
+            "scope": params.scope,
+            "progress": snapshot,
+            "message": (
+                "Download started in background. Call download_app_sources again with the "
+                "same args (background=true) to poll progress, then the final result."
+            ),
+        }
 
 
 @register_tool(
@@ -2979,6 +3176,14 @@ def download_app_sources(
     started = time.perf_counter()
     root, scope_root = _resolve_scope_root(config, params.scope, params.output_dir)
 
+    # Background mode: hand off to a daemon thread and return immediately (or
+    # report an in-flight/finished job). Keeps the call under the client's 120s
+    # timeout while the download runs as long as it needs. Done here — AFTER
+    # scope_root is resolved — so start and poll share the same job key.
+    if params.background:
+        fingerprint = params_fingerprint(params.model_copy(update={"background": False}))
+        return _run_or_poll_background(config, auth_manager, params, scope_root, fingerprint)
+
     all_type_results: Dict[str, Dict[str, Any]] = {}
     all_manifest_entries: List[Dict[str, Any]] = []
     all_warnings: List[str] = []
@@ -2996,6 +3201,13 @@ def download_app_sources(
     done_stages = (load_progress(scope_root, fingerprint) or {}) if params.resume else {}
     resumed: List[str] = []
 
+    # Orchestrator-level auth abort. The per-type abort inside
+    # _download_source_types only covers the source-types stage; portal / schema
+    # / deps each run independently. Without this, a dead session 401-bombs every
+    # stage (observed: a 100s download of pure 401s). The first stage to surface
+    # an auth failure trips this, and every later stage short-circuits.
+    _auth_abort = {"hit": False}
+
     def _run_stage(key, fn):
         """Run a stage, or replay it from saved progress.
 
@@ -3005,6 +3217,14 @@ def download_app_sources(
         (a partially finished stage is never mistaken for a complete one).
         """
         nonlocal all_files
+        # A prior stage already proved auth is dead — skip without running and
+        # WITHOUT caching (so a resume after re-login retries this stage).
+        if _auth_abort["hit"]:
+            all_warnings.append(
+                f"{key}: skipped — download aborted after an auth failure. "
+                "Re-authenticate and retry."
+            )
+            return {}
         if key in done_stages:
             p = done_stages[key] or {}
             all_type_results.update(p.get("type_results") or {})
@@ -3020,6 +3240,23 @@ def download_app_sources(
         dc0 = set(all_deletion_candidates)
         f0 = all_files
         extra = fn() or {}
+        # Detect an auth failure surfaced by this stage (warnings or per-type
+        # errors). If found, trip the abort and do NOT cache this stage, so a
+        # resume after re-login re-runs it instead of replaying the failure.
+        new_warnings = all_warnings[wn0:]
+        new_results = [v for k, v in all_type_results.items() if k not in tr0]
+        if _text_indicates_auth_failure(" ".join(new_warnings)) or any(
+            _text_indicates_auth_failure(str(r.get("error", "")))
+            for r in new_results
+            if isinstance(r, dict)
+        ):
+            _auth_abort["hit"] = True
+            all_warnings.append(
+                "Download aborted: authentication failed (session rejected by "
+                "ServiceNow). Re-authenticate and retry — remaining stages skipped, "
+                "this stage not cached."
+            )
+            return extra
         save_stage(
             scope_root,
             fingerprint,

@@ -4,7 +4,7 @@ Events form this phase order during execution::
 
     InstallEvent                                    # orchestrator preflight only
     └── BinaryRequestEvent × N                      # from config.json required_binaries
-        └── ProcessEvent (provider hook) → BinaryEvent
+        └── abxpkg BinaryService → BinaryEvent
 
     CrawlEvent                                      # internal lifecycle root
     ├── CrawlSetupEvent                             # plugin on_CrawlSetup hooks run here
@@ -343,7 +343,6 @@ class ProcessStdoutEvent(BaseEvent):
     parses the line and checks for the JSON shape it cares about. In the
     current hook contract:
 
-    - provider hooks emit ``{"type": "Binary", ...}`` → BinaryEvent
     - snapshot hooks emit ``{"type": "Snapshot", ...}`` → SnapshotEvent
     - snapshot hooks emit ``{"type": "Tag", ...}`` → TagEvent
     - snapshot hooks emit ``{"type": "ArchiveResult", ...}`` → ArchiveResultEvent
@@ -363,70 +362,6 @@ class ProcessStdoutEvent(BaseEvent):
     end_ts: str = ""
     output_files: list[OutputFile] = Field(default_factory=list)
     event_timeout: float | None = 360.0
-
-
-# ── Binary resolution ────────────────────────────────────────────────────────
-
-
-class BinaryRequestEvent(BaseEvent):
-    """A required binary needs to be resolved or installed.
-
-    Emitted during InstallEvent, when CrawlService turns
-    ``config.json > required_binaries`` declarations into BinaryRequestEvent
-    records.
-
-    Handled by BinaryService and by provider plugins' ``on_BinaryRequest__*``
-    hooks, which either emit a cached BinaryEvent or resolve/install the
-    binary and then emit BinaryEvent records.
-
-    The ``binproviders`` field controls which providers are tried (e.g.
-    "puppeteer" means only the puppeteer provider hook should attempt
-    resolution). Provider hooks self-select based on this field.
-    """
-
-    model_config = ConfigDict(extra="allow")
-    event_handler_concurrency: EventHandlerConcurrencyMode | None = EventHandlerConcurrencyMode.SERIAL
-    name: str = Field(min_length=1)
-    plugin_name: str = ""
-    hook_name: str = ""
-    output_dir: str = ""
-    min_version: str | None = None
-    postinstall_scripts: bool | None = None
-    min_release_age: float | None = None
-    binary_id: str = ""
-    machine_id: str = ""
-    binproviders: str = ""
-    overrides: dict[str, Any] | None = None
-    install_cache_key: str = ""
-    install_cache_hit: bool = False
-    event_timeout: float | None = 300.0
-
-
-class BinaryEvent(BaseEvent):
-    """Informational: a binary request was resolved.
-
-    Emitted by BinaryService only after a binary resolves successfully,
-    whether the binary was already present (discovered by env provider) or
-    freshly installed by another provider (apt, pip, npm, etc.). Carries the
-    concrete metadata that later hooks should use: resolved ``abspath``,
-    detected ``version``, ``sha256`` when available, and the winning provider.
-    """
-
-    model_config = ConfigDict(extra="ignore")
-
-    name: str = Field(min_length=1)
-    plugin_name: str = ""
-    hook_name: str = ""
-    abspath: str = Field(min_length=1)
-    version: str = ""
-    sha256: str = ""
-    binproviders: str = ""
-    binprovider: str = ""
-    overrides: dict[str, Any] | None = None
-    env: dict[str, str] = Field(default_factory=dict)
-    binary_id: str = ""
-    machine_id: str = ""
-    event_timeout: float | None = 10.0
 
 
 # ── Machine config update ────────────────────────────────────────────────────

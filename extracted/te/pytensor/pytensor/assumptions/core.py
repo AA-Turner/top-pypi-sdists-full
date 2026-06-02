@@ -101,6 +101,8 @@ UPPER_TRIANGULAR = AssumptionKey("upper_triangular", short_name="triu")
 SYMMETRIC = AssumptionKey("symmetric", short_name="sym")
 POSITIVE_DEFINITE = AssumptionKey("positive_definite", short_name="pd")
 ORTHOGONAL = AssumptionKey("orthogonal", short_name="orth")
+SELECTION = AssumptionKey("selection", short_name="sel")
+PERMUTATION = AssumptionKey("permutation", short_name="perm")
 
 ALL_KEYS = (
     DIAGONAL,
@@ -109,11 +111,14 @@ ALL_KEYS = (
     SYMMETRIC,
     POSITIVE_DEFINITE,
     ORTHOGONAL,
+    SELECTION,
+    PERMUTATION,
 )
 
 # Implications about structural properties derivably from other structural properties
 register_implies(DIAGONAL, LOWER_TRIANGULAR, UPPER_TRIANGULAR, SYMMETRIC)
 register_implies(POSITIVE_DEFINITE, SYMMETRIC)
+register_implies(PERMUTATION, SELECTION, ORTHOGONAL)
 
 
 def register_assumption(
@@ -211,6 +216,9 @@ class AssumptionFeature(Feature):
             else:
                 self.cache[(new_var, key)] = FactState.join(old_state, new_state)
             self._var_to_keys.setdefault(new_var, set()).add(key)
+            # new_var gained a fact whose implications were cached UNKNOWN before it was
+            # known; flag it so the next get() sweep re-derives those stale entries.
+            self._stale_vars.add(new_var)
 
         self._stale_vars.update(node.outputs)
 

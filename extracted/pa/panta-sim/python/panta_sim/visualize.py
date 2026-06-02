@@ -103,6 +103,17 @@ def _markers_for_op(
     if name == "swap":
         a, b = qubits
         return {a: ("box", "X"), b: ("box", "X")}, (qmin, qmax)
+    if name == "iswap":
+        a, b = qubits
+        return {a: ("box", "iSWAP"), b: ("box", "iSWAP")}, (qmin, qmax)
+    if name in ("rxx", "ryy", "rzz", "rzx", "xx_plus_yy", "xx_minus_yy"):
+        # 두 큐비트 모두 라벨 box.
+        a, b = qubits
+        lbl = name.upper().replace("_", "") + (f"({params[0]:.2f})" if params else "")
+        return {a: ("box", lbl), b: ("box", lbl)}, (qmin, qmax)
+    if name in ("dcx", "ecr"):
+        a, b = qubits
+        return {a: ("box", name.upper()), b: ("box", name.upper())}, (qmin, qmax)
     # v0.4.6 controlled-1q gates: control 은 점, target 은 게이트 라벨 box.
     if name == "cy":
         ctrl, tgt = qubits

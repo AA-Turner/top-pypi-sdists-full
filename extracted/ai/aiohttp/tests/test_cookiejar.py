@@ -3,13 +3,16 @@ import datetime
 import heapq
 import itertools
 import logging
+import os
 import pathlib
 import pickle
+import stat
 import sys
 import unittest
 from http.cookies import BaseCookie, Morsel, SimpleCookie
 from operator import not_
-from typing import List, Set
+from pathlib import Path
+from types import MappingProxyType
 from unittest import mock
 
 import pytest
@@ -827,6 +830,7 @@ class TestCookieJarSafe(TestCookieJarBase):
 async def test_dummy_cookie_jar() -> None:
     cookie = SimpleCookie("foo=bar; Domain=example.com;")
     dummy_jar = DummyCookieJar()
+    assert dummy_jar.unsafe is False
     assert dummy_jar.quote_cookie is True
     assert len(dummy_jar) == 0
     dummy_jar.update_cookies(cookie)
@@ -835,6 +839,54 @@ async def test_dummy_cookie_jar() -> None:
         next(iter(dummy_jar))
     assert not dummy_jar.filter_cookies(URL("http://example.com/"))
     dummy_jar.clear()
+
+
+async def test_dummy_cookie_jar_cookies_property() -> None:
+    dummy_jar = DummyCookieJar()
+    assert dict(dummy_jar.cookies) == {}
+    assert dummy_jar.host_only_cookies == frozenset()
+
+
+async def test_cookie_jar_cookies_property() -> None:
+    jar = CookieJar()
+    cookie = SimpleCookie(
+        "shared-cookie=first; domain-cookie=second; Domain=example.com; Path=/; "
+    )
+    jar.update_cookies(cookie, URL("http://example.com/"))
+
+    cookies = jar.cookies
+    # Should be a read-only view
+    assert isinstance(cookies, MappingProxyType)
+    # Should contain the stored cookies with their full attributes
+    found_names = {name for simple_cookie in cookies.values() for name in simple_cookie}
+    assert "shared-cookie" in found_names
+    assert "domain-cookie" in found_names
+    # Verify that domain attribute is preserved
+    for key, simple_cookie in cookies.items():
+        for name, morsel in simple_cookie.items():
+            if name == "domain-cookie":
+                assert morsel["domain"] == "example.com"
+                assert morsel["path"] == "/"
+
+
+async def test_cookie_jar_host_only_cookies_property() -> None:
+    jar = CookieJar()
+    # Cookies without an explicit Domain attribute are host-only
+    cookie = SimpleCookie("hostonly=value;")
+    jar.update_cookies(cookie, URL("http://example.com/"))
+
+    host_only = jar.host_only_cookies
+    assert isinstance(host_only, frozenset)
+    assert ("example.com", "hostonly") in host_only
+
+
+async def test_cookie_jar_cookies_property_immutable() -> None:
+    jar = CookieJar()
+    cookie = SimpleCookie("foo=bar;")
+    jar.update_cookies(cookie, URL("http://example.com/"))
+    cookies = jar.cookies
+    with pytest.raises(TypeError):
+        cookies[("new", "key")] = SimpleCookie()  # type: ignore[index]
 
 
 async def test_loose_cookies_types() -> None:
@@ -1260,12 +1312,12 @@ async def test_update_cookies_from_headers_duplicate_names() -> None:
     assert len(jar) == 3
 
     # Verify we have both session-id cookies
-    all_cookies: List[Morsel[str]] = list(jar)
-    session_ids: List[Morsel[str]] = [c for c in all_cookies if c.key == "session-id"]
+    all_cookies: list[Morsel[str]] = list(jar)
+    session_ids: list[Morsel[str]] = [c for c in all_cookies if c.key == "session-id"]
     assert len(session_ids) == 2
 
     # Check their domains are different
-    domains: Set[str] = {c["domain"] for c in session_ids}
+    domains: set[str] = {c["domain"] for c in session_ids}
     assert domains == {"example.com", "www.example.com"}
 
 
@@ -1621,3 +1673,236 @@ async def test_shared_cookie_with_multiple_domains() -> None:
     # Verify cache is reused efficiently
     assert ("", "") in jar._morsel_cache
     assert "universal" in jar._morsel_cache[("", "")]
+
+
+# === Security tests for restricted unpickler and JSON save/load ===
+
+
+@pytest.mark.skipif(
+    sys.platform in ("android", "ios"), reason="os.system not supported"
+)
+async def test_load_rejects_malicious_pickle(tmp_path: Path) -> None:
+    """Verify CookieJar.load() blocks arbitrary code execution via pickle.
+
+    A crafted pickle payload using os.system (or any non-cookie class)
+    must be rejected by the restricted unpickler.
+    """
+    import os
+
+    file_path = tmp_path / "malicious.pkl"
+
+    class RCEPayload:
+        def __reduce__(self) -> tuple[object, ...]:
+            return (os.system, ("echo PWNED",))
+
+    with open(file_path, "wb") as f:
+        pickle.dump(RCEPayload(), f, pickle.HIGHEST_PROTOCOL)
+
+    jar = CookieJar()
+    with pytest.raises(pickle.UnpicklingError, match="Forbidden class"):
+        jar.load(file_path)
+
+
+async def test_load_rejects_eval_payload(tmp_path: Path) -> None:
+    """Verify CookieJar.load() blocks eval-based pickle payloads."""
+    file_path = tmp_path / "eval_payload.pkl"
+
+    class EvalPayload:
+        def __reduce__(self) -> tuple[object, ...]:
+            return (eval, ("__import__('os').system('echo PWNED')",))
+
+    with open(file_path, "wb") as f:
+        pickle.dump(EvalPayload(), f, pickle.HIGHEST_PROTOCOL)
+
+    jar = CookieJar()
+    with pytest.raises(pickle.UnpicklingError, match="Forbidden class"):
+        jar.load(file_path)
+
+
+async def test_load_rejects_subprocess_payload(tmp_path: Path) -> None:
+    """Verify CookieJar.load() blocks subprocess-based pickle payloads."""
+    import subprocess
+
+    file_path = tmp_path / "subprocess_payload.pkl"
+
+    class SubprocessPayload:
+        def __reduce__(self) -> tuple[object, ...]:
+            return (subprocess.call, (["echo", "PWNED"],))
+
+    with open(file_path, "wb") as f:
+        pickle.dump(SubprocessPayload(), f, pickle.HIGHEST_PROTOCOL)
+
+    jar = CookieJar()
+    with pytest.raises(pickle.UnpicklingError, match="Forbidden class"):
+        jar.load(file_path)
+
+
+async def test_load_falls_back_to_pickle(
+    tmp_path: Path,
+    cookies_to_receive: SimpleCookie,
+) -> None:
+    """Verify load() falls back to restricted pickle for legacy cookie files.
+
+    Existing cookie files saved with older versions of aiohttp used pickle.
+    load() should detect that the file is not JSON and fall back to the
+    restricted pickle unpickler for backward compatibility.
+    """
+    file_path = tmp_path / "legit.pkl"
+
+    # Write a legacy pickle file directly (as old aiohttp save() would)
+    jar_save = CookieJar()
+    jar_save.update_cookies(cookies_to_receive)
+    with file_path.open(mode="wb") as f:
+        pickle.dump(jar_save._cookies, f, pickle.HIGHEST_PROTOCOL)
+
+    jar_load = CookieJar()
+    jar_load.load(file_path=file_path)
+
+    jar_test = SimpleCookie()
+    for cookie in jar_load:
+        jar_test[cookie.key] = cookie
+
+    assert jar_test == cookies_to_receive
+
+
+async def test_save_load_json_roundtrip(
+    tmp_path: Path,
+    cookies_to_receive: SimpleCookie,
+) -> None:
+    """Verify save/load roundtrip preserves cookies via JSON format."""
+    file_path = tmp_path / "cookies.json"
+
+    jar_save = CookieJar()
+    jar_save.update_cookies(cookies_to_receive)
+    jar_save.save(file_path=file_path)
+
+    jar_load = CookieJar()
+    jar_load.load(file_path=file_path)
+
+    saved_cookies = SimpleCookie()
+    for cookie in jar_save:
+        saved_cookies[cookie.key] = cookie
+
+    loaded_cookies = SimpleCookie()
+    for cookie in jar_load:
+        loaded_cookies[cookie.key] = cookie
+
+    assert saved_cookies == loaded_cookies
+
+
+async def test_save_load_json_partitioned_cookies(tmp_path: Path) -> None:
+    """Verify save/load roundtrip works with partitioned cookies."""
+    file_path = tmp_path / "partitioned.json"
+
+    jar_save = CookieJar()
+    jar_save.update_cookies_from_headers(
+        ["session=cookie; Partitioned"], URL("https://example.com/")
+    )
+    jar_save.save(file_path=file_path)
+
+    jar_load = CookieJar()
+    jar_load.load(file_path=file_path)
+
+    # Compare individual cookie values (same approach as test_save_load_partitioned_cookies)
+    saved = list(jar_save)
+    loaded = list(jar_load)
+    assert len(saved) == len(loaded)
+    for s, lo in zip(saved, loaded):
+        assert s.key == lo.key
+        assert s.value == lo.value
+        assert s["domain"] == lo["domain"]
+        assert s["path"] == lo["path"]
+
+
+async def test_json_format_is_safe(tmp_path: Path) -> None:
+    """Verify the JSON file format cannot execute code on load."""
+    import json
+
+    file_path = tmp_path / "safe.json"
+
+    # Write something that might look dangerous but is just data
+    malicious_data = {
+        "evil.com|/": {
+            "session": {
+                "key": "session",
+                "value": "__import__('os').system('echo PWNED')",
+                "coded_value": "__import__('os').system('echo PWNED')",
+            }
+        }
+    }
+    with open(file_path, "w") as f:
+        json.dump(malicious_data, f)
+
+    jar = CookieJar()
+    jar.load(file_path=file_path)
+
+    # The "malicious" string is just a cookie value, not executed code
+    cookies = list(jar)
+    assert len(cookies) == 1
+    assert cookies[0].value == "__import__('os').system('echo PWNED')"
+
+
+async def test_save_load_json_secure_cookies(tmp_path: Path) -> None:
+    """Verify save/load preserves Secure and HttpOnly flags."""
+    file_path = tmp_path / "secure.json"
+
+    jar_save = CookieJar()
+    jar_save.update_cookies_from_headers(
+        ["token=abc123; Secure; HttpOnly; Path=/; Domain=example.com"],
+        URL("https://example.com/"),
+    )
+    jar_save.save(file_path=file_path)
+
+    jar_load = CookieJar()
+    jar_load.load(file_path=file_path)
+
+    loaded_cookies = list(jar_load)
+    assert len(loaded_cookies) == 1
+    cookie = loaded_cookies[0]
+    assert cookie.key == "token"
+    assert cookie.value == "abc123"
+    assert cookie["secure"] is True
+    assert cookie["httponly"] is True
+    assert cookie["domain"] == "example.com"
+
+
+@pytest.mark.skipif(
+    os.name != "posix", reason="POSIX permission bits are required for this test"
+)
+def test_save_creates_private_cookie_file(tmp_path: Path, loop) -> None:
+    file_path = tmp_path / "private-cookies.json"
+    jar = CookieJar(loop=loop)
+    jar.update_cookies_from_headers(
+        ["token=abc123; Path=/"], URL("https://example.com/")
+    )
+
+    jar.save(file_path=file_path)
+
+    assert file_path.exists()
+    assert stat.S_IMODE(file_path.stat().st_mode) == 0o600
+
+
+@pytest.mark.skipif(
+    os.name != "posix", reason="POSIX permission bits are required for this test"
+)
+def test_save_preserves_existing_cookie_file_permissions(tmp_path: Path, loop) -> None:
+    file_path = tmp_path / "existing-cookies.json"
+    file_path.write_text("{}", encoding="utf-8")
+    file_path.chmod(0o644)
+
+    jar = CookieJar(loop=loop)
+    jar.update_cookies_from_headers(
+        ["token=abc123; Path=/"], URL("https://example.com/")
+    )
+
+    jar.save(file_path=file_path)
+
+    assert stat.S_IMODE(file_path.stat().st_mode) == 0o644
+
+
+async def test_cookie_jar_unsafe_property() -> None:
+    jar_safe = CookieJar()
+    assert jar_safe.unsafe is False
+
+    jar_unsafe = CookieJar(unsafe=True)
+    assert jar_unsafe.unsafe is True

@@ -1579,6 +1579,47 @@ class TestExclusiveRestart:
 
 
 # ─────────────────────────────────────────────────────────────────────
+# G-P2-5 — single FrameNormalizer construction seam
+# ─────────────────────────────────────────────────────────────────────
+
+
+class TestBuildNormalizer:
+    """Pin the single FrameNormalizer construction seam (G-P2-5).
+
+    ``RestartMixin._build_normalizer`` replaced 8 byte-identical
+    construction blocks (anti-pattern #16 — the initial-open path plus the
+    7 restart paths). The DSP-component wiring (AGC2 / AEC / noise-suppressor
+    / dither / Wiener-entropy / resample-peak / phase-inversion) is already
+    covered by the dedicated ``test_*_wireup`` suites, so this class pins
+    only the contract the extraction itself introduces: the per-stream
+    ``source_rate`` / ``source_channels`` are the SOLE values that vary
+    across the former call sites, so threading them correctly through the
+    one helper is the precise regression the dedup could cause.
+    """
+
+    def test_threads_source_rate_and_channels(self) -> None:
+        task = AudioCaptureTask(MagicMock())
+        task._pipeline.config.mind_id = "test-mind"
+        norm = task._build_normalizer(source_rate=16000, source_channels=1)
+        assert type(norm).__name__ == "FrameNormalizer"
+        assert norm.source_rate == 16000
+        assert norm.source_channels == 1
+
+    def test_per_call_fresh_for_renegotiated_geometry(self) -> None:
+        # Each open / restart path builds its own normalizer keyed to the
+        # freshly-negotiated stream geometry — two calls with different
+        # geometry must yield distinct instances, never an aliased one.
+        task = AudioCaptureTask(MagicMock())
+        task._pipeline.config.mind_id = "test-mind"
+        first = task._build_normalizer(source_rate=16000, source_channels=1)
+        second = task._build_normalizer(source_rate=48000, source_channels=2)
+        assert first is not second
+        assert first.source_rate == 16000
+        assert second.source_rate == 48000
+        assert second.source_channels == 2
+
+
+# ─────────────────────────────────────────────────────────────────────
 # Phase 6 / T6.24 — untested verdict branches in restart paths
 # ─────────────────────────────────────────────────────────────────────
 
@@ -1819,6 +1860,39 @@ class TestRingStatePackingInvariants:
         mark = task.samples_written_mark()
         assert mark[0] == 1
         assert mark[1] == 512
+
+    def test_ring_write_normal_use_leaves_guard_clear(self) -> None:
+        # G-P2-9 — the lock-free re-entrancy guard must reset after every
+        # normal synchronous write (try/finally), else the next legitimate
+        # write would falsely trip the invariant-violation warning.
+        import numpy as np
+
+        from sovyx.engine.config import VoiceTuningConfig
+
+        task = self._fresh_task()
+        task._allocate_ring_buffer(VoiceTuningConfig())  # noqa: SLF001
+        task._ring_write(np.zeros(512, dtype=np.int16))  # noqa: SLF001
+        assert task._ring_access_active is False  # noqa: SLF001
+
+    def test_ring_write_warns_on_reentrant_access(self) -> None:
+        # G-P2-9 — a write observed while the guard is already held means the
+        # "synchronous between awaits, one event loop" invariant was broken
+        # (an await snuck mid-write, or a cross-thread call). The guard is
+        # warn-only: the write still completes and the flag still resets.
+        import numpy as np
+
+        from sovyx.engine.config import VoiceTuningConfig
+
+        task = self._fresh_task()
+        task._allocate_ring_buffer(VoiceTuningConfig())  # noqa: SLF001
+        task._ring_access_active = True  # noqa: SLF001 — simulate in-flight write
+        with patch("sovyx.voice.capture._ring.logger") as mock_logger:
+            task._ring_write(np.zeros(256, dtype=np.int16))  # noqa: SLF001
+        mock_logger.warning.assert_called_once()
+        assert mock_logger.warning.call_args.args[0] == "voice.capture.ring_invariant_violation"
+        # Warn-only: the write still applied and the guard reset (try/finally).
+        assert task._ring_access_active is False  # noqa: SLF001
+        assert task.samples_written_mark()[1] == 256
 
 
 class TestTapFramesSinceMark:

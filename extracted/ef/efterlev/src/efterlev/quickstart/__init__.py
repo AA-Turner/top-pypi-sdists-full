@@ -466,13 +466,19 @@ def run_quickstart() -> int:
         print("Classified: (gap report ran but no JSON sidecar found — see logs)")
     else:
         print()
-        print("Set ANTHROPIC_API_KEY and re-run to also generate:")
+        print("Add an LLM backend and re-run to also generate:")
         print("  - KSI classifications  (Gap Agent → efterlev-out/reports/gap-<ts>.{html,json})")
         print("  - FRMR attestation drafts  (Documentation Agent → efterlev-out/reports/)")
         print(
             "  - POA&M markdown for open KSIs  "
             "(Remediation Agent → efterlev-out/reports/poam/poam-<ts>.md)"
         )
+        print()
+        print(
+            "  Quickstart uses ANTHROPIC_API_KEY. For OpenAI, Bedrock, or a "
+            "Claude Code subscription, run:"
+        )
+        print("    efterlev init --llm-backend openai|bedrock|claude_code && efterlev report run")
     # v0.1.84: cost rollup. Surfaces total LLM spend on the AI-on path;
     # silently skipped on the keyless path (nothing to sum).
     if api_key_present:

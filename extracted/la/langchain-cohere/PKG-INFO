@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: langchain-cohere
-Version: 0.5.1
+Version: 0.6.0
 Summary: An integration package connecting Cohere and LangChain
 Home-page: https://github.com/langchain-ai/langchain-cohere
 License: MIT
@@ -11,7 +11,6 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Requires-Dist: cohere (>=5.18.0,<6.0)
-Requires-Dist: langchain-community (>=0.4.0,<0.5.0)
 Requires-Dist: langchain-core (>=1.2.16,<2.0)
 Requires-Dist: pydantic (>=2,<3)
 Requires-Dist: types-pyyaml (>=6.0.12.20240917,<7.0.0.0)
@@ -72,6 +71,68 @@ llm = ChatCohere()
 messages = [HumanMessage(content="Hello, can you introduce yourself?")]
 print(llm.invoke(messages))
 ```
+
+### Vision (Image Inputs)
+
+Command A Vision models can process images alongside text. Supports both URL and base64-encoded images.
+
+```python
+from langchain_cohere import ChatCohere
+from langchain_core.messages import HumanMessage
+
+# Initialize the vision model
+llm = ChatCohere(model="command-a-vision-07-2025")
+
+# Using an image URL
+message = HumanMessage(
+    content=[
+        {"type": "text", "text": "What's in this image?"},
+        {
+            "type": "image_url",
+            "image_url": {"url": "https://example.com/image.jpg"}
+        }
+    ]
+)
+response = llm.invoke([message])
+print(response.content)
+
+# Using a base64-encoded image with detail level
+message = HumanMessage(
+    content=[
+        {"type": "text", "text": "Describe this chart in detail"},
+        {
+            "type": "image_url",
+            "image_url": {
+                "url": "data:image/png;base64,iVBORw0KG...",
+                "detail": "high"  # Options: "low", "high", or "auto" (default)
+            }
+        }
+    ]
+)
+response = llm.invoke([message])
+print(response.content)
+
+# Multiple images
+message = HumanMessage(
+    content=[
+        {"type": "text", "text": "Compare these images"},
+        {"type": "image_url", "image_url": {"url": "https://example.com/image1.jpg"}},
+        {"type": "image_url", "image_url": {"url": "https://example.com/image2.jpg"}}
+    ]
+)
+response = llm.invoke([message])
+print(response.content)
+```
+
+**Image Requirements:**
+- Maximum 20 images per request or 20MB total
+- Supported formats: PNG, JPEG, WEBP, non-animated GIF
+- Detail levels affect token usage:
+  - `"low"`: 256 tokens per image (faster, lower cost)
+  - `"high"`: More tokens based on image size (better quality)
+  - `"auto"`: Automatically selects appropriate detail level
+
+For more information, see [Cohere's Vision documentation](https://docs.cohere.com/docs/image-inputs).
 
 ### ReAct Agent
 

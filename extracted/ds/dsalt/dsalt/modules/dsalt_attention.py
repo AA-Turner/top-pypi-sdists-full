@@ -4,7 +4,6 @@ import torch
 import torch.nn as nn
 
 from ..kernels.window_utils import (
-    compute_window_sizes,
     build_local_window_mask,
     build_local_window_mask_packed,
     build_rope_cache,
@@ -14,6 +13,7 @@ from ..kernels.sparse_attn import (
     sparse_attention_forward,
     sparse_attention_forward_packed,
 )
+from ..kernels.landmark_tokens_ker import hybrid_scores_per_head
 
 try:
     from ..kernels.dsalt_triton_attn import dsalt_triton_attention, _compute_landmark_indices
@@ -29,40 +29,10 @@ def _hybrid_scores(
     alpha: torch.Tensor,
     dh:    int,
 ) -> torch.Tensor:
-    T, d    = x.shape
-    n_heads = alpha.shape[0]
-
-    x_norm = x.norm(dim=-1)
-    z_x    = (x_norm - x_norm.mean()) / x_norm.std().clamp(min=1e-6)
-
-    xwv   = (x @ W_V.T).view(T, n_heads, dh).norm(dim=-1)
-    mu_v  = xwv.mean(0, keepdim=True)
-    std_v = xwv.std(0, keepdim=True).clamp(min=1e-6)
-    z_v   = (xwv - mu_v) / std_v
-
-    return alpha * z_v + (1 - alpha) * z_x.unsqueeze(1)
-
-def _landmark_bias_grad_alpha(
-    alpha:       torch.Tensor,
-    z_x:         torch.Tensor,
-    z_v:         torch.Tensor,
-    lmk_indices: torch.Tensor,
-    cu_seqlens:  torch.Tensor,
-) -> torch.Tensor:
-    T       = z_v.shape[0]
-    n_heads = alpha.shape[0]
-    device  = z_v.device
-
-    scores_live = alpha * z_v + (1.0 - alpha) * z_x.unsqueeze(1)
-
-    starts  = cu_seqlens[:-1].to(device)
-    abs_idx = (starts[None, :, None] + lmk_indices.clamp(min=0)).clamp(max=T - 1)
-    h_idx   = torch.arange(n_heads, device=device)[:, None, None].expand_as(abs_idx)
-    gathered = scores_live[abs_idx, h_idx]
-
-    bias = torch.nn.functional.logsigmoid(gathered)
-    return torch.where(lmk_indices >= 0, bias, torch.zeros_like(bias))
-
+    # Single source of the formula: see kernels.landmark_tokens_ker
+    n_heads      = alpha.shape[0]
+    scores, _, _ = hybrid_scores_per_head(x, W_V, alpha, n_heads, dh)
+    return scores
 
 @torch.no_grad()
 def _build_mask_batched(
@@ -145,6 +115,28 @@ def _build_mask_packed(
 
 
 class DSALTAttention(nn.Module):
+    """DSALT sparse attention: adaptive local window + global landmark tokens (§4).
+
+    Each query's attention set is ``A(i) = W(i) ∪ L(i)``: a causal local window of
+    per-token size ``w(i) = n_min + σ(f(x_i))·(n_max-n_min)`` (§4.2), predicted by
+    ``win_gate`` ``f`` from the previous-layer hidden state, joined with a small set
+    of landmarks selected by the hybrid-energy score (per-head ``alpha_w``, §4.3).
+
+    Both the window (a hard mask) and the landmark set (a hard top-k) are
+    non-differentiable selectors, so ``win_gate`` and ``alpha_w`` act purely as
+    selection parameters: they are used at their initial values and not trained
+    through the masking. The attention matrix is the paper's pure ``A(i)=W(i)∪L(i)``
+    (eq. 32) — the score never biases the logits — so the forward is exact.
+
+    Two paths:
+      * **packed** (``cu_seqlens`` provided) → Triton kernel ``dsalt_triton_attention``
+        in training, with a masked SDPA fallback if Triton is unavailable;
+      * **batched** (``[B, T, d]``) → SDPA over a dense mask, used at inference.
+
+    In ``eval`` it stores in ``_last_P`` the dense attention matrix of the first
+    sequence, used by the trainer's rank/entropy/attention-sink metrics.
+    """
+
     def __init__(
         self,
         d_model:     int,
@@ -171,12 +163,19 @@ class DSALTAttention(nn.Module):
         self.yarn_scale  = yarn_scale
         self.layer_idx   = layer_idx
 
-        self.q_proj      = nn.Linear(d_model, d_model, bias=False)
-        self.k_proj      = nn.Linear(d_model, d_model, bias=False)
-        self.v_proj      = nn.Linear(d_model, d_model, bias=False)
-        self.out_proj    = nn.Linear(d_model, d_model, bias=False)
-        self.window_proj = nn.Linear(d_model, 1, bias=True)
+        self.q_proj   = nn.Linear(d_model, d_model, bias=False)
+        self.k_proj   = nn.Linear(d_model, d_model, bias=False)
+        self.v_proj   = nn.Linear(d_model, d_model, bias=False)
+        self.out_proj = nn.Linear(d_model, d_model, bias=False)
 
+        # §4.2 adaptive local window: linear projection f: R^d -> R that predicts,
+        # per token, the window size w(i) = n_min + σ(f(x_i))·(n_max-n_min), from the
+        # previous-layer hidden state (the block input) — no circular dependency.
+        # Used as a (non-differentiable) selector, so it stays at its init.
+        self.win_gate = nn.Linear(d_model, 1, bias=True)
+
+        # §4.3 per-head balance of the hybrid landmark score, init to σ⁻¹(0.6).
+        # Also a selection-only parameter (top-k is non-differentiable).
         self.alpha_w = nn.Parameter(torch.full((n_heads,), math.log(0.6 / 0.4)))
         self._last_P: torch.Tensor | None = None
 
@@ -188,15 +187,35 @@ class DSALTAttention(nn.Module):
         return torch.sigmoid(self.alpha_w)
 
     @torch.no_grad()
+    def _window_sizes(self, x: torch.Tensor, floor: bool) -> torch.Tensor:
+        """Per-token adaptive window size w(i) (§4.2).
+
+        ``w(i) = n_min + σ(f(x_i))·(n_max - n_min)`` with ``f`` the per-layer
+        ``win_gate``, computed from the block input (the layer ``l-1`` hidden
+        state, so there is no circular dependency). The paper applies the floor at
+        inference; we round in training. The result is the integer window used to
+        build the (hard) attention mask, hence ``no_grad``: like the landmark
+        top-k (§4.3) the masking is non-differentiable, so neither ``win_gate``
+        nor ``alpha`` is trained through it — they act purely as selectors.
+
+        Returns an integer-valued float tensor ``[T]`` (≥ 1).
+        """
+        win_logits = self.win_gate(x).squeeze(-1)                                  # [T]
+        w_cont     = self.n_min + torch.sigmoid(win_logits) * (self.n_max - self.n_min)
+        w_disc     = w_cont.floor() if floor else w_cont.round()
+        return w_disc.clamp(min=1)
+
+    @torch.no_grad()
     def _rope(self, n: int, device: torch.device):
         max_n = self.rope_cos.shape[0]
         if n <= max_n:
             return self.rope_cos[:n].to(device), self.rope_sin[:n].to(device)
         return self.rope_cos.to(device), self.rope_sin.to(device)
 
-    def _window_aux(self, w_sizes_soft: torch.Tensor) -> torch.Tensor:
-        alpha = self._alpha()
-        return (w_sizes_soft.mean() * alpha.mean())
+    def _aux_zero(self, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
+        # No auxiliary loss: window and landmark selection are non-differentiable
+        # selectors. We keep the (out, aux) signature by returning an inert zero.
+        return torch.zeros((), device=device, dtype=dtype)
 
     @torch.no_grad()
     def warmup(self, device: torch.device) -> None:
@@ -232,13 +251,19 @@ class DSALTAttention(nn.Module):
         cos, sin = self._rope(T, device)
         q, k     = apply_rotary_emb(q, k, cos.unsqueeze(0).unsqueeze(0), sin.unsqueeze(0).unsqueeze(0))
 
-        x_1b         = x[0] if B > 1 else x.squeeze(0)
-        w_sizes_soft = compute_window_sizes(x_1b, self.window_proj, self.n_min, self.n_max)
-        alpha        = self._alpha()
-        aux          = self._window_aux(w_sizes_soft)
+        x_1b    = x[0] if B > 1 else x.squeeze(0)
+        # §4.2 adaptive local window: per-token size w(i) = n_min + σ(f(x_i))·(n_max-n_min)
+        # predicted by win_gate from the previous-layer hidden state. The floor is
+        # applied at inference; we round in training. The window selects which keys
+        # are local (a hard mask), so w_sizes is detached — the gate is not trained
+        # through the (non-differentiable) masking, consistently with the landmark
+        # selection (§4.3), which is likewise a non-differentiable top-k.
+        w_sizes = self._window_sizes(x_1b, floor=not self.training)
+        alpha   = self._alpha()
+        aux     = self._aux_zero(x.device, x.dtype)
 
         attn_mask = _build_mask_batched(
-            x_1b, w_sizes_soft.detach(), self.v_proj.weight.detach(),
+            x_1b, w_sizes, self.v_proj.weight.detach(),
             alpha.detach(), self.k_lmk, T, device,
         )
 
@@ -271,25 +296,29 @@ class DSALTAttention(nn.Module):
             cos, sin = rope_cs
         q, k = apply_rotary_emb(q, k, cos.unsqueeze(1), sin.unsqueeze(1))
 
-        w_sizes_soft = compute_window_sizes(x, self.window_proj, self.n_min, self.n_max)
-        alpha        = self._alpha()
-        aux          = self._window_aux(w_sizes_soft)
+        # §4.2 adaptive local window: per-token size from win_gate (see _batched).
+        # In training we round; the kernel consumes the integer window as a hard
+        # mask, so w_sizes is detached (the gate is not trained through masking).
+        w_sizes = self._window_sizes(x, floor=False)
+        alpha   = self._alpha()
+        aux     = self._aux_zero(x.device, x.dtype)
 
         if _TRITON_OK:
-            lmk_indices, z_x, z_v = _compute_landmark_indices(
+            lmk_indices, _, _ = _compute_landmark_indices(
                 x.detach(), self.v_proj.weight.detach(),
-                alpha.detach().float(), w_sizes_soft.detach(),
+                alpha.detach().float(), w_sizes,
                 cu_seqlens, self.k_lmk, self.n_min, total_len,
             )
-            lmk_bias = _landmark_bias_grad_alpha(
-                alpha, z_x, z_v, lmk_indices, cu_seqlens,
-            )
+            # The attention matrix is the pure A(i) = W(i) ∪ L(i) of the paper
+            # (eq. 32): the hybrid score only *selects* the landmarks, it does not
+            # bias the logits. We pass a zero bias to the kernel.
+            lmk_bias = torch.zeros_like(lmk_indices, dtype=torch.float32)
             out = dsalt_triton_attention(
-                q, k, v, lmk_indices, lmk_bias, w_sizes_soft.detach(), cu_seqlens,
+                q, k, v, lmk_indices, lmk_bias, w_sizes, cu_seqlens,
             )
         else:
             attn_mask = _build_mask_packed(
-                x, w_sizes_soft.detach(), self.v_proj.weight.detach(),
+                x, w_sizes, self.v_proj.weight.detach(),
                 alpha.detach(), cu_seqlens, total_len,
                 self.k_lmk, self.head_dim, device,
             )
@@ -307,37 +336,44 @@ class DSALTAttention(nn.Module):
             T0    = e0 - s0
 
             cu0    = torch.tensor([0, T0], dtype=torch.int32, device=device)
-            w0     = w_sizes_soft[s0:e0].detach()
+            w0     = w_sizes[s0:e0]
             alpha0 = alpha.detach()
 
-            lmk_idx, _, _ = _compute_landmark_indices(
-                x[s0:e0].float().detach(),
-                self.v_proj.weight.float().detach(),
-                alpha0.float(),
-                w0.float(),
-                cu0,
-                self.k_lmk,
-                self.n_min,
-                T0,
-            )
+            if _TRITON_OK:
+                lmk_idx, _, _ = _compute_landmark_indices(
+                    x[s0:e0].float().detach(),
+                    self.v_proj.weight.float().detach(),
+                    alpha0.float(),
+                    w0.float(),
+                    cu0,
+                    self.k_lmk,
+                    self.n_min,
+                    T0,
+                )
 
-            rows = torch.arange(T0, device=device)
-            cols = torch.arange(T0, device=device)
-            w0l  = w0.long()
-            in_win = (
-                (cols.unsqueeze(0) >= (rows.unsqueeze(1) - w0l.unsqueeze(1) + 1)) &
-                (cols.unsqueeze(0) <= rows.unsqueeze(1))
-            )
+                rows = torch.arange(T0, device=device)
+                cols = torch.arange(T0, device=device)
+                w0l  = w0.long()
+                in_win = (
+                    (cols.unsqueeze(0) >= (rows.unsqueeze(1) - w0l.unsqueeze(1) + 1)) &
+                    (cols.unsqueeze(0) <= rows.unsqueeze(1))
+                )
 
-            lmk_abs   = lmk_idx[:, 0, :]
-            in_lmk    = torch.zeros(self.n_heads, T0, T0, dtype=torch.bool, device=device)
-            h_range   = torch.arange(self.n_heads, device=device)
-            for h in range(self.n_heads):
-                valid_pos = lmk_abs[h]
-                causal    = valid_pos.unsqueeze(0) <= rows.unsqueeze(1)
-                in_lmk[h].scatter_(1, valid_pos.unsqueeze(0).expand(T0, -1), causal)
+                lmk_abs   = lmk_idx[:, 0, :]
+                in_lmk    = torch.zeros(self.n_heads, T0, T0, dtype=torch.bool, device=device)
+                for h in range(self.n_heads):
+                    valid_pos = lmk_abs[h]
+                    causal    = valid_pos.unsqueeze(0) <= rows.unsqueeze(1)
+                    in_lmk[h].scatter_(1, valid_pos.unsqueeze(0).expand(T0, -1), causal)
 
-            full_mask = in_win.unsqueeze(0) | in_lmk
+                full_mask = in_win.unsqueeze(0) | in_lmk
+            else:
+                # Fallback without Triton: dense mask shared across heads [T0, T0]
+                full_mask = _build_mask_packed(
+                    x[s0:e0], w0, self.v_proj.weight.detach(),
+                    alpha0, cu0, T0, self.k_lmk, self.head_dim, device,
+                ).unsqueeze(0).expand(self.n_heads, T0, T0)
+
             sc        = torch.matmul(q0, k0.transpose(-2, -1)) * scale
             additive  = sc.new_full((self.n_heads, T0, T0), float("-inf")).masked_fill_(full_mask, 0.0)
             self._last_P = torch.softmax(sc + additive, dim=-1).detach()

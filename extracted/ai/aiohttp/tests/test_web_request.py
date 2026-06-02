@@ -1,9 +1,9 @@
 import asyncio
 import datetime
 import logging
-import socket
+import sys
 import time
-from collections.abc import MutableMapping
+from collections.abc import Iterator, MutableMapping
 from typing import Any
 from unittest import mock
 
@@ -13,11 +13,12 @@ from yarl import URL
 
 from aiohttp import HttpVersion
 from aiohttp.base_protocol import BaseProtocol
+from aiohttp.helpers import DEFAULT_CHUNK_SIZE
 from aiohttp.http_exceptions import BadHttpMessage, LineTooLong
 from aiohttp.http_parser import RawRequestMessage
 from aiohttp.streams import StreamReader
 from aiohttp.test_utils import make_mocked_request
-from aiohttp.web import BaseRequest, HTTPRequestEntityTooLarge
+from aiohttp.web import BaseRequest, HTTPRequestEntityTooLarge, Request, RequestKey
 from aiohttp.web_request import _FORWARDED_PAIR_RE, ETag
 
 
@@ -40,16 +41,19 @@ def test_base_ctor() -> None:
         URL("/path/to?a=1&b=2"),
     )
 
+    protocol = mock.Mock()
+    protocol.ssl_context = None
+    protocol.peername = None
+    protocol.sockname = ("127.0.0.1", 80)
     req = BaseRequest(
-        message, mock.Mock(), mock.Mock(), mock.Mock(), mock.Mock(), mock.Mock()
+        message, mock.Mock(), protocol, mock.Mock(), mock.Mock(), mock.Mock()
     )
 
     assert "GET" == req.method
     assert HttpVersion(1, 1) == req.version
-    # MacOS may return CamelCased host name, need .lower()
-    # FQDN can be wider than host, e.g.
-    # 'fv-az397-495' in 'fv-az397-495.internal.cloudapp.net'
-    assert req.host.lower() in socket.getfqdn().lower()
+    # No Host header in this request, so host falls back to the
+    # local socket address the request arrived on.
+    assert req.host == "127.0.0.1"
     assert "/path/to?a=1&b=2" == req.path_qs
     assert "/path/to" == req.path
     assert "a=1&b=2" == req.query_string
@@ -71,10 +75,10 @@ def test_ctor() -> None:
 
     assert "GET" == req.method
     assert HttpVersion(1, 1) == req.version
-    # MacOS may return CamelCased host name, need .lower()
-    # FQDN can be wider than host, e.g.
-    # 'fv-az397-495' in 'fv-az397-495.internal.cloudapp.net'
-    assert req.host.lower() in socket.getfqdn().lower()
+    # No Host header in this request, so host falls back to the
+    # local socket address the request arrived on (the default
+    # sockname configured by make_mocked_request).
+    assert req.host == "127.0.0.1"
     assert "/path/to?a=1&b=2" == req.path_qs
     assert "/path/to" == req.path
     assert "a=1&b=2" == req.query_string
@@ -114,6 +118,53 @@ def test_deprecated_message() -> None:
     req = make_mocked_request("GET", "/path/to?a=1&b=2")
     with pytest.deprecated_call(match=r"^Request\.message is deprecated$"):
         assert req.message == req._message
+
+
+def test_host_falls_back_to_sockname_not_dns() -> None:
+    """Regression: request.host must not call socket.getfqdn().
+
+    socket.getfqdn() does blocking reverse DNS resolution on the
+    event loop thread and can stall a worker for many seconds when
+    the system resolver is slow. The fallback for a request with no
+    Host header is the local socket address the request arrived on,
+    not the system FQDN.
+    """
+    req = make_mocked_request("GET", "/")
+    assert req.host == "127.0.0.1"
+    assert str(req.url).startswith("http://127.0.0.1")
+
+
+def test_host_with_ipv6_sockname() -> None:
+    """AF_INET6 sockname is bracketed to form a valid URL authority.
+
+    A bare IPv6 string would cause ``URL.build(authority=...)`` to
+    raise ``ValueError``.
+    """
+    transport = mock.Mock()
+    transport.get_extra_info.side_effect = lambda key: (
+        ("::1", 80, 0, 0) if key == "sockname" else None
+    )
+    req = make_mocked_request("GET", "/", transport=transport)
+    assert req.host == "[::1]"
+    assert str(req.url) == "http://[::1]/"
+
+
+def test_host_with_unix_socket_sockname() -> None:
+    """Unix-socket transports expose sockname as a str path."""
+    transport = mock.Mock()
+    transport.get_extra_info.side_effect = lambda key: (
+        "/tmp/aiohttp.sock" if key == "sockname" else None
+    )
+    req = make_mocked_request("GET", "/", transport=transport)
+    assert req.host == "/tmp/aiohttp.sock"
+
+
+def test_host_with_no_transport_sockname() -> None:
+    """An empty string is returned when no sockname is available."""
+    transport = mock.Mock()
+    transport.get_extra_info.return_value = None
+    req = make_mocked_request("GET", "/", transport=transport)
+    assert req.host == ""
 
 
 def test_doubleslashes() -> None:
@@ -494,6 +545,7 @@ def test_match_info() -> None:
     assert req._match_info is req.match_info
 
 
+@pytest.mark.filterwarnings(r"ignore:.*web\.RequestKey:UserWarning")
 def test_request_is_mutable_mapping() -> None:
     req = make_mocked_request("GET", "/")
     assert isinstance(req, MutableMapping)
@@ -502,6 +554,7 @@ def test_request_is_mutable_mapping() -> None:
     assert "value" == req["key"]
 
 
+@pytest.mark.filterwarnings(r"ignore:.*web\.RequestKey:UserWarning")
 def test_request_delitem() -> None:
     req = make_mocked_request("GET", "/")
     req["key"] = "value"
@@ -510,6 +563,7 @@ def test_request_delitem() -> None:
     assert "key" not in req
 
 
+@pytest.mark.filterwarnings(r"ignore:.*web\.RequestKey:UserWarning")
 def test_request_len() -> None:
     req = make_mocked_request("GET", "/")
     assert len(req) == 0
@@ -517,11 +571,91 @@ def test_request_len() -> None:
     assert len(req) == 1
 
 
+@pytest.mark.filterwarnings(r"ignore:.*web\.RequestKey:UserWarning")
 def test_request_iter() -> None:
     req = make_mocked_request("GET", "/")
     req["key"] = "value"
     req["key2"] = "value2"
-    assert set(req) == {"key", "key2"}
+    key3 = RequestKey("key3", str)
+    req[key3] = "value3"
+    assert set(req) == {"key", "key2", key3}
+
+
+def test_requestkey() -> None:
+    req = make_mocked_request("GET", "/")
+    key = RequestKey("key", str)
+    req[key] = "value"
+    assert req[key] == "value"
+    assert len(req) == 1
+    del req[key]
+    assert len(req) == 0
+
+
+def test_request_get_requestkey() -> None:
+    req = make_mocked_request("GET", "/")
+    key = RequestKey("key", int)
+    assert req.get(key, "foo") == "foo"
+    req[key] = 5
+    assert req.get(key, "foo") == 5
+
+
+def test_requestkey_repr_concrete() -> None:
+    key = RequestKey("key", int)
+    assert repr(key) in (
+        "<RequestKey(__channelexec__.key, type=int)>",  # pytest-xdist
+        "<RequestKey(__main__.key, type=int)>",
+    )
+    key2 = RequestKey("key", Request)
+    assert repr(key2) in (
+        # pytest-xdist:
+        "<RequestKey(__channelexec__.key, type=aiohttp.web_request.Request)>",
+        "<RequestKey(__main__.key, type=aiohttp.web_request.Request)>",
+    )
+
+
+def test_requestkey_repr_nonconcrete() -> None:
+    key = RequestKey("key", Iterator[int])
+    if sys.version_info < (3, 11):
+        assert repr(key) in (
+            # pytest-xdist:
+            "<RequestKey(__channelexec__.key, type=collections.abc.Iterator)>",
+            "<RequestKey(__main__.key, type=collections.abc.Iterator)>",
+        )
+    else:
+        assert repr(key) in (
+            # pytest-xdist:
+            "<RequestKey(__channelexec__.key, type=collections.abc.Iterator[int])>",
+            "<RequestKey(__main__.key, type=collections.abc.Iterator[int])>",
+        )
+
+
+def test_requestkey_repr_annotated() -> None:
+    key = RequestKey[Iterator[int]]("key")
+    if sys.version_info < (3, 11):
+        assert repr(key) in (
+            # pytest-xdist:
+            "<RequestKey(__channelexec__.key, type=collections.abc.Iterator)>",
+            "<RequestKey(__main__.key, type=collections.abc.Iterator)>",
+        )
+    else:
+        assert repr(key) in (
+            # pytest-xdist:
+            "<RequestKey(__channelexec__.key, type=collections.abc.Iterator[int])>",
+            "<RequestKey(__main__.key, type=collections.abc.Iterator[int])>",
+        )
+
+
+def test_str_key_warnings() -> None:
+    # Check if warnings are raised once per str key
+    req = make_mocked_request("GET", "/")
+
+    with pytest.warns(UserWarning):
+        req["test_str_key_warnings_key_1"] = "value"
+
+    with pytest.warns(UserWarning):
+        req["test_str_key_warnings_key_2"] = "value 2"
+
+    req["test_str_key_warnings_key_1"] = "value"
 
 
 def test___repr__() -> None:
@@ -792,8 +926,8 @@ def test_clone_headers_dict() -> None:
     assert req2.raw_headers == ((b"B", b"C"),)
 
 
-async def test_cannot_clone_after_read(protocol) -> None:
-    payload = StreamReader(protocol, 2**16, loop=asyncio.get_event_loop())
+async def test_cannot_clone_after_read(protocol: BaseProtocol) -> None:
+    payload = StreamReader(protocol, DEFAULT_CHUNK_SIZE, loop=asyncio.get_event_loop())
     payload.feed_data(b"data")
     payload.feed_eof()
     req = make_mocked_request("GET", "/path", payload=payload)
@@ -815,7 +949,18 @@ async def test_make_too_big_request(protocol) -> None:
     assert err.value.status_code == 413
 
 
-async def test_make_too_big_request_adjust_limit(protocol) -> None:
+async def test_make_too_big_request_same_size_to_max(protocol: BaseProtocol) -> None:
+    payload = StreamReader(protocol, 2**16, loop=asyncio.get_event_loop())
+    large_file = 1024**2 * b"x"
+    payload.feed_data(large_file)
+    payload.feed_eof()
+    req = make_mocked_request("POST", "/", payload=payload)
+    resp_text = await req.read()
+
+    assert resp_text == large_file
+
+
+async def test_make_too_big_request_adjust_limit(protocol: BaseProtocol) -> None:
     payload = StreamReader(protocol, 2**16, loop=asyncio.get_event_loop())
     large_file = 1024**2 * b"x"
     too_large_file = large_file + b"x"
@@ -853,7 +998,7 @@ async def test_multipart_formdata(protocol) -> None:
 
 async def test_multipart_formdata_field_missing_name(protocol: BaseProtocol) -> None:
     # Ensure ValueError is raised when Content-Disposition has no name
-    payload = StreamReader(protocol, 2**16, loop=asyncio.get_event_loop())
+    payload = StreamReader(protocol, DEFAULT_CHUNK_SIZE, loop=asyncio.get_event_loop())
     payload.feed_data(
         b"-----------------------------326931944431359\r\n"
         b"Content-Disposition: form-data\r\n"  # Missing name!
@@ -905,7 +1050,9 @@ async def test_multipart_formdata_headers_too_many(protocol: BaseProtocol) -> No
         b"--b--\r\n"
     )
     content_type = "multipart/form-data; boundary=b"
-    payload = StreamReader(protocol, 2**16, loop=asyncio.get_running_loop())
+    payload = StreamReader(
+        protocol, DEFAULT_CHUNK_SIZE, loop=asyncio.get_running_loop()
+    )
     payload.feed_data(body)
     payload.feed_eof()
     req = make_mocked_request(
@@ -932,7 +1079,9 @@ async def test_multipart_formdata_header_too_long(protocol: BaseProtocol) -> Non
         b"--b--\r\n"
     )
     content_type = "multipart/form-data; boundary=b"
-    payload = StreamReader(protocol, 2**16, loop=asyncio.get_running_loop())
+    payload = StreamReader(
+        protocol, DEFAULT_CHUNK_SIZE, loop=asyncio.get_running_loop()
+    )
     payload.feed_data(body)
     payload.feed_eof()
     req = make_mocked_request(
@@ -973,6 +1122,7 @@ def test_remote_peername_unix() -> None:
     assert req.remote == "/path/to/sock"
 
 
+@pytest.mark.filterwarnings(r"ignore:.*web\.RequestKey:UserWarning")
 def test_save_state_on_clone() -> None:
     req = make_mocked_request("GET", "/")
     req["key"] = "val"

@@ -11,14 +11,18 @@
 //!   동적 link.  feature flag `gpu-cuda`.
 
 pub mod errors;
+pub mod philox;
 pub mod wgpu_backend;
+pub mod wgpu_matmul;
 pub mod wgpu_mps;
 
 #[cfg(feature = "gpu-cuda")]
 pub mod cuda;
 
 pub use errors::GpuError;
+pub use philox::{philox4x32_10, philox_uniforms_cpu, u32_to_unit_f32};
 pub use wgpu_backend::{WgpuDensityBackend, WgpuDensityOp, WgpuStatevectorBackend};
+pub use wgpu_matmul::WgpuMatmulBackend;
 pub use wgpu_mps::{
     wgpu_thin_svd, GpuMpsTensors, GpuSvdOutput, GpuSvdProvider, WgpuMpsBackend, WgpuMpsError,
     WgpuSvdResult, GPU_CHI_THRESHOLD,
@@ -46,6 +50,7 @@ static WGPU_DENSITY_BACKEND: OnceLock<Mutex<Option<Arc<WgpuDensityBackend>>>> = 
 // density 와 별도 device (사용자가 wgpu_mps 만 쓸 때 statevector pipeline
 // 강제 init 회피).  Cut 3/5 부터 svd / contract pipeline 이 채워짐.
 static WGPU_MPS_BACKEND: OnceLock<Mutex<Option<Arc<WgpuMpsBackend>>>> = OnceLock::new();
+static WGPU_MATMUL_BACKEND: OnceLock<Mutex<Option<Arc<WgpuMatmulBackend>>>> = OnceLock::new();
 
 /// Process-wide cached `WgpuStatevectorBackend`.  첫 호출에서 init (수백 ms),
 /// 이후 호출은 즉시 (~µs).
@@ -91,6 +96,20 @@ pub fn cached_wgpu_mps_backend() -> Result<Arc<WgpuMpsBackend>, GpuError> {
         return Ok(Arc::clone(backend));
     }
     let backend = Arc::new(WgpuMpsBackend::new()?);
+    *guard = Some(Arc::clone(&backend));
+    Ok(backend)
+}
+
+/// Process-wide cached `WgpuMatmulBackend` (v0.8) — TN contraction GPU 커널.
+pub fn cached_wgpu_matmul_backend() -> Result<Arc<WgpuMatmulBackend>, GpuError> {
+    let cell = WGPU_MATMUL_BACKEND.get_or_init(|| Mutex::new(None));
+    let mut guard = cell
+        .lock()
+        .map_err(|e| GpuError::Other(format!("matmul backend mutex poisoned: {e}")))?;
+    if let Some(backend) = guard.as_ref() {
+        return Ok(Arc::clone(backend));
+    }
+    let backend = Arc::new(WgpuMatmulBackend::new()?);
     *guard = Some(Arc::clone(&backend));
     Ok(backend)
 }

@@ -12,6 +12,7 @@ import { ImportedStyleSheet } from "@bokehjs/core/dom";
 import { Enum } from "@bokehjs/core/kinds";
 import { LayoutDOMView } from "@bokehjs/models/layouts/layout_dom";
 import { isArray } from "@bokehjs/core/util/types";
+import { UIElementView } from "@bokehjs/models/ui/ui_element";
 import { serializeEvent } from "./event-to-object";
 import { DOMEvent } from "./html";
 import { HTMLBox, HTMLBoxView, set_size } from "./layout";
@@ -411,11 +412,12 @@ export class ReactiveESMView extends HTMLBoxView {
             const children = isArray(child_model) ? child_model : [child_model];
             for (const subchild of children) {
                 const view = this._child_views.get(subchild);
-                if (!view) {
+                if (!view || this._child_rendered.get(view)) {
                     continue;
                 }
                 const parent = view.el.parentNode;
-                if (parent && !this._child_rendered.has(view)) {
+                if (parent) {
+                    this._child_rendered.set(view, false);
                     this.rerender_(view);
                     this._child_rendered.set(view, true);
                 }
@@ -425,7 +427,7 @@ export class ReactiveESMView extends HTMLBoxView {
         this.after_render();
     }
     has_finished() {
-        if (!super.has_finished()) {
+        if (!UIElementView.prototype.has_finished.call(this)) {
             return false;
         }
         if (this.is_layout_root && !this._layout_computed) {

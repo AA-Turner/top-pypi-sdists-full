@@ -4,14 +4,13 @@ import gzip
 import io
 import json
 import sys
+from collections.abc import AsyncIterator, Iterator
 from concurrent.futures import ThreadPoolExecutor
-from typing import AsyncIterator, Optional
 from unittest import mock
 
 import aiosignal
 import pytest
 from multidict import CIMultiDict, CIMultiDictProxy, MultiDict
-from re_assert import Matches
 
 from aiohttp import HttpVersion, HttpVersion10, HttpVersion11, hdrs, web
 from aiohttp.abc import AbstractStreamWriter
@@ -20,7 +19,14 @@ from aiohttp.http_writer import StreamWriter, _serialize_headers
 from aiohttp.multipart import BodyPartReader, MultipartWriter
 from aiohttp.payload import BytesPayload, StringPayload
 from aiohttp.test_utils import make_mocked_request
-from aiohttp.web import ContentCoding, Response, StreamResponse, json_response
+from aiohttp.web import (
+    ContentCoding,
+    Request,
+    Response,
+    ResponseKey,
+    StreamResponse,
+    json_response,
+)
 
 
 def make_request(
@@ -104,6 +110,7 @@ def test_stream_response_eq() -> None:
     assert not resp1 == resp2
 
 
+@pytest.mark.filterwarnings(r"ignore:.*web\.ResponseKey:UserWarning")
 def test_stream_response_is_mutable_mapping() -> None:
     resp = StreamResponse()
     assert isinstance(resp, collections.abc.MutableMapping)
@@ -112,6 +119,7 @@ def test_stream_response_is_mutable_mapping() -> None:
     assert "value" == resp["key"]
 
 
+@pytest.mark.filterwarnings(r"ignore:.*web\.ResponseKey:UserWarning")
 def test_stream_response_delitem() -> None:
     resp = StreamResponse()
     resp["key"] = "value"
@@ -119,6 +127,7 @@ def test_stream_response_delitem() -> None:
     assert "key" not in resp
 
 
+@pytest.mark.filterwarnings(r"ignore:.*web\.ResponseKey:UserWarning")
 def test_stream_response_len() -> None:
     resp = StreamResponse()
     assert len(resp) == 0
@@ -126,11 +135,91 @@ def test_stream_response_len() -> None:
     assert len(resp) == 1
 
 
-def test_request_iter() -> None:
+@pytest.mark.filterwarnings(r"ignore:.*web\.ResponseKey:UserWarning")
+def test_response_iter() -> None:
     resp = StreamResponse()
     resp["key"] = "value"
     resp["key2"] = "value2"
-    assert set(resp) == {"key", "key2"}
+    key3 = ResponseKey("key3", str)
+    resp[key3] = "value3"
+    assert set(resp) == {"key", "key2", key3}
+
+
+def test_responsekey() -> None:
+    resp = StreamResponse()
+    key = ResponseKey("key", str)
+    resp[key] = "value"
+    assert resp[key] == "value"
+    assert len(resp) == 1
+    del resp[key]
+    assert len(resp) == 0
+
+
+def test_response_get_responsekey() -> None:
+    resp = StreamResponse()
+    key = ResponseKey("key", int)
+    assert resp.get(key, "foo") == "foo"
+    resp[key] = 5
+    assert resp.get(key, "foo") == 5
+
+
+def test_responsekey_repr_concrete() -> None:
+    key = ResponseKey("key", int)
+    assert repr(key) in (
+        "<ResponseKey(__channelexec__.key, type=int)>",  # pytest-xdist
+        "<ResponseKey(__main__.key, type=int)>",
+    )
+    key2 = ResponseKey("key", Request)
+    assert repr(key2) in (
+        # pytest-xdist:
+        "<ResponseKey(__channelexec__.key, type=aiohttp.web_request.Request)>",
+        "<ResponseKey(__main__.key, type=aiohttp.web_request.Request)>",
+    )
+
+
+def test_responsekey_repr_nonconcrete() -> None:
+    key = ResponseKey("key", Iterator[int])
+    if sys.version_info < (3, 11):
+        assert repr(key) in (
+            # pytest-xdist:
+            "<ResponseKey(__channelexec__.key, type=collections.abc.Iterator)>",
+            "<ResponseKey(__main__.key, type=collections.abc.Iterator)>",
+        )
+    else:
+        assert repr(key) in (
+            # pytest-xdist:
+            "<ResponseKey(__channelexec__.key, type=collections.abc.Iterator[int])>",
+            "<ResponseKey(__main__.key, type=collections.abc.Iterator[int])>",
+        )
+
+
+def test_responsekey_repr_annotated() -> None:
+    key = ResponseKey[Iterator[int]]("key")
+    if sys.version_info < (3, 11):
+        assert repr(key) in (
+            # pytest-xdist:
+            "<ResponseKey(__channelexec__.key, type=collections.abc.Iterator)>",
+            "<ResponseKey(__main__.key, type=collections.abc.Iterator)>",
+        )
+    else:
+        assert repr(key) in (
+            # pytest-xdist:
+            "<ResponseKey(__channelexec__.key, type=collections.abc.Iterator[int])>",
+            "<ResponseKey(__main__.key, type=collections.abc.Iterator[int])>",
+        )
+
+
+def test_str_key_warnings() -> None:
+    # Check if warnings are raised once per str key
+    resp = StreamResponse()
+
+    with pytest.warns(UserWarning):
+        resp["test_str_key_warnings_key_1"] = "value"
+
+    with pytest.warns(UserWarning):
+        resp["test_str_key_warnings_key_2"] = "value 2"
+
+    resp["test_str_key_warnings_key_1"] = "value"
 
 
 def test_content_length() -> None:
@@ -414,7 +503,7 @@ async def test_chunked_encoding_forbidden_for_http_10() -> None:
 
     with pytest.raises(RuntimeError) as ctx:
         await resp.prepare(req)
-    assert Matches("Using chunked encoding is forbidden for HTTP/1.0") == str(ctx.value)
+    assert str(ctx.value) == "Using chunked encoding is forbidden for HTTP/1.0"
 
 
 @pytest.mark.usefixtures("parametrize_zlib_backend")
@@ -491,26 +580,6 @@ async def test_force_compression_deflate() -> None:
     msg = await resp.prepare(req)
     assert msg is not None
     msg.enable_compression.assert_called_with("deflate", None)
-    assert "deflate" == resp.headers.get(hdrs.CONTENT_ENCODING)
-
-
-@pytest.mark.usefixtures("parametrize_zlib_backend")
-async def test_force_compression_deflate_large_payload() -> None:
-    """Make sure a warning is thrown for large payloads compressed in the event loop."""
-    req = make_request(
-        "GET", "/", headers=CIMultiDict({hdrs.ACCEPT_ENCODING: "gzip, deflate"})
-    )
-    resp = Response(body=b"large")
-
-    resp.enable_compression(ContentCoding.deflate)
-    assert resp.compression
-
-    with (
-        pytest.warns(Warning, match="Synchronous compression of large response bodies"),
-        mock.patch("aiohttp.web_response.LARGE_BODY_SIZE", 2),
-    ):
-        msg = await resp.prepare(req)
-        assert msg is not None
     assert "deflate" == resp.headers.get(hdrs.CONTENT_ENCODING)
 
 
@@ -910,12 +979,12 @@ def test_response_cookies() -> None:
 
     resp.del_cookie("name")
     expected = (
-        'Set-Cookie: name=("")?; '
+        'Set-Cookie: name=""; '
         "expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0; Path=/"
     )
-    assert Matches(expected) == str(resp.cookies)
+    assert str(resp.cookies) == expected
     resp.del_cookie("name")
-    assert str(resp.cookies) == Matches(expected)
+    assert str(resp.cookies) == expected
 
     resp.set_cookie("name", "value", domain="local.host")
     expected = "Set-Cookie: name=value; Domain=local.host; Path=/"
@@ -977,10 +1046,10 @@ def test_response_cookie__issue_del_cookie() -> None:
 
     resp.del_cookie("name")
     expected = (
-        'Set-Cookie: name=("")?; '
+        'Set-Cookie: name=""; '
         "expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0; Path=/"
     )
-    assert Matches(expected) == str(resp.cookies)
+    assert str(resp.cookies) == expected
 
 
 def test_cookie_set_after_del() -> None:
@@ -1276,7 +1345,7 @@ class CustomIO(io.IOBase):
         ),
     ),
 )
-def test_payload_body_get_text(payload, expected: Optional[str]) -> None:
+def test_payload_body_get_text(payload, expected: str | None) -> None:
     resp = Response(body=payload)
     if expected is None:
         with pytest.raises(TypeError):
@@ -1298,15 +1367,14 @@ async def test_send_headers_for_empty_body(buf, writer) -> None:
     await resp.prepare(req)
     await resp.write_eof()
     txt = buf.decode("utf8")
-    assert (
-        Matches(
-            "HTTP/1.1 200 OK\r\n"
-            "Content-Length: 0\r\n"
-            "Date: .+\r\n"
-            "Server: .+\r\n\r\n"
-        )
-        == txt
-    )
+
+    lines = txt.split("\r\n")
+    assert len(lines) == 6
+    assert lines[0] == "HTTP/1.1 200 OK"
+    assert lines[1] == "Content-Length: 0"
+    assert lines[2].startswith("Date: ")
+    assert lines[3].startswith("Server: ")
+    assert lines[4] == lines[5] == ""
 
 
 async def test_render_with_body(buf, writer) -> None:
@@ -1315,19 +1383,17 @@ async def test_render_with_body(buf, writer) -> None:
 
     await resp.prepare(req)
     await resp.write_eof()
-
     txt = buf.decode("utf8")
-    assert (
-        Matches(
-            "HTTP/1.1 200 OK\r\n"
-            "Content-Length: 4\r\n"
-            "Content-Type: application/octet-stream\r\n"
-            "Date: .+\r\n"
-            "Server: .+\r\n\r\n"
-            "data"
-        )
-        == txt
-    )
+
+    lines = txt.split("\r\n")
+    assert len(lines) == 7
+    assert lines[0] == "HTTP/1.1 200 OK"
+    assert lines[1] == "Content-Length: 4"
+    assert lines[2] == "Content-Type: application/octet-stream"
+    assert lines[3].startswith("Date: ")
+    assert lines[4].startswith("Server: ")
+    assert lines[5] == ""
+    assert lines[6] == "data"
 
 
 async def test_multiline_reason(buf: bytearray, writer: AbstractStreamWriter) -> None:
@@ -1342,18 +1408,16 @@ async def test_send_set_cookie_header(buf, writer) -> None:
 
     await resp.prepare(req)
     await resp.write_eof()
-
     txt = buf.decode("utf8")
-    assert (
-        Matches(
-            "HTTP/1.1 200 OK\r\n"
-            "Content-Length: 0\r\n"
-            "Set-Cookie: name=value\r\n"
-            "Date: .+\r\n"
-            "Server: .+\r\n\r\n"
-        )
-        == txt
-    )
+
+    lines = txt.split("\r\n")
+    assert len(lines) == 7
+    assert lines[0] == "HTTP/1.1 200 OK"
+    assert lines[1] == "Content-Length: 0"
+    assert lines[2] == "Set-Cookie: name=value"
+    assert lines[3].startswith("Date: ")
+    assert lines[4].startswith("Server: ")
+    assert lines[5] == lines[6] == ""
 
 
 async def test_consecutive_write_eof() -> None:
@@ -1550,6 +1614,50 @@ class TestJSONResponse:
     def test_content_type_is_overrideable(self) -> None:
         resp = json_response({"foo": 42}, content_type="application/vnd.json+api")
         assert "application/vnd.json+api" == resp.content_type
+
+
+class TestJSONBytesResponse:
+    def test_content_type_is_application_json_by_default(self) -> None:
+        resp = web.json_bytes_response(
+            "", dumps=lambda x: json.dumps(x).encode("utf-8")
+        )
+        assert "application/json" == resp.content_type
+
+    def test_passing_body_only(self) -> None:
+        resp = web.json_bytes_response(
+            dumps=lambda x: json.dumps(x).encode("utf-8"),
+            body=b'"jaysawn"',
+        )
+        assert resp.body == b'"jaysawn"'
+
+    def test_data_and_body_raises_value_error(self) -> None:
+        with pytest.raises(ValueError) as excinfo:
+            web.json_bytes_response(
+                data="foo", dumps=lambda x: json.dumps(x).encode("utf-8"), body=b"bar"
+            )
+        expected_message = "only one of data or body should be specified"
+        assert expected_message == excinfo.value.args[0]
+
+    def test_body_is_json_encoded_bytes(self) -> None:
+        resp = web.json_bytes_response(
+            {"foo": 42}, dumps=lambda x: json.dumps(x).encode("utf-8")
+        )
+        assert json.dumps({"foo": 42}).encode("utf-8") == resp.body
+
+    def test_content_type_is_overrideable(self) -> None:
+        resp = web.json_bytes_response(
+            {"foo": 42},
+            dumps=lambda x: json.dumps(x).encode("utf-8"),
+            content_type="application/vnd.json+api",
+        )
+        assert "application/vnd.json+api" == resp.content_type
+
+    def test_custom_dumps(self) -> None:
+        resp = web.json_bytes_response(
+            {"foo": 42},
+            dumps=lambda x: json.dumps(x, separators=(",", ":")).encode("utf-8"),
+        )
+        assert b'{"foo":42}' == resp.body
 
 
 @pytest.mark.parametrize("loose_header_type", (MultiDict, CIMultiDict, dict))

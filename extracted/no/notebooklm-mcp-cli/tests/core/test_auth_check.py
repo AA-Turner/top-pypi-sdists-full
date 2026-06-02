@@ -17,7 +17,6 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import httpx
-import pytest
 
 from notebooklm_tools.core.auth import (
     AuthCheckResult,
@@ -41,8 +40,6 @@ class TestCheckAuthAPI:
 
     def test_check_auth_live_false_uses_last_validated_heuristic(self, tmp_path, monkeypatch):
         """When live=False we should be fast and only look at on-disk metadata."""
-        from datetime import datetime, timedelta
-
         monkeypatch.setattr("notebooklm_tools.utils.config.get_storage_dir", lambda: tmp_path)
 
         # Arrange a profile that was validated very recently
@@ -51,9 +48,7 @@ class TestCheckAuthAPI:
             cookies={"SID": "x", "HSID": "x", "SSID": "x", "APISID": "x", "SAPISID": "x"},
             email="test@example.com",
         )
-        # Force a very fresh last_validated
-        profile = mgr.load_profile()
-        # (the save_profile already sets it to now; we just test the path)
+        # save_profile already sets last_validated to now; we just test the path
 
         result = check_auth(profile="default", live=False)
         assert result.valid is True
@@ -94,7 +89,13 @@ class TestCheckAuthAPI:
 
         mgr = AuthManager("default")
         mgr.save_profile(
-            cookies={"SID": "dead", "HSID": "dead", "SSID": "dead", "APISID": "dead", "SAPISID": "dead"},
+            cookies={
+                "SID": "dead",
+                "HSID": "dead",
+                "SSID": "dead",
+                "APISID": "dead",
+                "SAPISID": "dead",
+            },
             email="test@example.com",
         )
 

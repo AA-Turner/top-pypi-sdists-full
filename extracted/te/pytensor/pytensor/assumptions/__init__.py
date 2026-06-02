@@ -6,8 +6,10 @@ import pytensor.assumptions.blockwise
 import pytensor.assumptions.diagonal
 import pytensor.assumptions.dimshuffle
 import pytensor.assumptions.orthogonal
+import pytensor.assumptions.permutation
 import pytensor.assumptions.positive_definite
 import pytensor.assumptions.reshape
+import pytensor.assumptions.selection
 import pytensor.assumptions.shape
 import pytensor.assumptions.subtensor
 import pytensor.assumptions.symmetric
@@ -18,7 +20,9 @@ from pytensor.assumptions.core import (
     IMPLIES,
     LOWER_TRIANGULAR,
     ORTHOGONAL,
+    PERMUTATION,
     POSITIVE_DEFINITE,
+    SELECTION,
     SYMMETRIC,
     UPPER_TRIANGULAR,
     AssumptionFeature,

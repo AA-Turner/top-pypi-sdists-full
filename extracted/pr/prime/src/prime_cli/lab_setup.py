@@ -33,27 +33,31 @@ from .lab_agents import (
     known_agent_names,
     write_agent_native_surface,
 )
+from .lab_hygiene import (
+    LabHygieneOptions,
+    append_lab_gitignore,
+    missing_lab_gitignore_patterns,
+    run_lab_hygiene_preflight,
+    tracked_lab_hygiene_paths,
+)
 
 VERIFIERS_REPO = "primeintellect-ai/verifiers"
-VERIFIERS_REF = "7d8a522df67308327cb9b8931ce6a5873a99834a"
+VERIFIERS_REF = "f43e42c1fabfe2604afc95b9ce62779a8f55d487"
 VERIFIERS_CONFIG_REF = "main"
 DOWNLOAD_ATTEMPTS = 3
 DOWNLOAD_RETRY_DELAY_SECONDS = 1.0
 LAB_CONFIG_FOLDERS = ("rl", "gepa", "eval", "sft", "opd", "fft")
 
 SUPPORTED_AGENTS = known_agent_names()
-LAB_GITIGNORE_PATTERNS = (
-    ".env",
-    "/outputs/",
-    "/prime-rl/",
-    "/environments/*/outputs/",
-    "/environments/*/dist/",
-    "/environments/*/*.egg-info/",
-    "/environments/*/__pycache__/",
-    "__pycache__/",
-    "*.py[cod]",
-    ".pytest_cache/",
-    ".ruff_cache/",
+LOCAL_CLAUDE_MD = "CLAUDE.local.md"
+LOCAL_CLAUDE_GUIDANCE_TEMPLATE = "\n".join(
+    [
+        "# CLAUDE.local.md",
+        "",
+        "Add personal Claude guidance for this Lab workspace here.",
+        "Prime Lab preserves this file during setup and sync.",
+        "",
+    ]
 )
 PRIME_SKILLS_MANIFEST = ".prime-managed.json"
 WORKSPACE_SKILLS_DIR = Path(".prime") / "skills"
@@ -220,7 +224,7 @@ def parse_lab_setup_args(args: list[str]) -> LabSetupOptions:
     parser.add_argument(
         "--skip-agents-md",
         action="store_true",
-        help="Skip AGENTS.md, CLAUDE.md, and environments/AGENTS.md.",
+        help="Skip AGENTS.md, CLAUDE.md, CLAUDE.local.md, and environments/AGENTS.md.",
     )
     parser.add_argument(
         "--skip-install",
@@ -269,7 +273,7 @@ def parse_lab_sync_args(args: list[str]) -> LabSyncOptions:
     parser.add_argument(
         "--skip-docs",
         action="store_true",
-        help="Skip AGENTS.md, CLAUDE.md, and environments/AGENTS.md refresh.",
+        help="Skip AGENTS.md, CLAUDE.md, CLAUDE.local.md, and environments/AGENTS.md refresh.",
     )
     parser.add_argument(
         "--no-agent",
@@ -368,7 +372,6 @@ def _run_lab_setup_steps(
 
     (workspace / "configs").mkdir(exist_ok=True)
     (workspace / "environments").mkdir(exist_ok=True)
-    _append_gitignore(workspace)
     managed_skill_names = _sync_prime_skills(emit)
     _prepare_workspace_skill_dir(workspace, managed_skill_names, emit)
     _prepare_agent_skill_dirs(workspace, options.agents, managed_skill_names, emit)
@@ -384,6 +387,11 @@ def _run_lab_setup_steps(
     _write_lab_docs_index(workspace, options.agents)
     emit("\n")
     emit(_post_setup_call_to_action(options))
+    run_lab_hygiene_preflight(
+        LabHygieneOptions(fix=True),
+        workspace=workspace,
+        emit=emit,
+    )
 
 
 def _run_lab_sync_steps(
@@ -421,6 +429,11 @@ def _run_lab_sync_steps(
         _sync_workspace_guidance(workspace, guidance_agents, emit, force=True)
         _write_lab_docs_index(workspace, guidance_agents)
 
+    run_lab_hygiene_preflight(
+        LabHygieneOptions(fix=True),
+        workspace=workspace,
+        emit=emit,
+    )
     emit("Lab sync completed\n")
 
 
@@ -432,8 +445,9 @@ def _sync_workspace_guidance(
     force: bool = False,
 ) -> None:
     _download_file(AGENTS_MD_SRC, workspace / "AGENTS.md", emit, force=force, quiet=True)
+    _download_file(CLAUDE_MD_SRC, workspace / "CLAUDE.md", emit, force=force, quiet=True)
     if "claude" in agents:
-        _download_file(CLAUDE_MD_SRC, workspace / "CLAUDE.md", emit, force=force, quiet=True)
+        _ensure_claude_local_guidance(workspace)
     _download_file(
         ENVS_AGENTS_MD_SRC,
         workspace / "environments" / "AGENTS.md",
@@ -442,6 +456,13 @@ def _sync_workspace_guidance(
         quiet=True,
     )
     emit("Refreshed workspace guidance\n")
+
+
+def _ensure_claude_local_guidance(workspace: Path) -> None:
+    path = workspace / LOCAL_CLAUDE_MD
+    if path.exists() or path.is_symlink():
+        return
+    path.write_text(LOCAL_CLAUDE_GUIDANCE_TEMPLATE, encoding="utf-8")
 
 
 def _sync_prime_skills(emit: Emit) -> tuple[str, ...]:
@@ -841,10 +862,7 @@ def _prepare_agent_native_surfaces(workspace: Path, agents: tuple[str, ...], emi
 
 def _lab_doctor_checks(options: LabDoctorOptions, workspace: Path) -> list[LabDoctorCheck]:
     if options.fix:
-        workspace.mkdir(parents=True, exist_ok=True)
-        (workspace / "configs").mkdir(parents=True, exist_ok=True)
-        (workspace / "environments").mkdir(parents=True, exist_ok=True)
-        _append_gitignore(workspace)
+        run_lab_hygiene_preflight(LabHygieneOptions(fix=True), workspace=workspace)
 
     metadata_path = workspace / ".prime" / "lab.json"
     metadata = _read_lab_metadata(workspace)
@@ -864,6 +882,7 @@ def _lab_doctor_checks(options: LabDoctorOptions, workspace: Path) -> list[LabDo
             "Run prime lab doctor --fix.",
         ),
         _gitignore_check(workspace),
+        _tracked_lab_git_hygiene_check(workspace),
         _config_validity_check(workspace),
         _config_deprecated_fields_check(workspace),
         _config_environment_reference_check(workspace),
@@ -871,11 +890,10 @@ def _lab_doctor_checks(options: LabDoctorOptions, workspace: Path) -> list[LabDo
         _managed_skill_manifest_check(),
         _global_lab_templates_check(),
         _workspace_managed_skills_check(workspace),
-        _path_check(
+        _lab_template_configs_check(
             "Lab templates",
-            workspace / ".prime" / "lab" / "templates" / "configs" / "rl" / "gsm8k.toml",
+            workspace / ".prime" / "lab" / "templates" / "configs",
             "Run prime lab sync.",
-            warning=True,
         ),
         _path_check(
             "Lab docs index",
@@ -936,18 +954,21 @@ def _managed_skill_manifest_check() -> LabDoctorCheck:
 
 
 def _global_lab_templates_check() -> LabDoctorCheck:
-    path = _global_lab_templates_dir() / "configs" / "rl" / "gsm8k.toml"
-    if path.is_file():
-        return LabDoctorCheck(
-            name="Global Lab template cache",
-            status="PASS",
-            message=f"Installed at {_global_lab_templates_dir()}.",
-        )
+    return _lab_template_configs_check(
+        "Global Lab template cache",
+        _global_lab_templates_dir() / "configs",
+        "Run prime lab sync.",
+    )
+
+
+def _lab_template_configs_check(name: str, configs_dir: Path, remediation: str) -> LabDoctorCheck:
+    if configs_dir.is_dir() and any(configs_dir.rglob("*.toml")):
+        return LabDoctorCheck(name=name, status="PASS", message=str(configs_dir.parent))
     return LabDoctorCheck(
-        name="Global Lab template cache",
+        name=name,
         status="WARN",
-        message=f"Missing {_global_lab_templates_dir()}",
-        remediation="Run prime lab sync.",
+        message=f"Missing {configs_dir.parent}",
+        remediation=remediation,
     )
 
 
@@ -1113,18 +1134,36 @@ def _path_check(
 def _gitignore_check(workspace: Path) -> LabDoctorCheck:
     path = workspace / ".gitignore"
     existing = path.read_text(encoding="utf-8") if path.is_file() else ""
-    missing = _missing_gitignore_patterns(existing)
+    missing = missing_lab_gitignore_patterns(existing)
     if not missing:
         return LabDoctorCheck(
-            name="Gitignore outputs",
+            name="Lab gitignore",
             status="PASS",
-            message="Standard output and generated source paths are ignored.",
+            message="Standard Lab generated and local paths are ignored.",
         )
     return LabDoctorCheck(
-        name="Gitignore outputs",
+        name="Lab gitignore",
         status="WARN",
         message="Missing " + ", ".join(missing),
-        remediation="Run prime lab doctor --fix to add standard output ignores.",
+        remediation="Run prime lab doctor --fix to add standard Lab ignores.",
+    )
+
+
+def _tracked_lab_git_hygiene_check(workspace: Path) -> LabDoctorCheck:
+    tracked_paths = tracked_lab_hygiene_paths(workspace)
+    if not tracked_paths:
+        return LabDoctorCheck(
+            name="Tracked Lab git hygiene",
+            status="PASS",
+            message="No generated Lab guidance or outputs are tracked.",
+        )
+    shown = ", ".join(tracked_paths[:5])
+    suffix = "" if len(tracked_paths) <= 5 else f" and {len(tracked_paths) - 5} more"
+    return LabDoctorCheck(
+        name="Tracked Lab git hygiene",
+        status="FAIL",
+        message="Tracked generated Lab files: " + shown + suffix,
+        remediation="Run git rm --cached on the generated Lab files and keep them local only.",
     )
 
 
@@ -1343,7 +1382,7 @@ def _ensure_uv_project(workspace: Path, emit: Emit, runner: Runner) -> None:
         _check_command(["uv", "init"], workspace, emit, runner)
         _remove_if_exists(workspace / "main.py")
         _remove_if_exists(workspace / ".python-version")
-        _append_gitignore(workspace)
+        append_lab_gitignore(workspace)
     else:
         emit("Found pyproject.toml\n")
 
@@ -1422,10 +1461,11 @@ def _write_lab_docs_index(workspace: Path, agents: tuple[str, ...]) -> None:
     docs_dir.mkdir(parents=True, exist_ok=True)
     guidance_files = [
         "- `AGENTS.md`",
+        "- `CLAUDE.md`",
         "- `environments/AGENTS.md`",
     ]
     if "claude" in agents:
-        guidance_files.insert(1, "- `CLAUDE.md`")
+        guidance_files.insert(2, f"- `{LOCAL_CLAUDE_MD}`")
     index = docs_dir / "index.md"
     index.write_text(
         "\n".join(
@@ -1702,24 +1742,6 @@ def _normalize_supported_agent(raw_agent: str, *, allow_all: bool) -> str:
             + ", ".join((*SUPPORTED_AGENTS, "all"))
         )
     return agent
-
-
-def _append_gitignore(workspace: Path) -> None:
-    path = workspace / ".gitignore"
-    existing = path.read_text(encoding="utf-8") if path.is_file() else ""
-    missing = _missing_gitignore_patterns(existing)
-    if missing:
-        section = "\n# Lab generated artifacts\n" + "\n".join(missing) + "\n"
-        path.write_text(existing.rstrip() + section + "\n", encoding="utf-8")
-
-
-def _missing_gitignore_patterns(existing: str) -> list[str]:
-    existing_patterns = {
-        line.strip()
-        for line in existing.splitlines()
-        if line.strip() and not line.lstrip().startswith("#")
-    }
-    return [pattern for pattern in LAB_GITIGNORE_PATTERNS if pattern not in existing_patterns]
 
 
 def _global_prime_skills_dir() -> Path:

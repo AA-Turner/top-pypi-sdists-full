@@ -9,7 +9,7 @@ Full event tree for a typical run::
 
     InstallEvent                                # emitted here first by download()
     └── BinaryRequestEvent × N                  # emitted from config.json required_binaries
-        └── provider hooks → BinaryEvent
+        └── abxpkg BinaryService → BinaryEvent
 
     CrawlEvent                                  # internal lifecycle root
     ├── CrawlSetupEvent                         # plugin on_CrawlSetup hooks run here
@@ -39,11 +39,11 @@ Full event tree for a typical run::
 Result collection:
 - ArchiveResultEvents are only emitted during the snapshot phase (under
   CrawlStartEvent → SnapshotEvent).
-- Install preflight resolves ``required_binaries`` through provider plugins'
-  ``on_BinaryRequest__*`` hooks.
-- Provider hooks emit ``Binary`` only. Crawl setup hooks emit no stdout JSONL
-  records. Snapshot hooks emit ``ArchiveResult`` and may also emit ``Snapshot``
-  and ``Tag``.
+- Install preflight emits ``BinaryRequestEvent`` records from
+  ``required_binaries``. abxpkg's ``BinaryService`` resolves or installs them,
+  and ``BinaryCacheService`` projects runtime cache/env state.
+- Crawl setup hooks emit no stdout JSONL records. Snapshot hooks emit
+  ``ArchiveResult`` and may also emit ``Snapshot`` and ``Tag``.
 - ArchiveResultService emits ArchiveResultEvents in two cases: directly from
   hook JSONL output (inline), or as a synthetic fallback on ProcessCompletedEvent
   when the hook didn't report one itself (failed, or succeeded with output files).
@@ -63,7 +63,7 @@ Key abxbus concepts used:
 - **Queue-jump** (``await bus.emit(...).now()``): the emitted event and ALL its
   descendants complete synchronously before the await returns. This is how
   config propagation works: InstallEvent emits BinaryRequestEvent →
-  provider hooks resolve/install it → BinaryEvent updates runtime binary state,
+  abxpkg resolves/installs it → BinaryEvent updates runtime binary state,
   and snapshot hook stdout records like ``ArchiveResult`` / ``Snapshot`` / ``Tag``
   are also fully routed before the next stdout line is read.
 
@@ -88,6 +88,7 @@ from tempfile import TemporaryDirectory
 from typing import Any
 
 from abxbus import EventBus, EventBusMiddleware, EventConcurrencyMode, EventHandlerCompletionMode, EventHandlerConcurrencyMode
+from abxpkg.binary_service import BinaryCacheBackend, BinaryCacheService, BinaryService
 
 from .config import ensure_default_persona_dir, get_initial_env, get_derived_config
 from .events import (
@@ -99,7 +100,16 @@ from .events import (
 from .heartbeat import CrawlHeartbeat
 from .models import Snapshot, write_jsonl
 from .models import Hook, Plugin, discover_plugins, filter_plugins
-from .services import ArchiveResultService, BinaryService, CrawlService, MachineService, ProcessService, SnapshotService, TagService
+from .services import (
+    AbxDlEnvConfigFileBinaryCacheBackend,
+    ArchiveResultService,
+    CrawlService,
+    MachineService,
+    ProcessService,
+    PluginBinariesService,
+    SnapshotService,
+    TagService,
+)
 
 
 def setup_services(
@@ -128,6 +138,9 @@ def setup_services(
     interactive_tty: bool | None = None,
     abort_requested: Any | None = None,
     MachineService: type[MachineService] | None = MachineService,
+    PluginBinariesService: type[PluginBinariesService] | None = PluginBinariesService,
+    BinaryCacheService: type[BinaryCacheService] | None = BinaryCacheService,
+    BinaryCacheBackend: BinaryCacheBackend | None = None,
     BinaryService: type[BinaryService] | None = BinaryService,
     ProcessService: type[ProcessService] | None = ProcessService,
     ArchiveResultService: type[ArchiveResultService] | None = ArchiveResultService,
@@ -176,9 +189,21 @@ def setup_services(
                     ),
                 )
 
+    if BinaryCacheService is not None:
+        BinaryCacheService(
+            bus,
+            backend=BinaryCacheBackend or AbxDlEnvConfigFileBinaryCacheBackend(bus, plugins=plugins),
+        )
+
     if BinaryService is not None:
-        install_plugins = get_install_plugins(plugins)
         BinaryService(
+            bus,
+            auto_install=auto_install,
+        )
+
+    if install_enabled and PluginBinariesService is not None:
+        install_plugins = get_install_plugins(plugins)
+        PluginBinariesService(
             bus,
             plugins=plugins,
             auto_install=auto_install,
@@ -266,15 +291,17 @@ async def install_plugins(
     bus: EventBus | None = None,
     dry_run: bool = False,
     MachineService: type[MachineService] | None = MachineService,
+    PluginBinariesService: type[PluginBinariesService] | None = PluginBinariesService,
+    BinaryCacheService: type[BinaryCacheService] | None = BinaryCacheService,
+    BinaryCacheBackend: BinaryCacheBackend | None = None,
     BinaryService: type[BinaryService] | None = BinaryService,
     ProcessService: type[ProcessService] | None = ProcessService,
 ):
     """Run only the dependency preflight on an existing bus or a temporary one.
 
     This emits InstallEvent, which resolves enabled plugins'
-    ``config.json > required_binaries`` through provider plugins'
-    ``on_BinaryRequest__*`` hooks, without starting the later
-    ``on_CrawlSetup__*`` or ``on_Snapshot__*`` plugin phases.
+    ``config.json > required_binaries`` through abxpkg, without starting the
+    later ``on_CrawlSetup__*`` or ``on_Snapshot__*`` plugin phases.
     """
     all_plugins = plugins or discover_plugins()
     selected = filter_plugins(all_plugins, list(plugin_names), include_providers=True) if plugin_names else all_plugins
@@ -320,6 +347,9 @@ async def install_plugins(
             emit_jsonl=emit_jsonl,
             interactive_tty=sys.stdout.isatty() or sys.stderr.isatty(),
             MachineService=MachineService,
+            PluginBinariesService=PluginBinariesService,
+            BinaryCacheService=BinaryCacheService,
+            BinaryCacheBackend=BinaryCacheBackend,
             BinaryService=BinaryService,
             ProcessService=ProcessService,
             ArchiveResultService=None,
@@ -470,6 +500,9 @@ async def download(
     crawl_event_enabled: bool = True,
     dry_run: bool = False,
     MachineService: type[MachineService] | None = MachineService,
+    PluginBinariesService: type[PluginBinariesService] | None = PluginBinariesService,
+    BinaryCacheService: type[BinaryCacheService] | None = BinaryCacheService,
+    BinaryCacheBackend: BinaryCacheBackend | None = None,
     BinaryService: type[BinaryService] | None = BinaryService,
     ProcessService: type[ProcessService] | None = ProcessService,
     ArchiveResultService: type[ArchiveResultService] | None = ArchiveResultService,
@@ -518,8 +551,7 @@ async def download(
     if interactive_tty is None:
         interactive_tty = stdout_is_tty or sys.stderr.isatty()
 
-    # Filter plugins for runtime phases (includes provider plugins so their
-    # on_BinaryRequest hooks are available during install resolution).
+    # Filter plugins for runtime phases; binary providers are handled by abxpkg.
     if selected_plugins:
         plugins = filter_plugins(plugins, selected_plugins)
 
@@ -594,6 +626,9 @@ async def download(
         emit_jsonl=emit_jsonl,
         interactive_tty=interactive_tty,
         MachineService=MachineService,
+        PluginBinariesService=PluginBinariesService,
+        BinaryCacheService=BinaryCacheService,
+        BinaryCacheBackend=BinaryCacheBackend,
         BinaryService=BinaryService,
         ProcessService=ProcessService,
         ArchiveResultService=ArchiveResultService,

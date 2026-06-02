@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: panta-sim
-Version: 0.6.7
+Version: 0.8.22
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
@@ -14,16 +14,21 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Rust
 Classifier: Topic :: Scientific/Engineering :: Physics
 Requires-Dist: numpy>=1.20
+Requires-Dist: amazon-braket-sdk>=1.80 ; extra == 'braket'
 Requires-Dist: cirq-core>=1.3 ; extra == 'cirq'
 Requires-Dist: pytest>=7 ; extra == 'dev'
 Requires-Dist: matplotlib>=3.5 ; extra == 'dev'
 Requires-Dist: qiskit>=1.0 ; extra == 'dev'
 Requires-Dist: qiskit-aer>=0.13 ; extra == 'dev'
+Requires-Dist: qiskit-qasm3-import ; extra == 'dev'
 Requires-Dist: pennylane>=0.35 ; extra == 'dev'
 Requires-Dist: cirq-core>=1.3 ; extra == 'dev'
+Requires-Dist: amazon-braket-sdk>=1.80 ; extra == 'dev'
+Requires-Dist: maturin>=1.0 ; extra == 'dev'
 Requires-Dist: pennylane>=0.35 ; extra == 'pennylane'
 Requires-Dist: qiskit>=1.0 ; extra == 'qiskit'
 Requires-Dist: matplotlib>=3.5 ; extra == 'viz'
+Provides-Extra: braket
 Provides-Extra: cirq
 Provides-Extra: dev
 Provides-Extra: pennylane
@@ -65,7 +70,36 @@ Full state vector + density matrix + cross-platform GPU (wgpu) 지원.
   cross-platform NVIDIA / AMD / Intel / Apple Silicon, Vulkan / DX12 / Metal
   자동 선택. statevector + density matrix 모두 지원, 27 큐비트까지 동작 (v0.5.2).
 - **Python API**: PyO3 + maturin, NumPy 연동
-- **검증**: 526 pytest + 282 cargo test, Aer cross-check ‖ρ‖ < 1e-10,
+- **합성·변분·동역학 (v0.7.2~)**: 임의 unitary 분해 (KAK/QSD), 임의 상태
+  초기화 (Möttönen), 심볼릭 `Parameter`, 다중 제어 게이트, 커스텀 Kraus 채널,
+  SPSA/일반 QAOA, 해밀토니안 빌더 + Trotter 시간 진화, 관측량 분산/상관
+- **Tensor Network Contraction 엔진 (v0.8~)**: `qc.run(method="tensornet")` /
+  `qc.amplitude(bitstring)` / `qc.amplitudes(bitstrings)` / `qc.expectation_tn(H)`
+  — MPS 가 못 하는 deep / high-entanglement 회로를 회로 자체를 tensor network
+  으로 표현해 contraction 으로 시뮬 (greedy / random-greedy / SA / multilevel
+  partition / optimal / hyper path optimizer + 자동 slicing + cross-platform
+  wgpu GPU contraction).  64-큐비트 2D 회로 amplitude + 분산 슬라이싱.
+- **Stabilizer (Clifford) 백엔드 (v0.8.2~)**: `qc.run(method="stabilizer")` —
+  Aaronson–Gottesman tableau 로 Clifford 회로를 다항시간 시뮬레이션해 **수천~
+  수만 큐비트** 까지 동작 (Gottesman–Knill).  `depolarizing=p` 로 **수천 큐비트
+  noisy Clifford** (오류정정 코드 임계값 연구, v0.8.16).
+- **near-Clifford (Clifford+T) 백엔드 (v0.8.7~)**: `qc.clifford_t_amplitude(x,
+  low_rank=True)` / `qc.clifford_t_expectation(H)` — Bravyi–Gosset stabilizer-rank
+  (2^{⌈t/2⌉}) 로 **큰 N · 적은 T** 회로의 진폭·기댓값을 전역 위상까지 정확히
+  계산 (TN 이 못 하는 high-treewidth + 저-T 영역).  `qc.clifford_t_sample(shots)`
+  (v0.8.17) 는 Metropolis-Hastings MCMC 로 `∝|⟨x|ψ⟩|²` 측정 분포를 샘플링
+  (아핀-구조 제안으로 GHZ 류 다봉 분포도 정확).
+- **자동 백엔드 선택 (v0.8.5~)**: `qc.run(method="auto")` — 회로 분석으로
+  statevector / stabilizer / density / mps 자동 선택.
+- **표준 알고리즘 라이브러리 (v0.8.14~)**: `panta_sim.algorithms` — QFT /
+  Grover / QPE / Draper 덧셈기 / Bernstein–Vazirani / Deutsch–Jozsa / GHZ·W
+  상태 (Qiskit 교차검증, 전 백엔드 호환).
+- **CX-basis transpile 패스 (v0.8.3~)**: `qc.transpile_to_basis("cx")` — 모든
+  2/3-큐비트 게이트를 CX + 1q 로 자동 분해 (하드웨어 타깃).
+- **RCS / Linear XEB 벤치마크 (v0.8.1~)**: `random_circuit` / `linear_xeb` /
+  `xeb_ideal` (Google supremacy-style cross-entropy benchmarking).
+- **검증**: 1430+ pytest + cargo test, Qiskit cross-check 1e-9~1e-10
+  (`StabilizerState` / `Operator.equiv` / `expectation_value` / `QFT` 포함),
   wgpu vs CPU 1e-5 (f32 한계)
 
 ## 설치
@@ -130,14 +164,19 @@ counts = (
 | 단일 큐비트 | OpenQASM `p` / `u2` / `u` (v0.4.7) | `p(λ, q)`, `u2(φ, λ, q)`, `u(θ, φ, λ, q)` |
 | 회전 | Rx / Ry / Rz | `rx(θ, q)`, `ry(θ, q)`, `rz(θ, q)` |
 | 1큐비트 unitary | 임의 2×2 행렬 | `unitary(matrix, q)` |
-| 2큐비트 | CNOT / CZ / SWAP | `cx(c, t)`, `cz(a, b)`, `swap(a, b)` |
+| k큐비트 unitary (v0.7.2) | 임의 2^k×2^k → native (KAK/QSD, 전 백엔드) | `unitary(matrix, qubits, decompose=True)` |
+| 2큐비트 | CNOT / CZ / SWAP / iSWAP | `cx(c, t)`, `cz(a, b)`, `swap(a, b)`, `iswap(a, b)` |
+| 2큐비트 회전 (v0.7) | RXX / RYY / RZZ | `rxx(θ, a, b)`, `ryy(θ, a, b)`, `rzz(θ, a, b)` |
 | 2큐비트 controlled (v0.4.7) | CY / CH | `cy(c, t)`, `ch(c, t)` |
 | 2큐비트 controlled rotation (v0.4.7) | CRx / CRy / CRz / CP | `crx(θ, c, t)`, `cry(θ, c, t)`, `crz(θ, c, t)`, `cp(λ, c, t)` |
 | 2큐비트 controlled-U (v0.4.7) | CU3 / CU | `cu3(θ, φ, λ, c, t)`, `cu(θ, φ, λ, γ, c, t)` |
 | 3큐비트 | Toffoli (CCX) / Fredkin (CSWAP) | `ccx(c1, c2, t)`, `cswap(c, t1, t2)` |
+| 다중 제어 (v0.7.2) | Cⁿ(X) / Cⁿ(Z) / Cⁿ(P) — ancilla-free | `mcx(controls, t)`, `mcz(controls, t)`, `mcp(λ, controls, t)` |
 | Reset / Dynamic (v0.4.5~) | reset / classical control | `reset(q)`, `<gate>().c_if(c, value)` |
 | Block control flow (v0.4.7) | if_test / while_loop / for_loop / switch | `with qc.if_test((c, v))`, `with qc.while_loop(...)` 등 |
 | 측정 | 부분 / 전체 측정 | `measure(q, c)`, `measure_all()` |
+| 상태 초기화 (v0.7.2) | statevector / int / 라벨 (Qiskit 호환) | `initialize(state, qubits=None)` |
+| 회로 조작 (v0.7.2) | copy / 역회로 / 합성 / 거듭제곱 | `copy()`, `inverse()`, `compose(other, qubits=)`, `power(n)` |
 
 비트 순서 규약은 Qiskit 과 동일한 little-endian 이다 (`q_{n-1} … q_1 q_0`).
 `counts()` 의 키는 MSB-first 비트 문자열, statevector 의 인덱스는 동일한 비트열을 정수로 해석한 값이다.
@@ -162,6 +201,8 @@ Qiskit 교차검증 테스트는 `qiskit` 패키지가 설치되어 있을 때�
 - `bell_state.py` — Bell 상태 생성 및 측정
 - `grover.py` — 2큐비트 Grover 탐색
 - `qft.py` — Quantum Fourier Transform
+- `vqe_h2.py` — VQE 로 H₂ 분자 바닥상태 (chemical accuracy) (v0.7)
+- `qaoa_maxcut.py` — QAOA MaxCut on C5 cycle (v0.7)
 - `mps/ghz_100_showcase.py` — GHZ-100 (statevector OOM 영역) MPS sampling (v0.6.3)
 - `mps/qaoa_maxcut_ring.py` — QAOA p=1 MaxCut on Ring N=30 (wraparound edge auto-handled) (v0.6.3)
 - `mps/hea_n30.py` — Hardware-Efficient Ansatz, depth=5, N=30 + truncation error 비교 (v0.6.3)
@@ -170,9 +211,58 @@ Qiskit 교차검증 테스트는 `qiskit` 패키지가 설치되어 있을 때�
 python examples/bell_state.py
 python examples/grover.py
 python examples/qft.py
+python examples/vqe_h2.py
+python examples/qaoa_maxcut.py
 python examples/mps/ghz_100_showcase.py
 python examples/mps/qaoa_maxcut_ring.py
 python examples/mps/hea_n30.py
+```
+
+## 변분 알고리즘 (VQE / QAOA) + 기댓값 (v0.7)
+
+```python
+import numpy as np
+from panta_sim import QuantumCircuit, VQE, maxcut_hamiltonian, qaoa_maxcut_ansatz
+
+# 1) Observable 기댓값 — 2ⁿ 행렬 없이 statevector/density/MPS 에 직접 계산.
+qc = QuantumCircuit(2)
+qc.h(0).cx(0, 1)
+print(qc.expectation({"ZZ": 1.0, "XX": 0.5}))   # ⟨ZZ⟩+0.5⟨XX⟩ (정확)
+print(qc.expectation({"ZZ": 1.0}, shots=8000))  # shot-based 추정 (NISQ, shot noise)
+#   method="mps" 로 N>20 대규모 회로도 (dense statevector 불필요)
+#   method="density_matrix" 로 noisy 회로의 Tr(ρH)
+
+# 1b) 임의 상태 초기화 (Qiskit initialize 호환) — 진폭 인코딩 (QML) 등.
+qc = QuantumCircuit(2)
+qc.initialize([0.5, 0.5, 0.5, 0.5])  # 균등 중첩 (statevector)
+# qc.initialize(5, [0,1,2])          # 계산 기저 |101⟩ (O(k))
+# qc.initialize("01")                # 라벨 (0 1 + - r l)
+
+# 2) VQE — Hamiltonian 바닥상태.
+H = {"II": -1.0523, "IZ": 0.3979, "ZI": -0.3979, "ZZ": -0.0113, "XX": 0.1809}
+def ansatz(p):
+    qc = QuantumCircuit(2)
+    qc.ry(p[0], 0).ry(p[1], 1).cx(0, 1).ry(p[2], 0).ry(p[3], 1)
+    return qc
+vqe = VQE(ansatz, H, optimizer="gradient-descent", gradient="parameter-shift")
+res = vqe.run(np.random.default_rng(0).uniform(0, 2*np.pi, 4))
+print(res.optimal_value)   # ≈ FCI ground-state energy
+
+# 3) QAOA MaxCut 템플릿.
+edges = [(0,1),(1,2),(2,0)]
+H = maxcut_hamiltonian(edges, 3)
+ansatz = qaoa_maxcut_ansatz(edges, 3, p=2)
+
+# 4) PennyLane autodiff — diff_method="parameter-shift" 로 qml.grad 동작.
+# 5) panta_sim.quantum_info — state_fidelity / partial_trace / entropy / trace_distance.
+
+# 6) 심볼릭 Parameter — 파라메트릭 회로를 한 번 만들고 값 대입 (Qiskit 패턴).
+from panta_sim import Parameter
+a, b = Parameter("a"), Parameter("b")
+ansatz = QuantumCircuit(2)
+ansatz.ry(a, 0).ry(b, 1).cx(0, 1)        # 심볼릭으로 빌드
+bound = ansatz.assign_parameters({a: 0.5, b: 1.2})   # 값 대입 → 실행 가능
+vqe = VQE(ansatz, H)                      # VQE 가 파라메트릭 회로 직접 수용
 ```
 
 ## 프로젝트 구조
@@ -320,8 +410,8 @@ except ValueError as e:
 - v0.4 — 노이즈 모델 ✅, mid-circuit measure / classical control ✅, block control flow ✅
 - v0.5 — Density matrix backend ✅, GPU (wgpu Tier-1) ✅, cuStateVec FFI placeholder ⚠
 - v0.5.x — wgpu N=28+ buffer 분할 / cuStateVec PyPI 배포 / GPU dynamic 회로
-- v0.6 — Tensor Network / MPS (1000+ 큐비트, shallow circuit)
-- v0.7 — VQE / QAOA + 자동 미분 (parameter-shift)
+- v0.6 — Tensor Network / MPS (1000+ 큐비트, shallow circuit) ✅
+- v0.7 — VQE / QAOA + 자동 미분 (parameter-shift) ✅, 네이티브 기댓값 (sv/density/MPS) ✅, quantum_info ✅
 - v0.8 — 실 QPU 연동 (IBM Runtime / Braket / Azure)
 
 상세 로드맵은 [`docs/plan.md`](docs/plan.md) 참고.

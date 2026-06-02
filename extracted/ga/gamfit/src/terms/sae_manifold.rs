@@ -10,7 +10,8 @@
 //!
 //! * beta: [`SaeManifoldAtom::decoder_coefficients`] (`B_k`, one block per atom).
 //! * ext-coords: [`SaeAssignment`] (`logits -> a_ik` and per-atom
-//!   `LatentCoordValues`). Per-row latent coordinates are written `t`; existing
+//!   `LatentCoordValues`). Softmax uses the identifiable reference-logit chart
+//!   with `K - 1` free assignment coordinates (`0` for `K = 1`). Per-row latent coordinates are written `t`; existing
 //!   kernel-shape state remains with carriers such as `SpatialLogKappaCoords`.
 //! * rho: [`SaeManifoldRho`] (`lambda_sparse`, `lambda_smooth`, `alpha_kj`) plus
 //!   the discrete `K` selected by the Python `compare_models` wrapper.
@@ -18,8 +19,8 @@
 //! The per-row local block is exactly the audit-revised shape:
 //!
 //! ```text
-//! ext_i = (logits_i[0..K], t_i0[0..d_0], ..., t_iK[0..d_K])
-//! dim(ext_i) = K + sum_k d_k
+//! ext_i = (assignment chart_i, t_i0[0..d_0], ..., t_iK[0..d_K])
+//! dim(ext_i) = assignment_dim + sum_k d_k
 //! ```
 //!
 //! [`SaeManifoldTerm::assemble_arrow_schur`] materializes the Gauss-Newton
@@ -56,28 +57,46 @@ use faer::Side;
 const SAE_MANIFOLD_ARMIJO_C1: f64 = 1.0e-4;
 const SAE_MANIFOLD_MAX_LINESEARCH_HALVINGS: usize = 12;
 
-/// Fixed precision of the proper Gaussian identifiability prior on the
-/// assignment logits, `½·κ·‖logit_row‖²` per observation row.
-///
-/// The softmax assignment is shift-invariant per row (adding a constant to
-/// every logit leaves `a = softmax(logit)` unchanged), so the logit
-/// Gauss-Newton curvature along the all-ones direction is *exactly* zero for
-/// every `K`: with the JVP `∂a_k/∂l_j = a_k(δ_kj − a_j)/τ`, the shift
-/// direction gives `Σ_j ∂a_k/∂l_j = a_k(1 − Σ_j a_j)/τ = 0`. For the
-/// single-atom `K=1` case the whole logit block is structurally zero. The
-/// assignment-sparsity prior (`assignment_hdiag`) does not in general cover
-/// that null direction. Left unregularised, the per-row latent Hessian
-/// `H_tt` is rank-deficient, so the REML/Laplace evidence `½log|H|` and the
-/// undamped selected-inverse traces are ill-defined at `ridge_t = 0`.
-///
-/// This κ is a *proper* prior (it enters the loss, gradient, and Hessian
-/// diagonal consistently), not a solver jitter: it pins the otherwise-flat
-/// logit gauge to 0, exactly as `mgcv` ridges an unpenalised smooth null
-/// space. It is a fixed model constant — independent of ρ — so it shifts the
-/// evidence by a ρ-independent amount and does not bias ρ-optimisation, while
-/// making `H_tt` positive-definite by construction so the exact undamped
-/// `arrow_log_det_from_cache` evidence and the IFT/EFS traces are well-posed.
-const SAE_LOGIT_IDENTIFIABILITY_PRECISION: f64 = 1.0e-4;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SaeStreamingPlan {
+    pub streaming: bool,
+    pub chunk_size: usize,
+    pub estimated_full_batch_bytes: usize,
+    pub in_core_budget_bytes: usize,
+}
+
+fn sae_streaming_plan_from_budget(
+    n_obs: usize,
+    total_basis: usize,
+    k_atoms: usize,
+    d_max: usize,
+    in_core_budget_bytes: usize,
+    chunk_window_bytes: usize,
+) -> SaeStreamingPlan {
+    const BYTES_PER_F64: usize = 8;
+    const MIN_CHUNK_ROWS: usize = 256;
+    let per_row_words = total_basis
+        .saturating_mul(1 + d_max)
+        .saturating_add(k_atoms)
+        .max(1);
+    let per_row_bytes = per_row_words.saturating_mul(BYTES_PER_F64);
+    let full_batch_bytes = n_obs.saturating_mul(per_row_bytes);
+    if full_batch_bytes <= in_core_budget_bytes {
+        return SaeStreamingPlan {
+            streaming: false,
+            chunk_size: n_obs.max(1),
+            estimated_full_batch_bytes: full_batch_bytes,
+            in_core_budget_bytes,
+        };
+    }
+    let rows_per_chunk = (chunk_window_bytes / per_row_bytes).max(MIN_CHUNK_ROWS);
+    SaeStreamingPlan {
+        streaming: true,
+        chunk_size: rows_per_chunk.min(n_obs).max(1),
+        estimated_full_batch_bytes: full_batch_bytes,
+        in_core_budget_bytes,
+    }
+}
 
 /// Decay law for deterministic Gumbel/concrete assignment temperature.
 #[derive(Debug, Clone)]
@@ -304,77 +323,18 @@ pub trait SaeBasisEvaluator: Send + Sync + std::fmt::Debug {
     /// that exact Hessian silently drops the residual and collapses to
     /// Gauss-Newton (issue #458).
     ///
-    /// The default recovers `T` numerically by central-differencing the
-    /// analytic second jet [`Self::second_jet_dyn`] — so *any* basis that
-    /// exposes a closed-form Hessian also exposes a (numerically exact) third
-    /// jet, and the exact isometry Hessian is never silently wrong. Bases with
-    /// a closed-form third jet ([`SaeBasisThirdJet`]) override this for the
-    /// exact, allocation-light fast path. Returns `None` only when the basis
-    /// has no analytic second jet either (so there is nothing to differentiate).
+    /// Default returns `None`, meaning "this evaluator has no analytic third
+    /// jet". Every evaluator that supplies a closed-form Hessian
+    /// ([`SaeBasisSecondJet`]) also supplies a closed-form third jet
+    /// ([`SaeBasisThirdJet`]) and overrides this to wrap the typed call in
+    /// `Some(...)`, so the exact path is always taken — there is no
+    /// finite-difference fallback. (Mirrors [`Self::second_jet_dyn`]; the
+    /// `coords.dim()` touch keeps the otherwise-unused grid parameter
+    /// lint-clean under the source-hygiene gate, matching that default.)
     fn third_jet_dyn(&self, coords: ArrayView2<'_, f64>) -> Option<Result<Array5<f64>, String>> {
-        third_jet_central_difference(self, coords)
+        coords.dim();
+        None
     }
-}
-
-/// Numerically-exact basis third jet from a central difference of the analytic
-/// second jet. Used as the [`SaeBasisEvaluator::third_jet_dyn`] default for
-/// bases that supply `H` but not a closed-form `K`. Returns `None` when the
-/// basis exposes no analytic second jet.
-///
-/// `T[n, m, a, c, e] ≈ (H(t + h e_e)[n,m,a,c] − H(t − h e_e)[n,m,a,c]) / (2h)`,
-/// symmetrized over the trailing axis pair so the result inherits the exact
-/// `(a, c)` symmetry of `H` regardless of finite-difference noise.
-fn third_jet_central_difference(
-    evaluator: &(impl SaeBasisEvaluator + ?Sized),
-    coords: ArrayView2<'_, f64>,
-) -> Option<Result<Array5<f64>, String>> {
-    let base = match evaluator.second_jet_dyn(coords)? {
-        Ok(h) => h,
-        Err(err) => return Some(Err(err)),
-    };
-    let (n, m, d, d2) = base.dim();
-    if d != d2 {
-        return Some(Err(format!(
-            "third_jet_central_difference: second jet trailing dims disagree ({d} vs {d2})"
-        )));
-    }
-    let mut t3 = Array5::<f64>::zeros((n, m, d, d, d));
-    // Step scaled to the coordinate magnitude so the central difference keeps
-    // ~10 significant digits across the latent range without underflowing on
-    // coords near the origin.
-    for e in 0..d {
-        let mut plus = coords.to_owned();
-        let mut minus = coords.to_owned();
-        let mut max_abs = 0.0_f64;
-        for row in 0..n {
-            max_abs = max_abs.max(coords[[row, e]].abs());
-        }
-        let step = 1e-5 * (1.0 + max_abs);
-        for row in 0..n {
-            plus[[row, e]] += step;
-            minus[[row, e]] -= step;
-        }
-        let h_plus = match evaluator.second_jet_dyn(plus.view())? {
-            Ok(h) => h,
-            Err(err) => return Some(Err(err)),
-        };
-        let h_minus = match evaluator.second_jet_dyn(minus.view())? {
-            Ok(h) => h,
-            Err(err) => return Some(Err(err)),
-        };
-        let inv = 0.5 / step;
-        for row in 0..n {
-            for col in 0..m {
-                for a in 0..d {
-                    for c in 0..d {
-                        let deriv = (h_plus[[row, col, a, c]] - h_minus[[row, col, a, c]]) * inv;
-                        t3[[row, col, a, c, e]] = deriv;
-                    }
-                }
-            }
-        }
-    }
-    Some(Ok(t3))
 }
 
 /// Bases that expose an analytic second jet
@@ -402,11 +362,12 @@ pub trait SaeBasisSecondJet: SaeBasisEvaluator {
 /// `B_{ab,cd} = K_{a,cd}ᵀ W J_b + H_{a,c}ᵀ W H_{b,d} + H_{a,d}ᵀ W H_{b,c}
 /// + J_aᵀ W K_{b,cd}`. Bases that supply a closed-form `H` (the
 /// [`SaeBasisSecondJet`] super-bound) but not `K` leave that exact Hessian
-/// silently dropping the residual term; this trait closes that gap for the
-/// curved analytic bases (sphere chart, periodic harmonic, torus harmonic,
-/// Euclidean monomial) and the trivially-zero affine basis. The Duchon basis
-/// keeps its existing radial-source lazy `K` path and does not implement this
-/// trait. The full third jet is symmetric in its three trailing axes.
+/// silently dropping the residual term; this trait closes that gap for every
+/// analytic basis: the curved bases (sphere chart, periodic harmonic, torus
+/// harmonic), the Euclidean monomial patch, the trivially-zero affine basis,
+/// and the Duchon basis (radial third-derivative kernel block + monomial
+/// nullspace block, both in closed form). The full third jet is symmetric in
+/// its three trailing axes.
 pub trait SaeBasisThirdJet: SaeBasisSecondJet {
     fn third_jet(&self, coords: ArrayView2<'_, f64>) -> Result<Array5<f64>, String>;
 }
@@ -1291,6 +1252,10 @@ impl SaeBasisEvaluator for DuchonCoordinateEvaluator {
         Some(<Self as SaeBasisSecondJet>::second_jet(self, coords))
     }
 
+    fn third_jet_dyn(&self, coords: ArrayView2<'_, f64>) -> Option<Result<Array5<f64>, String>> {
+        Some(<Self as SaeBasisThirdJet>::third_jet(self, coords))
+    }
+
     fn evaluate(&self, coords: ArrayView2<'_, f64>) -> Result<(Array2<f64>, Array3<f64>), String> {
         if coords.ncols() != self.centers.ncols() {
             return Err(format!(
@@ -1314,6 +1279,20 @@ impl SaeBasisSecondJet for DuchonCoordinateEvaluator {
             ));
         }
         crate::basis::duchon_sae_atom_second_jet(coords, self.centers.view(), self.order)
+            .map_err(|err| err.to_string())
+    }
+}
+
+impl SaeBasisThirdJet for DuchonCoordinateEvaluator {
+    fn third_jet(&self, coords: ArrayView2<'_, f64>) -> Result<Array5<f64>, String> {
+        if coords.ncols() != self.centers.ncols() {
+            return Err(format!(
+                "DuchonCoordinateEvaluator::third_jet: expected latent_dim {}, got {}",
+                self.centers.ncols(),
+                coords.ncols()
+            ));
+        }
+        crate::basis::duchon_sae_atom_third_jet(coords, self.centers.view(), self.order)
             .map_err(|err| err.to_string())
     }
 }
@@ -1807,9 +1786,13 @@ impl AssignmentMode {
 
 /// Per-row latent assignment state.
 ///
-/// The free assignment parameter is `logits`; non-negative assignments are
+/// The stored assignment parameter is `logits`; non-negative assignments are
 /// derived by row-wise softmax, independent IBP-MAP sigmoid active indicators,
-/// or JumpReLU gates. `coords[k]` holds `t_{.,k}` for atom `k`.
+/// or JumpReLU gates. Softmax logits are canonicalized to the reference chart
+/// `logits[K - 1] = 0`, so the row-local Newton coordinates contain only the
+/// first `K - 1` logits (`0` coordinates for `K = 1`). Gate-style modes keep
+/// all `K` logits as identifiable scalar parameters. `coords[k]` holds
+/// `t_{.,k}` for atom `k`.
 #[derive(Debug, Clone)]
 pub struct SaeAssignment {
     pub logits: Array2<f64>,
@@ -1829,7 +1812,7 @@ impl SaeAssignment {
 
     #[must_use = "build error must be handled"]
     pub fn with_mode(
-        logits: Array2<f64>,
+        mut logits: Array2<f64>,
         coords: Vec<LatentCoordValues>,
         mode: AssignmentMode,
     ) -> Result<Self, String> {
@@ -1850,6 +1833,12 @@ impl SaeAssignment {
                 ));
             }
         }
+        for row in 0..n {
+            validate_finite_logits(logits.row(row), row)?;
+        }
+        if matches!(mode, AssignmentMode::Softmax { .. }) {
+            canonicalize_softmax_logits(&mut logits);
+        }
         Ok(Self {
             logits,
             coords,
@@ -1869,13 +1858,20 @@ impl SaeAssignment {
         self.coords.iter().map(|c| c.latent_dim()).sum()
     }
 
+    pub fn assignment_coord_dim(&self) -> usize {
+        match self.mode {
+            AssignmentMode::Softmax { .. } => self.k_atoms().saturating_sub(1),
+            AssignmentMode::IBPMap { .. } | AssignmentMode::JumpReLU { .. } => self.k_atoms(),
+        }
+    }
+
     pub fn row_block_dim(&self) -> usize {
-        self.k_atoms() + self.total_coord_dim()
+        self.assignment_coord_dim() + self.total_coord_dim()
     }
 
     pub fn coord_offsets(&self) -> Vec<usize> {
         let mut out = Vec::with_capacity(self.k_atoms());
-        let mut cursor = self.k_atoms();
+        let mut cursor = self.assignment_coord_dim();
         for coord in &self.coords {
             out.push(cursor);
             cursor += coord.latent_dim();
@@ -1934,16 +1930,20 @@ impl SaeAssignment {
     }
 
     /// Flatten extension coordinates in row-major SAE layout:
-    /// `(logits_i[0..K], t_i0[0..d_0], ..., t_iK[0..d_K])` for every row.
+    /// `(assignment chart_i, t_i0[0..d_0], ..., t_iK[0..d_K])` for every row.
+    /// Softmax contributes the first `K - 1` reference logits and omits the
+    /// fixed reference logit; gate-style assignment modes contribute all `K`
+    /// logits.
     pub fn flatten_ext_coords(&self) -> Array1<f64> {
         let n = self.n_obs();
         let q = self.row_block_dim();
         let k = self.k_atoms();
+        let assignment_dim = self.assignment_coord_dim();
         let offsets = self.coord_offsets();
         let mut out = Array1::<f64>::zeros(n * q);
         for row in 0..n {
             let base = row * q;
-            for atom in 0..k {
+            for atom in 0..assignment_dim {
                 out[base + atom] = self.logits[[row, atom]];
             }
             for atom in 0..k {
@@ -2276,7 +2276,7 @@ impl SaeManifoldLoss {
 /// concentrates on a small support) — only a subset of `K` atoms are active
 /// per observation.  The Arrow-Schur row block for observation `i` has dim
 /// `q_active_i = |active_atoms_i| + Σ_{k ∈ active_i} d_k` rather than
-/// `q = K + Σ_k d_k`.  This struct records which atoms are active per row
+/// `q = assignment_dim + Σ_k d_k`.  This struct records which atoms are active per row
 /// and maps compressed block positions back to full-q positions so that
 /// `apply_newton_step` can unpack the compact `delta_t` from the solve.
 ///
@@ -2518,6 +2518,44 @@ impl SaeManifoldTerm {
 
     pub fn k_atoms(&self) -> usize {
         self.atoms.len()
+    }
+
+    /// Auto-derived in-core vs streaming plan for SAE Arrow-Schur work.
+    ///
+    /// This is intentionally not user-configurable: the route follows the
+    /// retained full-batch working-set estimate and the currently selected GPU
+    /// memory budget when CUDA is usable, otherwise a conservative host budget.
+    pub fn streaming_plan(&self) -> SaeStreamingPlan {
+        const HOST_IN_CORE_BYTES: usize = 2 * 1024 * 1024 * 1024;
+        const CPU_L2_CACHE_BYTES: usize = 1024 * 1024;
+        const CHUNK_CACHE_MULTIPLE: usize = 8;
+        let n_obs = self.n_obs();
+        let total_basis: usize = self.atoms.iter().map(|atom| atom.basis_size()).sum();
+        let d_max = self
+            .atoms
+            .iter()
+            .map(|atom| atom.latent_dim)
+            .max()
+            .unwrap_or(0);
+        let (budget, chunk_window) = match crate::gpu::runtime::GpuRuntime::global() {
+            Some(rt) => {
+                let device_budget = rt.memory_budget_bytes;
+                let window = (device_budget / 16).max(CPU_L2_CACHE_BYTES * CHUNK_CACHE_MULTIPLE);
+                (device_budget / 4, window)
+            }
+            None => (
+                HOST_IN_CORE_BYTES,
+                CPU_L2_CACHE_BYTES * CHUNK_CACHE_MULTIPLE,
+            ),
+        };
+        sae_streaming_plan_from_budget(
+            n_obs,
+            total_basis,
+            self.k_atoms(),
+            d_max,
+            budget,
+            chunk_window,
+        )
     }
 
     /// Construction-time validation: every Psi-tier analytic penalty in the
@@ -2938,6 +2976,7 @@ impl SaeManifoldTerm {
         let n = self.n_obs();
         let p = self.output_dim();
         let k_atoms = self.k_atoms();
+        let assignment_dim = self.assignment.assignment_coord_dim();
         let q = self.assignment.row_block_dim();
         let beta_dim = self.beta_dim();
         let beta_offsets = self.beta_offsets();
@@ -2991,7 +3030,7 @@ impl SaeManifoldTerm {
         //   * JumpReLU — structural gate (`logit > threshold`); the compact
         //     solve is bit-identical to the dense one (gated atoms carry zero
         //     assignment mass).
-        //   * Softmax / IBP-MAP at large `K` — the dense `(m_total · p)²` data
+        //   * IBP-MAP at large `K` — the dense `(m_total · p)²` data
         //     Gram is infeasible, so each row is truncated to its
         //     top-`k_active` atoms above a relative magnitude cutoff
         //     ([`Self::sparse_active_plan`]). Small-`K` problems return `None`
@@ -3013,7 +3052,8 @@ impl SaeManifoldTerm {
                 coord_dims.clone(),
                 self.assignment.coord_offsets(),
             )),
-            AssignmentMode::Softmax { .. } | AssignmentMode::IBPMap { .. } => {
+            AssignmentMode::Softmax { .. } => None,
+            AssignmentMode::IBPMap { .. } => {
                 match self.sparse_active_plan() {
                     Some((k_active_cap, relative_cutoff)) => {
                         // Build per-row dense assignments once to derive the
@@ -3147,7 +3187,7 @@ impl SaeManifoldTerm {
 
             // Determine whether this row uses the compact active-set layout.
             //   * JumpReLU: only gated atoms (logit > threshold) enter.
-            //   * Softmax / IBP-MAP at large K: only the top-`k_active` atoms.
+            //   * IBP-MAP at large K: only the top-`k_active` atoms.
             //   * Otherwise (small K): the dense uniform-q layout.
             let (q_row, local_jac_row) = if let Some(ref layout) = row_layout {
                 let active = &layout.active_atoms[row];
@@ -3187,7 +3227,7 @@ impl SaeManifoldTerm {
             } else {
                 // Fresh per-row Jacobian, structurally identical to the
                 // JumpReLU branch: every (q × p) element is unconditionally
-                // overwritten below (logit JVP rows + coordinate rows), so the
+                // overwritten below (assignment-chart JVP rows + coordinate rows), so the
                 // `Array2::zeros` allocation needs no separate `fill(0.0)` and
                 // the populated buffer is returned by move without a clone.
                 let mut jac_row = Array2::<f64>::zeros((q, p));
@@ -3243,9 +3283,9 @@ impl SaeManifoldTerm {
                     block.htt[[j, j]] += assignment_hdiag[assignment_base + k];
                 }
             } else {
-                for atom_idx in 0..k_atoms {
-                    block.gt[atom_idx] += assignment_grad[assignment_base + atom_idx];
-                    block.htt[[atom_idx, atom_idx]] += assignment_hdiag[assignment_base + atom_idx];
+                for free_idx in 0..assignment_dim {
+                    block.gt[free_idx] += assignment_grad[assignment_base + free_idx];
+                    block.htt[[free_idx, free_idx]] += assignment_hdiag[assignment_base + free_idx];
                 }
             }
 
@@ -3505,7 +3545,12 @@ impl SaeManifoldTerm {
             self.validate_analytic_penalty_registry(registry)
                 .map_err(|err| format!("SaeManifoldTerm::assemble_arrow_schur: {err}"))?;
             beta_penalty_written = self
-                .add_sae_analytic_penalty_contributions(&mut sys, registry, penalty_scale)
+                .add_sae_analytic_penalty_contributions(
+                    &mut sys,
+                    registry,
+                    penalty_scale,
+                    row_layout.as_ref(),
+                )
                 .map_err(|err| format!("SaeManifoldTerm::assemble_arrow_schur: {err}"))?;
         }
         // Wire per-atom β block ranges so the Jacobi preconditioner builds one
@@ -3574,7 +3619,7 @@ impl SaeManifoldTerm {
 
     fn ext_coord_manifold(&self) -> LatentManifold {
         let mut parts = Vec::with_capacity(self.assignment.row_block_dim());
-        for _ in 0..self.k_atoms() {
+        for _ in 0..self.assignment.assignment_coord_dim() {
             parts.push(LatentManifold::Euclidean);
         }
         let mut any_constrained = false;
@@ -3679,16 +3724,28 @@ impl SaeManifoldTerm {
         ridge_ext_coord: f64,
         ridge_beta: f64,
     ) -> Result<(f64, SaeManifoldLoss), String> {
-        let (v, loss, _cache) = self.reml_criterion_with_cache(
-            target,
-            rho,
-            registry,
-            inner_max_iter,
-            learning_rate,
-            ridge_ext_coord,
-            ridge_beta,
-        )?;
-        Ok((v, loss))
+        if self.streaming_plan().streaming {
+            self.reml_criterion_streaming_exact(
+                target,
+                rho,
+                registry,
+                inner_max_iter,
+                learning_rate,
+                ridge_ext_coord,
+                ridge_beta,
+            )
+        } else {
+            let (v, loss, _cache) = self.reml_criterion_with_cache(
+                target,
+                rho,
+                registry,
+                inner_max_iter,
+                learning_rate,
+                ridge_ext_coord,
+                ridge_beta,
+            )?;
+            Ok((v, loss))
+        }
     }
 
     /// As [`Self::reml_criterion`], but also returns the converged undamped
@@ -3733,10 +3790,10 @@ impl SaeManifoldTerm {
         // Evidence-only factorization: the Newton step (Δt, Δβ) is discarded
         // and only the factor cache is consumed — the exact undamped log-det
         // and the selected-inverse traces. As ρ sweeps to extremes (e.g. a
-        // wide ARD-α sweep), H_tt is genuinely PD but can be ill-conditioned
-        // (κ large); the standard Direct guard rejects that to protect
-        // Newton-step accuracy, but the log-det is exact from diag(L)
-        // regardless of κ and the traces only need the (PD) factor. So
+        // wide ARD-α sweep), H_tt is genuinely PD but can be ill-conditioned;
+        // the standard Direct guard rejects that to protect Newton-step
+        // accuracy, but the log-det is exact from diag(L) regardless of the
+        // condition number and the traces only need the (PD) factor. So
         // tolerate the ill-conditioning rejection here (a genuine non-PD pivot
         // still errors). The cache stays undamped at ridge=0, so
         // `arrow_log_det_from_cache` remains exact.
@@ -3778,6 +3835,94 @@ impl SaeManifoldTerm {
         Ok((v, loss, cache))
     }
 
+    fn reml_occam_term(&self, rho: &SaeManifoldRho) -> Result<f64, String> {
+        let p_out = self.output_dim() as f64;
+        let mut smooth_rank_total = 0usize;
+        for atom in &self.atoms {
+            smooth_rank_total += Self::symmetric_rank(&atom.smooth_penalty)?;
+        }
+        Ok(0.5 * p_out * (smooth_rank_total as f64) * rho.log_lambda_smooth)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn reml_criterion_streaming_exact(
+        &mut self,
+        target: ArrayView2<'_, f64>,
+        rho: &SaeManifoldRho,
+        registry: Option<&AnalyticPenaltyRegistry>,
+        inner_max_iter: usize,
+        learning_rate: f64,
+        ridge_ext_coord: f64,
+        ridge_beta: f64,
+    ) -> Result<(f64, SaeManifoldLoss), String> {
+        let mut rho_fixed = rho.clone();
+        let loss = self.run_joint_fit_arrow_schur(
+            target,
+            &mut rho_fixed,
+            registry,
+            inner_max_iter,
+            learning_rate,
+            ridge_ext_coord,
+            ridge_beta,
+        )?;
+        let log_det = self.streaming_exact_arrow_log_det(target, rho, registry)?;
+        let occam = self.reml_occam_term(rho)?;
+        Ok((loss.total() + 0.5 * log_det - occam, loss))
+    }
+
+    pub fn streaming_exact_arrow_log_det(
+        &mut self,
+        target: ArrayView2<'_, f64>,
+        rho: &SaeManifoldRho,
+        registry: Option<&AnalyticPenaltyRegistry>,
+    ) -> Result<f64, String> {
+        if target.dim() != (self.n_obs(), self.output_dim()) {
+            return Err(format!(
+                "SaeManifoldTerm::streaming_exact_arrow_log_det: target must be ({}, {}); got {:?}",
+                self.n_obs(),
+                self.output_dim(),
+                target.dim()
+            ));
+        }
+        let n_total = self.n_obs();
+        let chunk_size = self.streaming_plan().chunk_size.min(n_total.max(1));
+        let beta_dim = self.beta_dim();
+        let mut schur_acc = Array2::<f64>::zeros((beta_dim, beta_dim));
+        let mut log_det_tt = 0.0_f64;
+        let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+        let mut start = 0usize;
+        while start < n_total {
+            let end = (start + chunk_size).min(n_total);
+            let penalty_scale = (end - start) as f64 / n_total as f64;
+            let chunk_logits = self.assignment.logits.slice(s![start..end, ..]).to_owned();
+            let chunk_coords: Vec<Array2<f64>> = self
+                .assignment
+                .coords
+                .iter()
+                .map(|coord| coord.as_matrix().slice(s![start..end, ..]).to_owned())
+                .collect();
+            let mut chunk = self.materialize_chunk(chunk_logits, chunk_coords)?;
+            let z_chunk = target.slice(s![start..end, ..]);
+            let sys = chunk
+                .assemble_arrow_schur_scaled(z_chunk, rho, registry, penalty_scale)
+                .map_err(|err| format!("SaeManifoldTerm::streaming_exact_arrow_log_det: {err}"))?;
+            let mut streaming = StreamingArrowSchur::from_system(&sys, sys.rows.len().max(1));
+            let (chunk_log_det_tt, chunk_schur) = streaming
+                .reduced_schur_and_log_det_tt(0.0, 0.0, &options)
+                .map_err(|err| format!("SaeManifoldTerm::streaming_exact_arrow_log_det: {err}"))?;
+            log_det_tt += chunk_log_det_tt;
+            for row in 0..beta_dim {
+                for col in 0..beta_dim {
+                    schur_acc[[row, col]] += chunk_schur[[row, col]];
+                }
+            }
+            start = end;
+        }
+        let log_det_schur = StreamingArrowSchur::reduced_schur_log_det(&schur_acc, &options)
+            .map_err(|err| format!("SaeManifoldTerm::streaming_exact_arrow_log_det: {err}"))?;
+        Ok(log_det_tt + log_det_schur)
+    }
+
     /// Per-atom, per-axis coordinate sum-of-squares `‖t_kj‖² = Σ_i t_{i,k,j}²`.
     ///
     /// This is the data-fit sufficient statistic for the ARD precision update
@@ -3816,8 +3961,8 @@ impl SaeManifoldTerm {
     ///   active list gives its compact coord-block start `coord_starts[i][pos]`;
     ///   inactive atoms contribute 0 (the prior dominates there anyway).
     /// - `None`: dense full-support layout, uniform row dim
-    ///   `q = K + Σ d_k`; atom `k`'s coord block sits at the fixed full-row
-    ///   offset `coord_offsets[k]` after the `K` logit scalars.
+    ///   `q = assignment_dim + Σ d_k`; atom `k`'s coord block sits at the
+    ///   fixed full-row offset `coord_offsets[k]` after the assignment chart.
     ///
     /// This `tr_kj(H⁻¹)` is exactly the posterior-variance term the deleted
     /// `α = n/‖t‖²` rule dropped; the corrected Mackay/Fellner-Schall fixed
@@ -3940,6 +4085,7 @@ impl SaeManifoldTerm {
         sys: &mut ArrowSchurSystem,
         registry: &AnalyticPenaltyRegistry,
         penalty_scale: f64,
+        row_layout: Option<&SaeRowLayout>,
     ) -> Result<bool, ArrowSchurError> {
         let rho_global = Array1::<f64>::zeros(registry.total_rho_count());
         let layout = registry.rho_layout();
@@ -3955,7 +4101,13 @@ impl SaeManifoldTerm {
                         AnalyticPenaltyKind::IBPAssignment(_)
                             | AnalyticPenaltyKind::SoftmaxAssignmentSparsity(_)
                     ) {
-                        self.add_sae_logit_penalty(sys, penalty, logits_flat.view(), rho_local);
+                        self.add_sae_logit_penalty(
+                            sys,
+                            penalty,
+                            logits_flat.view(),
+                            rho_local,
+                            row_layout,
+                        );
                     } else {
                         // Every other Psi-tier penalty here is row-block
                         // supported with a coord-shape that matches each
@@ -4104,13 +4256,21 @@ impl SaeManifoldTerm {
         penalty: &AnalyticPenaltyKind,
         target: ArrayView1<'_, f64>,
         rho_local: ArrayView1<'_, f64>,
+        row_layout: Option<&SaeRowLayout>,
     ) {
         let n = self.n_obs();
         let k = self.k_atoms();
+        let assignment_dim = self.assignment.assignment_coord_dim();
         let grad = penalty.grad_target(target, rho_local);
         for row in 0..n {
-            for atom in 0..k {
-                sys.rows[row].gt[atom] += grad[row * k + atom];
+            if let Some(layout) = row_layout {
+                for (pos, &atom) in layout.active_atoms[row].iter().enumerate() {
+                    sys.rows[row].gt[pos] += grad[row * k + atom];
+                }
+            } else {
+                for free_idx in 0..assignment_dim {
+                    sys.rows[row].gt[free_idx] += grad[row * k + free_idx];
+                }
             }
         }
         // The ArrowSchur `htt` block is the Newton / PIRLS curvature operator and
@@ -4121,8 +4281,14 @@ impl SaeManifoldTerm {
         // Hessian, so this is exact for them.
         if let Some(diag) = penalty.psd_majorizer_diag(target, rho_local) {
             for row in 0..n {
-                for atom in 0..k {
-                    sys.rows[row].htt[[atom, atom]] += diag[row * k + atom];
+                if let Some(layout) = row_layout {
+                    for (pos, &atom) in layout.active_atoms[row].iter().enumerate() {
+                        sys.rows[row].htt[[pos, pos]] += diag[row * k + atom];
+                    }
+                } else {
+                    for free_idx in 0..assignment_dim {
+                        sys.rows[row].htt[[free_idx, free_idx]] += diag[row * k + free_idx];
+                    }
                 }
             }
         }
@@ -4370,6 +4536,7 @@ impl SaeManifoldTerm {
         let n = self.n_obs();
         let q = self.assignment.row_block_dim();
         let k_atoms = self.k_atoms();
+        let assignment_dim = self.assignment.assignment_coord_dim();
         if delta_beta.len() != self.beta_dim() {
             return Err(format!(
                 "SaeManifoldTerm::apply_newton_step: delta_beta length {} != expected {}",
@@ -4378,8 +4545,8 @@ impl SaeManifoldTerm {
             ));
         }
 
-        // When last_row_layout is set (any compact active-set mode — JumpReLU
-        // gate or large-K softmax/IBP truncation), delta_ext_coord uses a
+        // When last_row_layout is set (compact active-set mode — JumpReLU
+        // gate or large-K IBP truncation), delta_ext_coord uses a
         // variable-stride layout where row i occupies
         // [compact_offset_i .. compact_offset_i + q_active_i].
         // We expand each row back to full-q before applying.
@@ -4409,7 +4576,7 @@ impl SaeManifoldTerm {
             // Apply logits from expanded buffer.
             for row in 0..n {
                 let row_base = row * q;
-                for atom_idx in 0..k_atoms {
+                for atom_idx in 0..assignment_dim {
                     self.assignment.logits[[row, atom_idx]] +=
                         step_size * full_delta[row_base + atom_idx];
                 }
@@ -4443,7 +4610,7 @@ impl SaeManifoldTerm {
             let coord_offsets = self.assignment.coord_offsets();
             for row in 0..n {
                 let row_base = row * q;
-                for atom_idx in 0..k_atoms {
+                for atom_idx in 0..assignment_dim {
                     self.assignment.logits[[row, atom_idx]] +=
                         step_size * delta_ext_coord[row_base + atom_idx];
                 }
@@ -4463,6 +4630,9 @@ impl SaeManifoldTerm {
                     self.atoms[atom_idx].refresh_basis(coords.view())?;
                 }
             }
+        }
+        if matches!(self.assignment.mode, AssignmentMode::Softmax { .. }) {
+            canonicalize_softmax_logits(&mut self.assignment.logits);
         }
 
         let mut beta = self.flatten_beta();
@@ -5475,6 +5645,21 @@ impl OuterObjective for SaeManifoldOuterObjective {
     }
 
     fn seed_inner_state(&mut self, beta: &Array1<f64>) -> Result<SeedOutcome, EstimationError> {
+        // Contract (see src/solver/reml/continuation.rs:727-737): an empty-β
+        // seed means "no warm-start available, use your own cold default" and
+        // MUST be accepted as a no-op. The continuation pre-warm forwards the
+        // previous eval's `inner_beta_hint`, but before the first accepted eval
+        // that hint is empty (`state.last_beta` starts empty). Rejecting it
+        // fatally dropped every continuation seed and forced a full cold solve
+        // on every outer seed — the slowness in gam#577. Only a *populated* β
+        // must match the decoder dimension.
+        if beta.is_empty() {
+            // NoSlot is the documented continuation reply for "no usable seed;
+            // proceed cold, no log" (outer_strategy.rs:1776). The real β slot
+            // gets populated on the next accepted eval, which publishes
+            // `inner_beta_hint`, so steps 2+ warm-start normally.
+            return Ok(SeedOutcome::NoSlot);
+        }
         if beta.len() != self.term.beta_dim() {
             return Err(EstimationError::RemlOptimizationFailed(format!(
                 "SaeManifoldOuterObjective::seed_inner_state: β length {} != decoder dim {}",
@@ -5539,6 +5724,24 @@ fn validate_finite_logits(logits: ArrayView1<'_, f64>, row: usize) -> Result<(),
         }
     }
     Ok(())
+}
+
+fn canonicalize_softmax_logits(logits: &mut Array2<f64>) {
+    let k = logits.ncols();
+    if k == 0 {
+        return;
+    }
+    if k == 1 {
+        logits.fill(0.0);
+        return;
+    }
+    for row in 0..logits.nrows() {
+        let reference = logits[[row, k - 1]];
+        for col in 0..k - 1 {
+            logits[[row, col]] -= reference;
+        }
+        logits[[row, k - 1]] = 0.0;
+    }
 }
 
 /// Truncated-IBP stick-breaking prior weights `π_k = (α/(α+1))^k` for
@@ -5676,21 +5879,17 @@ fn fill_assignment_logit_jvp_rows(
     ibp_prior: Option<&[f64]>,
     local_jac: &mut Array2<f64>,
 ) {
-    if assignments.len() == 1 {
-        for logit_col in 0..assignments.len() {
-            for out_col in 0..fitted.len() {
-                local_jac[[logit_col, out_col]] = 0.0;
-            }
-        }
-        return;
-    }
-
     match mode {
         AssignmentMode::Softmax { temperature, .. } => {
+            if assignments.len() == 1 {
+                return;
+            }
             // da_k/dl_j = a_k (1[k=j] - a_j) / tau, contracted against
-            // the assignment-weighted fitted row.
+            // the assignment-weighted fitted row. The dense row layout uses
+            // the reference-logit chart, so only columns `0..K-1` are free;
+            // the final reference logit is fixed at zero and has no row.
             let inv_tau = 1.0 / temperature;
-            for logit_col in 0..assignments.len() {
+            for logit_col in 0..assignments.len() - 1 {
                 for out_col in 0..fitted.len() {
                     local_jac[[logit_col, out_col]] = assignments[logit_col]
                         * (decoded[[logit_col, out_col]] - fitted[out_col])
@@ -5753,17 +5952,10 @@ fn assignment_prior_value(assignment: &SaeAssignment, rho: &SaeManifoldRho) -> f
             .expect("assignment logits must be finite");
     }
     let target = flat_logits(assignment.logits.view());
-    // Proper Gaussian identifiability prior ½·κ·‖logit‖² over every logit,
-    // pinning the shift-invariant softmax gauge (and the wholly-flat K=1
-    // logit) so the assembled H_tt is PD. See
-    // `SAE_LOGIT_IDENTIFIABILITY_PRECISION`. Applied for all K and all modes;
-    // it is the only assignment-prior term when `k_atoms() == 1`.
-    let identifiability: f64 =
-        0.5 * SAE_LOGIT_IDENTIFIABILITY_PRECISION * target.iter().map(|&l| l * l).sum::<f64>();
-    if assignment.k_atoms() == 1 {
-        return identifiability;
+    if matches!(assignment.mode, AssignmentMode::Softmax { .. }) && assignment.k_atoms() == 1 {
+        return 0.0;
     }
-    let sparsity_value = match assignment.mode {
+    match assignment.mode {
         AssignmentMode::Softmax {
             temperature,
             sparsity,
@@ -5803,8 +5995,7 @@ fn assignment_prior_value(assignment: &SaeAssignment, rho: &SaeManifoldRho) -> f
             }
             sparsity_strength * acc
         }
-    };
-    sparsity_value + identifiability
+    }
 }
 
 fn assignment_prior_grad_hdiag(
@@ -5815,19 +6006,9 @@ fn assignment_prior_grad_hdiag(
         validate_finite_logits(assignment.logits.row(row), row)?;
     }
     let target = flat_logits(assignment.logits.view());
-    // Proper Gaussian identifiability prior ½·κ·‖logit‖²: gradient `κ·logit`,
-    // Hessian diagonal `κ` on every logit. This pins the shift-invariant
-    // softmax gauge (and the flat K=1 logit) so the per-row H_tt logit block
-    // is PD. See `SAE_LOGIT_IDENTIFIABILITY_PRECISION`. Computed for all K;
-    // the sparsity prior (absent at K=1) is added on top below.
-    let kappa = SAE_LOGIT_IDENTIFIABILITY_PRECISION;
     let mut grad = Array1::<f64>::zeros(target.len());
     let mut diag = Array1::<f64>::zeros(target.len());
-    for idx in 0..target.len() {
-        grad[idx] = kappa * target[idx];
-        diag[idx] = kappa;
-    }
-    if assignment.k_atoms() == 1 {
+    if matches!(assignment.mode, AssignmentMode::Softmax { .. }) && assignment.k_atoms() == 1 {
         return Ok((grad, diag));
     }
     let (sparsity_grad, sparsity_diag) = match assignment.mode {
@@ -6125,8 +6306,9 @@ pub fn refresh_isometry_caches_from_atom(
     //   B_{ab,cd} = K_{a,cd}^T W J_b + H_{a,c}^T W H_{b,d}
     //             + H_{a,d}^T W H_{b,c} + J_a^T W K_{b,cd}.
     // Sourced from the base evaluator's object-safe `third_jet_dyn` forwarder
-    // (analytic override for sphere/circle/torus/affine/euclidean, otherwise a
-    // central difference of the second jet). Installed only when the penalty
+    // (closed-form analytic override for every basis with an analytic Hessian:
+    // sphere/circle/torus/affine/euclidean/duchon; `None` otherwise — no
+    // finite-difference fallback). Installed only when the penalty
     // has no `duchon_radial_source` — a Duchon penalty already carries its own
     // analytic third source and `jacobian_third` would shadow it with this
     // cache. Always written (Some or None) so a stale K from a prior outer step
@@ -6245,6 +6427,7 @@ pub fn refresh_isometry_caches_from_term(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::terms::analytic_penalties::IsometryReference;
     use approx::assert_abs_diff_eq;
     use ndarray::array;
 
@@ -6388,6 +6571,143 @@ mod tests {
         assert!(term.assignment.assignments().iter().all(|v| v.is_finite()));
         let basis_delta = (&term.atoms[0].basis_values - &basis0).mapv(f64::abs).sum();
         assert!(basis_delta > 1.0e-10);
+    }
+
+    fn small_two_atom_periodic_term() -> (SaeManifoldTerm, Array2<f64>, SaeManifoldRho) {
+        let coords0 = array![[0.05], [0.20], [0.55], [0.80], [0.35]];
+        let coords1 = array![[0.15], [0.30], [0.65], [0.90], [0.45]];
+        let (phi0, jet0) = periodic_basis(&coords0);
+        let (phi1, jet1) = periodic_basis(&coords1);
+        let atom0 = SaeManifoldAtom::new(
+            "periodic0",
+            SaeAtomBasisKind::Periodic,
+            1,
+            phi0,
+            jet0,
+            array![[0.25], [-0.35], [0.15]],
+            Array2::<f64>::eye(3),
+        )
+        .unwrap()
+        .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
+        let atom1 = SaeManifoldAtom::new(
+            "periodic1",
+            SaeAtomBasisKind::Periodic,
+            1,
+            phi1,
+            jet1,
+            array![[-0.10], [0.20], [0.30]],
+            Array2::<f64>::eye(3),
+        )
+        .unwrap()
+        .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
+        let logits = array![
+            [0.7, -0.2],
+            [0.1, 0.4],
+            [-0.3, 0.5],
+            [0.6, -0.1],
+            [0.2, 0.3]
+        ];
+        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+            logits,
+            vec![coords0, coords1],
+            vec![
+                LatentManifold::Circle { period: 1.0 },
+                LatentManifold::Circle { period: 1.0 },
+            ],
+            AssignmentMode::softmax(0.8),
+        )
+        .unwrap();
+        let term = SaeManifoldTerm::new(vec![atom0, atom1], assignment).unwrap();
+        let target = array![[0.12], [-0.03], [0.08], [0.20], [-0.11]];
+        let rho = SaeManifoldRho::new(
+            (-0.3_f64).exp().ln(),
+            0.7_f64.ln(),
+            vec![array![0.9_f64.ln()], array![1.1_f64.ln()]],
+        );
+        (term, target, rho)
+    }
+
+    #[test]
+    fn streaming_exact_reml_matches_full_batch_reml_small_sae() {
+        let (term0, target, rho) = small_two_atom_periodic_term();
+        let mut full = term0.clone();
+        let mut streaming = term0;
+        let (full_cost, full_loss, _cache) = full
+            .reml_criterion_with_cache(target.view(), &rho, None, 2, 0.25, 1.0e-4, 1.0e-4)
+            .unwrap();
+        let (stream_cost, stream_loss) = streaming
+            .reml_criterion_streaming_exact(target.view(), &rho, None, 2, 0.25, 1.0e-4, 1.0e-4)
+            .unwrap();
+        assert_abs_diff_eq!(stream_cost, full_cost, epsilon = 1.0e-8);
+        assert_abs_diff_eq!(stream_loss.total(), full_loss.total(), epsilon = 1.0e-8);
+    }
+
+    #[test]
+    fn streaming_plan_routes_by_memory_budget_with_identical_logdet() {
+        let (term0, target, rho) = small_two_atom_periodic_term();
+        let total_basis: usize = term0.atoms.iter().map(|atom| atom.basis_size()).sum();
+        let d_max = term0
+            .atoms
+            .iter()
+            .map(|atom| atom.latent_dim)
+            .max()
+            .unwrap();
+        let dense_plan = sae_streaming_plan_from_budget(
+            term0.n_obs(),
+            total_basis,
+            term0.k_atoms(),
+            d_max,
+            usize::MAX / 4,
+            1024 * 1024,
+        );
+        assert!(!dense_plan.streaming);
+        let streaming_plan = sae_streaming_plan_from_budget(
+            term0.n_obs(),
+            total_basis,
+            term0.k_atoms(),
+            d_max,
+            1,
+            512,
+        );
+        assert!(streaming_plan.streaming);
+
+        let mut full = term0.clone();
+        let sys = full
+            .assemble_arrow_schur(target.view(), &rho, None)
+            .unwrap();
+        let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+        let factor_result = solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options).unwrap();
+        let full_logdet = arrow_log_det_from_cache(&factor_result.2).unwrap();
+        let mut streaming = StreamingArrowSchur::from_system(&sys, streaming_plan.chunk_size);
+        let streaming_logdet = streaming.exact_arrow_log_det(0.0, 0.0, &options).unwrap();
+        assert_abs_diff_eq!(streaming_logdet, full_logdet, epsilon = 1.0e-8);
+    }
+
+    #[test]
+    fn sparse_active_layout_work_scales_with_active_atoms_not_total_k() {
+        let n = 3;
+        let k_atoms = 100_000;
+        let mut active_rows = Vec::with_capacity(n);
+        for row in 0..n {
+            active_rows.push(vec![row, 10_000 + row, 90_000 + row]);
+        }
+        let coord_dims = vec![1usize; k_atoms];
+        let coord_offsets_full: Vec<usize> = (0..k_atoms).map(|k| k_atoms + k).collect();
+        let layout = SaeRowLayout::from_active_atoms(active_rows, coord_dims, coord_offsets_full);
+        for row in 0..n {
+            assert_eq!(layout.active_atoms[row].len(), 3);
+            assert_eq!(layout.row_q_active(row), 6);
+        }
+        let compact_work: usize = (0..n)
+            .map(|row| {
+                let q = layout.row_q_active(row);
+                q * q
+            })
+            .sum();
+        let dense_q = 2 * k_atoms;
+        let dense_work = n * dense_q * dense_q;
+        assert!(compact_work < dense_work / 1_000_000_000);
+        assert_eq!(compact_work, n * 36);
     }
 
     /// Regression test for https://github.com/SauersML/gam/issues/163.
@@ -7110,6 +7430,27 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn isometry_affine_third_jet_is_trivial_zero() -> Result<(), String> {
+        let evaluator = AffineCoordinateEvaluator { latent_dim: 3 };
+        let coords = array![[0.2, -0.3, 0.7], [1.1, 0.0, -0.4]];
+        let third = evaluator.third_jet(coords.view())?;
+        assert_eq!(third.dim(), (coords.nrows(), 4, 3, 3, 3));
+        assert!(
+            third.iter().all(|x| *x == 0.0),
+            "affine third jet must vanish identically, got {third:?}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn isometry_euclidean_patch_third_jet_matches_fd() -> Result<(), String> {
+        let evaluator = EuclideanPatchEvaluator::new(2, 4)?;
+        let coords = array![[0.2, -0.3], [0.7, 0.4], [-0.5, 0.9]];
+        assert_third_jet_matches_central_difference(&evaluator, coords, 1.0e-6, 1.0e-5)?;
+        Ok(())
+    }
+
     /// Issue #247: the Duchon coordinate evaluator must return a forward design
     /// and a derivative jet with *matching column counts* — the original bug
     /// was a radial-only design paired with a radial+polynomial jet (or vice
@@ -7182,6 +7523,26 @@ mod tests {
         let evaluator = DuchonCoordinateEvaluator::new(centers, 2).unwrap();
         let coords = array![[-0.5, 0.2], [0.05, -0.35], [0.45, 0.75], [1.3, 0.1]];
         assert_second_jet_matches_central_difference(&evaluator, coords, 1.0e-4)?;
+        Ok(())
+    }
+
+    /// The Duchon evaluator's closed-form analytic third jet (radial
+    /// third-derivative kernel block + monomial nullspace block) must match the
+    /// FD of its (FD-validated) second jet, validating the closed form that
+    /// replaced the forbidden finite-difference `third_jet_dyn` default.
+    #[test]
+    fn duchon_coordinate_evaluator_third_jet_matches_fd() -> Result<(), String> {
+        let centers = array![
+            [-1.0, -0.8],
+            [-0.3, 0.4],
+            [0.2, -0.5],
+            [0.7, 0.9],
+            [1.1, -0.2],
+            [1.6, 0.6],
+        ];
+        let evaluator = DuchonCoordinateEvaluator::new(centers, 2).unwrap();
+        let coords = array![[-0.5, 0.2], [0.05, -0.35], [0.45, 0.75], [1.3, 0.1]];
+        assert_third_jet_matches_central_difference(&evaluator, coords, 1.0e-4, 1.0e-4)?;
         Ok(())
     }
 
@@ -7511,9 +7872,9 @@ mod tests {
         assert_eq!(diag.len(), n * k);
         for (idx, &entry) in diag.iter().enumerate() {
             let logit = logits[[idx / k, idx % k]];
-            // Expected = JumpReLU gated majorizer PLUS the fixed logit
-            // identifiability prior κ (added on every logit for all modes so
-            // the per-row H_tt logit block is PD).
+            // Expected = JumpReLU gated majorizer. Softmax identifiability is
+            // handled by its reference-logit chart, not by adding curvature to
+            // gate logits.
             let sparsity = if logit > threshold {
                 let activation = crate::linalg::utils::stable_logistic(logit * inv_tau);
                 let slope = activation * (1.0 - activation);
@@ -7521,11 +7882,11 @@ mod tests {
             } else {
                 0.0
             };
-            let expected = sparsity + SAE_LOGIT_IDENTIFIABILITY_PRECISION;
+            let expected = sparsity;
             assert!(
-                entry.is_finite() && entry >= SAE_LOGIT_IDENTIFIABILITY_PRECISION,
-                "JumpReLU gated hessian_diag majorizer + identifiability prior must be finite and \
-                 ≥ κ at index {idx}; entry={entry}"
+                entry.is_finite() && entry >= 0.0,
+                "JumpReLU gated hessian_diag majorizer must be finite and non-negative at index \
+                 {idx}; entry={entry}"
             );
             assert_abs_diff_eq!(entry, expected, epsilon = 1e-12);
         }
@@ -7927,6 +8288,344 @@ mod tests {
         );
     }
 
+    fn deterministic_decoder(n_basis: usize, p_out: usize, seed: f64) -> Array2<f64> {
+        Array2::<f64>::from_shape_fn((n_basis, p_out), |(i, j)| {
+            let x = seed + 0.371 * (i as f64) - 0.193 * (j as f64) + 0.047 * ((i * j + 1) as f64);
+            0.8 * x.sin() + 0.35 * (1.7 * x).cos()
+        })
+    }
+
+    fn build_isometry_atom_for_evaluator(
+        evaluator: Arc<dyn SaeBasisSecondJet>,
+        kind: SaeAtomBasisKind,
+        coords: &Array2<f64>,
+        p_out: usize,
+        seed: f64,
+    ) -> (SaeManifoldAtom, IsometryPenalty, Array1<f64>) {
+        let (phi, jet) = evaluator.evaluate(coords.view()).unwrap();
+        let m = phi.ncols();
+        let decoder = deterministic_decoder(m, p_out, seed);
+        let atom = SaeManifoldAtom::new(
+            "exact_hvp_atom",
+            kind,
+            coords.ncols(),
+            phi,
+            jet,
+            decoder,
+            Array2::<f64>::eye(m),
+        )
+        .unwrap()
+        .with_basis_second_jet(evaluator);
+        let target_flat: Array1<f64> = coords.iter().copied().collect();
+        let penalty = IsometryPenalty::new_euclidean(
+            PsiSlice::full(target_flat.len(), Some(coords.ncols())),
+            p_out,
+        );
+        (atom, penalty, target_flat)
+    }
+
+    fn assert_exact_isometry_hvp_matches_grad_fd(
+        evaluator: Arc<dyn SaeBasisSecondJet>,
+        kind: SaeAtomBasisKind,
+        coords: Array2<f64>,
+        p_out: usize,
+        direction: Array2<f64>,
+    ) {
+        let (atom, penalty, target_flat) =
+            build_isometry_atom_for_evaluator(evaluator, kind, &coords, p_out, 0.91);
+        let rho = array![0.0_f64];
+        let installed = refresh_isometry_caches_from_atom(&penalty, &atom, coords.view()).unwrap();
+        assert!(
+            installed,
+            "second-jet cache must be installed for exact HVP test"
+        );
+        assert!(
+            penalty.third_decoder_derivative().is_some(),
+            "non-Duchon exact HVP requires a live refreshed third-decoder-jet cache"
+        );
+        let v: Array1<f64> = direction.iter().copied().collect();
+        let exact = penalty.hvp(target_flat.view(), rho.view(), v.view());
+        assert!(
+            exact.iter().any(|x| x.abs() > 1.0e-7),
+            "exact isometry HVP should be nonzero after K refresh; got {exact:?}"
+        );
+
+        let eps = 1.0e-6;
+        let coords_plus = &coords + &(direction.mapv(|x| eps * x));
+        let coords_minus = &coords - &(direction.mapv(|x| eps * x));
+        let target_plus: Array1<f64> = coords_plus.iter().copied().collect();
+        let target_minus: Array1<f64> = coords_minus.iter().copied().collect();
+
+        refresh_isometry_caches_from_atom(&penalty, &atom, coords_plus.view()).unwrap();
+        let grad_plus = penalty.grad_target(target_plus.view(), rho.view());
+        refresh_isometry_caches_from_atom(&penalty, &atom, coords_minus.view()).unwrap();
+        let grad_minus = penalty.grad_target(target_minus.view(), rho.view());
+        refresh_isometry_caches_from_atom(&penalty, &atom, coords.view()).unwrap();
+
+        let fd = (&grad_plus - &grad_minus).mapv(|x| x / (2.0 * eps));
+        for i in 0..exact.len() {
+            let err = (exact[i] - fd[i]).abs();
+            let tol = 2.0e-4 + 3.0e-5 * exact[i].abs().max(fd[i].abs());
+            assert!(
+                err <= tol,
+                "exact isometry HVP/grad-FD mismatch at flat index {i}: exact={:.12e}, fd={:.12e}, err={:.6e}, tol={:.6e}",
+                exact[i],
+                fd[i],
+                err,
+                tol
+            );
+        }
+    }
+
+    fn assert_exact_isometry_hvp_collapses_to_gn_at_zero_residual(
+        evaluator: Arc<dyn SaeBasisSecondJet>,
+        kind: SaeAtomBasisKind,
+        coords: Array2<f64>,
+        p_out: usize,
+        direction: Array2<f64>,
+    ) {
+        let (atom, scratch, target_flat) =
+            build_isometry_atom_for_evaluator(evaluator, kind, &coords, p_out, 1.37);
+        let rho = array![0.0_f64];
+        refresh_isometry_caches_from_atom(&scratch, &atom, coords.view()).unwrap();
+        let jac = scratch
+            .jacobian_cache()
+            .expect("scratch Jacobian cache is available after refresh");
+        let d = coords.ncols();
+        let n_obs = coords.nrows();
+        let mut g_ref = Array2::<f64>::zeros((n_obs, d * d));
+        for n in 0..n_obs {
+            for a in 0..d {
+                for b in 0..d {
+                    let mut acc = 0.0_f64;
+                    for out_col in 0..p_out {
+                        acc += jac[[n, out_col * d + a]] * jac[[n, out_col * d + b]];
+                    }
+                    g_ref[[n, a * d + b]] = acc;
+                }
+            }
+        }
+
+        let penalty = IsometryPenalty::new_euclidean(
+            PsiSlice::full(target_flat.len(), Some(coords.ncols())),
+            p_out,
+        )
+        .with_reference(IsometryReference::UserSupplied(Arc::new(g_ref)));
+        refresh_isometry_caches_from_atom(&penalty, &atom, coords.view()).unwrap();
+        assert!(
+            penalty.third_decoder_derivative().is_some(),
+            "zero-residual exact/GN test must still carry the real refreshed K cache"
+        );
+        let v: Array1<f64> = direction.iter().copied().collect();
+        let exact = penalty.hvp(target_flat.view(), rho.view(), v.view());
+        let gn = penalty.psd_majorizer_hvp(target_flat.view(), rho.view(), v.view());
+        assert!(
+            gn.iter().any(|x| x.abs() > 1.0e-8),
+            "GN block should be nonzero so exact/GN equality is not vacuous"
+        );
+        for i in 0..exact.len() {
+            assert_abs_diff_eq!(exact[i], gn[i], epsilon = 1.0e-10);
+        }
+    }
+
+    #[test]
+    fn isometry_exact_hvp_sphere_matches_grad_fd_and_uses_refreshed_k() {
+        assert_exact_isometry_hvp_matches_grad_fd(
+            Arc::new(SphereChartEvaluator),
+            SaeAtomBasisKind::Sphere,
+            array![[-0.61, 0.23], [-0.18, -1.07], [0.42, 0.81], [0.73, -0.39]],
+            4,
+            array![[0.31, -0.27], [-0.18, 0.22], [0.14, 0.19], [-0.25, -0.11]],
+        );
+    }
+
+    #[test]
+    fn isometry_exact_hvp_torus_matches_grad_fd_and_uses_refreshed_k() {
+        assert_exact_isometry_hvp_matches_grad_fd(
+            Arc::new(TorusHarmonicEvaluator::new(2, 2).unwrap()),
+            SaeAtomBasisKind::Torus,
+            array![[0.13, 0.42], [0.66, 0.19], [0.88, 0.55]],
+            3,
+            array![[0.21, -0.16], [-0.24, 0.18], [0.13, 0.27]],
+        );
+    }
+
+    #[test]
+    fn isometry_exact_hvp_sphere_and_torus_collapse_to_gn_at_zero_residual() {
+        assert_exact_isometry_hvp_collapses_to_gn_at_zero_residual(
+            Arc::new(SphereChartEvaluator),
+            SaeAtomBasisKind::Sphere,
+            array![[-0.52, 0.17], [-0.11, -0.93], [0.39, 0.74]],
+            4,
+            array![[0.17, -0.21], [-0.13, 0.08], [0.22, 0.19]],
+        );
+        assert_exact_isometry_hvp_collapses_to_gn_at_zero_residual(
+            Arc::new(TorusHarmonicEvaluator::new(2, 2).unwrap()),
+            SaeAtomBasisKind::Torus,
+            array![[0.19, 0.31], [0.57, 0.73], [0.84, 0.12]],
+            3,
+            array![[0.11, -0.14], [-0.20, 0.07], [0.16, 0.23]],
+        );
+    }
+
+    /// #457 root-cause regression: for every **non-Duchon** SAE basis the
+    /// isometry penalty's *exact* `hvp` returns the zero vector (no third jet
+    /// `K` cache outside the radial-Duchon source), so the Arrow-Schur coord
+    /// curvature block — which routes through `psd_majorizer_hvp` — would carry
+    /// **no isometry contribution at all**, and the pole fit diverges. The fix
+    /// is the PSD Gauss-Newton majorizer override, which needs only the first
+    /// and second decoder jets that `refresh_isometry_caches_from_atom`
+    /// installs for any basis with an analytic second jet.
+    ///
+    /// This drives the real cache-refresh path with the sphere / circle /
+    /// torus evaluators against the **Euclidean** reference (so the residual
+    /// `g − I` is genuinely nonzero — the live production condition, unlike the
+    /// zero-residual collapse test), then asserts the curvature operator the
+    /// inner solve actually consumes is:
+    ///   * genuinely **nonzero** (the bug was a silent zero block),
+    ///   * **symmetric**, and
+    ///   * **positive-semidefinite** (`vᵀB v ≥ 0`),
+    /// pinning the exact seam #457 is about, end-to-end from the evaluator.
+    fn assert_isometry_psd_majorizer_live_after_atom_refresh(
+        evaluator: Arc<dyn SaeBasisSecondJet>,
+        kind: SaeAtomBasisKind,
+        coords: Array2<f64>,
+        p_out: usize,
+        probes: &[Array2<f64>],
+    ) {
+        let (atom, penalty, target_flat) =
+            build_isometry_atom_for_evaluator(evaluator, kind, &coords, p_out, 0.53);
+        let rho = array![0.0_f64];
+
+        // Before any refresh the safe default is the zero block: confirm the
+        // precondition so the post-refresh contrast is the genuine fix, not a
+        // coincidence of a probe direction.
+        let n = target_flat.len();
+        let unit0 = {
+            let mut e = Array1::<f64>::zeros(n);
+            e[0] = 1.0;
+            e
+        };
+        let pre = penalty.psd_majorizer_hvp(target_flat.view(), rho.view(), unit0.view());
+        assert!(
+            pre.iter().all(|x| *x == 0.0),
+            "psd_majorizer_hvp without a cache must be the zero block; got {pre:?}"
+        );
+
+        let installed =
+            refresh_isometry_caches_from_atom(&penalty, &atom, coords.view()).unwrap();
+        assert!(
+            installed,
+            "second-jet cache must install for the PSD-majorizer liveness test"
+        );
+
+        // The Euclidean reference makes g − I nonzero on this non-orthonormal
+        // decoder; verify the residual is real so the curvature seam is the
+        // production one (and not vacuously the zero-residual case).
+        let d = coords.ncols();
+        let g = penalty
+            .pullback_metric(d)
+            .expect("pullback metric available after refresh");
+        let mut residual_mass = 0.0_f64;
+        for row in 0..g.nrows() {
+            for a in 0..d {
+                for b in 0..d {
+                    // Euclidean reference is the identity metric I_d.
+                    let g_ref = if a == b { 1.0 } else { 0.0 };
+                    residual_mass += (g[[row, a * d + b]] - g_ref).abs();
+                }
+            }
+        }
+        assert!(
+            residual_mass > 1.0e-3,
+            "Euclidean-reference residual must be nonzero for a real curvature test; \
+             got residual mass {residual_mass:.3e}"
+        );
+
+        // Assemble the dense majorizer column-by-column via unit probes.
+        let mut bmat = Array2::<f64>::zeros((n, n));
+        for k in 0..n {
+            let mut e = Array1::<f64>::zeros(n);
+            e[k] = 1.0;
+            let col = penalty.psd_majorizer_hvp(target_flat.view(), rho.view(), e.view());
+            for r in 0..n {
+                bmat[[r, k]] = col[r];
+            }
+        }
+
+        // Nonzero: the bug was a silent all-zero curvature block.
+        let max_abs = bmat.iter().fold(0.0_f64, |acc, x| acc.max(x.abs()));
+        assert!(
+            max_abs > 1.0e-6,
+            "isometry GN majorizer must be nonzero for a non-Duchon basis after refresh; \
+             max |B| = {max_abs:.3e}"
+        );
+
+        // Symmetry: B = Σ_n (∂g/∂t)ᵀ(∂g/∂t) is symmetric by construction.
+        for r in 0..n {
+            for c in 0..n {
+                assert_abs_diff_eq!(bmat[[r, c]], bmat[[c, r]], epsilon = 1.0e-10);
+            }
+        }
+
+        // PSD: vᵀ B v ≥ 0 over a spread of probe directions.
+        for probe in probes {
+            let v: Array1<f64> = probe.iter().copied().collect();
+            assert_eq!(v.len(), n, "probe must match the flattened target length");
+            let bv = penalty.psd_majorizer_hvp(target_flat.view(), rho.view(), v.view());
+            let quad = v.dot(&bv);
+            assert!(
+                quad >= -1.0e-9,
+                "isometry GN majorizer must be PSD; got vᵀBv = {quad:.3e}"
+            );
+        }
+    }
+
+    #[test]
+    fn isometry_psd_majorizer_live_after_sphere_refresh() {
+        assert_isometry_psd_majorizer_live_after_atom_refresh(
+            Arc::new(SphereChartEvaluator),
+            SaeAtomBasisKind::Sphere,
+            array![[-0.61, 0.23], [-0.18, -1.07], [0.42, 0.81]],
+            4,
+            &[
+                array![[0.31, -0.27], [-0.18, 0.22], [0.14, 0.19]],
+                array![[1.0, 1.0], [1.0, 1.0], [1.0, 1.0]],
+                array![[-2.3, 0.6], [-0.1, 1.4], [0.8, -1.7]],
+            ],
+        );
+    }
+
+    #[test]
+    fn isometry_psd_majorizer_live_after_circle_refresh() {
+        assert_isometry_psd_majorizer_live_after_atom_refresh(
+            Arc::new(PeriodicHarmonicEvaluator::new(5).unwrap()),
+            SaeAtomBasisKind::Periodic,
+            array![[0.12], [0.37], [0.58], [0.81]],
+            3,
+            &[
+                array![[0.4], [-1.1], [0.7], [0.3]],
+                array![[1.0], [1.0], [1.0], [1.0]],
+                array![[-2.3], [0.6], [-0.1], [1.4]],
+            ],
+        );
+    }
+
+    #[test]
+    fn isometry_psd_majorizer_live_after_torus_refresh() {
+        assert_isometry_psd_majorizer_live_after_atom_refresh(
+            Arc::new(TorusHarmonicEvaluator::new(2, 2).unwrap()),
+            SaeAtomBasisKind::Torus,
+            array![[0.13, 0.42], [0.66, 0.19], [0.88, 0.55]],
+            3,
+            &[
+                array![[0.21, -0.16], [-0.24, 0.18], [0.13, 0.27]],
+                array![[1.0, 1.0], [1.0, 1.0], [1.0, 1.0]],
+                array![[-1.2, 0.5], [0.3, -0.9], [0.7, 0.2]],
+            ],
+        );
+    }
+
     /// Multi-atom isometry pairing regression.
     ///
     /// Two SAE atoms share the same `(latent_dim, p_out)` signature but live
@@ -8055,5 +8754,129 @@ mod tests {
             *cache0, *cache1,
             "the two penalties must not collapse onto the same atom"
         );
+    }
+
+    /// Build a minimal single-atom periodic SAE outer objective for the
+    /// warm-start contract tests (gam#577 / gam#579).
+    fn warmstart_test_objective() -> SaeManifoldOuterObjective {
+        let coords = array![[0.10], [0.35], [0.62], [0.88]];
+        let (phi, jet) = periodic_basis(&coords);
+        let atom = SaeManifoldAtom::new(
+            "periodic",
+            SaeAtomBasisKind::Periodic,
+            1,
+            phi,
+            jet,
+            // Decoder mapping the 3 basis fns to a single output channel.
+            array![[0.30], [-0.20], [0.15]],
+            // Mild ridge-like smoothness penalty so the inner solve is PD.
+            Array2::<f64>::eye(3),
+        )
+        .unwrap();
+        let assignment = SaeAssignment::from_blocks_with_mode(
+            // Nonzero assignment mass so H_tt carries genuine data curvature.
+            array![[0.9_f64], [0.8], [0.7], [0.6]],
+            vec![coords],
+            AssignmentMode::softmax(0.7),
+        )
+        .unwrap();
+        let term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
+        let target = array![[0.20_f64], [-0.10], [0.30], [0.05]];
+        let rho = SaeManifoldRho::new(0.0, 0.0, vec![Array1::<f64>::zeros(1)]);
+        SaeManifoldOuterObjective::new(term, target, None, rho, 8, 1.0, 1.0e-6, 1.0e-6)
+    }
+
+    /// gam#577 / gam#579 root cause: the continuation pre-warm forwards an
+    /// EMPTY β before the first accepted eval (`state.last_beta` starts
+    /// empty). The seed hook must treat that as the documented "no warm-start
+    /// available, proceed cold" no-op (`SeedOutcome::NoSlot`) rather than
+    /// erroring on `β length 0 != decoder dim` — the error dropped EVERY
+    /// continuation seed and forced a full cold solve on every outer seed.
+    #[test]
+    fn seed_inner_state_accepts_empty_beta_as_noslot() {
+        let mut obj = warmstart_test_objective();
+        let empty: Array1<f64> = Array1::zeros(0);
+        let outcome = obj
+            .seed_inner_state(&empty)
+            .expect("empty-β seed must be accepted as a no-op, not rejected (gam#577/#579)");
+        assert!(
+            matches!(outcome, SeedOutcome::NoSlot),
+            "empty-β seed must report NoSlot (proceed cold); got {outcome:?}"
+        );
+    }
+
+    /// A populated β whose length matches the decoder dimension must be
+    /// INSTALLED and then GENUINELY REUSED by the next inner solve — this is
+    /// the warm-start the continuation walk relies on for the big speedup
+    /// (gam#577 / gam#579). We verify reuse behaviorally: seed a known β, run
+    /// one eval with zero inner Newton iterations (so the solve cannot move
+    /// β off the seed), and confirm the published `inner_beta_hint` is exactly
+    /// the seeded β. A cold start would have published the term's pristine β
+    /// instead.
+    #[test]
+    fn seed_inner_state_installs_and_reuses_matching_beta() {
+        let mut obj = warmstart_test_objective();
+        let dim = obj.term.beta_dim();
+        // A distinctive seed that differs from the term's pristine decoder.
+        let pristine = obj.term.flatten_beta();
+        let seed: Array1<f64> =
+            Array1::from_shape_fn(dim, |i| pristine[i] + 0.5 + 0.01 * (i as f64));
+        assert!(
+            (&seed - &pristine).iter().any(|d| d.abs() > 1e-6),
+            "seed must differ from the pristine β for the reuse check to be meaningful"
+        );
+
+        let outcome = obj
+            .seed_inner_state(&seed)
+            .expect("a length-matching β must install");
+        assert!(
+            matches!(outcome, SeedOutcome::Installed),
+            "matching β must report Installed; got {outcome:?}"
+        );
+
+        // Freeze the inner solve at zero Newton iterations: β cannot move off
+        // the warm-start, so the published hint must equal the seed exactly.
+        obj.inner_max_iter = 0;
+        let rho_flat = obj.baseline_rho.to_flat();
+        let eval = OuterObjective::eval(&mut obj, &rho_flat)
+            .expect("eval at the warm-started β must succeed");
+        let hint = eval
+            .inner_beta_hint
+            .expect("the SAE objective must publish inner_beta_hint for continuation reuse");
+        assert_eq!(
+            hint.len(),
+            dim,
+            "published hint must have decoder dimension"
+        );
+        for (i, (&h, &s)) in hint.iter().zip(seed.iter()).enumerate() {
+            assert!(
+                (h - s).abs() < 1e-12,
+                "warm-started β must be reused verbatim by the inner solve at coord {i}: \
+                 hint {h} != seed {s} (gam#577/#579)"
+            );
+        }
+    }
+
+    /// The seed contract is only relaxed for the EMPTY sentinel. A populated
+    /// β whose length disagrees with the decoder dimension is a genuine
+    /// layout bug and must still surface a typed error rather than being
+    /// silently dropped.
+    #[test]
+    fn seed_inner_state_rejects_wrong_length_populated_beta() {
+        let mut obj = warmstart_test_objective();
+        let dim = obj.term.beta_dim();
+        let wrong: Array1<f64> = Array1::zeros(dim + 1);
+        let err = obj
+            .seed_inner_state(&wrong)
+            .expect_err("a populated β of the wrong length must be rejected");
+        match err {
+            EstimationError::RemlOptimizationFailed(msg) => {
+                assert!(
+                    msg.contains("decoder dim"),
+                    "error must name the decoder-dim mismatch; got: {msg}"
+                );
+            }
+            other => panic!("expected RemlOptimizationFailed, got {other:?}"),
+        }
     }
 }

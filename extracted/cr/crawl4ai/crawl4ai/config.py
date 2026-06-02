@@ -36,6 +36,7 @@ PROVIDER_MODELS_PREFIXES = {
     "anthropic": os.getenv("ANTHROPIC_API_KEY"),
     "gemini": os.getenv("GEMINI_API_KEY"),
     "deepseek": os.getenv("DEEPSEEK_API_KEY"),
+    "bedrock": None,  # Bedrock uses AWS credential chain (SigV4) or explicit api_token for bearer auth
 }
 
 # Chunk token threshold
@@ -47,7 +48,7 @@ WORD_TOKEN_RATE = 1.3
 MIN_WORD_THRESHOLD = 1
 IMAGE_DESCRIPTION_MIN_WORD_THRESHOLD = 1
 
-IMPORTANT_ATTRS = ["src", "href", "alt", "title", "width", "height", "class", "id"]
+IMPORTANT_ATTRS = ["src", "href", "alt", "title", "width", "height", "class", "id", "rowspan", "colspan"]
 ONLY_TEXT_ELIGIBLE_TAGS = [
     "b",
     "i",

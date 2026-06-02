@@ -1,6 +1,6 @@
 """Prime Tunnel SDK - Expose local services via secure tunnels."""
 
-__version__ = "0.1.7"
+__version__ = "0.1.8"
 
 from prime_tunnel.core import Config, TunnelClient
 from prime_tunnel.exceptions import (
@@ -11,8 +11,7 @@ from prime_tunnel.exceptions import (
     TunnelLimitReachedError,
     TunnelTimeoutError,
 )
-from prime_tunnel.models import TunnelInfo
-from prime_tunnel.tunnel import Tunnel
+from prime_tunnel.models import TunnelInfo, TunnelListPage
 
 __all__ = [
     "__version__",
@@ -23,6 +22,7 @@ __all__ = [
     "Tunnel",
     # Models
     "TunnelInfo",
+    "TunnelListPage",
     # Exceptions
     "BinaryDownloadError",
     "TunnelAuthError",
@@ -31,3 +31,11 @@ __all__ = [
     "TunnelConnectionError",
     "TunnelTimeoutError",
 ]
+
+
+def __getattr__(name: str):
+    if name == "Tunnel":
+        from prime_tunnel.tunnel import Tunnel
+
+        return Tunnel
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -8,6 +8,7 @@ from enum import Enum
 from typing import Any, Dict, Iterator, List, Optional
 
 from databricks.sdk.common.types.fieldmask import FieldMask
+from databricks.sdk.service import iam
 from databricks.sdk.service._internal import (
     _enum,
     _from_dict,
@@ -5492,6 +5493,12 @@ class PersonalComputeSetting:
 
 @dataclass
 class PublicTokenInfo:
+    autoscope_state: Optional[iam.AutoscopeState] = None
+    """Output only. The autoscope state of this token."""
+
+    backfill_scopes: Optional[List[str]] = None
+    """Output only. Scopes inferred from offline backfill processing."""
+
     comment: Optional[str] = None
     """Comment the token was created with, if applicable."""
 
@@ -5501,18 +5508,32 @@ class PublicTokenInfo:
     expiry_time: Optional[int] = None
     """Server time (in epoch milliseconds) when the token will expire, or -1 if not applicable."""
 
+    inferred_scopes: Optional[List[str]] = None
+    """Output only. Inferred API path scopes collected for this token when autoscope is enabled."""
+
+    scopes: Optional[List[str]] = None
+    """Scope of the token was created with, if applicable."""
+
     token_id: Optional[str] = None
     """The ID of this token."""
 
     def as_dict(self) -> dict:
         """Serializes the PublicTokenInfo into a dictionary suitable for use as a JSON request body."""
         body = {}
+        if self.autoscope_state is not None:
+            body["autoscope_state"] = self.autoscope_state.value
+        if self.backfill_scopes:
+            body["backfill_scopes"] = [v for v in self.backfill_scopes]
         if self.comment is not None:
             body["comment"] = self.comment
         if self.creation_time is not None:
             body["creation_time"] = self.creation_time
         if self.expiry_time is not None:
             body["expiry_time"] = self.expiry_time
+        if self.inferred_scopes:
+            body["inferred_scopes"] = [v for v in self.inferred_scopes]
+        if self.scopes:
+            body["scopes"] = [v for v in self.scopes]
         if self.token_id is not None:
             body["token_id"] = self.token_id
         return body
@@ -5520,12 +5541,20 @@ class PublicTokenInfo:
     def as_shallow_dict(self) -> dict:
         """Serializes the PublicTokenInfo into a shallow dictionary of its immediate attributes."""
         body = {}
+        if self.autoscope_state is not None:
+            body["autoscope_state"] = self.autoscope_state
+        if self.backfill_scopes:
+            body["backfill_scopes"] = self.backfill_scopes
         if self.comment is not None:
             body["comment"] = self.comment
         if self.creation_time is not None:
             body["creation_time"] = self.creation_time
         if self.expiry_time is not None:
             body["expiry_time"] = self.expiry_time
+        if self.inferred_scopes:
+            body["inferred_scopes"] = self.inferred_scopes
+        if self.scopes:
+            body["scopes"] = self.scopes
         if self.token_id is not None:
             body["token_id"] = self.token_id
         return body
@@ -5534,9 +5563,13 @@ class PublicTokenInfo:
     def from_dict(cls, d: Dict[str, Any]) -> PublicTokenInfo:
         """Deserializes the PublicTokenInfo from a dictionary."""
         return cls(
+            autoscope_state=_enum(d, "autoscope_state", iam.AutoscopeState),
+            backfill_scopes=d.get("backfill_scopes", None),
             comment=d.get("comment", None),
             creation_time=d.get("creation_time", None),
             expiry_time=d.get("expiry_time", None),
+            inferred_scopes=d.get("inferred_scopes", None),
+            scopes=d.get("scopes", None),
             token_id=d.get("token_id", None),
         )
 
@@ -5902,6 +5935,12 @@ class TokenAccessControlResponse:
 
 @dataclass
 class TokenInfo:
+    autoscope_state: Optional[iam.AutoscopeState] = None
+    """Output only. The autoscope state of this token."""
+
+    backfill_scopes: Optional[List[str]] = None
+    """Output only. Scopes inferred from offline backfill processing."""
+
     comment: Optional[str] = None
     """Comment that describes the purpose of the token, specified by the token creator."""
 
@@ -5917,11 +5956,17 @@ class TokenInfo:
     expiry_time: Optional[int] = None
     """Timestamp when the token expires."""
 
+    inferred_scopes: Optional[List[str]] = None
+    """Output only. Inferred API path scopes collected for this token when autoscope is enabled."""
+
     last_used_day: Optional[int] = None
     """Approximate timestamp for the day the token was last used. Accurate up to 1 day."""
 
     owner_id: Optional[int] = None
     """User ID of the user that owns the token."""
+
+    scopes: Optional[List[str]] = None
+    """Scope of the token was created with, if applicable."""
 
     token_id: Optional[str] = None
     """ID of the token."""
@@ -5932,6 +5977,10 @@ class TokenInfo:
     def as_dict(self) -> dict:
         """Serializes the TokenInfo into a dictionary suitable for use as a JSON request body."""
         body = {}
+        if self.autoscope_state is not None:
+            body["autoscope_state"] = self.autoscope_state.value
+        if self.backfill_scopes:
+            body["backfill_scopes"] = [v for v in self.backfill_scopes]
         if self.comment is not None:
             body["comment"] = self.comment
         if self.created_by_id is not None:
@@ -5942,10 +5991,14 @@ class TokenInfo:
             body["creation_time"] = self.creation_time
         if self.expiry_time is not None:
             body["expiry_time"] = self.expiry_time
+        if self.inferred_scopes:
+            body["inferred_scopes"] = [v for v in self.inferred_scopes]
         if self.last_used_day is not None:
             body["last_used_day"] = self.last_used_day
         if self.owner_id is not None:
             body["owner_id"] = self.owner_id
+        if self.scopes:
+            body["scopes"] = [v for v in self.scopes]
         if self.token_id is not None:
             body["token_id"] = self.token_id
         if self.workspace_id is not None:
@@ -5955,6 +6008,10 @@ class TokenInfo:
     def as_shallow_dict(self) -> dict:
         """Serializes the TokenInfo into a shallow dictionary of its immediate attributes."""
         body = {}
+        if self.autoscope_state is not None:
+            body["autoscope_state"] = self.autoscope_state
+        if self.backfill_scopes:
+            body["backfill_scopes"] = self.backfill_scopes
         if self.comment is not None:
             body["comment"] = self.comment
         if self.created_by_id is not None:
@@ -5965,10 +6022,14 @@ class TokenInfo:
             body["creation_time"] = self.creation_time
         if self.expiry_time is not None:
             body["expiry_time"] = self.expiry_time
+        if self.inferred_scopes:
+            body["inferred_scopes"] = self.inferred_scopes
         if self.last_used_day is not None:
             body["last_used_day"] = self.last_used_day
         if self.owner_id is not None:
             body["owner_id"] = self.owner_id
+        if self.scopes:
+            body["scopes"] = self.scopes
         if self.token_id is not None:
             body["token_id"] = self.token_id
         if self.workspace_id is not None:
@@ -5979,13 +6040,17 @@ class TokenInfo:
     def from_dict(cls, d: Dict[str, Any]) -> TokenInfo:
         """Deserializes the TokenInfo from a dictionary."""
         return cls(
+            autoscope_state=_enum(d, "autoscope_state", iam.AutoscopeState),
+            backfill_scopes=d.get("backfill_scopes", None),
             comment=d.get("comment", None),
             created_by_id=d.get("created_by_id", None),
             created_by_username=d.get("created_by_username", None),
             creation_time=d.get("creation_time", None),
             expiry_time=d.get("expiry_time", None),
+            inferred_scopes=d.get("inferred_scopes", None),
             last_used_day=d.get("last_used_day", None),
             owner_id=d.get("owner_id", None),
+            scopes=d.get("scopes", None),
             token_id=d.get("token_id", None),
             workspace_id=d.get("workspace_id", None),
         )
@@ -6543,7 +6608,7 @@ class AibiDashboardEmbeddingAccessPolicyAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "DELETE",
@@ -6576,7 +6641,7 @@ class AibiDashboardEmbeddingAccessPolicyAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "GET", "/api/2.0/settings/types/aibi_dash_embed_ws_acc_policy/names/default", query=query, headers=headers
@@ -6619,7 +6684,7 @@ class AibiDashboardEmbeddingAccessPolicyAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "PATCH", "/api/2.0/settings/types/aibi_dash_embed_ws_acc_policy/names/default", body=body, headers=headers
@@ -6657,7 +6722,7 @@ class AibiDashboardEmbeddingApprovedDomainsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "DELETE",
@@ -6689,7 +6754,7 @@ class AibiDashboardEmbeddingApprovedDomainsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "GET",
@@ -6736,7 +6801,7 @@ class AibiDashboardEmbeddingApprovedDomainsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "PATCH",
@@ -6776,7 +6841,7 @@ class AutomaticClusterUpdateAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "GET", "/api/2.0/settings/types/automatic_cluster_update/names/default", query=query, headers=headers
@@ -6822,7 +6887,7 @@ class AutomaticClusterUpdateAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "PATCH", "/api/2.0/settings/types/automatic_cluster_update/names/default", body=body, headers=headers
@@ -6861,7 +6926,7 @@ class ComplianceSecurityProfileAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "GET", "/api/2.0/settings/types/shield_csp_enablement_ws_db/names/default", query=query, headers=headers
@@ -6907,7 +6972,7 @@ class ComplianceSecurityProfileAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "PATCH", "/api/2.0/settings/types/shield_csp_enablement_ws_db/names/default", body=body, headers=headers
@@ -6961,7 +7026,7 @@ class CredentialsManagerAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("POST", "/api/2.0/credentials-manager/exchange-tokens/token", body=body, headers=headers)
         return ExchangeTokenResponse.from_dict(res)
@@ -7079,7 +7144,7 @@ class DashboardEmailSubscriptionsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "DELETE",
@@ -7111,7 +7176,7 @@ class DashboardEmailSubscriptionsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "GET", "/api/2.0/settings/types/dashboard_email_subscriptions/names/default", query=query, headers=headers
@@ -7154,7 +7219,7 @@ class DashboardEmailSubscriptionsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "PATCH", "/api/2.0/settings/types/dashboard_email_subscriptions/names/default", body=body, headers=headers
@@ -7202,7 +7267,7 @@ class DefaultNamespaceAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "DELETE", "/api/2.0/settings/types/default_namespace_ws/names/default", query=query, headers=headers
@@ -7231,7 +7296,7 @@ class DefaultNamespaceAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "GET", "/api/2.0/settings/types/default_namespace_ws/names/default", query=query, headers=headers
@@ -7277,7 +7342,7 @@ class DefaultNamespaceAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "PATCH", "/api/2.0/settings/types/default_namespace_ws/names/default", body=body, headers=headers
@@ -7314,7 +7379,7 @@ class DefaultWarehouseIdAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "DELETE", "/api/2.0/settings/types/default_warehouse_id/names/default", query=query, headers=headers
@@ -7343,7 +7408,7 @@ class DefaultWarehouseIdAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "GET", "/api/2.0/settings/types/default_warehouse_id/names/default", query=query, headers=headers
@@ -7384,7 +7449,7 @@ class DefaultWarehouseIdAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "PATCH", "/api/2.0/settings/types/default_warehouse_id/names/default", body=body, headers=headers
@@ -7424,7 +7489,7 @@ class DisableLegacyAccessAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "DELETE", "/api/2.0/settings/types/disable_legacy_access/names/default", query=query, headers=headers
@@ -7453,7 +7518,7 @@ class DisableLegacyAccessAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "GET", "/api/2.0/settings/types/disable_legacy_access/names/default", query=query, headers=headers
@@ -7494,7 +7559,7 @@ class DisableLegacyAccessAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "PATCH", "/api/2.0/settings/types/disable_legacy_access/names/default", body=body, headers=headers
@@ -7537,7 +7602,7 @@ class DisableLegacyDbfsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "DELETE", "/api/2.0/settings/types/disable_legacy_dbfs/names/default", query=query, headers=headers
@@ -7566,7 +7631,7 @@ class DisableLegacyDbfsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "GET", "/api/2.0/settings/types/disable_legacy_dbfs/names/default", query=query, headers=headers
@@ -7607,7 +7672,7 @@ class DisableLegacyDbfsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "PATCH", "/api/2.0/settings/types/disable_legacy_dbfs/names/default", body=body, headers=headers
@@ -7742,7 +7807,7 @@ class EnableExportNotebookAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", "/api/2.0/settings/types/enable-export-notebook/names/default", headers=headers)
         return EnableExportNotebook.from_dict(res)
@@ -7784,7 +7849,7 @@ class EnableExportNotebookAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "PATCH", "/api/2.0/settings/types/enable-export-notebook/names/default", body=body, headers=headers
@@ -7916,7 +7981,7 @@ class EnableNotebookTableClipboardAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "GET", "/api/2.0/settings/types/enable-notebook-table-clipboard/names/default", headers=headers
@@ -7960,7 +8025,7 @@ class EnableNotebookTableClipboardAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "PATCH", "/api/2.0/settings/types/enable-notebook-table-clipboard/names/default", body=body, headers=headers
@@ -7987,7 +8052,7 @@ class EnableResultsDownloadingAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", "/api/2.0/settings/types/enable-results-downloading/names/default", headers=headers)
         return EnableResultsDownloading.from_dict(res)
@@ -8029,7 +8094,7 @@ class EnableResultsDownloadingAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "PATCH", "/api/2.0/settings/types/enable-results-downloading/names/default", body=body, headers=headers
@@ -8070,7 +8135,7 @@ class EnhancedSecurityMonitoringAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "GET", "/api/2.0/settings/types/shield_esm_enablement_ws_db/names/default", query=query, headers=headers
@@ -8116,7 +8181,7 @@ class EnhancedSecurityMonitoringAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "PATCH", "/api/2.0/settings/types/shield_esm_enablement_ws_db/names/default", body=body, headers=headers
@@ -8265,7 +8330,7 @@ class IpAccessListsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("POST", "/api/2.0/ip-access-lists", body=body, headers=headers)
         return CreateIpAccessListResponse.from_dict(res)
@@ -8283,7 +8348,7 @@ class IpAccessListsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         self._api.do("DELETE", f"/api/2.0/ip-access-lists/{ip_access_list_id}", headers=headers)
 
@@ -8302,7 +8367,7 @@ class IpAccessListsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", f"/api/2.0/ip-access-lists/{ip_access_list_id}", headers=headers)
         return FetchIpAccessListResponse.from_dict(res)
@@ -8320,7 +8385,7 @@ class IpAccessListsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         json = self._api.do("GET", "/api/2.0/ip-access-lists", headers=headers)
         parsed = ListIpAccessListResponse.from_dict(json).ip_access_lists
@@ -8373,7 +8438,7 @@ class IpAccessListsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         self._api.do("PUT", f"/api/2.0/ip-access-lists/{ip_access_list_id}", body=body, headers=headers)
 
@@ -8428,7 +8493,7 @@ class IpAccessListsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         self._api.do("PATCH", f"/api/2.0/ip-access-lists/{ip_access_list_id}", body=body, headers=headers)
 
@@ -8616,7 +8681,7 @@ class LlmProxyPartnerPoweredWorkspaceAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "DELETE", "/api/2.0/settings/types/llm_proxy_partner_powered/names/default", query=query, headers=headers
@@ -8645,7 +8710,7 @@ class LlmProxyPartnerPoweredWorkspaceAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "GET", "/api/2.0/settings/types/llm_proxy_partner_powered/names/default", query=query, headers=headers
@@ -8688,7 +8753,7 @@ class LlmProxyPartnerPoweredWorkspaceAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "PATCH", "/api/2.0/settings/types/llm_proxy_partner_powered/names/default", body=body, headers=headers
@@ -9134,7 +9199,7 @@ class NotificationDestinationsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("POST", "/api/2.0/notification-destinations", body=body, headers=headers)
         return NotificationDestination.from_dict(res)
@@ -9153,7 +9218,7 @@ class NotificationDestinationsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         self._api.do("DELETE", f"/api/2.0/notification-destinations/{id}", headers=headers)
 
@@ -9171,7 +9236,7 @@ class NotificationDestinationsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", f"/api/2.0/notification-destinations/{id}", headers=headers)
         return NotificationDestination.from_dict(res)
@@ -9198,7 +9263,7 @@ class NotificationDestinationsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         while True:
             json = self._api.do("GET", "/api/2.0/notification-destinations", query=query, headers=headers)
@@ -9237,7 +9302,7 @@ class NotificationDestinationsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("PATCH", f"/api/2.0/notification-destinations/{id}", body=body, headers=headers)
         return NotificationDestination.from_dict(res)
@@ -9391,7 +9456,7 @@ class RestrictWorkspaceAdminsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "DELETE", "/api/2.0/settings/types/restrict_workspace_admins/names/default", query=query, headers=headers
@@ -9420,7 +9485,7 @@ class RestrictWorkspaceAdminsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "GET", "/api/2.0/settings/types/restrict_workspace_admins/names/default", query=query, headers=headers
@@ -9466,7 +9531,7 @@ class RestrictWorkspaceAdminsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "PATCH", "/api/2.0/settings/types/restrict_workspace_admins/names/default", body=body, headers=headers
@@ -9607,7 +9672,7 @@ class SqlResultsDownloadAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "DELETE", "/api/2.0/settings/types/sql_results_download/names/default", query=query, headers=headers
@@ -9636,7 +9701,7 @@ class SqlResultsDownloadAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "GET", "/api/2.0/settings/types/sql_results_download/names/default", query=query, headers=headers
@@ -9677,7 +9742,7 @@ class SqlResultsDownloadAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "PATCH", "/api/2.0/settings/types/sql_results_download/names/default", body=body, headers=headers
@@ -9696,6 +9761,7 @@ class TokenManagementAPI:
         self,
         application_id: str,
         *,
+        autoscope_enabled: Optional[bool] = None,
         comment: Optional[str] = None,
         lifetime_seconds: Optional[int] = None,
         scopes: Optional[List[str]] = None,
@@ -9704,6 +9770,8 @@ class TokenManagementAPI:
 
         :param application_id: str
           Application ID of the service principal.
+        :param autoscope_enabled: bool (optional)
+          Whether to enable autoscoping for this token.
         :param comment: str (optional)
           Comment that describes the purpose of the token.
         :param lifetime_seconds: int (optional)
@@ -9716,6 +9784,8 @@ class TokenManagementAPI:
         body = {}
         if application_id is not None:
             body["application_id"] = application_id
+        if autoscope_enabled is not None:
+            body["autoscope_enabled"] = autoscope_enabled
         if comment is not None:
             body["comment"] = comment
         if lifetime_seconds is not None:
@@ -9729,7 +9799,7 @@ class TokenManagementAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("POST", "/api/2.0/token-management/on-behalf-of/tokens", body=body, headers=headers)
         return CreateOboTokenResponse.from_dict(res)
@@ -9747,7 +9817,7 @@ class TokenManagementAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         self._api.do("DELETE", f"/api/2.0/token-management/tokens/{token_id}", headers=headers)
 
@@ -9766,7 +9836,7 @@ class TokenManagementAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", f"/api/2.0/token-management/tokens/{token_id}", headers=headers)
         return GetTokenResponse.from_dict(res)
@@ -9784,7 +9854,7 @@ class TokenManagementAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", "/api/2.0/permissions/authorization/tokens/permissionLevels", headers=headers)
         return GetTokenPermissionLevelsResponse.from_dict(res)
@@ -9802,7 +9872,7 @@ class TokenManagementAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", "/api/2.0/permissions/authorization/tokens", headers=headers)
         return TokenPermissions.from_dict(res)
@@ -9831,7 +9901,7 @@ class TokenManagementAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         json = self._api.do("GET", "/api/2.0/token-management/tokens", query=query, headers=headers)
         parsed = ListTokensResponse.from_dict(json).token_infos
@@ -9858,7 +9928,7 @@ class TokenManagementAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("PUT", "/api/2.0/permissions/authorization/tokens", body=body, headers=headers)
         return TokenPermissions.from_dict(res)
@@ -9883,10 +9953,49 @@ class TokenManagementAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("PATCH", "/api/2.0/permissions/authorization/tokens", body=body, headers=headers)
         return TokenPermissions.from_dict(res)
+
+    def update_token_management(self, token_id: str, token: TokenInfo, update_mask: FieldMask) -> TokenInfo:
+        """Updates a token, specified by its ID.
+
+        :param token_id: str
+          ID of the token.
+        :param token: :class:`TokenInfo`
+        :param update_mask: FieldMask
+          A list of field name under token, For example, {"update_mask": "comment,scopes"}
+
+          The field mask must be a single string, with multiple fields separated by commas (no spaces). The
+          field path is relative to the resource object, using a dot (`.`) to navigate sub-fields (e.g.,
+          `author.given_name`). Specification of elements in sequence or map fields is not allowed, as only
+          the entire collection field can be specified. Field names must exactly match the resource field
+          names.
+
+          A field mask of `*` indicates full replacement. It’s recommended to always explicitly list the
+          fields being updated and avoid using `*` wildcards, as it can lead to unintended results if the API
+          changes in the future.
+
+        :returns: :class:`TokenInfo`
+        """
+
+        body = {}
+        if token is not None:
+            body["token"] = token.as_dict()
+        if update_mask is not None:
+            body["update_mask"] = update_mask.ToJsonString()
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+
+        cfg = self._api._cfg
+        if cfg.workspace_id:
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
+
+        res = self._api.do("PATCH", f"/api/2.0/token-management/tokens/{token_id}", body=body, headers=headers)
+        return TokenInfo.from_dict(res)
 
 
 class TokensAPI:
@@ -9899,6 +10008,7 @@ class TokensAPI:
     def create(
         self,
         *,
+        autoscope_enabled: Optional[bool] = None,
         comment: Optional[str] = None,
         lifetime_seconds: Optional[int] = None,
         scopes: Optional[List[str]] = None,
@@ -9907,6 +10017,9 @@ class TokensAPI:
         a token with the same client ID as the authenticated token. If the user's token quota is exceeded,
         this call returns an error **QUOTA_EXCEEDED**.
 
+        :param autoscope_enabled: bool (optional)
+          Whether to enable autoscoping for this token. When true, the token will automatically collect
+          inferred API path scopes as it is used.
         :param comment: str (optional)
           Optional description to attach to the token.
         :param lifetime_seconds: int (optional)
@@ -9920,6 +10033,8 @@ class TokensAPI:
         """
 
         body = {}
+        if autoscope_enabled is not None:
+            body["autoscope_enabled"] = autoscope_enabled
         if comment is not None:
             body["comment"] = comment
         if lifetime_seconds is not None:
@@ -9933,7 +10048,7 @@ class TokensAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("POST", "/api/2.0/token/create", body=body, headers=headers)
         return CreateTokenResponse.from_dict(res)
@@ -9959,7 +10074,7 @@ class TokensAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         self._api.do("POST", "/api/2.0/token/delete", body=body, headers=headers)
 
@@ -9976,7 +10091,7 @@ class TokensAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         json = self._api.do("GET", "/api/2.0/token/list", headers=headers)
         parsed = ListPublicTokensResponse.from_dict(json).token_infos
@@ -9985,14 +10100,13 @@ class TokensAPI:
     def update(self, token_id: str, token: PublicTokenInfo, update_mask: FieldMask) -> UpdateTokenResponse:
         """Updates the comment or scopes of a token.
 
-        If a token with the specified ID is not valid, this call returns an error **RESOURCE_DOES_NOT_EXIST**.
+        If a token with the specified ID is not valid, this call returns an error **NOT_FOUND**.
 
         :param token_id: str
           The SHA-256 hash of the token to be updated.
         :param token: :class:`PublicTokenInfo`
         :param update_mask: FieldMask
-          A list of field name under PublicTokenInfo, For example in request use {"update_mask":
-          "comment,scopes"}
+          A list of field name under token, For example, {"update_mask": "comment,scopes"}
 
           The field mask must be a single string, with multiple fields separated by commas (no spaces). The
           field path is relative to the resource object, using a dot (`.`) to navigate sub-fields (e.g.,
@@ -10019,7 +10133,7 @@ class TokensAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("PATCH", f"/api/2.0/token/{token_id}", body=body, headers=headers)
         return UpdateTokenResponse.from_dict(res)
@@ -10048,7 +10162,7 @@ class WorkspaceConfAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", "/api/2.0/workspace-conf", query=query, headers=headers)
         return res
@@ -10062,7 +10176,7 @@ class WorkspaceConfAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         self._api.do("PATCH", "/api/2.0/workspace-conf", body=contents, headers=headers)
 

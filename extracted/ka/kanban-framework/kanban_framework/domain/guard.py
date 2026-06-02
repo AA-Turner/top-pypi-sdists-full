@@ -5,6 +5,7 @@ to guard_checks.GuardChecks and guard_reviews.GuardReviews.
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from dataclasses import dataclass, field
 
@@ -123,12 +124,13 @@ class Guard:
     }
 
     def _get_phase_guard(self, phase_str: str, mode: str | None = None) -> dict:
-        """Read guard config for a phase from workflow.json.
+        """Read guard config for a phase.
 
-        Priority: modes.<mode>.phases[].guard → top-level phases[].guard → {}
+        Priority: modes.<mode>.phases[].guard → .kanban/workflows/<mode>.json
+        → top-level phases[].guard → {}
         """
         workflow = self._cfg.workflow
-        # Priority 1: per-mode guard
+        # Priority 1: per-mode guard from workflow.json
         if mode:
             modes_cfg = workflow.get("modes", {})
             mode_cfg = modes_cfg.get(mode, {}) if isinstance(modes_cfg, dict) else {}
@@ -138,7 +140,20 @@ class Guard:
                     g = p.get("guard")
                     if isinstance(g, dict):
                         return g
-        # Priority 2: top-level phases[].guard
+        # Priority 2: per-mode guard from .kanban/workflows/<mode>.json
+        if mode:
+            try:
+                wf_file = self._fs.kanban_dir / "workflows" / f"{mode}.json"
+                if wf_file.is_file():
+                    mode_data = json.loads(wf_file.read_text(encoding="utf-8"))
+                    for p in mode_data.get("phases", []):
+                        if isinstance(p, dict) and p.get("id") == phase_str:
+                            g = p.get("guard")
+                            if isinstance(g, dict):
+                                return g
+            except Exception:
+                pass
+        # Priority 3: top-level phases[].guard
         for p in workflow.get("phases", []):
             if isinstance(p, dict) and p.get("id") == phase_str:
                 g = p.get("guard")
@@ -164,16 +179,23 @@ class Guard:
             if isinstance(p, dict) and p.get("id") == phase_str:
                 artifacts = p.get("required_artifacts")
                 if artifacts:
-                    return artifacts
+                    return self._lightweight_reduce(phase_str, artifacts, lightweight)
         # Check workflow extensions for custom phase artifacts
         from kanban_framework.domain.workflow_extensions import WorkflowExtension
         ext = WorkflowExtension(workflow)
         custom_artifacts = ext.get_required_artifacts(phase_str)
         if custom_artifacts:
-            return custom_artifacts
+            return self._lightweight_reduce(phase_str, custom_artifacts, lightweight)
         if lightweight and phase_str == Phase.EXECUTE.value:
             return ["execution_summary.md"]
         return self._DEFAULT_ARTIFACTS.get(phase_str, [])
+
+    @staticmethod
+    def _lightweight_reduce(phase_str: str, artifacts: list[str], lightweight: bool) -> list[str]:
+        """Reduce artifact requirements for lightweight/quick mode execute phase."""
+        if lightweight and phase_str == Phase.EXECUTE.value:
+            return [a for a in artifacts if a == "execution_summary.md"] or ["execution_summary.md"]
+        return artifacts
 
     _KNOWLEDGE_ARTIFACT_HINTS: dict[str, tuple[str, str]] = {
         "execute":        ("execution_pitfalls.md",

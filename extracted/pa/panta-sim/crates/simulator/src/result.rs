@@ -1,5 +1,6 @@
 use qsim_core::{DensityMatrix, StateVector};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 // Re-export so user crates can write `qsim_simulator::Backend::WgpuDensity`.
 
@@ -150,6 +151,10 @@ pub enum SimulationResult {
     MpsF64 {
         counts: HashMap<String, usize>,
         statevector: Option<StateVector<f64>>,
+        /// v0.7: 정적 (noise/dynamic 없는) MPS 회로의 최종 MPS — `statevector`
+        /// 가 `None` (N > 20) 일 때도 `expectation_pauli` 로 observable 기댓값을
+        /// 계산하기 위해 보존.  trajectory / WgpuMps 경로는 `None`.
+        mps: Option<Arc<qsim_mps::Mps<f64>>>,
         max_bond_dim: usize,
         trunc_threshold: f64,
         final_norm_sq: f64,
@@ -163,6 +168,8 @@ pub enum SimulationResult {
     MpsF32 {
         counts: HashMap<String, usize>,
         statevector: Option<StateVector<f32>>,
+        /// v0.7: [`MpsF64::mps`] 와 동일 의미 (f32 텐서).
+        mps: Option<Arc<qsim_mps::Mps<f32>>>,
         max_bond_dim: usize,
         trunc_threshold: f64,
         final_norm_sq: f64,

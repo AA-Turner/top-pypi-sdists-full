@@ -30,6 +30,15 @@ class DocumentBatchAddParams(TypedDict, total=False):
 
     content: None
 
+    dreaming: Literal["instant", "dynamic"]
+    """Processing mode.
+
+    "dynamic" (default) groups related documents together so memories form from
+    coherent, logical units rather than one isolated entry at a time. "instant"
+    processes each document on its own right away, and bills one extra operation per
+    document.
+    """
+
     entity_context: Annotated[str, PropertyInfo(alias="entityContext")]
     """Optional entity context for this container tag.
 
@@ -99,6 +108,15 @@ class DocumentsUnionMember0(TypedDict, total=False):
     """Optional custom ID of the document.
 
     This could be an ID from your database that will uniquely identify this
+    document.
+    """
+
+    dreaming: Literal["instant", "dynamic"]
+    """Processing mode.
+
+    "dynamic" (default) groups related documents together so memories form from
+    coherent, logical units rather than one isolated entry at a time. "instant"
+    processes each document on its own right away, and bills one extra operation per
     document.
     """
 

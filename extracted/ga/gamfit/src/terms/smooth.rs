@@ -5,9 +5,10 @@ use crate::basis::{
     CenterStrategyKind, Dense, DuchonBasisSpec, DuchonNullspaceOrder, DuchonOperatorPenaltySpec,
     KnotSource, KroneckerFactoredBasis, MaternBasisSpec, MaternIdentifiability,
     OneDimensionalBoundary, PenaltyCandidate, PenaltyInfo, PenaltySource, SpatialIdentifiability,
-    SphericalSplineBasisSpec, ThinPlateBasisSpec, apply_sum_to_zero_constraint,
-    build_bspline_basis_1d, build_duchon_basis, build_duchon_basis_log_kappa_aniso_derivatives,
-    build_duchon_basis_log_kappa_derivatives, build_duchon_basiswithworkspace, build_matern_basis,
+    SphericalSplineBasisSpec, SphericalSplineIdentifiability, ThinPlateBasisSpec,
+    apply_sum_to_zero_constraint,
+    build_bspline_basis_1d, build_duchon_basis, build_duchon_basis_log_kappa_derivatives,
+    build_duchon_basiswithworkspace, build_matern_basis,
     build_matern_basis_log_kappa_aniso_derivatives, build_matern_basis_log_kappa_derivatives,
     build_matern_basiswithworkspace, build_matern_collocation_operator_matrices,
     build_spherical_spline_basis, build_thin_plate_basis,
@@ -1342,14 +1343,22 @@ impl KroneckerPenaltySystem {
         let mut grad = Array1::<f64>::zeros(n_pen);
         let mut hess = Array2::<f64>::zeros((n_pen, n_pen));
         let tol = 1e-12;
+        let structural_zero_tol = 1e-12;
         let mut multi_idx = vec![0usize; d];
         loop {
-            let mut sigma = ridge;
+            let mut sigma = 0.0;
+            let mut structural_sigma = 0.0;
             for k in 0..d {
-                sigma += lambdas[k] * self.marginal_eigensystems[k].0[multi_idx[k]];
+                let marginal_eigenvalue = self.marginal_eigensystems[k].0[multi_idx[k]];
+                structural_sigma += marginal_eigenvalue;
+                sigma += lambdas[k] * marginal_eigenvalue;
             }
             if self.has_double_penalty {
+                structural_sigma += 1.0;
                 sigma += lambdas[d];
+            }
+            if structural_sigma > structural_zero_tol {
+                sigma += ridge;
             }
 
             if sigma > tol {
@@ -2205,17 +2214,6 @@ impl SpatialLogKappaCoords {
         let mut vals = Vec::new();
         let mut dims = Vec::new();
         for &term_idx in term_indices {
-            if is_pure_duchon_aniso_term(spec, term_idx) {
-                let d = get_spatial_feature_dim(spec, term_idx).unwrap_or(1);
-                let eta = center_aniso_log_scales(
-                    &get_spatial_aniso_log_scales(spec, term_idx).unwrap_or_else(|| vec![0.0; d]),
-                );
-                for eta_a in eta.into_iter().take(d.saturating_sub(1)) {
-                    vals.push(eta_a);
-                }
-                dims.push(d.saturating_sub(1).max(1));
-                continue;
-            }
             let length_scale = get_spatial_length_scale(spec, term_idx)
                 .unwrap_or(options.min_length_scale)
                 .clamp(options.min_length_scale, options.max_length_scale);
@@ -2351,23 +2349,17 @@ impl SpatialLogKappaCoords {
         assert_eq!(term_indices.len(), dims_per_term.len());
         let total: usize = dims_per_term.iter().sum();
         let mut values = Array1::<f64>::zeros(total);
-        let options_psi = match end {
-            AnisoBoundEnd::Lower => -options.max_length_scale.ln(),
-            AnisoBoundEnd::Upper => -options.min_length_scale.ln(),
-        };
         let mut cursor = 0;
         for (slot, &term_idx) in term_indices.iter().enumerate() {
             let d = dims_per_term[slot];
-            let psi_bound = if is_pure_duchon_aniso_term(spec, term_idx) {
-                options_psi
-            } else {
+            let psi_bound = {
                 let (lo, hi) = spatial_term_psi_bounds(data, spec, term_idx, options);
                 match end {
                     AnisoBoundEnd::Lower => lo,
                     AnisoBoundEnd::Upper => hi,
                 }
             };
-            let axis_offsets = if is_pure_duchon_aniso_term(spec, term_idx) || d <= 1 {
+            let axis_offsets = if d <= 1 {
                 vec![0.0; d]
             } else {
                 get_spatial_aniso_log_scales(spec, term_idx)
@@ -2409,12 +2401,6 @@ impl SpatialLogKappaCoords {
                 cursor += d;
                 continue;
             };
-            if is_pure_duchon_aniso_term(spec, term_idx) {
-                // Pure Duchon stores d-1 free η_a directly; there is no ψ̄
-                // component to reseed (only axial anisotropy).
-                cursor += d;
-                continue;
-            }
             if d == 0 {
                 continue;
             }
@@ -2553,8 +2539,7 @@ impl SpatialLogKappaCoords {
         for (slot, &term_idx) in term_indices.iter().enumerate() {
             let psi = self.term_slice(slot);
             let d = self.dims_per_term[slot];
-            let (next_length_scale, next_aniso) =
-                spatial_term_psi_to_length_scale_and_aniso(spec, term_idx, psi);
+            let (next_length_scale, next_aniso) = spatial_term_psi_to_length_scale_and_aniso(psi);
             if (d == 1 || next_length_scale.is_some())
                 && let Some(length_scale) = next_length_scale
             {
@@ -2585,26 +2570,15 @@ fn center_aniso_log_scales(eta: &[f64]) -> Vec<f64> {
         .collect()
 }
 
-fn is_pure_duchon_aniso_term(spec: &TermCollectionSpec, term_idx: usize) -> bool {
-    spec.smooth_terms
-        .get(term_idx)
-        .is_some_and(|term| match &term.basis {
-            SmoothBasisSpec::Duchon {
-                feature_cols, spec, ..
-            } => {
-                spec.length_scale.is_none()
-                    && feature_cols.len() > 1
-                    && spec
-                        .aniso_log_scales
-                        .as_ref()
-                        .is_some_and(|eta| eta.len() == feature_cols.len())
-            }
-            _ => false,
-        })
-}
-
 fn spatial_term_supports_hyper_optimization(spec: &TermCollectionSpec, term_idx: usize) -> bool {
-    get_spatial_length_scale(spec, term_idx).is_some() || is_pure_duchon_aniso_term(spec, term_idx)
+    // Duchon anisotropy η is a FIXED, geometry-derived basis parameter, NOT a
+    // REML hyper axis: the metric is estimated once from the knot-cloud spread
+    // (`maybe_initialize_aniso_contrasts`, applied on every basis build) and the
+    // Hilbert-scale λ's carry all learned smoothness. So a pure Duchon (no κ)
+    // contributes no outer optimization axis even when `scale_dims` is on —
+    // "standardize the geometry, then learn the smoothness." Only an explicit
+    // kernel length scale κ (the Matérn / hybrid path) is optimized here.
+    get_spatial_length_scale(spec, term_idx).is_some()
 }
 
 /// Returns `true` when a spatial term has NO outer optimization axes — i.e.
@@ -2723,23 +2697,7 @@ fn spatial_term_psi_seed(
     Some(0.5 * (psi_lo + psi_hi))
 }
 
-fn spatial_term_psi_to_length_scale_and_aniso(
-    spec: &TermCollectionSpec,
-    term_idx: usize,
-    psi: &[f64],
-) -> (Option<f64>, Option<Vec<f64>>) {
-    if is_pure_duchon_aniso_term(spec, term_idx) {
-        let d = get_spatial_feature_dim(spec, term_idx).unwrap_or(psi.len());
-        let free = d.saturating_sub(1);
-        let mut eta = vec![0.0; d];
-        for (axis, &value) in psi.iter().take(free).enumerate() {
-            eta[axis] = value;
-        }
-        if d > 1 {
-            eta[d - 1] = -eta[..d - 1].iter().sum::<f64>();
-        }
-        return (None, Some(eta));
-    }
+fn spatial_term_psi_to_length_scale_and_aniso(psi: &[f64]) -> (Option<f64>, Option<Vec<f64>>) {
     if psi.len() <= 1 {
         (Some((-psi.first().copied().unwrap_or(0.0)).exp()), None)
     } else {
@@ -4641,35 +4599,54 @@ fn build_tensor_bspline_basis(
         marginal_penalties.len() + if spec.double_penalty { 1 } else { 0 },
     );
 
-    for dim in 0..marginal_penalties.len() {
+    // Tensor-product smoothing parameters are one-per-margin.  Therefore the
+    // physical penalty attached to a margin must be normalized in that margin's
+    // own working coordinates before it is embedded in the full tensor product.
+    // Normalizing only the already-Kroneckered matrix would fold arbitrary
+    // dimension-dependent identity factors into the margin's lambda and would
+    // make anisotropic REML/LAML smoothing depend on the other margins' basis
+    // sizes rather than on the marginal roughness operator itself.
+    let normalized_marginal_penalties: Vec<(Array2<f64>, f64)> = marginal_penalties
+        .iter()
+        .map(normalize_penalty_in_constrained_space)
+        .collect();
+    let mut kronecker_marginal_penalties =
+        Vec::<Array2<f64>>::with_capacity(normalized_marginal_penalties.len());
+
+    for dim in 0..normalized_marginal_penalties.len() {
         let mut s_dim = Array2::<f64>::eye(1);
         let mut factors = Vec::<Array2<f64>>::with_capacity(marginalnum_basis.len());
         for (j, &qj) in marginalnum_basis.iter().enumerate() {
             let factor = if j == dim {
-                marginal_penalties[j].clone()
+                normalized_marginal_penalties[j].0.clone()
             } else {
                 Array2::<f64>::eye(qj)
             };
             factors.push(factor.clone());
             s_dim = kronecker_product(&s_dim, &factor);
         }
+        if dim == kronecker_marginal_penalties.len() {
+            kronecker_marginal_penalties.push(normalized_marginal_penalties[dim].0.clone());
+        }
 
         candidates.push(PenaltyCandidate {
             matrix: s_dim,
             nullspace_dim_hint: 0,
             source: PenaltySource::TensorMarginal { dim },
-            normalization_scale: 1.0,
+            normalization_scale: normalized_marginal_penalties[dim].1,
             kronecker_factors: Some(factors),
             op: None,
         });
     }
 
     if spec.double_penalty {
+        let ridge = Array2::<f64>::eye(total_cols);
+        let (matrix, normalization_scale) = normalize_penalty_in_constrained_space(&ridge);
         candidates.push(PenaltyCandidate {
-            matrix: Array2::<f64>::eye(total_cols),
+            matrix,
             nullspace_dim_hint: 0,
             source: PenaltySource::TensorGlobalRidge,
-            normalization_scale: 1.0,
+            normalization_scale,
             kronecker_factors: None,
             op: None,
         });
@@ -4745,11 +4722,18 @@ fn build_tensor_bspline_basis(
                 let zt_s = fast_atb(z, &candidate.matrix);
                 let matrix = fast_ab(&zt_s, z);
                 let (matrix, c_new) = normalize_penalty_in_constrained_space(&matrix);
+                let preserve_margin_scale =
+                    matches!(&candidate.source, PenaltySource::TensorMarginal { .. });
+                let (matrix, normalization_scale) = if preserve_margin_scale {
+                    (matrix.mapv(|v| v * c_new), candidate.normalization_scale)
+                } else {
+                    (matrix, candidate.normalization_scale * c_new)
+                };
                 Ok(PenaltyCandidate {
                     nullspace_dim_hint: candidate.nullspace_dim_hint,
                     matrix,
                     source: candidate.source,
-                    normalization_scale: candidate.normalization_scale * c_new,
+                    normalization_scale,
                     kronecker_factors: candidate.kronecker_factors.clone(),
                     op: candidate.op.clone(),
                 })
@@ -4816,7 +4800,7 @@ fn build_tensor_bspline_basis(
         kronecker_factored: if matches!(spec.identifiability, TensorBSplineIdentifiability::None) {
             Some(KroneckerFactoredBasis {
                 marginal_designs,
-                marginal_penalties,
+                marginal_penalties: kronecker_marginal_penalties,
                 marginal_dims: marginalnum_basis.clone(),
                 has_double_penalty: spec.double_penalty,
             })
@@ -5691,6 +5675,288 @@ fn ensure_by_variable_specs_match(
     }
 }
 
+/// Build a factor-smooth interaction basis (`bs="fs"`/`"sz"`/`"re"`).
+///
+/// A factor smooth replicates a shared marginal smooth in the continuous
+/// covariate(s) once per level of a grouping factor, coupling all level blocks
+/// through a *single* set of smoothing parameters (one per marginal penalty).
+/// This is mgcv's `smooth.construct.fs.smooth.spec` realization and the
+/// random-effect interpretation of a smooth: the per-level deviations are an
+/// exchangeable family whose joint wiggliness/shrinkage is governed by the
+/// shared λ, so the construction scales to many levels with a fixed parameter
+/// count.
+///
+/// Flavours:
+/// * `Fs` — full random factor-smooth. The marginal carries its wiggliness
+///   penalty *and* a null-space ridge (double penalty), so the replicated
+///   design is a proper full-rank random effect: each level's curve is shrunk
+///   toward zero (intercept + linear trend included), recovering the mgcv
+///   `bs="fs"` penalty structure `I_L ⊗ S_j` for every marginal penalty `S_j`.
+/// * `Sz` — sum-to-zero factor smooth. Delegates to the existing
+///   [`SmoothBasisSpec::FactorSumToZero`] construction (`L-1` deviation blocks,
+///   coefficient-wise zero sum across levels).
+/// * `Re` — pure random effect / random slope (`bs="re"`). A degree-1 marginal
+///   gives the per-level `[1, x]` span; the penalty is the identity over each
+///   level block (iid Gaussian coefficients), matching mgcv's `bs="re"` ridge.
+///
+/// The grouping levels are resolved once at fit time (sorted unique bit
+/// patterns of the factor column) and frozen into the returned metadata so the
+/// predict-time rebuild evaluates every row against its own level's block.
+fn build_factor_smooth(
+    data: ArrayView2<'_, f64>,
+    spec: &FactorSmoothSpec,
+    term_name: &str,
+    workspace: &mut crate::basis::BasisWorkspace,
+) -> Result<LocalSmoothTermBuild, BasisError> {
+    if spec.continuous_cols.len() != 1 {
+        crate::bail_invalid_basis!(
+            "factor smooth term '{}' currently supports exactly one continuous covariate; found {}",
+            term_name,
+            spec.continuous_cols.len()
+        );
+    }
+    let feature_col = spec.continuous_cols[0];
+    let group_col = spec.group_col;
+    if feature_col >= data.ncols() || group_col >= data.ncols() {
+        crate::bail_dim_basis!(
+            "factor smooth term '{}' references columns ({}, {}) out of bounds for {} columns",
+            term_name,
+            feature_col,
+            group_col,
+            data.ncols()
+        );
+    }
+
+    // `Sz` is exactly the existing sum-to-zero factor smooth: reuse it verbatim
+    // so there is a single source of truth for the zero-sum construction.
+    if matches!(spec.flavour, FactorSmoothFlavour::Sz) {
+        let levels = resolve_factor_smooth_levels(data, group_col, spec, term_name)?;
+        let inner = SmoothBasisSpec::BSpline1D {
+            feature_col,
+            spec: factor_smooth_marginal_for_replay(&spec.marginal),
+        };
+        let sz_term = SmoothTermSpec {
+            name: term_name.to_string(),
+            basis: SmoothBasisSpec::FactorSumToZero {
+                inner: Box::new(inner),
+                by_col: group_col,
+                levels,
+            },
+            shape: ShapeConstraint::None,
+            joint_null_rotation: None,
+        };
+        return build_single_local_smooth_term(data, &sz_term, workspace);
+    }
+
+    let levels = resolve_factor_smooth_levels(data, group_col, spec, term_name)?;
+    let n_levels = levels.len();
+    if n_levels < 2 {
+        crate::bail_invalid_basis!(
+            "factor smooth term '{}' requires at least two grouping levels; found {}",
+            term_name,
+            n_levels
+        );
+    }
+
+    // Build the shared marginal design + penalties from the 1-D B-spline.
+    // `Re` forces a degree-1 marginal (linear span) and replaces the marginal
+    // wiggliness with an identity ridge below; `Fs` keeps the user's marginal
+    // (cubic by default) with its double penalty so the null space is shrunk.
+    let marginal_spec = factor_smooth_marginal_for_replay(&spec.marginal);
+    let inner_term = SmoothTermSpec {
+        name: format!("{term_name}::marginal"),
+        basis: SmoothBasisSpec::BSpline1D {
+            feature_col,
+            spec: marginal_spec,
+        },
+        shape: ShapeConstraint::None,
+        joint_null_rotation: None,
+    };
+    let inner = build_single_local_smooth_term(data, &inner_term, workspace)?;
+    let base = inner
+        .design
+        .try_to_dense_by_chunks("factor smooth marginal")
+        .map_err(BasisError::InvalidInput)?;
+    let n = base.nrows();
+    let p = base.ncols();
+    let q = p * n_levels;
+
+    // Block-diagonal replicated design: row i contributes its marginal row to
+    // the column block owned by its grouping level, zeros elsewhere.
+    let mut dense = Array2::<f64>::zeros((n, q));
+    for i in 0..n {
+        let bits = data[[i, group_col]].to_bits();
+        let level_idx = levels.iter().position(|b| *b == bits).ok_or_else(|| {
+            BasisError::InvalidInput(format!(
+                "factor smooth term '{term_name}' saw an unseen grouping level at row {}",
+                i + 1
+            ))
+        })?;
+        let start = level_idx * p;
+        dense.slice_mut(s![i, start..start + p]).assign(&base.row(i));
+    }
+
+    // Penalties: replicate each marginal penalty into a block-diagonal
+    // `I_L ⊗ S_j` so every level shares the same smoothing parameter λ_j (one
+    // λ per marginal penalty), the defining feature of a factor smooth. For
+    // `Re` the marginal penalty is replaced by an identity ridge so each
+    // per-level coefficient is an iid Gaussian random effect.
+    let marginal_penalties: Vec<Array2<f64>> = if matches!(spec.flavour, FactorSmoothFlavour::Re) {
+        vec![Array2::<f64>::eye(p)]
+    } else {
+        inner.penalties.clone()
+    };
+    let marginal_penaltyinfo: Vec<PenaltyInfo> = if matches!(spec.flavour, FactorSmoothFlavour::Re)
+    {
+        vec![PenaltyInfo {
+            source: PenaltySource::Primary,
+            original_index: 0,
+            active: true,
+            effective_rank: p,
+            dropped_reason: None,
+            nullspace_dim_hint: 0,
+            normalization_scale: 1.0,
+            kronecker_factors: None,
+        }]
+    } else {
+        inner.penaltyinfo.clone()
+    };
+    if marginal_penalties.len() != marginal_penaltyinfo.len() {
+        crate::bail_invalid_basis!(
+            "internal factor-smooth penalty metadata mismatch for term '{}': penalties={}, infos={}",
+            term_name,
+            marginal_penalties.len(),
+            marginal_penaltyinfo.len()
+        );
+    }
+
+    let mut penalties = Vec::<Array2<f64>>::with_capacity(marginal_penalties.len());
+    let mut penaltyinfo = Vec::<PenaltyInfo>::with_capacity(marginal_penalties.len());
+    for (penalty_pos, s_inner) in marginal_penalties.iter().enumerate() {
+        let mut s_big = Array2::<f64>::zeros((q, q));
+        for level in 0..n_levels {
+            let start = level * p;
+            s_big
+                .slice_mut(s![start..start + p, start..start + p])
+                .assign(s_inner);
+        }
+        let (s_big, factor_smooth_scale) = normalize_penalty_in_constrained_space(&s_big);
+        let mut info = marginal_penaltyinfo[penalty_pos].clone();
+        info.original_index = penalty_pos;
+        info.normalization_scale *= factor_smooth_scale;
+        info.nullspace_dim_hint = info.nullspace_dim_hint.saturating_mul(n_levels);
+        info.kronecker_factors = None;
+        penalties.push(s_big);
+        penaltyinfo.push(info);
+    }
+
+    let nullspaces: Vec<usize> = if matches!(spec.flavour, FactorSmoothFlavour::Re) {
+        vec![0]
+    } else {
+        inner
+            .nullspaces
+            .iter()
+            .map(|ns| ns.saturating_mul(n_levels))
+            .collect()
+    };
+    let null_eigenvectors = crate::terms::basis::recompute_null_eigenvectors(&penalties)?;
+    let joint_null_rotation = crate::terms::basis::compute_joint_null_rotation(&penalties)?;
+
+    // Metadata: carry the marginal knot geometry + frozen levels so prediction
+    // reconstructs an identical replicated design.
+    let (knots, degree, periodic) = match &inner.metadata {
+        BasisMetadata::BSpline1D {
+            knots,
+            periodic,
+            degree,
+            ..
+        } => (
+            knots.clone(),
+            degree.unwrap_or(spec.marginal.degree),
+            *periodic,
+        ),
+        other => {
+            crate::bail_invalid_basis!(
+                "factor smooth term '{}' produced an unexpected marginal metadata variant {:?}",
+                term_name,
+                other
+            );
+        }
+    };
+    let flavour_tag = match &spec.flavour {
+        FactorSmoothFlavour::Fs { .. } => "fs",
+        FactorSmoothFlavour::Sz => "sz",
+        FactorSmoothFlavour::Re => "re",
+    }
+    .to_string();
+    let metadata = BasisMetadata::FactorSmooth {
+        continuous_cols: spec.continuous_cols.clone(),
+        group_col,
+        knots,
+        degree,
+        periodic,
+        group_levels: levels,
+        flavour: flavour_tag,
+    };
+
+    let ops = vec![None; penalties.len()];
+    Ok(LocalSmoothTermBuild {
+        dim: q,
+        design: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(dense)),
+        penalties,
+        ops,
+        nullspaces,
+        null_eigenvectors,
+        joint_null_rotation,
+        penaltyinfo,
+        pre_dropped_penaltyinfo: Vec::new(),
+        metadata,
+        linear_constraints: None,
+        box_reparam: false,
+        kronecker_factored: None,
+    })
+}
+
+/// Resolve the grouping levels for a factor smooth: replay the frozen level
+/// list when present (predict path), otherwise discover the sorted unique bit
+/// patterns of the factor column (fit path).
+fn resolve_factor_smooth_levels(
+    data: ArrayView2<'_, f64>,
+    group_col: usize,
+    spec: &FactorSmoothSpec,
+    term_name: &str,
+) -> Result<Vec<u64>, BasisError> {
+    if let Some(frozen) = &spec.group_frozen_levels {
+        if frozen.is_empty() {
+            crate::bail_invalid_basis!(
+                "factor smooth term '{}' has an empty frozen level list",
+                term_name
+            );
+        }
+        return Ok(frozen.clone());
+    }
+    let mut bits: Vec<u64> = data.column(group_col).iter().map(|v| v.to_bits()).collect();
+    bits.sort_by(|a, b| {
+        f64::from_bits(*a)
+            .partial_cmp(&f64::from_bits(*b))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    bits.dedup();
+    Ok(bits)
+}
+
+/// Marginal B-spline spec for a factor-smooth block. The marginal always builds
+/// without an identifiability constraint (the per-level replication, not a
+/// sum-to-zero side constraint, provides identifiability against the parametric
+/// block). At predict time the marginal's knot geometry has already been pinned
+/// into `marginal.knotspec` by the metadata replay, so the spec is used
+/// verbatim aside from clearing the identifiability transform.
+fn factor_smooth_marginal_for_replay(marginal: &BSplineBasisSpec) -> BSplineBasisSpec {
+    let mut m = marginal.clone();
+    m.identifiability = BSplineIdentifiability::None;
+    m
+}
+
 fn build_single_local_smooth_term(
     data: ArrayView2<'_, f64>,
     term: &SmoothTermSpec,
@@ -5788,7 +6054,20 @@ fn build_single_local_smooth_term(
                 }
             }
             let mut penalties = Vec::<Array2<f64>>::with_capacity(inner_built.penalties.len());
-            for s_inner in &inner_built.penalties {
+            let active_penalty_indices = inner_built
+                .penaltyinfo
+                .iter()
+                .enumerate()
+                .filter_map(|(idx, info)| info.active.then_some(idx))
+                .collect::<Vec<_>>();
+            if active_penalty_indices.len() != inner_built.penalties.len() {
+                crate::bail_invalid_basis!(
+                    "internal sz penalty metadata mismatch: activeinfos={}, penalties={}",
+                    active_penalty_indices.len(),
+                    inner_built.penalties.len()
+                );
+            }
+            for (penalty_pos, s_inner) in inner_built.penalties.iter().enumerate() {
                 let mut s_big = Array2::<f64>::zeros((p * l_minus_one, p * l_minus_one));
                 for a in 0..l_minus_one {
                     for b in 0..l_minus_one {
@@ -5797,6 +6076,9 @@ fn build_single_local_smooth_term(
                         block.assign(&s_inner.mapv(|v| v * factor));
                     }
                 }
+                let (s_big, factor_smooth_scale) = normalize_penalty_in_constrained_space(&s_big);
+                let info_idx = active_penalty_indices[penalty_pos];
+                inner_built.penaltyinfo[info_idx].normalization_scale *= factor_smooth_scale;
                 penalties.push(s_big);
             }
             inner_built.dim = p * l_minus_one;
@@ -6090,11 +6372,15 @@ fn build_single_local_smooth_term(
             crate::bail_invalid_basis!("internal: BySmooth smooths must be lowered to ByVariable before inner basis dispatch"
                     .to_string(),);
         }
-        SmoothBasisSpec::FactorSmooth { .. } => {
-            crate::bail_invalid_basis!(
-                "internal: FactorSmooth smooths must be expanded before inner basis dispatch"
-                    .to_string(),
-            );
+        SmoothBasisSpec::FactorSmooth { spec } => {
+            if term.shape != ShapeConstraint::None {
+                crate::bail_invalid_basis!(
+                    "ShapeConstraint::{:?} is unsupported for factor smooth term '{}'",
+                    term.shape,
+                    term.name
+                );
+            }
+            return build_factor_smooth(data, spec, &term.name, workspace);
         }
     };
 
@@ -6162,16 +6448,58 @@ fn build_single_local_smooth_term(
         let coeff_op = crate::matrix::CoefficientTransformOperator::new(inner_dense, t.clone())
             .map_err(|e| BasisError::InvalidInput(format!("CoefficientTransformOperator: {e}")))?;
         design_t = DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(Arc::new(coeff_op)));
-        penalties_t = penalties_t
-            .into_iter()
-            .map(|s_local| {
-                // Congruence transform preserves PSD:
-                //   S_new = T^T S T.
-                let tt_s = fast_atb(&t, &s_local);
+        if penalties_t.len() != active_penaltyinfo_t.len() {
+            crate::bail_invalid_basis!(
+                "internal box-reparam penalty/info mismatch for term '{}': penalties={}, infos={}",
+                term.name,
+                penalties_t.len(),
+                active_penaltyinfo_t.len()
+            );
+        }
+        // Wiggliness penalties undergo the exact congruence `S → TᵀST` (PSD
+        // preserving). The double-penalty *nullspace shrinkage* ridge must NOT:
+        // it is a unit-eigenvalue projector `ZZᵀ` onto null(S_wiggle) in the
+        // β (B-spline coefficient) coordinates, and the congruence
+        // `Tᵀ(ZZᵀ)T = (TᵀZ)(TᵀZ)ᵀ` is no longer a projector — its eigenvalues
+        // blow up by the conditioning of the cumulative-sum `T` (cond(T) grows
+        // with the basis dim), concentrating an enormous penalty on the leading
+        // γ₀ "level" coordinate. REML then drives the shared λ to its ceiling
+        // and the smooth collapses to a flat constant (#509, the over-smoothing
+        // face). The principled fix keeps mgcv's double-penalty semantics in the
+        // *reparametrized* space: rebuild the ridge as the unit-eigenvalue
+        // nullspace projector of the transformed wiggliness penalty `TᵀST`, so
+        // the double penalty shrinks exactly the unpenalized polynomial
+        // directions of the γ-space smooth with eigenvalue 1, identical in
+        // conditioning to the unconstrained fit.
+        let transformed_wiggliness = penalties_t
+            .iter()
+            .zip(active_penaltyinfo_t.iter())
+            .find(|(_, info)| !matches!(info.source, PenaltySource::DoublePenaltyNullspace))
+            .map(|(s_local, _)| {
+                let tt_s = fast_atb(&t, s_local);
                 fast_ab(&tt_s, &t)
-            })
-            .collect();
-        // T^T S T invalidates op-form bit-equivalence; drop ops here.
+            });
+        let mut rebuilt = Vec::with_capacity(penalties_t.len());
+        for (s_local, info) in penalties_t.iter().zip(active_penaltyinfo_t.iter()) {
+            if matches!(info.source, PenaltySource::DoublePenaltyNullspace) {
+                let s_wiggle_t = transformed_wiggliness.as_ref().ok_or_else(|| {
+                    BasisError::InvalidInput(format!(
+                        "box-reparam term '{}' has a double-penalty ridge but no primary wiggliness penalty to derive its nullspace from",
+                        term.name
+                    ))
+                })?;
+                let ridge = crate::terms::basis::build_nullspace_shrinkage_penalty(s_wiggle_t)?
+                    .map(|shrink| shrink.sym_penalty)
+                    .unwrap_or_else(|| Array2::<f64>::zeros((p_local, p_local)));
+                rebuilt.push(ridge);
+            } else {
+                let tt_s = fast_atb(&t, s_local);
+                rebuilt.push(fast_ab(&tt_s, &t));
+            }
+        }
+        penalties_t = rebuilt;
+        // T^T S T (and the rebuilt γ-space ridge) invalidate op-form
+        // bit-equivalence; drop ops here.
         ops_t = vec![None; penalties_t.len()];
     }
     if penalties_t.len() != active_penaltyinfo_t.len() {
@@ -6192,25 +6520,48 @@ fn build_single_local_smooth_term(
         .map(
             |((matrix, info), op_in)| -> Result<PenaltyCandidate, BasisError> {
                 let (matrix, c_new) = normalize_penalty_in_constrained_space(&matrix);
+                let preserve_margin_scale =
+                    matches!(&info.source, PenaltySource::TensorMarginal { .. });
+                let (matrix, normalization_scale, op_scale, kronecker_scale) =
+                    if preserve_margin_scale {
+                        (
+                            matrix.mapv(|v| v * c_new),
+                            info.normalization_scale,
+                            1.0,
+                            1.0,
+                        )
+                    } else {
+                        (
+                            matrix,
+                            info.normalization_scale * c_new,
+                            1.0 / c_new,
+                            1.0 / c_new,
+                        )
+                    };
                 // Frobenius rescale: wrap inner op in `ScaledPenaltyOp(1/c_new)`
                 // so `op.as_dense() == matrix` post-normalization.
-                let scaled_op = if c_new > 0.0 && c_new.is_finite() {
+                let scaled_op = if op_scale > 0.0 && op_scale.is_finite() {
                     op_in.map(|op| {
                         std::sync::Arc::new(crate::terms::penalty_op::ScaledPenaltyOp::new(
-                            op,
-                            1.0 / c_new,
+                            op, op_scale,
                         ))
                             as std::sync::Arc<dyn crate::terms::penalty_op::PenaltyOp>
                     })
                 } else {
                     None
                 };
+                let kronecker_factors = info.kronecker_factors.map(|mut factors| {
+                    if let Some(first) = factors.first_mut() {
+                        first.mapv_inplace(|v| v * kronecker_scale);
+                    }
+                    factors
+                });
                 Ok(PenaltyCandidate {
                     nullspace_dim_hint: info.nullspace_dim_hint,
                     matrix,
                     source: info.source,
-                    normalization_scale: info.normalization_scale * c_new,
-                    kronecker_factors: None,
+                    normalization_scale,
+                    kronecker_factors,
                     op: scaled_op,
                 })
             },
@@ -6972,7 +7323,7 @@ fn smooth_basis_feature_cols(basis: &SmoothBasisSpec) -> Vec<usize> {
     }
 }
 
-fn smooth_term_feature_cols(term: &SmoothTermSpec) -> Vec<usize> {
+pub fn smooth_term_feature_cols(term: &SmoothTermSpec) -> Vec<usize> {
     smooth_basis_feature_cols(&term.basis)
 }
 
@@ -7027,6 +7378,10 @@ fn smooth_has_frozen_identifiability(term: &SmoothTermSpec) -> bool {
         ),
         SmoothBasisSpec::Sphere { spec, .. } => {
             matches!(spec.center_strategy, CenterStrategy::UserProvided(_))
+                || matches!(
+                    spec.identifiability,
+                    SphericalSplineIdentifiability::FrozenTransform { .. }
+                )
         }
         SmoothBasisSpec::Matern { spec, .. } => matches!(
             spec.identifiability,
@@ -7079,6 +7434,62 @@ fn smooth_is_owned_by_prior_term(owner: &SmoothTermSpec, target: &SmoothTermSpec
         .into_iter()
         .collect::<BTreeSet<_>>();
     owner_features.is_subset(&target_features)
+}
+
+/// Static (spec-only) description of the hierarchical smooth-ownership decomposition.
+///
+/// This is the single source of truth for the deterministic ownership policy that
+/// [`apply_global_smooth_identifiability`] uses during the fit: the processing order of
+/// smooth terms, the feature columns each term spans, the candidate lower-order owners of
+/// each term (nested/duplicate feature sets), and the basis-family rank used as a
+/// tie-breaker. The fit engine consumes this structure and additionally applies a numerical
+/// cross-residual overlap test on the realized design columns; the CLI structure-warning
+/// path consumes the same structure for diagnostic messages, so both paths agree on which
+/// smooths own which subspaces.
+pub struct SmoothStructureAnalysis {
+    /// Smooth-term indices sorted into ownership-processing order (lowest priority first):
+    /// lower-order / narrower smooths come first and own their subspaces.
+    pub ownership_order: Vec<usize>,
+    /// `term_feature_cols[idx]` are the sorted, deduplicated feature columns that smooth term
+    /// `idx` spans (indexed by the original smooth-term index, not by `ownership_order`).
+    pub term_feature_cols: Vec<Vec<usize>>,
+    /// `term_owners[idx]` are the indices of prior (in `ownership_order`) smooth terms whose
+    /// feature set is a subset of term `idx`'s feature set, i.e. candidate owners of `idx`.
+    /// The list is given in ownership-processing order.
+    pub term_owners: Vec<Vec<usize>>,
+    /// `basis_family_ranks[idx]` is the basis-family ordering rank of smooth term `idx`.
+    pub basis_family_ranks: Vec<u8>,
+}
+
+/// Compute the static hierarchical smooth-ownership decomposition from the smooth-term specs.
+///
+/// `smoothspecs` is the same slice that [`apply_global_smooth_identifiability`] receives.
+pub fn analyze_smooth_ownership(smoothspecs: &[SmoothTermSpec]) -> SmoothStructureAnalysis {
+    let term_feature_cols: Vec<Vec<usize>> =
+        smoothspecs.iter().map(smooth_term_feature_cols).collect();
+    let basis_family_ranks: Vec<u8> = smoothspecs.iter().map(smooth_basis_family_rank).collect();
+
+    let mut ownership_order: Vec<usize> = (0..smoothspecs.len()).collect();
+    ownership_order.sort_by(|&lhs, &rhs| {
+        compare_smooth_ownership_priority(lhs, &smoothspecs[lhs], rhs, &smoothspecs[rhs])
+    });
+
+    let mut term_owners = vec![Vec::<usize>::new(); smoothspecs.len()];
+    for (pos, &target_idx) in ownership_order.iter().enumerate() {
+        let target = &smoothspecs[target_idx];
+        term_owners[target_idx] = ownership_order[..pos]
+            .iter()
+            .copied()
+            .filter(|&owner_idx| smooth_is_owned_by_prior_term(&smoothspecs[owner_idx], target))
+            .collect();
+    }
+
+    SmoothStructureAnalysis {
+        ownership_order,
+        term_feature_cols,
+        term_owners,
+        basis_family_ranks,
+    }
 }
 
 fn build_constraint_block(
@@ -7220,12 +7631,11 @@ fn apply_global_smooth_identifiability(
     let mut local_dims = vec![0usize; smooth.terms.len()];
     let mut local_linear_constraints = vec![None; smooth.terms.len()];
 
-    let mut ownership_order: Vec<usize> = (0..smooth.terms.len()).collect();
-    ownership_order.sort_by(|&lhs, &rhs| {
-        compare_smooth_ownership_priority(lhs, &smoothspecs[lhs], rhs, &smoothspecs[rhs])
-    });
-
-    let mut processed_owner_indices = Vec::<usize>::with_capacity(smooth.terms.len());
+    let SmoothStructureAnalysis {
+        ownership_order,
+        term_owners,
+        ..
+    } = analyze_smooth_ownership(smoothspecs);
 
     use rayon::iter::{
         IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
@@ -7241,13 +7651,8 @@ fn apply_global_smooth_identifiability(
             Vec::new()
         } else {
             let overlap_tol = 1e-10;
-            let owner_cross_checks = processed_owner_indices
-                .iter()
-                .copied()
-                .filter(|&owner_idx| {
-                    smooth_is_owned_by_prior_term(&smoothspecs[owner_idx], termspec)
-                })
-                .collect::<Vec<_>>()
+            let owner_cross_checks = term_owners[idx]
+                .clone()
                 .into_par_iter()
                 .map(|owner_idx| {
                     let owner_design = local_designs[owner_idx]
@@ -7277,10 +7682,7 @@ fn apply_global_smooth_identifiability(
         let needs_parametric_block = !skip_global_transform
             && (smooth_has_overlapping_linear_terms(linear_terms, termspec)
                 || !smooth_intrinsic_parametric_feature_cols(linear_terms, termspec).is_empty()
-                || matches!(
-                    spatial_identifiability_policy(termspec),
-                    Some(SpatialIdentifiability::OrthogonalToParametric)
-                ));
+                || smooth_requires_parametric_orthogonality(termspec));
         let parametric_block = if !needs_parametric_block {
             None
         } else {
@@ -7404,7 +7806,6 @@ fn apply_global_smooth_identifiability(
             &term.metadata,
             z_opt.as_ref(),
         )?);
-        processed_owner_indices.push(idx);
     }
 
     let total_p: usize = local_dims.iter().sum();
@@ -7688,6 +8089,102 @@ fn spatial_identifiability_policy(termspec: &SmoothTermSpec) -> Option<&SpatialI
         SmoothBasisSpec::ThinPlate { spec, .. } => Some(&spec.identifiability),
         SmoothBasisSpec::Duchon { spec, .. } => Some(&spec.identifiability),
         _ => None,
+    }
+}
+
+/// Whether this smooth's *realized* design (the basis evaluated at the n data
+/// rows) must be residualized against the model's parametric block (intercept +
+/// any overlapping linear columns) by `apply_global_smooth_identifiability`.
+///
+/// This is the universal identifiability invariant for **kernel / radial**
+/// spatial smooths (#531): their realized column span contains the constant
+/// (and, at `Linear` null-space order, the linear monomials), so without this
+/// step the smooth and the parametric intercept fight over the same direction —
+/// a structural rank-1 collision. The collision is invisible to the kernels'
+/// *own* identifiability constraints because those act in **coefficient space at
+/// the K centers**, not on the realized design rows:
+///   - Matérn `CenterSumToZero` enforces `1ᵀα = 0` over the centers, so
+///     `Kα` evaluated at the data rows still spans the constant.
+///   - Duchon / TPS `OrthogonalToParametric` *defers* its centering to this very
+///     step, which is why it is listed here too.
+///
+/// Tensor-product and B-spline bases instead apply a realized-design sum-to-zero
+/// at basis-build time (`apply_sum_to_zero_constraint`), so they already satisfy
+/// the invariant and must NOT be double-constrained — they return `false`.
+///
+/// The remaining bases are excluded, each for a concrete reason:
+///   - **Sphere, Harmonic method**: the real-spherical-harmonic basis starts at
+///     degree `l = 1` (`build_spherical_harmonic_basis`), so it never spans the
+///     degree-0 constant — no centering is needed.
+///   - **Sphere, Wahba method**: INCLUDED (#532). Its
+///     `weighted_coefficient_sum_to_zero_transform` is a *center*-space
+///     constraint, so the realized design still spans the constant — same class
+///     as Matérn `CenterSumToZero`. The composed parametric transform is frozen
+///     onto `SphericalSplineBasisSpec::identifiability`
+///     (`SphericalSplineIdentifiability::FrozenTransform`) and replayed by
+///     `build_spherical_spline_basis` at predict time, so the orthogonalization
+///     survives save → reload exactly as it does for Matérn.
+///   - **PCA**: its `with_identifiability_transform` arm rejects a post-hoc
+///     transform (the constraint lives inside the orthonormal loadings), and its
+///     constant content is governed by the `centered` flag, not a residualizable
+///     design.
+///
+/// `FrozenTransform` bases are excluded: a transform frozen by *this* pipeline
+/// already has the parametric orthogonalization composed in (see
+/// `with_identifiability_transform`), and they are gated out upstream by
+/// `skip_global_transform` regardless.
+fn smooth_requires_parametric_orthogonality(termspec: &SmoothTermSpec) -> bool {
+    match &termspec.basis {
+        SmoothBasisSpec::ByVariable { inner, .. }
+        | SmoothBasisSpec::FactorSumToZero { inner, .. } => {
+            smooth_requires_parametric_orthogonality(&SmoothTermSpec {
+                name: termspec.name.clone(),
+                basis: (**inner).clone(),
+                shape: termspec.shape,
+                joint_null_rotation: None,
+            })
+        }
+        SmoothBasisSpec::BySmooth { smooth, .. } => {
+            smooth_requires_parametric_orthogonality(&SmoothTermSpec {
+                name: termspec.name.clone(),
+                basis: (**smooth).clone(),
+                shape: termspec.shape,
+                joint_null_rotation: None,
+            })
+        }
+        SmoothBasisSpec::ThinPlate { spec, .. } => {
+            matches!(
+                spec.identifiability,
+                SpatialIdentifiability::OrthogonalToParametric
+            )
+        }
+        SmoothBasisSpec::Duchon { spec, .. } => {
+            matches!(
+                spec.identifiability,
+                SpatialIdentifiability::OrthogonalToParametric
+            )
+        }
+        SmoothBasisSpec::Matern { spec, .. } => matches!(
+            spec.identifiability,
+            MaternIdentifiability::CenterSumToZero | MaternIdentifiability::CenterLinearOrthogonal
+        ),
+        // Wahba sphere (`bs="sos"`, method=Wahba): the area-weighted center
+        // sum-to-zero `z` is a *coefficient*-space constraint, so the realized
+        // `K·z` design still spans the constant — the same #531 collision class
+        // as Matérn `CenterSumToZero`. It requires the global parametric
+        // orthogonalization (#532). The Harmonic method starts at degree l=1
+        // and never spans the constant, so it is excluded.
+        SmoothBasisSpec::Sphere { spec, .. } => {
+            matches!(spec.method, crate::basis::SphereMethod::Wahba)
+                && matches!(
+                    spec.identifiability,
+                    SphericalSplineIdentifiability::CenterSumToZero
+                )
+        }
+        SmoothBasisSpec::BSpline1D { .. }
+        | SmoothBasisSpec::TensorBSpline { .. }
+        | SmoothBasisSpec::Pca { .. }
+        | SmoothBasisSpec::FactorSmooth { .. } => false,
     }
 }
 
@@ -8265,59 +8762,58 @@ impl CharbonnierScalarBlockState {
             .mapv(|r| 2.0 * eps2 / r - eps4 / r.powi(3) - epsilon)
     }
 
-    fn surrogateweights(
+    fn surrogateweights_posterior_snr(
         &self,
+        variance: &Array1<f64>,
         weight_floor: f64,
         weight_ceiling: f64,
     ) -> (Array1<f64>, Array1<f64>) {
-        // Exact scalar Charbonnier / pseudo-Huber block and its MM majorizer.
+        // Posterior-SNR (credible-magnitude) reweighting of the scalar MM
+        // majorizer.
         //
-        // The exact scalar penalty used by the nonquadratic spatial regularizer is
+        // The magnitude-only surrogate weight uses the *point-estimate* radius
         //
-        //   psi(t; eps) = sqrt(t^2 + eps^2) - eps,
+        //   r_k^mag = sqrt( t_k^2 + eps^2 ),   t_k = (D0 beta_hat)_k,
+        //   w_k     = 1 / r_k^mag.
         //
-        // where:
-        //   - t is the scalar operator response at one collocation point,
-        //   - eps > 0 is the Charbonnier transition scale.
+        // The weight multiplies the local quadratic surrogate penalty
+        // w_k (D0 beta)^2, so a *small* w_k leaves the response un-penalized
+        // (treated as a genuine feature) and a *large* w_k pulls it toward zero
+        // (enforces flatness). The failure of the point-estimate radius is that
+        // a response t_k which is large only because it is poorly determined
+        // gets a tiny weight and is left un-penalized — the weight chases noise
+        // in low-information regions.
         //
-        // The key exact scalar derivatives are:
+        // Resolution via the posterior second moment under the working-Laplace
+        // posterior beta ~ N(beta_hat, Sigma_beta), Sigma_beta = H^{-1}: the
+        // variance of the response is
         //
-        //   d/dt psi(t; eps)        = t / sqrt(t^2 + eps^2),
-        //   d^2/dt^2 psi(t; eps)    = eps^2 / (t^2 + eps^2)^(3/2),
-        //   d/deps psi(t; eps)      = eps / sqrt(t^2 + eps^2) - 1,
-        //   d^2/(dt deps) psi       = -eps * t / (t^2 + eps^2)^(3/2).
+        //   Var( (D0 beta)_k ) = (D0 Sigma_beta D0^T)_kk >= 0,
         //
-        // The omitted leading eps factor is intentional. The old scaled form
-        // made eps an amplitude parameter; because eps is optimized jointly with
-        // lambda, eps -> 0 erased the adaptive regularizer.
+        // and the *credible* (noise-floor-corrected) squared magnitude is
         //
-        // These exact formulas define the real adaptive model used by the
-        // pseudo-Laplace hyperobjective. We still keep the legacy MM majorizer
-        // weights here because they remain useful for diagnostics/tests and for
-        // comparing the old surrogate path against the exact Charbonnier model.
+        //   t_k^credible^2 = max( t_k^2 - Var(...)_k , 0 ),
+        //   r_k^snr        = sqrt( t_k^credible^2 + eps^2 ),
+        //   w_k            = 1 / r_k^snr.
         //
-        // For a reference point t0, the same tangent majorizer in t^2 gives
-        // tangent majorizer in the variable t^2:
-        //
-        //   psi(t; eps) <= 0.5 * w(t0) * t^2 + const(t0),
-        //   w(t0) = 1 / sqrt(t0^2 + eps^2).
-        //
-        // So the MM algorithm reuses only the scalar weight
-        //
-        //   w_k = 1 / sqrt(t_k^2 + eps^2),
-        //
-        // while the exact derivatives above remain the source of truth for the
-        // production direct inner optimizer and exact outer hypergradient.
-        //
-        // Keeping the surrogate weight generation immediately beside the exact
-        // scalar Charbonnier formulas is deliberate:
-        //   1. it avoids a second copy of the scalar algebra,
-        //   2. it makes the current approximation explicit rather than implicit,
-        //   3. it gives one audited location for the transition from the true
-        //      penalty to the MM surrogate.
-        let weight = self
-            .radius
-            .mapv(|r| (1.0 / r).clamp(weight_floor, weight_ceiling));
+        // This realizes the intended behavior exactly: a derivative is left
+        // un-penalized (small w) only when its magnitude is *credibly* large
+        // (t_k^2 >> Var, real feature); the penalty pulls hardest toward zero
+        // (large w) where the derivative is credibly near zero — small estimate
+        // AND small variance, OR a large-but-poorly-determined estimate whose
+        // signal is swamped by its variance. (Note: the additive `+Var` radius
+        // sketched in the design notes points the *opposite* way — it would
+        // un-penalize noisy responses even harder — so we use the variance-
+        // *corrected* second moment, which is the direction that actually
+        // suppresses noise while preserving credible edges.) With
+        // `variance == 0` everywhere this degrades exactly to `surrogateweights`,
+        // so any covariance-unavailable path is unchanged.
+        let eps2 = self.epsilon * self.epsilon;
+        let weight = Array1::from_iter(self.signal.iter().zip(variance.iter()).map(|(&t, &v)| {
+            let credible_sq = (t * t - v.max(0.0)).max(0.0);
+            let r = (credible_sq + eps2).sqrt();
+            (1.0 / r).clamp(weight_floor, weight_ceiling)
+        }));
         let invweight = weight.mapv(|u| 1.0 / u);
         (weight, invweight)
     }
@@ -8478,48 +8974,46 @@ impl CharbonnierGroupedBlockState {
             .mapv(|r| 2.0 * eps2 / r - eps4 / r.powi(3) - epsilon)
     }
 
-    fn surrogateweights(
+    fn surrogateweights_posterior_snr(
         &self,
+        variance: &Array1<f64>,
         weight_floor: f64,
         weight_ceiling: f64,
     ) -> (Array1<f64>, Array1<f64>) {
-        // Grouped Charbonnier / pseudo-Huber MM weights for the slope block.
+        // Grouped posterior-SNR (credible-magnitude) reweighting.
         //
-        // For the grouped penalty, each collocation point contributes
+        // The magnitude-only grouped surrogate weight uses the point-estimate
+        // block norm
         //
-        //   psi(g_k; eps_g) = sqrt(g_k^2 + eps_g^2) - eps_g,
-        //   g_k = ||v_k||_2,
-        //   v_k = G_k beta.
+        //   g_k     = ||v_k||_2,   v_k = G_k beta_hat,
+        //   r_k^mag = sqrt( g_k^2 + eps^2 ),
+        //   w_k     = 1 / r_k^mag.
         //
-        // The exact block gradient is
+        // The posterior covariance of the *block* response v_k = G_k beta under
+        // beta ~ N(beta_hat, Sigma_beta), Sigma_beta = H^{-1}, has total trace
         //
-        //   d/d beta psi(g_k; eps_g)
-        //   = G_k^T (v_k / sqrt(||v_k||^2 + eps_g^2)),
+        //   Cov(v_k)     = G_k Sigma_beta G_k^T   (a block_dim x block_dim block),
+        //   variance[k]  = tr(Cov(v_k)) = sum_axis ( G_k[axis] Sigma_beta G_k[axis]^T ),
         //
-        // and the exact block Hessian is
+        // i.e. the variance aggregated over the axis-block in the same way
+        // `norm` aggregates ||v_k||^2. As for the scalar block, we deflate the
+        // squared block norm by this noise floor to obtain the credible squared
+        // magnitude and shrink poorly-determined responses toward zero:
         //
-        //   G_k^T B_k G_k,
+        //   g_k^credible^2 = max( g_k^2 - tr(Cov(v_k)) , 0 ),
+        //   r_k^snr        = sqrt( g_k^credible^2 + eps^2 ),   w_k = 1 / r_k^snr.
         //
-        //   B_k
-        //   = (1 / r_k) I - (1 / r_k^3) v_k v_k^T,
-        //   r_k = sqrt(||v_k||^2 + eps_g^2).
-        //
-        // The legacy surrogate path uses the grouped MM majorizer
-        //
-        //   psi(g; eps_g) <= 0.5 * w(g0) * g^2 + const(g0),
-        //   w(g0) = 1 / sqrt(g0^2 + eps_g^2),
-        //
-        // which yields the quadratic surrogate
-        //
-        //   K_g = D1^T (diag(w_g) \kron I_d) D1.
-        //
-        // These weights are therefore the grouped analogue of the scalar MM
-        // majorizer above. The exact grouped Hessian and third-derivative maps
-        // live in the neighboring methods and drive the direct pseudo-Laplace
-        // solver.
-        let weight = self
-            .radius
-            .mapv(|r| (1.0 / r).clamp(weight_floor, weight_ceiling));
+        // A block whose norm is credibly large (g_k^2 >> tr Cov) keeps a small
+        // weight (real feature, left un-penalized); a block whose norm is
+        // dominated by posterior variance is pulled toward zero by a large
+        // weight (noise suppressed). With `variance == 0` this recovers
+        // `surrogateweights` exactly.
+        let eps2 = self.epsilon * self.epsilon;
+        let weight = Array1::from_iter(self.norm.iter().zip(variance.iter()).map(|(&g, &v)| {
+            let credible_sq = (g * g - v.max(0.0)).max(0.0);
+            let r = (credible_sq + eps2).sqrt();
+            (1.0 / r).clamp(weight_floor, weight_ceiling)
+        }));
         let invweight = weight.mapv(|u| 1.0 / u);
         (weight, invweight)
     }
@@ -9065,6 +9559,62 @@ fn extract_spatial_operator_runtime_caches(
     Ok(out)
 }
 
+/// Posterior variance of a scalar collocation operator response under the
+/// working-Laplace posterior `beta ~ N(beta_hat, Sigma_local)`.
+///
+/// For operator row `D_k` (one row of `D0`) acting on the term-local coefficient
+/// block, `Var((D beta)_k) = D_k Sigma_local D_k^T = (D Sigma_local D^T)_kk`.
+/// We compute it without forming `D Sigma D^T` densely: for each row we evaluate
+/// `s_k = Sigma_local D_k^T` (one matrix-vector product) and then `D_k . s_k`.
+/// `Sigma_local` is the sub-block of the global conditional covariance
+/// `Sigma_beta = H^{-1}` indexed by the term's `coeff_global_range`, i.e. the
+/// covariance proxy is the already-materialized inner working-Laplace inverse;
+/// no second factorization is formed.
+fn scalar_operator_response_variance(
+    operator: &Array2<f64>,
+    cov_local: &Array2<f64>,
+) -> Array1<f64> {
+    Array1::from_iter(operator.rows().into_iter().map(|row| {
+        let s = cov_local.dot(&row);
+        row.dot(&s).max(0.0)
+    }))
+}
+
+/// Posterior second-moment variance aggregated over each grouped collocation
+/// block (gradient/curvature). The grouped operator is stored row-stacked with
+/// `block_dim` rows per collocation point (`d` axes for the gradient, `d*d` for
+/// the Hessian). For block `k`,
+///
+///   v_k = G_k beta,   Cov(v_k) = G_k Sigma_local G_k^T   (block_dim x block_dim),
+///   variance_k = tr(Cov(v_k)) = sum_axis ( G_k[axis] Sigma_local G_k[axis]^T ),
+///
+/// which matches how `CharbonnierGroupedBlockState::norm` aggregates
+/// `||v_k||^2 = sum_axis (G_k[axis] beta)^2` across the axis-block.
+fn grouped_operator_response_variance(
+    operator: &Array2<f64>,
+    block_dim: usize,
+    cov_local: &Array2<f64>,
+) -> Result<Array1<f64>, EstimationError> {
+    if block_dim == 0 || !operator.nrows().is_multiple_of(block_dim) {
+        crate::bail_invalid_estim!(
+            "grouped variance row layout invalid: rows={}, block_dim={block_dim}",
+            operator.nrows()
+        );
+    }
+    let p = operator.nrows() / block_dim;
+    let mut out = Array1::<f64>::zeros(p);
+    for k in 0..p {
+        let mut acc = 0.0;
+        for axis in 0..block_dim {
+            let row = operator.row(k * block_dim + axis);
+            let s = cov_local.dot(&row);
+            acc += row.dot(&s);
+        }
+        out[k] = acc.max(0.0);
+    }
+    Ok(out)
+}
+
 fn compute_spatial_adaptiveweights_for_beta(
     beta: &Array1<f64>,
     caches: &[SpatialOperatorRuntimeCache],
@@ -9073,6 +9623,7 @@ fn compute_spatial_adaptiveweights_for_beta(
     epsilon_c: f64,
     weight_floor: f64,
     weight_ceiling: f64,
+    beta_covariance: Option<&Array2<f64>>,
 ) -> Result<Vec<SpatialAdaptiveWeights>, EstimationError> {
     // Charbonnier / pseudo-Huber MM derivation (per collocation scalar t):
     //   psi(t; eps) = sqrt(t^2 + eps^2) - eps
@@ -9092,6 +9643,19 @@ fn compute_spatial_adaptiveweights_for_beta(
     //   K2 = D2_con^T W_c D2_con,  W_c = diag(w_c) \otimes I_(d*d).
     //
     // We clamp w directly, then derive inv_w=1/w for diagnostics and row scaling.
+    //
+    // Posterior-SNR reweighting (magic by default): when the inner working-Laplace
+    // conditional covariance `Sigma_beta = H^{-1}` is available we replace the
+    // squared point-estimate radius `t_k^2 + eps^2` by the credible (noise-floor-
+    // corrected) second moment `max(t_k^2 - Var((D beta)_k), 0) + eps^2`, with
+    // `Var = (D Sigma_beta D^T)_kk`. This stops the weight from leaving derivatives
+    // un-penalized just because they are large but poorly determined: such
+    // responses are shrunk toward zero (large weight, strong smoothing), while
+    // credibly large derivatives (real edges) keep their small weight. `Sigma_beta`
+    // here is the already-formed inner Hessian inverse from the final exact-family
+    // solve — no second factorization is built; we only reuse the materialized
+    // covariance. When the covariance is unavailable (`None`) the variance is zero
+    // and this degrades *exactly* to the old magnitude-only radius.
     caches
         .iter()
         .map(|cache| {
@@ -9101,15 +9665,40 @@ fn compute_spatial_adaptiveweights_for_beta(
                 cache,
                 [epsilon_0, epsilon_g, epsilon_c],
             )?;
-            let (_, inv_0) = exact
-                .magnitude
-                .surrogateweights(weight_floor, weight_ceiling);
-            let (_, inv_g) = exact
-                .gradient
-                .surrogateweights(weight_floor, weight_ceiling);
-            let (_, inv_c) = exact
-                .curvature
-                .surrogateweights(weight_floor, weight_ceiling);
+            let cov_local = beta_covariance.map(|cov| {
+                cov.slice(s![
+                    cache.coeff_global_range.clone(),
+                    cache.coeff_global_range.clone()
+                ])
+                .to_owned()
+            });
+            let dim = cache.dimension;
+            let (var_0, var_g, var_c) = match cov_local.as_ref() {
+                Some(cov) => (
+                    scalar_operator_response_variance(&cache.d0, cov),
+                    grouped_operator_response_variance(&cache.d1, dim, cov)?,
+                    grouped_operator_response_variance(&cache.d2, dim * dim, cov)?,
+                ),
+                None => (
+                    Array1::<f64>::zeros(exact.magnitude.signal.len()),
+                    Array1::<f64>::zeros(exact.gradient.norm.len()),
+                    Array1::<f64>::zeros(exact.curvature.norm.len()),
+                ),
+            };
+            let (_, inv_0) = exact.magnitude.surrogateweights_posterior_snr(
+                &var_0,
+                weight_floor,
+                weight_ceiling,
+            );
+            let (_, inv_g) =
+                exact
+                    .gradient
+                    .surrogateweights_posterior_snr(&var_g, weight_floor, weight_ceiling);
+            let (_, inv_c) = exact.curvature.surrogateweights_posterior_snr(
+                &var_c,
+                weight_floor,
+                weight_ceiling,
+            );
             Ok(SpatialAdaptiveWeights {
                 inv_magweight: inv_0,
                 invgradweight: inv_g,
@@ -9993,6 +10582,10 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
         eps_star[2],
         adaptive_opts.weight_floor,
         adaptive_opts.weight_ceiling,
+        // Working-Laplace conditional covariance Sigma_beta = H^{-1} from the
+        // final exact-family solve, reused here as the posterior-SNR variance
+        // source (no second factorization is formed).
+        beta_covariance.as_ref(),
     )?
     .into_iter()
     .zip(runtime_caches.iter())
@@ -13046,9 +13639,19 @@ pub(crate) fn try_build_spatial_log_kappa_derivativeinfo_list(
     for &term_idx in spatial_terms {
         let aniso = get_spatial_aniso_log_scales(resolvedspec, term_idx);
         let dim = get_spatial_feature_dim(resolvedspec, term_idx);
+        // Duchon anisotropy η is a fixed, geometry-derived basis parameter, never
+        // a REML hyper axis (see `spatial_term_supports_hyper_optimization`). A
+        // hybrid Duchon (explicit κ) still optimizes its scalar length scale, but
+        // through the regular κ path with η held at its geometry init — so it is
+        // excluded from the per-axis aniso enrollment here.
+        let is_duchon = matches!(
+            resolvedspec.smooth_terms.get(term_idx).map(|t| &t.basis),
+            Some(SmoothBasisSpec::Duchon { .. })
+        );
         if let (Some(eta), Some(d)) = (&aniso, dim)
             && eta.len() == d
             && d > 1
+            && !is_duchon
         {
             if let Some(entries) = try_build_spatial_term_log_kappa_aniso_derivativeinfos(
                 data,
@@ -13100,18 +13703,6 @@ fn try_build_spatial_term_log_kappa_aniso_derivativeinfos(
                 apply_input_standardization(&mut x, s);
             }
             build_matern_basis_log_kappa_aniso_derivatives(x.view(), spec)
-                .map_err(EstimationError::from)?
-        }
-        SmoothBasisSpec::Duchon {
-            feature_cols,
-            spec,
-            input_scales,
-        } => {
-            let mut x = select_columns(data, feature_cols).map_err(EstimationError::from)?;
-            if let Some(s) = input_scales {
-                apply_input_standardization(&mut x, s);
-            }
-            build_duchon_basis_log_kappa_aniso_derivatives(x.view(), spec)
                 .map_err(EstimationError::from)?
         }
         _ => return Ok(None),
@@ -14203,9 +14794,6 @@ pub(crate) fn spatial_dims_per_term(
         .iter()
         .map(|&term_idx| {
             let d = get_spatial_feature_dim(resolvedspec, term_idx).unwrap_or(1);
-            if is_pure_duchon_aniso_term(resolvedspec, term_idx) {
-                return d.saturating_sub(1).max(1);
-            }
             let has_aniso = get_spatial_aniso_log_scales(resolvedspec, term_idx).is_some();
             if has_aniso && d > 1 { d } else { 1 }
         })
@@ -15835,7 +16423,7 @@ pub fn freeze_term_collection_from_design(
                     method,
                     max_degree,
                     wahba_kernel,
-                    ..
+                    constraint_transform,
                 },
             ) => {
                 s.center_strategy = crate::basis::CenterStrategy::UserProvided(centers.clone());
@@ -15843,6 +16431,18 @@ pub fn freeze_term_collection_from_design(
                 s.method = *method;
                 s.max_degree = *max_degree;
                 s.wahba_kernel = *wahba_kernel;
+                // #532: freeze the realized-design transform (the composed
+                // `z · z_parametric` captured at fit time) so the predict-time
+                // rebuild reuses it verbatim instead of recomputing the
+                // center-space `z`, which would drop the parametric
+                // orthogonalization and resurrect the intercept collision. The
+                // Harmonic method never carries a constraint transform.
+                s.identifiability = match constraint_transform {
+                    Some(z) => SphericalSplineIdentifiability::FrozenTransform {
+                        transform: z.clone(),
+                    },
+                    None => SphericalSplineIdentifiability::CenterSumToZero,
+                };
             }
             (
                 SmoothBasisSpec::Matern {
@@ -15974,6 +16574,7 @@ pub fn freeze_term_collection_from_design(
                 SmoothBasisSpec::FactorSmooth { spec: s },
                 BasisMetadata::FactorSmooth {
                     knots,
+                    degree,
                     periodic,
                     group_levels,
                     ..
@@ -15987,6 +16588,15 @@ pub fn freeze_term_collection_from_design(
                         },
                     )
                     .unwrap_or_else(|| BSplineKnotSpec::Provided(knots.clone()));
+                // Restore the FROZEN marginal degree (#555 predict-replay). With
+                // a `Provided(knots)` knotspec the per-margin basis count is
+                // `knots.len() - (degree + 1)`, so if fit-time auto-shrink
+                // lowered the marginal degree (small per-group n: cubic →
+                // quadratic/linear), rebuilding with the original spec degree
+                // would yield a different per-level `p` and corrupt the
+                // block-diagonal replay. Mirror the sibling BySmooth arm, which
+                // restores `inner.degree = *degree` for exactly this reason.
+                s.marginal.degree = *degree;
                 s.group_frozen_levels = Some(group_levels.clone());
             }
             (
@@ -16707,8 +17317,7 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
         }
         let current_length_scale = get_spatial_length_scale(&self.spec, term_idx);
         let current_aniso = get_spatial_aniso_log_scales(&self.spec, term_idx);
-        let (next_length_scale, next_aniso) =
-            spatial_term_psi_to_length_scale_and_aniso(&self.spec, term_idx, psi);
+        let (next_length_scale, next_aniso) = spatial_term_psi_to_length_scale_and_aniso(psi);
         let same_length = spatial_length_scale_matches(current_length_scale, next_length_scale);
         let same_aniso = spatial_aniso_matches(current_aniso.as_deref(), next_aniso.as_deref());
         if same_length && same_aniso {
@@ -25788,9 +26397,17 @@ mod tests {
             dimension: 2,
         };
         let beta = array![0.0, 0.0];
-        let out =
-            compute_spatial_adaptiveweights_for_beta(&beta, &[cache], 1e-8, 1e-8, 1e-8, 1e-8, 1e2)
-                .expect("adaptive weights");
+        let out = compute_spatial_adaptiveweights_for_beta(
+            &beta,
+            &[cache],
+            1e-8,
+            1e-8,
+            1e-8,
+            1e-8,
+            1e2,
+            None,
+        )
+        .expect("adaptive weights");
         assert_eq!(out.len(), 1);
         // Raw u would be 1/eps = 1e8, so clamping to 1e2 yields diagnostics 1/u.
         assert!((out[0].inv_magweight[0] - 1e-2).abs() < 1e-12);
@@ -25834,6 +26451,7 @@ mod tests {
             1e-6,
             1e-12,
             1e12,
+            None,
         )
         .expect("adaptive weights");
         assert_eq!(out.len(), 1);
@@ -25873,6 +26491,7 @@ mod tests {
             1e-8,
             1e-12,
             1e12,
+            None,
         )
         .expect("small adaptive weights");
         let large = compute_spatial_adaptiveweights_for_beta(
@@ -25883,11 +26502,226 @@ mod tests {
             1e-8,
             1e-12,
             1e12,
+            None,
         )
         .expect("large adaptive weights");
         assert!(small[0].inv_magweight[0] < large[0].inv_magweight[0]);
         assert!(small[0].invgradweight[0] < large[0].invgradweight[0]);
         assert!(small[0].inv_lapweight[0] < large[0].inv_lapweight[0]);
+    }
+
+    // ------------------------------------------------------------------
+    // Posterior-SNR adaptive weighting: end-to-end objective-quality test.
+    //
+    // Truth: a 1D function on a uniform grid with a genuine sharp edge in the
+    // middle (high curvature, *credibly* determined) and two flat regions. The
+    // LEFT flat region is a low-information region whose grid coefficients are
+    // poorly determined: its posterior covariance Sigma_beta = H^{-1} carries
+    // large variance there, and the noisy point-estimate beta_hat shows
+    // spurious curvature there. The RIGHT flat region is well determined.
+    //
+    // We drive the *real* adaptive-weight machinery
+    // (`compute_spatial_adaptiveweights_for_beta`) two ways:
+    //   * magnitude-only baseline  -> covariance `None`,
+    //   * posterior-SNR (default)  -> covariance `Some(Sigma_beta)`,
+    // then build the curvature surrogate penalty K = D2^T diag(w_c) D2 each
+    // weighting implies, solve the penalized least-squares fit
+    // beta = (X^T X + lambda K)^{-1} X^T y on the identity design (X = I, so
+    // the coefficients ARE the fitted function values), and compare MSE-to-truth
+    //
+    //   * in the noisy LEFT flat region  -> must be STRICTLY LOWER for SNR
+    //     (it does not chase noise), and
+    //   * at the EDGE                     -> must be NO WORSE for SNR
+    //     (the credible edge is preserved).
+    // ------------------------------------------------------------------
+    fn posterior_snr_finite_difference_d2(m: usize, h: f64) -> Array2<f64> {
+        // Second-difference operator on a uniform 1D grid of `m` points: one
+        // collocation row per interior point, row layout matching the grouped
+        // curvature operator (block_dim = dimension^2 = 1 here). Rows for the
+        // two endpoints are zero (no curvature defined there).
+        let mut d2 = Array2::<f64>::zeros((m, m));
+        for k in 1..m - 1 {
+            d2[[k, k - 1]] = 1.0 / (h * h);
+            d2[[k, k]] = -2.0 / (h * h);
+            d2[[k, k + 1]] = 1.0 / (h * h);
+        }
+        d2
+    }
+
+    #[test]
+    fn posterior_snr_weighting_suppresses_noise_and_preserves_edge() {
+        use crate::faer_ndarray::FaerCholesky;
+        use faer::Side;
+
+        let m = 41usize;
+        let h = 1.0 / (m as f64 - 1.0);
+        let xs: Vec<f64> = (0..m).map(|j| j as f64 * h).collect();
+
+        // True function: flat-low on the left, a sharp tanh edge centered at
+        // x = 0.5, flat-high on the right.
+        let edge_center = 0.5;
+        let edge_sharpness = 28.0;
+        let amplitude = 2.0;
+        let truth = Array1::from_iter(
+            xs.iter()
+                .map(|&x| 0.5 * amplitude * (1.0 + (edge_sharpness * (x - edge_center)).tanh())),
+        );
+
+        // Region indices.
+        let left_flat: Vec<usize> = (0..m).filter(|&j| xs[j] <= 0.30).collect();
+        let edge_band: Vec<usize> = (0..m)
+            .filter(|&j| (xs[j] - edge_center).abs() <= 0.07)
+            .collect();
+        assert!(!left_flat.is_empty() && !edge_band.is_empty());
+
+        // Deterministic, reproducible "noise" pattern. The LEFT flat region is
+        // a low-information region: large noise. Elsewhere noise is tiny.
+        let noise = |j: usize| -> f64 {
+            let s = ((j as f64) * 12.9898).sin() * 43758.5453;
+            let frac = s - s.floor(); // pseudo-uniform in [0,1)
+            2.0 * frac - 1.0 // in [-1,1)
+        };
+        let mut y = truth.clone();
+        let mut beta_hat = truth.clone();
+        for &j in &left_flat {
+            let nz = 0.85 * noise(j);
+            y[j] += nz;
+            beta_hat[j] += nz; // noisy point estimate drives the weights
+        }
+        for j in 0..m {
+            if !left_flat.contains(&j) {
+                let nz = 0.02 * noise(j + 7);
+                y[j] += nz;
+                beta_hat[j] += nz;
+            }
+        }
+
+        // Working-Laplace conditional covariance proxy Sigma_beta = H^{-1}.
+        // Diagonal posterior variances: large in the poorly-determined LEFT
+        // flat region, small elsewhere. (Diagonal is sufficient and is the
+        // honest leading-order structure of a per-coefficient variance.)
+        let mut sigma = Array2::<f64>::zeros((m, m));
+        for j in 0..m {
+            let var = if left_flat.contains(&j) { 0.55 } else { 1e-4 };
+            sigma[[j, j]] = var;
+        }
+
+        let d2 = posterior_snr_finite_difference_d2(m, h);
+        // Magnitude-only and SNR machinery share the identical cache, betas and
+        // epsilons; only the covariance argument differs.
+        let cache = SpatialOperatorRuntimeCache {
+            termname: "snr_1d".to_string(),
+            feature_cols: vec![0],
+            coeff_global_range: 0..m,
+            mass_penalty_global_idx: 0,
+            tension_penalty_global_idx: 1,
+            stiffness_penalty_global_idx: 2,
+            d0: Array2::<f64>::zeros((m, m)),
+            d1: Array2::<f64>::zeros((m, m)),
+            d2: d2.clone(),
+            collocation_points: {
+                let mut cp = Array2::<f64>::zeros((m, 1));
+                for j in 0..m {
+                    cp[[j, 0]] = xs[j];
+                }
+                cp
+            },
+            dimension: 1,
+        };
+
+        let eps = 0.05; // shared Charbonnier transition scale
+        let weight_floor = 1e-12;
+        let weight_ceiling = 1e12;
+
+        let mag = compute_spatial_adaptiveweights_for_beta(
+            &beta_hat,
+            std::slice::from_ref(&cache),
+            eps,
+            eps,
+            eps,
+            weight_floor,
+            weight_ceiling,
+            None,
+        )
+        .expect("magnitude-only weights");
+        let snr = compute_spatial_adaptiveweights_for_beta(
+            &beta_hat,
+            std::slice::from_ref(&cache),
+            eps,
+            eps,
+            eps,
+            weight_floor,
+            weight_ceiling,
+            Some(&sigma),
+        )
+        .expect("posterior-SNR weights");
+
+        // inv_lapweight = 1 / w_c; recover the curvature weights w_c.
+        let w_mag = mag[0].inv_lapweight.mapv(|iv| 1.0 / iv);
+        let w_snr = snr[0].inv_lapweight.mapv(|iv| 1.0 / iv);
+
+        // Sanity on the mechanism itself: in the noisy LEFT flat region the SNR
+        // curvature weight must be substantially LARGER (more smoothing) than
+        // the magnitude-only weight, because the spurious point-estimate
+        // curvature there is swamped by the posterior variance. (The real
+        // quality bar is the MSE assertions below; this only confirms the
+        // covariance path is genuinely engaged.)
+        let mean = |idx: &[usize], w: &Array1<f64>| -> f64 {
+            idx.iter().map(|&j| w[j]).sum::<f64>() / idx.len() as f64
+        };
+        assert!(
+            mean(&left_flat, &w_snr) > mean(&left_flat, &w_mag) * 1.5,
+            "SNR must penalize the noisy flat region more: w_snr={:.4e} vs w_mag={:.4e}",
+            mean(&left_flat, &w_snr),
+            mean(&left_flat, &w_mag),
+        );
+
+        // Penalized least-squares fit on the identity design X = I:
+        //   beta = (I + lambda * D2^T diag(w_c) D2)^{-1} y.
+        let lambda = 0.02;
+        let fit = |w: &Array1<f64>| -> Array1<f64> {
+            let k = scalar_operatorhessian(&d2, w); // D2^T diag(w) D2 (symmetric)
+            let mut a = Array2::<f64>::eye(m);
+            a.scaled_add(lambda, &k);
+            let factor = a
+                .cholesky(Side::Lower)
+                .expect("penalized normal matrix is SPD");
+            factor.solvevec(&y)
+        };
+        let fit_mag = fit(&w_mag);
+        let fit_snr = fit(&w_snr);
+
+        let region_mse = |idx: &[usize], f: &Array1<f64>| -> f64 {
+            idx.iter().map(|&j| (f[j] - truth[j]).powi(2)).sum::<f64>() / idx.len() as f64
+        };
+
+        let mse_flat_mag = region_mse(&left_flat, &fit_mag);
+        let mse_flat_snr = region_mse(&left_flat, &fit_snr);
+        let mse_edge_mag = region_mse(&edge_band, &fit_mag);
+        let mse_edge_snr = region_mse(&edge_band, &fit_snr);
+
+        // Objective quality assertions.
+        // 1. Noisy flat region: SNR fit is STRICTLY closer to truth (does not
+        //    chase noise). Require a clear margin, not a hairline win.
+        assert!(
+            mse_flat_snr < mse_flat_mag * 0.9,
+            "posterior-SNR should be strictly smoother in the noisy flat region: \
+             mse_flat_snr={mse_flat_snr:.6e} vs mse_flat_mag={mse_flat_mag:.6e}"
+        );
+        // 2. Edge region: SNR recovers the edge at least as sharply (MSE no
+        //    worse, with a small tolerance for numerical wiggle).
+        assert!(
+            mse_edge_snr <= mse_edge_mag * 1.05,
+            "posterior-SNR must recover the edge at least as sharply: \
+             mse_edge_snr={mse_edge_snr:.6e} vs mse_edge_mag={mse_edge_mag:.6e}"
+        );
+
+        // Guard against the degenerate pass where both fits are identical (the
+        // covariance path must actually change the weights).
+        assert!(
+            (mse_flat_mag - mse_flat_snr).abs() > 1e-9,
+            "the two weightings must produce materially different flat-region fits"
+        );
     }
 
     #[test]

@@ -29,10 +29,13 @@ from rio_tiler.colormap import apply_cmap
 from rio_tiler.constants import WGS84_CRS
 from rio_tiler.errors import (
     InvalidDatatypeWarning,
-    InvalidExpression,
     InvalidPointDataError,
 )
-from rio_tiler.expression import apply_expression, get_expression_blocks
+from rio_tiler.expression import (
+    apply_expression,
+    get_expression_blocks,
+    validate_expression,
+)
 from rio_tiler.types import (
     BBox,
     ColorMapType,
@@ -289,8 +292,7 @@ class PointData:
 
     def apply_expression(self, expression: str) -> "PointData":
         """Apply expression to the image data."""
-        if "eval(" in expression:
-            raise InvalidExpression("Invalid expression.")
+        expression = validate_expression(expression)
 
         blocks = get_expression_blocks(expression)
 
@@ -686,8 +688,7 @@ class ImageData:
 
     def apply_expression(self, expression: str) -> "ImageData":
         """Apply expression to the image data."""
-        if "eval(" in expression:
-            raise InvalidExpression("Invalid expression.")
+        expression = validate_expression(expression)
 
         blocks = get_expression_blocks(expression)
 
@@ -765,6 +766,10 @@ class ImageData:
             *bbox, transform=self.transform
         ).toslices()
 
+        alpha_mask: numpy.ndarray | None = None
+        if self.alpha_mask is not None:
+            alpha_mask = self.alpha_mask[row_slice, col_slice].copy()
+
         return ImageData(
             self.array[:, row_slice, col_slice].copy(),
             assets=self.assets,
@@ -777,9 +782,7 @@ class ImageData:
             offsets=self.offsets,
             metadata=self.metadata,
             dataset_statistics=self.dataset_statistics,
-            alpha_mask=self.alpha_mask[row_slice, col_slice].copy()
-            if self.alpha_mask is not None
-            else None,
+            alpha_mask=alpha_mask,
         )
 
     def post_process(

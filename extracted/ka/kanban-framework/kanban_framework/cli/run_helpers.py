@@ -35,13 +35,14 @@ _KEYWORDS_MAP = {
 def _validate_fsm_state(task, tm) -> dict | None:
     """Validate task's FSM state before executing CLI commands.
     Returns error dict if state is inconsistent, None if OK."""
-    if getattr(task, 'mode', '') == 'quick':
-        order = Scheduler.QUICK_PHASE_ORDER
-    elif task.lightweight:
-        order = Scheduler.LIGHTWEIGHT_PHASE_ORDER
-    else:
-        order = Scheduler.PHASE_ORDER
-    mode_label = 'quick' if getattr(task, 'mode', '') == 'quick' else ('lightweight' if task.lightweight else 'full')
+    mode = getattr(task, 'mode', 'full')
+    order = Scheduler.dispatch_order(
+        lightweight=task.lightweight,
+        quick=(mode == 'quick'),
+        mode=mode,
+        kanban_dir=tm._fs.kanban_dir,
+    )
+    mode_label = mode
     completed_phases = {
         h["phase"] for h in task.history
         if h.get("status") == "completed"

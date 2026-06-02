@@ -424,7 +424,7 @@ DocExtractResultTrackedChangesItem = TypedDict(
     "DocExtractResultTrackedChangesItem",
     {
         "entityId": str,
-        "type": Literal["insert"] | Literal["delete"] | Literal["format"],
+        "type": Literal["insert"] | Literal["delete"] | Literal["replacement"] | Literal["format"],
         "blockIds": list[str],
         "wordRevisionIds": DocExtractResultTrackedChangesItemWordRevisionIds,
         "excerpt": str,
@@ -1365,6 +1365,396 @@ DocDeleteResult = TypedDict(
         "inserted": list[DocDeleteResultInsertedItemVariant1 | DocDeleteResultInsertedItemVariant2],
         "updated": list[DocDeleteResultUpdatedItemVariant1 | DocDeleteResultUpdatedItemVariant2],
         "removed": list[DocDeleteResultRemovedItemVariant1 | DocDeleteResultRemovedItemVariant2],
+    },
+    total=False,
+)
+
+DocFormatRangeResultResolutionRequestedTargetRange = TypedDict(
+    "DocFormatRangeResultResolutionRequestedTargetRange",
+    {
+        "start": int | float,
+        "end": int | float,
+    },
+    total=False,
+)
+
+DocFormatRangeResultResolutionRequestedTarget = TypedDict(
+    "DocFormatRangeResultResolutionRequestedTarget",
+    {
+        "kind": Literal["text"],
+        "blockId": str,
+        "range": DocFormatRangeResultResolutionRequestedTargetRange,
+    },
+    total=False,
+)
+
+DocFormatRangeResultResolutionTargetRange = TypedDict(
+    "DocFormatRangeResultResolutionTargetRange",
+    {
+        "start": int | float,
+        "end": int | float,
+    },
+    total=False,
+)
+
+DocFormatRangeResultResolutionTarget = TypedDict(
+    "DocFormatRangeResultResolutionTarget",
+    {
+        "kind": Literal["text"],
+        "blockId": str,
+        "range": DocFormatRangeResultResolutionTargetRange,
+    },
+    total=False,
+)
+
+DocFormatRangeResultResolutionRange = TypedDict(
+    "DocFormatRangeResultResolutionRange",
+    {
+        "from": int | float,
+        "to": int | float,
+    },
+    total=False,
+)
+
+DocFormatRangeResultResolutionSelectionTargetStartVariant1 = TypedDict(
+    "DocFormatRangeResultResolutionSelectionTargetStartVariant1",
+    {
+        "kind": Literal["text"],
+        "blockId": str,
+        "offset": int | float,
+    },
+    total=False,
+)
+
+DocFormatRangeResultResolutionSelectionTargetStartVariant2Node = TypedDict(
+    "DocFormatRangeResultResolutionSelectionTargetStartVariant2Node",
+    {
+        "kind": Literal["block"],
+        "nodeType": Literal["paragraph"] | Literal["heading"] | Literal["table"] | Literal["tableOfContents"] | Literal["sdt"] | Literal["image"],
+        "nodeId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeResultResolutionSelectionTargetStartVariant2 = TypedDict(
+    "DocFormatRangeResultResolutionSelectionTargetStartVariant2",
+    {
+        "kind": Literal["nodeEdge"],
+        "node": DocFormatRangeResultResolutionSelectionTargetStartVariant2Node,
+        "edge": Literal["before"] | Literal["after"],
+    },
+    total=False,
+)
+
+DocFormatRangeResultResolutionSelectionTargetEndVariant1 = TypedDict(
+    "DocFormatRangeResultResolutionSelectionTargetEndVariant1",
+    {
+        "kind": Literal["text"],
+        "blockId": str,
+        "offset": int | float,
+    },
+    total=False,
+)
+
+DocFormatRangeResultResolutionSelectionTargetEndVariant2Node = TypedDict(
+    "DocFormatRangeResultResolutionSelectionTargetEndVariant2Node",
+    {
+        "kind": Literal["block"],
+        "nodeType": Literal["paragraph"] | Literal["heading"] | Literal["table"] | Literal["tableOfContents"] | Literal["sdt"] | Literal["image"],
+        "nodeId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeResultResolutionSelectionTargetEndVariant2 = TypedDict(
+    "DocFormatRangeResultResolutionSelectionTargetEndVariant2",
+    {
+        "kind": Literal["nodeEdge"],
+        "node": DocFormatRangeResultResolutionSelectionTargetEndVariant2Node,
+        "edge": Literal["before"] | Literal["after"],
+    },
+    total=False,
+)
+
+DocFormatRangeResultResolutionSelectionTarget = TypedDict(
+    "DocFormatRangeResultResolutionSelectionTarget",
+    {
+        "kind": Literal["selection"],
+        "start": DocFormatRangeResultResolutionSelectionTargetStartVariant1 | DocFormatRangeResultResolutionSelectionTargetStartVariant2,
+        "end": DocFormatRangeResultResolutionSelectionTargetEndVariant1 | DocFormatRangeResultResolutionSelectionTargetEndVariant2,
+    },
+    total=False,
+)
+
+DocFormatRangeResultResolution = TypedDict(
+    "DocFormatRangeResultResolution",
+    {
+        "requestedTarget": DocFormatRangeResultResolutionRequestedTarget,
+        "target": DocFormatRangeResultResolutionTarget,
+        "range": DocFormatRangeResultResolutionRange,
+        "text": str,
+        "selectionTarget": DocFormatRangeResultResolutionSelectionTarget,
+    },
+    total=False,
+)
+
+DocFormatRangeResultInsertedItemVariant1 = TypedDict(
+    "DocFormatRangeResultInsertedItemVariant1",
+    {
+        "kind": Literal["entity"],
+        "entityType": Literal["comment"],
+        "entityId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeResultInsertedItemVariant2StoryVariant1 = TypedDict(
+    "DocFormatRangeResultInsertedItemVariant2StoryVariant1",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["body"],
+    },
+    total=False,
+)
+
+DocFormatRangeResultInsertedItemVariant2StoryVariant2Section = TypedDict(
+    "DocFormatRangeResultInsertedItemVariant2StoryVariant2Section",
+    {
+        "kind": Literal["section"],
+        "sectionId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeResultInsertedItemVariant2StoryVariant2 = TypedDict(
+    "DocFormatRangeResultInsertedItemVariant2StoryVariant2",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterSlot"],
+        "section": DocFormatRangeResultInsertedItemVariant2StoryVariant2Section,
+        "headerFooterKind": Literal["header"] | Literal["footer"],
+        "variant": Literal["default"] | Literal["first"] | Literal["even"],
+        "resolution": Literal["effective"] | Literal["explicit"],
+        "onWrite": Literal["materializeIfInherited"] | Literal["editResolvedPart"] | Literal["error"],
+    },
+    total=False,
+)
+
+DocFormatRangeResultInsertedItemVariant2StoryVariant3 = TypedDict(
+    "DocFormatRangeResultInsertedItemVariant2StoryVariant3",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterPart"],
+        "refId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeResultInsertedItemVariant2StoryVariant4 = TypedDict(
+    "DocFormatRangeResultInsertedItemVariant2StoryVariant4",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["footnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeResultInsertedItemVariant2StoryVariant5 = TypedDict(
+    "DocFormatRangeResultInsertedItemVariant2StoryVariant5",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["endnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeResultInsertedItemVariant2 = TypedDict(
+    "DocFormatRangeResultInsertedItemVariant2",
+    {
+        "kind": Literal["entity"],
+        "entityType": Literal["trackedChange"],
+        "entityId": str,
+        "story": DocFormatRangeResultInsertedItemVariant2StoryVariant1 | DocFormatRangeResultInsertedItemVariant2StoryVariant2 | DocFormatRangeResultInsertedItemVariant2StoryVariant3 | DocFormatRangeResultInsertedItemVariant2StoryVariant4 | DocFormatRangeResultInsertedItemVariant2StoryVariant5,
+    },
+    total=False,
+)
+
+DocFormatRangeResultUpdatedItemVariant1 = TypedDict(
+    "DocFormatRangeResultUpdatedItemVariant1",
+    {
+        "kind": Literal["entity"],
+        "entityType": Literal["comment"],
+        "entityId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeResultUpdatedItemVariant2StoryVariant1 = TypedDict(
+    "DocFormatRangeResultUpdatedItemVariant2StoryVariant1",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["body"],
+    },
+    total=False,
+)
+
+DocFormatRangeResultUpdatedItemVariant2StoryVariant2Section = TypedDict(
+    "DocFormatRangeResultUpdatedItemVariant2StoryVariant2Section",
+    {
+        "kind": Literal["section"],
+        "sectionId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeResultUpdatedItemVariant2StoryVariant2 = TypedDict(
+    "DocFormatRangeResultUpdatedItemVariant2StoryVariant2",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterSlot"],
+        "section": DocFormatRangeResultUpdatedItemVariant2StoryVariant2Section,
+        "headerFooterKind": Literal["header"] | Literal["footer"],
+        "variant": Literal["default"] | Literal["first"] | Literal["even"],
+        "resolution": Literal["effective"] | Literal["explicit"],
+        "onWrite": Literal["materializeIfInherited"] | Literal["editResolvedPart"] | Literal["error"],
+    },
+    total=False,
+)
+
+DocFormatRangeResultUpdatedItemVariant2StoryVariant3 = TypedDict(
+    "DocFormatRangeResultUpdatedItemVariant2StoryVariant3",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterPart"],
+        "refId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeResultUpdatedItemVariant2StoryVariant4 = TypedDict(
+    "DocFormatRangeResultUpdatedItemVariant2StoryVariant4",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["footnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeResultUpdatedItemVariant2StoryVariant5 = TypedDict(
+    "DocFormatRangeResultUpdatedItemVariant2StoryVariant5",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["endnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeResultUpdatedItemVariant2 = TypedDict(
+    "DocFormatRangeResultUpdatedItemVariant2",
+    {
+        "kind": Literal["entity"],
+        "entityType": Literal["trackedChange"],
+        "entityId": str,
+        "story": DocFormatRangeResultUpdatedItemVariant2StoryVariant1 | DocFormatRangeResultUpdatedItemVariant2StoryVariant2 | DocFormatRangeResultUpdatedItemVariant2StoryVariant3 | DocFormatRangeResultUpdatedItemVariant2StoryVariant4 | DocFormatRangeResultUpdatedItemVariant2StoryVariant5,
+    },
+    total=False,
+)
+
+DocFormatRangeResultRemovedItemVariant1 = TypedDict(
+    "DocFormatRangeResultRemovedItemVariant1",
+    {
+        "kind": Literal["entity"],
+        "entityType": Literal["comment"],
+        "entityId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeResultRemovedItemVariant2StoryVariant1 = TypedDict(
+    "DocFormatRangeResultRemovedItemVariant2StoryVariant1",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["body"],
+    },
+    total=False,
+)
+
+DocFormatRangeResultRemovedItemVariant2StoryVariant2Section = TypedDict(
+    "DocFormatRangeResultRemovedItemVariant2StoryVariant2Section",
+    {
+        "kind": Literal["section"],
+        "sectionId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeResultRemovedItemVariant2StoryVariant2 = TypedDict(
+    "DocFormatRangeResultRemovedItemVariant2StoryVariant2",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterSlot"],
+        "section": DocFormatRangeResultRemovedItemVariant2StoryVariant2Section,
+        "headerFooterKind": Literal["header"] | Literal["footer"],
+        "variant": Literal["default"] | Literal["first"] | Literal["even"],
+        "resolution": Literal["effective"] | Literal["explicit"],
+        "onWrite": Literal["materializeIfInherited"] | Literal["editResolvedPart"] | Literal["error"],
+    },
+    total=False,
+)
+
+DocFormatRangeResultRemovedItemVariant2StoryVariant3 = TypedDict(
+    "DocFormatRangeResultRemovedItemVariant2StoryVariant3",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterPart"],
+        "refId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeResultRemovedItemVariant2StoryVariant4 = TypedDict(
+    "DocFormatRangeResultRemovedItemVariant2StoryVariant4",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["footnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeResultRemovedItemVariant2StoryVariant5 = TypedDict(
+    "DocFormatRangeResultRemovedItemVariant2StoryVariant5",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["endnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeResultRemovedItemVariant2 = TypedDict(
+    "DocFormatRangeResultRemovedItemVariant2",
+    {
+        "kind": Literal["entity"],
+        "entityType": Literal["trackedChange"],
+        "entityId": str,
+        "story": DocFormatRangeResultRemovedItemVariant2StoryVariant1 | DocFormatRangeResultRemovedItemVariant2StoryVariant2 | DocFormatRangeResultRemovedItemVariant2StoryVariant3 | DocFormatRangeResultRemovedItemVariant2StoryVariant4 | DocFormatRangeResultRemovedItemVariant2StoryVariant5,
+    },
+    total=False,
+)
+
+DocFormatRangeResult = TypedDict(
+    "DocFormatRangeResult",
+    {
+        "success": Literal[True],
+        "resolution": DocFormatRangeResultResolution,
+        "inserted": list[DocFormatRangeResultInsertedItemVariant1 | DocFormatRangeResultInsertedItemVariant2],
+        "updated": list[DocFormatRangeResultUpdatedItemVariant1 | DocFormatRangeResultUpdatedItemVariant2],
+        "removed": list[DocFormatRangeResultRemovedItemVariant1 | DocFormatRangeResultRemovedItemVariant2],
     },
     total=False,
 )
@@ -22518,6 +22908,7 @@ DocCommentsCreateResult = TypedDict(
     "DocCommentsCreateResult",
     {
         "success": Literal[True],
+        "id": str,
         "inserted": list[DocCommentsCreateResultInsertedItemVariant1 | DocCommentsCreateResultInsertedItemVariant2],
         "updated": list[DocCommentsCreateResultUpdatedItemVariant1 | DocCommentsCreateResultUpdatedItemVariant2],
         "removed": list[DocCommentsCreateResultRemovedItemVariant1 | DocCommentsCreateResultRemovedItemVariant2],
@@ -23145,6 +23536,144 @@ DocCommentsGetResultTarget = TypedDict(
     total=False,
 )
 
+DocCommentsGetResultTrackedChangeStoryVariant1Variant1 = TypedDict(
+    "DocCommentsGetResultTrackedChangeStoryVariant1Variant1",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["body"],
+    },
+    total=False,
+)
+
+DocCommentsGetResultTrackedChangeStoryVariant1Variant2Section = TypedDict(
+    "DocCommentsGetResultTrackedChangeStoryVariant1Variant2Section",
+    {
+        "kind": Literal["section"],
+        "sectionId": str,
+    },
+    total=False,
+)
+
+DocCommentsGetResultTrackedChangeStoryVariant1Variant2 = TypedDict(
+    "DocCommentsGetResultTrackedChangeStoryVariant1Variant2",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterSlot"],
+        "section": DocCommentsGetResultTrackedChangeStoryVariant1Variant2Section,
+        "headerFooterKind": Literal["header"] | Literal["footer"],
+        "variant": Literal["default"] | Literal["first"] | Literal["even"],
+        "resolution": Literal["effective"] | Literal["explicit"],
+        "onWrite": Literal["materializeIfInherited"] | Literal["editResolvedPart"] | Literal["error"],
+    },
+    total=False,
+)
+
+DocCommentsGetResultTrackedChangeStoryVariant1Variant3 = TypedDict(
+    "DocCommentsGetResultTrackedChangeStoryVariant1Variant3",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterPart"],
+        "refId": str,
+    },
+    total=False,
+)
+
+DocCommentsGetResultTrackedChangeStoryVariant1Variant4 = TypedDict(
+    "DocCommentsGetResultTrackedChangeStoryVariant1Variant4",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["footnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocCommentsGetResultTrackedChangeStoryVariant1Variant5 = TypedDict(
+    "DocCommentsGetResultTrackedChangeStoryVariant1Variant5",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["endnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocCommentsGetResultTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant1 = TypedDict(
+    "DocCommentsGetResultTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant1",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["body"],
+    },
+    total=False,
+)
+
+DocCommentsGetResultTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant2Section = TypedDict(
+    "DocCommentsGetResultTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant2Section",
+    {
+        "kind": Literal["section"],
+        "sectionId": str,
+    },
+    total=False,
+)
+
+DocCommentsGetResultTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant2 = TypedDict(
+    "DocCommentsGetResultTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant2",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterSlot"],
+        "section": DocCommentsGetResultTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant2Section,
+        "headerFooterKind": Literal["header"] | Literal["footer"],
+        "variant": Literal["default"] | Literal["first"] | Literal["even"],
+        "resolution": Literal["effective"] | Literal["explicit"],
+        "onWrite": Literal["materializeIfInherited"] | Literal["editResolvedPart"] | Literal["error"],
+    },
+    total=False,
+)
+
+DocCommentsGetResultTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant3 = TypedDict(
+    "DocCommentsGetResultTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant3",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterPart"],
+        "refId": str,
+    },
+    total=False,
+)
+
+DocCommentsGetResultTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant4 = TypedDict(
+    "DocCommentsGetResultTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant4",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["footnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocCommentsGetResultTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant5 = TypedDict(
+    "DocCommentsGetResultTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant5",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["endnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocCommentsGetResultTrackedChangeLinkVariant1 = TypedDict(
+    "DocCommentsGetResultTrackedChangeLinkVariant1",
+    {
+        "trackedChange": Literal[True],
+        "trackedChangeType": Literal["insert"] | Literal["delete"] | Literal["replacement"] | Literal["format"],
+        "trackedChangeDisplayType": Any,
+        "trackedChangeStory": DocCommentsGetResultTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant1 | DocCommentsGetResultTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant2 | DocCommentsGetResultTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant3 | DocCommentsGetResultTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant4 | DocCommentsGetResultTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant5 | None,
+        "trackedChangeAnchorKey": Any,
+        "trackedChangeText": Any,
+        "deletedText": Any,
+    },
+    total=False,
+)
+
 DocCommentsGetResult = TypedDict(
     "DocCommentsGetResult",
     {
@@ -23160,6 +23689,14 @@ DocCommentsGetResult = TypedDict(
         "createdTime": int | float,
         "creatorName": str,
         "creatorEmail": str,
+        "trackedChange": bool,
+        "trackedChangeType": Literal["insert"] | Literal["delete"] | Literal["replacement"] | Literal["format"],
+        "trackedChangeDisplayType": Any,
+        "trackedChangeStory": DocCommentsGetResultTrackedChangeStoryVariant1Variant1 | DocCommentsGetResultTrackedChangeStoryVariant1Variant2 | DocCommentsGetResultTrackedChangeStoryVariant1Variant3 | DocCommentsGetResultTrackedChangeStoryVariant1Variant4 | DocCommentsGetResultTrackedChangeStoryVariant1Variant5 | None,
+        "trackedChangeAnchorKey": Any,
+        "trackedChangeText": Any,
+        "deletedText": Any,
+        "trackedChangeLink": DocCommentsGetResultTrackedChangeLinkVariant1 | None,
     },
     total=False,
 )
@@ -23274,6 +23811,144 @@ DocCommentsListResultItemsItemTarget = TypedDict(
     total=False,
 )
 
+DocCommentsListResultItemsItemTrackedChangeStoryVariant1Variant1 = TypedDict(
+    "DocCommentsListResultItemsItemTrackedChangeStoryVariant1Variant1",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["body"],
+    },
+    total=False,
+)
+
+DocCommentsListResultItemsItemTrackedChangeStoryVariant1Variant2Section = TypedDict(
+    "DocCommentsListResultItemsItemTrackedChangeStoryVariant1Variant2Section",
+    {
+        "kind": Literal["section"],
+        "sectionId": str,
+    },
+    total=False,
+)
+
+DocCommentsListResultItemsItemTrackedChangeStoryVariant1Variant2 = TypedDict(
+    "DocCommentsListResultItemsItemTrackedChangeStoryVariant1Variant2",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterSlot"],
+        "section": DocCommentsListResultItemsItemTrackedChangeStoryVariant1Variant2Section,
+        "headerFooterKind": Literal["header"] | Literal["footer"],
+        "variant": Literal["default"] | Literal["first"] | Literal["even"],
+        "resolution": Literal["effective"] | Literal["explicit"],
+        "onWrite": Literal["materializeIfInherited"] | Literal["editResolvedPart"] | Literal["error"],
+    },
+    total=False,
+)
+
+DocCommentsListResultItemsItemTrackedChangeStoryVariant1Variant3 = TypedDict(
+    "DocCommentsListResultItemsItemTrackedChangeStoryVariant1Variant3",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterPart"],
+        "refId": str,
+    },
+    total=False,
+)
+
+DocCommentsListResultItemsItemTrackedChangeStoryVariant1Variant4 = TypedDict(
+    "DocCommentsListResultItemsItemTrackedChangeStoryVariant1Variant4",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["footnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocCommentsListResultItemsItemTrackedChangeStoryVariant1Variant5 = TypedDict(
+    "DocCommentsListResultItemsItemTrackedChangeStoryVariant1Variant5",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["endnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocCommentsListResultItemsItemTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant1 = TypedDict(
+    "DocCommentsListResultItemsItemTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant1",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["body"],
+    },
+    total=False,
+)
+
+DocCommentsListResultItemsItemTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant2Section = TypedDict(
+    "DocCommentsListResultItemsItemTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant2Section",
+    {
+        "kind": Literal["section"],
+        "sectionId": str,
+    },
+    total=False,
+)
+
+DocCommentsListResultItemsItemTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant2 = TypedDict(
+    "DocCommentsListResultItemsItemTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant2",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterSlot"],
+        "section": DocCommentsListResultItemsItemTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant2Section,
+        "headerFooterKind": Literal["header"] | Literal["footer"],
+        "variant": Literal["default"] | Literal["first"] | Literal["even"],
+        "resolution": Literal["effective"] | Literal["explicit"],
+        "onWrite": Literal["materializeIfInherited"] | Literal["editResolvedPart"] | Literal["error"],
+    },
+    total=False,
+)
+
+DocCommentsListResultItemsItemTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant3 = TypedDict(
+    "DocCommentsListResultItemsItemTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant3",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterPart"],
+        "refId": str,
+    },
+    total=False,
+)
+
+DocCommentsListResultItemsItemTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant4 = TypedDict(
+    "DocCommentsListResultItemsItemTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant4",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["footnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocCommentsListResultItemsItemTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant5 = TypedDict(
+    "DocCommentsListResultItemsItemTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant5",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["endnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocCommentsListResultItemsItemTrackedChangeLinkVariant1 = TypedDict(
+    "DocCommentsListResultItemsItemTrackedChangeLinkVariant1",
+    {
+        "trackedChange": Literal[True],
+        "trackedChangeType": Literal["insert"] | Literal["delete"] | Literal["replacement"] | Literal["format"],
+        "trackedChangeDisplayType": Any,
+        "trackedChangeStory": DocCommentsListResultItemsItemTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant1 | DocCommentsListResultItemsItemTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant2 | DocCommentsListResultItemsItemTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant3 | DocCommentsListResultItemsItemTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant4 | DocCommentsListResultItemsItemTrackedChangeLinkVariant1TrackedChangeStoryVariant1Variant5 | None,
+        "trackedChangeAnchorKey": Any,
+        "trackedChangeText": Any,
+        "deletedText": Any,
+    },
+    total=False,
+)
+
 DocCommentsListResultItemsItem = TypedDict(
     "DocCommentsListResultItemsItem",
     {
@@ -23290,6 +23965,14 @@ DocCommentsListResultItemsItem = TypedDict(
         "createdTime": int | float,
         "creatorName": str,
         "creatorEmail": str,
+        "trackedChange": bool,
+        "trackedChangeType": Literal["insert"] | Literal["delete"] | Literal["replacement"] | Literal["format"],
+        "trackedChangeDisplayType": Any,
+        "trackedChangeStory": DocCommentsListResultItemsItemTrackedChangeStoryVariant1Variant1 | DocCommentsListResultItemsItemTrackedChangeStoryVariant1Variant2 | DocCommentsListResultItemsItemTrackedChangeStoryVariant1Variant3 | DocCommentsListResultItemsItemTrackedChangeStoryVariant1Variant4 | DocCommentsListResultItemsItemTrackedChangeStoryVariant1Variant5 | None,
+        "trackedChangeAnchorKey": Any,
+        "trackedChangeText": Any,
+        "deletedText": Any,
+        "trackedChangeLink": DocCommentsListResultItemsItemTrackedChangeLinkVariant1 | None,
     },
     total=False,
 )
@@ -23414,13 +24097,17 @@ DocTrackChangesListResultItemsItem = TypedDict(
         "id": str,
         "handle": DocTrackChangesListResultItemsItemHandle,
         "address": DocTrackChangesListResultItemsItemAddress,
-        "type": Literal["insert"] | Literal["delete"] | Literal["format"],
+        "type": Literal["insert"] | Literal["delete"] | Literal["replacement"] | Literal["format"],
+        "grouping": Literal["standalone"] | Literal["replacement-pair"] | Literal["unknown"],
+        "pairedWithChangeId": Any,
         "wordRevisionIds": DocTrackChangesListResultItemsItemWordRevisionIds,
         "author": str,
         "authorEmail": str,
         "authorImage": str,
         "date": str,
         "excerpt": str,
+        "insertedText": str,
+        "deletedText": str,
     },
     total=False,
 )
@@ -23534,13 +24221,17 @@ DocTrackChangesGetResult = TypedDict(
     {
         "address": DocTrackChangesGetResultAddress,
         "id": str,
-        "type": Literal["insert"] | Literal["delete"] | Literal["format"],
+        "type": Literal["insert"] | Literal["delete"] | Literal["replacement"] | Literal["format"],
+        "grouping": Literal["standalone"] | Literal["replacement-pair"] | Literal["unknown"],
+        "pairedWithChangeId": Any,
         "wordRevisionIds": DocTrackChangesGetResultWordRevisionIds,
         "author": str,
         "authorEmail": str,
         "authorImage": str,
         "date": str,
         "excerpt": str,
+        "insertedText": str,
+        "deletedText": str,
     },
     total=False,
 )
@@ -25203,6 +25894,17 @@ DocCapabilitiesGetResultOperationsReplace = TypedDict(
 
 DocCapabilitiesGetResultOperationsDelete = TypedDict(
     "DocCapabilitiesGetResultOperationsDelete",
+    {
+        "available": bool,
+        "tracked": bool,
+        "dryRun": bool,
+        "reasons": list[Literal["COMMAND_UNAVAILABLE"] | Literal["HELPER_UNAVAILABLE"] | Literal["OPERATION_UNAVAILABLE"] | Literal["TRACKED_MODE_UNAVAILABLE"] | Literal["DRY_RUN_UNAVAILABLE"] | Literal["NAMESPACE_UNAVAILABLE"] | Literal["STYLES_PART_MISSING"] | Literal["COLLABORATION_ACTIVE"]],
+    },
+    total=False,
+)
+
+DocCapabilitiesGetResultOperationsFormatRange = TypedDict(
+    "DocCapabilitiesGetResultOperationsFormatRange",
     {
         "available": bool,
         "tracked": bool,
@@ -29508,6 +30210,7 @@ DocCapabilitiesGetResultOperations = TypedDict(
         "insert": DocCapabilitiesGetResultOperationsInsert,
         "replace": DocCapabilitiesGetResultOperationsReplace,
         "delete": DocCapabilitiesGetResultOperationsDelete,
+        "formatRange": DocCapabilitiesGetResultOperationsFormatRange,
         "blocks.list": DocCapabilitiesGetResultOperationsBlocksList,
         "blocks.delete": DocCapabilitiesGetResultOperationsBlocksDelete,
         "blocks.deleteRange": DocCapabilitiesGetResultOperationsBlocksDeleteRange,
@@ -39235,6 +39938,7 @@ DocSaveResult = TypedDict(
         "contextId": str,
         "saved": bool,
         "inPlace": bool,
+        "mode": Literal["review-preserving"] | Literal["final"],
         "document": DocSaveResultDocument,
         "context": DocSaveResultContext,
         "output": DocSaveResultOutput,
@@ -40592,6 +41296,293 @@ DocDeleteParams = TypedDict(
         "blockId": str,
         "start": int | float,
         "end": int | float,
+    },
+    total=False,
+)
+
+DocFormatRangeParamsTargetStartVariant1 = TypedDict(
+    "DocFormatRangeParamsTargetStartVariant1",
+    {
+        "kind": Literal["text"],
+        "blockId": str,
+        "offset": int | float,
+    },
+    total=False,
+)
+
+DocFormatRangeParamsTargetStartVariant2Node = TypedDict(
+    "DocFormatRangeParamsTargetStartVariant2Node",
+    {
+        "kind": Literal["block"],
+        "nodeType": Literal["paragraph"] | Literal["heading"] | Literal["table"] | Literal["tableOfContents"] | Literal["sdt"] | Literal["image"],
+        "nodeId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeParamsTargetStartVariant2 = TypedDict(
+    "DocFormatRangeParamsTargetStartVariant2",
+    {
+        "kind": Literal["nodeEdge"],
+        "node": DocFormatRangeParamsTargetStartVariant2Node,
+        "edge": Literal["before"] | Literal["after"],
+    },
+    total=False,
+)
+
+DocFormatRangeParamsTargetEndVariant1 = TypedDict(
+    "DocFormatRangeParamsTargetEndVariant1",
+    {
+        "kind": Literal["text"],
+        "blockId": str,
+        "offset": int | float,
+    },
+    total=False,
+)
+
+DocFormatRangeParamsTargetEndVariant2Node = TypedDict(
+    "DocFormatRangeParamsTargetEndVariant2Node",
+    {
+        "kind": Literal["block"],
+        "nodeType": Literal["paragraph"] | Literal["heading"] | Literal["table"] | Literal["tableOfContents"] | Literal["sdt"] | Literal["image"],
+        "nodeId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeParamsTargetEndVariant2 = TypedDict(
+    "DocFormatRangeParamsTargetEndVariant2",
+    {
+        "kind": Literal["nodeEdge"],
+        "node": DocFormatRangeParamsTargetEndVariant2Node,
+        "edge": Literal["before"] | Literal["after"],
+    },
+    total=False,
+)
+
+DocFormatRangeParamsTarget = TypedDict(
+    "DocFormatRangeParamsTarget",
+    {
+        "kind": Literal["selection"],
+        "start": DocFormatRangeParamsTargetStartVariant1 | DocFormatRangeParamsTargetStartVariant2,
+        "end": DocFormatRangeParamsTargetEndVariant1 | DocFormatRangeParamsTargetEndVariant2,
+    },
+    total=False,
+)
+
+DocFormatRangeParamsInVariant1 = TypedDict(
+    "DocFormatRangeParamsInVariant1",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["body"],
+    },
+    total=False,
+)
+
+DocFormatRangeParamsInVariant2Section = TypedDict(
+    "DocFormatRangeParamsInVariant2Section",
+    {
+        "kind": Literal["section"],
+        "sectionId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeParamsInVariant2 = TypedDict(
+    "DocFormatRangeParamsInVariant2",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterSlot"],
+        "section": DocFormatRangeParamsInVariant2Section,
+        "headerFooterKind": Literal["header"] | Literal["footer"],
+        "variant": Literal["default"] | Literal["first"] | Literal["even"],
+        "resolution": Literal["effective"] | Literal["explicit"],
+        "onWrite": Literal["materializeIfInherited"] | Literal["editResolvedPart"] | Literal["error"],
+    },
+    total=False,
+)
+
+DocFormatRangeParamsInVariant3 = TypedDict(
+    "DocFormatRangeParamsInVariant3",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterPart"],
+        "refId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeParamsInVariant4 = TypedDict(
+    "DocFormatRangeParamsInVariant4",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["footnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeParamsInVariant5 = TypedDict(
+    "DocFormatRangeParamsInVariant5",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["endnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeParamsPropertiesUnderlineVariant3 = TypedDict(
+    "DocFormatRangeParamsPropertiesUnderlineVariant3",
+    {
+        "style": str | Any,
+        "color": str | Any,
+        "themeColor": str | Any,
+    },
+    total=False,
+)
+
+DocFormatRangeParamsPropertiesShadingVariant1 = TypedDict(
+    "DocFormatRangeParamsPropertiesShadingVariant1",
+    {
+        "fill": str | Any,
+        "color": str | Any,
+        "val": str | Any,
+    },
+    total=False,
+)
+
+DocFormatRangeParamsPropertiesBorderVariant1 = TypedDict(
+    "DocFormatRangeParamsPropertiesBorderVariant1",
+    {
+        "val": str | Any,
+        "sz": int | float | Any,
+        "color": str | Any,
+        "space": int | float | Any,
+    },
+    total=False,
+)
+
+DocFormatRangeParamsPropertiesEastAsianLayoutVariant1 = TypedDict(
+    "DocFormatRangeParamsPropertiesEastAsianLayoutVariant1",
+    {
+        "id": str | Any,
+        "combine": bool | Any,
+        "combineBrackets": str | Any,
+        "vert": bool | Any,
+        "vertCompress": bool | Any,
+    },
+    total=False,
+)
+
+DocFormatRangeParamsPropertiesFitTextVariant1 = TypedDict(
+    "DocFormatRangeParamsPropertiesFitTextVariant1",
+    {
+        "val": int | float | Any,
+        "id": str | Any,
+    },
+    total=False,
+)
+
+DocFormatRangeParamsPropertiesLangVariant1 = TypedDict(
+    "DocFormatRangeParamsPropertiesLangVariant1",
+    {
+        "val": str | Any,
+        "eastAsia": str | Any,
+        "bidi": str | Any,
+    },
+    total=False,
+)
+
+DocFormatRangeParamsPropertiesRFontsVariant1 = TypedDict(
+    "DocFormatRangeParamsPropertiesRFontsVariant1",
+    {
+        "ascii": str | Any,
+        "hAnsi": str | Any,
+        "eastAsia": str | Any,
+        "cs": str | Any,
+        "asciiTheme": str | Any,
+        "hAnsiTheme": str | Any,
+        "eastAsiaTheme": str | Any,
+        "csTheme": str | Any,
+        "hint": str | Any,
+    },
+    total=False,
+)
+
+DocFormatRangeParamsPropertiesStylisticSetsVariant1Item = TypedDict(
+    "DocFormatRangeParamsPropertiesStylisticSetsVariant1Item",
+    {
+        "id": int | float,
+        "val": bool,
+    },
+    total=False,
+)
+
+DocFormatRangeParamsProperties = TypedDict(
+    "DocFormatRangeParamsProperties",
+    {
+        "bold": bool | Any,
+        "italic": bool | Any,
+        "strike": bool | Any,
+        "underline": bool | Any | DocFormatRangeParamsPropertiesUnderlineVariant3,
+        "highlight": str | Any,
+        "color": str | Any,
+        "fontSize": int | float | Any,
+        "fontFamily": str | Any,
+        "letterSpacing": int | float | Any,
+        "vertAlign": Literal["superscript"] | Literal["subscript"] | Literal["baseline"] | Any,
+        "position": int | float | Any,
+        "dstrike": bool | Any,
+        "smallCaps": bool | Any,
+        "caps": bool | Any,
+        "shading": DocFormatRangeParamsPropertiesShadingVariant1 | Any,
+        "border": DocFormatRangeParamsPropertiesBorderVariant1 | Any,
+        "outline": bool | Any,
+        "shadow": bool | Any,
+        "emboss": bool | Any,
+        "imprint": bool | Any,
+        "charScale": int | float | Any,
+        "kerning": int | float | Any,
+        "vanish": bool | Any,
+        "webHidden": bool | Any,
+        "specVanish": bool | Any,
+        "rtl": bool | Any,
+        "cs": bool | Any,
+        "bCs": bool | Any,
+        "iCs": bool | Any,
+        "eastAsianLayout": DocFormatRangeParamsPropertiesEastAsianLayoutVariant1 | Any,
+        "em": str | Any,
+        "fitText": DocFormatRangeParamsPropertiesFitTextVariant1 | Any,
+        "snapToGrid": bool | Any,
+        "lang": DocFormatRangeParamsPropertiesLangVariant1 | Any,
+        "oMath": bool | Any,
+        "rStyle": str | Any,
+        "rFonts": DocFormatRangeParamsPropertiesRFontsVariant1 | Any,
+        "fontSizeCs": int | float | Any,
+        "ligatures": str | Any,
+        "numForm": str | Any,
+        "numSpacing": str | Any,
+        "stylisticSets": list[DocFormatRangeParamsPropertiesStylisticSetsVariant1Item] | Any,
+        "contextualAlternates": bool | Any,
+    },
+    total=False,
+)
+
+DocFormatRangeParams = TypedDict(
+    "DocFormatRangeParams",
+    {
+        "doc": str,
+        "sessionId": str,
+        "out": str,
+        "force": bool,
+        "expectedRevision": int | float,
+        "changeMode": str,
+        "dryRun": bool,
+        "target": DocFormatRangeParamsTarget,
+        "in": DocFormatRangeParamsInVariant1 | DocFormatRangeParamsInVariant2 | DocFormatRangeParamsInVariant3 | DocFormatRangeParamsInVariant4 | DocFormatRangeParamsInVariant5,
+        "properties": DocFormatRangeParamsProperties,
+        "ref": str,
     },
     total=False,
 )
@@ -48547,6 +49538,148 @@ DocCommentsCreateParamsTargetVariant2 = TypedDict(
     total=False,
 )
 
+DocCommentsCreateParamsTargetVariant3StartVariant1 = TypedDict(
+    "DocCommentsCreateParamsTargetVariant3StartVariant1",
+    {
+        "kind": Literal["text"],
+        "blockId": str,
+        "offset": int | float,
+    },
+    total=False,
+)
+
+DocCommentsCreateParamsTargetVariant3StartVariant2Node = TypedDict(
+    "DocCommentsCreateParamsTargetVariant3StartVariant2Node",
+    {
+        "kind": Literal["block"],
+        "nodeType": Literal["paragraph"] | Literal["heading"] | Literal["table"] | Literal["tableOfContents"] | Literal["sdt"] | Literal["image"],
+        "nodeId": str,
+    },
+    total=False,
+)
+
+DocCommentsCreateParamsTargetVariant3StartVariant2 = TypedDict(
+    "DocCommentsCreateParamsTargetVariant3StartVariant2",
+    {
+        "kind": Literal["nodeEdge"],
+        "node": DocCommentsCreateParamsTargetVariant3StartVariant2Node,
+        "edge": Literal["before"] | Literal["after"],
+    },
+    total=False,
+)
+
+DocCommentsCreateParamsTargetVariant3EndVariant1 = TypedDict(
+    "DocCommentsCreateParamsTargetVariant3EndVariant1",
+    {
+        "kind": Literal["text"],
+        "blockId": str,
+        "offset": int | float,
+    },
+    total=False,
+)
+
+DocCommentsCreateParamsTargetVariant3EndVariant2Node = TypedDict(
+    "DocCommentsCreateParamsTargetVariant3EndVariant2Node",
+    {
+        "kind": Literal["block"],
+        "nodeType": Literal["paragraph"] | Literal["heading"] | Literal["table"] | Literal["tableOfContents"] | Literal["sdt"] | Literal["image"],
+        "nodeId": str,
+    },
+    total=False,
+)
+
+DocCommentsCreateParamsTargetVariant3EndVariant2 = TypedDict(
+    "DocCommentsCreateParamsTargetVariant3EndVariant2",
+    {
+        "kind": Literal["nodeEdge"],
+        "node": DocCommentsCreateParamsTargetVariant3EndVariant2Node,
+        "edge": Literal["before"] | Literal["after"],
+    },
+    total=False,
+)
+
+DocCommentsCreateParamsTargetVariant3 = TypedDict(
+    "DocCommentsCreateParamsTargetVariant3",
+    {
+        "kind": Literal["selection"],
+        "start": DocCommentsCreateParamsTargetVariant3StartVariant1 | DocCommentsCreateParamsTargetVariant3StartVariant2,
+        "end": DocCommentsCreateParamsTargetVariant3EndVariant1 | DocCommentsCreateParamsTargetVariant3EndVariant2,
+    },
+    total=False,
+)
+
+DocCommentsCreateParamsTargetVariant4StoryVariant1 = TypedDict(
+    "DocCommentsCreateParamsTargetVariant4StoryVariant1",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["body"],
+    },
+    total=False,
+)
+
+DocCommentsCreateParamsTargetVariant4StoryVariant2Section = TypedDict(
+    "DocCommentsCreateParamsTargetVariant4StoryVariant2Section",
+    {
+        "kind": Literal["section"],
+        "sectionId": str,
+    },
+    total=False,
+)
+
+DocCommentsCreateParamsTargetVariant4StoryVariant2 = TypedDict(
+    "DocCommentsCreateParamsTargetVariant4StoryVariant2",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterSlot"],
+        "section": DocCommentsCreateParamsTargetVariant4StoryVariant2Section,
+        "headerFooterKind": Literal["header"] | Literal["footer"],
+        "variant": Literal["default"] | Literal["first"] | Literal["even"],
+        "resolution": Literal["effective"] | Literal["explicit"],
+        "onWrite": Literal["materializeIfInherited"] | Literal["editResolvedPart"] | Literal["error"],
+    },
+    total=False,
+)
+
+DocCommentsCreateParamsTargetVariant4StoryVariant3 = TypedDict(
+    "DocCommentsCreateParamsTargetVariant4StoryVariant3",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterPart"],
+        "refId": str,
+    },
+    total=False,
+)
+
+DocCommentsCreateParamsTargetVariant4StoryVariant4 = TypedDict(
+    "DocCommentsCreateParamsTargetVariant4StoryVariant4",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["footnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocCommentsCreateParamsTargetVariant4StoryVariant5 = TypedDict(
+    "DocCommentsCreateParamsTargetVariant4StoryVariant5",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["endnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocCommentsCreateParamsTargetVariant4 = TypedDict(
+    "DocCommentsCreateParamsTargetVariant4",
+    {
+        "kind": Literal["trackedChange"],
+        "trackedChangeId": str,
+        "story": DocCommentsCreateParamsTargetVariant4StoryVariant1 | DocCommentsCreateParamsTargetVariant4StoryVariant2 | DocCommentsCreateParamsTargetVariant4StoryVariant3 | DocCommentsCreateParamsTargetVariant4StoryVariant4 | DocCommentsCreateParamsTargetVariant4StoryVariant5,
+    },
+    total=False,
+)
+
 DocCommentsCreateParams = TypedDict(
     "DocCommentsCreateParams",
     {
@@ -48557,7 +49690,7 @@ DocCommentsCreateParams = TypedDict(
         "expectedRevision": int | float,
         "changeMode": str,
         "text": str,
-        "target": DocCommentsCreateParamsTargetVariant1 | DocCommentsCreateParamsTargetVariant2,
+        "target": DocCommentsCreateParamsTargetVariant1 | DocCommentsCreateParamsTargetVariant2 | DocCommentsCreateParamsTargetVariant3 | DocCommentsCreateParamsTargetVariant4,
         "parentId": str,
         "blockId": str,
         "start": int | float,
@@ -48566,8 +49699,8 @@ DocCommentsCreateParams = TypedDict(
     total=False,
 )
 
-DocCommentsPatchParamsTargetRange = TypedDict(
-    "DocCommentsPatchParamsTargetRange",
+DocCommentsPatchParamsTargetVariant1Range = TypedDict(
+    "DocCommentsPatchParamsTargetVariant1Range",
     {
         "start": int | float,
         "end": int | float,
@@ -48575,12 +49708,244 @@ DocCommentsPatchParamsTargetRange = TypedDict(
     total=False,
 )
 
-DocCommentsPatchParamsTarget = TypedDict(
-    "DocCommentsPatchParamsTarget",
+DocCommentsPatchParamsTargetVariant1 = TypedDict(
+    "DocCommentsPatchParamsTargetVariant1",
     {
         "kind": Literal["text"],
         "blockId": str,
-        "range": DocCommentsPatchParamsTargetRange,
+        "range": DocCommentsPatchParamsTargetVariant1Range,
+    },
+    total=False,
+)
+
+DocCommentsPatchParamsTargetVariant2SegmentsItemRange = TypedDict(
+    "DocCommentsPatchParamsTargetVariant2SegmentsItemRange",
+    {
+        "start": int | float,
+        "end": int | float,
+    },
+    total=False,
+)
+
+DocCommentsPatchParamsTargetVariant2SegmentsItem = TypedDict(
+    "DocCommentsPatchParamsTargetVariant2SegmentsItem",
+    {
+        "blockId": str,
+        "range": DocCommentsPatchParamsTargetVariant2SegmentsItemRange,
+    },
+    total=False,
+)
+
+DocCommentsPatchParamsTargetVariant2StoryVariant1 = TypedDict(
+    "DocCommentsPatchParamsTargetVariant2StoryVariant1",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["body"],
+    },
+    total=False,
+)
+
+DocCommentsPatchParamsTargetVariant2StoryVariant2Section = TypedDict(
+    "DocCommentsPatchParamsTargetVariant2StoryVariant2Section",
+    {
+        "kind": Literal["section"],
+        "sectionId": str,
+    },
+    total=False,
+)
+
+DocCommentsPatchParamsTargetVariant2StoryVariant2 = TypedDict(
+    "DocCommentsPatchParamsTargetVariant2StoryVariant2",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterSlot"],
+        "section": DocCommentsPatchParamsTargetVariant2StoryVariant2Section,
+        "headerFooterKind": Literal["header"] | Literal["footer"],
+        "variant": Literal["default"] | Literal["first"] | Literal["even"],
+        "resolution": Literal["effective"] | Literal["explicit"],
+        "onWrite": Literal["materializeIfInherited"] | Literal["editResolvedPart"] | Literal["error"],
+    },
+    total=False,
+)
+
+DocCommentsPatchParamsTargetVariant2StoryVariant3 = TypedDict(
+    "DocCommentsPatchParamsTargetVariant2StoryVariant3",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterPart"],
+        "refId": str,
+    },
+    total=False,
+)
+
+DocCommentsPatchParamsTargetVariant2StoryVariant4 = TypedDict(
+    "DocCommentsPatchParamsTargetVariant2StoryVariant4",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["footnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocCommentsPatchParamsTargetVariant2StoryVariant5 = TypedDict(
+    "DocCommentsPatchParamsTargetVariant2StoryVariant5",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["endnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocCommentsPatchParamsTargetVariant2 = TypedDict(
+    "DocCommentsPatchParamsTargetVariant2",
+    {
+        "kind": Literal["text"],
+        "segments": list[DocCommentsPatchParamsTargetVariant2SegmentsItem],
+        "story": DocCommentsPatchParamsTargetVariant2StoryVariant1 | DocCommentsPatchParamsTargetVariant2StoryVariant2 | DocCommentsPatchParamsTargetVariant2StoryVariant3 | DocCommentsPatchParamsTargetVariant2StoryVariant4 | DocCommentsPatchParamsTargetVariant2StoryVariant5,
+    },
+    total=False,
+)
+
+DocCommentsPatchParamsTargetVariant3StartVariant1 = TypedDict(
+    "DocCommentsPatchParamsTargetVariant3StartVariant1",
+    {
+        "kind": Literal["text"],
+        "blockId": str,
+        "offset": int | float,
+    },
+    total=False,
+)
+
+DocCommentsPatchParamsTargetVariant3StartVariant2Node = TypedDict(
+    "DocCommentsPatchParamsTargetVariant3StartVariant2Node",
+    {
+        "kind": Literal["block"],
+        "nodeType": Literal["paragraph"] | Literal["heading"] | Literal["table"] | Literal["tableOfContents"] | Literal["sdt"] | Literal["image"],
+        "nodeId": str,
+    },
+    total=False,
+)
+
+DocCommentsPatchParamsTargetVariant3StartVariant2 = TypedDict(
+    "DocCommentsPatchParamsTargetVariant3StartVariant2",
+    {
+        "kind": Literal["nodeEdge"],
+        "node": DocCommentsPatchParamsTargetVariant3StartVariant2Node,
+        "edge": Literal["before"] | Literal["after"],
+    },
+    total=False,
+)
+
+DocCommentsPatchParamsTargetVariant3EndVariant1 = TypedDict(
+    "DocCommentsPatchParamsTargetVariant3EndVariant1",
+    {
+        "kind": Literal["text"],
+        "blockId": str,
+        "offset": int | float,
+    },
+    total=False,
+)
+
+DocCommentsPatchParamsTargetVariant3EndVariant2Node = TypedDict(
+    "DocCommentsPatchParamsTargetVariant3EndVariant2Node",
+    {
+        "kind": Literal["block"],
+        "nodeType": Literal["paragraph"] | Literal["heading"] | Literal["table"] | Literal["tableOfContents"] | Literal["sdt"] | Literal["image"],
+        "nodeId": str,
+    },
+    total=False,
+)
+
+DocCommentsPatchParamsTargetVariant3EndVariant2 = TypedDict(
+    "DocCommentsPatchParamsTargetVariant3EndVariant2",
+    {
+        "kind": Literal["nodeEdge"],
+        "node": DocCommentsPatchParamsTargetVariant3EndVariant2Node,
+        "edge": Literal["before"] | Literal["after"],
+    },
+    total=False,
+)
+
+DocCommentsPatchParamsTargetVariant3 = TypedDict(
+    "DocCommentsPatchParamsTargetVariant3",
+    {
+        "kind": Literal["selection"],
+        "start": DocCommentsPatchParamsTargetVariant3StartVariant1 | DocCommentsPatchParamsTargetVariant3StartVariant2,
+        "end": DocCommentsPatchParamsTargetVariant3EndVariant1 | DocCommentsPatchParamsTargetVariant3EndVariant2,
+    },
+    total=False,
+)
+
+DocCommentsPatchParamsTargetVariant4StoryVariant1 = TypedDict(
+    "DocCommentsPatchParamsTargetVariant4StoryVariant1",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["body"],
+    },
+    total=False,
+)
+
+DocCommentsPatchParamsTargetVariant4StoryVariant2Section = TypedDict(
+    "DocCommentsPatchParamsTargetVariant4StoryVariant2Section",
+    {
+        "kind": Literal["section"],
+        "sectionId": str,
+    },
+    total=False,
+)
+
+DocCommentsPatchParamsTargetVariant4StoryVariant2 = TypedDict(
+    "DocCommentsPatchParamsTargetVariant4StoryVariant2",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterSlot"],
+        "section": DocCommentsPatchParamsTargetVariant4StoryVariant2Section,
+        "headerFooterKind": Literal["header"] | Literal["footer"],
+        "variant": Literal["default"] | Literal["first"] | Literal["even"],
+        "resolution": Literal["effective"] | Literal["explicit"],
+        "onWrite": Literal["materializeIfInherited"] | Literal["editResolvedPart"] | Literal["error"],
+    },
+    total=False,
+)
+
+DocCommentsPatchParamsTargetVariant4StoryVariant3 = TypedDict(
+    "DocCommentsPatchParamsTargetVariant4StoryVariant3",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterPart"],
+        "refId": str,
+    },
+    total=False,
+)
+
+DocCommentsPatchParamsTargetVariant4StoryVariant4 = TypedDict(
+    "DocCommentsPatchParamsTargetVariant4StoryVariant4",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["footnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocCommentsPatchParamsTargetVariant4StoryVariant5 = TypedDict(
+    "DocCommentsPatchParamsTargetVariant4StoryVariant5",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["endnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocCommentsPatchParamsTargetVariant4 = TypedDict(
+    "DocCommentsPatchParamsTargetVariant4",
+    {
+        "kind": Literal["trackedChange"],
+        "trackedChangeId": str,
+        "story": DocCommentsPatchParamsTargetVariant4StoryVariant1 | DocCommentsPatchParamsTargetVariant4StoryVariant2 | DocCommentsPatchParamsTargetVariant4StoryVariant3 | DocCommentsPatchParamsTargetVariant4StoryVariant4 | DocCommentsPatchParamsTargetVariant4StoryVariant5,
     },
     total=False,
 )
@@ -48596,7 +49961,7 @@ DocCommentsPatchParams = TypedDict(
         "changeMode": str,
         "id": str,
         "text": str,
-        "target": DocCommentsPatchParamsTarget,
+        "target": DocCommentsPatchParamsTargetVariant1 | DocCommentsPatchParamsTargetVariant2 | DocCommentsPatchParamsTargetVariant3 | DocCommentsPatchParamsTargetVariant4,
         "status": str,
         "isInternal": bool,
         "blockId": str,
@@ -48861,10 +50226,236 @@ DocTrackChangesDecideParamsTargetVariant1 = TypedDict(
     total=False,
 )
 
+DocTrackChangesDecideParamsTargetVariant2RangeSegmentsItemRange = TypedDict(
+    "DocTrackChangesDecideParamsTargetVariant2RangeSegmentsItemRange",
+    {
+        "start": int | float,
+        "end": int | float,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideParamsTargetVariant2RangeSegmentsItem = TypedDict(
+    "DocTrackChangesDecideParamsTargetVariant2RangeSegmentsItem",
+    {
+        "blockId": str,
+        "range": DocTrackChangesDecideParamsTargetVariant2RangeSegmentsItemRange,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideParamsTargetVariant2RangeStoryVariant1 = TypedDict(
+    "DocTrackChangesDecideParamsTargetVariant2RangeStoryVariant1",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["body"],
+    },
+    total=False,
+)
+
+DocTrackChangesDecideParamsTargetVariant2RangeStoryVariant2Section = TypedDict(
+    "DocTrackChangesDecideParamsTargetVariant2RangeStoryVariant2Section",
+    {
+        "kind": Literal["section"],
+        "sectionId": str,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideParamsTargetVariant2RangeStoryVariant2 = TypedDict(
+    "DocTrackChangesDecideParamsTargetVariant2RangeStoryVariant2",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterSlot"],
+        "section": DocTrackChangesDecideParamsTargetVariant2RangeStoryVariant2Section,
+        "headerFooterKind": Literal["header"] | Literal["footer"],
+        "variant": Literal["default"] | Literal["first"] | Literal["even"],
+        "resolution": Literal["effective"] | Literal["explicit"],
+        "onWrite": Literal["materializeIfInherited"] | Literal["editResolvedPart"] | Literal["error"],
+    },
+    total=False,
+)
+
+DocTrackChangesDecideParamsTargetVariant2RangeStoryVariant3 = TypedDict(
+    "DocTrackChangesDecideParamsTargetVariant2RangeStoryVariant3",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterPart"],
+        "refId": str,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideParamsTargetVariant2RangeStoryVariant4 = TypedDict(
+    "DocTrackChangesDecideParamsTargetVariant2RangeStoryVariant4",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["footnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideParamsTargetVariant2RangeStoryVariant5 = TypedDict(
+    "DocTrackChangesDecideParamsTargetVariant2RangeStoryVariant5",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["endnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideParamsTargetVariant2Range = TypedDict(
+    "DocTrackChangesDecideParamsTargetVariant2Range",
+    {
+        "kind": Literal["text"],
+        "segments": list[DocTrackChangesDecideParamsTargetVariant2RangeSegmentsItem],
+        "story": DocTrackChangesDecideParamsTargetVariant2RangeStoryVariant1 | DocTrackChangesDecideParamsTargetVariant2RangeStoryVariant2 | DocTrackChangesDecideParamsTargetVariant2RangeStoryVariant3 | DocTrackChangesDecideParamsTargetVariant2RangeStoryVariant4 | DocTrackChangesDecideParamsTargetVariant2RangeStoryVariant5,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideParamsTargetVariant2StoryVariant1 = TypedDict(
+    "DocTrackChangesDecideParamsTargetVariant2StoryVariant1",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["body"],
+    },
+    total=False,
+)
+
+DocTrackChangesDecideParamsTargetVariant2StoryVariant2Section = TypedDict(
+    "DocTrackChangesDecideParamsTargetVariant2StoryVariant2Section",
+    {
+        "kind": Literal["section"],
+        "sectionId": str,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideParamsTargetVariant2StoryVariant2 = TypedDict(
+    "DocTrackChangesDecideParamsTargetVariant2StoryVariant2",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterSlot"],
+        "section": DocTrackChangesDecideParamsTargetVariant2StoryVariant2Section,
+        "headerFooterKind": Literal["header"] | Literal["footer"],
+        "variant": Literal["default"] | Literal["first"] | Literal["even"],
+        "resolution": Literal["effective"] | Literal["explicit"],
+        "onWrite": Literal["materializeIfInherited"] | Literal["editResolvedPart"] | Literal["error"],
+    },
+    total=False,
+)
+
+DocTrackChangesDecideParamsTargetVariant2StoryVariant3 = TypedDict(
+    "DocTrackChangesDecideParamsTargetVariant2StoryVariant3",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterPart"],
+        "refId": str,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideParamsTargetVariant2StoryVariant4 = TypedDict(
+    "DocTrackChangesDecideParamsTargetVariant2StoryVariant4",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["footnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideParamsTargetVariant2StoryVariant5 = TypedDict(
+    "DocTrackChangesDecideParamsTargetVariant2StoryVariant5",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["endnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
 DocTrackChangesDecideParamsTargetVariant2 = TypedDict(
     "DocTrackChangesDecideParamsTargetVariant2",
     {
+        "kind": Literal["range"],
+        "range": DocTrackChangesDecideParamsTargetVariant2Range,
+        "story": DocTrackChangesDecideParamsTargetVariant2StoryVariant1 | DocTrackChangesDecideParamsTargetVariant2StoryVariant2 | DocTrackChangesDecideParamsTargetVariant2StoryVariant3 | DocTrackChangesDecideParamsTargetVariant2StoryVariant4 | DocTrackChangesDecideParamsTargetVariant2StoryVariant5,
+        "part": str,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideParamsTargetVariant3StoryVariant1Variant1 = TypedDict(
+    "DocTrackChangesDecideParamsTargetVariant3StoryVariant1Variant1",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["body"],
+    },
+    total=False,
+)
+
+DocTrackChangesDecideParamsTargetVariant3StoryVariant1Variant2Section = TypedDict(
+    "DocTrackChangesDecideParamsTargetVariant3StoryVariant1Variant2Section",
+    {
+        "kind": Literal["section"],
+        "sectionId": str,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideParamsTargetVariant3StoryVariant1Variant2 = TypedDict(
+    "DocTrackChangesDecideParamsTargetVariant3StoryVariant1Variant2",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterSlot"],
+        "section": DocTrackChangesDecideParamsTargetVariant3StoryVariant1Variant2Section,
+        "headerFooterKind": Literal["header"] | Literal["footer"],
+        "variant": Literal["default"] | Literal["first"] | Literal["even"],
+        "resolution": Literal["effective"] | Literal["explicit"],
+        "onWrite": Literal["materializeIfInherited"] | Literal["editResolvedPart"] | Literal["error"],
+    },
+    total=False,
+)
+
+DocTrackChangesDecideParamsTargetVariant3StoryVariant1Variant3 = TypedDict(
+    "DocTrackChangesDecideParamsTargetVariant3StoryVariant1Variant3",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterPart"],
+        "refId": str,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideParamsTargetVariant3StoryVariant1Variant4 = TypedDict(
+    "DocTrackChangesDecideParamsTargetVariant3StoryVariant1Variant4",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["footnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideParamsTargetVariant3StoryVariant1Variant5 = TypedDict(
+    "DocTrackChangesDecideParamsTargetVariant3StoryVariant1Variant5",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["endnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideParamsTargetVariant3 = TypedDict(
+    "DocTrackChangesDecideParamsTargetVariant3",
+    {
         "scope": Literal["all"],
+        "story": DocTrackChangesDecideParamsTargetVariant3StoryVariant1Variant1 | DocTrackChangesDecideParamsTargetVariant3StoryVariant1Variant2 | DocTrackChangesDecideParamsTargetVariant3StoryVariant1Variant3 | DocTrackChangesDecideParamsTargetVariant3StoryVariant1Variant4 | DocTrackChangesDecideParamsTargetVariant3StoryVariant1Variant5 | Literal["all"],
     },
     total=False,
 )
@@ -48879,7 +50470,7 @@ DocTrackChangesDecideParams = TypedDict(
         "expectedRevision": int | float,
         "changeMode": str,
         "decision": str,
-        "target": DocTrackChangesDecideParamsTargetVariant1 | DocTrackChangesDecideParamsTargetVariant2,
+        "target": DocTrackChangesDecideParamsTargetVariant1 | DocTrackChangesDecideParamsTargetVariant2 | DocTrackChangesDecideParamsTargetVariant3,
     },
     total=False,
 )
@@ -59812,6 +61403,14 @@ DocOpenParamsCollaborationVariant3 = TypedDict(
     total=False,
 )
 
+DocOpenParamsTrackChanges = TypedDict(
+    "DocOpenParamsTrackChanges",
+    {
+        "replacements": Literal["paired"] | Literal["independent"],
+    },
+    total=False,
+)
+
 DocOpenParams = TypedDict(
     "DocOpenParams",
     {
@@ -59824,6 +61423,7 @@ DocOpenParams = TypedDict(
         "overrideType": str,
         "onMissing": str,
         "bootstrapSettlingMs": int | float,
+        "trackChanges": DocOpenParamsTrackChanges,
         "userName": str,
         "userEmail": str,
         "password": str,
@@ -59835,6 +61435,7 @@ DocSaveParams = TypedDict(
     "DocSaveParams",
     {
         "sessionId": str,
+        "mode": str,
         "out": str,
         "force": bool,
         "inPlace": bool,
@@ -60976,6 +62577,291 @@ DocDeleteBoundParams = TypedDict(
         "blockId": str,
         "start": int | float,
         "end": int | float,
+    },
+    total=False,
+)
+
+DocFormatRangeBoundParamsTargetStartVariant1 = TypedDict(
+    "DocFormatRangeBoundParamsTargetStartVariant1",
+    {
+        "kind": Literal["text"],
+        "blockId": str,
+        "offset": int | float,
+    },
+    total=False,
+)
+
+DocFormatRangeBoundParamsTargetStartVariant2Node = TypedDict(
+    "DocFormatRangeBoundParamsTargetStartVariant2Node",
+    {
+        "kind": Literal["block"],
+        "nodeType": Literal["paragraph"] | Literal["heading"] | Literal["table"] | Literal["tableOfContents"] | Literal["sdt"] | Literal["image"],
+        "nodeId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeBoundParamsTargetStartVariant2 = TypedDict(
+    "DocFormatRangeBoundParamsTargetStartVariant2",
+    {
+        "kind": Literal["nodeEdge"],
+        "node": DocFormatRangeBoundParamsTargetStartVariant2Node,
+        "edge": Literal["before"] | Literal["after"],
+    },
+    total=False,
+)
+
+DocFormatRangeBoundParamsTargetEndVariant1 = TypedDict(
+    "DocFormatRangeBoundParamsTargetEndVariant1",
+    {
+        "kind": Literal["text"],
+        "blockId": str,
+        "offset": int | float,
+    },
+    total=False,
+)
+
+DocFormatRangeBoundParamsTargetEndVariant2Node = TypedDict(
+    "DocFormatRangeBoundParamsTargetEndVariant2Node",
+    {
+        "kind": Literal["block"],
+        "nodeType": Literal["paragraph"] | Literal["heading"] | Literal["table"] | Literal["tableOfContents"] | Literal["sdt"] | Literal["image"],
+        "nodeId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeBoundParamsTargetEndVariant2 = TypedDict(
+    "DocFormatRangeBoundParamsTargetEndVariant2",
+    {
+        "kind": Literal["nodeEdge"],
+        "node": DocFormatRangeBoundParamsTargetEndVariant2Node,
+        "edge": Literal["before"] | Literal["after"],
+    },
+    total=False,
+)
+
+DocFormatRangeBoundParamsTarget = TypedDict(
+    "DocFormatRangeBoundParamsTarget",
+    {
+        "kind": Literal["selection"],
+        "start": DocFormatRangeBoundParamsTargetStartVariant1 | DocFormatRangeBoundParamsTargetStartVariant2,
+        "end": DocFormatRangeBoundParamsTargetEndVariant1 | DocFormatRangeBoundParamsTargetEndVariant2,
+    },
+    total=False,
+)
+
+DocFormatRangeBoundParamsInVariant1 = TypedDict(
+    "DocFormatRangeBoundParamsInVariant1",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["body"],
+    },
+    total=False,
+)
+
+DocFormatRangeBoundParamsInVariant2Section = TypedDict(
+    "DocFormatRangeBoundParamsInVariant2Section",
+    {
+        "kind": Literal["section"],
+        "sectionId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeBoundParamsInVariant2 = TypedDict(
+    "DocFormatRangeBoundParamsInVariant2",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterSlot"],
+        "section": DocFormatRangeBoundParamsInVariant2Section,
+        "headerFooterKind": Literal["header"] | Literal["footer"],
+        "variant": Literal["default"] | Literal["first"] | Literal["even"],
+        "resolution": Literal["effective"] | Literal["explicit"],
+        "onWrite": Literal["materializeIfInherited"] | Literal["editResolvedPart"] | Literal["error"],
+    },
+    total=False,
+)
+
+DocFormatRangeBoundParamsInVariant3 = TypedDict(
+    "DocFormatRangeBoundParamsInVariant3",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterPart"],
+        "refId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeBoundParamsInVariant4 = TypedDict(
+    "DocFormatRangeBoundParamsInVariant4",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["footnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeBoundParamsInVariant5 = TypedDict(
+    "DocFormatRangeBoundParamsInVariant5",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["endnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocFormatRangeBoundParamsPropertiesUnderlineVariant3 = TypedDict(
+    "DocFormatRangeBoundParamsPropertiesUnderlineVariant3",
+    {
+        "style": str | Any,
+        "color": str | Any,
+        "themeColor": str | Any,
+    },
+    total=False,
+)
+
+DocFormatRangeBoundParamsPropertiesShadingVariant1 = TypedDict(
+    "DocFormatRangeBoundParamsPropertiesShadingVariant1",
+    {
+        "fill": str | Any,
+        "color": str | Any,
+        "val": str | Any,
+    },
+    total=False,
+)
+
+DocFormatRangeBoundParamsPropertiesBorderVariant1 = TypedDict(
+    "DocFormatRangeBoundParamsPropertiesBorderVariant1",
+    {
+        "val": str | Any,
+        "sz": int | float | Any,
+        "color": str | Any,
+        "space": int | float | Any,
+    },
+    total=False,
+)
+
+DocFormatRangeBoundParamsPropertiesEastAsianLayoutVariant1 = TypedDict(
+    "DocFormatRangeBoundParamsPropertiesEastAsianLayoutVariant1",
+    {
+        "id": str | Any,
+        "combine": bool | Any,
+        "combineBrackets": str | Any,
+        "vert": bool | Any,
+        "vertCompress": bool | Any,
+    },
+    total=False,
+)
+
+DocFormatRangeBoundParamsPropertiesFitTextVariant1 = TypedDict(
+    "DocFormatRangeBoundParamsPropertiesFitTextVariant1",
+    {
+        "val": int | float | Any,
+        "id": str | Any,
+    },
+    total=False,
+)
+
+DocFormatRangeBoundParamsPropertiesLangVariant1 = TypedDict(
+    "DocFormatRangeBoundParamsPropertiesLangVariant1",
+    {
+        "val": str | Any,
+        "eastAsia": str | Any,
+        "bidi": str | Any,
+    },
+    total=False,
+)
+
+DocFormatRangeBoundParamsPropertiesRFontsVariant1 = TypedDict(
+    "DocFormatRangeBoundParamsPropertiesRFontsVariant1",
+    {
+        "ascii": str | Any,
+        "hAnsi": str | Any,
+        "eastAsia": str | Any,
+        "cs": str | Any,
+        "asciiTheme": str | Any,
+        "hAnsiTheme": str | Any,
+        "eastAsiaTheme": str | Any,
+        "csTheme": str | Any,
+        "hint": str | Any,
+    },
+    total=False,
+)
+
+DocFormatRangeBoundParamsPropertiesStylisticSetsVariant1Item = TypedDict(
+    "DocFormatRangeBoundParamsPropertiesStylisticSetsVariant1Item",
+    {
+        "id": int | float,
+        "val": bool,
+    },
+    total=False,
+)
+
+DocFormatRangeBoundParamsProperties = TypedDict(
+    "DocFormatRangeBoundParamsProperties",
+    {
+        "bold": bool | Any,
+        "italic": bool | Any,
+        "strike": bool | Any,
+        "underline": bool | Any | DocFormatRangeBoundParamsPropertiesUnderlineVariant3,
+        "highlight": str | Any,
+        "color": str | Any,
+        "fontSize": int | float | Any,
+        "fontFamily": str | Any,
+        "letterSpacing": int | float | Any,
+        "vertAlign": Literal["superscript"] | Literal["subscript"] | Literal["baseline"] | Any,
+        "position": int | float | Any,
+        "dstrike": bool | Any,
+        "smallCaps": bool | Any,
+        "caps": bool | Any,
+        "shading": DocFormatRangeBoundParamsPropertiesShadingVariant1 | Any,
+        "border": DocFormatRangeBoundParamsPropertiesBorderVariant1 | Any,
+        "outline": bool | Any,
+        "shadow": bool | Any,
+        "emboss": bool | Any,
+        "imprint": bool | Any,
+        "charScale": int | float | Any,
+        "kerning": int | float | Any,
+        "vanish": bool | Any,
+        "webHidden": bool | Any,
+        "specVanish": bool | Any,
+        "rtl": bool | Any,
+        "cs": bool | Any,
+        "bCs": bool | Any,
+        "iCs": bool | Any,
+        "eastAsianLayout": DocFormatRangeBoundParamsPropertiesEastAsianLayoutVariant1 | Any,
+        "em": str | Any,
+        "fitText": DocFormatRangeBoundParamsPropertiesFitTextVariant1 | Any,
+        "snapToGrid": bool | Any,
+        "lang": DocFormatRangeBoundParamsPropertiesLangVariant1 | Any,
+        "oMath": bool | Any,
+        "rStyle": str | Any,
+        "rFonts": DocFormatRangeBoundParamsPropertiesRFontsVariant1 | Any,
+        "fontSizeCs": int | float | Any,
+        "ligatures": str | Any,
+        "numForm": str | Any,
+        "numSpacing": str | Any,
+        "stylisticSets": list[DocFormatRangeBoundParamsPropertiesStylisticSetsVariant1Item] | Any,
+        "contextualAlternates": bool | Any,
+    },
+    total=False,
+)
+
+DocFormatRangeBoundParams = TypedDict(
+    "DocFormatRangeBoundParams",
+    {
+        "out": str,
+        "force": bool,
+        "expectedRevision": int | float,
+        "changeMode": str,
+        "dryRun": bool,
+        "target": DocFormatRangeBoundParamsTarget,
+        "in": DocFormatRangeBoundParamsInVariant1 | DocFormatRangeBoundParamsInVariant2 | DocFormatRangeBoundParamsInVariant3 | DocFormatRangeBoundParamsInVariant4 | DocFormatRangeBoundParamsInVariant5,
+        "properties": DocFormatRangeBoundParamsProperties,
+        "ref": str,
     },
     total=False,
 )
@@ -68673,6 +70559,148 @@ DocCommentsCreateBoundParamsTargetVariant2 = TypedDict(
     total=False,
 )
 
+DocCommentsCreateBoundParamsTargetVariant3StartVariant1 = TypedDict(
+    "DocCommentsCreateBoundParamsTargetVariant3StartVariant1",
+    {
+        "kind": Literal["text"],
+        "blockId": str,
+        "offset": int | float,
+    },
+    total=False,
+)
+
+DocCommentsCreateBoundParamsTargetVariant3StartVariant2Node = TypedDict(
+    "DocCommentsCreateBoundParamsTargetVariant3StartVariant2Node",
+    {
+        "kind": Literal["block"],
+        "nodeType": Literal["paragraph"] | Literal["heading"] | Literal["table"] | Literal["tableOfContents"] | Literal["sdt"] | Literal["image"],
+        "nodeId": str,
+    },
+    total=False,
+)
+
+DocCommentsCreateBoundParamsTargetVariant3StartVariant2 = TypedDict(
+    "DocCommentsCreateBoundParamsTargetVariant3StartVariant2",
+    {
+        "kind": Literal["nodeEdge"],
+        "node": DocCommentsCreateBoundParamsTargetVariant3StartVariant2Node,
+        "edge": Literal["before"] | Literal["after"],
+    },
+    total=False,
+)
+
+DocCommentsCreateBoundParamsTargetVariant3EndVariant1 = TypedDict(
+    "DocCommentsCreateBoundParamsTargetVariant3EndVariant1",
+    {
+        "kind": Literal["text"],
+        "blockId": str,
+        "offset": int | float,
+    },
+    total=False,
+)
+
+DocCommentsCreateBoundParamsTargetVariant3EndVariant2Node = TypedDict(
+    "DocCommentsCreateBoundParamsTargetVariant3EndVariant2Node",
+    {
+        "kind": Literal["block"],
+        "nodeType": Literal["paragraph"] | Literal["heading"] | Literal["table"] | Literal["tableOfContents"] | Literal["sdt"] | Literal["image"],
+        "nodeId": str,
+    },
+    total=False,
+)
+
+DocCommentsCreateBoundParamsTargetVariant3EndVariant2 = TypedDict(
+    "DocCommentsCreateBoundParamsTargetVariant3EndVariant2",
+    {
+        "kind": Literal["nodeEdge"],
+        "node": DocCommentsCreateBoundParamsTargetVariant3EndVariant2Node,
+        "edge": Literal["before"] | Literal["after"],
+    },
+    total=False,
+)
+
+DocCommentsCreateBoundParamsTargetVariant3 = TypedDict(
+    "DocCommentsCreateBoundParamsTargetVariant3",
+    {
+        "kind": Literal["selection"],
+        "start": DocCommentsCreateBoundParamsTargetVariant3StartVariant1 | DocCommentsCreateBoundParamsTargetVariant3StartVariant2,
+        "end": DocCommentsCreateBoundParamsTargetVariant3EndVariant1 | DocCommentsCreateBoundParamsTargetVariant3EndVariant2,
+    },
+    total=False,
+)
+
+DocCommentsCreateBoundParamsTargetVariant4StoryVariant1 = TypedDict(
+    "DocCommentsCreateBoundParamsTargetVariant4StoryVariant1",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["body"],
+    },
+    total=False,
+)
+
+DocCommentsCreateBoundParamsTargetVariant4StoryVariant2Section = TypedDict(
+    "DocCommentsCreateBoundParamsTargetVariant4StoryVariant2Section",
+    {
+        "kind": Literal["section"],
+        "sectionId": str,
+    },
+    total=False,
+)
+
+DocCommentsCreateBoundParamsTargetVariant4StoryVariant2 = TypedDict(
+    "DocCommentsCreateBoundParamsTargetVariant4StoryVariant2",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterSlot"],
+        "section": DocCommentsCreateBoundParamsTargetVariant4StoryVariant2Section,
+        "headerFooterKind": Literal["header"] | Literal["footer"],
+        "variant": Literal["default"] | Literal["first"] | Literal["even"],
+        "resolution": Literal["effective"] | Literal["explicit"],
+        "onWrite": Literal["materializeIfInherited"] | Literal["editResolvedPart"] | Literal["error"],
+    },
+    total=False,
+)
+
+DocCommentsCreateBoundParamsTargetVariant4StoryVariant3 = TypedDict(
+    "DocCommentsCreateBoundParamsTargetVariant4StoryVariant3",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterPart"],
+        "refId": str,
+    },
+    total=False,
+)
+
+DocCommentsCreateBoundParamsTargetVariant4StoryVariant4 = TypedDict(
+    "DocCommentsCreateBoundParamsTargetVariant4StoryVariant4",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["footnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocCommentsCreateBoundParamsTargetVariant4StoryVariant5 = TypedDict(
+    "DocCommentsCreateBoundParamsTargetVariant4StoryVariant5",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["endnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocCommentsCreateBoundParamsTargetVariant4 = TypedDict(
+    "DocCommentsCreateBoundParamsTargetVariant4",
+    {
+        "kind": Literal["trackedChange"],
+        "trackedChangeId": str,
+        "story": DocCommentsCreateBoundParamsTargetVariant4StoryVariant1 | DocCommentsCreateBoundParamsTargetVariant4StoryVariant2 | DocCommentsCreateBoundParamsTargetVariant4StoryVariant3 | DocCommentsCreateBoundParamsTargetVariant4StoryVariant4 | DocCommentsCreateBoundParamsTargetVariant4StoryVariant5,
+    },
+    total=False,
+)
+
 DocCommentsCreateBoundParams = TypedDict(
     "DocCommentsCreateBoundParams",
     {
@@ -68681,7 +70709,7 @@ DocCommentsCreateBoundParams = TypedDict(
         "expectedRevision": int | float,
         "changeMode": str,
         "text": str,
-        "target": DocCommentsCreateBoundParamsTargetVariant1 | DocCommentsCreateBoundParamsTargetVariant2,
+        "target": DocCommentsCreateBoundParamsTargetVariant1 | DocCommentsCreateBoundParamsTargetVariant2 | DocCommentsCreateBoundParamsTargetVariant3 | DocCommentsCreateBoundParamsTargetVariant4,
         "parentId": str,
         "blockId": str,
         "start": int | float,
@@ -68690,8 +70718,8 @@ DocCommentsCreateBoundParams = TypedDict(
     total=False,
 )
 
-DocCommentsPatchBoundParamsTargetRange = TypedDict(
-    "DocCommentsPatchBoundParamsTargetRange",
+DocCommentsPatchBoundParamsTargetVariant1Range = TypedDict(
+    "DocCommentsPatchBoundParamsTargetVariant1Range",
     {
         "start": int | float,
         "end": int | float,
@@ -68699,12 +70727,244 @@ DocCommentsPatchBoundParamsTargetRange = TypedDict(
     total=False,
 )
 
-DocCommentsPatchBoundParamsTarget = TypedDict(
-    "DocCommentsPatchBoundParamsTarget",
+DocCommentsPatchBoundParamsTargetVariant1 = TypedDict(
+    "DocCommentsPatchBoundParamsTargetVariant1",
     {
         "kind": Literal["text"],
         "blockId": str,
-        "range": DocCommentsPatchBoundParamsTargetRange,
+        "range": DocCommentsPatchBoundParamsTargetVariant1Range,
+    },
+    total=False,
+)
+
+DocCommentsPatchBoundParamsTargetVariant2SegmentsItemRange = TypedDict(
+    "DocCommentsPatchBoundParamsTargetVariant2SegmentsItemRange",
+    {
+        "start": int | float,
+        "end": int | float,
+    },
+    total=False,
+)
+
+DocCommentsPatchBoundParamsTargetVariant2SegmentsItem = TypedDict(
+    "DocCommentsPatchBoundParamsTargetVariant2SegmentsItem",
+    {
+        "blockId": str,
+        "range": DocCommentsPatchBoundParamsTargetVariant2SegmentsItemRange,
+    },
+    total=False,
+)
+
+DocCommentsPatchBoundParamsTargetVariant2StoryVariant1 = TypedDict(
+    "DocCommentsPatchBoundParamsTargetVariant2StoryVariant1",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["body"],
+    },
+    total=False,
+)
+
+DocCommentsPatchBoundParamsTargetVariant2StoryVariant2Section = TypedDict(
+    "DocCommentsPatchBoundParamsTargetVariant2StoryVariant2Section",
+    {
+        "kind": Literal["section"],
+        "sectionId": str,
+    },
+    total=False,
+)
+
+DocCommentsPatchBoundParamsTargetVariant2StoryVariant2 = TypedDict(
+    "DocCommentsPatchBoundParamsTargetVariant2StoryVariant2",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterSlot"],
+        "section": DocCommentsPatchBoundParamsTargetVariant2StoryVariant2Section,
+        "headerFooterKind": Literal["header"] | Literal["footer"],
+        "variant": Literal["default"] | Literal["first"] | Literal["even"],
+        "resolution": Literal["effective"] | Literal["explicit"],
+        "onWrite": Literal["materializeIfInherited"] | Literal["editResolvedPart"] | Literal["error"],
+    },
+    total=False,
+)
+
+DocCommentsPatchBoundParamsTargetVariant2StoryVariant3 = TypedDict(
+    "DocCommentsPatchBoundParamsTargetVariant2StoryVariant3",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterPart"],
+        "refId": str,
+    },
+    total=False,
+)
+
+DocCommentsPatchBoundParamsTargetVariant2StoryVariant4 = TypedDict(
+    "DocCommentsPatchBoundParamsTargetVariant2StoryVariant4",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["footnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocCommentsPatchBoundParamsTargetVariant2StoryVariant5 = TypedDict(
+    "DocCommentsPatchBoundParamsTargetVariant2StoryVariant5",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["endnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocCommentsPatchBoundParamsTargetVariant2 = TypedDict(
+    "DocCommentsPatchBoundParamsTargetVariant2",
+    {
+        "kind": Literal["text"],
+        "segments": list[DocCommentsPatchBoundParamsTargetVariant2SegmentsItem],
+        "story": DocCommentsPatchBoundParamsTargetVariant2StoryVariant1 | DocCommentsPatchBoundParamsTargetVariant2StoryVariant2 | DocCommentsPatchBoundParamsTargetVariant2StoryVariant3 | DocCommentsPatchBoundParamsTargetVariant2StoryVariant4 | DocCommentsPatchBoundParamsTargetVariant2StoryVariant5,
+    },
+    total=False,
+)
+
+DocCommentsPatchBoundParamsTargetVariant3StartVariant1 = TypedDict(
+    "DocCommentsPatchBoundParamsTargetVariant3StartVariant1",
+    {
+        "kind": Literal["text"],
+        "blockId": str,
+        "offset": int | float,
+    },
+    total=False,
+)
+
+DocCommentsPatchBoundParamsTargetVariant3StartVariant2Node = TypedDict(
+    "DocCommentsPatchBoundParamsTargetVariant3StartVariant2Node",
+    {
+        "kind": Literal["block"],
+        "nodeType": Literal["paragraph"] | Literal["heading"] | Literal["table"] | Literal["tableOfContents"] | Literal["sdt"] | Literal["image"],
+        "nodeId": str,
+    },
+    total=False,
+)
+
+DocCommentsPatchBoundParamsTargetVariant3StartVariant2 = TypedDict(
+    "DocCommentsPatchBoundParamsTargetVariant3StartVariant2",
+    {
+        "kind": Literal["nodeEdge"],
+        "node": DocCommentsPatchBoundParamsTargetVariant3StartVariant2Node,
+        "edge": Literal["before"] | Literal["after"],
+    },
+    total=False,
+)
+
+DocCommentsPatchBoundParamsTargetVariant3EndVariant1 = TypedDict(
+    "DocCommentsPatchBoundParamsTargetVariant3EndVariant1",
+    {
+        "kind": Literal["text"],
+        "blockId": str,
+        "offset": int | float,
+    },
+    total=False,
+)
+
+DocCommentsPatchBoundParamsTargetVariant3EndVariant2Node = TypedDict(
+    "DocCommentsPatchBoundParamsTargetVariant3EndVariant2Node",
+    {
+        "kind": Literal["block"],
+        "nodeType": Literal["paragraph"] | Literal["heading"] | Literal["table"] | Literal["tableOfContents"] | Literal["sdt"] | Literal["image"],
+        "nodeId": str,
+    },
+    total=False,
+)
+
+DocCommentsPatchBoundParamsTargetVariant3EndVariant2 = TypedDict(
+    "DocCommentsPatchBoundParamsTargetVariant3EndVariant2",
+    {
+        "kind": Literal["nodeEdge"],
+        "node": DocCommentsPatchBoundParamsTargetVariant3EndVariant2Node,
+        "edge": Literal["before"] | Literal["after"],
+    },
+    total=False,
+)
+
+DocCommentsPatchBoundParamsTargetVariant3 = TypedDict(
+    "DocCommentsPatchBoundParamsTargetVariant3",
+    {
+        "kind": Literal["selection"],
+        "start": DocCommentsPatchBoundParamsTargetVariant3StartVariant1 | DocCommentsPatchBoundParamsTargetVariant3StartVariant2,
+        "end": DocCommentsPatchBoundParamsTargetVariant3EndVariant1 | DocCommentsPatchBoundParamsTargetVariant3EndVariant2,
+    },
+    total=False,
+)
+
+DocCommentsPatchBoundParamsTargetVariant4StoryVariant1 = TypedDict(
+    "DocCommentsPatchBoundParamsTargetVariant4StoryVariant1",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["body"],
+    },
+    total=False,
+)
+
+DocCommentsPatchBoundParamsTargetVariant4StoryVariant2Section = TypedDict(
+    "DocCommentsPatchBoundParamsTargetVariant4StoryVariant2Section",
+    {
+        "kind": Literal["section"],
+        "sectionId": str,
+    },
+    total=False,
+)
+
+DocCommentsPatchBoundParamsTargetVariant4StoryVariant2 = TypedDict(
+    "DocCommentsPatchBoundParamsTargetVariant4StoryVariant2",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterSlot"],
+        "section": DocCommentsPatchBoundParamsTargetVariant4StoryVariant2Section,
+        "headerFooterKind": Literal["header"] | Literal["footer"],
+        "variant": Literal["default"] | Literal["first"] | Literal["even"],
+        "resolution": Literal["effective"] | Literal["explicit"],
+        "onWrite": Literal["materializeIfInherited"] | Literal["editResolvedPart"] | Literal["error"],
+    },
+    total=False,
+)
+
+DocCommentsPatchBoundParamsTargetVariant4StoryVariant3 = TypedDict(
+    "DocCommentsPatchBoundParamsTargetVariant4StoryVariant3",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterPart"],
+        "refId": str,
+    },
+    total=False,
+)
+
+DocCommentsPatchBoundParamsTargetVariant4StoryVariant4 = TypedDict(
+    "DocCommentsPatchBoundParamsTargetVariant4StoryVariant4",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["footnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocCommentsPatchBoundParamsTargetVariant4StoryVariant5 = TypedDict(
+    "DocCommentsPatchBoundParamsTargetVariant4StoryVariant5",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["endnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocCommentsPatchBoundParamsTargetVariant4 = TypedDict(
+    "DocCommentsPatchBoundParamsTargetVariant4",
+    {
+        "kind": Literal["trackedChange"],
+        "trackedChangeId": str,
+        "story": DocCommentsPatchBoundParamsTargetVariant4StoryVariant1 | DocCommentsPatchBoundParamsTargetVariant4StoryVariant2 | DocCommentsPatchBoundParamsTargetVariant4StoryVariant3 | DocCommentsPatchBoundParamsTargetVariant4StoryVariant4 | DocCommentsPatchBoundParamsTargetVariant4StoryVariant5,
     },
     total=False,
 )
@@ -68718,7 +70978,7 @@ DocCommentsPatchBoundParams = TypedDict(
         "changeMode": str,
         "id": str,
         "text": str,
-        "target": DocCommentsPatchBoundParamsTarget,
+        "target": DocCommentsPatchBoundParamsTargetVariant1 | DocCommentsPatchBoundParamsTargetVariant2 | DocCommentsPatchBoundParamsTargetVariant3 | DocCommentsPatchBoundParamsTargetVariant4,
         "status": str,
         "isInternal": bool,
         "blockId": str,
@@ -68973,10 +71233,236 @@ DocTrackChangesDecideBoundParamsTargetVariant1 = TypedDict(
     total=False,
 )
 
+DocTrackChangesDecideBoundParamsTargetVariant2RangeSegmentsItemRange = TypedDict(
+    "DocTrackChangesDecideBoundParamsTargetVariant2RangeSegmentsItemRange",
+    {
+        "start": int | float,
+        "end": int | float,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideBoundParamsTargetVariant2RangeSegmentsItem = TypedDict(
+    "DocTrackChangesDecideBoundParamsTargetVariant2RangeSegmentsItem",
+    {
+        "blockId": str,
+        "range": DocTrackChangesDecideBoundParamsTargetVariant2RangeSegmentsItemRange,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideBoundParamsTargetVariant2RangeStoryVariant1 = TypedDict(
+    "DocTrackChangesDecideBoundParamsTargetVariant2RangeStoryVariant1",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["body"],
+    },
+    total=False,
+)
+
+DocTrackChangesDecideBoundParamsTargetVariant2RangeStoryVariant2Section = TypedDict(
+    "DocTrackChangesDecideBoundParamsTargetVariant2RangeStoryVariant2Section",
+    {
+        "kind": Literal["section"],
+        "sectionId": str,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideBoundParamsTargetVariant2RangeStoryVariant2 = TypedDict(
+    "DocTrackChangesDecideBoundParamsTargetVariant2RangeStoryVariant2",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterSlot"],
+        "section": DocTrackChangesDecideBoundParamsTargetVariant2RangeStoryVariant2Section,
+        "headerFooterKind": Literal["header"] | Literal["footer"],
+        "variant": Literal["default"] | Literal["first"] | Literal["even"],
+        "resolution": Literal["effective"] | Literal["explicit"],
+        "onWrite": Literal["materializeIfInherited"] | Literal["editResolvedPart"] | Literal["error"],
+    },
+    total=False,
+)
+
+DocTrackChangesDecideBoundParamsTargetVariant2RangeStoryVariant3 = TypedDict(
+    "DocTrackChangesDecideBoundParamsTargetVariant2RangeStoryVariant3",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterPart"],
+        "refId": str,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideBoundParamsTargetVariant2RangeStoryVariant4 = TypedDict(
+    "DocTrackChangesDecideBoundParamsTargetVariant2RangeStoryVariant4",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["footnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideBoundParamsTargetVariant2RangeStoryVariant5 = TypedDict(
+    "DocTrackChangesDecideBoundParamsTargetVariant2RangeStoryVariant5",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["endnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideBoundParamsTargetVariant2Range = TypedDict(
+    "DocTrackChangesDecideBoundParamsTargetVariant2Range",
+    {
+        "kind": Literal["text"],
+        "segments": list[DocTrackChangesDecideBoundParamsTargetVariant2RangeSegmentsItem],
+        "story": DocTrackChangesDecideBoundParamsTargetVariant2RangeStoryVariant1 | DocTrackChangesDecideBoundParamsTargetVariant2RangeStoryVariant2 | DocTrackChangesDecideBoundParamsTargetVariant2RangeStoryVariant3 | DocTrackChangesDecideBoundParamsTargetVariant2RangeStoryVariant4 | DocTrackChangesDecideBoundParamsTargetVariant2RangeStoryVariant5,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideBoundParamsTargetVariant2StoryVariant1 = TypedDict(
+    "DocTrackChangesDecideBoundParamsTargetVariant2StoryVariant1",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["body"],
+    },
+    total=False,
+)
+
+DocTrackChangesDecideBoundParamsTargetVariant2StoryVariant2Section = TypedDict(
+    "DocTrackChangesDecideBoundParamsTargetVariant2StoryVariant2Section",
+    {
+        "kind": Literal["section"],
+        "sectionId": str,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideBoundParamsTargetVariant2StoryVariant2 = TypedDict(
+    "DocTrackChangesDecideBoundParamsTargetVariant2StoryVariant2",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterSlot"],
+        "section": DocTrackChangesDecideBoundParamsTargetVariant2StoryVariant2Section,
+        "headerFooterKind": Literal["header"] | Literal["footer"],
+        "variant": Literal["default"] | Literal["first"] | Literal["even"],
+        "resolution": Literal["effective"] | Literal["explicit"],
+        "onWrite": Literal["materializeIfInherited"] | Literal["editResolvedPart"] | Literal["error"],
+    },
+    total=False,
+)
+
+DocTrackChangesDecideBoundParamsTargetVariant2StoryVariant3 = TypedDict(
+    "DocTrackChangesDecideBoundParamsTargetVariant2StoryVariant3",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterPart"],
+        "refId": str,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideBoundParamsTargetVariant2StoryVariant4 = TypedDict(
+    "DocTrackChangesDecideBoundParamsTargetVariant2StoryVariant4",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["footnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideBoundParamsTargetVariant2StoryVariant5 = TypedDict(
+    "DocTrackChangesDecideBoundParamsTargetVariant2StoryVariant5",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["endnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
 DocTrackChangesDecideBoundParamsTargetVariant2 = TypedDict(
     "DocTrackChangesDecideBoundParamsTargetVariant2",
     {
+        "kind": Literal["range"],
+        "range": DocTrackChangesDecideBoundParamsTargetVariant2Range,
+        "story": DocTrackChangesDecideBoundParamsTargetVariant2StoryVariant1 | DocTrackChangesDecideBoundParamsTargetVariant2StoryVariant2 | DocTrackChangesDecideBoundParamsTargetVariant2StoryVariant3 | DocTrackChangesDecideBoundParamsTargetVariant2StoryVariant4 | DocTrackChangesDecideBoundParamsTargetVariant2StoryVariant5,
+        "part": str,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideBoundParamsTargetVariant3StoryVariant1Variant1 = TypedDict(
+    "DocTrackChangesDecideBoundParamsTargetVariant3StoryVariant1Variant1",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["body"],
+    },
+    total=False,
+)
+
+DocTrackChangesDecideBoundParamsTargetVariant3StoryVariant1Variant2Section = TypedDict(
+    "DocTrackChangesDecideBoundParamsTargetVariant3StoryVariant1Variant2Section",
+    {
+        "kind": Literal["section"],
+        "sectionId": str,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideBoundParamsTargetVariant3StoryVariant1Variant2 = TypedDict(
+    "DocTrackChangesDecideBoundParamsTargetVariant3StoryVariant1Variant2",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterSlot"],
+        "section": DocTrackChangesDecideBoundParamsTargetVariant3StoryVariant1Variant2Section,
+        "headerFooterKind": Literal["header"] | Literal["footer"],
+        "variant": Literal["default"] | Literal["first"] | Literal["even"],
+        "resolution": Literal["effective"] | Literal["explicit"],
+        "onWrite": Literal["materializeIfInherited"] | Literal["editResolvedPart"] | Literal["error"],
+    },
+    total=False,
+)
+
+DocTrackChangesDecideBoundParamsTargetVariant3StoryVariant1Variant3 = TypedDict(
+    "DocTrackChangesDecideBoundParamsTargetVariant3StoryVariant1Variant3",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["headerFooterPart"],
+        "refId": str,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideBoundParamsTargetVariant3StoryVariant1Variant4 = TypedDict(
+    "DocTrackChangesDecideBoundParamsTargetVariant3StoryVariant1Variant4",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["footnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideBoundParamsTargetVariant3StoryVariant1Variant5 = TypedDict(
+    "DocTrackChangesDecideBoundParamsTargetVariant3StoryVariant1Variant5",
+    {
+        "kind": Literal["story"],
+        "storyType": Literal["endnote"],
+        "noteId": str,
+    },
+    total=False,
+)
+
+DocTrackChangesDecideBoundParamsTargetVariant3 = TypedDict(
+    "DocTrackChangesDecideBoundParamsTargetVariant3",
+    {
         "scope": Literal["all"],
+        "story": DocTrackChangesDecideBoundParamsTargetVariant3StoryVariant1Variant1 | DocTrackChangesDecideBoundParamsTargetVariant3StoryVariant1Variant2 | DocTrackChangesDecideBoundParamsTargetVariant3StoryVariant1Variant3 | DocTrackChangesDecideBoundParamsTargetVariant3StoryVariant1Variant4 | DocTrackChangesDecideBoundParamsTargetVariant3StoryVariant1Variant5 | Literal["all"],
     },
     total=False,
 )
@@ -68989,7 +71475,7 @@ DocTrackChangesDecideBoundParams = TypedDict(
         "expectedRevision": int | float,
         "changeMode": str,
         "decision": str,
-        "target": DocTrackChangesDecideBoundParamsTargetVariant1 | DocTrackChangesDecideBoundParamsTargetVariant2,
+        "target": DocTrackChangesDecideBoundParamsTargetVariant1 | DocTrackChangesDecideBoundParamsTargetVariant2 | DocTrackChangesDecideBoundParamsTargetVariant3,
     },
     total=False,
 )
@@ -79373,6 +81859,7 @@ DocMetadataResolveBoundParams = TypedDict(
 DocSaveBoundParams = TypedDict(
     "DocSaveBoundParams",
     {
+        "mode": str,
         "out": str,
         "force": bool,
         "inPlace": bool,
@@ -79499,6 +81986,12 @@ class _SyncDocApi:
 
     def delete(self, params: DocDeleteParams | None = None, *, timeout_ms=None, stdin_bytes=None) -> DocDeleteResult:
         return self._runtime.invoke("doc.delete", params or {}, timeout_ms=timeout_ms, stdin_bytes=stdin_bytes)
+
+    def format_range(self, params: DocFormatRangeParams | None = None, *, timeout_ms=None, stdin_bytes=None) -> DocFormatRangeResult:
+        return self._runtime.invoke("doc.formatRange", params or {}, timeout_ms=timeout_ms, stdin_bytes=stdin_bytes)
+
+    def formatRange(self, params: DocFormatRangeParams | None = None, *, timeout_ms=None, stdin_bytes=None) -> DocFormatRangeResult:
+        return self.format_range(params, timeout_ms=timeout_ms, stdin_bytes=stdin_bytes)
 
     @property
     def blocks(self):
@@ -82162,6 +84655,12 @@ class _AsyncDocApi:
 
     async def delete(self, params: DocDeleteParams | None = None, *, timeout_ms=None, stdin_bytes=None) -> DocDeleteResult:
         return await self._runtime.invoke("doc.delete", params or {}, timeout_ms=timeout_ms, stdin_bytes=stdin_bytes)
+
+    async def format_range(self, params: DocFormatRangeParams | None = None, *, timeout_ms=None, stdin_bytes=None) -> DocFormatRangeResult:
+        return await self._runtime.invoke("doc.formatRange", params or {}, timeout_ms=timeout_ms, stdin_bytes=stdin_bytes)
+
+    async def formatRange(self, params: DocFormatRangeParams | None = None, *, timeout_ms=None, stdin_bytes=None) -> DocFormatRangeResult:
+        return await self.format_range(params, timeout_ms=timeout_ms, stdin_bytes=stdin_bytes)
 
     @property
     def blocks(self):
@@ -84830,6 +87329,12 @@ class _SyncBoundDocApi:
     def delete(self, params: DocDeleteBoundParams | None = None, *, timeout_ms=None, stdin_bytes=None) -> DocDeleteResult:
         return self._runtime.invoke("doc.delete", params or {}, timeout_ms=timeout_ms, stdin_bytes=stdin_bytes)
 
+    def format_range(self, params: DocFormatRangeBoundParams | None = None, *, timeout_ms=None, stdin_bytes=None) -> DocFormatRangeResult:
+        return self._runtime.invoke("doc.formatRange", params or {}, timeout_ms=timeout_ms, stdin_bytes=stdin_bytes)
+
+    def formatRange(self, params: DocFormatRangeBoundParams | None = None, *, timeout_ms=None, stdin_bytes=None) -> DocFormatRangeResult:
+        return self.format_range(params, timeout_ms=timeout_ms, stdin_bytes=stdin_bytes)
+
     @property
     def blocks(self):
         return _SyncBoundDocBlocksApi(self._runtime)
@@ -87454,6 +89959,12 @@ class _AsyncBoundDocApi:
 
     async def delete(self, params: DocDeleteBoundParams | None = None, *, timeout_ms=None, stdin_bytes=None) -> DocDeleteResult:
         return await self._runtime.invoke("doc.delete", params or {}, timeout_ms=timeout_ms, stdin_bytes=stdin_bytes)
+
+    async def format_range(self, params: DocFormatRangeBoundParams | None = None, *, timeout_ms=None, stdin_bytes=None) -> DocFormatRangeResult:
+        return await self._runtime.invoke("doc.formatRange", params or {}, timeout_ms=timeout_ms, stdin_bytes=stdin_bytes)
+
+    async def formatRange(self, params: DocFormatRangeBoundParams | None = None, *, timeout_ms=None, stdin_bytes=None) -> DocFormatRangeResult:
+        return await self.format_range(params, timeout_ms=timeout_ms, stdin_bytes=stdin_bytes)
 
     @property
     def blocks(self):

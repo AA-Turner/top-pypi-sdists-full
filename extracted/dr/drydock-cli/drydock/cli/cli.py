@@ -322,6 +322,33 @@ def run_cli(args: argparse.Namespace) -> None:
         else:
             _t6 = _t5
 
+        # 2026-06-01: programmatic-mode escape hatch for -p with --output != text.
+        # The TUI path floods stdout with ANSI escape codes (19MB of TUI
+        # rendering per tbench trial — observed today). Harness consumers
+        # (terminal-bench, SWE-bench, harbor) need clean JSON per turn.
+        # run_programmatic() exists for this; route through it when
+        # --output json/streaming is explicitly requested.
+        if args.prompt is not None and getattr(args, "output", "text") != "text":
+            _phase("STARTUP_TOTAL_to_programmatic", _t0)
+            from drydock.core.types import OutputFormat
+            output_fmt = OutputFormat(args.output)
+            previous_messages = None
+            if loaded_session:
+                # loaded_session is (messages, session_id) — unpack just the messages
+                previous_messages = loaded_session[0] if loaded_session else None
+            final = run_programmatic(
+                config=config,
+                prompt=args.initial_prompt or stdin_prompt,
+                max_turns=getattr(args, "max_turns", None),
+                max_price=getattr(args, "max_price", None),
+                output_format=output_fmt,
+                previous_messages=previous_messages,
+                agent_name=initial_agent_name,
+            )
+            if final:
+                print(final)
+            return
+
         _phase("STARTUP_TOTAL_to_TUI_launch", _t0)
         run_textual_ui(
             agent_loop=agent_loop,

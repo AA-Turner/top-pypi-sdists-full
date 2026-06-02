@@ -34,8 +34,10 @@ from ._hdbscan_tree import compute_stability, get_cluster_tree_leaves
 from .hdbscan_ import HDBSCAN, _tree_to_labels
 from .plots import _bfs_from_cluster_tree, _get_leaves
 from .prediction import (PredictionData,
+                         _cluster_tree_lookup,
                          _find_cluster_and_probability,
-                         _find_neighbor_and_lambda)
+                         _find_neighbor_and_lambda,
+                         _group_by_parent)
 from ._prediction_utils import (get_tree_row_with_child,
                                 dist_membership_vector,
                                 outlier_membership_vector,
@@ -350,16 +352,23 @@ def approximate_predict_flat(clusterer,
                                               points_to_predict,
                                               k=2 * min_samples)
 
+    cluster_tree = prediction_data.cluster_tree
+    # Build the child -> (parent, lambda) lookup and root once, not per point.
+    cluster_tree_lookup = _cluster_tree_lookup(cluster_tree)
+    tree_root = cluster_tree['parent'].min()
+
     for i in range(points_to_predict.shape[0]):
         label, prob, neighbors = _find_cluster_and_probability(
             condensed_tree,
-            prediction_data.cluster_tree,
+            cluster_tree,
             neighbor_indices[i],
             neighbor_distances[i],
             prediction_data.core_distances,
             prediction_data.cluster_map,
             prediction_data.max_lambdas,
-            min_samples
+            min_samples,
+            cluster_tree_lookup,
+            tree_root,
         )
         labels[i] = label
         probabilities[i] = prob
@@ -798,11 +807,13 @@ def re_init(predData, condensed_tree,
     predData.max_lambdas = {}
     predData.exemplars = []
 
+    # Group the raw tree by parent once instead of re-scanning it per
+    # cluster/leaf below (see hdbscan.prediction._group_by_parent).
+    group_max_lambda, group_rows = _group_by_parent(raw_condensed_tree)
+
     for cluster in selected_clusters:
         # max_lambda <=> smallest distance <=> most persistent point(s)
-        predData.max_lambdas[cluster] = \
-                    raw_condensed_tree['lambda_val'][
-                        raw_condensed_tree['parent'] == cluster].max()
+        predData.max_lambdas[cluster] = group_max_lambda[cluster]
 
         # Map all sub-clusters of selected cluster to the selected cluster's
         #       label in output.
@@ -818,12 +829,12 @@ def re_init(predData, condensed_tree,
         #       and leaves of leaves, and so on...
         for leaf in predData._recurse_leaf_dfs(cluster):
             # Largest lambda => Most persistent points
-            leaf_max_lambda = raw_condensed_tree['lambda_val'][
-                raw_condensed_tree['parent'] == leaf].max()
+            leaf_rows = group_rows[leaf]
+            leaf_max_lambda = group_max_lambda[leaf]
             # Get the most persistent points
             points = raw_condensed_tree['child'][
-                (raw_condensed_tree['parent'] == leaf)
-                & (raw_condensed_tree['lambda_val'] == leaf_max_lambda)
+                leaf_rows[raw_condensed_tree['lambda_val'][leaf_rows]
+                          == leaf_max_lambda]
             ]
             # Add most persistent points as exemplars
             cluster_exemplars = np.hstack([cluster_exemplars, points])

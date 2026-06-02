@@ -3,14 +3,15 @@ Lemmatizer module.
 Provides classes for lemmatizing token and full texts.
 
 - [Lemmatizer][simplemma.lemmatizer.Lemmatizer]: Class for performing token and full text lemmatization.
-- [is_known()][simplemma.lemmatizer.is_known]: A legacy function that wraps the Lemmatizer's [is_known()][simplemma.lemmatizer.Lemmatizer.is_known] method.
+- [is_known()][simplemma.lemmatizer.is_known]: A legacy function that checks whether a token is present in the language data.
 - [lemmatize()][simplemma.lemmatizer.lemmatize]: A legacy function that wraps the Lemmatizer's [lemmatize()][simplemma.lemmatizer.Lemmatizer.lemmatize] method.
 - [text_lemmatizer()][simplemma.lemmatizer.text_lemmatizer]: A legacy function that wraps the Lemmatizer's [text_lemmatizer()][simplemma.lemmatizer.Lemmatizer.get_lemmas_in_text] method.
 - [lemma_iterator()][simplemma.lemmatizer.lemma_iterator]: A legacy function that wraps the Lemmatizer's [lemma_iterator()][simplemma.lemmatizer.Lemmatizer.get_lemmas_in_text] method.
 """
 
 from functools import lru_cache
-from typing import Any, Iterator, List, Tuple, Union
+from typing import Any
+from collections.abc import Iterator
 
 from .strategies import (
     DefaultDictionaryFactory,
@@ -82,7 +83,7 @@ class Lemmatizer:
     def lemmatize(
         self,
         token: str,
-        lang: Union[str, Tuple[str, ...]],
+        lang: str | tuple[str, ...],
     ) -> str:
         """Get the lemmatized form of a given word in the specified language(s).
 
@@ -98,7 +99,7 @@ class Lemmatizer:
     def _lemmatize(
         self,
         token: str,
-        lang: Union[str, Tuple[str, ...]],
+        lang: str | tuple[str, ...],
     ) -> str:
         """Internal method to lemmatize a token in the specified language(s).
 
@@ -122,7 +123,7 @@ class Lemmatizer:
     def get_lemmas_in_text(
         self,
         text: str,
-        lang: Union[str, Tuple[str, ...]],
+        lang: str | tuple[str, ...],
     ) -> Iterator[str]:
         """Get an iterator over lemmatized tokens in a text.
 
@@ -154,7 +155,7 @@ _legacy_greedy_lemmatizer = Lemmatizer(
 )
 
 
-def is_known(token: str, lang: Union[str, Tuple[str, ...]]) -> bool:
+def is_known(token: str, lang: str | tuple[str, ...]) -> bool:
     """Check if a token is known in the specified language(s).
 
     Args:
@@ -174,9 +175,7 @@ def is_known(token: str, lang: Union[str, Tuple[str, ...]]) -> bool:
     )
 
 
-def lemmatize(
-    token: str, lang: Union[str, Tuple[str, ...]], greedy: bool = False
-) -> str:
+def lemmatize(token: str, lang: str | tuple[str, ...], greedy: bool = False) -> str:
     """Lemmatize a token in the specified language(s).
 
     Args:
@@ -192,18 +191,17 @@ def lemmatize(
 
 
 def text_lemmatizer(
-    text: str, lang: Union[str, Tuple[str, ...]], greedy: bool = False
-) -> List[str]:
+    text: str, lang: str | tuple[str, ...], greedy: bool = False
+) -> list[str]:
     """Lemmatize a text in the specified language(s).
 
     Args:
         text: The text to lemmatize.
         lang: The language or languages for lemmatization.
         greedy: A flag indicating whether to use greedy lemmatization (default: False).
-        tokenizer: The tokenizer to use (default: RegexTokenizer()).
 
     Returns:
-        List[str]: The list of lemmatized tokens.
+        list[str]: The list of lemmatized tokens.
     """
 
     return list(
@@ -216,7 +214,7 @@ def text_lemmatizer(
 
 
 def lemma_iterator(
-    text: str, lang: Union[str, Tuple[str, ...]], greedy: bool = False
+    text: str, lang: str | tuple[str, ...], greedy: bool = False
 ) -> Iterator[str]:
     """Iterate over lemmatized tokens in a text.
 
@@ -224,7 +222,6 @@ def lemma_iterator(
         text: The text to iterate over.
         lang: The language or languages for lemmatization.
         greedy: A flag indicating whether to use greedy lemmatization (default: False).
-        tokenizer: The tokenizer to use (default: RegexTokenizer()).
 
     Yields:
         str: The lemmatized tokens in the text.

@@ -3,6 +3,7 @@ use super::gradient_paths::*;
 use super::hessian_paths::{new_cell_moment_cache_stats, new_cell_moment_lru_cache};
 use super::install_flex::validate_spec;
 use super::*;
+use crate::families::marginal_slope_orthogonal::INFLUENCE_ABSORBER_FIXED_LOG_LAMBDA;
 
 // ── BlockEffectiveJacobian impls for BMS ─────────────────────────────────────
 //
@@ -227,6 +228,103 @@ impl BlockEffectiveJacobian for BmsLogslopeJacobian {
     }
 }
 
+/// Horizontally stack the absorbed influence columns `Z̃_infl` onto the raw
+/// marginal design `M`, yielding the widened additive marginal-index design
+/// `[M | Z̃_infl]` (#461). When `influence_columns` is `None` the original
+/// dense design is returned unchanged. The influence columns shift the marginal
+/// index `α(x)` additively, so the de-nested probit kernel — which reads the
+/// marginal index from `block_states[0].eta` and reconstructs `∂q/∂β_m` from
+/// `self.marginal_design` (a matched (design, β) pair) — picks them up with no
+/// kernel-site change; the widened `p_marginal` keeps every per-row Jacobian /
+/// gradient / Hessian projection consistent.
+fn widen_marginal_dense_with_influence(
+    marginal_dense: &Arc<Array2<f64>>,
+    influence_columns: Option<&Array2<f64>>,
+) -> Result<Arc<Array2<f64>>, String> {
+    let Some(z_infl) = influence_columns else {
+        return Ok(Arc::clone(marginal_dense));
+    };
+    let n = marginal_dense.nrows();
+    if z_infl.nrows() != n {
+        return Err(format!(
+            "influence block: residualised columns have {} rows, marginal design has {n}",
+            z_infl.nrows()
+        ));
+    }
+    let p_m = marginal_dense.ncols();
+    let p1 = z_infl.ncols();
+    let mut widened = Array2::<f64>::zeros((n, p_m + p1));
+    widened
+        .slice_mut(s![.., ..p_m])
+        .assign(marginal_dense.as_ref());
+    widened.slice_mut(s![.., p_m..]).assign(z_infl);
+    Ok(Arc::new(widened))
+}
+
+/// Re-embed the term-collection marginal penalties at the widened block
+/// dimension `p_m + p₁` and append the fixed-ridge absorber sub-penalty over
+/// the influence columns (#461). The existing marginal penalties keep their
+/// `col_range` (marginal columns stay in `0..p_m`); the appended ridge is
+/// identity on `p_m..p_m+p₁`. Returns the widened `(penalties, nullspace_dims,
+/// initial_log_lambdas)` to install on the marginal block. With no influence
+/// columns this is the unmodified term-collection penalty set.
+fn marginal_penalties_with_influence_ridge(
+    design: &TermCollectionDesign,
+    rho_marginal: &Array1<f64>,
+    influence_columns: Option<&Array2<f64>>,
+    influence_ridge_log_lambda: f64,
+) -> (Vec<PenaltyMatrix>, Vec<usize>, Array1<f64>) {
+    let p_m = design.design.ncols();
+    let Some(z_infl) = influence_columns else {
+        return (
+            design.penalties_as_penalty_matrix(),
+            design.nullspace_dims.clone(),
+            rho_marginal.clone(),
+        );
+    };
+    let p1 = z_infl.ncols();
+    let total_dim = p_m + p1;
+    // Re-embed each marginal penalty at the widened total dimension (col_range
+    // unchanged: marginal columns remain 0..p_m).
+    let mut penalties: Vec<PenaltyMatrix> = design
+        .penalties
+        .iter()
+        .map(|bp| PenaltyMatrix::from_blockwise(bp.clone(), total_dim))
+        .collect();
+    let mut nullspace_dims = design.nullspace_dims.clone();
+    let mut log_lambdas = rho_marginal.to_vec();
+    // Fixed-ridge absorber: identity on the influence columns only. Full rank
+    // (nullspace 0); its log λ is pinned out of REML by a degenerate ρ box.
+    penalties.push(PenaltyMatrix::Blockwise {
+        local: Array2::<f64>::eye(p1),
+        col_range: p_m..total_dim,
+        total_dim,
+    });
+    nullspace_dims.push(0);
+    log_lambdas.push(influence_ridge_log_lambda);
+    (penalties, nullspace_dims, Array1::from_vec(log_lambdas))
+}
+
+/// Widen an optional β warm-start hint to the influence-widened marginal
+/// dimension, zero-filling the absorber coefficients `γ` (#461).
+fn widen_marginal_beta_hint(
+    beta_hint: Option<Array1<f64>>,
+    p_marginal_widened: usize,
+) -> Option<Array1<f64>> {
+    beta_hint.map(|hint| {
+        if hint.len() == p_marginal_widened {
+            hint
+        } else {
+            let mut widened = Array1::<f64>::zeros(p_marginal_widened);
+            let copy = hint.len().min(p_marginal_widened);
+            widened
+                .slice_mut(s![..copy])
+                .assign(&hint.slice(s![..copy]));
+            widened
+        }
+    })
+}
+
 fn build_marginal_blockspec_bms(
     design: &TermCollectionDesign,
     baseline: f64,
@@ -237,12 +335,16 @@ fn build_marginal_blockspec_bms(
     logslope_offset: &Array1<f64>,
     logslope_baseline: f64,
     p_marginal: usize,
+    influence_columns: Option<&Array2<f64>>,
+    influence_ridge_log_lambda: f64,
 ) -> Result<ParameterBlockSpec, String> {
     let offset_m = offset + baseline;
     let offset_s = logslope_offset + logslope_baseline;
-    let marginal_dense = design
+    let raw_marginal_dense = design
         .design
         .try_to_dense_arc("build_marginal_blockspec_bms::marginal")?;
+    let marginal_dense =
+        widen_marginal_dense_with_influence(&raw_marginal_dense, influence_columns)?;
     let logslope_dense = logslope_design
         .design
         .try_to_dense_arc("build_marginal_blockspec_bms::logslope")?;
@@ -253,16 +355,22 @@ fn build_marginal_blockspec_bms(
         offset_s,
         p_marginal,
     });
+    let (penalties, nullspace_dims, initial_log_lambdas) = marginal_penalties_with_influence_ridge(
+        design,
+        &rho,
+        influence_columns,
+        influence_ridge_log_lambda,
+    );
     Ok(ParameterBlockSpec {
         name: "marginal_surface".to_string(),
         design: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(
             (*marginal_dense).clone(),
         )),
         offset: offset_m,
-        penalties: design.penalties_as_penalty_matrix(),
-        nullspace_dims: design.nullspace_dims.clone(),
-        initial_log_lambdas: rho,
-        initial_beta: beta_hint,
+        penalties,
+        nullspace_dims,
+        initial_log_lambdas,
+        initial_beta: widen_marginal_beta_hint(beta_hint, p_marginal),
         // Canonical-gauge architecture (issue #322): give marginal_surface
         // strictly higher priority than logslope_surface so the priority-
         // ordered RRQR in `canonicalize_for_identifiability` presents
@@ -293,12 +401,19 @@ fn build_logslope_blockspec_bms(
     marginal_baseline: f64,
     z: Arc<Array1<f64>>,
     p_marginal: usize,
+    influence_columns: Option<&Array2<f64>>,
 ) -> Result<ParameterBlockSpec, String> {
     let offset_s = offset + baseline;
     let offset_m = marginal_offset + marginal_baseline;
-    let marginal_dense = marginal_design
+    let raw_marginal_dense = marginal_design
         .design
         .try_to_dense_arc("build_logslope_blockspec_bms::marginal")?;
+    // The logslope Jacobian reconstructs q_i = M·β_m + offset_m; with the
+    // absorbed influence columns folded into the marginal index, the marginal
+    // reference design and p_marginal MUST be the widened [M | Z̃] / (p_m+p₁)
+    // so β_m slices to the absorber and q_i carries the Z̃·γ shift (#461).
+    let marginal_dense =
+        widen_marginal_dense_with_influence(&raw_marginal_dense, influence_columns)?;
     let logslope_dense = design
         .design
         .try_to_dense_arc("build_logslope_blockspec_bms::logslope")?;
@@ -588,6 +703,52 @@ pub fn fit_bernoulli_marginal_slope_terms(
     )?;
     let cross_block_pilot_w_score_warp =
         pilot_irls_hessian_row_metric_at_eta(&rigid_pilot_eta, &spec.weights);
+    // Absorbed Stage-1 influence columns (#461, design §3). When the workflow
+    // chained a CTN Stage-1 into this marginal-slope fit, `spec.score_influence_
+    // jacobian` carries the out-of-fold `J = ∂z/∂θ₁`; the realized leakage
+    // directions `Z_infl = diag(s_f·β̂₀)·J` are residualised against the
+    // marginal span (logslope-aligned component retained) and appended to the
+    // additive marginal-index block as a fixed-ridge absorber, so the joint
+    // penalised solve makes the (α,β) score orthogonal to span(Z_infl) — the
+    // x-dependent realisation of `ψ − Π_η[ψ]`. `None` ⇒ raw z, and the free
+    // score_warp spline below is the x-free-column fallback. β̂₀(x_i) is the
+    // rigid-pilot logslope `baseline.1 + logslope_offset[i]`; s_f = probit_scale.
+    let influence_columns = if let Some(jac) = spec
+        .score_influence_jacobian
+        .as_ref()
+        .filter(|j| j.ncols() > 0)
+    {
+        let marginal_dense_for_proj = marginal_design
+            .design
+            .try_to_dense_arc("bernoulli marginal-slope influence-block marginal projection")?;
+        let marginal_dense = marginal_dense_for_proj.as_ref();
+        if jac.nrows() != marginal_dense.nrows() {
+            return Err(format!(
+                "influence block: Jacobian has {} rows, marginal design has {}",
+                jac.nrows(),
+                marginal_dense.nrows()
+            ));
+        }
+        // Z̃ = residualize(diag(s_f·β̂₀)·J) against the marginal span in the
+        // rigid-pilot W-metric, via the SHARED core entry point (single source
+        // of truth across bms + survival; the two families differ ONLY in how
+        // they install the returned Z̃ — bms widens [M | Z̃], survival adds a
+        // dedicated η₁ channel). β̂₀(x_i) = baseline.1 + logslope_offset[i];
+        // s_f = probit_scale; W = the rigid-pilot PIRLS row metric.
+        let rigid_logslope_at_rows = &spec.logslope_offset + baseline.1;
+        let residualized =
+            crate::families::marginal_slope_orthogonal::residualized_influence_block(
+                jac,
+                z_train,
+                &rigid_logslope_at_rows,
+                probit_scale,
+                marginal_dense.view(),
+                &cross_block_pilot_w_score_warp,
+            )?;
+        Some(residualized)
+    } else {
+        None
+    };
     let mut cross_block_warnings: Vec<CrossBlockIdentifiabilityWarning> = Vec::new();
     let score_warp_prepared = if let Some(cfg) = spec.score_warp.as_ref() {
         use super::deviation_runtime::ParametricAnchorBlock;
@@ -760,14 +921,31 @@ pub fn fit_bernoulli_marginal_slope_terms(
         }
         out
     };
+    // #461 Stage-1 influence absorber: when active, the marginal block carries
+    // one extra fixed-ridge ρ slot appended after its smooth penalties. It
+    // occupies a ρ position (so the marginal penalty count grows by one) but is
+    // pinned to a fixed value rather than REML-optimised.
+    let influence_ridge_slots = usize::from(influence_columns.is_some());
+    let marginal_penalty_count = marginal_design.penalties.len() + influence_ridge_slots;
+    let pinned_rho_slots: Vec<(usize, f64)> = if influence_columns.is_some() {
+        // Flat ρ index of the pinned ridge: it is the marginal block's trailing
+        // slot, i.e. just past the genuine marginal smooth penalties.
+        vec![(
+            marginal_design.penalties.len(),
+            INFLUENCE_ABSORBER_FIXED_LOG_LAMBDA,
+        )]
+    } else {
+        Vec::new()
+    };
     let setup = joint_setup(
         data_view,
         &marginalspec_boot,
         &logslopespec_boot,
-        marginal_design.penalties.len(),
+        marginal_penalty_count,
         logslope_design.penalties.len(),
         &extra_rho0,
         &effective_kappa_options,
+        &pinned_rho_slots,
     );
     let setup = if sigma_learnable {
         setup.with_auxiliary(
@@ -797,15 +975,22 @@ pub fn fit_bernoulli_marginal_slope_terms(
      -> Result<Vec<ParameterBlockSpec>, String> {
         let hints = hints.borrow();
         let mut cursor = 0usize;
+        // The marginal block owns its term-collection smooth penalties PLUS,
+        // when the Stage-1 influence absorber is active, one extra pinned ridge
+        // slot (#461). The genuine smooth ρ slots are the REML-learned ones; the
+        // trailing influence-ridge slot is held fixed via pinned outer bounds,
+        // but it still occupies a ρ position so it must be sliced here.
+        let influence_extra = usize::from(influence_columns.is_some());
         let rho_marginal = rho
             .slice(s![cursor..cursor + marginal_design.penalties.len()])
             .to_owned();
-        cursor += marginal_design.penalties.len();
+        cursor += marginal_design.penalties.len() + influence_extra;
         let rho_logslope = rho
             .slice(s![cursor..cursor + logslope_design.penalties.len()])
             .to_owned();
         cursor += logslope_design.penalties.len();
-        let p_m = marginal_design.design.ncols();
+        let p_m = marginal_design.design.ncols()
+            + influence_columns.as_ref().map(|z| z.ncols()).unwrap_or(0);
         let mut blocks = vec![
             build_marginal_blockspec_bms(
                 marginal_design,
@@ -817,6 +1002,8 @@ pub fn fit_bernoulli_marginal_slope_terms(
                 &spec.logslope_offset,
                 baseline.1,
                 p_m,
+                influence_columns.as_ref(),
+                INFLUENCE_ABSORBER_FIXED_LOG_LAMBDA,
             )?,
             build_logslope_blockspec_bms(
                 logslope_design,
@@ -829,6 +1016,7 @@ pub fn fit_bernoulli_marginal_slope_terms(
                 baseline.0,
                 Arc::clone(&z),
                 p_m,
+                influence_columns.as_ref(),
             )?,
         ];
         push_deviation_aux_blockspecs(
@@ -850,6 +1038,23 @@ pub fn fit_bernoulli_marginal_slope_terms(
                        logslope_design: &TermCollectionDesign,
                        sigma: Option<f64>|
      -> BernoulliMarginalSlopeFamily {
+        // The kernel reads the marginal index from a matched (self.marginal_
+        // design, β_m) pair. When the Stage-1 influence absorber is active the
+        // marginal β is widened to [β_m; γ], so the family's marginal design
+        // MUST be the widened [M | Z̃] for every per-row projection to slice
+        // correctly (#461). With no absorber it is the raw design unchanged.
+        let kernel_marginal_design = match influence_columns.as_ref() {
+            Some(z_infl) => {
+                let raw = marginal_design
+                    .design
+                    .try_to_dense_arc("make_family::widened-marginal")
+                    .expect("dense marginal design for influence widening");
+                let widened = widen_marginal_dense_with_influence(&raw, Some(z_infl))
+                    .expect("widen marginal design with influence columns");
+                DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from((*widened).clone()))
+            }
+            None => marginal_design.design.clone(),
+        };
         BernoulliMarginalSlopeFamily {
             y: Arc::clone(&y),
             weights: Arc::clone(&weights),
@@ -857,7 +1062,7 @@ pub fn fit_bernoulli_marginal_slope_terms(
             latent_measure: latent_measure.clone(),
             gaussian_frailty_sd: sigma,
             base_link: spec.base_link.clone(),
-            marginal_design: marginal_design.design.clone(),
+            marginal_design: kernel_marginal_design,
             logslope_design: logslope_design.design.clone(),
             score_warp: score_warp_runtime.clone(),
             link_dev: link_dev_runtime.clone(),
@@ -1158,6 +1363,18 @@ pub fn fit_bernoulli_marginal_slope_terms(
         LatentMeasureCalibration::None => None,
         LatentMeasureCalibration::RankInverseNormal(cal) => Some(cal),
     };
+    // #461: PREDICT SEAM — when the Stage-1 influence absorber is active
+    // (spec.score_influence_jacobian.is_some()), `fit.block_states[0].beta` is
+    // the WIDENED marginal coefficient `[β_m; γ]` (length p_m + p₁), but
+    // `marginal_design` below is the RAW term-collection design (p_m columns):
+    // the absorbed influence columns Z̃_infl are a TRAINING-only leakage
+    // absorber and do NOT exist at predict rows (no Stage-1 fold there). The
+    // orthogonalized β̂_m is a property of the training fit, so prediction must
+    // use ONLY the first p_m entries of block_states[0].beta against this raw
+    // marginal_design and DROP the trailing γ. The model-payload / predict
+    // builder (src/main.rs run_fit_bernoulli_marginal_slope → inference) owns
+    // that truncation; it must record p_m (= marginal_design.design.ncols())
+    // and slice the persisted marginal β to it. Survival mirrors this seam.
     Ok(BernoulliMarginalSlopeFitResult {
         fit: solved.fit,
         marginalspec_resolved: resolved_specs.remove(0),

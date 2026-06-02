@@ -125,6 +125,9 @@ class UnifiedMarket:
     down: Optional[MarketOutcome] = None
     """Convenience access to the Down outcome for binary markets."""
 
+    source_metadata: Optional[Dict[str, Any]] = None
+    """Raw venue-specific metadata not captured by first-class fields. Passed through verbatim."""
+
     @property
     def question(self) -> str:
         """Alias for title."""
@@ -247,6 +250,9 @@ class UnifiedEvent:
 
     source_exchange: Optional[str] = None
     """The exchange/venue this event comes from (e.g. 'polymarket', 'kalshi'). Populated by the Router."""
+
+    source_metadata: Optional[Dict[str, Any]] = None
+    """Raw venue-specific metadata not captured by first-class fields. Passed through verbatim."""
 
 
 @dataclass

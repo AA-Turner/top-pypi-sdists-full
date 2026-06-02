@@ -10,6 +10,7 @@ description = "A model-driven approach to building AI agents in just a few lines
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
+license-files = ["LICENSE", "NOTICE"]
 authors = [
     {name = "AWS", email = "opensource@amazon.com"},
 ]
@@ -112,7 +113,10 @@ packages = ["src/strands"]
 
 
 [tool.hatch.version]
-source = "vcs"  # Use git tags for versioning
+source = "vcs"
+raw-options.root = ".."
+raw-options.tag_regex = "^python/v(?P<version>.+)$"
+raw-options.git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "python/v*"]
 
 
 [tool.hatch.envs.hatch-static-analysis]

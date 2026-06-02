@@ -9,7 +9,7 @@ OSCAL background: NIST's Open Security Controls Assessment Language
 is the standardized JSON/XML interchange format for compliance
 documentation. FedRAMP 20x (RFC-0024 expected Sep 2026) targets OSCAL
 as the submission format. 3PAOs increasingly want OSCAL inputs because
-their tools (RegScale, etc.) ingest it directly.
+their GRC tools ingest it directly.
 
 Why 1.0.4: FedRAMP's current published guidance + GSA's validation
 rule set both target OSCAL 1.0.4. OSCAL 1.1.0 has breaking schema

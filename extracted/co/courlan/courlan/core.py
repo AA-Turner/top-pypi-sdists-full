@@ -5,8 +5,6 @@ Core functions needed to make the module work.
 # import locale
 import logging
 import re
-
-from typing import List, Optional, Set, Tuple
 from urllib.robotparser import RobotFileParser
 
 from .clean import normalize_url, scrub_url
@@ -25,16 +23,15 @@ from .network import redirection_test
 from .settings import BLACKLIST
 from .urlutils import (
     extract_domain,
-    get_base_url,
     fix_relative_urls,
+    get_base_url,
     is_external,
     is_known_link,
 )
 
-
 LOGGER = logging.getLogger(__name__)
 
-FIND_LINKS_REGEX = re.compile(r"<a [^<>]+?>", re.I)
+FIND_LINKS_REGEX = re.compile(r"<a\s+[^<>]+?>", re.I)
 HREFLANG_REGEX = re.compile(r'hreflang=["\']?([a-z-]+)', re.I)
 LINK_REGEX = re.compile(r'href=["\']?([^ ]+?)(["\' >])', re.I)
 
@@ -43,10 +40,10 @@ def check_url(
     url: str,
     strict: bool = False,
     with_redirects: bool = False,
-    language: Optional[str] = None,
+    language: str | None = None,
     with_nav: bool = False,
     trailing_slash: bool = True,
-) -> Optional[Tuple[str, str]]:
+) -> tuple[str, str] | None:
     """Check links for appropriateness and sanity
     Args:
         url: url to check
@@ -60,7 +57,7 @@ def check_url(
         A tuple consisting of canonical URL and extracted domain
 
     Raises:
-        ValueError, handled in exception.
+        Nothing: invalid URLs are caught internally and None is returned.
     """
 
     # first sanity check
@@ -93,7 +90,7 @@ def check_url(
 
         # split and validate
         validation_test, parsed_url = validate_url(url)
-        if validation_test is False:
+        if validation_test is False or parsed_url is None:
             LOGGER.debug("rejected, validation test: %s", url)
             raise ValueError
 
@@ -134,21 +131,21 @@ def check_url(
 
 def extract_links(
     pagecontent: str,
-    url: Optional[str] = None,
+    url: str | None = None,
     external_bool: bool = False,
     *,
     no_filter: bool = False,
-    language: Optional[str] = None,
+    language: str | None = None,
     strict: bool = True,
     trailing_slash: bool = True,
     with_nav: bool = False,
     redirects: bool = False,
-    reference: Optional[str] = None,
-    base_url: Optional[str] = None,
-) -> Set[str]:
+    reference: str | None = None,
+    base_url: str | None = None,
+) -> set[str]:
     """Filter links in a HTML document using a series of heuristics
     Args:
-        pagecontent: whole page in binary format
+        pagecontent: whole page as a string
         url: full URL of the original page
         external_bool: set to True for external links only, False for
                   internal links only
@@ -164,14 +161,15 @@ def extract_links(
         A set containing filtered HTTP links checked for sanity and consistency.
 
     Raises:
-        Nothing.
+        ValueError: if the deprecated 'base_url' argument is provided.
     """
     if base_url:
         raise ValueError("'base_url' is deprecated, use 'url' instead.")
 
-    base_url = get_base_url(url)
+    base_url = get_base_url(url or "")
     url = url or base_url
-    candidates, validlinks = set(), set()  # type: Set[str], Set[str]
+    candidates: set[str] = set()
+    validlinks: set[str] = set()
     if not pagecontent:
         return validlinks
 
@@ -230,15 +228,15 @@ def extract_links(
 
 def filter_links(
     htmlstring: str,
-    url: Optional[str],
+    url: str | None,
     *,
-    lang: Optional[str] = None,
-    rules: Optional[RobotFileParser] = None,
+    lang: str | None = None,
+    rules: RobotFileParser | None = None,
     external: bool = False,
     strict: bool = False,
     with_nav: bool = True,
-    base_url: Optional[str] = None,
-) -> Tuple[List[str], List[str]]:
+    base_url: str | None = None,
+) -> tuple[list[str], list[str]]:
     "Find links in a HTML document, filter and prioritize them for crawling purposes."
 
     if base_url:

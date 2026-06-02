@@ -97,7 +97,8 @@ def next_step(fs: Filesystem, config: Config, task: Task) -> NextStepResult:
     """Determine the exact next action for a task."""
     mode = task.mode if task.mode not in ("full", "lightweight", "quick") else ("quick" if task.mode == "quick" else ("lightweight" if task.lightweight else "full"))
     ext = _load_extension(config)
-    base_order = _get_phase_order(task.lightweight, quick=(task.mode == "quick"))
+    base_order = _get_phase_order(task.lightweight, quick=(task.mode == "quick"),
+                                    mode=task.mode, kanban_dir=config._fs.kanban_dir)
     custom_order = ext.build_phase_order([p.value if isinstance(p, Phase) else str(p) for p in base_order], mode=mode) if ext else None
     base_steps = _get_steps(mode)
     custom_steps = ext.build_step_map(base_steps, mode=mode) if ext else None
@@ -132,7 +133,8 @@ def next_step(fs: Filesystem, config: Config, task: Task) -> NextStepResult:
     phase_steps = steps_map.get(phase_value, [])
     if not phase_steps:
         # Phase not in current mode's step map — try redirect to nearest valid phase
-        return _build_phase_transition(task, phase_value, [], task.lightweight, custom_order)
+        return _build_phase_transition(task, phase_value, [], task.lightweight, custom_order,
+                                       kanban_dir=config._fs.kanban_dir)
 
     for i, step in enumerate(phase_steps):
         if step.id not in completed_steps:
@@ -147,7 +149,8 @@ def next_step(fs: Filesystem, config: Config, task: Task) -> NextStepResult:
 
             return _build_step_result(fs, config, task, step, i, phase_steps, phase_value)
 
-    return _build_phase_transition(task, phase_value, phase_steps, task.lightweight, custom_order)
+    return _build_phase_transition(task, phase_value, phase_steps, task.lightweight, custom_order,
+                                   kanban_dir=config._fs.kanban_dir)
 
 
 def _handle_manual_mode(fs, task, completed_steps, progress,
@@ -248,9 +251,10 @@ def _build_step_result(fs, config, task, step, i, phase_steps, phase_value):
     )
 
 
-def _build_phase_transition(task, phase_value, phase_steps, lightweight, custom_order=None):
+def _build_phase_transition(task, phase_value, phase_steps, lightweight, custom_order=None, kanban_dir=None):
     phase_order = _get_phase_order(lightweight, quick=(task.mode == "quick"),
-                                   custom_order=custom_order)
+                                   custom_order=custom_order,
+                                   mode=task.mode, kanban_dir=kanban_dir)
     str_order = [p.value if isinstance(p, Phase) else str(p) for p in phase_order]
     current_idx = None
     for idx, p_str in enumerate(str_order):

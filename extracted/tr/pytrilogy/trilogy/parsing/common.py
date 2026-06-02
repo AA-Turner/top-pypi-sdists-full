@@ -41,14 +41,13 @@ from trilogy.core.models.author import (
     Parenthetical,
     SubselectComparison,
     SubselectItem,
-    TraitDataType,
     TupleWrapper,
     UndefinedConcept,
     WhereClause,
     WindowItem,
     get_concept_arguments,
 )
-from trilogy.core.models.core import DataType, arg_to_datatype
+from trilogy.core.models.core import DataType, TraitDataType, arg_to_datatype
 from trilogy.core.models.environment import Environment
 from trilogy.core.statements.author import SelectStatement
 from trilogy.parsing.helpers import Meta
@@ -830,6 +829,13 @@ def function_to_concept(
         else:
             key_grain.append(x.address)
     keys = Grain.from_concepts(set(key_grain), environment).components
+    # A metric's grain is the grouping grain it's aggregated to (its keys),
+    # not the union of those keys' own grains — summing x.grain descends a
+    # property grouping key like week_seq down to its key (date.id), finer
+    # than the metric actually lives at. keys already holds the grouping
+    # addresses.
+    if is_metric and grain is not None:
+        grain = Grain.from_concepts(keys, environment)
     if is_metric:
         purpose = Purpose.METRIC
     elif not pkeys:
@@ -1060,7 +1066,17 @@ def _navigation_window_to_concept(
             [bcontent.address] + [y.address for y in over_refs], environment
         ).components
 
-    grain_components: list = list(over_refs) + [bcontent.output]
+    # A navigation window (lead/lag) emits one value per input row, so its
+    # grain is the operand's grain — not the operand itself. Embedding the
+    # operand (e.g. an aggregate metric) would give every window over the
+    # same rowset a distinct grain (operand differs per window) and block
+    # them from sharing a scan. Recurse to the operand's actual grain,
+    # falling back to the operand when it has none (a bare key/property).
+    if bcontent.grain and bcontent.grain.components:
+        operand_grain: list = list(bcontent.grain.components)
+    else:
+        operand_grain = [bcontent.output]
+    grain_components: list = list(over_refs) + operand_grain
     if parent.order_by:
         for item in parent.order_by:
             relevant, _ = get_relevant_parent_concepts(item.expr)
@@ -1161,10 +1177,23 @@ def align_item_to_concept(
     limit: int | None = None,
 ) -> Concept:
     align = parent
-    datatypes = set([c.datatype for c in align.concepts])
-    if len(datatypes) > 1:
+    # Strip TraitDataType wrappers before grouping: traits are pure annotations
+    # on top of an underlying type and shouldn't split an otherwise-compatible
+    # set (e.g. ``numeric(15,2)::usd`` aligning with bare ``numeric(15,2)``).
+    raw_datatypes = [c.datatype for c in align.concepts]
+    by_inner: dict = {}
+    for dt in raw_datatypes:
+        inner = dt.type if isinstance(dt, TraitDataType) else dt
+        existing = by_inner.get(inner)
+        # Prefer keeping the trait-wrapped representative so the merged concept
+        # inherits the richer type information.
+        if existing is None or (
+            not isinstance(existing, TraitDataType) and isinstance(dt, TraitDataType)
+        ):
+            by_inner[inner] = dt
+    if len(by_inner) > 1:
         raise InvalidSyntaxException(
-            f"Datatypes do not align for merged statements {align.alias}, have {datatypes}"
+            f"Datatypes do not align for merged statements {align.alias}, have {set(raw_datatypes)}"
         )
 
     new_selects = [x.as_lineage(environment) for x in selects]
@@ -1180,7 +1209,7 @@ def align_item_to_concept(
     grain = Grain()
     new = Concept(
         name=align.alias,
-        datatype=datatypes.pop(),
+        datatype=next(iter(by_inner.values())),
         purpose=Purpose.PROPERTY,
         lineage=multi_lineage,
         grain=grain,
@@ -1209,6 +1238,11 @@ def derive_item_to_concept(
         namespace=namespace or DEFAULT_NAMESPACE,
         granularity=Granularity.MULTI_ROW,
         derivation=Derivation.MULTISELECT,
+        # A derive output is computed at the merge grain, so its keys are the
+        # aligned concepts. Without this it has no keys and gets treated as a
+        # grain component itself, forcing a spurious top-level GROUP BY over the
+        # derived metric columns.
+        keys=set(item.aligned_concept for item in lineage.align.items),
     )
     return new
 
@@ -1292,6 +1326,16 @@ def parenthetical_to_concept(
     environment: Environment,
     metadata: Metadata | None = None,
 ) -> Concept:
+    if isinstance(parent.content, ConceptRef):
+        # a parenthetical wrapping a bare concept reference is a no-op; treat it
+        # exactly like the reference itself (aliased to `name` if one was given)
+        return arbitrary_to_concept(
+            unwrap_transformation(parent.content, environment),
+            environment,
+            namespace,
+            name,
+            metadata,
+        )
     if isinstance(
         parent.content,
         ARBITRARY_INPUTS,

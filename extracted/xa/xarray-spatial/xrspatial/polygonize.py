@@ -296,6 +296,13 @@ def _ranges_close(range_a, range_b, atol, rtol):
     """Return True if any value pair across two ``(min, max)`` ranges
     compares close under ``_values_close``.
 
+    This is now the *fallback* close-value test for the cross-chunk
+    merge: integer rasters (where it reduces to strict equality) and the
+    defensive case of a float polygon with no recorded boundary cells.
+    Float polygons that carry boundary cells use the direction-aware
+    ``_cells_close_directed`` instead, so the symmetric range check here
+    no longer drives float merging (#2666).
+
     Each per-polygon value range from ``_polygonize_chunk`` describes
     the actual span of pixel values that fall inside a region (after
     the within-chunk tolerance-chain CCL has run).  Two chunk polygons
@@ -322,6 +329,48 @@ def _ranges_close(range_a, range_b, atol, rtol):
     # case explicitly so the union-find still fires.
     if a_min <= b_max and b_min <= a_max:
         return True
+    return False
+
+
+def _cells_close_directed(cells_a, cells_b, atol, rtol, connectivity_8):
+    """Direction-aware close-value test between two chunk-boundary polygons.
+
+    ``cells_a`` / ``cells_b`` map ``(global_col, global_row) -> value`` for
+    the pixels each polygon places on an internal chunk edge.  Return True
+    if any pixel in ``cells_a`` is grid-adjacent to any pixel in ``cells_b``
+    (orthogonally for 4-conn, plus diagonally for 8-conn) AND the pair
+    compares close under the *same orientation* numpy CCL uses.
+
+    numpy's ``_calculate_regions`` walks pixels in raster-scan order and
+    tests ``_is_close(reference=current, value=earlier_neighbour)`` where
+    ``current`` is the higher-``ij`` pixel (East / North / the SE/NE
+    diagonal partner).  Because ``rtol`` scales by ``abs(reference)``, the
+    test is asymmetric, so the cross-chunk merge must pick the higher-``ij``
+    pixel as the reference to match numpy byte for byte (#2666).
+
+    ``ij = col + row * nx`` increases with row first, then column, so the
+    higher-``ij`` pixel of an adjacent pair is the one with the greater row,
+    or the greater column when rows are equal.
+    """
+    if not cells_a or not cells_b:
+        return False
+    for (ca, ra), va in cells_a.items():
+        for (cb, rb), vb in cells_b.items():
+            dcol = cb - ca
+            drow = rb - ra
+            adjacent = (
+                (abs(dcol) == 1 and drow == 0) or
+                (abs(drow) == 1 and dcol == 0) or
+                (connectivity_8 and abs(dcol) == 1 and abs(drow) == 1))
+            if not adjacent:
+                continue
+            # Higher-ij pixel is the reference (greater row, then col).
+            if (rb, cb) > (ra, ca):
+                reference, value = vb, va
+            else:
+                reference, value = va, vb
+            if _values_close(reference, value, atol, rtol):
+                return True
     return False
 
 
@@ -363,14 +412,17 @@ def _group_boundary_polygons(boundary_polys,
 
     Parameters
     ----------
-    boundary_polys : list of (val, rings, (val_min, val_max))
+    boundary_polys : list of (val, rings, (val_min, val_max), cells)
         Per-chunk boundary polygons collected from ``_polygonize_chunk``.
+        ``cells`` maps ``(global_col, global_row) -> value`` for the
+        polygon's pixels on internal chunk edges (empty for integer
+        rasters, which use strict equality).
     atol, rtol : float
-        Float tolerance forwarded to ``_ranges_close``.
+        Float tolerance forwarded to the close-value test.
 
     Returns
     -------
-    list of list of (val, rings, (val_min, val_max))
+    list of list of (val, rings, (val_min, val_max), cells)
         One sub-list per connected group.  Each sub-list holds all
         chunk polygons that should be merged with edge cancellation and
         assigned a single representative DN value downstream.
@@ -462,9 +514,21 @@ def _group_boundary_polygons(boundary_polys,
                 pi, pj = poly_indices[i], poly_indices[j]
                 if find(pi) == find(pj):
                     continue
-                range_i = boundary_polys[pi][2]
-                range_j = boundary_polys[pj][2]
-                if _ranges_close(range_i, range_j, atol, rtol):
+                # Float polygons carry per-cell boundary values; use the
+                # direction-aware test so the merge matches numpy CCL's
+                # scan-order ``_is_close`` orientation exactly (#2666).
+                # Integer polygons have no cell maps and fall back to the
+                # range check, which reduces to strict equality for them.
+                cells_i = boundary_polys[pi][3]
+                cells_j = boundary_polys[pj][3]
+                if cells_i and cells_j:
+                    close = _cells_close_directed(
+                        cells_i, cells_j, atol, rtol, connectivity_8)
+                else:
+                    range_i = boundary_polys[pi][2]
+                    range_j = boundary_polys[pj][2]
+                    close = _ranges_close(range_i, range_j, atol, rtol)
+                if close:
                     union(pi, pj)
 
     groups = {}
@@ -776,12 +840,20 @@ def _detect_raster_transform(raster: xr.DataArray):
     2. ``raster.rio.transform()`` (rioxarray, if installed). Returns an
        ``affine.Affine``; iterating it yields the rasterio-ordered 6
        coefficients ``(a, b, c, d, e, f)``.
-    3. ``None``.
+    3. The raster's own x/y coordinate values (the xarray /
+       xrspatial standard georeferencing convention -- the same one
+       ``get_dataarray_resolution`` / ``calc_res`` read).  This is the
+       common case: a raster loaded with georeferenced coords and a
+       ``crs`` attr but no separate ``transform`` attr would otherwise
+       emit pixel-space geometries while ``return_type='geopandas'``
+       attached a CRS, the exact mismatch #2536 set out to prevent.
+    4. ``None``.
 
     A raster carrying ``attrs['_xrspatial_no_georef']=True`` (the
     xrspatial.geotiff "no georeference" marker) is treated as having
-    no transform even if ``rio.transform()`` is present, because that
-    marker explicitly opts out of georeferencing.
+    no transform even if ``rio.transform()`` or georeferenced coords
+    are present, because that marker explicitly opts out of
+    georeferencing.
     """
     # Honour the xrspatial.geotiff "no georeference" marker if set.
     if raster.attrs.get('_xrspatial_no_georef'):
@@ -805,16 +877,71 @@ def _detect_raster_transform(raster: xr.DataArray):
             # _transform_points does not need.
             t = tuple(float(v) for v in tuple(rio_transform)[:6])
             # rioxarray returns the identity affine when no transform
-            # is available, which would silently shift outputs by (0,0)
-            # and look identical to "no transform". Treat the identity
-            # the same as None so callers get an unambiguous answer.
-            if t == (1.0, 0.0, 0.0, 0.0, 1.0, 0.0):
-                return None
-            return t
+            # is available (e.g. coords whose dims it does not recognise
+            # as spatial).  Treat the identity as "rio has nothing" and
+            # fall through to the coords-based detection below rather than
+            # returning the meaningless identity.
+            if t != (1.0, 0.0, 0.0, 0.0, 1.0, 0.0):
+                return t
     except Exception:
         pass
 
-    return None
+    # Fall back to the raster's own x/y coordinate values.  polygonize
+    # emits pixel-CORNER integer indices (_follow walks grid corners),
+    # and the attrs['transform'] path above maps corner index -> world,
+    # so a coords-derived transform must put the origin at the corner of
+    # the first pixel: origin = first_center - 0.5 * spacing.
+    return _transform_from_coords(raster)
+
+
+def _coord_spacing(values):
+    """Return the uniform step of a 1-D coordinate array, or None.
+
+    Requires at least two points and even spacing (within a small
+    relative tolerance).  Returns None on irregular spacing so the
+    caller falls back to pixel space rather than emitting a wrong
+    affine from, say, the first two coordinates.
+    """
+    if values.ndim != 1 or values.shape[0] < 2:
+        return None
+    diffs = np.diff(values.astype(np.float64))
+    step = diffs[0]
+    if step == 0:
+        return None
+    # numpy.isclose-style tolerance against the first step.
+    if not np.all(np.abs(diffs - step) <= (1e-8 + 1e-5 * abs(step))):
+        return None
+    return float(step)
+
+
+def _transform_from_coords(raster: xr.DataArray):
+    """Derive a rasterio-ordered transform from the raster's x/y coords.
+
+    Uses the raster's actual x/y dim names (``dims[-1]`` for x,
+    ``dims[-2]`` for y), matching ``get_dataarray_resolution``.  The
+    coords must be 1-D, length >= 2 and evenly spaced; otherwise this
+    returns None.
+    """
+    if raster.ndim < 2:
+        return None
+    ydim = raster.dims[-2]
+    xdim = raster.dims[-1]
+    if xdim not in raster.coords or ydim not in raster.coords:
+        return None
+
+    xc = np.asarray(raster.coords[xdim].values)
+    yc = np.asarray(raster.coords[ydim].values)
+
+    dx = _coord_spacing(xc)
+    dy = _coord_spacing(yc)
+    if dx is None or dy is None:
+        return None
+
+    # Coords are pixel centres; the transform maps pixel-corner index 0
+    # to the corner of the first cell.
+    origin_x = float(xc[0]) - 0.5 * dx
+    origin_y = float(yc[0]) - 0.5 * dy
+    return (dx, 0.0, origin_x, 0.0, dy, origin_y)
 
 
 def _to_geopandas(
@@ -1074,14 +1201,16 @@ def _polygonize_chunk(block, mask_block, connectivity_8, row_offset, col_offset,
     needs merge with neighbours).  Raster-edge boundaries are NOT counted
     as inter-chunk boundaries.
 
-    Boundary polygons carry a ``(value, rings, (val_min, val_max))``
-    triple instead of just ``(value, rings)`` so the cross-chunk merge
-    can do tolerance-based union over the full value range present in
-    each polygon (#2583).  Within a chunk, ``_polygonize_numpy`` already
-    merged tolerance-close pixels into one region, so a polygon may
-    span values from ``val_min`` to ``val_max``; the cross-chunk merge
-    needs the extremes to reconstruct numpy CCL semantics across the
-    chunk boundary.
+    Boundary polygons carry a
+    ``(value, rings, (val_min, val_max), cells)`` tuple instead of just
+    ``(value, rings)``.  The ``(val_min, val_max)`` range supports the
+    #2583 tolerance-chain union; ``cells`` maps
+    ``(global_col, global_row) -> value`` for the polygon's pixels on
+    internal chunk edges and lets the cross-chunk merge apply numpy
+    CCL's direction-aware ``_is_close`` orientation at the exact pixel
+    pair straddling each boundary (#2666).  Integer rasters use strict
+    equality, so their ``cells`` map is empty and the merge falls back
+    to the range check.
     """
     block = _to_numpy(block)
     if mask_block is not None:
@@ -1099,15 +1228,20 @@ def _polygonize_chunk(block, mask_block, connectivity_8, row_offset, col_offset,
     # polygons may span a tolerance-chain cluster, so the full
     # per-region min/max scan is still needed there.
     if np.issubdtype(block.dtype, np.floating):
-        val_ranges = _compute_region_value_ranges(
-            block, mask_block, connectivity_8, atol, rtol, column)
+        val_ranges, boundary_cells = _compute_region_value_ranges(
+            block, mask_block, connectivity_8, atol, rtol, column,
+            row_offset=row_offset, col_offset=col_offset,
+            ny_total=ny_total, nx_total=nx_total)
     else:
         val_ranges = [(c, c) for c in column]
+        boundary_cells = [{} for _ in column]
 
     interior = []  # (value, [ring, ...])
-    boundary = []  # (value, [ring, ...], (val_min, val_max))
+    # (value, [ring, ...], (val_min, val_max), {(col, row): value})
+    boundary = []
 
-    for val, rings, val_range in zip(column, polygon_points, val_ranges):
+    for val, rings, val_range, cells in zip(
+            column, polygon_points, val_ranges, boundary_cells):
         offset_rings = []
         for ring in rings:
             ring = ring.copy()
@@ -1131,7 +1265,7 @@ def _polygonize_chunk(block, mask_block, connectivity_8, row_offset, col_offset,
             on_boundary |= np.any(ys == row_offset + ny)
 
         if on_boundary:
-            boundary.append((val, offset_rings, val_range))
+            boundary.append((val, offset_rings, val_range, cells))
         else:
             interior.append((val, offset_rings))
 
@@ -1139,17 +1273,32 @@ def _polygonize_chunk(block, mask_block, connectivity_8, row_offset, col_offset,
 
 
 def _compute_region_value_ranges(block, mask_block, connectivity_8,
-                                 atol, rtol, column):
-    """Return ``(val_min, val_max)`` for each region in raster-scan order.
+                                 atol, rtol, column,
+                                 row_offset=0, col_offset=0,
+                                 ny_total=None, nx_total=None):
+    """Return per-region value ranges and internal-boundary cell values.
 
     ``column`` is the polygon-order value list from ``_polygonize_numpy``;
-    the returned list is parallel to it.  Re-runs the same
+    the returned lists are parallel to it.  Re-runs the same
     ``_calculate_regions`` pass used inside ``_polygonize_numpy`` (so
     region IDs match exactly), then groups pixel values by region.
 
-    Used by ``_polygonize_chunk`` (#2583) to carry the actual value
-    extent of each chunk-boundary polygon into the cross-chunk merge
-    where numpy CCL parity needs both endpoints.
+    Returns ``(val_ranges, boundary_cells)`` where:
+
+    * ``val_ranges[i]`` is the ``(val_min, val_max)`` span of region ``i``
+      (used by #2583 to carry the value extent into the cross-chunk merge).
+    * ``boundary_cells[i]`` is a ``{(global_col, global_row): value}`` dict
+      of the region's pixels that lie on an *internal* chunk edge (an edge
+      shared with a neighbour chunk, not a raster edge).  The cross-chunk
+      merge (#2666) uses these per-cell values to replicate numpy CCL's
+      direction-aware ``_is_close`` orientation at the actual pixel pair
+      straddling each chunk boundary, instead of a symmetric range check.
+
+    ``row_offset`` / ``col_offset`` / ``ny_total`` / ``nx_total`` describe
+    where this chunk sits in the global raster so internal edges can be
+    distinguished from raster edges.  When ``ny_total`` / ``nx_total`` are
+    left ``None`` (single-chunk callers) the boundary-cell maps come back
+    empty.
     """
     ny, nx = block.shape
     values_flat = block.ravel()
@@ -1182,13 +1331,21 @@ def _compute_region_value_ranges(block, mask_block, connectivity_8,
     regions = _calculate_regions(
         values_flat, mask_flat, connectivity_8, nx_eff, ny, atol, rtol)
 
+    # Which chunk edges are internal (shared with a neighbour chunk)?
+    track_cells = ny_total is not None and nx_total is not None
+    left_internal = track_cells and col_offset > 0
+    right_internal = track_cells and col_offset + nx < nx_total
+    bottom_internal = track_cells and row_offset > 0
+    top_internal = track_cells and row_offset + ny < ny_total
+
     # Aggregate min/max value per region in raster-scan order so the
     # output is parallel to the polygon column from _scan.
     n_regions = len(column)
     if n_regions == 0:
-        return []
+        return [], []
     val_min = [None] * n_regions
     val_max = [None] * n_regions
+    boundary_cells = [None] * n_regions
     for ij in range(len(regions)):
         r = regions[ij]
         if r == 0:
@@ -1203,7 +1360,26 @@ def _compute_region_value_ranges(block, mask_block, connectivity_8,
             val_min[idx] = v
         if val_max[idx] is None or v > val_max[idx]:
             val_max[idx] = v
+
+        if track_cells:
+            local_col = ij % nx_eff
+            local_row = ij // nx_eff
+            # nx==1 padded a dummy column; skip it (only local_col 0 is real).
+            if nx == 1 and local_col != 0:
+                continue
+            on_internal = (
+                (left_internal and local_col == 0) or
+                (right_internal and local_col == nx - 1) or
+                (bottom_internal and local_row == 0) or
+                (top_internal and local_row == ny - 1))
+            if on_internal:
+                cells = boundary_cells[idx]
+                if cells is None:
+                    cells = {}
+                    boundary_cells[idx] = cells
+                cells[(local_col + col_offset, local_row + row_offset)] = v
     out = []
+    cells_out = []
     for i in range(n_regions):
         if val_min[i] is None:
             # Fall back to the polygon's representative value if no
@@ -1211,7 +1387,8 @@ def _compute_region_value_ranges(block, mask_block, connectivity_8,
             out.append((column[i], column[i]))
         else:
             out.append((val_min[i], val_max[i]))
-    return out
+        cells_out.append(boundary_cells[i] if boundary_cells[i] else {})
+    return out, cells_out
 
 
 def _add_or_cancel_edge(edge_set, x1, y1, x2, y2):
@@ -1422,6 +1599,52 @@ def _point_in_ring(px, py, ring):
     return inside
 
 
+@ngjit
+def _ring_interior_point(ring):
+    """Return a point strictly inside a closed axis-aligned ring.
+
+    A ring vertex cannot be used to test containment in an exterior:
+    when a hole touches its enclosing exterior at a single pinch vertex
+    (which happens after the dask cross-chunk merge traces a notch as a
+    separate ring), every shared vertex lies *on* the exterior boundary,
+    so a vertex-based ``_point_in_ring`` test reports False and the hole
+    is silently dropped (#2606).  Instead, walk each unit edge, step a
+    tiny epsilon inward along the orientation-aware normal, and return
+    the first candidate that lands inside the ring.  This works for the
+    non-convex (L-shaped) notch rings the merge can produce, not just
+    convex ones.
+    """
+    eps = 1e-6
+    n = len(ring) - 1
+    sign = 1.0 if _signed_ring_area(ring) > 0 else -1.0
+    for k in range(n):
+        x1, y1 = ring[k, 0], ring[k, 1]
+        x2, y2 = ring[k + 1, 0], ring[k + 1, 1]
+        mx, my = (x1 + x2) / 2.0, (y1 + y2) / 2.0
+        dx, dy = x2 - x1, y2 - y1
+        # Left normal of travel direction; interior is on the left for a
+        # CCW ring, on the right for a CW (hole) ring -- ``sign`` flips it.
+        nx, ny = -dy, dx
+        length = np.sqrt(nx * nx + ny * ny)
+        if length == 0.0:
+            continue
+        nx = nx / length * sign
+        ny = ny / length * sign
+        cx = mx + nx * eps
+        cy = my + ny * eps
+        if _point_in_ring(cx, cy, ring):
+            return cx, cy
+    # Fallback: centroid of the unique vertices.  Rings reaching here are
+    # always closed with at least three unique vertices, so n >= 3 and the
+    # divide below is safe.
+    sx = 0.0
+    sy = 0.0
+    for k in range(n):
+        sx += ring[k, 0]
+        sy += ring[k, 1]
+    return sx / n, sy / n
+
+
 def _group_rings_into_polygons(rings):
     """Classify rings as exteriors/holes and assign holes to exteriors.
 
@@ -1438,7 +1661,10 @@ def _group_rings_into_polygons(rings):
 
     result = [[ext] for ext in exteriors]
     for hole in holes:
-        px, py = hole[0, 0], hole[0, 1]
+        # Use an interior point of the hole, not a vertex: a hole that
+        # touches its exterior at a pinch vertex shares that vertex with
+        # the exterior boundary, where _point_in_ring is False (#2606).
+        px, py = _ring_interior_point(hole)
         for i, ext in enumerate(exteriors):
             if _point_in_ring(px, py, ext):
                 result[i].append(hole)
@@ -2054,9 +2280,42 @@ def _merge_from_separated(all_interior, boundary_polys, transform,
     return column, polygon_points
 
 
+# Number of chunks polygonized per dask.compute call.  Caps how many
+# per-chunk results (interior + boundary polygons) are materialized at
+# once, bounding peak memory while still letting dask schedule the batch
+# in parallel.  See _polygonize_dask for the memory/parallelism tradeoff.
+_DASK_CHUNK_BATCH_SIZE = 32
+
+
 def _polygonize_dask(dask_data, mask_data, connectivity_8, transform,
-                     atol=_DEFAULT_ATOL, rtol=_DEFAULT_RTOL):
-    """Dask backend for polygonize: per-chunk polygonize + edge merge."""
+                     atol=_DEFAULT_ATOL, rtol=_DEFAULT_RTOL,
+                     batch_size=_DASK_CHUNK_BATCH_SIZE):
+    """Dask backend for polygonize: per-chunk polygonize + edge merge.
+
+    Chunks are polygonized in batches via :func:`dask.compute`.  Each
+    batch holds up to ``batch_size`` ``dask.delayed`` tasks computed in a
+    single call, so dask schedules them in parallel instead of running
+    one chunk at a time.
+
+    Memory / parallelism tradeoff: a single ``dask.compute`` over every
+    chunk would maximize parallelism but materialize all per-chunk
+    results at once, so peak memory grows with the total polygon count.
+    Computing one chunk at a time bounds memory but throws away
+    parallelism.  A fixed ``batch_size`` splits the difference: peak
+    memory is bounded by ``batch_size`` chunks' worth of polygons, and
+    dask still runs each batch concurrently.  Increase ``batch_size`` to
+    trade memory for more parallelism, decrease it to cap memory harder.
+    A fixed batch also bounds memory independently of the chunk-grid
+    shape, unlike a per-row batch whose size scales with the number of
+    column chunks.  ``batch_size`` is not exposed through the public
+    :func:`polygonize` API; the default comes from the module-level
+    ``_DASK_CHUNK_BATCH_SIZE`` constant, so tuning it means editing that
+    constant.
+
+    Tasks are built and their results consumed in row-major ``(iy, ix)``
+    order so polygons map back to the right block; the downstream
+    boundary-merge stage depends on that ordering.
+    """
     # Ensure mask chunks match raster chunks.
     if mask_data is not None and mask_data.chunks != dask_data.chunks:
         mask_data = mask_data.rechunk(dask_data.chunks)
@@ -2070,26 +2329,31 @@ def _polygonize_dask(dask_data, mask_data, connectivity_8, transform,
     ny_total = int(sum(row_chunks))
     nx_total = int(sum(col_chunks))
 
-    # Process chunks incrementally: compute one at a time so only boundary
-    # polygons accumulate in memory.  Interior polygons (fully inside a
-    # chunk, no merging needed) go straight to the output list.  This keeps
-    # peak memory proportional to boundary_polygon_count rather than
-    # total_polygon_count * n_chunks.
-    all_interior = []
-    boundary_polys = []
-
+    # Build one delayed task per chunk in row-major order.  Interior
+    # polygons (fully inside a chunk, no merging needed) go straight to
+    # the output list; only boundary polygons accumulate for the merge.
+    tasks = []
     for iy in range(len(row_chunks)):
         for ix in range(len(col_chunks)):
             block = dask_data.blocks[iy, ix]
             mask_block = (mask_data.blocks[iy, ix]
                           if mask_data is not None else None)
-            interior, boundary = dask.compute(
-                dask.delayed(_polygonize_chunk)(
-                    block, mask_block, connectivity_8,
-                    int(row_offsets[iy]), int(col_offsets[ix]),
-                    ny_total, nx_total,
-                    atol, rtol,
-                ))[0]
+            tasks.append(dask.delayed(_polygonize_chunk)(
+                block, mask_block, connectivity_8,
+                int(row_offsets[iy]), int(col_offsets[ix]),
+                ny_total, nx_total,
+                atol, rtol,
+            ))
+
+    all_interior = []
+    boundary_polys = []
+
+    # Compute in bounded batches, consuming results in task order so the
+    # accumulated lists keep the same row-major ordering as the serial
+    # per-chunk loop.
+    for start in range(0, len(tasks), batch_size):
+        results = dask.compute(*tasks[start:start + batch_size])
+        for interior, boundary in results:
             all_interior.extend(interior)
             boundary_polys.extend(boundary)
 
@@ -2230,14 +2494,16 @@ def polygonize(
     When ``transform`` is not supplied explicitly, the raster's affine
     transform is auto-detected in this order: ``raster.attrs['transform']``
     (xrspatial.geotiff convention, a rasterio-ordered 6-tuple), then
-    ``raster.rio.transform()`` (if rioxarray is installed).  An explicit
-    ``transform=`` argument always overrides the auto-detected value.
-    Auto-detection is skipped when the raster carries
-    ``attrs['_xrspatial_no_georef']=True``.  This applies to all return
-    types -- the geometries themselves are transformed, so the
-    coordinates emitted in the "numpy", "awkward", "spatialpandas" and
-    "geojson" outputs are also in CRS coordinate space, not pixel
-    space, when the raster carries a transform.
+    ``raster.rio.transform()`` (if rioxarray is installed), then the
+    raster's own x/y coordinate values (the xarray / xrspatial standard
+    georeferencing convention; used when the coords are 1-D, length >= 2
+    and evenly spaced).  An explicit ``transform=`` argument always
+    overrides the auto-detected value.  Auto-detection is skipped when
+    the raster carries ``attrs['_xrspatial_no_georef']=True``.  This
+    applies to all return types -- the geometries themselves are
+    transformed, so the coordinates emitted in the "numpy", "awkward",
+    "spatialpandas" and "geojson" outputs are also in CRS coordinate
+    space, not pixel space, when the raster carries a transform.
     """
     _validate_raster(raster, func_name='polygonize', name='raster', ndim=2)
     if raster.shape[0] < 1 or raster.shape[1] < 1:

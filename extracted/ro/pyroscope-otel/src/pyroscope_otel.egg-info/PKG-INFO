@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyroscope-otel
-Version: 1.0.0
+Version: 1.0.1
 Summary: A library providing profiling functionalities related to OpenTelemetry
 License:                                  Apache License
                                    Version 2.0, January 2004

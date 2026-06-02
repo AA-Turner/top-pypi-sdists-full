@@ -83,6 +83,17 @@ _DIRECT_GATE_MAP: dict[str, str] = {
     "cnot": "cx",
     "cz": "cz",
     "swap": "swap",
+    # v0.7: 2-큐비트 회전 / iSWAP native 매핑.
+    "iswap": "iswap",
+    "rxx": "rxx",
+    "ryy": "ryy",
+    "rzz": "rzz",
+    # v0.7.1: 추가 2-큐비트 게이트.
+    "dcx": "dcx",
+    "ecr": "ecr",
+    "rzx": "rzx",
+    "xx_plus_yy": "xx_plus_yy",
+    "xx_minus_yy": "xx_minus_yy",
     # v0.4.6: controlled 게이트 native 매핑.
     "cy": "cy",
     "ch": "ch",
@@ -227,11 +238,14 @@ def _convert_instructions_into(
                 panta.reset(q)
             continue
         if name == "unitary":
-            matrix = op.params[0]
-            if matrix.shape != (2, 2):
+            matrix = np.asarray(op.params[0], dtype=np.complex128)
+            k = len(outer_q_idxs)
+            if matrix.shape != (1 << k, 1 << k):
                 return True
+            # Qiskit qc.unitary 의 qargs little-endian (qubits[0]=LSB) 이
+            # panta 컨벤션과 동일.
             panta.unitary(
-                np.asarray(matrix, dtype=np.complex128), outer_q_idxs[0]
+                matrix, outer_q_idxs[0] if k == 1 else outer_q_idxs
             )
             continue
 
@@ -267,7 +281,7 @@ def _convert_instructions_into(
                 float(params[2]),
                 outer_q_idxs[0],
             )
-        elif target in ("crx", "cry", "crz", "cp", "cu1"):
+        elif target in ("crx", "cry", "crz", "cp", "cu1", "rxx", "ryy", "rzz", "rzx", "xx_plus_yy", "xx_minus_yy"):
             method(float(params[0]), outer_q_idxs[0], outer_q_idxs[1])
         elif target == "cu3":
             method(
@@ -542,7 +556,14 @@ def to_qiskit(panta_circuit: PantaCircuit) -> "QiskitCircuit":
 
     Raises:
         ImportError: ``qiskit`` 미설치.
+        ValueError: 회로에 미바인딩 심볼릭 파라미터가 있을 때
+            (``assign_parameters()`` 로 먼저 값을 대입할 것).
     """
+    if getattr(panta_circuit, "is_parameterized", lambda: False)():
+        raise ValueError(
+            "to_qiskit: 미바인딩 파라미터가 있는 회로는 변환할 수 없습니다. "
+            "assign_parameters() 로 값을 대입한 뒤 변환하세요."
+        )
     qiskit = _lazy_import_qiskit()
 
     QiskitQC = qiskit.QuantumCircuit
@@ -565,7 +586,10 @@ def to_qiskit(panta_circuit: PantaCircuit) -> "QiskitCircuit":
                 max_cbit = max(max_cbit, int(params[0]) if params else 0)
             elif name == "measure_all":
                 has_measure_all = True
-            elif name == "unitary" and params:
+            elif name == "unitary" and params and len(_q) == 1:
+                # 1-큐비트 unitary 만 ZYZ 가 global_phase 를 추출하므로 phase
+                # double-count 보정 대상.  multi-qubit unitary 는 행렬을 그대로
+                # 적용해 별도 phase 누적이 없다.
                 m = np.asarray(params[0], dtype=np.complex128)
                 unitary_phase_sum += float(np.angle(np.linalg.det(m)) / 2.0)
             elif name == "if_eq" and params:
@@ -609,6 +633,12 @@ def to_qiskit(panta_circuit: PantaCircuit) -> "QiskitCircuit":
 
         v0.4.6 native 매핑 추가 — Qiskit 메서드 시그니처에 맞춰 dispatch.
         """
+        # v0.7.1: XXPlusYY / XXMinusYY 는 Qiskit 편의 메서드가 없어 gate 객체 append.
+        if name in ("xx_plus_yy", "xx_minus_yy"):
+            from qiskit.circuit.library import XXMinusYYGate, XXPlusYYGate
+
+            g = XXPlusYYGate if name == "xx_plus_yy" else XXMinusYYGate
+            return qc.append(g(float(params[0])), [qubits[0], qubits[1]])
         if name in ("rx", "ry", "rz", "p", "u1"):
             return getattr(qc, name)(float(params[0]), qubits[0])
         if name == "u2":
@@ -620,7 +650,7 @@ def to_qiskit(panta_circuit: PantaCircuit) -> "QiskitCircuit":
                 float(params[2]),
                 qubits[0],
             )
-        if name in ("crx", "cry", "crz", "cp", "cu1"):
+        if name in ("crx", "cry", "crz", "cp", "cu1", "rxx", "ryy", "rzz", "rzx"):
             return getattr(qc, name)(float(params[0]), qubits[0], qubits[1])
         if name == "cu3":
             return qc.cu3(
@@ -648,7 +678,9 @@ def to_qiskit(panta_circuit: PantaCircuit) -> "QiskitCircuit":
             if not params:
                 qc.id(qubits[0])
             else:
-                qc.unitary(params[0], [qubits[0]])
+                # panta 의 qubits[0]=LSB 컨벤션이 Qiskit qc.unitary 의 qargs
+                # little-endian 과 동일하므로 그대로 전달.
+                qc.unitary(params[0], list(qubits))
             continue
 
         if name == "measure":

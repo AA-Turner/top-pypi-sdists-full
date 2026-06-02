@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fsspec_xrootd
-Version: 0.5.4
+Version: 0.5.5
 Summary: xrootd implementation for fsspec
 Author-email: Scott Demarest <rockets1194@gmail.com>
 Maintainer-email: Scikit-HEP <scikit-hep-admins@googlegroups.com>
@@ -27,6 +27,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: fsspec
+Requires-Dist: xrootd>=6.0.3
 Provides-Extra: dev
 Requires-Dist: pytest>=6; extra == "dev"
 Provides-Extra: docs
@@ -38,8 +39,6 @@ Provides-Extra: test
 Requires-Dist: pytest>=6; extra == "test"
 Requires-Dist: pytest-rerunfailures; extra == "test"
 Requires-Dist: pytest-timeout; extra == "test"
-Provides-Extra: xrootd
-Requires-Dist: xrootd>=6.0.0; extra == "xrootd"
 Dynamic: license-file
 
 # fsspec-xrootd
@@ -49,7 +48,7 @@ An XRootD implementation for fsspec.
 ## Install
 
 ```bash
-pip install "fsspec-xrootd[xrootd]"
+pip install fsspec-xrootd
 ```
 
 Supports Python 3.9 and newer.
@@ -57,9 +56,13 @@ Supports Python 3.9 and newer.
 ## Purpose
 
 To allow fsspec to use XRootD accessible storage systems. Install fsspec-xrootd
-with the optional `xrootd` extra alongside fsspec and have easy access to files
-stored on XRootD servers. Once installed, fsspec will be able to work with urls
-with the 'root' protocol. Only tested with Linux at this time.
+alongside fsspec and have easy access to files stored on XRootD servers. Once
+installed, fsspec will be able to work with urls with the 'root' protocol. Only
+tested with Linux at this time.
+
+The Python package depends on the XRootD client bindings directly. If you want
+to run the local integration tests, you will also need an `xrootd` server
+executable available on `PATH`.
 
 ## Documentation
 

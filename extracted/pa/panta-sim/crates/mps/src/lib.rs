@@ -111,23 +111,21 @@ impl<F: MpsScalar> MpsSvdProvider<F> for CpuSvdProvider {
     ) -> MpsSvdProviderOutput<F> {
         debug_assert_eq!(m_row_major.len(), rows * cols);
         let m_mat = DMatrix::<Complex<F>>::from_row_slice(rows, cols, m_row_major);
-        let svd = m_mat.svd(true, true);
-        let u_svd = svd.u.expect("SVD U not computed");
-        let v_t = svd.v_t.expect("SVD V^H not computed");
-        let sv = svd.singular_values;
+        // v0.7 fix: nalgebra's Golub–Reinsch `.svd()` can **silently return a
+        // wrong factorisation** for near-rank-deficient matrices (large entries
+        // mixed with ~1e-16 noise — common in an MPS after several gates): it
+        // over-converges and yields `U·Σ·Vᴴ ≠ M` (observed σ₁ = 1.4487 for a
+        // matrix with ‖M‖_F = √2, impossible), silently corrupting the MPS
+        // (norm ≠ 1).  [`reliable_svd`] validates the reconstruction and falls
+        // back to a Gram-matrix Hermitian eigendecomposition (numerically
+        // robust) when nalgebra's iterative SVD misbehaves.
+        let (u_svd, sv, v_t) = reliable_svd::<F>(&m_mat);
         let k = sv.len();
 
         let eps_rank = if trunc_threshold > 0.0 {
             let eps_f = F::from(trunc_threshold).unwrap_or_else(F::zero);
-            let mut count = 0;
-            for j in 0..k {
-                if sv[j] >= eps_f {
-                    count += 1;
-                } else {
-                    break;
-                }
-            }
-            count
+            // singular values are descending → count the leading run ≥ eps.
+            sv.iter().take_while(|&&s| s >= eps_f).count()
         } else {
             k
         };
@@ -171,6 +169,150 @@ impl<F: MpsScalar> MpsSvdProvider<F> for CpuSvdProvider {
 }
 impl MpsScalar for f32 {}
 impl MpsScalar for f64 {}
+
+/// Numerically robust thin SVD `M = U Σ Vᴴ` returning `(U: rows×k, Σ: len k,
+/// Vᴴ: k×cols)` with `k = min(rows, cols)`, singular values descending.
+///
+/// Fast path: nalgebra `try_svd` with a loosened convergence epsilon, then
+/// **validate** the reconstruction.  If the iterative SVD misbehaves (it can,
+/// for near-rank-deficient matrices — see the v0.7 bug note in
+/// `apply_two_qubit_adjacent`), fall back to [`gram_svd`], which derives the
+/// factorisation from the Hermitian eigendecomposition of the smaller Gram
+/// matrix (`M Mᴴ` or `Mᴴ M`) — numerically reliable in nalgebra.
+fn reliable_svd<F: MpsScalar>(
+    m: &DMatrix<Complex<F>>,
+) -> (DMatrix<Complex<F>>, Vec<F>, DMatrix<Complex<F>>) {
+    let (rows, cols) = m.shape();
+    let eps0 = F::epsilon() * F::from_f64(64.0).unwrap_or_else(F::one);
+    if let Some(svd) = m.clone().try_svd(true, true, eps0, 0) {
+        if let (Some(u), Some(vt)) = (svd.u, svd.v_t) {
+            let s: Vec<F> = svd.singular_values.iter().cloned().collect();
+            if svd_reconstructs::<F>(m, &u, &s, &vt) {
+                return (u, s, vt);
+            }
+        }
+    }
+    gram_svd::<F>(m, rows, cols)
+}
+
+/// `‖U Σ Vᴴ − M‖_F ≤ tol · ‖M‖_F` with a precision-appropriate relative
+/// tolerance (`√ε`: ~1.5e-8 for f64, ~3.4e-4 for f32).
+fn svd_reconstructs<F: MpsScalar>(
+    m: &DMatrix<Complex<F>>,
+    u: &DMatrix<Complex<F>>,
+    s: &[F],
+    vt: &DMatrix<Complex<F>>,
+) -> bool {
+    let (rows, cols) = m.shape();
+    let k = s.len();
+    if u.ncols() < k || vt.nrows() < k {
+        return false;
+    }
+    let mut err = 0.0f64;
+    let mut nrm = 0.0f64;
+    for i in 0..rows {
+        for j in 0..cols {
+            let mut acc = Complex::<F>::zero();
+            for (b, &sb) in s.iter().enumerate().take(k) {
+                acc += u[(i, b)] * Complex::new(sb, F::zero()) * vt[(b, j)];
+            }
+            err += (acc - m[(i, j)]).norm_sqr().to_f64().unwrap_or(0.0);
+            nrm += m[(i, j)].norm_sqr().to_f64().unwrap_or(0.0);
+        }
+    }
+    let tol = F::epsilon().to_f64().unwrap_or(1e-16).sqrt();
+    err.sqrt() <= tol * nrm.sqrt() + 1e-30
+}
+
+/// Gram-matrix SVD fallback (Hermitian eigendecomposition of the smaller of
+/// `M Mᴴ` / `Mᴴ M`).  Singular values descending, reconstruction exact up to
+/// eigensolver precision.
+fn gram_svd<F: MpsScalar>(
+    m: &DMatrix<Complex<F>>,
+    rows: usize,
+    cols: usize,
+) -> (DMatrix<Complex<F>>, Vec<F>, DMatrix<Complex<F>>) {
+    let kdim = rows.min(cols);
+    if rows <= cols {
+        // G = M Mᴴ  (rows×rows Hermitian PSD).  G = W Λ Wᴴ → U = W, σ = √Λ,
+        // Vᴴ = diag(1/σ) Uᴴ M (rows with σ≈0 left zero — they carry no weight).
+        let g = m * m.adjoint();
+        let eig = g.symmetric_eigen();
+        let order = sorted_desc::<F>(&eig.eigenvalues);
+        let mut u = DMatrix::<Complex<F>>::zeros(rows, kdim);
+        let mut s = vec![F::zero(); kdim];
+        for (newc, &oldc) in order.iter().enumerate().take(kdim) {
+            let lam = eig.eigenvalues[oldc];
+            s[newc] = if lam > F::zero() {
+                num_traits::Float::sqrt(lam)
+            } else {
+                F::zero()
+            };
+            for r in 0..rows {
+                u[(r, newc)] = eig.eigenvectors[(r, oldc)];
+            }
+        }
+        let uh_m = u.adjoint() * m; // kdim×cols
+        let mut vt = DMatrix::<Complex<F>>::zeros(kdim, cols);
+        let thresh = s.first().copied().unwrap_or_else(F::zero)
+            * F::epsilon()
+            * F::from_f64(16.0).unwrap_or_else(F::one);
+        for i in 0..kdim {
+            if s[i] > thresh {
+                let inv = Complex::new(F::one() / s[i], F::zero());
+                for j in 0..cols {
+                    vt[(i, j)] = uh_m[(i, j)] * inv;
+                }
+            }
+        }
+        (u, s, vt)
+    } else {
+        // G = Mᴴ M  (cols×cols Hermitian PSD).  G = V Λ Vᴴ → Vᴴ = Vᴴ, σ = √Λ,
+        // U = M V diag(1/σ).
+        let g = m.adjoint() * m;
+        let eig = g.symmetric_eigen();
+        let order = sorted_desc::<F>(&eig.eigenvalues);
+        let mut vmat = DMatrix::<Complex<F>>::zeros(cols, kdim);
+        let mut s = vec![F::zero(); kdim];
+        for (newc, &oldc) in order.iter().enumerate().take(kdim) {
+            let lam = eig.eigenvalues[oldc];
+            s[newc] = if lam > F::zero() {
+                num_traits::Float::sqrt(lam)
+            } else {
+                F::zero()
+            };
+            for r in 0..cols {
+                vmat[(r, newc)] = eig.eigenvectors[(r, oldc)];
+            }
+        }
+        let m_v = m * &vmat; // rows×kdim
+        let mut u = DMatrix::<Complex<F>>::zeros(rows, kdim);
+        let thresh = s.first().copied().unwrap_or_else(F::zero)
+            * F::epsilon()
+            * F::from_f64(16.0).unwrap_or_else(F::one);
+        for i in 0..kdim {
+            if s[i] > thresh {
+                let inv = Complex::new(F::one() / s[i], F::zero());
+                for r in 0..rows {
+                    u[(r, i)] = m_v[(r, i)] * inv;
+                }
+            }
+        }
+        let vt = vmat.adjoint(); // kdim×cols
+        (u, s, vt)
+    }
+}
+
+/// Indices that sort `vals` in descending order.
+fn sorted_desc<F: MpsScalar>(vals: &nalgebra::DVector<F>) -> Vec<usize> {
+    let mut idx: Vec<usize> = (0..vals.len()).collect();
+    idx.sort_by(|&a, &b| {
+        vals[b]
+            .partial_cmp(&vals[a])
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    idx
+}
 
 /// Construct a [`Complex<F>`] from two `f64` real / imag parts via
 /// [`num_traits::cast`].  All gate coefficients flow through this helper
@@ -766,6 +908,42 @@ impl<F: MpsScalar> Mps<F> {
         left_env[(0, 0)].re.to_f64().unwrap_or(0.0)
     }
 
+    /// `⟨ψ|P|ψ⟩` for a single Pauli string `P` (v0.7).
+    ///
+    /// `paulis[q] ∈ {0=I, 1=X, 2=Y, 3=Z}` and `paulis.len() == n_qubits`.
+    /// Applies the single-qubit Paulis to a clone (1q gates leave bond
+    /// dimensions unchanged) and contracts the overlap `⟨ψ|Pψ⟩` exactly via
+    /// a left-environment sweep — **O(N · χ³)**, no canonical form or dense
+    /// statevector required, so it works for any `N` (the basis for large-N
+    /// VQE / QAOA on the MPS backend).
+    ///
+    /// Returns the **raw** (un-normalised) overlap to match the dense-
+    /// statevector expectation path; for a normalised state (`⟨ψ|ψ⟩ = 1`)
+    /// they coincide.  For a truncated state the caller may divide by
+    /// [`Mps::norm_squared`] to renormalise.
+    pub fn expectation_pauli(&self, paulis: &[u8]) -> Complex<f64> {
+        assert_eq!(
+            paulis.len(),
+            self.n_qubits,
+            "expectation_pauli: paulis len must equal n_qubits"
+        );
+        let c0 = Complex::new(0.0f64, 0.0);
+        let c1 = Complex::new(1.0f64, 0.0);
+        let ci = Complex::new(0.0f64, 1.0);
+        let mut ket = self.clone();
+        for (q, &p) in paulis.iter().enumerate() {
+            let g: [[Complex<f64>; 2]; 2] = match p {
+                0 => continue,              // I
+                1 => [[c0, c1], [c1, c0]],  // X
+                2 => [[c0, -ci], [ci, c0]], // Y
+                3 => [[c1, c0], [c0, -c1]], // Z
+                other => panic!("invalid Pauli code {other} (0=I,1=X,2=Y,3=Z)"),
+            };
+            ket.apply_one_qubit(&g, q);
+        }
+        overlap(self, &ket)
+    }
+
     /// Sample a single bitstring outcome from the MPS (v0.6.1).
     ///
     /// Uses sequential single-site Bayes-conditional sampling — at each
@@ -1116,6 +1294,57 @@ impl<F: MpsScalar> Mps<F> {
 /// `nalgebra::DMatrix` is column-major internally — `M` is built via
 /// element-wise indexing rather than `as_slice()` to round-trip the
 /// row-major flat tensor layout safely.
+/// `⟨bra|ket⟩` overlap of two MPSes with identical structure (v0.7).
+///
+/// Requires `bra` and `ket` to have the same qubit count and identical bond
+/// dimensions site-by-site (satisfied when `ket` is a clone of `bra` with
+/// only single-qubit gates applied, e.g. Pauli strings).
+fn overlap<F: MpsScalar>(bra: &Mps<F>, ket: &Mps<F>) -> Complex<f64> {
+    let mut left: DMatrix<Complex<F>> = DMatrix::identity(1, 1);
+    for i in 0..bra.n_qubits {
+        left = update_left_env_overlap::<F>(&left, &bra.tensors[i], &ket.tensors[i]);
+    }
+    debug_assert_eq!(left.shape(), (1, 1));
+    let v = left[(0, 0)];
+    Complex::new(v.re.to_f64().unwrap_or(0.0), v.im.to_f64().unwrap_or(0.0))
+}
+
+/// Left-environment update contracting distinct `bra` / `ket` site tensors
+/// (the two-MPS generalisation of [`update_left_env`] with `physical=None`).
+fn update_left_env_overlap<F: MpsScalar>(
+    left_env: &DMatrix<Complex<F>>,
+    bra_t: &Tensor3<F>,
+    ket_t: &Tensor3<F>,
+) -> DMatrix<Complex<F>> {
+    debug_assert_eq!(
+        bra_t.left, ket_t.left,
+        "overlap: bra/ket left bond mismatch"
+    );
+    debug_assert_eq!(
+        bra_t.right, ket_t.right,
+        "overlap: bra/ket right bond mismatch"
+    );
+    let chi_l = ket_t.left;
+    let chi_r = ket_t.right;
+    debug_assert_eq!(left_env.shape(), (chi_l, chi_l));
+    let mut acc: DMatrix<Complex<F>> = DMatrix::zeros(chi_r, chi_r);
+    for p in 0..2 {
+        let mut ket_data = Vec::with_capacity(chi_l * chi_r);
+        let mut bra_data = Vec::with_capacity(chi_l * chi_r);
+        for a in 0..chi_l {
+            for c in 0..chi_r {
+                ket_data.push(ket_t.get(a, p, c));
+                bra_data.push(bra_t.get(a, p, c));
+            }
+        }
+        let m_ket = DMatrix::from_row_slice(chi_l, chi_r, &ket_data);
+        let m_bra = DMatrix::from_row_slice(chi_l, chi_r, &bra_data);
+        let m_bra_conj = m_bra.map(|c| c.conj());
+        acc += m_ket.transpose() * left_env * m_bra_conj;
+    }
+    acc
+}
+
 fn update_left_env<F: MpsScalar>(
     left_env: &DMatrix<Complex<F>>,
     t: &Tensor3<F>,
@@ -1155,6 +1384,174 @@ mod tests {
 
     fn approx_eq(a: Complex<f64>, b: Complex<f64>, eps: f64) -> bool {
         (a - b).norm() < eps
+    }
+
+    /// Dense reference: `⟨ψ|P|ψ⟩` from the statevector via the explicit
+    /// 2ⁿ × 2ⁿ Pauli matrix (little-endian Kron, qubit 0 = LSB).
+    fn dense_pauli_expectation(sv: &[Complex<f64>], paulis: &[u8]) -> Complex<f64> {
+        let n = paulis.len();
+        let dim = 1usize << n;
+        let p2 = |code: u8| -> DMatrix<Complex<f64>> {
+            let z = Complex::new(0.0, 0.0);
+            let o = Complex::new(1.0, 0.0);
+            let i = Complex::new(0.0, 1.0);
+            match code {
+                0 => DMatrix::from_row_slice(2, 2, &[o, z, z, o]),
+                1 => DMatrix::from_row_slice(2, 2, &[z, o, o, z]),
+                2 => DMatrix::from_row_slice(2, 2, &[z, -i, i, z]),
+                3 => DMatrix::from_row_slice(2, 2, &[o, z, z, -o]),
+                _ => unreachable!(),
+            }
+        };
+        // M = P_{n-1} ⊗ ... ⊗ P_0.
+        let mut m = DMatrix::<Complex<f64>>::identity(1, 1);
+        for q in (0..n).rev() {
+            m = m.kronecker(&p2(paulis[q]));
+        }
+        let psi = DMatrix::from_column_slice(dim, 1, sv);
+        let mpsi = &m * &psi;
+        let mut acc = Complex::new(0.0, 0.0);
+        for k in 0..dim {
+            acc += psi[(k, 0)].conj() * mpsi[(k, 0)];
+        }
+        acc
+    }
+
+    /// v0.7 regression: a sequence of adjacent SWAP / CNOT gates that left the
+    /// MPS non-normalised because nalgebra's default `.svd()` over-converged on
+    /// a near-rank-deficient bond matrix (returned a wrong singular value).
+    /// Fixed by loosening the SVD convergence epsilon in `CpuSvdProvider`.
+    /// Norm and statevector must stay correct throughout.
+    #[test]
+    fn svd_over_convergence_regression_norm_preserved() {
+        let z = Complex::new(0.0, 0.0);
+        let o = Complex::new(1.0, 0.0);
+        let s = 1.0 / 2.0_f64.sqrt();
+        let x2 = [[z, o], [o, z]];
+        let h2 = [
+            [Complex::new(s, 0.0), Complex::new(s, 0.0)],
+            [Complex::new(s, 0.0), Complex::new(-s, 0.0)],
+        ];
+        let swap = [[o, z, z, z], [z, z, o, z], [z, o, z, z], [z, z, z, o]];
+        let cx_ctrl_lo = [[o, z, z, z], [z, z, z, o], [z, z, o, z], [z, o, z, z]];
+        let cx_ctrl_hi = [[o, z, z, z], [z, o, z, z], [z, z, z, o], [z, z, o, z]];
+        let mut mps = MpsF64::new(3, 64);
+        mps.apply_one_qubit(&x2, 0);
+        mps.apply_two_qubit_adjacent(&cx_ctrl_lo, 1);
+        mps.apply_two_qubit_adjacent(&swap, 0);
+        mps.apply_two_qubit_adjacent(&cx_ctrl_hi, 0);
+        mps.apply_one_qubit(&h2, 1);
+        mps.apply_two_qubit_adjacent(&swap, 0);
+        assert!(
+            (mps.norm_squared() - 1.0).abs() < 1e-9,
+            "SWAP/SVD broke norm: {}",
+            mps.norm_squared()
+        );
+        // Expected final state: |q2=0, q1=1> ⊗ |−>_q0 → indices 2,3 = ±1/√2.
+        let sv = mps.statevector();
+        let expect = 1.0 / 2.0_f64.sqrt();
+        assert!((sv[2].re - expect).abs() < 1e-9);
+        assert!((sv[3].re + expect).abs() < 1e-9);
+        for (i, amp) in sv.iter().enumerate() {
+            if i != 2 && i != 3 {
+                assert!(amp.norm() < 1e-9, "spurious amplitude at {i}: {amp}");
+            }
+        }
+    }
+
+    #[test]
+    fn expectation_pauli_zero_state() {
+        let mps = MpsF64::new(2, 64);
+        assert!(approx_eq(
+            mps.expectation_pauli(&[3, 3]),
+            Complex::new(1.0, 0.0),
+            1e-12
+        ));
+        assert!(approx_eq(
+            mps.expectation_pauli(&[1, 1]),
+            Complex::new(0.0, 0.0),
+            1e-12
+        ));
+        assert!(approx_eq(
+            mps.expectation_pauli(&[0, 3]),
+            Complex::new(1.0, 0.0),
+            1e-12
+        ));
+    }
+
+    #[test]
+    fn expectation_pauli_bell_state() {
+        // Bell: H on q0, CNOT(control q0, target q1).
+        let mut mps = MpsF64::new(2, 64);
+        let s = 1.0 / 2.0_f64.sqrt();
+        let h = [
+            [Complex::new(s, 0.0), Complex::new(s, 0.0)],
+            [Complex::new(s, 0.0), Complex::new(-s, 0.0)],
+        ];
+        mps.apply_one_qubit(&h, 0);
+        // CNOT 4x4 (|q1 q0>, q0 LSB), control q0 target q1.
+        let z = Complex::new(0.0, 0.0);
+        let o = Complex::new(1.0, 0.0);
+        let cnot = [[o, z, z, z], [z, z, z, o], [z, z, o, z], [z, o, z, z]];
+        mps.apply_two_qubit_adjacent(&cnot, 0);
+        assert!(approx_eq(
+            mps.expectation_pauli(&[3, 3]),
+            Complex::new(1.0, 0.0),
+            1e-12
+        ));
+        assert!(approx_eq(
+            mps.expectation_pauli(&[1, 1]),
+            Complex::new(1.0, 0.0),
+            1e-12
+        ));
+        assert!(approx_eq(
+            mps.expectation_pauli(&[2, 2]),
+            Complex::new(-1.0, 0.0),
+            1e-12
+        ));
+    }
+
+    #[test]
+    fn expectation_pauli_matches_dense_random() {
+        // Random-ish circuit, compare expectation_pauli vs dense reference.
+        let mut mps = MpsF64::new(4, 64);
+        let angles = [0.3, 1.1, 2.2, 0.7, 1.9, 0.5];
+        let ry = |t: f64| {
+            let c = (t / 2.0).cos();
+            let s = (t / 2.0).sin();
+            [
+                [Complex::new(c, 0.0), Complex::new(-s, 0.0)],
+                [Complex::new(s, 0.0), Complex::new(c, 0.0)],
+            ]
+        };
+        for (q, &a) in angles.iter().take(4).enumerate() {
+            mps.apply_one_qubit(&ry(a), q);
+        }
+        // entangle adjacent pairs with CNOTs.
+        let z = Complex::new(0.0, 0.0);
+        let o = Complex::new(1.0, 0.0);
+        let cnot = [[o, z, z, z], [z, z, z, o], [z, z, o, z], [z, o, z, z]];
+        mps.apply_two_qubit_adjacent(&cnot, 0);
+        mps.apply_two_qubit_adjacent(&cnot, 1);
+        mps.apply_one_qubit(&ry(angles[4]), 2);
+        mps.apply_two_qubit_adjacent(&cnot, 2);
+
+        let sv = mps.statevector();
+        for paulis in [
+            [3u8, 3, 0, 0],
+            [1, 0, 1, 0],
+            [2, 2, 0, 0],
+            [3, 1, 2, 3],
+            [0, 0, 0, 3],
+            [1, 1, 1, 1],
+        ] {
+            let got = mps.expectation_pauli(&paulis);
+            let want = dense_pauli_expectation(&sv, &paulis);
+            assert!(
+                approx_eq(got, want, 1e-10),
+                "paulis {paulis:?}: mps {got} vs dense {want}"
+            );
+        }
     }
 
     #[test]

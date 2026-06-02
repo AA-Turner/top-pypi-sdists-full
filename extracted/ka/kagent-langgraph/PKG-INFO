@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kagent-langgraph
-Version: 0.9.4
+Version: 0.9.5
 Summary: LangGraph integration for KAgent with A2A server support
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
@@ -12,7 +12,7 @@ Requires-Dist: pydantic>=2.0.0
 Requires-Dist: typing-extensions>=4.0.0
 Requires-Dist: uvicorn>=0.20.0
 Requires-Dist: a2a-sdk>=0.3.23
-Requires-Dist: kagent-core>=0.9.4
+Requires-Dist: kagent-core>=0.9.5
 Requires-Dist: langsmith[otel]>=0.4.30
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0.0; extra == "dev"

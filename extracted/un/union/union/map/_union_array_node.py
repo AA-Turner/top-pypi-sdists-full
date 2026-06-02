@@ -60,6 +60,7 @@ class UnionArrayNode(ArrayNode):
 
         self.target = target
         self._concurrency = concurrency
+        self._run_all_sub_nodes = False
         self.id = target.name
         self._bindings = bindings or []
         self._bound_inputs = bound_inputs or {}

@@ -103,24 +103,17 @@ class NetworkInfo(DataClassORJSONMixin):
     ssid: str
     wifi_sta_mac: str
     wifi_rssi: int
-    wifi_available: int
     bt_mac: str
     mnet_model: str
     imei: str
     fw_ver: str
     sim: str
     imsi: str
-    iccid: str
-    sim_source: str
     mnet_rssi: int
     signal: int
     mnet_link: int
     mnet_option: str
     mnet_ip: str
-    mnet_reg: str
-    mnet_rsrp: str
-    mnet_snr: str
-    mnet_enable: int
     apn_info: str
     apn_cid: int
     used_net: int
@@ -128,20 +121,27 @@ class NetworkInfo(DataClassORJSONMixin):
     mnet_dis: int
     airplane_times: int
     lsusb_num: int
-    b_tra: Annotated[BandwidthTraffic, Alias("bTra")]
-    bw_tra: Annotated[BandwidthTraffic, Alias("bwTra")]
     mnet_rx: str
     mnet_tx: str
-    m_tra: Annotated[TrafficData, Alias("mTra")]
     mnet_uniot: int
     mnet_un_getiot: int
     ssh_flag: str
     mileage: str
     work_time: str
-    wt_sec: int
     bat_cycles: str
     ip: str = ""
     apn_num: int = 0
+    wifi_available: int = 0
+    iccid: str = ""
+    sim_source: str = ""
+    mnet_reg: str = ""
+    mnet_rsrp: str = ""
+    mnet_snr: str = ""
+    mnet_enable: int = 0
+    wt_sec: int = 0
+    b_tra: Annotated[BandwidthTraffic | None, Alias("bTra")] = None
+    bw_tra: Annotated[BandwidthTraffic | None, Alias("bwTra")] = None
+    m_tra: Annotated[TrafficData | None, Alias("mTra")] = None
 
 
 @dataclass
@@ -253,30 +253,36 @@ class CheckData(DataClassORJSONMixin):
 
 @dataclass
 class DeviceProperties(DataClassORJSONMixin):
-    """Full set of device properties received in a Mammotion direct-MQTT properties message."""
+    """Full set of device properties received in a Mammotion direct-MQTT properties message.
 
-    device_state: Annotated[int, Alias("deviceState")]
-    battery_percentage: Annotated[int, Alias("batteryPercentage")]
-    device_version: Annotated[str, Alias("deviceVersion")]
-    knife_height: Annotated[int, Alias("knifeHeight")]
-    lora_general_config: Annotated[str, Alias("loraGeneralConfig")]
-    ext_mod: Annotated[str, Alias("extMod")]
-    int_mod: Annotated[str, Alias("intMod")]
-    iot_state: Annotated[int, Alias("iotState")]
-    iot_msg_total: Annotated[int, Alias("iotMsgTotal")]
-    iot_msg_hz: Annotated[int, Alias("iotMsgHz")]
-    lt_mr_mod: Annotated[str, Alias("ltMrMod")]
-    rt_mr_mod: Annotated[str, Alias("rtMrMod")]
-    bms_hardware_version: Annotated[str, Alias("bmsHardwareVersion")]
-    stm32_h7_version: Annotated[str, Alias("stm32H7Version")]
-    mc_boot_version: Annotated[str, Alias("mcBootVersion")]
+    Every field is optional: devices send partial ``thing.event.property.post``
+    messages carrying as few as one or two fields at a time, so any
+    individual field may be absent from any given message.
+    """
 
-    # Nested JSON objects
-    device_version_info: Annotated[DeviceVersionInfo, Alias("deviceVersionInfo")]
-    coordinate: Coordinate
-    device_other_info: Annotated[DeviceOtherInfo, Alias("deviceOtherInfo")]
-    network_info: Annotated[NetworkInfo, Alias("networkInfo")]
-    check_data: Annotated[CheckData, Alias("checkData")]
+    device_state: Annotated[int, Alias("deviceState")] = 0
+    battery_percentage: Annotated[int, Alias("batteryPercentage")] = 0
+    device_version: Annotated[str, Alias("deviceVersion")] = ""
+    knife_height: Annotated[int, Alias("knifeHeight")] = 0
+    lora_general_config: Annotated[str, Alias("loraGeneralConfig")] = ""
+    ext_mod: Annotated[str, Alias("extMod")] = ""
+    int_mod: Annotated[str, Alias("intMod")] = ""
+    iot_state: Annotated[int, Alias("iotState")] = 0
+    iot_msg_total: Annotated[int, Alias("iotMsgTotal")] = 0
+    iot_msg_hz: Annotated[int, Alias("iotMsgHz")] = 0
+    lt_mr_mod: Annotated[str, Alias("ltMrMod")] = ""
+    rt_mr_mod: Annotated[str, Alias("rtMrMod")] = ""
+    bms_hardware_version: Annotated[str, Alias("bmsHardwareVersion")] = ""
+    stm32_h7_version: Annotated[str, Alias("stm32H7Version")] = ""
+    mc_boot_version: Annotated[str, Alias("mcBootVersion")] = ""
+
+    # Nested JSON objects — None when the device did not include the field
+    # on this particular property/post.
+    device_version_info: Annotated[DeviceVersionInfo | None, Alias("deviceVersionInfo")] = None
+    coordinate: Coordinate | None = None
+    device_other_info: Annotated[DeviceOtherInfo | None, Alias("deviceOtherInfo")] = None
+    network_info: Annotated[NetworkInfo | None, Alias("networkInfo")] = None
+    check_data: Annotated[CheckData | None, Alias("checkData")] = None
     iot_id: str = ""
     left_motor_version: Annotated[str, Alias("leftMotorVersion")] = ""
     right_motor_version: Annotated[str, Alias("rightMotorVersion")] = ""

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+import os
 import shlex
 import socket
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Literal, TypedDict
 from collections.abc import Mapping
 
@@ -13,6 +16,7 @@ from abx_plugins.plugins.base.utils import write_text_atomic
 
 SONIC_WORKER_NAME = "worker_sonic"
 SONIC_DAEMON_EVENT_TYPE = "SonicDaemonStartEvent"
+CONFIG_PATH = Path(__file__).with_name("config.json")
 
 
 class SonicSupervisorWorker(TypedDict):
@@ -84,6 +88,42 @@ def config_value(config: Mapping[str, Any] | Any, key: str, default: Any = None)
     return getattr(config, key, default)
 
 
+@lru_cache(maxsize=1)
+def _sonic_config_properties() -> dict[str, Any]:
+    data = json.loads(CONFIG_PATH.read_text())
+    properties = data.get("properties") if isinstance(data, dict) else {}
+    return dict(properties) if isinstance(properties, dict) else {}
+
+
+def _coerce_env_value(value: str, prop: Mapping[str, Any]) -> Any:
+    prop_type = prop.get("type")
+    if prop_type == "boolean":
+        return value.strip().lower() not in {"0", "false", "no", "off"}
+    if prop_type == "integer":
+        try:
+            return int(value)
+        except ValueError:
+            return prop.get("default", 0)
+    return value
+
+
+def load_sonic_config(environ: Mapping[str, str] | None = None) -> Any:
+    """Load the Sonic hot-path config without pydantic or binary hydration."""
+    env = os.environ if environ is None else environ
+    values: dict[str, Any] = {}
+    for key, prop in _sonic_config_properties().items():
+        aliases = prop.get("x-aliases") if isinstance(prop, Mapping) else []
+        env_keys = [key, *(aliases if isinstance(aliases, list) else [])]
+        raw_value = next((env[name] for name in env_keys if name in env), None)
+        if raw_value is None:
+            values[key] = prop.get("default") if isinstance(prop, Mapping) else ""
+        else:
+            values[key] = _coerce_env_value(raw_value, prop)
+    for key in ("ABX_RUNTIME", "CRAWL_DIR", "DATA_DIR", "EXTRA_CONTEXT", "SNAP_DIR"):
+        values[key] = env.get(key, "")
+    return SimpleNamespace(**values)
+
+
 def supervisord_environment(**values: Any) -> str:
     return ",".join(
         f"{key}={json.dumps(str(value))}"
@@ -93,8 +133,6 @@ def supervisord_environment(**values: Any) -> str:
 
 
 def is_sonic_backend_enabled(config: Mapping[str, Any] | Any) -> bool:
-    if config_value(config, "SEARCH_BACKEND_ENGINE") == "sonic":
-        return True
     return str(
         config_value(config, "SEARCH_BACKEND_SONIC_ENABLED", True),
     ).strip().lower() not in {

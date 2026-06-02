@@ -36,8 +36,10 @@ class SubscriptionPreviewAttributes:
         projected_total_cents (int): Projected final monthly total in cents after the change.
         changes (list[SubscriptionChangeProjection]): Per-product breakdown of changes the desired state would produce.
             Products that would remain unchanged are omitted.
-        total_charge_today_cents (int): Total amount that would be charged at confirmation time, in cents. The sum of
-            `prorated_charge_today_cents` across `IMMEDIATE` changes.
+        total_charge_today_cents (int): Total amount in cents that would be charged at confirmation time — the sum of
+            `prorated_charge_today_cents` across all changes. `0` when there is no immediate charge (for example when
+            changes apply to an already-active subscription and the prorated amounts are carried onto the next invoice
+            instead).
         next_invoice_total_cents (int): Projected total of the next monthly invoice in cents, after all scheduled
             changes have taken effect.
         projected_next_tier (NextTierResponse | Unset): Hint describing how the customer could unlock a better discount.

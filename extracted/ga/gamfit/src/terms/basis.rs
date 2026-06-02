@@ -17,8 +17,8 @@ use faer::Side;
 use faer::sparse::{SparseColMat, Triplet};
 use ndarray::parallel::prelude::*;
 use ndarray::{
-    Array, Array1, Array2, Array3, Array4, ArrayView1, ArrayView2, ArrayViewMut1, ArrayViewMut2,
-    Axis, s,
+    Array, Array1, Array2, Array3, Array4, Array5, ArrayView1, ArrayView2, ArrayViewMut1,
+    ArrayViewMut2, Axis, s,
 };
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -1949,7 +1949,19 @@ pub const fn default_spatial_center_strategy(num_centers: usize, d: usize) -> Ce
 }
 
 pub fn auto_spatial_center_strategy(num_centers: usize, d: usize) -> CenterStrategy {
-    CenterStrategy::Auto(Box::new(default_spatial_center_strategy(num_centers, d)))
+    let strategy = if d == 1 {
+        // In one dimension, farthest-point selection is the deterministic
+        // maximin grid over the observed domain. Equal-mass midpoints leave the
+        // low-frequency Duchon radial block slightly under-resolved at the
+        // boundaries, and REML then compensates with an over-smooth λ on
+        // low-noise signals (#504). The maximin grid matches the native
+        // reproducing-kernel interpolation geometry while keeping the existing
+        // equal-mass defaults for genuinely multivariate smooths.
+        CenterStrategy::FarthestPoint { num_centers }
+    } else {
+        default_spatial_center_strategy(num_centers, d)
+    };
+    CenterStrategy::Auto(Box::new(strategy))
 }
 
 pub const fn center_strategy_is_auto(strategy: &CenterStrategy) -> bool {
@@ -2251,6 +2263,35 @@ pub struct SphericalSplineBasisSpec {
     /// supported — they must be re-fit with the current encoding.
     #[serde(default)]
     pub wahba_kernel: SphereWahbaKernel,
+    /// Realized-design identifiability policy for the Wahba sphere (#532).
+    ///
+    /// The Wahba kernel design `K(data, centers) · z` spans the constant on the
+    /// data rows even after the center-space area-weighted sum-to-zero `z`
+    /// (`z` constrains `1ᵀ W α = 0` over the *centers*, not the realized rows).
+    /// In any model with a parametric intercept this collides with the global
+    /// intercept — the #531 constant-vs-intercept rank-1 collision class. The
+    /// fix (mirroring `MaternIdentifiability::FrozenTransform`) lets the global
+    /// identifiability pipeline compose a parametric-orthogonalization onto `z`
+    /// and freeze the composed transform here, so the predict-time rebuild
+    /// reuses the exact fit-time realized transform instead of recomputing `z`
+    /// from the centers (which would silently drop the orthogonalization).
+    #[serde(default)]
+    pub identifiability: SphericalSplineIdentifiability,
+}
+
+/// Realized-design identifiability policy for the Wahba spherical spline (#532).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub enum SphericalSplineIdentifiability {
+    /// Fit-time default: build the area-weighted center sum-to-zero transform
+    /// `z` from the realized centers, then let the global identifiability
+    /// pipeline residualize the realized design against the parametric block.
+    #[default]
+    CenterSumToZero,
+    /// Predict-time replay: use this frozen realized-design transform directly
+    /// (the composed `z · z_parametric` captured at fit time) instead of
+    /// recomputing `z` from the centers. `transform.nrows()` equals the number
+    /// of centers; `transform.ncols()` is the constrained smooth dimension.
+    FrozenTransform { transform: Array2<f64> },
 }
 
 impl Default for SphericalSplineBasisSpec {
@@ -2263,6 +2304,7 @@ impl Default for SphericalSplineBasisSpec {
             method: SphereMethod::Wahba,
             max_degree: None,
             wahba_kernel: SphereWahbaKernel::Sobolev,
+            identifiability: SphericalSplineIdentifiability::CenterSumToZero,
         }
     }
 }
@@ -2451,6 +2493,15 @@ pub enum OperatorPenaltySpec {
 
 impl Default for DuchonOperatorPenaltySpec {
     fn default() -> Self {
+        // ALL ON. The Duchon penalty is a Hilbert scale: curvature is the
+        // always-on exact RKHS `Primary` Gram and the trend ridge is always on;
+        // the lower orders — mass (amplitude `Σ(f−f̄)²`) and tension (first-order
+        // roughness `Σ‖∇f‖²`) — are active here, collocated on a density-blind
+        // data-support sample. REML deselects any the data don't support (SPEC:
+        // recover the null by default, opt INTO overfitting). Stiffness (`D2`)
+        // stays off — `Primary` is the exact, superior curvature. (The Matérn
+        // collocation overlay builds its own `all_active()`; SAE atoms, which
+        // ship only `Primary`, use `all_disabled()`.)
         Self {
             mass: OperatorPenaltySpec::Active {
                 initial_log_lambda: 0.0,
@@ -2460,10 +2511,30 @@ impl Default for DuchonOperatorPenaltySpec {
                 initial_log_lambda: 0.0,
                 prior: None,
             },
-            stiffness: OperatorPenaltySpec::Active {
-                initial_log_lambda: 0.0,
-                prior: None,
-            },
+            stiffness: OperatorPenaltySpec::Disabled,
+        }
+    }
+}
+
+impl DuchonOperatorPenaltySpec {
+    pub fn all_disabled() -> Self {
+        Self {
+            mass: OperatorPenaltySpec::Disabled,
+            tension: OperatorPenaltySpec::Disabled,
+            stiffness: OperatorPenaltySpec::Disabled,
+        }
+    }
+
+    /// All three operator dials active — used by the Matérn collocation overlay.
+    pub fn all_active() -> Self {
+        let active = || OperatorPenaltySpec::Active {
+            initial_log_lambda: 0.0,
+            prior: None,
+        };
+        Self {
+            mass: active(),
+            tension: active(),
+            stiffness: active(),
         }
     }
 }
@@ -2832,7 +2903,17 @@ pub enum PenaltySource {
     OperatorMass,
     OperatorTension,
     OperatorStiffness,
-    TensorMarginal { dim: usize },
+    /// One per input axis `a` of a multivariate Duchon smooth: the gradient
+    /// energy along axis `a`, `Σ(∂f/∂x_a)²`, each with its own REML λ_a. REML
+    /// shrinks an axis's contribution toward flat only when it does not earn
+    /// its keep — penalty-based ARD / variable relevance, the replacement for
+    /// brittle kernel-η optimization. Emitted when `scale_dims` is on.
+    OperatorRelevance {
+        axis: usize,
+    },
+    TensorMarginal {
+        dim: usize,
+    },
     TensorGlobalRidge,
     Other(String),
 }
@@ -5220,20 +5301,6 @@ impl ImplicitDesignPsiDerivative {
 
     fn with_psi_scale_share(mut self, psi_scale_share: f64) -> Self {
         self.psi_scale_share = psi_scale_share;
-        self
-    }
-
-    fn with_axis_combinations(mut self, axis_combinations: Vec<Vec<(usize, f64)>>) -> Self {
-        for combo in &axis_combinations {
-            for &(raw_axis, _) in combo {
-                assert!(
-                    raw_axis < self.n_axes,
-                    "transformed psi-axis combination references raw axis out of bounds: raw_axis={raw_axis}, n_axes={}",
-                    self.n_axes
-                );
-            }
-        }
-        self.axis_combinations = Some(axis_combinations);
         self
     }
 
@@ -9311,7 +9378,7 @@ fn validated_kronecker_factors(
 }
 
 /// Build the double-penalty ridge from the structural null space of a PSD penalty.
-fn build_nullspace_shrinkage_penalty(
+pub(crate) fn build_nullspace_shrinkage_penalty(
     penalty: &Array2<f64>,
 ) -> Result<Option<CanonicalPenaltyBlock>, BasisError> {
     if penalty.nrows() != penalty.ncols() {
@@ -10893,856 +10960,6 @@ fn build_matern_operator_penalty_aniso_derivatives(
 /// isotropic scaling law. After assembling the shape-only pieces, this routine
 /// adds the exact raw-`psi` isotropic-share correction implied by
 /// `phi(r; kappa) = kappa^delta H(kappa r)`.
-struct DuchonCrossPenaltyContext {
-    centers: Array2<f64>,
-    length_scale: Option<f64>,
-    p_order: usize,
-    s_order: usize,
-    pure_block_order: usize,
-    coeffs: Option<DuchonPartialFractionCoeffs>,
-    aniso_log_scales: Vec<f64>,
-    z_kernel: Array2<f64>,
-    poly_cols: usize,
-    identifiability_transform: Option<Array2<f64>>,
-    penaltyinfo: Vec<PenaltyInfo>,
-    d0: Array2<f64>,
-    d1: Array2<f64>,
-    d2: Array2<f64>,
-    d0_eta_proj: Vec<Array2<f64>>,
-    d1_eta_proj: Vec<Array2<f64>>,
-    d2_eta_proj: Vec<Array2<f64>>,
-    op0_s_raw: Array2<f64>,
-    op1_s_raw: Array2<f64>,
-    op2_s_raw: Array2<f64>,
-    op0_c: f64,
-    op1_c: f64,
-    op2_c: f64,
-    op0_s_first_raw: Vec<Array2<f64>>,
-    op1_s_first_raw: Vec<Array2<f64>>,
-    op2_s_first_raw: Vec<Array2<f64>>,
-    // Closed-form cross-axis matrices per q. When `Some`, `compute_pair`
-    // returns the precomputed closed-form cross-axis derivative for that q
-    // and bypasses both `gram_cross_psi_derivative_from_operator` and the
-    // value_share/operator_share corrections (those corrections are for the
-    // centered-η chain rule used by collocation; the closed-form path uses
-    // raw η directly per math team Letter A §9). Indexed [a][b] across all
-    // (a, b) pairs (symmetric).
-    op0_cf_cross_raw: Option<Vec<Vec<Array2<f64>>>>,
-    op1_cf_cross_raw: Option<Vec<Vec<Array2<f64>>>>,
-    op2_cf_cross_raw: Option<Vec<Vec<Array2<f64>>>>,
-}
-
-impl DuchonCrossPenaltyContext {
-    fn project_operator(&self, mat: &Array2<f64>, row_dim: usize) -> Array2<f64> {
-        let kernel_cols = mat.ncols();
-        let total_cols = kernel_cols + self.poly_cols;
-        let mut padded = Array2::<f64>::zeros((row_dim, total_cols));
-        padded.slice_mut(s![.., 0..kernel_cols]).assign(mat);
-        if let Some(z) = self.identifiability_transform.as_ref() {
-            fast_ab(&padded, z)
-        } else {
-            padded
-        }
-    }
-
-    fn compute_pair(&self, axis_a: usize, axis_b: usize) -> Result<Vec<Array2<f64>>, BasisError> {
-        if axis_a >= self.aniso_log_scales.len() || axis_b >= self.aniso_log_scales.len() {
-            crate::bail_invalid_basis!(
-                "Duchon cross-penalty pair out of bounds: ({axis_a}, {axis_b}) for dim={}",
-                self.aniso_log_scales.len()
-            );
-        }
-        if axis_a == axis_b {
-            crate::bail_invalid_basis!(
-                "Duchon cross-penalty pair must use distinct axes, got ({axis_a}, {axis_b})"
-            );
-        }
-
-        let p = self.centers.nrows();
-        let d = self.centers.ncols();
-        let z_cols = self.z_kernel.ncols();
-        let metric_weights = centered_aniso_metric_weights(&self.aniso_log_scales);
-
-        let mut d0_raw_eta_cross = Array2::<f64>::zeros((p, z_cols));
-        let mut d1_raw_eta_cross = Array2::<f64>::zeros((p * d, z_cols));
-        let mut d2_raw_eta_cross = Array2::<f64>::zeros((p * d * d, z_cols));
-
-        for k in 0..p {
-            for j in 0..p {
-                let ci: Vec<f64> = (0..d).map(|a| self.centers[[k, a]]).collect();
-                let cj: Vec<f64> = (0..d).map(|a| self.centers[[j, a]]).collect();
-                let (r, s_vec) = aniso_distance_and_components(&ci, &cj, &self.aniso_log_scales);
-                let (_, _q, t, dt_dr, d2t_dr2) = if let Some(length_scale) = self.length_scale {
-                    let jets = duchon_radial_jets(
-                        r,
-                        length_scale,
-                        self.p_order,
-                        self.s_order,
-                        d,
-                        self.coeffs
-                            .as_ref()
-                            .expect("hybrid Duchon partial-fraction coefficients"),
-                    )?;
-                    (jets.phi, jets.q, jets.t, jets.t_r, jets.t_rr)
-                } else {
-                    let phi = polyharmonic_kernel(r, (self.pure_block_order) as f64, d);
-                    let (q, t, dt_dr, d2t_dr2) = duchon_polyharmonic_operator_block_jets(
-                        r,
-                        self.pure_block_order as f64,
-                        d,
-                    )?;
-                    (phi, q, t, dt_dr, d2t_dr2)
-                };
-                for col in 0..z_cols {
-                    let z_jc = self.z_kernel[[j, col]];
-                    let s_a = s_vec[axis_a];
-                    let s_b = s_vec[axis_b];
-                    let sa_sb = s_a * s_b;
-
-                    // At r=0 (center collisions) the displacement components
-                    // h vanish, so s_a = s_b = 0 and the limit of every cross
-                    // term is 0. Skip the t·s·s and h·h products explicitly to
-                    // avoid 0·∞ producing NaN for pure polyharmonic kernels
-                    // that have t→∞ at the origin.
-                    if r <= 1e-14 {
-                        continue;
-                    }
-                    d0_raw_eta_cross[[k, col]] += t * sa_sb * z_jc;
-
-                    for axis in 0..d {
-                        let h_l = ci[axis] - cj[axis];
-                        let w_l = metric_weights[axis];
-                        let row = k * d + axis;
-                        let base = dt_dr * sa_sb / r;
-                        let d1_cross = if axis == axis_a {
-                            (base + 2.0 * t * s_b) * w_l * h_l
-                        } else if axis == axis_b {
-                            (base + 2.0 * t * s_a) * w_l * h_l
-                        } else {
-                            base * w_l * h_l
-                        };
-                        d1_raw_eta_cross[[row, col]] += d1_cross * z_jc;
-                    }
-
-                    for b in 0..d {
-                        let h_b = ci[b] - cj[b];
-                        let w_b = metric_weights[b];
-                        for c in 0..d {
-                            let h_c = ci[c] - cj[c];
-                            let w_c = metric_weights[c];
-                            let row = (k * d + b) * d + c;
-                            d2_raw_eta_cross[[row, col]] += hessian_operator_eta_cross_entry(
-                                t, dt_dr, d2t_dr2, r, s_a, s_b, h_b, h_c, w_b, w_c, axis_a, axis_b,
-                                b, c,
-                            ) * z_jc;
-                        }
-                    }
-                }
-            }
-        }
-
-        let value_share = duchon_scaling_exponent(self.p_order, self.s_order, d) / d as f64;
-        let operator_share =
-            duchon_operator_scaling_exponent(self.p_order, self.s_order, d) / d as f64;
-
-        let mut d0_cross_proj = self.project_operator(&d0_raw_eta_cross, p);
-        if value_share != 0.0 {
-            d0_cross_proj +=
-                &((&self.d0_eta_proj[axis_a] + &self.d0_eta_proj[axis_b]) * value_share);
-            d0_cross_proj -= &(&self.d0 * (value_share * value_share));
-        }
-        let mut d1_cross_proj = self.project_operator(&d1_raw_eta_cross, p * d);
-        if operator_share != 0.0 {
-            d1_cross_proj +=
-                &((&self.d1_eta_proj[axis_a] + &self.d1_eta_proj[axis_b]) * operator_share);
-            d1_cross_proj -= &(&self.d1 * (operator_share * operator_share));
-        }
-        let mut d2_cross_proj = self.project_operator(&d2_raw_eta_cross, p * d * d);
-        if operator_share != 0.0 {
-            d2_cross_proj +=
-                &((&self.d2_eta_proj[axis_a] + &self.d2_eta_proj[axis_b]) * operator_share);
-            d2_cross_proj -= &(&self.d2 * (operator_share * operator_share));
-        }
-
-        // Per-q cross-axis Gram derivative source: closed-form (precomputed
-        // from `pair_block_radial_with_j_second_derivatives` raw-η Hessian)
-        // when `op_q_cf_cross_raw` is `Some`; collocation otherwise. Both
-        // routes feed `normalize_penalty_cross_psi_derivative` with the
-        // matching `op_q_s_raw` and `op_q_s_first_raw` already substituted
-        // upstream so the source is consistent within each q.
-        let cross_gram_q0 = if let Some(cf) = &self.op0_cf_cross_raw {
-            cf[axis_a][axis_b].clone()
-        } else {
-            gram_cross_psi_derivative_from_operator(
-                &self.d0,
-                &self.d0_eta_proj[axis_a],
-                &self.d0_eta_proj[axis_b],
-                &d0_cross_proj,
-            )
-        };
-        let cross_gram_q1 = if let Some(cf) = &self.op1_cf_cross_raw {
-            cf[axis_a][axis_b].clone()
-        } else {
-            gram_cross_psi_derivative_from_operator(
-                &self.d1,
-                &self.d1_eta_proj[axis_a],
-                &self.d1_eta_proj[axis_b],
-                &d1_cross_proj,
-            )
-        };
-        let cross_gram_q2 = if let Some(cf) = &self.op2_cf_cross_raw {
-            cf[axis_a][axis_b].clone()
-        } else {
-            gram_cross_psi_derivative_from_operator(
-                &self.d2,
-                &self.d2_eta_proj[axis_a],
-                &self.d2_eta_proj[axis_b],
-                &d2_cross_proj,
-            )
-        };
-        let s0_cross = normalize_penalty_cross_psi_derivative(
-            &self.op0_s_raw,
-            &self.op0_s_first_raw[axis_a],
-            &self.op0_s_first_raw[axis_b],
-            &cross_gram_q0,
-            self.op0_c,
-        );
-        let s1_cross = normalize_penalty_cross_psi_derivative(
-            &self.op1_s_raw,
-            &self.op1_s_first_raw[axis_a],
-            &self.op1_s_first_raw[axis_b],
-            &cross_gram_q1,
-            self.op1_c,
-        );
-        let s2_cross = normalize_penalty_cross_psi_derivative(
-            &self.op2_s_raw,
-            &self.op2_s_first_raw[axis_a],
-            &self.op2_s_first_raw[axis_b],
-            &cross_gram_q2,
-            self.op2_c,
-        );
-
-        active_operator_penalty_derivatives(
-            &self.penaltyinfo,
-            &[s0_cross, s1_cross, s2_cross],
-            "Duchon-aniso-cross",
-        )
-    }
-}
-
-fn build_duchon_operator_penalty_aniso_derivatives(
-    centers: ArrayView2<'_, f64>,
-    length_scale: Option<f64>,
-    power: f64,
-    nullspace_order: DuchonNullspaceOrder,
-    aniso_log_scales: &[f64],
-    identifiability_transform: Option<&Array2<f64>>,
-    operator_penalties: &DuchonOperatorPenaltySpec,
-    workspace: &mut BasisWorkspace,
-) -> Result<
-    (
-        Vec<(Vec<Array2<f64>>, Vec<Array2<f64>>)>,
-        Vec<(usize, usize)>,
-        AnisoPenaltyCrossProvider,
-    ),
-    BasisError,
-> {
-    let nullspace_order = duchon_effective_nullspace_order(centers, nullspace_order);
-    // Notation and conventions:
-    //   ψ_b = aniso_log_scales[b] (log-scale parameter for axis b)
-    //   w_b = exp(2ψ_b)  (metric weight for axis b)
-    //   h_b = x_b - c_b  (coordinate displacement)
-    //   s_b = w_b · h_b²  (UNNORMALIZED axis component; note Σ_b s_b = r²)
-    //   q = φ_r / r       (radial jet scalar)
-    //   t = (φ_rr - q) / r² = q_r / r  (second radial jet scalar)
-    //
-    // The operators D₀, D₁, D₂ are:
-    //   D₀: φ(r)                              (magnitude/mass)
-    //   D₁_b: ∂φ/∂x_b = q · w_b · h_b        (gradient component b)
-    //   D2_bc: ∂²φ/∂x_b∂x_c =
-    //          δ_bc w_b q + (w_b h_b)(w_c h_c)t
-    //
-    // Key ψ-derivatives (using unnormalized s_b):
-    //   ∂r/∂ψ_a = s_a / r,  ∂q/∂ψ_a = t·s_a,  ∂s_b/∂ψ_a = 2·δ_{ab}·s_b,
-    //   ∂w_b/∂ψ_a = 2·δ_{ab}·w_b
-    let p = centers.nrows();
-    let d = centers.ncols();
-    let dim = aniso_log_scales.len();
-    assert_eq!(dim, d);
-
-    let p_order = duchon_p_from_nullspace_order(nullspace_order);
-    let s_order = duchon_power_to_usize(power);
-    validate_duchon_collocation_orders(
-        length_scale,
-        p_order,
-        s_order as f64,
-        d,
-        duchon_max_active_operator_derivative_order(operator_penalties),
-    )?;
-    let coeffs = length_scale
-        .map(|scale| duchon_partial_fraction_coeffs(p_order, s_order, 1.0 / scale.max(1e-300)));
-    let pure_block_order = pure_duchon_block_order(p_order, s_order as f64) as usize;
-
-    let z_kernel = kernel_constraint_nullspace(centers, nullspace_order, &mut workspace.cache)?;
-    let z_cols = z_kernel.ncols();
-
-    // Raw operator matrices and their per-axis derivatives (in kernel-Z space).
-    let mut d0_raw = Array2::<f64>::zeros((p, z_cols));
-    let mut d1_raw = Array2::<f64>::zeros((p * d, z_cols));
-    let mut d2_raw = Array2::<f64>::zeros((p * d * d, z_cols));
-    let mut d0_raw_eta: Vec<Array2<f64>> = (0..dim).map(|_| Array2::zeros((p, z_cols))).collect();
-    let mut d1_raw_eta: Vec<Array2<f64>> =
-        (0..dim).map(|_| Array2::zeros((p * d, z_cols))).collect();
-    let mut d2_raw_eta: Vec<Array2<f64>> = (0..dim)
-        .map(|_| Array2::zeros((p * d * d, z_cols)))
-        .collect();
-    let mut d0_raw_eta2: Vec<Array2<f64>> = (0..dim).map(|_| Array2::zeros((p, z_cols))).collect();
-    let mut d1_raw_eta2: Vec<Array2<f64>> =
-        (0..dim).map(|_| Array2::zeros((p * d, z_cols))).collect();
-    let mut d2_raw_eta2: Vec<Array2<f64>> = (0..dim)
-        .map(|_| Array2::zeros((p * d * d, z_cols)))
-        .collect();
-    // Cross-derivative operator matrices for pairs (a, b) with a < b.
-    let mut cross_pairs: Vec<(usize, usize)> = Vec::with_capacity(dim * (dim - 1) / 2);
-    for a_idx in 0..dim {
-        for b_idx in (a_idx + 1)..dim {
-            cross_pairs.push((a_idx, b_idx));
-        }
-    }
-
-    let metric_weights = centered_aniso_metric_weights(aniso_log_scales);
-
-    struct DuchonAnisoRawChunk {
-        k_start: usize,
-        k_end: usize,
-        d0_raw: Array2<f64>,
-        d1_raw: Array2<f64>,
-        d2_raw: Array2<f64>,
-        d0_raw_eta: Vec<Array2<f64>>,
-        d1_raw_eta: Vec<Array2<f64>>,
-        d2_raw_eta: Vec<Array2<f64>>,
-        d0_raw_eta2: Vec<Array2<f64>>,
-        d1_raw_eta2: Vec<Array2<f64>>,
-        d2_raw_eta2: Vec<Array2<f64>>,
-    }
-
-    let n_workers = rayon::current_num_threads().max(1);
-    let n_chunks = p.min(n_workers * 4).max(1);
-    let rows_per_chunk = p.div_ceil(n_chunks).max(1);
-    let row_chunks: Vec<(usize, usize)> = (0..p)
-        .step_by(rows_per_chunk)
-        .map(|k_start| (k_start, (k_start + rows_per_chunk).min(p)))
-        .collect();
-
-    let mut raw_chunks: Vec<DuchonAnisoRawChunk> = row_chunks
-        .into_par_iter()
-        .map(
-            |(k_start, k_end)| -> Result<DuchonAnisoRawChunk, BasisError> {
-                let chunk_p = k_end - k_start;
-                let mut chunk = DuchonAnisoRawChunk {
-                    k_start,
-                    k_end,
-                    d0_raw: Array2::<f64>::zeros((chunk_p, z_cols)),
-                    d1_raw: Array2::<f64>::zeros((chunk_p * d, z_cols)),
-                    d2_raw: Array2::<f64>::zeros((chunk_p * d * d, z_cols)),
-                    d0_raw_eta: (0..dim).map(|_| Array2::zeros((chunk_p, z_cols))).collect(),
-                    d1_raw_eta: (0..dim)
-                        .map(|_| Array2::zeros((chunk_p * d, z_cols)))
-                        .collect(),
-                    d2_raw_eta: (0..dim)
-                        .map(|_| Array2::zeros((chunk_p * d * d, z_cols)))
-                        .collect(),
-                    d0_raw_eta2: (0..dim).map(|_| Array2::zeros((chunk_p, z_cols))).collect(),
-                    d1_raw_eta2: (0..dim)
-                        .map(|_| Array2::zeros((chunk_p * d, z_cols)))
-                        .collect(),
-                    d2_raw_eta2: (0..dim)
-                        .map(|_| Array2::zeros((chunk_p * d * d, z_cols)))
-                        .collect(),
-                };
-
-                for k in k_start..k_end {
-                    let k_local = k - k_start;
-                    let ci: Vec<f64> = (0..d).map(|a| centers[[k, a]]).collect();
-                    for j in 0..p {
-                        let cj: Vec<f64> = (0..d).map(|a| centers[[j, a]]).collect();
-                        let (r, s_vec) = aniso_distance_and_components(&ci, &cj, aniso_log_scales);
-
-                        // Get the Duchon radial jets, including the exact off-origin
-                        // derivatives of t = R²φ needed for D₁/D₂ anisotropic penalties.
-                        let (phi, q, t, dt_dr, d2t_dr2) = if let Some(length_scale) = length_scale {
-                            let jets = duchon_radial_jets(
-                                r,
-                                length_scale,
-                                p_order,
-                                s_order,
-                                d,
-                                coeffs
-                                    .as_ref()
-                                    .expect("hybrid Duchon partial-fraction coefficients"),
-                            )?;
-                            (jets.phi, jets.q, jets.t, jets.t_r, jets.t_rr)
-                        } else {
-                            let phi = polyharmonic_kernel(r, (pure_block_order) as f64, d);
-                            let (q, t, dt_dr, d2t_dr2) = duchon_polyharmonic_operator_block_jets(
-                                r,
-                                pure_block_order as f64,
-                                d,
-                            )?;
-                            (phi, q, t, dt_dr, d2t_dr2)
-                        };
-
-                        // Fill raw operator matrices (projected through Z_kernel).
-                        for col in 0..z_cols {
-                            let z_jc = z_kernel[[j, col]];
-                            chunk.d0_raw[[k_local, col]] += phi * z_jc;
-
-                            // D₁: anisotropic gradient components.
-                            //   ∂φ/∂x_b = φ_r · ∂r/∂x_b = (φ_r/r) · w_b · h_b = q · w_b · h_b
-                            // where w_b = exp(2ψ_b) is the metric weight for axis b.
-                            for b in 0..d {
-                                let h_b = ci[b] - cj[b];
-                                let w_b = metric_weights[b];
-                                chunk.d1_raw[[k_local * d + b, col]] += q * w_b * h_b * z_jc;
-                            }
-
-                            for b in 0..d {
-                                let h_b = ci[b] - cj[b];
-                                let w_b = metric_weights[b];
-                                for c in 0..d {
-                                    let h_c = ci[c] - cj[c];
-                                    let w_c = metric_weights[c];
-                                    let row = (k_local * d + b) * d + c;
-                                    // At center collisions (r=0) the kernel gradient
-                                    // h vanishes but `t` may be a (signed) infinity for
-                                    // pure polyharmonic kernels (e.g. r³ in dim 3 has
-                                    // t = 3c/r → ±∞ at r=0). Multiplying yields NaN
-                                    // even though the limit `(w_b h_b)(w_c h_c)·t` is
-                                    // 0. Skip the mixed Hessian term when r is at
-                                    // center collision so D2_raw stays finite; only the
-                                    // diagonal δ_{bc}·w_b·q survives in the limit.
-                                    let entry = if r <= 1e-14 {
-                                        if b == c { w_b * q } else { 0.0 }
-                                    } else {
-                                        hessian_operator_entry(q, t, h_b, h_c, w_b, w_c, b, c)
-                                    };
-                                    chunk.d2_raw[[row, col]] += entry * z_jc;
-                                }
-                            }
-
-                            // Per-axis η_a derivatives.
-                            for a in 0..dim {
-                                let s_a = s_vec[a];
-                                let w_a = metric_weights[a];
-
-                                if r <= 1e-14 {
-                                    for b in 0..d {
-                                        for c in 0..d {
-                                            let row = (k_local * d + b) * d + c;
-                                            if b == c && a == b {
-                                                chunk.d2_raw_eta[a][[row, col]] +=
-                                                    2.0 * q * w_a * z_jc;
-                                                chunk.d2_raw_eta2[a][[row, col]] +=
-                                                    4.0 * q * w_a * z_jc;
-                                            }
-                                        }
-                                    }
-                                    continue;
-                                }
-
-                                // D₀ derivatives (unchanged — chain rule through r only).
-                                chunk.d0_raw_eta[a][[k_local, col]] += q * s_a * z_jc;
-                                chunk.d0_raw_eta2[a][[k_local, col]] +=
-                                    (t * s_a * s_a + 2.0 * q * s_a) * z_jc;
-
-                                // D₁ derivatives.
-                                // Base D₁_b = q · w_b · h_b.
-                                //
-                                // First derivative:
-                                //   ∂D₁_b/∂ψ_a = (∂q/∂ψ_a) · w_b · h_b + q · (∂w_b/∂ψ_a) · h_b
-                                //   ∂q/∂ψ_a = q_r · (s_a/r) = t · s_a  (since t = q_r/r)
-                                //   ∂w_b/∂ψ_a = 2 · δ_{ab} · w_b
-                                //
-                                //   = w_b · h_b · (t · s_a + 2 · δ_{ab} · q)
-                                //
-                                // Second derivative (diagonal):
-                                //   ∂²D₁_b/∂ψ_a² = ∂/∂ψ_a [w_b · h_b · (t·s_a + 2·δ_{ab}·q)]
-                                //   For a != b: w_b · h_b · (dt_dr·s_a²/r + 2·t·s_a)
-                                //   For a == b: w_a · h_a · (dt_dr·s_a²/r + 6·t·s_a + 4·q)
-                                for b in 0..d {
-                                    let h_b = ci[b] - cj[b];
-                                    let w_b = metric_weights[b];
-                                    let row = k_local * d + b;
-
-                                    let d1_first = if a == b {
-                                        w_b * h_b * (t * s_a + 2.0 * q)
-                                    } else {
-                                        w_b * h_b * t * s_a
-                                    };
-                                    chunk.d1_raw_eta[a][[row, col]] += d1_first * z_jc;
-
-                                    let d1_eta2_val = if a == b {
-                                        w_b * h_b
-                                            * (dt_dr * s_a * s_a / r + 6.0 * t * s_a + 4.0 * q)
-                                    } else {
-                                        w_b * h_b * (dt_dr * s_a * s_a / r + 2.0 * t * s_a)
-                                    };
-                                    chunk.d1_raw_eta2[a][[row, col]] += d1_eta2_val * z_jc;
-                                }
-
-                                for b in 0..d {
-                                    let h_b = ci[b] - cj[b];
-                                    let w_b = metric_weights[b];
-                                    for c in 0..d {
-                                        let h_c = ci[c] - cj[c];
-                                        let w_c = metric_weights[c];
-                                        let row = (k_local * d + b) * d + c;
-                                        chunk.d2_raw_eta[a][[row, col]] +=
-                                            hessian_operator_eta_entry(
-                                                q, t, dt_dr, r, s_a, h_b, h_c, w_b, w_c, a, b, c,
-                                            ) * z_jc;
-                                        chunk.d2_raw_eta2[a][[row, col]] +=
-                                            hessian_operator_eta2_entry(
-                                                q, t, dt_dr, d2t_dr2, r, s_a, h_b, h_c, w_b, w_c,
-                                                a, b, c,
-                                            ) * z_jc;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Ok(chunk)
-            },
-        )
-        .collect::<Result<Vec<_>, _>>()?;
-    raw_chunks.sort_by_key(|chunk| chunk.k_start);
-
-    // Deterministically reduce row chunks in increasing row order. Each chunk
-    // owns a disjoint band of output rows, so reduction is assignment rather
-    // than floating-point addition across worker-local buffers.
-    for chunk in raw_chunks {
-        let k_range = chunk.k_start..chunk.k_end;
-        let d1_range = (chunk.k_start * d)..(chunk.k_end * d);
-        let d2_range = (chunk.k_start * d * d)..(chunk.k_end * d * d);
-
-        d0_raw
-            .slice_mut(s![k_range.clone(), ..])
-            .assign(&chunk.d0_raw);
-        d1_raw
-            .slice_mut(s![d1_range.clone(), ..])
-            .assign(&chunk.d1_raw);
-        d2_raw
-            .slice_mut(s![d2_range.clone(), ..])
-            .assign(&chunk.d2_raw);
-
-        for a in 0..dim {
-            d0_raw_eta[a]
-                .slice_mut(s![k_range.clone(), ..])
-                .assign(&chunk.d0_raw_eta[a]);
-            d1_raw_eta[a]
-                .slice_mut(s![d1_range.clone(), ..])
-                .assign(&chunk.d1_raw_eta[a]);
-            d2_raw_eta[a]
-                .slice_mut(s![d2_range.clone(), ..])
-                .assign(&chunk.d2_raw_eta[a]);
-            d0_raw_eta2[a]
-                .slice_mut(s![k_range.clone(), ..])
-                .assign(&chunk.d0_raw_eta2[a]);
-            d1_raw_eta2[a]
-                .slice_mut(s![d1_range.clone(), ..])
-                .assign(&chunk.d1_raw_eta2[a]);
-            d2_raw_eta2[a]
-                .slice_mut(s![d2_range.clone(), ..])
-                .assign(&chunk.d2_raw_eta2[a]);
-        }
-    }
-
-    let apply_raw_psi_scaling = |base: &Array2<f64>,
-                                 first: &mut Vec<Array2<f64>>,
-                                 second: &mut Vec<Array2<f64>>,
-                                 coeff: f64| {
-        if coeff == 0.0 {
-            return;
-        }
-        let first_shape = first.clone();
-        for a in 0..dim {
-            first[a] += &(base * coeff);
-            second[a] += &(&first_shape[a] * (2.0 * coeff));
-            second[a] += &(base * (coeff * coeff));
-        }
-    };
-
-    let value_share = duchon_scaling_exponent(p_order, s_order, d) / d as f64;
-    let operator_share = duchon_operator_scaling_exponent(p_order, s_order, d) / d as f64;
-    apply_raw_psi_scaling(&d0_raw, &mut d0_raw_eta, &mut d0_raw_eta2, value_share);
-    apply_raw_psi_scaling(&d1_raw, &mut d1_raw_eta, &mut d1_raw_eta2, operator_share);
-    apply_raw_psi_scaling(&d2_raw, &mut d2_raw_eta, &mut d2_raw_eta2, operator_share);
-
-    let poly_cols = polynomial_block_from_order(centers, nullspace_order).ncols();
-
-    let project_operator = |mat: &Array2<f64>, row_dim: usize| -> Array2<f64> {
-        let kernel_cols = mat.ncols();
-        let total_cols = kernel_cols + poly_cols;
-        let mut padded = Array2::<f64>::zeros((row_dim, total_cols));
-        padded.slice_mut(s![.., 0..kernel_cols]).assign(mat);
-        if let Some(z) = identifiability_transform {
-            fast_ab(&padded, z)
-        } else {
-            padded
-        }
-    };
-
-    // The polynomial tail is the Duchon nullspace. It belongs in the model
-    // design, but not in operator penalties; otherwise broad polynomial
-    // trends get regularized and the smooth cannot freely absorb global PC
-    // shifts.
-    let d0 = project_operator(&d0_raw, p);
-    let d1 = project_operator(&d1_raw, p * d);
-    let d2 = project_operator(&d2_raw, p * d * d);
-    let d0_eta_proj: Vec<Array2<f64>> = d0_raw_eta.iter().map(|m| project_operator(m, p)).collect();
-    let d1_eta_proj: Vec<Array2<f64>> = d1_raw_eta
-        .iter()
-        .map(|m| project_operator(m, p * d))
-        .collect();
-    let d2_eta_proj: Vec<Array2<f64>> = d2_raw_eta
-        .iter()
-        .map(|m| project_operator(m, p * d * d))
-        .collect();
-    let d0_eta2_proj: Vec<Array2<f64>> =
-        d0_raw_eta2.iter().map(|m| project_operator(m, p)).collect();
-    let d1_eta2_proj: Vec<Array2<f64>> = d1_raw_eta2
-        .iter()
-        .map(|m| project_operator(m, p * d))
-        .collect();
-    let d2_eta2_proj: Vec<Array2<f64>> = d2_raw_eta2
-        .iter()
-        .map(|m| project_operator(m, p * d * d))
-        .collect();
-    // Build raw Gram penalties (axis-independent) and per-axis derivatives + norms,
-    // using the same PerOperatorInfo pattern as the Matérn case.
-    struct PerOperatorInfo {
-        s_raw: Array2<f64>,
-        c: f64,
-        s_first: Vec<Array2<f64>>,
-        s_second: Vec<Array2<f64>>,
-        s_first_raw: Vec<Array2<f64>>,
-    }
-
-    let compute_operator_info =
-        |d_op: &Array2<f64>, d_eta: &[Array2<f64>], d_eta2: &[Array2<f64>]| -> PerOperatorInfo {
-            let s_raw = symmetrize(&fast_ata(d_op));
-            let fro2: f64 = s_raw.iter().map(|v| v * v).sum();
-            let c = fro2.sqrt();
-
-            let mut s_first = Vec::with_capacity(dim);
-            let mut s_second = Vec::with_capacity(dim);
-            let mut s_first_raw = Vec::with_capacity(dim);
-            for a in 0..dim {
-                let (_, sa, sa2) =
-                    gram_and_psi_derivatives_from_operator(d_op, &d_eta[a], &d_eta2[a]);
-                let (_, sa_norm, sa2_norm, _) =
-                    normalize_penaltywith_psi_derivatives(&s_raw, &sa, &sa2);
-                s_first_raw.push(sa);
-                s_first.push(sa_norm);
-                s_second.push(sa2_norm);
-            }
-
-            PerOperatorInfo {
-                s_raw,
-                c,
-                s_first,
-                s_second,
-                s_first_raw,
-            }
-        };
-
-    let op0_info = compute_operator_info(&d0, &d0_eta_proj, &d0_eta2_proj);
-    let mut op1_info = compute_operator_info(&d1, &d1_eta_proj, &d1_eta2_proj);
-    let mut op2_info = compute_operator_info(&d2, &d2_eta_proj, &d2_eta2_proj);
-
-    // Closed-form aniso wire-in: per math team Letter A §9, when the gate
-    // fires for a given q, substitute the (s_raw, c, s_first[a],
-    // s_second[a]) tuple with closed-form values computed from
-    // `pair_block_radial_with_j_second_derivatives` using raw η directly
-    // (no centering, no `apply_raw_psi_scaling`). Cross-axis matrices for
-    // that q are precomputed upfront and stashed in `op_q_cf_cross_raw`
-    // for the cross-provider's `compute_pair`.
-    //
-    // q=0 mass always stays on collocation (closed-form Lebesgue at q=0 is
-    // the kernel itself, not the canonical operator-mass penalty). The
-    // gate is identical to the value-side path: q=0 stays collocation and
-    // q∈{1,2} uses closed form whenever the UV+IR+precondition test holds.
-    // Even-dimensional log-Riesz cases are admitted now that the finite-part
-    // constant is chosen to satisfy
-    // `Δ R_j^d = -R_{j-1}^d` exactly away from the origin.
-    //
-    // The bundle uses the radial analytic Hessian in regular regimes and
-    // the Schoenberg derivative bundle when the radial chain is singular or
-    // log-Riesz ambiguous but the heat-kernel integral converges.
-    let aniso_dim = aniso_log_scales.len();
-    let mut op1_cf_cross_raw: Option<Vec<Vec<Array2<f64>>>> = None;
-    let mut op2_cf_cross_raw: Option<Vec<Vec<Array2<f64>>>> = None;
-    if length_scale.is_some() {
-        let kappa_for_aniso = match length_scale {
-            Some(ls) => 1.0 / ls.max(1e-300),
-            None => 0.0,
-        };
-        let aniso_for_helper = Some(aniso_log_scales);
-        let kernel_z = Some(&z_kernel);
-        let substitute = |q: usize, info: &mut PerOperatorInfo| -> Option<Vec<Vec<Array2<f64>>>> {
-            if !duchon_closed_form_operator_penalty_converges(q, p_order, s_order as f64, d) {
-                return None;
-            }
-            let (cf_s, cf_first, cf_second_diag, cf_cross) =
-                closed_form_aniso_psi_derivatives_in_total_basis(
-                    centers,
-                    q,
-                    p_order,
-                    s_order,
-                    kappa_for_aniso,
-                    aniso_for_helper,
-                    kernel_z,
-                    poly_cols,
-                    identifiability_transform,
-                );
-            let fro2: f64 = cf_s.iter().map(|v| v * v).sum();
-            let c = fro2.sqrt();
-            let mut s_first = Vec::with_capacity(aniso_dim);
-            let mut s_second = Vec::with_capacity(aniso_dim);
-            let mut s_first_raw_new = Vec::with_capacity(aniso_dim);
-            for a in 0..aniso_dim {
-                let (_, sa_norm, sa2_norm, _) =
-                    normalize_penaltywith_psi_derivatives(&cf_s, &cf_first[a], &cf_second_diag[a]);
-                s_first.push(sa_norm);
-                s_second.push(sa2_norm);
-                s_first_raw_new.push(cf_first[a].clone());
-            }
-            info.s_raw = cf_s;
-            info.c = c;
-            info.s_first = s_first;
-            info.s_second = s_second;
-            info.s_first_raw = s_first_raw_new;
-            Some(cf_cross)
-        };
-        op1_cf_cross_raw = substitute(1, &mut op1_info);
-        op2_cf_cross_raw = substitute(2, &mut op2_info);
-    }
-
-    // Build penalty candidates and determine which are active.
-    let (s0_norm, c0) = if op0_info.c > 1e-12 {
-        (op0_info.s_raw.mapv(|v| v / op0_info.c), op0_info.c)
-    } else {
-        (op0_info.s_raw.clone(), 1.0)
-    };
-    let (s1_norm, c1) = if op1_info.c > 1e-12 {
-        (op1_info.s_raw.mapv(|v| v / op1_info.c), op1_info.c)
-    } else {
-        (op1_info.s_raw.clone(), 1.0)
-    };
-    let (s2_norm, c2) = if op2_info.c > 1e-12 {
-        (op2_info.s_raw.mapv(|v| v / op2_info.c), op2_info.c)
-    } else {
-        (op2_info.s_raw.clone(), 1.0)
-    };
-
-    let candidates = vec![
-        PenaltyCandidate {
-            matrix: s0_norm,
-            nullspace_dim_hint: 0,
-            source: PenaltySource::OperatorMass,
-            normalization_scale: c0,
-            kronecker_factors: None,
-            op: None,
-        },
-        PenaltyCandidate {
-            matrix: s1_norm,
-            nullspace_dim_hint: 0,
-            source: PenaltySource::OperatorTension,
-            normalization_scale: c1,
-            kronecker_factors: None,
-            op: None,
-        },
-        PenaltyCandidate {
-            matrix: s2_norm,
-            nullspace_dim_hint: 0,
-            source: PenaltySource::OperatorStiffness,
-            normalization_scale: c2,
-            kronecker_factors: None,
-            op: None,
-        },
-    ];
-    let (_, _, penaltyinfo) = filter_active_penalty_candidates(candidates)?;
-
-    // Build per-axis results.
-    let mut per_axis_results = Vec::with_capacity(dim);
-    for a in 0..dim {
-        let pen_first = active_operator_penalty_derivatives(
-            &penaltyinfo,
-            &[
-                op0_info.s_first[a].clone(),
-                op1_info.s_first[a].clone(),
-                op2_info.s_first[a].clone(),
-            ],
-            "Duchon-aniso",
-        )?;
-        let pen_second = active_operator_penalty_derivatives(
-            &penaltyinfo,
-            &[
-                op0_info.s_second[a].clone(),
-                op1_info.s_second[a].clone(),
-                op2_info.s_second[a].clone(),
-            ],
-            "Duchon-aniso",
-        )?;
-        per_axis_results.push((pen_first, pen_second));
-    }
-
-    let cross_pairs_for_provider = cross_pairs.clone();
-    let cross_ctx = DuchonCrossPenaltyContext {
-        centers: centers.to_owned(),
-        length_scale,
-        p_order,
-        s_order,
-        pure_block_order,
-        coeffs,
-        aniso_log_scales: aniso_log_scales.to_vec(),
-        z_kernel,
-        poly_cols,
-        identifiability_transform: identifiability_transform.cloned(),
-        penaltyinfo,
-        d0,
-        d1,
-        d2,
-        d0_eta_proj,
-        d1_eta_proj,
-        d2_eta_proj,
-        op0_s_raw: op0_info.s_raw,
-        op1_s_raw: op1_info.s_raw,
-        op2_s_raw: op2_info.s_raw,
-        op0_c: op0_info.c,
-        op1_c: op1_info.c,
-        op2_c: op2_info.c,
-        op0_s_first_raw: op0_info.s_first_raw,
-        op1_s_first_raw: op1_info.s_first_raw,
-        op2_s_first_raw: op2_info.s_first_raw,
-        op0_cf_cross_raw: None, // q=0 mass always stays on collocation.
-        op1_cf_cross_raw,
-        op2_cf_cross_raw,
-    };
-    let cross_ctx = std::sync::Arc::new(cross_ctx);
-    let cross_provider = AnisoPenaltyCrossProvider::new(move |a: usize, b: usize| {
-        let (axis_a, axis_b) = if a < b { (a, b) } else { (b, a) };
-        if !cross_pairs_for_provider.contains(&(axis_a, axis_b)) {
-            return Ok(Vec::new());
-        }
-        cross_ctx.compute_pair(axis_a, axis_b)
-    });
-
-    Ok((per_axis_results, cross_pairs, cross_provider))
-}
-
 fn duchon_kernel_radial_triplet(
     r: f64,
     length_scale: Option<f64>,
@@ -12724,11 +11941,6 @@ pub fn operator_penalty_candidates_closed_form(
     polynomial_block_cols: usize,
     outer_identifiability: Option<&Array2<f64>>,
 ) -> Vec<PenaltyCandidate> {
-    // q=0 mass always uses collocation Gram for symmetry with the pure path
-    // (the closed-form Lebesgue kernel at q=0 is the kernel itself, which is
-    // not generally what the canonical mass penalty represents).
-    let s0_raw = symmetrize(&fast_ata(d0));
-    let (s0, c0) = normalize_penalty(&s0_raw);
     let kappa = 1.0 / length_scale.max(1e-300);
 
     // Per-q Duchon convergence regime: closed-form Lebesgue kernel matrix is
@@ -12748,39 +11960,6 @@ pub fn operator_penalty_candidates_closed_form(
     // rebuilding the dense Gram. Below threshold, dense-only is preserved
     // (Cholesky on the small materialized H is faster).
     let emit_operator = centers.nrows() > CLOSED_FORM_OPERATOR_THRESHOLD;
-
-    let s1_raw = if duchon_closed_form_operator_penalty_converges(1, p_order, s_order as f64, d) {
-        closed_form_operator_penalty_in_total_basis(
-            centers,
-            1,
-            p_order,
-            s_order,
-            kappa,
-            aniso_log_scales,
-            kernel_nullspace,
-            polynomial_block_cols,
-            outer_identifiability,
-        )
-    } else {
-        symmetrize(&fast_ata(d1))
-    };
-    let (s1, c1) = normalize_penalty(&s1_raw);
-    let s2_raw = if duchon_closed_form_operator_penalty_converges(2, p_order, s_order as f64, d) {
-        closed_form_operator_penalty_in_total_basis(
-            centers,
-            2,
-            p_order,
-            s_order,
-            kappa,
-            aniso_log_scales,
-            kernel_nullspace,
-            polynomial_block_cols,
-            outer_identifiability,
-        )
-    } else {
-        symmetrize(&fast_ata(d2))
-    };
-    let (s2, c2) = normalize_penalty(&s2_raw);
 
     let make_op = |q: usize,
                    c: f64|
@@ -12814,10 +11993,14 @@ pub fn operator_penalty_candidates_closed_form(
         Some(scaled)
     };
 
+    // Each order is materialized ONLY when its spec is active, so a disabled
+    // order never touches its `d_q` operand (lets the caller build `D_q` with
+    // `max_op = max active order` and skip the `O(d²)`-row Hessian — the
+    // `D2`-skip). Mass is the *centered* collocation Gram `Σ(f−f̄)²`, identical
+    // to the pure path, so the constant direction is genuinely unpenalized.
     let mut out = Vec::new();
     if matches!(spec.mass, OperatorPenaltySpec::Active { .. }) {
-        // Mass is the collocation Gram; no closed-form operator analog (the
-        // factory takes q∈{1,2} via the closed-form path; q=0 is collocation).
+        let (s0, c0) = normalize_penalty(&symmetrize(&centered_design_gram(d0)));
         out.push(PenaltyCandidate {
             matrix: s0,
             nullspace_dim_hint: 0,
@@ -12828,6 +12011,23 @@ pub fn operator_penalty_candidates_closed_form(
         });
     }
     if matches!(spec.tension, OperatorPenaltySpec::Active { .. }) {
+        let s1_raw = if duchon_closed_form_operator_penalty_converges(1, p_order, s_order as f64, d)
+        {
+            closed_form_operator_penalty_in_total_basis(
+                centers,
+                1,
+                p_order,
+                s_order,
+                kappa,
+                aniso_log_scales,
+                kernel_nullspace,
+                polynomial_block_cols,
+                outer_identifiability,
+            )
+        } else {
+            symmetrize(&fast_ata(d1))
+        };
+        let (s1, c1) = normalize_penalty(&s1_raw);
         let op = make_op(1, c1);
         out.push(PenaltyCandidate {
             matrix: s1,
@@ -12839,6 +12039,23 @@ pub fn operator_penalty_candidates_closed_form(
         });
     }
     if matches!(spec.stiffness, OperatorPenaltySpec::Active { .. }) {
+        let s2_raw = if duchon_closed_form_operator_penalty_converges(2, p_order, s_order as f64, d)
+        {
+            closed_form_operator_penalty_in_total_basis(
+                centers,
+                2,
+                p_order,
+                s_order,
+                kappa,
+                aniso_log_scales,
+                kernel_nullspace,
+                polynomial_block_cols,
+                outer_identifiability,
+            )
+        } else {
+            symmetrize(&fast_ata(d2))
+        };
+        let (s2, c2) = normalize_penalty(&s2_raw);
         let op = make_op(2, c2);
         out.push(PenaltyCandidate {
             matrix: s2,
@@ -12960,9 +12177,6 @@ pub fn operator_penalty_candidates_closed_form_pure(
     // expresses the "springs to a floating flat sheet" semantics — the level
     // is free and only deviations get the spring force — while staying inside
     // the standard quadratic-penalty machinery.
-    let s0_raw = symmetrize(&centered_design_gram(d0));
-    let (s0, c0) = normalize_penalty(&s0_raw);
-
     let d = centers.ncols();
     // Convergence predicate also requires `isotropic_duchon_penalty`'s
     // partial-fraction precondition `2m ≥ q + 1`; without it, closed-form
@@ -12979,39 +12193,17 @@ pub fn operator_penalty_candidates_closed_form_pure(
         duchon_closed_form_operator_penalty_converges(q, p_order, s_order, d)
             && duchon_pure_closed_form_pair_block_cpd_adequate(q, p_order, s_order, d)
     };
-    let s1_raw = if closed_form_ok(1) {
-        closed_form_operator_penalty_in_total_basis_pure(
-            centers,
-            1,
-            p_order,
-            s_order,
-            aniso_log_scales,
-            kernel_nullspace,
-            polynomial_block_cols,
-            outer_identifiability,
-        )
-    } else {
-        symmetrize(&fast_ata(d1))
-    };
-    let (s1, c1) = normalize_penalty(&s1_raw);
-
-    let s2_raw = if closed_form_ok(2) {
-        closed_form_operator_penalty_in_total_basis_pure(
-            centers,
-            2,
-            p_order,
-            s_order,
-            aniso_log_scales,
-            kernel_nullspace,
-            polynomial_block_cols,
-            outer_identifiability,
-        )
-    } else {
-        symmetrize(&fast_ata(d2))
-    };
-    let (s2, c2) = normalize_penalty(&s2_raw);
+    // Each order is materialized ONLY when its spec is active: a disabled order
+    // never touches its `d_q` operand, so the caller can build `D_q` with
+    // `max_op = max active order` and leave the higher-order designs empty (the
+    // `D2`-skip — decisive in high `d`, where the Hessian has `O(d²)` rows).
     let mut out = Vec::new();
     if matches!(spec.mass, OperatorPenaltySpec::Active { .. }) {
+        // q=0 mass is the *centered* collocation Gram — the data-density-weighted
+        // spring penalty on deviations from the function's mean over the
+        // collocation sites; centering puts the constant direction exactly into
+        // the penalty null space (intercept genuinely unpenalized).
+        let (s0, c0) = normalize_penalty(&symmetrize(&centered_design_gram(d0)));
         out.push(PenaltyCandidate {
             matrix: s0,
             nullspace_dim_hint: 0,
@@ -13022,6 +12214,21 @@ pub fn operator_penalty_candidates_closed_form_pure(
         });
     }
     if matches!(spec.tension, OperatorPenaltySpec::Active { .. }) {
+        let s1_raw = if closed_form_ok(1) {
+            closed_form_operator_penalty_in_total_basis_pure(
+                centers,
+                1,
+                p_order,
+                s_order,
+                aniso_log_scales,
+                kernel_nullspace,
+                polynomial_block_cols,
+                outer_identifiability,
+            )
+        } else {
+            symmetrize(&fast_ata(d1))
+        };
+        let (s1, c1) = normalize_penalty(&s1_raw);
         out.push(PenaltyCandidate {
             matrix: s1,
             nullspace_dim_hint: 0,
@@ -13032,6 +12239,21 @@ pub fn operator_penalty_candidates_closed_form_pure(
         });
     }
     if matches!(spec.stiffness, OperatorPenaltySpec::Active { .. }) {
+        let s2_raw = if closed_form_ok(2) {
+            closed_form_operator_penalty_in_total_basis_pure(
+                centers,
+                2,
+                p_order,
+                s_order,
+                aniso_log_scales,
+                kernel_nullspace,
+                polynomial_block_cols,
+                outer_identifiability,
+            )
+        } else {
+            symmetrize(&fast_ata(d2))
+        };
+        let (s2, c2) = normalize_penalty(&s2_raw);
         out.push(PenaltyCandidate {
             matrix: s2,
             nullspace_dim_hint: 0,
@@ -13626,6 +12848,7 @@ pub fn build_duchon_collocation_operator_matrices(
     let mut workspace = BasisWorkspace::default();
     build_duchon_collocation_operator_matriceswithworkspace(
         centers,
+        centers,
         collocationweights,
         length_scale,
         power,
@@ -13680,6 +12903,7 @@ pub fn build_thin_plate_penalty_matrix(
 
 pub fn build_duchon_collocation_operator_matriceswithworkspace(
     centers: ArrayView2<'_, f64>,
+    collocation_points: ArrayView2<'_, f64>,
     collocationweights: Option<ArrayView1<'_, f64>>,
     length_scale: Option<f64>,
     power: f64,
@@ -13689,11 +12913,24 @@ pub fn build_duchon_collocation_operator_matriceswithworkspace(
     max_operator_derivative_order: usize,
     workspace: &mut BasisWorkspace,
 ) -> Result<CollocationOperatorMatrices, BasisError> {
+    // The operator design rows are the COLLOCATION points (a density-blind,
+    // space-filling sample of the data support); the columns are the `k` basis
+    // CENTERS. Decoupling them is what makes the operator penalty a faithful
+    // quadrature of `∫‖Dᵠf‖²` (collocating at the `k` centers themselves — the
+    // old `collocation_points == centers` special case — under-samples a
+    // `k`-bump basis and is what made these penalties explode).
     let nullspace_order = duchon_effective_nullspace_order(centers, nullspace_order);
     let p_order = duchon_p_from_nullspace_order(nullspace_order);
     let s_order: f64 = power;
-    let p_colloc = centers.nrows();
+    let p_colloc = collocation_points.nrows();
+    let n_basis = centers.nrows();
     let dim = centers.ncols();
+    if collocation_points.ncols() != dim {
+        crate::bail_dim_basis!(
+            "collocation points dim {} != centers dim {dim}",
+            collocation_points.ncols()
+        );
+    }
     validate_duchon_collocation_orders(
         length_scale,
         p_order,
@@ -13738,21 +12975,38 @@ pub fn build_duchon_collocation_operator_matriceswithworkspace(
         vec![1.0; p_colloc]
     };
     let z = kernel_constraint_nullspace(centers, nullspace_order, &mut workspace.cache)?;
-    let mut d0_raw = Array2::<f64>::zeros((p_colloc, p_colloc));
-    let mut d1_raw = Array2::<f64>::zeros((p_colloc * dim, p_colloc));
-    let mut d2_raw = Array2::<f64>::zeros((p_colloc * dim * dim, p_colloc));
+    // D0/D1/D2 rows = collocation points (`p_colloc`), columns = basis centers
+    // (`n_basis`). Gradients/Hessians are taken w.r.t. the EVALUATION point
+    // (the collocation row), so `delta = collocation - center`. No symmetry: the
+    // two point sets differ in general.
+    // Skip the costly higher-derivative designs the caller doesn't need: mass
+    // (D0) + tension (D1) build with `max_op = 1`, so the `O(d²)`-row Hessian
+    // (D2) is never allocated or filled — decisive in high `d`.
+    let build_d1 = max_operator_derivative_order >= 1;
+    let build_d2 = max_operator_derivative_order >= 2;
+    let mut d0_raw = Array2::<f64>::zeros((p_colloc, n_basis));
+    let mut d1_raw = Array2::<f64>::zeros((if build_d1 { p_colloc * dim } else { 0 }, n_basis));
+    let mut d2_raw =
+        Array2::<f64>::zeros((if build_d2 { p_colloc * dim * dim } else { 0 }, n_basis));
     const R_EPS: f64 = 1e-10;
-    for k in 0..p_colloc {
-        let scale_k = row_scales[k];
-        for j in k..p_colloc {
-            let scale_j = row_scales[j];
+    for i in 0..p_colloc {
+        let scale_i = row_scales[i];
+        for j in 0..n_basis {
             let r = if let Some(eta) = aniso_log_scales {
-                let row_k: Vec<f64> = (0..dim).map(|a| centers[[k, a]]).collect();
+                let row_i: Vec<f64> = (0..dim).map(|a| collocation_points[[i, a]]).collect();
                 let row_j: Vec<f64> = (0..dim).map(|a| centers[[j, a]]).collect();
-                aniso_distance(&row_k, &row_j, eta)
+                aniso_distance(&row_i, &row_j, eta)
             } else {
-                stable_euclidean_norm((0..dim).map(|axis| centers[[k, axis]] - centers[[j, axis]]))
+                stable_euclidean_norm(
+                    (0..dim).map(|axis| collocation_points[[i, axis]] - centers[[j, axis]]),
+                )
             };
+            // Floor coincident collocation/center pairs off the kernel's origin
+            // singularity: a farthest-point sample can land exactly on a center.
+            // The gradient/Hessian limits at r→0 are the zeros the `r > R_EPS`
+            // guards below already produce, so flooring only avoids the log-case
+            // `r²·log r` second-derivative blow-up at exact r=0.
+            let r = r.max(R_EPS);
             let (phi, q, t) = if let (Some(length_scale), Some(coeffs)) =
                 (length_scale, coeffs.as_ref())
             {
@@ -13778,66 +13032,68 @@ pub fn build_duchon_collocation_operator_matriceswithworkspace(
             };
             if !phi.is_finite() || !q.is_finite() || !t.is_finite() {
                 crate::bail_invalid_basis!(
-                    "non-finite Duchon collocation operator derivative at rows ({k}, {j}), r={r}"
+                    "non-finite Duchon collocation operator derivative at (colloc {i}, center {j}), r={r}"
                 );
             }
-            d0_raw[[k, j]] = scale_k * phi;
-            d0_raw[[j, k]] = scale_j * phi;
-            for axis_a in 0..dim {
-                let h_a = centers[[k, axis_a]] - centers[[j, axis_a]];
-                let w_a = metric_weights
-                    .as_ref()
-                    .map(|weights| weights[axis_a])
-                    .unwrap_or(1.0);
-                for axis_b in 0..dim {
-                    let h_b = centers[[k, axis_b]] - centers[[j, axis_b]];
-                    let w_b = metric_weights
+            d0_raw[[i, j]] = scale_i * phi;
+            if build_d2 {
+                for axis_a in 0..dim {
+                    let h_a = collocation_points[[i, axis_a]] - centers[[j, axis_a]];
+                    let w_a = metric_weights
                         .as_ref()
-                        .map(|weights| weights[axis_b])
+                        .map(|weights| weights[axis_a])
                         .unwrap_or(1.0);
-                    let diagonal = if axis_a == axis_b { q * w_a } else { 0.0 };
-                    let mixed = if r > R_EPS {
-                        t * w_a * h_a * w_b * h_b
-                    } else {
-                        0.0
-                    };
-                    let value = diagonal + mixed;
-                    let row_k = (k * dim + axis_a) * dim + axis_b;
-                    let row_j = (j * dim + axis_a) * dim + axis_b;
-                    d2_raw[[row_k, j]] = scale_k * value;
-                    d2_raw[[row_j, k]] = scale_j * value;
+                    for axis_b in 0..dim {
+                        let h_b = collocation_points[[i, axis_b]] - centers[[j, axis_b]];
+                        let w_b = metric_weights
+                            .as_ref()
+                            .map(|weights| weights[axis_b])
+                            .unwrap_or(1.0);
+                        let diagonal = if axis_a == axis_b { q * w_a } else { 0.0 };
+                        let mixed = if r > R_EPS {
+                            t * w_a * h_a * w_b * h_b
+                        } else {
+                            0.0
+                        };
+                        let value = diagonal + mixed;
+                        let row_i = (i * dim + axis_a) * dim + axis_b;
+                        d2_raw[[row_i, j]] = scale_i * value;
+                    }
                 }
             }
-            if r > R_EPS {
+            if build_d1 && r > R_EPS {
                 for axis in 0..dim {
-                    let delta = centers[[k, axis]] - centers[[j, axis]];
+                    let delta = collocation_points[[i, axis]] - centers[[j, axis]];
                     let axis_scale = metric_weights
                         .as_ref()
                         .map(|weights| weights[axis])
                         .unwrap_or(1.0);
-                    d1_raw[[k * dim + axis, j]] = scale_k * q * axis_scale * delta;
-                    d1_raw[[j * dim + axis, k]] = -scale_j * q * axis_scale * delta;
+                    d1_raw[[i * dim + axis, j]] = scale_i * q * axis_scale * delta;
                 }
             }
         }
     }
     let d0_kernel = fast_ab(&d0_raw, &z);
-    let d1_kernel = fast_ab(&d1_raw, &z);
-    let d2_kernel = fast_ab(&d2_raw, &z);
     let poly = polynomial_block_from_order(centers, nullspace_order);
     let kernel_cols = d0_kernel.ncols();
     let poly_cols = poly.ncols();
     let total_cols = kernel_cols + poly_cols;
+    // The polynomial block is the unpenalized Duchon null space, left zero before
+    // the outer identifiability transform (these operators feed only penalty
+    // construction). Orders the caller skipped stay empty (0 rows).
     let mut d0 = Array2::<f64>::zeros((p_colloc, total_cols));
     d0.slice_mut(s![.., 0..kernel_cols]).assign(&d0_kernel);
-    let mut d1 = Array2::<f64>::zeros((p_colloc * dim, total_cols));
-    d1.slice_mut(s![.., 0..kernel_cols]).assign(&d1_kernel);
-    let mut d2 = Array2::<f64>::zeros((p_colloc * dim * dim, total_cols));
-    d2.slice_mut(s![.., 0..kernel_cols]).assign(&d2_kernel);
-    // The polynomial block is the unpenalized Duchon nullspace. These
-    // collocation operators feed only penalty construction, so the polynomial
-    // columns intentionally remain zero before the outer identifiability
-    // transform is applied.
+    let mut d1 = Array2::<f64>::zeros((if build_d1 { p_colloc * dim } else { 0 }, total_cols));
+    if build_d1 {
+        d1.slice_mut(s![.., 0..kernel_cols])
+            .assign(&fast_ab(&d1_raw, &z));
+    }
+    let mut d2 =
+        Array2::<f64>::zeros((if build_d2 { p_colloc * dim * dim } else { 0 }, total_cols));
+    if build_d2 {
+        d2.slice_mut(s![.., 0..kernel_cols])
+            .assign(&fast_ab(&d2_raw, &z));
+    }
     if let Some(z) = identifiability_transform {
         let z = z.to_owned();
         d0 = fast_ab(&d0, &z);
@@ -13848,7 +13104,7 @@ pub fn build_duchon_collocation_operator_matriceswithworkspace(
         d0,
         d1,
         d2,
-        collocation_points: centers.to_owned(),
+        collocation_points: collocation_points.to_owned(),
         kernel_nullspace_transform: Some(z),
         polynomial_block_cols: poly_cols,
     })
@@ -15552,7 +14808,7 @@ fn build_matern_operator_penalty_candidates(
         z_opt.map(|z| z.view()),
         aniso_log_scales,
     )?;
-    let matern_spec = DuchonOperatorPenaltySpec::default();
+    let matern_spec = DuchonOperatorPenaltySpec::all_active();
     Ok(operator_penalty_candidates_from_collocation(
         &ops.d0,
         &ops.d1,
@@ -16449,8 +15705,30 @@ pub fn build_spherical_spline_basis(
         spec.radians,
         spec.wahba_kernel,
     )?;
-    let weights = sphere_area_weights(centers.view(), spec.radians);
-    let z = weighted_coefficient_sum_to_zero_transform(weights.view())?;
+    // Realized-design constraint transform. At fit time this is the
+    // area-weighted center sum-to-zero `z` (the global identifiability pipeline
+    // then composes the parametric-orthogonalization onto it and freezes the
+    // result). At predict time the frozen composed transform `z · z_parametric`
+    // is replayed verbatim so the realized design reproduces the fit-time
+    // basis exactly (#532) — recomputing `z` from the centers would drop the
+    // parametric orthogonalization and resurrect the constant-vs-intercept
+    // collision.
+    let z = match &spec.identifiability {
+        SphericalSplineIdentifiability::FrozenTransform { transform } => {
+            if transform.nrows() != centers.nrows() {
+                crate::bail_dim_basis!(
+                    "frozen spherical identifiability transform mismatch: {} centers but transform has {} rows",
+                    centers.nrows(),
+                    transform.nrows()
+                );
+            }
+            transform.clone()
+        }
+        SphericalSplineIdentifiability::CenterSumToZero => {
+            let weights = sphere_area_weights(centers.view(), spec.radians);
+            weighted_coefficient_sum_to_zero_transform(weights.view())?
+        }
+    };
     let penalty = z.t().dot(&raw_penalty).dot(&z);
     // Prefer the device truncated-spectral kernel whenever
     // `sphere_kernel_decision` reports the (n, m, lmax) workload is
@@ -16726,10 +16004,16 @@ fn build_spherical_harmonic_basis(
             Ok(())
         })?;
     }
-    // Diagonal eigenvalue penalty [l(l+1)]^2 per (l, m). Build as a dense
-    // matrix because downstream consumers (`normalize_penalty`, REML kernel
-    // selection) currently expect dense storage; the diagonal pattern keeps
-    // the matvec cheap (p ≤ L(L+2) ≤ 32·34 = 1088 even at the L=32 cap).
+    // Diagonal Laplace-Beltrami eigenvalue penalty [l(l+1)]^m per (l, m).
+    //
+    // This is already in the natural coefficient coordinates for the real
+    // spherical harmonics: the basis is orthonormal on S², so X'X/n is O(1)
+    // under uniform sampling, while the diagonal entries are the physical
+    // roughness eigenvalues of the final function. Frobenius-normalizing this
+    // matrix would divide away that meaningful spectral scale (≈1261 for
+    // L=4, m=2), making REML optimize against an artificially tiny physical
+    // penalty. Keep the raw operator with normalization_scale=1 so optimizer
+    // lambdas are physical lambdas for this smooth.
     let mut penalty = Array2::<f64>::zeros((p, p));
     let mut col = 0usize;
     for l in 1..=l_max {
@@ -16739,12 +16023,11 @@ fn build_spherical_harmonic_basis(
             col += 1;
         }
     }
-    let (penalty_norm, c_primary) = normalize_penalty(&penalty);
     let mut candidates = vec![PenaltyCandidate {
-        matrix: penalty_norm,
+        matrix: penalty,
         nullspace_dim_hint: 0,
         source: PenaltySource::Primary,
-        normalization_scale: c_primary,
+        normalization_scale: 1.0,
         kronecker_factors: None,
         op: None,
     }];
@@ -18010,6 +17293,27 @@ fn prepare_duchon_derivative_contextwithworkspace(
 fn prepare_periodic_duchon_centers_1d(
     centers: Array2<f64>,
 ) -> Result<(Array2<f64>, f64, f64), BasisError> {
+    prepare_periodic_duchon_centers_1d_with_period(centers, None)
+}
+
+/// Variant of [`prepare_periodic_duchon_centers_1d`] that honors an explicit
+/// domain-wrap `period`.
+///
+/// The period is the circumference of the circle the smooth lives on, NOT the
+/// span of the supplied centers. On a half-open lattice — e.g.
+/// `linspace(0, 1, K, endpoint=false)` with `period = 1.0` — the centers cover
+/// only `period − one_spacing`, so deriving the period from the center span
+/// (`right − left`) undershoots the true wrap. That undersized period made the
+/// Bernoulli Green's-function kernel evaluate at the wrong argument and the
+/// resulting Gram was no longer the operator's true reproducing-norm matrix
+/// (gam#580). When `explicit_period` is `Some(P)` we use `P` as the wrap and
+/// require every center to fit inside one period (`span ≤ P`); when `None` we
+/// fall back to the legacy center-span period (the closed lattice the formula
+/// DSL builds, where the endpoints span exactly one period).
+fn prepare_periodic_duchon_centers_1d_with_period(
+    centers: Array2<f64>,
+    explicit_period: Option<f64>,
+) -> Result<(Array2<f64>, f64, f64), BasisError> {
     if centers.ncols() != 1 {
         crate::bail_invalid_basis!(
             "periodic Duchon smooths currently require exactly one covariate"
@@ -18026,7 +17330,27 @@ fn prepare_periodic_duchon_centers_1d(
     if !left.is_finite() || !right.is_finite() || left >= right {
         return Err(BasisError::InvalidRange(left, right));
     }
-    let period = right - left;
+    let span = right - left;
+    let period = match explicit_period {
+        Some(p) => {
+            if !p.is_finite() || p <= 0.0 {
+                crate::bail_invalid_basis!(
+                    "periodic Duchon period must be finite and positive; got {p}"
+                );
+            }
+            // Every center must lie inside a single period; the wrap may be
+            // larger than the center span (half-open lattice) but never
+            // smaller (that would fold distinct centers onto each other).
+            if p < span - 1.0e-10 * span.max(1.0) {
+                crate::bail_invalid_basis!(
+                    "periodic Duchon period ({p}) is smaller than the center span ({span}); \
+                     every center must lie within a single period"
+                );
+            }
+            p
+        }
+        None => span,
+    };
     let centers = collapse_periodic_endpoint(centers, left, period);
     Ok((centers, left, period))
 }
@@ -18708,335 +18032,6 @@ pub fn build_matern_basis_log_kappa_aniso_derivatives(
         result.penalties_cross_pairs = cross_pairs;
         result.penalties_cross_provider = Some(cross_provider);
     }
-
-    Ok(result)
-}
-
-/// Build per-axis ψ_a design-matrix derivatives for anisotropic Duchon terms.
-///
-/// Exactly parallels [`build_matern_design_psi_aniso_derivatives`] but uses
-/// [`duchon_radial_jets`] to obtain the radial scalars (φ, q, t).
-///
-/// The per-axis chain rule is identical:
-///   ∂φ/∂ψ_a         = q · s_a
-///   ∂²φ/(∂ψ_a²)     = 2q · s_a + t · s_a²
-///   ∂²φ/(∂ψ_a ∂ψ_b) = t · s_a · s_b   (a ≠ b)
-fn build_duchon_design_psi_aniso_derivatives(
-    data: ArrayView2<'_, f64>,
-    centers: ArrayView2<'_, f64>,
-    spec: &DuchonBasisSpec,
-    identifiability_transform: Option<&Array2<f64>>,
-    workspace: &mut BasisWorkspace,
-) -> Result<AnisoBasisPsiDerivatives, BasisError> {
-    let length_scale = spec.length_scale.ok_or_else(|| {
-        BasisError::InvalidInput(
-            "aniso Duchon derivatives require hybrid Duchon with length_scale".to_string(),
-        )
-    })?;
-    let eta = spec.aniso_log_scales.as_deref().ok_or_else(|| {
-        BasisError::InvalidInput("aniso derivatives require aniso_log_scales to be set".to_string())
-    })?;
-    let dim = data.ncols();
-    if eta.len() != dim {
-        crate::bail_dim_basis!(
-            "Duchon aniso penalty derivatives: eta.len()={} != data dimension {dim}",
-            eta.len()
-        );
-    }
-
-    let effective_nullspace_order = duchon_effective_nullspace_order(centers, spec.nullspace_order);
-    let p_order = duchon_p_from_nullspace_order(effective_nullspace_order);
-    let s_order = spec.power_as_usize();
-    let kappa = 1.0 / length_scale.max(1e-300);
-    let coeffs = duchon_partial_fraction_coeffs(p_order, s_order, kappa);
-
-    // Z_kernel: null-space constraint projection for Duchon polynomial conditions.
-    let z_kernel =
-        kernel_constraint_nullspace(centers, effective_nullspace_order, &mut workspace.cache)?;
-    let poly_cols = polynomial_block_from_order(data, effective_nullspace_order).ncols();
-
-    // Determine output dimension to decide dense vs implicit.
-    let p_constrained = z_kernel.ncols();
-    let p_padded = p_constrained + poly_cols;
-    let p_final = identifiability_transform
-        .map(|zf| zf.ncols())
-        .unwrap_or(p_padded);
-
-    let radial_kind = RadialScalarKind::Duchon {
-        length_scale,
-        p_order,
-        s_order,
-        dim,
-        coeffs: coeffs.clone(),
-    };
-    build_aniso_design_psi_derivatives_shared(
-        data,
-        centers,
-        eta,
-        p_final,
-        Some(z_kernel),
-        identifiability_transform.cloned(),
-        poly_cols,
-        radial_kind,
-    )
-}
-
-fn pure_duchon_axis_combinations(dim: usize) -> Vec<Vec<(usize, f64)>> {
-    if dim <= 1 {
-        return vec![vec![(0, 1.0)]];
-    }
-    let last = dim - 1;
-    (0..last)
-        .map(|axis| vec![(axis, 1.0), (last, -1.0)])
-        .collect()
-}
-
-fn pure_duchon_reparameterize_penalty_axes(
-    per_axis: Vec<(Vec<Array2<f64>>, Vec<Array2<f64>>)>,
-    cross_pairs: Vec<(usize, usize)>,
-    cross_provider: AnisoPenaltyCrossProvider,
-    dim: usize,
-) -> (
-    Vec<Vec<Array2<f64>>>,
-    Vec<Vec<Array2<f64>>>,
-    Vec<(usize, usize)>,
-    Option<AnisoPenaltyCrossProvider>,
-) {
-    let free_dim = dim.saturating_sub(1).max(1);
-    if dim <= 1 {
-        assert!(
-            cross_pairs.is_empty(),
-            "pure Duchon one-dimensional reparameterization received raw cross-axis derivatives"
-        );
-        let mut per_axis_iter = per_axis.into_iter();
-        let (first, second_diag) = per_axis_iter.next().unwrap_or_default();
-        return (vec![first], vec![second_diag], Vec::new(), None);
-    }
-
-    let last = dim - 1;
-    let expected_cross_pairs = (0..dim)
-        .flat_map(|axis_a| ((axis_a + 1)..dim).map(move |axis_b| (axis_a, axis_b)))
-        .collect::<Vec<_>>();
-    assert_eq!(
-        cross_pairs, expected_cross_pairs,
-        "pure Duchon reparameterization requires raw cross-axis derivative pairs in canonical order"
-    );
-    let raw_first: Vec<Vec<Array2<f64>>> =
-        per_axis.iter().map(|(first, _)| first.clone()).collect();
-    let raw_second_diag: Vec<Vec<Array2<f64>>> =
-        per_axis.iter().map(|(_, second)| second.clone()).collect();
-
-    let mut penalties_first = Vec::with_capacity(free_dim);
-    let mut penalties_second_diag = Vec::with_capacity(free_dim);
-    for axis in 0..free_dim {
-        let first_axis = raw_first[axis]
-            .iter()
-            .zip(raw_first[last].iter())
-            .map(|(lhs, rhs)| lhs - rhs)
-            .collect();
-        penalties_first.push(first_axis);
-
-        let second_axis = raw_second_diag[axis]
-            .clone()
-            .into_iter()
-            .zip(
-                cross_provider
-                    .evaluate(axis, last)
-                    .expect("pure Duchon raw cross-penalty derivative axis/last"),
-            )
-            .zip(raw_second_diag[last].clone())
-            .map(|((aa, al), ll)| aa - al.mapv(|value| 2.0 * value) + ll)
-            .collect();
-        penalties_second_diag.push(second_axis);
-    }
-
-    let mut penalties_cross_pairs = Vec::new();
-    for axis_a in 0..free_dim {
-        for axis_b in (axis_a + 1)..free_dim {
-            penalties_cross_pairs.push((axis_a, axis_b));
-        }
-    }
-    let raw_second_diag = std::sync::Arc::new(raw_second_diag);
-    let reparam_provider = AnisoPenaltyCrossProvider::new(move |axis_a: usize, axis_b: usize| {
-        let (a, b) = if axis_a < axis_b {
-            (axis_a, axis_b)
-        } else {
-            (axis_b, axis_a)
-        };
-        if a >= free_dim || b >= free_dim || a == b {
-            return Ok(Vec::new());
-        }
-        let ab = cross_provider.evaluate(a, b)?;
-        let al = cross_provider.evaluate(a, last)?;
-        let bl = cross_provider.evaluate(b, last)?;
-        let ll = raw_second_diag[last].clone();
-        Ok(ab
-            .into_iter()
-            .zip(al)
-            .zip(bl)
-            .zip(ll)
-            .map(|(((ab, al), bl), ll)| ab - al - bl + ll)
-            .collect())
-    });
-
-    (
-        penalties_first,
-        penalties_second_diag,
-        penalties_cross_pairs,
-        Some(reparam_provider),
-    )
-}
-
-fn build_pure_duchon_basis_log_kappa_aniso_derivatives(
-    data: ArrayView2<'_, f64>,
-    spec: &DuchonBasisSpec,
-) -> Result<AnisoBasisPsiDerivatives, BasisError> {
-    let Some(raw_eta) = spec.aniso_log_scales.as_deref() else {
-        crate::bail_invalid_basis!("aniso derivatives require aniso_log_scales to be set");
-    };
-    let dim = data.ncols();
-    if raw_eta.len() != dim {
-        crate::bail_dim_basis!(
-            "aniso_log_scales length {} != data dimension {dim}",
-            raw_eta.len()
-        );
-    }
-    if spec.length_scale.is_some() {
-        crate::bail_invalid_basis!("pure Duchon aniso derivative path requires length_scale=None");
-    }
-    let mut workspace = BasisWorkspace::default();
-    let centers = select_centers_by_strategy(data, &spec.center_strategy)?;
-    let effective_nullspace_order =
-        duchon_effective_nullspace_order(centers.view(), spec.nullspace_order);
-    let z_kernel = kernel_constraint_nullspace(
-        centers.view(),
-        effective_nullspace_order,
-        &mut workspace.cache,
-    )?;
-    let poly_cols = polynomial_block_from_order(data, effective_nullspace_order).ncols();
-    let p_padded = z_kernel.ncols() + poly_cols;
-    let identifiability_transform =
-        frozen_spatial_identifiability_transform(&spec.identifiability, p_padded, "Duchon")?;
-    let p_final = identifiability_transform
-        .as_ref()
-        .map(|transform| transform.ncols())
-        .unwrap_or(p_padded);
-    let p_order = duchon_p_from_nullspace_order(effective_nullspace_order);
-    let s_order = spec.power_as_usize();
-    validate_duchon_collocation_orders(
-        None,
-        p_order,
-        s_order as f64,
-        dim,
-        duchon_max_active_operator_derivative_order(&spec.operator_penalties),
-    )?;
-    let block_order = pure_duchon_block_order(p_order, s_order as f64) as usize;
-    let mut design_result = build_aniso_design_psi_derivatives_shared(
-        data,
-        centers.view(),
-        raw_eta,
-        p_final,
-        Some(z_kernel),
-        identifiability_transform.clone(),
-        poly_cols,
-        RadialScalarKind::PureDuchon {
-            block_order: block_order as usize,
-            p_order,
-            s_order,
-            dim,
-        },
-    )?;
-
-    let axis_combinations = pure_duchon_axis_combinations(dim);
-    if let Some(op) = design_result.implicit_operator.take() {
-        design_result.implicit_operator = Some(op.with_axis_combinations(axis_combinations));
-    }
-    design_result.design_first.clear();
-    design_result.design_second_diag.clear();
-    design_result.design_second_cross.clear();
-    design_result.design_second_cross_pairs.clear();
-
-    let (per_axis, cross_terms, cross_provider) = build_duchon_operator_penalty_aniso_derivatives(
-        centers.view(),
-        None,
-        spec.power,
-        effective_nullspace_order,
-        raw_eta,
-        identifiability_transform.as_ref(),
-        &spec.operator_penalties,
-        &mut workspace,
-    )?;
-    let (penalties_first, penalties_second_diag, penalties_cross_pairs, penalties_cross_provider) =
-        pure_duchon_reparameterize_penalty_axes(per_axis, cross_terms, cross_provider, dim);
-    design_result.penalties_first = penalties_first;
-    design_result.penalties_second_diag = penalties_second_diag;
-    design_result.penalties_cross_pairs = penalties_cross_pairs;
-    design_result.penalties_cross_provider = penalties_cross_provider;
-    Ok(design_result)
-}
-
-/// Build per-axis ψ_a derivatives for anisotropic Duchon terms, including
-/// both design-matrix and penalty derivatives.
-///
-/// Uses exact per-axis operator derivatives via
-/// [`build_duchon_operator_penalty_aniso_derivatives`], which computes
-/// D₀, D₁, D₂ and their η_a first/second derivatives at all center pairs
-/// and assembles penalty derivatives via the Gram product rule.
-pub fn build_duchon_basis_log_kappa_aniso_derivatives(
-    data: ArrayView2<'_, f64>,
-    spec: &DuchonBasisSpec,
-) -> Result<AnisoBasisPsiDerivatives, BasisError> {
-    let eta = spec.aniso_log_scales.as_deref().ok_or_else(|| {
-        BasisError::InvalidInput("aniso derivatives require aniso_log_scales to be set".to_string())
-    })?;
-    let dim = data.ncols();
-    if eta.len() != dim {
-        crate::bail_dim_basis!(
-            "aniso_log_scales length {} != data dimension {dim}",
-            eta.len()
-        );
-    }
-
-    if spec.length_scale.is_none() {
-        return build_pure_duchon_basis_log_kappa_aniso_derivatives(data, spec);
-    }
-    let length_scale = spec.length_scale.expect("checked above");
-
-    let mut workspace = BasisWorkspace::default();
-    let (centers, identifiability_transform) =
-        prepare_duchon_derivative_contextwithworkspace(data, spec, &mut workspace)?;
-    let effective_nullspace_order =
-        duchon_effective_nullspace_order(centers.view(), spec.nullspace_order);
-
-    let mut result = build_duchon_design_psi_aniso_derivatives(
-        data,
-        centers.view(),
-        spec,
-        identifiability_transform.as_ref(),
-        &mut workspace,
-    )?;
-
-    // Exact operator penalty path: per-axis D₀, D₁, D₂ derivatives via
-    // Gram product rule, replacing the former fractional approximation.
-    let (per_axis, cross_pairs, cross_provider) = build_duchon_operator_penalty_aniso_derivatives(
-        centers.view(),
-        Some(length_scale),
-        spec.power,
-        effective_nullspace_order,
-        eta,
-        identifiability_transform.as_ref(),
-        &spec.operator_penalties,
-        &mut workspace,
-    )?;
-
-    result.penalties_first = Vec::with_capacity(dim);
-    result.penalties_second_diag = Vec::with_capacity(dim);
-    for (pen_first, pen_second) in per_axis {
-        result.penalties_first.push(pen_first);
-        result.penalties_second_diag.push(pen_second);
-    }
-    result.penalties_cross_pairs = cross_pairs;
-    result.penalties_cross_provider = Some(cross_provider);
 
     Ok(result)
 }
@@ -19920,14 +18915,19 @@ fn duchon_phi_even_derivative_collision(
     let required = k_dim + 2 * j;
 
     if smoothness_order <= required {
+        // Smallest integer power admitting phi^{(2j)}(0): 2(p+s) > k_dim+2j.
+        let min_power = (required / 2 + 1).saturating_sub(p_order);
         crate::bail_invalid_basis!(
-            "Duchon collision derivative phi^({}) requires 2*(p+s) > dimension+{}; got 2*(p+s)={}, dimension={}, p={}, s={}",
+            "Duchon collision derivative phi^({}) requires 2*(p+s) > dimension+{}; got 2*(p+s)={}, dimension={}, p={}, s={}. \
+             This path needs the {}-order radial-kernel derivative at the origin, which is finite only for a smoother spline: raise power to >= {} (or reduce the joint smooth's dimension).",
             2 * j,
             2 * j,
             smoothness_order,
             k_dim,
             p_order,
-            s_order
+            s_order,
+            2 * j,
+            min_power
         );
     }
 
@@ -19990,14 +18990,18 @@ fn duchon_phi_even_derivative_collision_psi_triplet(
     let required = k_dim + 2 * j;
 
     if smoothness_order <= required {
+        // Smallest integer power admitting the phi^{(2j)} psi triplet: 2(p+s) > k_dim+2j.
+        let min_power = (required / 2 + 1).saturating_sub(p_order);
         crate::bail_invalid_basis!(
-            "Duchon collision derivative phi^({}) psi triplet requires 2*(p+s) > dimension+{}; got 2*(p+s)={}, dimension={}, p={}, s={}",
+            "Duchon collision derivative phi^({}) psi triplet requires 2*(p+s) > dimension+{}; got 2*(p+s)={}, dimension={}, p={}, s={}. \
+             The exact two-block / transformation-normal path needs analytic length-scale derivatives of the kernel, which are finite only for a smoother spline: raise power to >= {} (or reduce the joint smooth's dimension).",
             2 * j,
             2 * j,
             smoothness_order,
             k_dim,
             p_order,
-            s_order
+            s_order,
+            min_power
         );
     }
 
@@ -20678,6 +19682,7 @@ pub fn create_duchon_basis_1d_derivative_dense(
     power: f64,
     nullspace_order: DuchonNullspaceOrder,
     periodic: bool,
+    period: Option<f64>,
     order: usize,
 ) -> Result<Array2<f64>, BasisError> {
     if order > 2 {
@@ -20691,10 +19696,20 @@ pub fn create_duchon_basis_1d_derivative_dense(
     if t.iter().any(|v| !v.is_finite()) || centers.iter().any(|v| !v.is_finite()) {
         crate::bail_invalid_basis!("Duchon basis derivative requires finite t and center values");
     }
+    if !periodic && period.is_some() {
+        crate::bail_invalid_basis!(
+            "Duchon basis derivative period is only valid when periodic=true"
+        );
+    }
 
     let data = t.to_owned().insert_axis(Axis(1));
     let center_matrix = centers.to_owned().insert_axis(Axis(1));
     let mut workspace = BasisWorkspace::default();
+    // The user-requested Duchon order ``m`` is encoded in ``nullspace_order``;
+    // the PERIODIC kernel is the Bernoulli Green's function of ``(d²/dx²)^m``
+    // (PSD on the circle, gam#580) so it needs the original ``m`` even though
+    // the periodic *constraint* nullspace is forced to constants only.
+    let user_m = duchon_p_from_nullspace_order(nullspace_order);
     let effective_order = if periodic {
         DuchonNullspaceOrder::Zero
     } else {
@@ -20703,14 +19718,72 @@ pub fn create_duchon_basis_1d_derivative_dense(
     let p_order = duchon_p_from_nullspace_order(effective_order);
     let s_order = duchon_power_to_usize(power);
     validate_duchon_kernel_orders(None, p_order, s_order as f64, 1)?;
+
+    if periodic {
+        // Periodic case: mirror the forward Bernoulli Green's-function design
+        // (`build_periodic_duchon_basis_1d`) EXACTLY — same collapsed centers,
+        // same domain-wrap period, same constant-only constraint nullspace —
+        // so the analytic derivative is the true ∂/∂t of the forward design
+        // (gam#580). Using the polyharmonic triangle-wave kernel here (the old
+        // path) was inconsistent with the Bernoulli forward and silently wrong.
+        let (collapsed_centers, left, resolved_period) =
+            prepare_periodic_duchon_centers_1d_with_period(center_matrix, period)?;
+        let z = kernel_constraint_nullspace(
+            collapsed_centers.view(),
+            effective_order,
+            &mut workspace.cache,
+        )?;
+        let kernel_cols = z.ncols();
+        let k_centers = collapsed_centers.nrows();
+        let centers_col0: Vec<f64> = collapsed_centers.column(0).to_vec();
+        let mut raw_kernel = Array2::<f64>::zeros((t.len(), k_centers));
+        for i in 0..t.len() {
+            let x = wrap_to_period(t[i], left, resolved_period);
+            for j in 0..k_centers {
+                // Signed offset reduced to [−period/2, period/2]; r = |offset|.
+                let mut delta = (x - centers_col0[j]).rem_euclid(resolved_period);
+                if delta > 0.5 * resolved_period {
+                    delta -= resolved_period;
+                }
+                let r = delta.abs();
+                let sign = if delta > 0.0 {
+                    1.0
+                } else if delta < 0.0 {
+                    -1.0
+                } else {
+                    0.0
+                };
+                let (phi, phi_r, phi_rr) =
+                    periodic_duchon_kernel_bernoulli_triplet(r, user_m, resolved_period)?;
+                raw_kernel[[i, j]] = match order {
+                    0 => phi,
+                    1 => phi_r * sign,
+                    2 => phi_rr,
+                    other => {
+                        crate::bail_invalid_basis!(
+                            "Duchon basis derivative supports orders 0, 1, and 2; got order={other}"
+                        );
+                    }
+                };
+            }
+        }
+        // Forward design appends a single constant column; its t-derivative is
+        // zero (order ≥ 1) or one (order 0). Match that layout exactly.
+        let mut basis = Array2::<f64>::zeros((t.len(), kernel_cols + 1));
+        let design_kernel = fast_ab(&raw_kernel, &z);
+        basis
+            .slice_mut(s![.., 0..kernel_cols])
+            .assign(&design_kernel);
+        if order == 0 {
+            basis.column_mut(kernel_cols).fill(1.0);
+        }
+        return Ok(basis);
+    }
+
     let z =
         kernel_constraint_nullspace(center_matrix.view(), effective_order, &mut workspace.cache)?;
     let kernel_cols = z.ncols();
-    let poly_cols = if periodic {
-        1
-    } else {
-        polynomial_block_from_order(data.view(), effective_order).ncols()
-    };
+    let poly_cols = polynomial_block_from_order(data.view(), effective_order).ncols();
 
     let pure_coeff =
         PolyharmonicBlockCoeff::new((pure_duchon_block_order(p_order, s_order as f64)) as f64, 1);
@@ -20724,34 +19797,12 @@ pub fn create_duchon_basis_1d_derivative_dense(
         None,
         Some(&pure_coeff),
     );
-    let periodic_domain = if periodic {
-        let left = centers.iter().fold(f64::INFINITY, |a, &b| a.min(b));
-        let right = centers.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
-        if !left.is_finite() || !right.is_finite() || left >= right {
-            return Err(BasisError::InvalidRange(left, right));
-        }
-        Some((left, right - left))
-    } else {
-        None
-    };
 
     let mut raw_kernel = Array2::<f64>::zeros((t.len(), centers.len()));
     for i in 0..t.len() {
-        let x = if let Some((left, period)) = periodic_domain {
-            wrap_to_period(t[i], left, period)
-        } else {
-            t[i]
-        };
+        let x = t[i];
         for j in 0..centers.len() {
-            let delta = if let Some((_left, period)) = periodic_domain {
-                let mut wrapped = (x - centers[j]).rem_euclid(period);
-                if wrapped > 0.5 * period {
-                    wrapped -= period;
-                }
-                wrapped
-            } else {
-                x - centers[j]
-            };
+            let delta = x - centers[j];
             let r = delta.abs();
             let sign = if delta > 0.0 {
                 1.0
@@ -20780,9 +19831,7 @@ pub fn create_duchon_basis_1d_derivative_dense(
     basis
         .slice_mut(s![.., 0..kernel_cols])
         .assign(&design_kernel);
-    if !periodic {
-        fill_duchon_1d_polynomial_derivative(&mut basis, kernel_cols, t, effective_order, order);
-    }
+    fill_duchon_1d_polynomial_derivative(&mut basis, kernel_cols, t, effective_order, order);
     Ok(basis)
 }
 
@@ -21528,6 +20577,157 @@ pub fn duchon_sae_atom_second_jet(
                         }
                     }
                     out[[row, n_kernel + col, a, c]] = value;
+                }
+            }
+        }
+    }
+
+    Ok(out)
+}
+
+/// Third input-location jet of the scale-free Duchon SAE atom (the analytic
+/// `∂³Φ / ∂t_a ∂t_c ∂t_e`), consistent with
+/// [`duchon_sae_atom_basis_with_jet`] and [`duchon_sae_atom_second_jet`]
+/// column-for-column and `α`-for-`α`.
+///
+/// The kernel block uses the standard radial third-derivative decomposition
+///
+/// ```text
+/// ∂³φ/∂t_a∂t_c∂t_e = a_coef·u_a u_c u_e
+///                  + b_coef·(δ_ac u_e + δ_ae u_c + δ_ce u_a),
+/// a_coef = φ'''(r) − 3·b_coef,   b_coef = (φ''(r) − φ'(r)/r)/r,   u = (t−c)/r,
+/// ```
+///
+/// projected through `Z` and scaled by `α` (emitted directly by the shared
+/// [`radial_basis_cartesian_derivative`] engine at order 3); the polynomial
+/// block carries the monomial third derivative. At a coincident point `r = 0`
+/// the kernel third jet vanishes (odd-order radial derivative of an even kernel
+/// in the collision limit), which the engine encodes by skipping `r == 0`.
+/// Output shape `(n_rows, n_kernel + n_poly, dim, dim, dim)`. Symmetric in its
+/// three trailing axes by construction.
+pub fn duchon_sae_atom_third_jet(
+    t: ArrayView2<'_, f64>,
+    centers: ArrayView2<'_, f64>,
+    nullspace_order: DuchonNullspaceOrder,
+) -> Result<Array5<f64>, BasisError> {
+    let dim = centers.ncols();
+    if dim == 0 {
+        crate::bail_invalid_basis!(
+            "duchon_sae_atom_third_jet: centers must have at least one column"
+        );
+    }
+    if t.ncols() != dim {
+        crate::bail_dim_basis!(
+            "duchon_sae_atom_third_jet: t has {} cols but centers have {dim}",
+            t.ncols()
+        );
+    }
+    let effective_order = duchon_effective_nullspace_order(centers, nullspace_order);
+    let p_order = duchon_p_from_nullspace_order(effective_order);
+    let s_order: f64 = 0.0;
+
+    let poly_block_centers = polynomial_block_from_order(centers, effective_order);
+    let z = kernel_constraint_nullspace_from_matrix(poly_block_centers.view())?;
+    let n_kernel = z.ncols();
+
+    let pure_poly_coeff =
+        PolyharmonicBlockCoeff::new(pure_duchon_block_order(p_order, s_order), dim);
+    let kernel_amp = duchon_kernel_amplification(
+        centers,
+        None,
+        p_order,
+        duchon_power_to_usize(s_order),
+        dim,
+        None,
+        None,
+        Some(&pure_poly_coeff),
+    );
+
+    let n_rows = t.nrows();
+    let poly_block_t_cols = polynomial_block_from_order(t, effective_order).ncols();
+
+    // Kernel-block Cartesian third jet `∂³Φ/∂t_a∂t_c∂t_e`, projected through `Z`
+    // and scaled by `α`, via the shared radial→Cartesian engine. Folding `α`
+    // into the per-center coefficient matrix (`coeffs = α·Z`, shape
+    // `(n_centers, n_kernel)`) makes the helper emit the already-amplified,
+    // already-projected kernel third jet directly: its flat
+    // `(n_rows, n_kernel·d³)` output places output `i`, multi-index `(a,c,e)` at
+    // column `i·d³ + ((a·d + c)·d + e)`.
+    let coeffs = &z * kernel_amp;
+    let flat =
+        radial_basis_cartesian_derivative(3, t, centers, coeffs.view(), None, effective_order, 0)?;
+
+    let d_pow = dim * dim * dim;
+    let mut out = Array5::<f64>::zeros((n_rows, n_kernel + poly_block_t_cols, dim, dim, dim));
+    for n in 0..n_rows {
+        for i in 0..n_kernel {
+            for a in 0..dim {
+                for c in 0..dim {
+                    for e in 0..dim {
+                        out[[n, i, a, c, e]] = flat[[n, i * d_pow + ((a * dim) + c) * dim + e]];
+                    }
+                }
+            }
+        }
+    }
+
+    // Polynomial third-derivative block: `∂³(Π t_i^{α_i}) / ∂t_a ∂t_c ∂t_e`.
+    // Differentiating axis `j` a total of `k_j` times (its multiplicity in
+    // `{a, c, e}`) contracts that factor to `falling(α_j, k_j)·t_j^{α_j − k_j}`,
+    // with `falling(α, k) = α(α−1)…(α−k+1)`; the term vanishes when `α_j < k_j`.
+    let exponents = monomial_exponents(
+        dim,
+        match effective_order {
+            DuchonNullspaceOrder::Zero => 0,
+            DuchonNullspaceOrder::Linear => 1,
+            DuchonNullspaceOrder::Degree(k) => k,
+        },
+    );
+    if exponents.len() != poly_block_t_cols {
+        crate::bail_dim_basis!(
+            "duchon_sae_atom_third_jet: monomial count {} != polynomial block columns {poly_block_t_cols}",
+            exponents.len()
+        );
+    }
+    let falling = |alpha: usize, k: usize| -> f64 {
+        let mut acc = 1.0_f64;
+        for j in 0..k {
+            acc *= (alpha as f64) - (j as f64);
+        }
+        acc
+    };
+    for (col, alpha) in exponents.iter().enumerate() {
+        for a in 0..dim {
+            if alpha[a] == 0 {
+                continue;
+            }
+            for c in 0..dim {
+                for e in 0..dim {
+                    // Per-axis differentiation order in this (a, c, e) cell.
+                    let mut order = vec![0usize; dim];
+                    order[a] += 1;
+                    order[c] += 1;
+                    order[e] += 1;
+                    if (0..dim).any(|axis| order[axis] > alpha[axis]) {
+                        continue;
+                    }
+                    let mut lead = 1.0_f64;
+                    for axis in 0..dim {
+                        lead *= falling(alpha[axis], order[axis]);
+                    }
+                    if lead == 0.0 {
+                        continue;
+                    }
+                    for row in 0..n_rows {
+                        let mut value = lead;
+                        for axis in 0..dim {
+                            let exp = alpha[axis] - order[axis];
+                            if exp != 0 {
+                                value *= t[[row, axis]].powi(exp as i32);
+                            }
+                        }
+                        out[[row, n_kernel + col, a, c, e]] = value;
+                    }
                 }
             }
         }
@@ -22631,6 +21831,80 @@ fn periodic_duchon_kernel_bernoulli(r: f64, m: usize, period: f64) -> Result<f64
     Ok(sign * even_bernoulli_polynomial(2 * m, t)?)
 }
 
+/// First and second derivatives ``(B'_{2m}(s), B''_{2m}(s))`` of the even
+/// Bernoulli polynomial w.r.t. its argument ``s``, for the orders the Duchon
+/// stack uses (``m ∈ {1, 2, 3, 4}``).
+///
+/// Obtained by differentiating the closed forms in [`even_bernoulli_polynomial`]
+/// (each is a plain polynomial in ``s``), so they are the EXACT derivatives of
+/// the forward kernel value — the analytic backward of the periodic Bernoulli
+/// Green's-function design (gam#580).
+fn even_bernoulli_polynomial_derivatives(degree: usize, s: f64) -> Result<(f64, f64), BasisError> {
+    let s2 = s * s;
+    match degree {
+        2 => Ok((2.0 * s - 1.0, 2.0)),
+        4 => {
+            let d1 = 4.0 * s2 * s - 6.0 * s2 + 2.0 * s;
+            let d2 = 12.0 * s2 - 12.0 * s + 2.0;
+            Ok((d1, d2))
+        }
+        6 => {
+            let s3 = s2 * s;
+            let s4 = s2 * s2;
+            let s5 = s4 * s;
+            let d1 = 6.0 * s5 - 15.0 * s4 + 10.0 * s3 - s;
+            let d2 = 30.0 * s4 - 60.0 * s3 + 30.0 * s2 - 1.0;
+            Ok((d1, d2))
+        }
+        8 => {
+            let s3 = s2 * s;
+            let s4 = s2 * s2;
+            let s5 = s4 * s;
+            let s6 = s4 * s2;
+            let s7 = s6 * s;
+            let d1 = 8.0 * s7 - 28.0 * s6 + 28.0 * s5 - (28.0 / 3.0) * s3 + (4.0 / 3.0) * s;
+            let d2 = 56.0 * s6 - 168.0 * s5 + 140.0 * s4 - 28.0 * s2 + 4.0 / 3.0;
+            Ok((d1, d2))
+        }
+        other => Err(BasisError::InvalidInput(format!(
+            "periodic Duchon Bernoulli kernel derivative only implemented for B_{{2m}} with m ∈ {{1, 2, 3, 4}}; got degree {other}"
+        ))),
+    }
+}
+
+/// Radial jet ``(φ, dφ/dr, d²φ/dr²)`` of the periodic Bernoulli Green's-function
+/// kernel ``φ(r) = (−1)^{m+1} · B_{2m}(r / period)``.
+///
+/// The forward design uses ``periodic_duchon_kernel_bernoulli``; this is its
+/// EXACT radial derivative so the analytic backward (the position-API VJP) is
+/// consistent with the Bernoulli forward, mirroring how the polyharmonic
+/// triplet feeds the non-periodic derivative path. The caller already reduces
+/// the signed offset to ``[−period/2, period/2]`` and passes ``r = |offset|``
+/// with the sign applied separately, so ``s = r / period ∈ [0, 1/2]`` needs no
+/// further modular reduction. Each ``d/dr`` brings a ``1/period`` factor by the
+/// chain rule.
+fn periodic_duchon_kernel_bernoulli_triplet(
+    r: f64,
+    m: usize,
+    period: f64,
+) -> Result<(f64, f64, f64), BasisError> {
+    if !period.is_finite() || period <= 0.0 {
+        crate::bail_invalid_basis!(
+            "periodic Duchon kernel requires positive finite period; got {period}"
+        );
+    }
+    if m == 0 {
+        crate::bail_invalid_basis!("periodic Duchon order m must be at least 1");
+    }
+    let s = (r / period).rem_euclid(1.0);
+    let sign = if m % 2 == 1 { 1.0 } else { -1.0 };
+    let phi = sign * even_bernoulli_polynomial(2 * m, s)?;
+    let (b1, b2) = even_bernoulli_polynomial_derivatives(2 * m, s)?;
+    let dphi_dr = sign * b1 / period;
+    let d2phi_dr2 = sign * b2 / (period * period);
+    Ok((phi, dphi_dr, d2phi_dr2))
+}
+
 /// Drop centers that periodically identify with the leftmost anchor.
 ///
 /// When the user describes a closed periodic lattice by including BOTH
@@ -22700,10 +21974,18 @@ fn build_periodic_duchon_basis_1d(
     // and the REML whitening transform amplifies machine noise into a ~10⁻⁶
     // negative eigenvalue, tripping the solver's PSD check.
     //
-    // ``prepare_periodic_duchon_centers_1d`` validates the center matrix,
-    // computes ``(left, period)`` and drops the periodically duplicate
-    // center, in one place that every periodic Duchon code path shares.
-    let (centers, left, period) = prepare_periodic_duchon_centers_1d(centers)?;
+    // ``prepare_periodic_duchon_centers_1d_with_period`` validates the center
+    // matrix, computes ``(left, period)`` and drops the periodically duplicate
+    // center, in one place that every periodic Duchon code path shares. When
+    // ``spec.periodic`` carries an explicit per-axis period (the position-API
+    // half-open lattice path — gam#580), honor it as the domain wrap; otherwise
+    // derive it from the center span (the closed lattice the formula DSL emits).
+    let explicit_period = spec
+        .periodic
+        .as_ref()
+        .and_then(|axes| axes.first().copied().flatten());
+    let (centers, left, period) =
+        prepare_periodic_duchon_centers_1d_with_period(centers, explicit_period)?;
     // The user encodes the Duchon order ``m`` in ``spec.nullspace_order``
     // (``Zero → m=1``, ``Linear → m=2``, ``Degree(d) → m=d+1``). Periodicity
     // forces the *constraint* nullspace to ``{constants}`` (the only
@@ -23200,6 +22482,22 @@ pub fn build_duchon_basis_mixed_periodicity_auto(
             out
         }
     };
+    // The 1D periodic circle is NOT a mixed-periodicity cylinder/torus: the
+    // chord-embedding polyharmonic kernel ``φ(r) = c·r^{2m−d}`` is only
+    // CONDITIONALLY positive-definite on ℝ and is genuinely indefinite under
+    // the chord metric on the circle (its periodised Gram carries large
+    // negative eigenvalues), so it cannot serve as a PSD penalty (gam#580).
+    // The actual Green's function of ``(d²/dx²)^m`` on the circle is the
+    // Bernoulli kernel built by ``build_periodic_duchon_basis_1d`` — full rank
+    // modulo constants, PSD by construction. Route the 1D periodic case there
+    // for EVERY caller (basis design and function-norm penalty alike) so the
+    // two stay consistent; reserve the chord builder for true ``d ≥ 2``
+    // cylinder/torus products where it is the right object.
+    if d == 1 && periodic_per_axis[0] {
+        let mut periodic_spec = spec.clone();
+        periodic_spec.periodic = Some(vec![Some(resolved_periods[0])]);
+        return build_periodic_duchon_basis_1d(data, &periodic_spec, centers, &mut workspace);
+    }
     build_duchon_basis_mixed_periodicity(
         data,
         spec,
@@ -23336,6 +22634,182 @@ fn duchon_native_penalty_candidates(
         ));
     }
     Ok(out)
+}
+
+/// Farthest-point collocation points per basis center for the lower-order
+/// (mass / tension) operator penalties. The sample is space-filling over the
+/// data SUPPORT (density-blind — sparse and dense regions weighted alike, which
+/// is the regularization you want), `m = OVERSAMPLE·k` capped at `n`: dense
+/// enough to resolve the `k`-bump basis, independent of `n`.
+const DUCHON_COLLOCATION_OVERSAMPLE: usize = 3;
+
+/// The lower two rungs of the Hilbert scale for a Duchon smooth, as FUNCTION
+/// penalties collocated on a density-blind `O(k)` farthest-point sample of the
+/// data support:
+///   * `mass    = Σ(f−f̄)²` — centered value-design Gram (amplitude / distance
+///     from the mean; kernel block only — the affine trend's slope is governed
+///     by the null-space ridge, so only the global mean stays free).
+///   * `tension = Σ‖∇f‖²`  — gradient-design Gram (first-order roughness).
+///
+/// Curvature is intentionally NOT here: it is the EXACT RKHS reproducing-norm
+/// `Primary` Gram (`duchon_native_penalty_candidates`). These two orders have no
+/// convergent continuous integral for the growing polyharmonic kernel, so the
+/// data-support quadrature *is* their definition — and it is `O(k)`-in-`n` (the
+/// sample size does not grow with the data). Each is a plain penalty (`op = None`)
+/// with its own REML λ; REML drives an unhelpful one to zero. Stiffness (`D2`) is
+/// absent on purpose — `Primary` is the exact, superior curvature.
+/// Emit the lower-order Hilbert-scale penalties — mass `Σ(f−f̄)²` (q=0),
+/// tension `Σ‖∇f‖²` (q=1), stiffness `Σ‖∇²f‖²` (q=2) — for a Duchon smooth.
+///
+/// Each active order routes through the shared closed-form factory, which uses
+/// the EXACT continuous reproducing-norm Gram wherever the polyharmonic
+/// integral converges (UV/IR + CPD adequacy — `n`-free, the high-`d` accuracy
+/// and scale win) and falls back to the `D_qᵀ D_q` quadrature otherwise. That
+/// quadrature is collocated on a density-blind, space-filling `O(k)`
+/// farthest-point sample of the DATA SUPPORT (`select_thin_plate_knots(data,
+/// 3k)`) — never the `k` sparse centers (which under-resolve a `k`-bump basis
+/// and made these penalties explode), and never all `n` (which would scale with
+/// the data). The collocation `D_q` is built with `max_op = max active order`,
+/// so a disabled higher order never allocates its `O(d²)`-row Hessian.
+///
+/// The operators use the ISOTROPIC metric (`aniso = None`): the anisotropy
+/// lives entirely in the curvature (`Primary`) RKHS Gram, which carries its own
+/// exact `η`-derivative. Keeping these low-order stabilizers isotropic makes
+/// their `η`-gradient identically zero, so the REML anisotropy optimization
+/// stays consistent without per-axis operator derivatives.
+fn duchon_operator_penalty_candidates(
+    data: ArrayView2<'_, f64>,
+    centers: ArrayView2<'_, f64>,
+    operator_penalties: &DuchonOperatorPenaltySpec,
+    length_scale: Option<f64>,
+    power: f64,
+    nullspace_order: DuchonNullspaceOrder,
+    per_axis_relevance: bool,
+    identifiability_transform: Option<&Array2<f64>>,
+    workspace: &mut BasisWorkspace,
+) -> Result<Vec<PenaltyCandidate>, BasisError> {
+    let want_mass = matches!(operator_penalties.mass, OperatorPenaltySpec::Active { .. });
+    let mut want_tension = matches!(
+        operator_penalties.tension,
+        OperatorPenaltySpec::Active { .. }
+    );
+    let mut want_stiffness = matches!(
+        operator_penalties.stiffness,
+        OperatorPenaltySpec::Active { .. }
+    );
+    // Collocation validity: the gradient (D1) and Hessian (D2) operator
+    // quadratures are defined only when `2(p+s) > d+1` / `> d+2` respectively
+    // (mass/D0 needs only kernel existence, `2(p+s) > d`, guaranteed upstream).
+    // Outside that regime the operator's radial limit is undefined, so the
+    // order is SKIPPED — the higher Hilbert rungs (Primary curvature, mass,
+    // trend) still regularize — rather than failing the whole basis build. E.g.
+    // order=0, d=3, s=1 gives `2(p+s)=4`, so tension and stiffness drop out
+    // cleanly and the smooth is curvature + mass + trend.
+    let effective_order = duchon_effective_nullspace_order(centers, nullspace_order);
+    let p_order = duchon_p_from_nullspace_order(effective_order);
+    let dim = centers.ncols();
+    let two_pps = 2.0 * (p_order as f64 + power);
+    want_tension = want_tension && two_pps > dim as f64 + 1.0;
+    want_stiffness = want_stiffness && two_pps > dim as f64 + 2.0;
+    if !want_mass && !want_tension && !want_stiffness {
+        return Ok(Vec::new());
+    }
+    // Effective spec carrying only the collocation-valid active orders.
+    let mut effective_spec = operator_penalties.clone();
+    if !want_tension {
+        effective_spec.tension = OperatorPenaltySpec::Disabled;
+    }
+    if !want_stiffness {
+        effective_spec.stiffness = OperatorPenaltySpec::Disabled;
+    }
+    let max_op = duchon_max_active_operator_derivative_order(&effective_spec);
+    let n_basis = centers.nrows();
+    let n = data.nrows();
+    let m = (DUCHON_COLLOCATION_OVERSAMPLE * n_basis).min(n);
+    let sample = select_thin_plate_knots(data, m)?;
+    let ops = build_duchon_collocation_operator_matriceswithworkspace(
+        centers,
+        sample.view(),
+        None,
+        length_scale,
+        power,
+        nullspace_order,
+        None,
+        identifiability_transform.map(|t| t.view()),
+        max_op,
+        workspace,
+    )?;
+    let kernel_nullspace = ops.kernel_nullspace_transform.as_ref();
+    let poly_cols = ops.polynomial_block_cols;
+    // When per-axis relevance is requested (`scale_dims`) and tension is a
+    // collocation-valid active order, the single isotropic gradient penalty
+    // `Σ‖∇f‖²` is REPLACED by `dim` per-axis penalties `Σ(∂f/∂x_a)²`, each its
+    // own REML λ_a (ARD: REML shrinks an axis's nonlinear contribution toward
+    // flat only when it does not earn its keep). The isotropic-order penalties
+    // (mass, stiffness) still route through the shared factory; tension is
+    // removed from its spec here and re-emitted per-axis below. The affine
+    // slopes stay in the global trend ridge, so a smooth, linearly-useful axis
+    // keeps its slope while its nonlinear λ_a may grow.
+    let split_tension = per_axis_relevance && want_tension;
+    let factory_spec = if split_tension {
+        let mut spec = effective_spec.clone();
+        spec.tension = OperatorPenaltySpec::Disabled;
+        spec
+    } else {
+        effective_spec
+    };
+    // The collocation `D_q` already carry the kernel CPD nullspace `Z`, the
+    // polynomial padding, and the identifiability transform (final β-basis), so
+    // the factory's quadrature fallback `fast_ata(d_q)` is β-basis. Its
+    // closed-form branch rebuilds the same β-basis from `centers` via the SAME
+    // `kernel_nullspace` + `poly_cols` + `outer_identifiability`, so both
+    // branches agree. q=0 mass is always the centered quadrature Gram.
+    let mut candidates = if let Some(length_scale) = length_scale {
+        operator_penalty_candidates_closed_form(
+            centers,
+            &ops.d0,
+            &ops.d1,
+            &ops.d2,
+            &factory_spec,
+            p_order,
+            duchon_power_to_usize(power),
+            length_scale,
+            None,
+            kernel_nullspace,
+            poly_cols,
+            identifiability_transform,
+        )
+    } else {
+        operator_penalty_candidates_closed_form_pure(
+            centers,
+            &ops.d0,
+            &ops.d1,
+            &ops.d2,
+            &factory_spec,
+            p_order,
+            power,
+            None,
+            kernel_nullspace,
+            poly_cols,
+            identifiability_transform,
+        )
+    };
+    if split_tension {
+        // `D1` rows are indexed `collocation_i · dim + axis`, so axis `a` owns
+        // the strided row set `a, a+dim, a+2·dim, …`. `fast_ata` of that slice
+        // is the density-blind support quadrature of `∫(∂f/∂x_a)²` in the final
+        // β-basis (the poly null space is zeroed in `D1`, so this is the
+        // NONLINEAR gradient energy; the affine slope is the trend ridge's job).
+        for axis in 0..dim {
+            let d1_axis = ops.d1.slice(s![axis..; dim, ..]).to_owned();
+            candidates.push(normalize_penalty_candidate(
+                symmetrize(&fast_ata(&d1_axis)),
+                0,
+                PenaltySource::OperatorRelevance { axis },
+            ));
+        }
+    }
+    Ok(candidates)
 }
 
 pub fn build_duchon_basiswithworkspace(
@@ -23533,23 +23007,16 @@ pub fn build_duchon_basiswithworkspace(
         };
         (design, identifiability_transform)
     };
-    // Structural data-jet penalty triplet. Rather than the closed-form Lebesgue
-    // / collocation operator Grams, the three penalties are amplitude / slope /
-    // curvature Grams of the *actual design* `B = [K(·,C)·Z | P]` evaluated and
-    // differentiated at the centers (used as quadrature points):
-    //   * mass      = centered design Gram `(B − 1μ')ᵀ(B − 1μ')` — only the
-    //                 global mean is free; no `∫f²` reversion length leaks in
-    //                 because the spring acts on deviations from the row-mean.
-    //   * tension   = `Σ_i Jᵢᵀ Jᵢ`, the slope Gram (J includes the affine
-    //                 polynomial columns' own slopes — the linear trend gets a
-    //                 dedicated slope dial, not a zero pad).
-    //   * stiffness = `Σ_i Hᵢᵀ Hᵢ`, the curvature Gram.
-    // The kernel block reuses the exact radial jet the forward design
-    // evaluates, so the penalty differentiates the same kernel column-for-
-    // column. This applies to BOTH the pure scale-free (`length_scale = None`,
-    // structural cubic `r³`) and the hybrid Matérn-blended (`length_scale =
-    // Some`) branches — the radial jet picks the matching kernel internally.
-    let candidates = duchon_native_penalty_candidates(
+    // The Duchon penalty is a HILBERT SCALE of pure function-penalties, each a
+    // plain block with its own REML λ (REML deselects what the data don't need):
+    //   * curvature = the EXACT RKHS reproducing-norm Gram (`Primary`), `n`-free;
+    //   * trend     = the affine null-space slope ridge (`DoublePenaltyNullspace`);
+    //   * tension `Σ‖∇f‖²` + mass `Σ(f−f̄)²` = collocated on a density-blind `O(k)`
+    //     farthest-point sample of the data support (their continuous integrals
+    //     diverge for the polyharmonic kernel, so the support quadrature *is* the
+    //     penalty — `O(k)`-in-`n`, not the old sparse-center collocation that
+    //     under-resolved the basis and exploded).
+    let mut candidates = duchon_native_penalty_candidates(
         centers.view(),
         spec.length_scale,
         spec.power,
@@ -23559,6 +23026,17 @@ pub fn build_duchon_basiswithworkspace(
         identifiability_transform.as_ref(),
         poly_cols,
     )?;
+    candidates.extend(duchon_operator_penalty_candidates(
+        data,
+        centers.view(),
+        &spec.operator_penalties,
+        spec.length_scale,
+        spec.power,
+        effective_nullspace_order,
+        aniso.is_some(),
+        identifiability_transform.as_ref(),
+        workspace,
+    )?);
     let (penalties, nullspace_dims, penaltyinfo, null_eigenvectors, ops) =
         filter_active_penalty_candidates_with_ops(candidates)?;
     Ok(BasisBuildResult {
@@ -29372,6 +28850,38 @@ mod tests {
         panic!("expected Duchon metadata for centers extraction")
     }
 
+    #[test]
+    fn spherical_harmonic_penalty_keeps_laplace_beltrami_scale() {
+        let data = array![[-30.0, -120.0], [0.0, 0.0], [35.0, 80.0], [70.0, 160.0]];
+        let spec = SphericalSplineBasisSpec {
+            method: SphereMethod::Harmonic,
+            max_degree: Some(4),
+            double_penalty: false,
+            ..SphericalSplineBasisSpec::default()
+        };
+
+        let built = build_spherical_harmonic_basis(data.view(), &spec)
+            .expect("build harmonic spherical basis");
+        assert_eq!(built.penalties.len(), 1);
+        assert_eq!(built.penaltyinfo.len(), 1);
+        assert_eq!(built.penaltyinfo[0].source, PenaltySource::Primary);
+        assert_eq!(built.penaltyinfo[0].normalization_scale, 1.0);
+
+        let penalty = &built.penalties[0];
+        assert_eq!(penalty.nrows(), 24);
+        assert_eq!(penalty.ncols(), 24);
+
+        let mut col = 0usize;
+        for l in 1..=4 {
+            let eig = (l as f64 * (l as f64 + 1.0)).powi(2);
+            for _ in 0..(2 * l + 1) {
+                assert_abs_diff_eq!(penalty[[col, col]], eig, epsilon = 1e-12);
+                col += 1;
+            }
+        }
+        assert_eq!(col, penalty.ncols());
+    }
+
     /// Issue #247: the SAE Duchon atom's forward design and its derivative jet
     /// must share an identical column layout, and the forward design must match
     /// the full `build_duchon_basis` design bit-for-bit (so the seed atom and
@@ -33567,6 +33077,19 @@ mod tests {
         }
     }
 
+    fn assert_matrix_close(lhs: &Array2<f64>, rhs: &Array2<f64>, tol: f64) {
+        assert_eq!(lhs.dim(), rhs.dim(), "matrix shape mismatch");
+        let max_abs = lhs
+            .iter()
+            .zip(rhs.iter())
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0_f64, f64::max);
+        assert!(
+            max_abs <= tol,
+            "matrix mismatch: max_abs={max_abs:.3e}, tol={tol:.3e}"
+        );
+    }
+
     #[test]
     fn test_hybrid_duchon_candidate_factory_admits_log_riesz_closed_form() {
         // (d=4, m=1, s=2, q=1) is an even-dimensional log-Riesz case:
@@ -34775,6 +34298,7 @@ mod tests {
         let ls_minus = 1.0 / (-eps).exp();
         let ops_plus = build_duchon_collocation_operator_matriceswithworkspace(
             centers.view(),
+            centers.view(),
             None,
             Some(ls_plus),
             power,
@@ -34786,6 +34310,7 @@ mod tests {
         )
         .expect("plus ops");
         let ops_minus = build_duchon_collocation_operator_matriceswithworkspace(
+            centers.view(),
             centers.view(),
             None,
             Some(ls_minus),
@@ -34879,6 +34404,7 @@ mod tests {
         let mut workspace = BasisWorkspace::default();
         let ops_base = build_duchon_collocation_operator_matriceswithworkspace(
             centers.view(),
+            centers.view(),
             None,
             Some(length_scale),
             power,
@@ -34894,6 +34420,7 @@ mod tests {
         let ls_minus = 1.0 / (1.0 * (-eps).exp());
         let ops_plus = build_duchon_collocation_operator_matriceswithworkspace(
             centers.view(),
+            centers.view(),
             None,
             Some(ls_plus),
             power,
@@ -34905,6 +34432,7 @@ mod tests {
         )
         .expect("plus ops");
         let ops_minus = build_duchon_collocation_operator_matriceswithworkspace(
+            centers.view(),
             centers.view(),
             None,
             Some(ls_minus),
@@ -36424,340 +35952,6 @@ mod tests {
             penalty_err < 5e-3,
             "Duchon public second-derivative penalty mismatch: {penalty_err}"
         );
-    }
-
-    #[test]
-    fn test_duchon_aniso_derivative_blocks_match_realized_smooth_width() {
-        let data = array![
-            [0.0, 0.0],
-            [1.0, 0.2],
-            [0.3, 1.1],
-            [0.9, 0.8],
-            [0.4, 0.5],
-            [0.7, 0.1]
-        ];
-        let centers = array![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0]];
-        let spec = DuchonBasisSpec {
-            periodic: None,
-            center_strategy: CenterStrategy::UserProvided(centers),
-            length_scale: Some(0.9),
-            power: 1.0,
-            nullspace_order: DuchonNullspaceOrder::Linear,
-            identifiability: SpatialIdentifiability::default(),
-            aniso_log_scales: Some(vec![0.0, 0.0]),
-            operator_penalties: DuchonOperatorPenaltySpec::default(),
-            boundary: OneDimensionalBoundary::Open,
-        };
-
-        let basis = build_duchon_basis(data.view(), &spec).expect("aniso Duchon basis");
-        let derivs = build_duchon_basis_log_kappa_aniso_derivatives(data.view(), &spec)
-            .expect("aniso Duchon derivatives");
-        let expected_cols = basis.design.ncols();
-        assert_eq!(expected_cols, basis.penalties[0].ncols());
-
-        if let Some(op) = derivs.implicit_operator.as_ref() {
-            assert_eq!(op.p_out(), expected_cols);
-        }
-        for design in &derivs.design_first {
-            assert_eq!(design.ncols(), expected_cols);
-        }
-        for design in &derivs.design_second_diag {
-            assert_eq!(design.ncols(), expected_cols);
-        }
-        for penalties in &derivs.penalties_first {
-            for penalty in penalties {
-                assert_eq!(penalty.nrows(), expected_cols);
-                assert_eq!(penalty.ncols(), expected_cols);
-            }
-        }
-        for penalties in &derivs.penalties_second_diag {
-            for penalty in penalties {
-                assert_eq!(penalty.nrows(), expected_cols);
-                assert_eq!(penalty.ncols(), expected_cols);
-            }
-        }
-        assert_eq!(derivs.penalties_cross_pairs, vec![(0, 1)]);
-        let cross_penalties = derivs
-            .penalties_cross_provider
-            .as_ref()
-            .expect("aniso Duchon cross penalties should be provider-backed")
-            .evaluate(0, 1)
-            .expect("aniso Duchon cross penalties");
-        for penalty in &cross_penalties {
-            assert_eq!(penalty.nrows(), expected_cols);
-            assert_eq!(penalty.ncols(), expected_cols);
-        }
-    }
-
-    #[test]
-    fn test_pure_duchon_aniso_derivatives_use_contrast_operator_axes() {
-        let data = array![
-            [0.0, 0.1, 0.2],
-            [0.3, 0.4, 0.5],
-            [0.6, 0.2, 0.8],
-            [0.9, 0.7, 0.1],
-            [0.2, 0.8, 0.6],
-        ];
-        let centers = data.clone();
-        let spec = DuchonBasisSpec {
-            periodic: None,
-            center_strategy: CenterStrategy::UserProvided(centers),
-            length_scale: None,
-            power: 1.0,
-            nullspace_order: DuchonNullspaceOrder::Linear,
-            identifiability: SpatialIdentifiability::None,
-            aniso_log_scales: Some(vec![0.2, -0.1, -0.1]),
-            operator_penalties: DuchonOperatorPenaltySpec::default(),
-            boundary: OneDimensionalBoundary::Open,
-        };
-
-        let basis = build_duchon_basis(data.view(), &spec).expect("pure Duchon basis");
-        let derivs = build_duchon_basis_log_kappa_aniso_derivatives(data.view(), &spec)
-            .expect("pure Duchon anisotropic derivatives");
-
-        assert!(derivs.design_first.is_empty());
-        assert!(derivs.design_second_diag.is_empty());
-        let op = derivs
-            .implicit_operator
-            .as_ref()
-            .expect("pure Duchon should expose an operator-backed anisotropic derivative path");
-        assert_eq!(op.n_axes(), 2);
-        assert_eq!(op.p_out(), basis.design.ncols());
-        assert_eq!(derivs.penalties_first.len(), 2);
-        assert_eq!(derivs.penalties_second_diag.len(), 2);
-        assert_eq!(derivs.penalties_cross_pairs, vec![(0, 1)]);
-        let cross_penalties = derivs
-            .penalties_cross_provider
-            .as_ref()
-            .expect("pure Duchon cross penalties should be provider-backed")
-            .evaluate(0, 1)
-            .expect("pure Duchon cross penalties");
-        assert!(!cross_penalties.is_empty());
-    }
-
-    fn pure_duchon_design_for_eta(
-        data: &Array2<f64>,
-        centers: &Array2<f64>,
-        eta: Vec<f64>,
-    ) -> Array2<f64> {
-        let spec = DuchonBasisSpec {
-            periodic: None,
-            center_strategy: CenterStrategy::UserProvided(centers.clone()),
-            length_scale: None,
-            power: 1.0,
-            nullspace_order: DuchonNullspaceOrder::Linear,
-            identifiability: SpatialIdentifiability::None,
-            aniso_log_scales: Some(eta),
-            operator_penalties: DuchonOperatorPenaltySpec::default(),
-            boundary: OneDimensionalBoundary::Open,
-        };
-        build_duchon_basis(data.view(), &spec)
-            .expect("pure Duchon basis")
-            .design
-            .to_dense()
-    }
-
-    fn perturb_contrast_eta(base_eta: &[f64], perturbations: &[(usize, f64)]) -> Vec<f64> {
-        let mut eta = base_eta.to_vec();
-        let last = eta.len() - 1;
-        for &(axis, amount) in perturbations {
-            eta[axis] += amount;
-            eta[last] -= amount;
-        }
-        eta
-    }
-
-    fn assert_matrix_close(actual: &Array2<f64>, expected: &Array2<f64>, tolerance: f64) {
-        assert_eq!(actual.dim(), expected.dim());
-        let max_abs = actual
-            .iter()
-            .zip(expected.iter())
-            .map(|(a, b)| (a - b).abs())
-            .fold(0.0, f64::max);
-        assert!(
-            max_abs <= tolerance,
-            "matrix mismatch: max_abs={max_abs:.3e}, tolerance={tolerance:.3e}"
-        );
-    }
-
-    fn assert_pure_duchon_contrast_hessian_matches_finite_difference(
-        data: Array2<f64>,
-        centers: Array2<f64>,
-        eta: Vec<f64>,
-    ) {
-        let spec = DuchonBasisSpec {
-            periodic: None,
-            center_strategy: CenterStrategy::UserProvided(centers.clone()),
-            length_scale: None,
-            power: 1.0,
-            nullspace_order: DuchonNullspaceOrder::Linear,
-            identifiability: SpatialIdentifiability::None,
-            aniso_log_scales: Some(eta.clone()),
-            operator_penalties: DuchonOperatorPenaltySpec::default(),
-            boundary: OneDimensionalBoundary::Open,
-        };
-        let derivs = build_duchon_basis_log_kappa_aniso_derivatives(data.view(), &spec)
-            .expect("pure Duchon anisotropic derivatives");
-        let op = derivs
-            .implicit_operator
-            .as_ref()
-            .expect("pure Duchon contrast operator");
-        let h = 1e-4;
-        let x0 = pure_duchon_design_for_eta(&data, &centers, eta.clone());
-
-        for axis in 0..op.n_axes() {
-            let x_plus = pure_duchon_design_for_eta(
-                &data,
-                &centers,
-                perturb_contrast_eta(&eta, &[(axis, h)]),
-            );
-            let x_minus = pure_duchon_design_for_eta(
-                &data,
-                &centers,
-                perturb_contrast_eta(&eta, &[(axis, -h)]),
-            );
-            let finite_diff = (&x_plus - &(x0.mapv(|value| 2.0 * value)) + &x_minus)
-                .mapv(|value| value / (h * h));
-            let analytic = op
-                .materialize_second_diag(axis)
-                .expect("contrast diagonal Hessian");
-            assert_matrix_close(&analytic, &finite_diff, 2e-5);
-        }
-
-        if op.n_axes() >= 2 {
-            let x_pp = pure_duchon_design_for_eta(
-                &data,
-                &centers,
-                perturb_contrast_eta(&eta, &[(0, h), (1, h)]),
-            );
-            let x_pm = pure_duchon_design_for_eta(
-                &data,
-                &centers,
-                perturb_contrast_eta(&eta, &[(0, h), (1, -h)]),
-            );
-            let x_mp = pure_duchon_design_for_eta(
-                &data,
-                &centers,
-                perturb_contrast_eta(&eta, &[(0, -h), (1, h)]),
-            );
-            let x_mm = pure_duchon_design_for_eta(
-                &data,
-                &centers,
-                perturb_contrast_eta(&eta, &[(0, -h), (1, -h)]),
-            );
-            let finite_diff = (&x_pp - &x_pm - &x_mp + &x_mm).mapv(|value| value / (4.0 * h * h));
-            let analytic = op
-                .materialize_second_cross(0, 1)
-                .expect("contrast cross Hessian");
-            assert_matrix_close(&analytic, &finite_diff, 2e-5);
-        }
-    }
-
-    // Note: there is no `test_pure_duchon_dim2_contrast_hessian_*` test.
-    // Pure Duchon in dim=2 has a `r²ⁿ log r` polyharmonic kernel whose
-    // gradient operator `q = φ'(r)/r = c·(2 log r + 1)` is logarithmically
-    // singular at r = 0. The operator penalty path loops over centers ×
-    // centers (including the diagonal k = j), which makes every pure-Duchon
-    // operator penalty in dim 2 non-finite at center collisions regardless
-    // of the chosen `power`/nullspace pair, so an FD-vs-analytic comparison
-    // cannot produce finite numbers. The dim 3 test below exercises the
-    // same code path on a fixture where the spectrum is admissible.
-
-    #[test]
-    fn test_pure_duchon_dim3_contrast_hessian_matches_finite_difference() {
-        assert!(file!().ends_with(".rs"));
-        let data = array![
-            [0.1, 0.2, 0.3],
-            [0.4, 0.8, 0.2],
-            [0.9, 0.3, 0.7],
-            [1.2, 0.7, 0.4],
-            [0.6, 1.1, 0.9]
-        ];
-        let centers = array![
-            [0.0, 0.0, 0.0],
-            [0.8, 0.1, 0.2],
-            [0.2, 1.0, 0.4],
-            [1.1, 0.9, 0.8],
-            [0.5, 0.6, 1.2]
-        ];
-        assert_pure_duchon_contrast_hessian_matches_finite_difference(
-            data,
-            centers,
-            vec![0.2, -0.05, -0.15],
-        );
-    }
-
-    #[test]
-    fn test_pure_duchon_contrast_hessian_matches_raw_axis_reparameterization() {
-        assert!(file!().ends_with(".rs"));
-        let data = array![
-            [0.1, 0.2, 0.3],
-            [0.4, 0.8, 0.2],
-            [0.9, 0.3, 0.7],
-            [1.2, 0.7, 0.4],
-            [0.6, 1.1, 0.9]
-        ];
-        let centers = array![
-            [0.0, 0.0, 0.0],
-            [0.8, 0.1, 0.2],
-            [0.2, 1.0, 0.4],
-            [1.1, 0.9, 0.8],
-            [0.5, 0.6, 1.2]
-        ];
-        let spec = DuchonBasisSpec {
-            periodic: None,
-            center_strategy: CenterStrategy::UserProvided(centers),
-            length_scale: None,
-            power: 1.0,
-            nullspace_order: DuchonNullspaceOrder::Linear,
-            identifiability: SpatialIdentifiability::None,
-            aniso_log_scales: Some(vec![0.2, -0.05, -0.15]),
-            operator_penalties: DuchonOperatorPenaltySpec::default(),
-            boundary: OneDimensionalBoundary::Open,
-        };
-        let derivs = build_duchon_basis_log_kappa_aniso_derivatives(data.view(), &spec)
-            .expect("pure Duchon anisotropic derivatives");
-        let contrast_op = derivs
-            .implicit_operator
-            .as_ref()
-            .expect("pure Duchon contrast operator");
-        let mut raw_op = contrast_op.clone();
-        raw_op.axis_combinations = None;
-        let last = 2;
-
-        for axis in 0..2 {
-            let contrast = contrast_op
-                .materialize_second_diag(axis)
-                .expect("contrast diagonal Hessian");
-            let expected = raw_op
-                .materialize_second_diag(axis)
-                .expect("raw diagonal Hessian")
-                - raw_op
-                    .materialize_second_cross(axis, last)
-                    .expect("raw axis/last Hessian")
-                    .mapv(|value| 2.0 * value)
-                + raw_op
-                    .materialize_second_diag(last)
-                    .expect("raw last diagonal Hessian");
-            assert_matrix_close(&contrast, &expected, 1e-12);
-        }
-
-        let contrast_cross = contrast_op
-            .materialize_second_cross(0, 1)
-            .expect("contrast cross Hessian");
-        let expected_cross = raw_op
-            .materialize_second_cross(0, 1)
-            .expect("raw cross Hessian")
-            - raw_op
-                .materialize_second_cross(0, last)
-                .expect("raw first/last Hessian")
-            - raw_op
-                .materialize_second_cross(1, last)
-                .expect("raw second/last Hessian")
-            + raw_op
-                .materialize_second_diag(last)
-                .expect("raw last diagonal Hessian");
-        assert_matrix_close(&contrast_cross, &expected_cross, 1e-12);
     }
 
     #[test]

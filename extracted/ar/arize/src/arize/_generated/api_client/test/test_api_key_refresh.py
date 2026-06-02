@@ -35,7 +35,8 @@ class TestApiKeyRefresh(unittest.TestCase):
         model = ApiKeyRefresh()
         if include_optional:
             return ApiKeyRefresh(
-                expires_at = '2027-01-01T00:00Z'
+                expires_at = '2027-01-01T00:00Z',
+                grace_period_seconds = 300
             )
         else:
             return ApiKeyRefresh(

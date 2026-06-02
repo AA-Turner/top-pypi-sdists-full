@@ -1,6 +1,7 @@
 """Pytest configuration and fixtures."""
 
 import tempfile
+from collections.abc import Generator
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -14,6 +15,15 @@ from pydantic_deep.deps import DeepAgentDeps
 def mock_update_check():
     """Skip PyPI version checks in all tests to avoid network calls."""
     with patch("apps.cli.update.check_for_update", return_value=None):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def isolate_cli_config(tmp_path: Path) -> Generator[None, None, None]:
+    """Point CLI config to a non-existent temp path so tests are isolated from the real
+    .pydantic-deep/config.toml in the project directory.  load_config() returns CliConfig()
+    defaults when the path does not exist."""
+    with patch("apps.cli.config.DEFAULT_CONFIG_PATH", tmp_path / "config.toml"):
         yield
 
 

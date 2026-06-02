@@ -123,7 +123,7 @@ class IsIframedState(rx.State):
         return true;
     }
 }""",
-            callback=type(self).check_if_iframed_cb,
+            callback=self.__class__.check_if_iframed_cb,
         )
 
     @rx.event
@@ -406,13 +406,13 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
             ):
                 self._last_access_token_hash = current_at_hash
                 if (
-                    type(self)._on_refresh_access_token
+                    self.__class__._on_refresh_access_token
                     is not OIDCAuthState._on_refresh_access_token
-                    or type(self)._on_access_token_change
+                    or self.__class__._on_access_token_change
                     is not OIDCAuthState._on_access_token_change
                 ):
                     is_refresh = last_access_token_hash is not None
-                    return type(self).on_access_token_change(is_refresh)
+                    return self.__class__.on_access_token_change(is_refresh)
         else:
             self._last_access_token_hash = None
 
@@ -426,7 +426,7 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
             callback = [callback]
         return HTTPCookie.sync(
             callback=[
-                type(self).update_access_token_hash_in_browser(redirect_url),
+                self.__class__.update_access_token_hash_in_browser(redirect_url),
                 *(callback if callback is not None else []),
             ]
         )
@@ -456,7 +456,7 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
             access token is not up to date.
         """
         subdelta = delta.get(self.get_full_name())
-        key = type(self).latest_access_token_hash_ls._js_expr.rpartition(".")[2]
+        key = self.__class__.latest_access_token_hash_ls._js_expr.rpartition(".")[2]
         if (
             subdelta is not None
             and (latest_access_token_hash := subdelta.get(key)) is not None
@@ -466,12 +466,12 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
                 # If token hash was cleared: reset everything
                 if at_metadata is not None:
                     self._queue_async_task(
-                        call_event_from_computed_var(self, type(self).reset_auth)
+                        call_event_from_computed_var(self, self.__class__.reset_auth)
                     )
             else:
                 events: list[IndividualEventType] = []
                 if self._last_access_token_hash != latest_access_token_hash:
-                    events.append(type(self).update_access_token_hash_in_session())
+                    events.append(self.__class__.update_access_token_hash_in_session())
                 # Check if this session needs to perform a cookie sync:
                 if (
                     # Session has no token, but the browser has a token hash.
@@ -479,7 +479,7 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
                     # Session has a token, but browser token does not match session's token hash.
                     or latest_access_token_hash != at_metadata.sha256_hash()
                 ):
-                    events.append(type(self).trigger_access_token_refresh())
+                    events.append(self.__class__.trigger_access_token_refresh())
                     self._queue_async_task(
                         chain_event_out_of_band(self, HTTPCookie.sync(callback=events))
                     )
@@ -488,7 +488,7 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
                 else:
                     if self._should_trigger_access_token_refresh():
                         # Tokens are synced, so queue a frontend task to trigger proactive access token refresh if possible.
-                        events.append(type(self).trigger_access_token_refresh())
+                        events.append(self.__class__.trigger_access_token_refresh())
                     if events:
                         self._queue_async_task(
                             call_event_from_computed_var(self, events)
@@ -741,7 +741,7 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
         if not await self._validate_tokens():
             await self._try_refresh_access_token()
             if not await self._validate_tokens():
-                await call_event_from_computed_var(self, type(self).reset_auth)
+                await call_event_from_computed_var(self, self.__class__.reset_auth)
                 return None
         # Get the latest userinfo
         async with self._error_context("Fetching userinfo", user_error_message=None):
@@ -756,7 +756,7 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
                     raise
                 await self._try_refresh_access_token()
                 if not await self._validate_tokens():
-                    await call_event_from_computed_var(self, type(self).reset_auth)
+                    await call_event_from_computed_var(self, self.__class__.reset_auth)
                     raise
                 return await self._fetch_userinfo()
 
@@ -900,7 +900,7 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
         """Set whether the current page was opened as a popup."""
         self.from_popup = from_popup
         if from_popup:
-            return type(self).popup_on_load()
+            return self.__class__.popup_on_load()
 
     @rx.event
     def popup_on_load(self):
@@ -959,7 +959,7 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
         """
         msg_type = event["data"].get("type")
         if msg_type == f"post_logout_{self.__provider__}":
-            return type(self).reset_auth()
+            return self.__class__.reset_auth()
         if msg_type != f"post_auth_{self.__provider__}":
             return
         event_data = dict(event["data"])
@@ -1036,19 +1036,19 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
             - A redirect response to the provider's OIDC authorization endpoint
         """
         if not self.from_popup and await self._use_popup_flow():
-            return type(self).redirect_to_login_popup()
+            return self.__class__.redirect_to_login_popup()
 
         async with self._error_context("Processing login flow", clear_last_error=True):
-            if await self.has_any_token:
-                if not await self._validate_tokens():
-                    # If we had a token and failed to validate, leave the error
-                    # message for the user.
-                    return
+            if (await self.userinfo) is not None:
                 events: list[IndividualEventType] = [rx.toast("You are logged in.")]
                 if self.from_popup:
                     # Hand off tokens to the opener and close this window.
-                    events.append(type(self).post_auth_message)
+                    events.append(self.__class__.post_auth_message)
                 return events
+        if await self.has_any_token:
+            # Tokens were present but userinfo could not be fetched; clear the
+            # now-untrustworthy cookies before initiating a new login.
+            await call_event_from_computed_var(self, self.__class__.reset_auth)
         async with self._error_context("Building authorization request"):
             query_params = await self._redirect_to_login_payload()
             request_uri = f"{await self._issuer_endpoint('authorization_endpoint')}?{urlencode(query_params)}"
@@ -1098,7 +1098,7 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
             if await self._use_popup_flow():
                 if end_session_endpoint:
                     # Open the logout popup when the provider gives a logout endpoint.
-                    yield type(self).redirect_to_logout_popup
+                    yield self.__class__.redirect_to_logout_popup
                 else:
                     # Reset the tokens and the app is effectively logged out.
                     yield self.reset_auth()
@@ -1123,7 +1123,7 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
                 # Notify the opener to clear its tokens too. The window-close
                 # timer scheduled by post_logout_message is cancelled by the
                 # subsequent navigation to the provider's logout endpoint.
-                yield type(self).post_logout_message
+                yield self.__class__.post_logout_message
             yield self._cookie_sync_token_update(redirect_url=redirect_url)
 
     async def _validate_auth_callback_request_params(
@@ -1309,7 +1309,7 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
         do_refresh = HTTPCookie._get_sync_javascript_code().then(
             rx.Var.create(
                 rx.event.EventChain.create(
-                    type(self).do_access_token_refresh,
+                    self.__class__.do_access_token_refresh,
                     args_spec=rx.event.no_args_event_spec,
                     invocation=rx.vars.function.ArgsFunctionOperation.create(
                         args_names=["events"],
@@ -1396,7 +1396,7 @@ class OIDCAuthState(ConfigMixin, rx.State, mixin=True, metaclass=OIDCCookieMeta)
             expires_in = max(at_metadata.expires_at - time.time(), 0)
             time_before_refresh = expires_in - ACCESS_TOKEN_CACHE_INTERVAL
             if time_before_refresh > 0:
-                return type(self).trigger_access_token_refresh()
+                return self.__class__.trigger_access_token_refresh()
         await self._try_refresh_access_token()
 
     async def _refresh_access_token_payload(self) -> dict[str, str]:

@@ -7,7 +7,7 @@ requires = [ "setuptools>=81.0.0", "packaging>=26.2.0" ]
 
 [project]
 name = "pkg_about"
-version = "2.4.2"
+version = "2.4.3"
 description = "Unified access to Python package metadata at runtime."
 keywords = [ "pkg_about", "__about__", "packaging" ]
 license = "Zlib"
@@ -58,7 +58,7 @@ dependencies = [
 
 [dependency-groups]
 base = [
-  "pip>=26.1.1; platform_python_implementation!='GraalVM'",
+  "pip>=26.1.2; platform_python_implementation!='GraalVM'",
   "pip>=24.3.1; platform_python_implementation=='GraalVM'",
   "setuptools>=81.0.0",
 ]
@@ -71,18 +71,19 @@ test = [
 ]
 coverage = [
   { include-group = "test" },
-  "coverage>=7.14.0",
+  "coverage>=7.14.1",
   "covdefaults>=2.3.0",
-  "diff-cover>=10.2.0",
+  "diff-cover>=10.3.0",
 ]
 docs = [
   { include-group = "base" },
   "sphinx>=9.0.4",
   "pygments_ansi_color>=0.3.0", # fix sphinx load error
   "roman_numerals>=4.1.0",      #         -||-
+  "myst-parser>=5.1.0",
   "sphinx-autodoc-typehints>=3.6.1",
-  "sphinx-toolbox>=4.1.2",
-  "sphinx-tabs>=3.4.5", # Do not change - sphinx-toolbox requires <3.4.7
+  "sphinx-tabs>=3.5.0",
+  "sphinx-prompt>=1.10.2",
   "sphinx-copybutton>=0.5.2",
   "sphinxcontrib-spelling>=8.0.2",
   "sphinx-lint>=1.0.2",

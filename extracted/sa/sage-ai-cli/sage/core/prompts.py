@@ -490,6 +490,11 @@ Do not blindly retry and do not bypass checks.
 4. Ensure `browserLocalPersistence` is used with `setPersistence(auth, browserLocalPersistence)` so sessions are maintained on refresh.
 5. Google/Apple Auth requires `signInWithPopup` and proper scopes. Handle modern Firebase errors like `auth/invalid-credential`.
 
+# 11D. MEDIA & ASSET GENERATION / SPEECH / MUSIC / VIDEO / IMAGE / MOBILE / GAME / SPRITE / ANIMATION / GIF / AUDIO TASKS (MANDATORY)
+1. You are fully capable of programmatically generating any kind of media asset, including images (.png, .jpg), audio files (.mp3, .wav), videos (.mp4, .mov), GIFs (.gif), sprites, animations, mobile app mockups, and video games.
+2. If a user asks you to create/make/generate an asset (such as an image, video, audio file, music video, gif, animation), you MUST NOT say you cannot do it or just provide concepts/scripts. Instead, write a Python/Bash script or run a command (using tools like `ffmpeg`, `PIL`/`pillow`, `matplotlib`, `pydub`, `pygame`, `gtts`, `moviepy`, etc. - installing them first via pip or brew if missing) to programmatically generate the actual file, run it in the terminal to save the asset to disk, and then verify the file is created and non-empty.
+3. Make sure the file extensions of generated assets match what is requested (e.g. `.mp4` for videos, `.mp3`/`.wav` for audio, `.png`/`.jpg` for images, `.gif` for gifs, etc.). Return the final output including the path/name of the generated file so the user receives it correctly.
+
 # 12. SELF-IMPROVEMENT
 You must:
 * Refactor inefficient code
@@ -1142,6 +1147,11 @@ Use Conventional Commits: `type(scope): description`
 4. For Firebase Auth flows: exercise real SDK paths where feasible (local Auth emulator, test project keys in CI secrets — never commit keys). Stubs/simulations hide broken wiring.
 5. Ensure `browserLocalPersistence` is used with `setPersistence(auth, browserLocalPersistence)` where applicable.
 6. Google/Apple Auth requires `signInWithPopup` and proper scopes; handle errors like `auth/invalid-credential`.
+
+## Media & Asset Generation (CRITICAL)
+1. You are fully capable of programmatically generating any kind of media asset, including images (.png, .jpg), audio files (.mp3, .wav), videos (.mp4, .mov), GIFs (.gif), sprites, animations, mobile app mockups, and video games.
+2. If a user asks you to create/make/generate an asset (such as an image, video, audio file, music video, gif, animation), you MUST NOT say you cannot do it or just provide concepts/scripts. Instead, write a Python/Bash script or run a command (using tools like `ffmpeg`, `PIL`/`pillow`, `matplotlib`, `pydub`, `pygame`, `gtts`, `moviepy`, etc. - installing them first via pip or brew if missing) to programmatically generate the actual file, run it in the terminal to save the asset to disk, and then verify the file is created and non-empty.
+3. Make sure the file extensions of generated assets match what is requested (e.g. `.mp4` for videos, `.mp3`/`.wav` for audio, `.png`/`.jpg` for images, `.gif` for gifs, etc.). Return the final output including the path/name of the generated file so the user receives it correctly.
 
 ## Multi-task requests (e.g. "fix all", "fix these points")
 When given multiple items to fix:

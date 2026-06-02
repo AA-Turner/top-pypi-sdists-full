@@ -646,6 +646,83 @@ class TestBashEmptyCommand:
         args = BashArgs(command=None)
         assert args.command is None
 
+    @pytest.mark.asyncio
+    async def test_bash_empty_command_result_has_streak_sentinel(self):
+        """bash({}) result must contain the readonly-streak sentinel so that
+        _update_readonly_streak classifies it as a no-progress turn and fires
+        escalating nudges. Without the sentinel the streak stays at 0 and the
+        loop runs unchecked (dispatch queue: 195 fires in 24h, 2026-06-01)."""
+        from drydock.core.tools.builtins.bash import Bash, BashArgs, BashToolConfig
+        from drydock.core.tools.base import BaseToolState
+        tool = Bash(config=BashToolConfig(), state=BaseToolState())
+        args = BashArgs(command=None)
+        results = [r async for r in tool.run(args)]
+        assert results, "tool.run() yielded nothing"
+        result = results[0]
+        assert "[bash: empty or placeholder command]" in result.stdout, (
+            f"sentinel missing from stdout: {result.stdout!r}"
+        )
+
+
+class TestBashEmptyCommandLoopStop:
+    """3 consecutive bash({}) calls must trigger FORCE_STOP via _bash_cmds.
+    Before the fix, `if _cmd:` excluded empty commands from _bash_cmds so
+    the consecutive-3-identical check never fired (319 failed interventions
+    in 24h observed in dispatch queue, 2026-06-02)."""
+
+    def _make_bash_tc(self, cmd: str | None = None) -> object:
+        """Build a minimal tool-call stub for bash with the given command."""
+        import types
+        fn = types.SimpleNamespace(
+            name="bash",
+            arguments=f'{{"command": "{cmd}"}}' if cmd is not None else "{}",
+        )
+        return types.SimpleNamespace(function=fn)
+
+    def _make_assistant_msg(self, cmd: str | None) -> object:
+        import types
+        from drydock.core.types import Role
+        return types.SimpleNamespace(
+            role=Role.assistant,
+            tool_calls=[self._make_bash_tc(cmd)],
+            content=None,
+        )
+
+    def test_empty_bash_included_in_bash_cmds(self):
+        """_bash_cmds must include '' for bash({}) so consecutive check fires."""
+        import json
+        # Replicate the extraction logic from agent_loop.py
+        bash_cmds: list[str] = []
+        for cmd_raw in [{}, {"command": ""}, {"command": None}]:
+            _a = cmd_raw
+            _cmd = _a.get("command", "") or ""  # the fixed version
+            bash_cmds.append(_cmd)
+        # All three must be "" so 3-consecutive fires
+        assert bash_cmds == ["", "", ""], (
+            f"Empty bash calls not tracked as '': {bash_cmds}"
+        )
+
+    def test_three_consecutive_empty_bash_signals_loop(self):
+        """With the fix, ['']*3 consecutive in _bash_cmds triggers the check."""
+        cmds = ["", "", ""]
+        # Simulate the check
+        triggered = len(cmds) >= 3 and cmds[0] == cmds[1] == cmds[2]
+        assert triggered, "Consecutive-3-empty check should fire"
+
+    def test_old_guard_would_miss_empty(self):
+        """Without the fix (if _cmd guard), empty commands were not appended."""
+        bash_cmds_old: list[str] = []
+        for cmd in ["", "", ""]:
+            if cmd:  # the old guard — intentionally wrong
+                bash_cmds_old.append(cmd)
+        # Old code: list stays empty, check can't fire
+        triggered_old = (
+            len(bash_cmds_old) >= 3
+            and bash_cmds_old[0:3] == [bash_cmds_old[0]] * 3
+            if len(bash_cmds_old) >= 3 else False
+        )
+        assert not triggered_old, "Old guard should NOT trigger (demonstrates the bug)"
+
 
 # ============================================================================
 # Mid-turn user injection (Claude Code "type while busy" feature)

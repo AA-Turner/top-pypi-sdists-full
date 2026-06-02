@@ -4,7 +4,7 @@ The primitive is deterministic — same inputs produce byte-identical
 JSON. UUIDs are derived via uuid5 from a fixed namespace + the
 underlying KSI/control identifiers, so re-runs of the same scan
 produce stable diffs (important for tracking deltas across releases
-and for downstream consumers like RegScale OSCAL Hub that may
+and for downstream OSCAL consumers that may
 detect "changes" via UUID comparison).
 """
 

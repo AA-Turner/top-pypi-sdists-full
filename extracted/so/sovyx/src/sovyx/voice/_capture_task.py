@@ -49,9 +49,7 @@ from typing import TYPE_CHECKING, Any
 from sovyx.engine.config import VoiceTuningConfig as _VoiceTuning
 from sovyx.observability.logging import get_logger
 from sovyx.observability.tasks import spawn
-from sovyx.voice._agc2 import build_agc2_if_enabled
 from sovyx.voice._chaos import ChaosInjector, ChaosSite
-from sovyx.voice._frame_normalizer import FrameNormalizer
 
 # T1.4 step 5 — module-level constants extracted to
 # ``voice/capture/_constants``. Re-exported via the explicit
@@ -107,7 +105,7 @@ from sovyx.voice.capture._contention import (
 # working without an import-path migration.
 # T1.4 step 6 — first mixin landed. Subsequent steps add more
 # mixins to the composition root per
-# ``docs-internal/T1.4-step-6-mixin-surgery-plan.md``.
+# ``docs-internal/archive/plans-shipped/T1.4-step-6-mixin-surgery-plan.md``.
 from sovyx.voice.capture._epoch import EpochMixin
 
 # T1.4 step 2 — exception class hierarchy extracted to
@@ -201,6 +199,12 @@ from sovyx.voice.capture._restart import (
 )
 from sovyx.voice.capture._restart_mixin import RestartMixin
 from sovyx.voice.capture._ring import RingMixin
+from sovyx.voice.capture._signal_state import (
+    SignalState as SignalState,
+)
+from sovyx.voice.capture._signal_state import (
+    classify_signal_state,
+)
 from sovyx.voice.health.contract import RmsSummary
 
 if TYPE_CHECKING:
@@ -213,6 +217,7 @@ if TYPE_CHECKING:
     from sovyx.engine.config import VoiceTuningConfig
     from sovyx.voice._aec import AecProcessor, RenderPcmProvider
     from sovyx.voice._double_talk_detector import DoubleTalkDetector
+    from sovyx.voice._frame_normalizer import FrameNormalizer
     from sovyx.voice._noise_suppression import NoiseSuppressor
     from sovyx.voice._snr_estimator import SnrEstimator
     from sovyx.voice.device_enum import DeviceEntry
@@ -247,7 +252,7 @@ class AudioCaptureTask(EpochMixin, RingMixin, LifecycleMixin, LoopMixin, Restart
       ``(epoch, samples_written)`` decomposition.
     * Future steps land additional mixins (``RingMixin``,
       ``RestartMixin``, ``LoopMixin``) per
-      ``docs-internal/T1.4-step-6-mixin-surgery-plan.md``.
+      ``docs-internal/archive/plans-shipped/T1.4-step-6-mixin-surgery-plan.md``.
 
     Owns a ``sounddevice.InputStream`` running at 16 kHz / int16 /
     512-sample blocks — the exact frame shape the pipeline expects.
@@ -498,13 +503,22 @@ class AudioCaptureTask(EpochMixin, RingMixin, LifecycleMixin, LoopMixin, Restart
 
     def status_snapshot(self) -> dict[str, Any]:
         """Compact dict for ``/api/voice/status`` — no async, no locks."""
+        last_rms_db = round(self._last_rms_db, 1)
         return {
             "running": self._running,
             "input_device": self._input_device,
             "host_api": self._host_api_name,
             "sample_rate": self._sample_rate,
             "frames_delivered": self._frames_delivered,
-            "last_rms_db": round(self._last_rms_db, 1),
+            "last_rms_db": last_rms_db,
+            # W1.1 / G-P0-1 — honest dead-mic-vs-warming signal state derived
+            # from real capture telemetry, so the dashboard stops rendering a
+            # dead/absent mic as "warming up". SSoT: classify_signal_state.
+            "signal_state": classify_signal_state(
+                running=self._running,
+                frames_delivered=self._frames_delivered,
+                last_rms_db=last_rms_db,
+            ).value,
         }
 
     def apply_mic_ducking_db(self, gain_db: float) -> None:
@@ -697,45 +711,12 @@ class AudioCaptureTask(EpochMixin, RingMixin, LifecycleMixin, LoopMixin, Restart
         self._ensure_endpoint_guid(entry)
         self._allocate_ring_buffer(tuning)
 
-        # F5/F6: AGC2 default-on per VoiceTuningConfig.agc2_enabled
-        # (commit 2e36893). Operators can revert via
-        # SOVYX_TUNING__VOICE__AGC2_ENABLED=false. The factory
-        # returns None when disabled — FrameNormalizer accepts None
-        # as the no-op default so the call site needs no ``if`` branch.
-        _agc2_tuning = self._tuning if self._tuning is not None else _VoiceTuning()
-        from sovyx.voice._agc2_adaptive_floor import build_agc2_adaptive_floor
-
-        self._normalizer = FrameNormalizer(
+        # Construct the capture DSP chain. See RestartMixin._build_normalizer
+        # — single construction site shared by the initial-open path (here)
+        # and every restart path (anti-pattern #16; was duplicated 8×).
+        self._normalizer = self._build_normalizer(
             source_rate=info.sample_rate,
             source_channels=info.channels,
-            agc2=build_agc2_if_enabled(
-                enabled=_agc2_tuning.agc2_enabled,
-                sample_rate=info.sample_rate,
-                adaptive_floor=build_agc2_adaptive_floor(
-                    enabled=_agc2_tuning.voice_agc2_adaptive_floor_enabled,
-                    window_seconds=_agc2_tuning.voice_agc2_adaptive_floor_window_seconds,
-                    quantile=_agc2_tuning.voice_agc2_adaptive_floor_quantile,
-                    sample_rate=info.sample_rate,
-                ),
-                vad_feedback_enabled=_agc2_tuning.voice_agc2_vad_feedback_enabled,
-            ),
-            aec=self._aec,
-            render_provider=self._render_provider,
-            double_talk_detector=self._double_talk_detector,
-            noise_suppressor=self._noise_suppressor,
-            snr_estimator=self._snr_estimator,
-            dither_enabled=self._dither_enabled,
-            dither_amplitude_lsb=self._dither_amplitude_lsb,
-            wiener_entropy_check_enabled=self._wiener_entropy_check_enabled,
-            wiener_entropy_threshold=self._wiener_entropy_threshold,
-            resample_peak_check_enabled=self._resample_peak_check_enabled,
-            phase_inversion_auto_recovery_enabled=self._phase_inversion_auto_recovery_enabled,
-            # Phase 5.A.2 — multi-mind keying for SNR + noise-floor
-            # heartbeat aggregators. Each AudioCaptureTask is bound to
-            # one VoicePipeline → one configured mind. Audio-quality
-            # samples are hardware-level (not per-turn) so the
-            # configured-at-startup mind_id is the correct granularity.
-            mind_id=self._pipeline.config.mind_id,
         )
         if not self._normalizer.is_passthrough:
             logger.info(
@@ -904,6 +885,20 @@ class AudioCaptureTask(EpochMixin, RingMixin, LifecycleMixin, LoopMixin, Restart
         * When ``True``: measures the peak per-frame RMS and short-circuits
           the moment it crosses ``capture_validation_min_rms_db``. Retains
           the legacy diagnostic semantics used by the setup-wizard.
+
+        Design decision (W2.3 / G-P1-10 — presence-only is INTENTIONAL, not a
+        gap; ``docs-internal/ADR-voice-capture-boot-validation.md``): boot
+        validation proves *liveness* (callback fires), NOT signal energy.
+        Energy-deadness is deferred to the runtime capture-health coordinator
+        (deaf heartbeat → warm re-probe → bypass ladder). Flipping the default
+        to ``require_signal=True`` was rejected because boot validation cannot
+        distinguish a silent room from a dead mic — both deliver floor-level
+        frames — so requiring energy at open would FAIL a working mic that
+        starts in a quiet room (a worse failure for more users). The wizard /
+        ``sovyx doctor voice`` set ``require_signal=True`` because there the
+        user IS prompted to speak. Contract: open = liveness; runtime
+        coordinator = energy-deadness + recovery. "Catch deafness sooner" work
+        belongs in the coordinator, never in a boot-time energy gate.
         """
         # Drain stale frames from any previously rejected variant — the
         # queue is shared across pyramid iterations.

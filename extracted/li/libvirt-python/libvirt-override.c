@@ -7451,6 +7451,114 @@ libvirt_virConnectDomainEventNICMACChangeCallback(virConnectPtr conn ATTRIBUTE_U
 #endif /* VIR_DOMAIN_EVENT_ID_NIC_MAC_CHANGE */
 
 
+#ifdef VIR_DOMAIN_EVENT_ID_VCPU_REMOVED
+static int
+libvirt_virConnectDomainEventVcpuRemovedCallback(virConnectPtr conn ATTRIBUTE_UNUSED,
+                                                 virDomainPtr dom,
+                                                 unsigned int vcpuid,
+                                                 void *opaque)
+{
+    PyObject *pyobj_cbData = (PyObject*)opaque;
+    PyObject *pyobj_dom;
+    PyObject *pyobj_ret = NULL;
+    PyObject *pyobj_conn;
+    PyObject *dictKey;
+    int ret = -1;
+
+    LIBVIRT_ENSURE_THREAD_STATE;
+
+    if (!(dictKey = libvirt_constcharPtrWrap("conn")))
+        goto cleanup;
+    pyobj_conn = PyDict_GetItem(pyobj_cbData, dictKey);
+    Py_DECREF(dictKey);
+
+    /* Create a python instance of this virDomainPtr */
+    virDomainRef(dom);
+    if (!(pyobj_dom = libvirt_virDomainPtrWrap(dom))) {
+        virDomainFree(dom);
+        goto cleanup;
+    }
+    Py_INCREF(pyobj_cbData);
+
+    /* Call the Callback Dispatcher */
+    pyobj_ret = PyObject_CallMethod(pyobj_conn,
+                                    (char*)"_dispatchDomainEventVcpuRemovedCallback",
+                                    (char*)"OiO",
+                                    pyobj_dom, vcpuid, pyobj_cbData);
+
+    Py_DECREF(pyobj_cbData);
+    Py_DECREF(pyobj_dom);
+
+ cleanup:
+    if (!pyobj_ret) {
+        DEBUG("%s - ret:%p\n", __FUNCTION__, pyobj_ret);
+        PyErr_Print();
+    } else {
+        Py_DECREF(pyobj_ret);
+        ret = 0;
+    }
+
+    LIBVIRT_RELEASE_THREAD_STATE;
+    return ret;
+}
+#endif /* VIR_DOMAIN_EVENT_ID_VCPU_REMOVED */
+
+
+#ifdef VIR_DOMAIN_EVENT_ID_CHANNEL_LIFECYCLE
+static int
+libvirt_virConnectDomainEventChannelLifecycleCallback(virConnectPtr conn ATTRIBUTE_UNUSED,
+                                                      virDomainPtr dom,
+                                                      int state,
+                                                      int reason,
+                                                      void *opaque)
+{
+    PyObject *pyobj_cbData = (PyObject*)opaque;
+    PyObject *pyobj_dom;
+    PyObject *pyobj_ret = NULL;
+    PyObject *pyobj_conn;
+    PyObject *dictKey;
+    int ret = -1;
+
+    LIBVIRT_ENSURE_THREAD_STATE;
+
+    if (!(dictKey = libvirt_constcharPtrWrap("conn")))
+        goto cleanup;
+    pyobj_conn = PyDict_GetItem(pyobj_cbData, dictKey);
+    Py_DECREF(dictKey);
+
+    /* Create a python instance of this virDomainPtr */
+    virDomainRef(dom);
+    if (!(pyobj_dom = libvirt_virDomainPtrWrap(dom))) {
+        virDomainFree(dom);
+        goto cleanup;
+    }
+    Py_INCREF(pyobj_cbData);
+
+    /* Call the Callback Dispatcher */
+    pyobj_ret = PyObject_CallMethod(pyobj_conn,
+                                    (char*)"_dispatchDomainEventChannelLifecycleCallback",
+                                    (char*)"OiiO",
+                                    pyobj_dom, state, reason, pyobj_cbData);
+
+    Py_DECREF(pyobj_cbData);
+    Py_DECREF(pyobj_dom);
+
+ cleanup:
+    if (!pyobj_ret) {
+        DEBUG("%s - ret:%p\n", __FUNCTION__, pyobj_ret);
+        PyErr_Print();
+    } else {
+        Py_DECREF(pyobj_ret);
+        ret = 0;
+    }
+
+    LIBVIRT_RELEASE_THREAD_STATE;
+    return ret;
+
+}
+#endif /* VIR_DOMAIN_EVENT_ID_CHANNEL_LIFECYCLE */
+
+
 static PyObject *
 libvirt_virConnectDomainEventRegisterAny(PyObject *self ATTRIBUTE_UNUSED,
                                          PyObject *args)
@@ -7591,6 +7699,16 @@ libvirt_virConnectDomainEventRegisterAny(PyObject *self ATTRIBUTE_UNUSED,
         cb = VIR_DOMAIN_EVENT_CALLBACK(libvirt_virConnectDomainEventNICMACChangeCallback);
         break;
 #endif /* VIR_DOMAIN_EVENT_ID_NIC_MAC_CHANGE */
+#ifdef VIR_DOMAIN_EVENT_ID_VCPU_REMOVED
+    case VIR_DOMAIN_EVENT_ID_VCPU_REMOVED:
+        cb = VIR_DOMAIN_EVENT_CALLBACK(libvirt_virConnectDomainEventVcpuRemovedCallback);
+        break;
+#endif /* VIR_DOMAIN_EVENT_ID_VCPU_REMOVED */
+#ifdef VIR_DOMAIN_EVENT_ID_CHANNEL_LIFECYCLE
+    case VIR_DOMAIN_EVENT_ID_CHANNEL_LIFECYCLE:
+        cb = VIR_DOMAIN_EVENT_CALLBACK(libvirt_virConnectDomainEventChannelLifecycleCallback);
+        break;
+#endif /* VIR_DOMAIN_EVENT_ID_CHANNEL_LIFECYCLE */
     case VIR_DOMAIN_EVENT_ID_LAST:
         break;
     }

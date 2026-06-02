@@ -118,6 +118,18 @@ class GerritSubmitRecord(GerritBase):
     requirements: None | list[Mapping[str, str]] = None
 
 
+class GerritRevision(GerritBase):
+    number: int = Field(..., alias="_number")
+    ref: str
+    description: None | str = None
+    conflicts: None | Mapping[str, bool | str] = None
+    kind: Literal["REWORK", "TRIVIAL_REBASE"]
+    created: datetime
+    uploader: GerritUser
+    fetch: Mapping[str, Mapping[str, str]]
+    branch: str
+
+
 class GerritChange(GerritBase):
     number: int = Field(..., alias="_number")
     change_id: str
@@ -125,7 +137,10 @@ class GerritChange(GerritBase):
     subject: str
     project: str
     branch: str
+    current_revision: str
+    revisions: Mapping[str, GerritRevision]
 
+    full_branch: str
     status: Literal["NEW", "MERGED", "ABANDONED"]
     created: datetime
     updated: datetime
@@ -178,6 +193,7 @@ class GerritCommit(GerritBase):
     committer: GerritCommitPerson
     affected_files: Sequence[str] = []
     tree: str
+    tree_diff: Sequence[Mapping[str, int | str]]
     parents: list[str]
 
 
@@ -284,6 +300,20 @@ class GerritClient:
             )
         )["revision"]
 
+    async def get_commit_details(self, project: str, commit_id: str) -> GerritCommit:
+        return GerritCommit.model_validate(
+            await self.get(
+                f"a/plugins/gitiles/{quote(project, safe='')}/+/{commit_id}",
+                params={"format": "JSON"},
+            )
+        )
+
+    async def get_commit_text(self, project: str, commit_id: str) -> str:
+        return await self.get(
+            f"a/plugins/gitiles/{quote(project, safe='')}/+/{commit_id}",
+            params={"format": "TEXT"},
+        )
+
     async def get_log(
         self, file_path: str, since: datetime | date, project: str, branch: str
     ) -> Sequence[GerritCommit]:
@@ -383,6 +413,18 @@ class GerritClient:
     async def change_reviewers(self, change: GerritChange) -> Iterable[GerritReviewer]:
         raw_reviewers: Json[dict[str, Any]] = await self.get(f"a/changes/{change.number}/reviewers")
         return [GerritReviewer.model_validate(raw) for raw in raw_reviewers]
+
+    async def get_change_sets(self, change_id: str) -> Sequence[GerritChange]:
+        return [
+            GerritChange.model_validate(raw)
+            for raw in cast(
+                "list[Mapping[str, str]]",
+                await self.get(
+                    "a/changes/",
+                    params={"q": f"change:{change_id}", "o": "ALL_REVISIONS"},
+                ),
+            )
+        ]
 
     async def fetch_changes(self, query: Mapping[str, str]) -> AsyncIterable[GerritChange]:
         start_index = 0
@@ -736,6 +778,8 @@ class CodeOwnersClient:
     async def _persist_cached_state(self) -> None:
         self._cache_file_path.parent.mkdir(parents=True, exist_ok=True)
         with self._cache_file_path.open("w") as f:
+            # fixme(frans): backup write
+            # fixme(frans): capture signal
             f.write(self._cached.model_dump_json(indent=2))
 
     async def _component_details(self, identifier: str) -> Component:
@@ -969,7 +1013,7 @@ def select_credentials(cli_args: Args) -> tuple[str, str, str]:
     return cli_args.gerrit_url, *creds
 
 
-def apply_code_owner_cli_args(parser: ArgumentParser) -> ArgumentParser:
+def apply_common_gerrit_cli_args(parser: ArgumentParser) -> ArgumentParser:
     """Populates given @parser with arguments needed for a Gerrit connection"""
     parser.add_argument("--gerrit-url", type=str, default=DEFAULT_GERRIT_URL)
     parser.add_argument("--project-name", type=str, default=DEFAULT_PROJECT_NAME)
@@ -977,6 +1021,12 @@ def apply_code_owner_cli_args(parser: ArgumentParser) -> ArgumentParser:
     parser.add_argument("--gerrit-username-var", type=str)
     parser.add_argument("--gerrit-api-token-var", type=str)
     parser.add_argument("--store-credentials", type=str, help="Store credentials in local keyring")
+    return parser
+
+
+def apply_code_owner_cli_args(parser: ArgumentParser) -> ArgumentParser:
+    """Populates given @parser with arguments needed for a Gerrit connection"""
+    apply_common_gerrit_cli_args(parser)
     parser.add_argument(
         "--cache-mode", type=str, default="auto", choices=["auto", "always", "never"]
     )

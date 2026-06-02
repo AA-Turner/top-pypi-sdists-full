@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hdbscan
-Version: 0.8.43
+Version: 0.8.44
 Summary: Clustering based on density with variable density clusters
 Author-email: Leland McInnes <leland.mcinnes@gmail.com>
 License: BSD

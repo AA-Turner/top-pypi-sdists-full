@@ -2,7 +2,6 @@ import asyncio
 import pickle
 import random
 import struct
-from typing import Union
 from unittest import mock
 
 import pytest
@@ -20,7 +19,7 @@ from aiohttp._websocket.models import WS_DEFLATE_TRAILING
 from aiohttp._websocket.reader import WebSocketDataQueue
 from aiohttp.base_protocol import BaseProtocol
 from aiohttp.compression_utils import ZLibBackend
-from aiohttp.http import WebSocketError, WSCloseCode, WSMessage, WSMsgType
+from aiohttp.http import HttpParser, WebSocketError, WSCloseCode, WSMessage, WSMsgType
 from aiohttp.http_websocket import WebSocketReader
 
 
@@ -29,14 +28,14 @@ class PatchableWebSocketReader(WebSocketReader):
 
     def parse_frame(
         self, data: bytes
-    ) -> list[tuple[bool, int, Union[bytes, bytearray], int]]:
+    ) -> list[tuple[bool, int, bytes | bytearray, int]]:
         # This method is overridden to allow for patching in tests.
-        frames: list[tuple[bool, int, Union[bytes, bytearray], int]] = []
+        frames: list[tuple[bool, int, bytes | bytearray, int]] = []
 
         def _handle_frame(
             fin: bool,
             opcode: int,
-            payload: Union[bytes, bytearray],
+            payload: bytes | bytearray,
             compressed: int,
         ) -> None:
             # This method is overridden to allow for patching in tests.
@@ -107,8 +106,9 @@ def build_close_frame(code=1000, message=b"", noheader=False):
 
 @pytest.fixture()
 def protocol(loop: asyncio.AbstractEventLoop) -> BaseProtocol:
+    parser = mock.create_autospec(HttpParser, spec_set=True, instance=True)
     transport = mock.Mock(spec_set=asyncio.Transport)
-    protocol = BaseProtocol(loop)
+    protocol = BaseProtocol(loop, parser=parser)
     protocol.connection_made(transport)
     return protocol
 
@@ -257,7 +257,7 @@ def test_parse_frame_header_payload_size(
 def test_ping_frame(
     out: WebSocketDataQueue,
     parser: PatchableWebSocketReader,
-    data: Union[bytes, bytearray, memoryview],
+    data: bytes | bytearray | memoryview,
 ) -> None:
     parser._handle_frame(True, WSMsgType.PING, b"data", 0)
     res = out._buffer[0]

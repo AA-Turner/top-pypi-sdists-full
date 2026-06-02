@@ -266,7 +266,9 @@ class TestCDPStartupHandling:
             patch("notebooklm_tools.utils.cdp.is_profile_locked", return_value=False),
             patch("notebooklm_tools.utils.cdp.get_chrome_path", return_value="chromium"),
             patch("notebooklm_tools.utils.cdp.find_available_port", return_value=9223),
-            patch("notebooklm_tools.utils.cdp.launch_chrome", return_value=True) as mock_launch_chrome,
+            patch(
+                "notebooklm_tools.utils.cdp.launch_chrome", return_value=True
+            ) as mock_launch_chrome,
             patch(
                 "notebooklm_tools.utils.cdp.get_debugger_url",
                 return_value="ws://127.0.0.1:9223/devtools/browser/test",

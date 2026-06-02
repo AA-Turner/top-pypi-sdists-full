@@ -448,6 +448,10 @@ pub(crate) fn cpu_row_hessian_diag(inputs: &RowHessianDiagInputs<'_>) -> Vec<f64
 
 #[cfg(test)]
 mod tests {
+    // All items below are `#[cfg(target_os = "linux")]` (GPU parity), so the
+    // glob import is only live on Linux; gate it to avoid an unused-import
+    // error when compiling the lib tests on other platforms.
+    #[cfg(target_os = "linux")]
     use super::*;
 
     /// Deterministic non-trivial Hessian fixture. Generates per-row
@@ -488,6 +492,8 @@ mod tests {
         (h, v)
     }
 
+    // Uses the Linux-only `validate()` shape-checks; gated to match.
+    #[cfg(target_os = "linux")]
     #[test]
     fn cpu_oracle_matches_handwritten_2x2() {
         // Two rows, r = 2 — small enough to verify by hand.
@@ -515,6 +521,8 @@ mod tests {
         assert_eq!(d, vec![2.0, 3.0, 4.0, 5.0]);
     }
 
+    // Uses Linux-only `GpuError`/`MAX_R`/`validate()`; gated to match.
+    #[cfg(target_os = "linux")]
     #[test]
     fn validate_rejects_mismatched_shapes() {
         let h_rows = vec![1.0; 8];

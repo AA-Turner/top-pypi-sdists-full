@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litellm
-Version: 1.86.2
+Version: 1.87.0
 Summary: Library to easily interface with LLM API providers
 Author: BerriAI
 License-Expression: MIT
@@ -31,6 +31,7 @@ Requires-Dist: grpcio==1.78.0 ; extra == 'grpc'
 Requires-Dist: mlflow==3.11.1 ; extra == 'mlflow'
 Requires-Dist: gunicorn==23.0.0 ; extra == 'proxy'
 Requires-Dist: uvicorn==0.33.0 ; extra == 'proxy'
+Requires-Dist: granian==2.5.7 ; extra == 'proxy'
 Requires-Dist: uvloop==0.21.0 ; sys_platform != 'win32' and extra == 'proxy'
 Requires-Dist: fastapi==0.124.4 ; extra == 'proxy'
 Requires-Dist: backoff==2.2.1 ; extra == 'proxy'
@@ -48,7 +49,7 @@ Requires-Dist: boto3==1.43.1 ; extra == 'proxy'
 Requires-Dist: azure-identity==1.25.2 ; extra == 'proxy'
 Requires-Dist: azure-storage-blob==12.28.0 ; extra == 'proxy'
 Requires-Dist: mcp==1.26.0 ; extra == 'proxy'
-Requires-Dist: litellm-proxy-extras==0.4.72 ; extra == 'proxy'
+Requires-Dist: litellm-proxy-extras==0.4.73 ; extra == 'proxy'
 Requires-Dist: litellm-enterprise==0.1.41 ; extra == 'proxy'
 Requires-Dist: restrictedpython==8.1 ; extra == 'proxy'
 Requires-Dist: rich==13.9.4 ; extra == 'proxy'
@@ -390,7 +391,7 @@ curl -X POST 'http://0.0.0.0:4000/v1/chat/completions' \
 | [CompactifAI (`compactifai`)](https://docs.litellm.ai/docs/providers/compactifai) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
 | [Custom (`custom`)](https://docs.litellm.ai/docs/providers/custom_llm_server) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
 | [Custom OpenAI (`custom_openai`)](https://docs.litellm.ai/docs/providers/openai_compatible) | ✅ | ✅ | ✅ |  |  | ✅ | ✅ | ✅ | ✅ |  |
-| [Dashscope (`dashscope`)](https://docs.litellm.ai/docs/providers/dashscope) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
+| [Dashscope (`dashscope`)](https://docs.litellm.ai/docs/providers/dashscope) | ✅ | ✅ | ✅ | ✅ |  |  |  |  |  | ✅ |
 | [Databricks (`databricks`)](https://docs.litellm.ai/docs/providers/databricks) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
 | [DataRobot (`datarobot`)](https://docs.litellm.ai/docs/providers/datarobot) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
 | [Deepgram (`deepgram`)](https://docs.litellm.ai/docs/providers/deepgram) | ✅ | ✅ | ✅ |  |  | ✅ |  |  |  |  |

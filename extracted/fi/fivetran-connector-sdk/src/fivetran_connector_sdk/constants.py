@@ -1,6 +1,6 @@
 from fivetran_connector_sdk.protos import common_pb2
 
-TESTER_VERSION = "2.26.0513.001"
+TESTER_VERSION = "2.26.0601.001"
 
 WIN_OS = "windows"
 ARM_64 = "arm64"
@@ -42,7 +42,6 @@ OUTPUT_FILES_DIR = "files"
 REQUIREMENTS_TXT = "requirements.txt"
 PYPROJECT_TOML = "pyproject.toml"
 PYPROJECT_SKIP_VALIDATION_MESSAGE = "using pyproject.toml; skipping dependency validation"
-EVALUATION_MARKDOWN = "evaluation_report.md"
 CONFIGURATION_JSON = "configuration.json"
 PYPI_PACKAGE_DETAILS_URL = "https://pypi.org/pypi/fivetran_connector_sdk/json"
 ONE_DAY_IN_SEC = 24 * 60 * 60
@@ -71,7 +70,6 @@ COMMANDS_AND_SYNONYMS = {
 
 CONNECTION_SCHEMA_NAME_PATTERN = r'^[_a-z][_a-z0-9]*$'
 PRODUCTION_BASE_URL = "https://api.fivetran.com"
-EVALUATE_ENDPOINT = "/v1/connector-sdk/evaluate"
 INSTALLATION_SCRIPT_MISSING_MESSAGE = "installation.sh not found in the drivers directory; this file is required to configure custom drivers"
 INSTALLATION_SCRIPT = "installation.sh"
 DRIVERS = "drivers"
@@ -86,9 +84,33 @@ EXAMPLES_GITHUB_REPO = "fivetran/fivetran_connector_sdk"
 GITHUB_BRANCH = "main"
 CONNECTORS_GITHUB_REPO = "fivetran/fivetran_csdk_connectors"
 CONNECTORS_TEMPLATE_PREFIX = "connectors/"
-AI_AGENTS = {
-    "claude": "all_things_ai/ai_agents/claude_code",
-    "cursor": "all_things_ai/ai_agents/cursor",
-    "vscode": "all_things_ai/ai_agents/vscode_with_github_copilot"
+TOOLS_GITHUB_REPO = "fivetran/fivetran_csdk_tools"
+TOOLS_GITHUB_REPO_URL = f"https://github.com/{TOOLS_GITHUB_REPO}"
+TOOLS_PLUGIN_NAME = "fivetran-connector-sdk@fivetran-connector-sdk-ai"
+AGENT_PLUGINS = {
+    "claude": {
+        "display_name": "Claude Code",
+        "cli_command": "claude",
+        "install_commands": [
+            ["claude", "plugin", "marketplace", "add", TOOLS_GITHUB_REPO],
+            ["claude", "plugin", "install", TOOLS_PLUGIN_NAME],
+        ],
+    },
+    "codex": {
+        "display_name": "Codex CLI",
+        "cli_command": "codex",
+        "install_commands": [
+            ["codex", "plugin", "marketplace", "add", TOOLS_GITHUB_REPO],
+            ["codex", "plugin", "add", TOOLS_PLUGIN_NAME],
+        ],
+    },
+    "gemini": {
+        "display_name": "Gemini CLI",
+        "cli_command": "gemini",
+        "install_commands": [
+            ["gemini", "extensions", "install", TOOLS_GITHUB_REPO_URL, "--consent", "--skip-settings", "--auto-update"],
+        ],
+    },
 }
+SUPPORTED_AGENT_DISPLAY_NAMES = ", ".join(config["display_name"] for config in AGENT_PLUGINS.values())
 TEMPLATE_CONNECTOR_PATH = "_template_connector"

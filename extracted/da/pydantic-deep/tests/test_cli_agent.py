@@ -9,6 +9,7 @@ import pytest
 from pydantic_ai.models.test import TestModel
 
 from apps.cli.agent import (
+    _detect_fork_test_command,
     _make_shell_allow_list_hook,
     create_cli_agent,
 )
@@ -473,3 +474,142 @@ class TestSandboxEnvVars:
             env_vars={"MY_TOKEN": "from-config"},
             cache_image=False,
         )
+
+
+class TestDetectForkTestCommand:
+    """Tests for _detect_fork_test_command()."""
+
+    def test_returns_none_for_backend_without_root_dir(self) -> None:
+        """StateBackend (no root_dir attr) → None; fork runner disabled."""
+
+        class FakeBackend:
+            pass
+
+        assert _detect_fork_test_command(FakeBackend()) is None
+
+    def test_returns_none_for_none_root_dir(self) -> None:
+        """backend.root_dir = None → None."""
+
+        class FakeBackend:
+            root_dir: None = None
+
+        assert _detect_fork_test_command(FakeBackend()) is None
+
+    def test_detects_pytest_via_pyproject_toml(self, tmp_path: Path) -> None:
+        """pyproject.toml with [tool.pytest.ini_options] → uv run pytest."""
+        (tmp_path / "pyproject.toml").write_text(
+            "[tool.pytest.ini_options]\ntestpaths = ['tests']\n"
+        )
+
+        class FakeBackend:
+            root_dir = tmp_path
+
+        assert _detect_fork_test_command(FakeBackend()) == "uv run pytest -q --tb=short"
+
+    def test_detects_pytest_via_tool_pytest_section(self, tmp_path: Path) -> None:
+        """pyproject.toml with [tool.pytest] (non-standard but still matches) → uv run pytest."""
+        (tmp_path / "pyproject.toml").write_text("[tool.pytest]\n")
+
+        class FakeBackend:
+            root_dir = tmp_path
+
+        assert _detect_fork_test_command(FakeBackend()) == "uv run pytest -q --tb=short"
+
+    def test_no_pytest_marker_in_pyproject_returns_next_check(self, tmp_path: Path) -> None:
+        """pyproject.toml without pytest section, no other markers → None."""
+        (tmp_path / "pyproject.toml").write_text("[build-system]\nrequires = ['setuptools']\n")
+
+        class FakeBackend:
+            root_dir = tmp_path
+
+        assert _detect_fork_test_command(FakeBackend()) is None
+
+    def test_detects_pytest_via_pytest_ini(self, tmp_path: Path) -> None:
+        """pytest.ini present → uv run pytest."""
+        (tmp_path / "pytest.ini").write_text("[pytest]\n")
+
+        class FakeBackend:
+            root_dir = tmp_path
+
+        assert _detect_fork_test_command(FakeBackend()) == "uv run pytest -q --tb=short"
+
+    def test_detects_pytest_via_setup_cfg(self, tmp_path: Path) -> None:
+        """setup.cfg present → uv run pytest."""
+        (tmp_path / "setup.cfg").write_text("[metadata]\n")
+
+        class FakeBackend:
+            root_dir = tmp_path
+
+        assert _detect_fork_test_command(FakeBackend()) == "uv run pytest -q --tb=short"
+
+    def test_detects_npm_test_via_package_json(self, tmp_path: Path) -> None:
+        """package.json with scripts.test → npm test."""
+        import json
+
+        (tmp_path / "package.json").write_text(json.dumps({"scripts": {"test": "jest"}}))
+
+        class FakeBackend:
+            root_dir = tmp_path
+
+        assert _detect_fork_test_command(FakeBackend()) == "npm test"
+
+    def test_package_json_without_test_script_skipped(self, tmp_path: Path) -> None:
+        """package.json without scripts.test → falls through to None."""
+        import json
+
+        (tmp_path / "package.json").write_text(json.dumps({"scripts": {"build": "tsc"}}))
+
+        class FakeBackend:
+            root_dir = tmp_path
+
+        assert _detect_fork_test_command(FakeBackend()) is None
+
+    def test_detects_make_test_via_makefile(self, tmp_path: Path) -> None:
+        """Makefile with test: target → make test."""
+        (tmp_path / "Makefile").write_text("test:\n\tpytest tests/\n\nbuild:\n\techo done\n")
+
+        class FakeBackend:
+            root_dir = tmp_path
+
+        assert _detect_fork_test_command(FakeBackend()) == "make test"
+
+    def test_makefile_without_test_target_returns_none(self, tmp_path: Path) -> None:
+        """Makefile with no test target → None."""
+        (tmp_path / "Makefile").write_text("build:\n\techo done\n")
+
+        class FakeBackend:
+            root_dir = tmp_path
+
+        assert _detect_fork_test_command(FakeBackend()) is None
+
+    def test_pytest_takes_priority_over_npm(self, tmp_path: Path) -> None:
+        """When both pyproject.toml (pytest) and package.json exist, pytest wins."""
+        import json
+
+        (tmp_path / "pyproject.toml").write_text("[tool.pytest.ini_options]\n")
+        (tmp_path / "package.json").write_text(json.dumps({"scripts": {"test": "jest"}}))
+
+        class FakeBackend:
+            root_dir = tmp_path
+
+        assert _detect_fork_test_command(FakeBackend()) == "uv run pytest -q --tb=short"
+
+    def test_npm_takes_priority_over_makefile(self, tmp_path: Path) -> None:
+        """When package.json has test script and Makefile also has test target, npm wins."""
+        import json
+
+        (tmp_path / "package.json").write_text(json.dumps({"scripts": {"test": "jest"}}))
+        (tmp_path / "Makefile").write_text("test:\n\tpytest\n")
+
+        class FakeBackend:
+            root_dir = tmp_path
+
+        assert _detect_fork_test_command(FakeBackend()) == "npm test"
+
+    def test_empty_directory_returns_none(self, tmp_path: Path) -> None:
+        """Empty project dir → None."""
+
+        class FakeBackend:
+            root_dir = tmp_path
+
+        assert _detect_fork_test_command(FakeBackend()) is None

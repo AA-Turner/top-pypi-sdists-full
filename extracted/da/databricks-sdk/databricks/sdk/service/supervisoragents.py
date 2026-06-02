@@ -619,9 +619,10 @@ class SupervisorAgentPermissionsDescription:
 class Tool:
     tool_type: str
     """Tool type. Must be one of: "genie_space", "knowledge_assistant", "uc_function", "uc_connection",
-    "app", "volume", "dashboard", "serving_endpoint", "table", "vector_search_index", "catalog",
-    "schema", "supervisor_agent", "web_search". The legacy values "lakeview_dashboard" and
-    "uc_table" are also accepted and remain equivalent to "dashboard" and "table" respectively."""
+    "uc_mcp", "app", "volume", "dashboard", "serving_endpoint", "table", "vector_search_index",
+    "catalog", "schema", "supervisor_agent", "web_search", "skill". The legacy values
+    "lakeview_dashboard" and "uc_table" are also accepted and remain equivalent to "dashboard" and
+    "table" respectively."""
 
     app: Optional[App] = None
 
@@ -821,7 +822,7 @@ class SupervisorAgentsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("POST", f"/api/2.1/{parent}/examples", body=body, headers=headers)
         return Example.from_dict(res)
@@ -844,7 +845,7 @@ class SupervisorAgentsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("POST", "/api/2.1/supervisor-agents", body=body, headers=headers)
         return SupervisorAgent.from_dict(res)
@@ -852,7 +853,7 @@ class SupervisorAgentsAPI:
     def create_tool(self, parent: str, tool: Tool, tool_id: str) -> Tool:
         """Creates a Tool under a Supervisor Agent. Specify one of "genie_space", "knowledge_assistant",
         "uc_function", "uc_connection", "app", "volume", "dashboard", "table", "vector_search_index",
-        "catalog", "schema", "supervisor_agent", "web_search" in the request body. The legacy values
+        "catalog", "schema", "supervisor_agent", "web_search", "skill" in the request body. The legacy values
         "lakeview_dashboard" and "uc_table" are also accepted and remain equivalent to "dashboard" and "table"
         respectively.
 
@@ -876,7 +877,7 @@ class SupervisorAgentsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("POST", f"/api/2.1/{parent}/tools", query=query, body=body, headers=headers)
         return Tool.from_dict(res)
@@ -897,7 +898,7 @@ class SupervisorAgentsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         self._api.do("DELETE", f"/api/2.1/{name}", headers=headers)
 
@@ -916,7 +917,7 @@ class SupervisorAgentsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         self._api.do("DELETE", f"/api/2.1/{name}", headers=headers)
 
@@ -935,7 +936,7 @@ class SupervisorAgentsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         self._api.do("DELETE", f"/api/2.1/{name}", headers=headers)
 
@@ -955,7 +956,7 @@ class SupervisorAgentsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", f"/api/2.1/{name}", headers=headers)
         return Example.from_dict(res)
@@ -975,7 +976,7 @@ class SupervisorAgentsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "GET", f"/api/2.0/permissions/supervisor-agents/{supervisor_agent_id}/permissionLevels", headers=headers
@@ -998,7 +999,7 @@ class SupervisorAgentsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", f"/api/2.0/permissions/supervisor-agents/{supervisor_agent_id}", headers=headers)
         return SupervisorAgentPermissions.from_dict(res)
@@ -1018,7 +1019,7 @@ class SupervisorAgentsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", f"/api/2.1/{name}", headers=headers)
         return SupervisorAgent.from_dict(res)
@@ -1038,7 +1039,7 @@ class SupervisorAgentsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("GET", f"/api/2.1/{name}", headers=headers)
         return Tool.from_dict(res)
@@ -1071,7 +1072,7 @@ class SupervisorAgentsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         while True:
             json = self._api.do("GET", f"/api/2.1/{parent}/examples", query=query, headers=headers)
@@ -1108,7 +1109,7 @@ class SupervisorAgentsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         while True:
             json = self._api.do("GET", "/api/2.1/supervisor-agents", query=query, headers=headers)
@@ -1143,7 +1144,7 @@ class SupervisorAgentsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         while True:
             json = self._api.do("GET", f"/api/2.1/{parent}/tools", query=query, headers=headers)
@@ -1180,7 +1181,7 @@ class SupervisorAgentsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "PUT", f"/api/2.0/permissions/supervisor-agents/{supervisor_agent_id}", body=body, headers=headers
@@ -1212,7 +1213,7 @@ class SupervisorAgentsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("PATCH", f"/api/2.1/{name}", query=query, body=body, headers=headers)
         return Example.from_dict(res)
@@ -1243,7 +1244,7 @@ class SupervisorAgentsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do(
             "PATCH", f"/api/2.0/permissions/supervisor-agents/{supervisor_agent_id}", body=body, headers=headers
@@ -1277,7 +1278,7 @@ class SupervisorAgentsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("PATCH", f"/api/2.1/{name}", query=query, body=body, headers=headers)
         return SupervisorAgent.from_dict(res)
@@ -1307,7 +1308,7 @@ class SupervisorAgentsAPI:
 
         cfg = self._api._cfg
         if cfg.workspace_id:
-            headers["X-Databricks-Org-Id"] = cfg.workspace_id
+            headers["X-Databricks-Workspace-Id"] = cfg.workspace_id
 
         res = self._api.do("PATCH", f"/api/2.1/{name}", query=query, body=body, headers=headers)
         return Tool.from_dict(res)

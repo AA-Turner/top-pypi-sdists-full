@@ -157,13 +157,7 @@ impl GpuMpsTensors {
     // ---- Upload / Download ----
 
     /// Upload raw tensor data for a single site.
-    pub fn upload_tensor(
-        &mut self,
-        site: usize,
-        data: &[Complex<f32>],
-        left: usize,
-        right: usize,
-    ) {
+    pub fn upload_tensor(&mut self, site: usize, data: &[Complex<f32>], left: usize, right: usize) {
         debug_assert_eq!(data.len(), left * 2 * right);
         let raw = complex_to_raw(data);
         self.backend
@@ -247,14 +241,17 @@ impl GpuMpsTensors {
         let out_elems = rows * cols;
 
         // Step 1: GPU contraction
-        let m_out_buf = self.backend.device().create_buffer(&wgpu::BufferDescriptor {
-            label: Some("mps_contract_out"),
-            size: (out_elems * 8) as u64,
-            usage: wgpu::BufferUsages::STORAGE
-                | wgpu::BufferUsages::COPY_SRC
-                | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
+        let m_out_buf = self
+            .backend
+            .device()
+            .create_buffer(&wgpu::BufferDescriptor {
+                label: Some("mps_contract_out"),
+                size: (out_elems * 8) as u64,
+                usage: wgpu::BufferUsages::STORAGE
+                    | wgpu::BufferUsages::COPY_SRC
+                    | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
 
         dispatch_two_site_contract(
             &self.backend,
@@ -339,8 +336,7 @@ impl GpuMpsTensors {
         }
 
         // Step 2: Apply the actual gate at (lo, lo+1).
-        total_err +=
-            self.apply_two_qubit_adjacent(lo, gate, max_bond_dim, trunc_threshold, svd);
+        total_err += self.apply_two_qubit_adjacent(lo, gate, max_bond_dim, trunc_threshold, svd);
 
         // Step 3: Undo SWAP chain.
         for s in lo + 1..hi {
@@ -422,25 +418,28 @@ impl GpuMpsTensors {
             );
 
             let out_elems = chi_ll * 2 * keep;
-            let absorb_out_buf = self.backend.device().create_buffer(&wgpu::BufferDescriptor {
-                label: Some("mps_absorb_out"),
-                size: (out_elems * 8) as u64,
-                usage: wgpu::BufferUsages::STORAGE
-                    | wgpu::BufferUsages::COPY_SRC
-                    | wgpu::BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            });
+            let absorb_out_buf = self
+                .backend
+                .device()
+                .create_buffer(&wgpu::BufferDescriptor {
+                    label: Some("mps_absorb_out"),
+                    size: (out_elems * 8) as u64,
+                    usage: wgpu::BufferUsages::STORAGE
+                        | wgpu::BufferUsages::COPY_SRC
+                        | wgpu::BufferUsages::COPY_DST,
+                    mapped_at_creation: false,
+                });
 
             // Upload US matrix to a temporary buffer.
             let us_raw = complex_to_raw(&us_data);
-            let us_buf = self
-                .backend
-                .device()
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("mps_us_matrix"),
-                    contents: bytemuck::cast_slice(&us_raw),
-                    usage: wgpu::BufferUsages::STORAGE,
-                });
+            let us_buf =
+                self.backend
+                    .device()
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("mps_us_matrix"),
+                        contents: bytemuck::cast_slice(&us_raw),
+                        usage: wgpu::BufferUsages::STORAGE,
+                    });
 
             dispatch_absorb_us(
                 &self.backend,
@@ -542,7 +541,14 @@ mod tests {
         ) -> GpuSvdOutput {
             use nalgebra::DMatrix;
             let m = DMatrix::<Complex<f32>>::from_row_slice(rows, cols, m_row_major);
-            let svd = m.svd(true, true);
+            // Loosened convergence epsilon — nalgebra's default `.svd()` can
+            // over-converge and corrupt near-rank-deficient matrices (see the
+            // v0.7 note in qsim_mps::CpuSvdProvider::thin_svd).
+            let eps = f32::EPSILON * 64.0;
+            let svd = m
+                .clone()
+                .try_svd(true, true, eps, 0)
+                .unwrap_or_else(|| m.svd(true, true));
             let u_svd = svd.u.expect("U");
             let v_t = svd.v_t.expect("V^H");
             let sv = svd.singular_values;

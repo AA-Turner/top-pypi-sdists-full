@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: roc-validator
-Version: 0.9.0
+Version: 0.10.0
 Summary: A Python package to validate RO-Crates
 License: Apache-2.0
 License-File: LICENSE

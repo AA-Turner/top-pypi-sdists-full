@@ -398,6 +398,20 @@ pub struct WgpuStatevectorBackend {
     // v0.5.15: per-qubit prob reduction.  outcome=0 amplitude 만의 ‖ψ‖²
     // (norm_reduction 의 outcome filter 변형).  measure 의 sampling 에 사용.
     qubit_prob_reduction: Pipeline,
+    // v0.6.10: Philox4x32-10 counter-based RNG.  GPU-side uniform 생성 —
+    // trajectory sampling 의 CPU RNG round-trip 제거 토대.  layout = result
+    // storage(rw) + uniform → build_pipeline 과 동일.
+    philox_rng: Pipeline,
+}
+
+/// v0.6.10: Philox uniform 생성 셰이더의 uniform.
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable, Default)]
+struct PhiloxUniforms {
+    count: u32,
+    seed_lo: u32,
+    seed_hi: u32,
+    _pad: u32,
 }
 
 impl WgpuStatevectorBackend {
@@ -561,6 +575,12 @@ impl WgpuStatevectorBackend {
             "qubit_prob_reduction",
             include_str!("shaders/qubit_prob_reduction.wgsl"),
         );
+        // v0.6.10: Philox RNG (result storage + uniform → build_pipeline layout).
+        let philox_rng = build_pipeline(
+            &device,
+            "philox_rng",
+            include_str!("shaders/philox_uniform.wgsl"),
+        );
 
         Ok(Self {
             device,
@@ -586,7 +606,97 @@ impl WgpuStatevectorBackend {
             norm_reduction,
             collapse_renormalize,
             qubit_prob_reduction,
+            philox_rng,
         })
+    }
+
+    /// v0.6.10: Philox4x32-10 으로 `count` 개의 `[0,1)` uniform 을 GPU 에서
+    /// 생성해 반환한다.  [`crate::philox::philox_uniforms_cpu`] 와 bit-exact
+    /// (동일 `seed` → 동일 sequence).  GPU-side sampling 의 RNG round-trip
+    /// 제거 토대 (trajectory 통합은 engine 측에서 사용).
+    ///
+    /// 큰 `count` (≈ 1.6e7 초과) 는 1D dispatch 한계를 넘어 에러 — sampling
+    /// 용도 (shots / qubit 수 규모) 에선 충분.
+    pub fn generate_uniforms(&self, seed: u64, count: usize) -> Result<Vec<f32>, GpuError> {
+        if count == 0 {
+            return Ok(Vec::new());
+        }
+        let blocks = count.div_ceil(4) as u32; // invocation = block (4 uniform/block)
+        let workgroups = blocks.div_ceil(64);
+        if workgroups > MAX_WG_PER_DIM {
+            return Err(GpuError::Buffer(format!(
+                "generate_uniforms: count {count} 가 1D dispatch 한계를 초과"
+            )));
+        }
+        let byte_size = (count * std::mem::size_of::<f32>()) as u64;
+        let result_buf = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("philox result"),
+            size: byte_size.max(4),
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
+            mapped_at_creation: false,
+        });
+        let staging = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("philox staging"),
+            size: byte_size.max(4),
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let uniforms = PhiloxUniforms {
+            count: count as u32,
+            seed_lo: seed as u32,
+            seed_hi: (seed >> 32) as u32,
+            _pad: 0,
+        };
+        let ubuf = self.create_uniform_buffer(bytemuck::bytes_of(&uniforms));
+        let bg = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("philox bg"),
+            layout: &self.philox_rng.bgl,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: result_buf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: ubuf.as_entire_binding(),
+                },
+            ],
+        });
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("philox encoder"),
+            });
+        {
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("philox rng"),
+                timestamp_writes: None,
+            });
+            pass.set_pipeline(&self.philox_rng.pipeline);
+            pass.set_bind_group(0, &bg, &[]);
+            pass.dispatch_workgroups(workgroups, 1, 1);
+        }
+        encoder.copy_buffer_to_buffer(&result_buf, 0, &staging, 0, byte_size.max(4));
+        self.queue.submit(Some(encoder.finish()));
+
+        let slice = staging.slice(..);
+        let (sender, receiver) = std::sync::mpsc::channel();
+        slice.map_async(wgpu::MapMode::Read, move |r| {
+            sender.send(r).ok();
+        });
+        self.device
+            .poll(wgpu::PollType::wait_indefinitely())
+            .map_err(|e| GpuError::Buffer(format!("device poll: {e:?}")))?;
+        receiver
+            .recv()
+            .map_err(|e| GpuError::Buffer(format!("recv map: {e:?}")))?
+            .map_err(|e| GpuError::Buffer(format!("map_async: {e:?}")))?;
+        let data = slice.get_mapped_range();
+        let floats: &[f32] = bytemuck::cast_slice(&data);
+        let out = floats[..count].to_vec();
+        drop(data);
+        staging.unmap();
+        Ok(out)
     }
 
     /// 단일 큐비트 gate (1q matrix `M`) 를 GPU 에서 적용.
@@ -929,6 +1039,197 @@ impl WgpuStatevectorBackend {
         drop(data);
         staging.unmap();
         // owned_bufs / owned_bgs drop → GPU resources 해제.
+        Ok(())
+    }
+
+    /// v0.6.10: |0…0⟩ 로 초기화된 GPU-resident state buffer 를 만든다.
+    ///
+    /// `apply_ops_to_buffer` / `measure_qubit_gpu` / `collapse_qubit` 가 공유하는
+    /// single storage buffer (K=1 path, N≤27).  trajectory 의 GPU-resident
+    /// 실행에서 매 shot 1회 생성.
+    pub fn create_zero_state_buffer(&self, n_amplitudes: usize) -> wgpu::Buffer {
+        let mut pod = vec![CF32 { re: 0.0, im: 0.0 }; n_amplitudes];
+        pod[0] = CF32 { re: 1.0, im: 0.0 };
+        self.device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("resident state"),
+                contents: bytemuck::cast_slice(&pod),
+                usage: wgpu::BufferUsages::STORAGE
+                    | wgpu::BufferUsages::COPY_SRC
+                    | wgpu::BufferUsages::COPY_DST,
+            })
+    }
+
+    /// v0.6.10: GPU-resident state buffer → CPU `Vec<Complex<f32>>` 다운로드.
+    pub fn download_state_buffer(
+        &self,
+        storage: &wgpu::Buffer,
+        n_amplitudes: usize,
+    ) -> Result<Vec<Complex<f32>>, GpuError> {
+        let byte_size = (n_amplitudes * std::mem::size_of::<CF32>()) as u64;
+        let staging = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("resident download staging"),
+            size: byte_size,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("resident download encoder"),
+            });
+        encoder.copy_buffer_to_buffer(storage, 0, &staging, 0, byte_size);
+        self.queue.submit(Some(encoder.finish()));
+        let slice = staging.slice(..);
+        let (sender, receiver) = std::sync::mpsc::channel();
+        slice.map_async(wgpu::MapMode::Read, move |r| {
+            sender.send(r).ok();
+        });
+        self.device
+            .poll(wgpu::PollType::wait_indefinitely())
+            .map_err(|e| GpuError::Buffer(format!("device poll: {e:?}")))?;
+        receiver
+            .recv()
+            .map_err(|e| GpuError::Buffer(format!("recv map: {e:?}")))?
+            .map_err(|e| GpuError::Buffer(format!("map_async: {e:?}")))?;
+        let data = slice.get_mapped_range();
+        let result: &[CF32] = bytemuck::cast_slice(&data);
+        let out: Vec<Complex<f32>> = result.iter().map(|c| (*c).into()).collect();
+        drop(data);
+        staging.unmap();
+        Ok(out)
+    }
+
+    /// v0.6.10: 이미 GPU 에 있는 state buffer 에 gate op 들을 적용한다
+    /// (upload / download 없음, K=1 path, N≤27).
+    ///
+    /// [`apply_circuit`] 와 달리 state 가 GPU 에 상주한 채로 여러 gate batch +
+    /// `measure_qubit_gpu` / `collapse_qubit` 을 round-trip 없이 연쇄할 수 있다 —
+    /// trajectory 의 GPU-resident 실행에 사용.  buffer-split (N>27) 은 미지원.
+    pub fn apply_ops_to_buffer(
+        &self,
+        storage: &wgpu::Buffer,
+        ops: &[WgpuGateOp],
+        n_amplitudes: usize,
+    ) -> Result<(), GpuError> {
+        if ops.is_empty() {
+            return Ok(());
+        }
+        let n = n_amplitudes;
+        let n_qubits = bits_for_n(n);
+        if compute_split_factor(n_qubits) != 1 {
+            return Err(GpuError::Unsupported(format!(
+                "apply_ops_to_buffer: GPU-resident path 는 K=1 (N≤27) 만 지원 (N={n_qubits})"
+            )));
+        }
+        let mut owned_bufs: Vec<wgpu::Buffer> = Vec::with_capacity(ops.len());
+        let mut owned_bgs: Vec<wgpu::BindGroup> = Vec::with_capacity(ops.len());
+        let mut dispatches: Vec<(usize, u32, u32)> = Vec::with_capacity(ops.len());
+        for op in ops {
+            match op {
+                WgpuGateOp::Single { matrix, target } => {
+                    if *target >= n_qubits {
+                        return Err(GpuError::Unsupported(format!(
+                            "Single: target {target} 범위 초과 (n_qubits={n_qubits})"
+                        )));
+                    }
+                    let (wg_x, wg_y, dispatches_x) = dispatch_2d(((n / 2) as u32).div_ceil(64));
+                    let uniforms = SingleQubitUniforms {
+                        qubit_stride: 1u32 << target,
+                        n_amplitudes: n as u32,
+                        dispatches_x,
+                        _pad1: 0,
+                        m00: [matrix[0][0].re, matrix[0][0].im],
+                        m01: [matrix[0][1].re, matrix[0][1].im],
+                        m10: [matrix[1][0].re, matrix[1][0].im],
+                        m11: [matrix[1][1].re, matrix[1][1].im],
+                    };
+                    let ubuf = self.create_uniform_buffer(bytemuck::bytes_of(&uniforms));
+                    let bg = self.create_bind_group(&self.single_qubit.bgl, storage, &ubuf);
+                    owned_bufs.push(ubuf);
+                    owned_bgs.push(bg);
+                    dispatches.push((0, wg_x, wg_y));
+                }
+                WgpuGateOp::Two { matrix, q0, q1 } => {
+                    if *q0 == *q1 || *q0 >= n_qubits || *q1 >= n_qubits {
+                        return Err(GpuError::Unsupported(format!(
+                            "Two: q0={q0} q1={q1} 잘못됨"
+                        )));
+                    }
+                    let (q_lo, q_hi) = if q0 < q1 { (*q0, *q1) } else { (*q1, *q0) };
+                    let mask_lo = (1u32 << q_lo) - 1;
+                    let mask_mid = ((1u32 << (q_hi - 1)).wrapping_sub(1)) ^ mask_lo;
+                    let mask_hi = !((1u32 << (q_hi - 1)).wrapping_sub(1));
+                    let mut m_flat = [[0.0_f32; 2]; 16];
+                    for i in 0..4 {
+                        for j in 0..4 {
+                            m_flat[i * 4 + j] = [matrix[i][j].re, matrix[i][j].im];
+                        }
+                    }
+                    let n_groups = (n / 4) as u32;
+                    let (wg_x, wg_y, dispatches_x) = dispatch_2d(n_groups.div_ceil(64));
+                    let uniforms = TwoQubitUniforms {
+                        bit0: 1u32 << q0,
+                        bit1: 1u32 << q1,
+                        n_amplitudes: n as u32,
+                        mask_lo,
+                        mask_mid,
+                        mask_hi,
+                        n_groups,
+                        dispatches_x,
+                        m: m_flat,
+                    };
+                    let ubuf = self.create_uniform_buffer(bytemuck::bytes_of(&uniforms));
+                    let bg = self.create_bind_group(&self.two_qubit.bgl, storage, &ubuf);
+                    owned_bufs.push(ubuf);
+                    owned_bgs.push(bg);
+                    dispatches.push((1, wg_x, wg_y));
+                }
+                WgpuGateOp::Controlled1q { matrix, ctrl, tgt } => {
+                    if *ctrl == *tgt || *ctrl >= n_qubits || *tgt >= n_qubits {
+                        return Err(GpuError::Unsupported(format!(
+                            "Controlled1q: ctrl={ctrl} tgt={tgt} 잘못됨"
+                        )));
+                    }
+                    let (wg_x, wg_y, dispatches_x) = dispatch_2d((n as u32).div_ceil(64));
+                    let uniforms = Controlled1qUniforms {
+                        ctrl_bit: 1u32 << ctrl,
+                        tgt_stride: 1u32 << tgt,
+                        n_amplitudes: n as u32,
+                        dispatches_x,
+                        m00: [matrix[0][0].re, matrix[0][0].im],
+                        m01: [matrix[0][1].re, matrix[0][1].im],
+                        m10: [matrix[1][0].re, matrix[1][0].im],
+                        m11: [matrix[1][1].re, matrix[1][1].im],
+                    };
+                    let ubuf = self.create_uniform_buffer(bytemuck::bytes_of(&uniforms));
+                    let bg = self.create_bind_group(&self.controlled_1q.bgl, storage, &ubuf);
+                    owned_bufs.push(ubuf);
+                    owned_bgs.push(bg);
+                    dispatches.push((2, wg_x, wg_y));
+                }
+            }
+        }
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("apply_ops_to_buffer encoder"),
+            });
+        for (i, (pipeline_idx, wg_x, wg_y)) in dispatches.iter().enumerate() {
+            let pl = match pipeline_idx {
+                0 => &self.single_qubit,
+                1 => &self.two_qubit,
+                _ => &self.controlled_1q,
+            };
+            let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("apply_ops_to_buffer op"),
+                timestamp_writes: None,
+            });
+            pass.set_pipeline(&pl.pipeline);
+            pass.set_bind_group(0, &owned_bgs[i], &[]);
+            pass.dispatch_workgroups(*wg_x, *wg_y, 1);
+        }
+        self.queue.submit(Some(encoder.finish()));
         Ok(())
     }
 
@@ -3015,6 +3316,78 @@ mod tests {
         b.apply_single_qubit_gate(&mut s, &x(), 0).unwrap();
         assert!(approx(s[0], Complex::new(0.0, 0.0), 1e-6));
         assert!(approx(s[1], Complex::new(1.0, 0.0), 1e-6));
+    }
+
+    /// v0.6.10: GPU-resident apply_ops_to_buffer + download round-trip.
+    /// |00⟩ 에 X(q0) → |01⟩ (index 1).
+    #[test]
+    fn resident_apply_x_and_download() {
+        let Some(b) = make_backend() else { return };
+        let dim = 4usize;
+        let buf = b.create_zero_state_buffer(dim);
+        b.apply_ops_to_buffer(
+            &buf,
+            &[WgpuGateOp::Single {
+                matrix: x(),
+                target: 0,
+            }],
+            dim,
+        )
+        .unwrap();
+        let sv = b.download_state_buffer(&buf, dim).unwrap();
+        assert!(approx(sv[1], Complex::new(1.0, 0.0), 1e-6));
+        assert!(approx(sv[0], Complex::new(0.0, 0.0), 1e-6));
+        // q0 = 1 이 확정이므로 measure_qubit_gpu 는 uniform 무관하게 outcome 1.
+        let outcome = b.measure_qubit_gpu(&buf, dim, 0, 0.01).unwrap();
+        assert_eq!(outcome, 1);
+    }
+
+    /// v0.6.10: GPU-resident Bell state — measure q0 / q1 outcome 이 항상 일치.
+    #[test]
+    fn resident_bell_measurements_correlated() {
+        let Some(b) = make_backend() else { return };
+        let dim = 4usize;
+        for &u in &[0.1f32, 0.9] {
+            let buf = b.create_zero_state_buffer(dim);
+            b.apply_ops_to_buffer(
+                &buf,
+                &[
+                    WgpuGateOp::Single {
+                        matrix: h(),
+                        target: 0,
+                    },
+                    WgpuGateOp::Controlled1q {
+                        matrix: x(),
+                        ctrl: 0,
+                        tgt: 1,
+                    },
+                ],
+                dim,
+            )
+            .unwrap();
+            let o0 = b.measure_qubit_gpu(&buf, dim, 0, u).unwrap();
+            // q0 측정 후 q1 은 q0 와 같은 값으로 확정 — uniform 무관.
+            let o1 = b.measure_qubit_gpu(&buf, dim, 1, 0.5).unwrap();
+            assert_eq!(o0, o1, "Bell correlation broken (u={u})");
+        }
+    }
+
+    /// v0.6.10: GPU Philox uniform 이 CPU 레퍼런스와 bit-exact (GPU 환경에서만).
+    #[test]
+    fn philox_gpu_matches_cpu_reference() {
+        let Some(b) = make_backend() else { return };
+        for &(seed, count) in &[(0u64, 17usize), (0xdeadbeef, 256), (42, 1000)] {
+            let gpu = b.generate_uniforms(seed, count).unwrap();
+            let cpu = crate::philox::philox_uniforms_cpu(seed, count);
+            assert_eq!(gpu.len(), cpu.len());
+            for (i, (g, c)) in gpu.iter().zip(cpu.iter()).enumerate() {
+                assert_eq!(
+                    g.to_bits(),
+                    c.to_bits(),
+                    "philox GPU≠CPU at {i} (seed={seed}, count={count}): {g} vs {c}"
+                );
+            }
+        }
     }
 
     #[test]

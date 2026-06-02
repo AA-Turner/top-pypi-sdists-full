@@ -317,7 +317,7 @@ def _build_readme(
     lines.append(
         "4. `oscal/poam.json` + `oscal/component-definition.json` — machine-readable formats"
     )
-    lines.append("   for downstream ingestion (RegScale, RAS, etc.).")
+    lines.append("   for downstream ingestion (GRC platforms, etc.).")
     lines.append("5. `manifests/*.yml` — customer-authored procedural attestations.")
     lines.append("")
     if missing:

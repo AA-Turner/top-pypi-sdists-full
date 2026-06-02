@@ -144,7 +144,11 @@ def _get_steps(mode: str, custom_steps: dict[str, list[StepDef]] | None = None) 
 
 def _get_phase_order(lightweight: bool, quick: bool = False,
                      custom_order: list[str] | None = None,
-                     workflow: dict | None = None) -> list[Phase | str]:
+                     workflow: dict | None = None,
+                     mode: str | None = None,
+                     kanban_dir=None) -> list[Phase | str]:
     if custom_order is not None:
         return custom_order
-    return Scheduler.dispatch_order(lightweight=lightweight, quick=quick, workflow=workflow)
+    return Scheduler.dispatch_order(lightweight=lightweight, quick=quick,
+                                     mode=mode, workflow=workflow,
+                                     kanban_dir=kanban_dir)

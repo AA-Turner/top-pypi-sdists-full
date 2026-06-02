@@ -74,39 +74,39 @@ def _seed_from_value(value: str, type_name: str, salt: bytes) -> bytes:
     return hmac.new(salt, msg, hashlib.sha256).digest()
 
 
-def _resolve_salt(seed: int | bytes | None) -> bytes:
+def _resolve_salt(salt: int | bytes | None) -> bytes:
     """Determine effective salt for HMAC seeding.
 
     Priority: caller bytes → caller int (8-byte BE, 64-bit entropy) → env var.
     Raises ``ValueError`` if none are set; pre-v0.6.1 silently used ``b""``
     which collapsed HMAC to a public hash recoverable from one observed pair.
     """
-    if isinstance(seed, (bytes, bytearray)):
-        return bytes(seed)
-    if isinstance(seed, int):
-        signed = seed < 0
-        return seed.to_bytes(_SALT_INT_BYTES, "big", signed=signed)
+    if isinstance(salt, (bytes, bytearray)):
+        return bytes(salt)
+    if isinstance(salt, int):
+        signed = salt < 0
+        return salt.to_bytes(_SALT_INT_BYTES, "big", signed=signed)
     env = os.environ.get("ARGUS_REDACT_PSEUDONYM_SALT")
     if env:
         return env.encode("utf-8")
     raise ValueError(
-        "realistic strategy requires explicit salt: pass `seed=<int>`, "
+        "realistic strategy requires explicit salt: pass `salt=<int>`, "
         "`salt=<bytes>`, or set ARGUS_REDACT_PSEUDONYM_SALT."
     )
 
 
-def _pseudonym_seed_int(seed: int | bytes | None) -> int | None:
-    """Coerce ``seed`` to int for ``PseudonymGenerator`` (uses ``random.Random``
+def _pseudonym_seed_int(salt: int | bytes | None) -> int | None:
+    """Coerce ``salt`` to int for ``PseudonymGenerator`` (uses ``random.Random``
     to derive non-cryptographic ``P-NNNNN`` codes — int seed is sufficient;
     bytes get truncated to first 8 bytes BE)."""
-    if seed is None:
+    if salt is None:
         return None
-    if isinstance(seed, int):
-        return seed
-    if isinstance(seed, (bytes, bytearray)):
-        b = bytes(seed)[:_SALT_INT_BYTES].ljust(_SALT_INT_BYTES, b"\x00")
+    if isinstance(salt, int):
+        return salt
+    if isinstance(salt, (bytes, bytearray)):
+        b = bytes(salt)[:_SALT_INT_BYTES].ljust(_SALT_INT_BYTES, b"\x00")
         return int.from_bytes(b, "big")
-    raise TypeError(f"seed must be int, bytes, or None, got {type(seed).__name__}")
+    raise TypeError(f"salt must be int, bytes, or None, got {type(salt).__name__}")
 
 
 @functools.lru_cache(maxsize=128)
@@ -236,66 +236,18 @@ def _generate_unique_fake(
         f"after {_MAX_REROLL_ATTEMPTS} attempts (last: {last!r})"
     )
 
-# Default strategies per entity type
-DEFAULT_STRATEGIES = {
-    "person": "pseudonym",
-    "organization": "pseudonym",
-    "location": "category",
-    "phone": "mask",
-    "id_number": "remove",
-    "email": "mask",
-    "bank_card": "mask",
-    "passport": "remove",
-    "license_plate": "remove",
-    "address": "remove",
-    "ssn": "remove",
-    "credit_card": "mask",
-    "my_number": "remove",
-    "rrn": "remove",
-    "tax_id": "remove",
-    "iban": "remove",
-    "postcode": "remove",
-    "nino": "remove",
-    "nhs_number": "remove",
-    "aadhaar": "remove",
-    "pan": "remove",
-    # Level 2
-    "job_title": "remove",
-    "school": "pseudonym",
-    "ethnicity": "remove",
-    "workplace": "remove",
-    # Level 3
-    "criminal_record": "remove",
-    "financial": "remove",
-    "biometric": "remove",
-    "medical": "remove",
-    "religion": "remove",
-    "political": "remove",
-    "sexual_orientation": "remove",
-    # Self-reference: preserve pronouns / kinship verbatim so the LLM gets
-    # an intelligible prompt. Detection still runs (feeds the
-    # self_reference_tier hint); only the replacement is skipped.
-    "self_reference": "keep",
-    # Level 4
-    "ip_address": "remove",
-    "mac_address": "remove",
-    "imei": "remove",
-    "url_token": "remove",
-    "age": "remove",
-    "gender": "remove",
-    "date_of_birth": "remove",
-    "military_id": "remove",
-    "social_security": "remove",
-    "credit_code": "remove",
-    "us_passport": "remove",
-    # Credentials / secrets (cross-language)
-    "openai_api_key": "remove",
-    "anthropic_api_key": "remove",
-    "aws_access_key": "remove",
-    "github_token": "remove",
-    "jwt": "remove",
-    "ssh_private_key": "remove",
-}
+def _resolve_default_strategy(entity_type: str) -> str:
+    """Look up the type's declared strategy from the typedef registry.
+
+    v0.6.8: single source of truth = specs/{zh,en,shared}.py PIITypeDef.strategy.
+    """
+    # Lazy import to avoid circular: registry imports types, types reference replacer
+    from argus_redact.specs.registry import lookup
+    typedef_list = lookup(entity_type)
+    if typedef_list:
+        return typedef_list[0].strategy
+    return "remove"  # fallback for unknown types
+
 
 DEFAULT_PREFIXES = {
     "person": "P",
@@ -329,6 +281,10 @@ DEFAULT_PREFIXES = {
     "age": "AGE",
     "gender": "GEN",
     "self_reference": "S",
+    # Quasi-identifiers referenced by integrations (Presidio, profiles)
+    "phone_landline": "LL",
+    "date": "DATE",
+    "url": "URL",
     # Credentials / secrets
     "openai_api_key": "OAI-KEY",
     "anthropic_api_key": "ANT-KEY",
@@ -485,7 +441,7 @@ def replace(
     text: str,
     entities: list[PatternMatch],
     *,
-    seed: int | bytes | None = None,
+    salt: int | bytes | None = None,
     key: dict[str, str] | None = None,
     config: dict | None = None,
     langs: list[str] | None = None,
@@ -535,7 +491,7 @@ def replace(
         org_prefix = config.get("organization", {}).get("prefix", org_prefix)
 
     # Unified prefix mode: all types use same prefix (hides PII type from output)
-    pseudo_seed_int = _pseudonym_seed_int(seed)
+    pseudo_seed_int = _pseudonym_seed_int(salt)
     pseudo_gen = PseudonymGenerator(
         prefix=unified_prefix or person_prefix,
         seed=pseudo_seed_int,
@@ -569,7 +525,7 @@ def replace(
             continue
 
         ec = _get_entity_config(entity.type, config)
-        strategy = ec.get("strategy", DEFAULT_STRATEGIES.get(entity.type, "remove"))
+        strategy = ec.get("strategy") or _resolve_default_strategy(entity.type)
 
         if strategy == "keep":
             # ``keep`` is for pronouns / kinship phrases the LLM needs in the
@@ -586,7 +542,7 @@ def replace(
                 SecurityWarning,
                 stacklevel=3,
             )
-            strategy = DEFAULT_STRATEGIES.get(entity.type, "remove")
+            strategy = _resolve_default_strategy(entity.type)
             # fall through to the strategy dispatch below
 
         if strategy == "pseudonym":
@@ -611,9 +567,9 @@ def replace(
             faker_reserved = _find_faker_reserved(entity.type, langs)
 
             if faker_reserved is not None:
-                salt = _resolve_salt(seed)
+                resolved_salt = _resolve_salt(salt)
                 replacement, alias_list = _generate_unique_fake(
-                    faker_reserved, entity.text, entity.type, salt, used_labels
+                    faker_reserved, entity.text, entity.type, resolved_salt, used_labels
                 )
                 if alias_list:
                     aliases[replacement] = alias_list

@@ -211,7 +211,13 @@ from chalk.utils import df_utils
 from chalk.utils.cached_member_fn import cached_member_fn
 from chalk.utils.df_utils import record_batch_to_arrow_ipc
 from chalk.utils.grpc import AuthenticatedChalkClientInterceptor, TokenRefresher, UnauthenticatedChalkClientInterceptor
-from chalk.utils.tracing import add_trace_headers, safe_trace
+from chalk.utils.tracing import (
+    TraceContext,
+    current_or_new_trace_context,
+    current_trace_context,
+    inject_trace_context,
+    safe_trace,
+)
 
 if TYPE_CHECKING:
     from pyarrow import RecordBatch, Table
@@ -291,6 +297,16 @@ def _canonicalize_headers(
     if isinstance(headers, collections.abc.Mapping):
         return tuple((k.lower(), v) for (k, v) in headers.items())
     return tuple((k.lower(), v) for (k, v) in headers)
+
+
+def _inject_trace_context_metadata(
+    headers: None | Sequence[tuple[str, str | bytes]] | Mapping[str, str | bytes],
+    trace_context: TraceContext | None = None,
+) -> tuple[tuple[str, str | bytes], ...]:
+    canonical_headers = dict(_canonicalize_headers(headers))
+    if trace_context is None:
+        return tuple(inject_trace_context(canonical_headers).items())
+    return tuple(inject_trace_context(canonical_headers, trace_context).items())
 
 
 def get_features_feather_bytes(
@@ -1111,6 +1127,7 @@ class ChalkGRPCClient:
         trace: bool = False,
         branch: str | None = None,
     ) -> online_query_pb2.OnlineQueryBulkResponse:
+        trace_context = current_or_new_trace_context() if trace else current_trace_context()
         with safe_trace("_online_query_grpc_request"):
             request = self._make_query_bulk_request(
                 input={k: [v] for k, v in input.items()},
@@ -1131,10 +1148,8 @@ class ChalkGRPCClient:
                 planner_options=planner_options or {},
                 query_context=query_context,
             )
-            if trace:
-                extra_headers: dict[str, str] = {}
-                extra_headers = add_trace_headers(extra_headers)
-                headers = _merge_headers(extra_headers, headers)
+            if trace_context is not None:
+                headers = _inject_trace_context_metadata(headers, trace_context)
 
             if branch:
                 headers = _merge_headers(headers, {CHALK_BRANCH_ID_HEADER: branch})
@@ -1257,6 +1272,9 @@ class ChalkGRPCClient:
             planner_options=planner_options or {},
             query_context=query_context,
         )
+        trace_context = current_trace_context()
+        if trace_context is not None:
+            headers = _inject_trace_context_metadata(headers, trace_context)
         headers = _merge_headers(headers, {CHALK_BRANCH_ID_HEADER: branch} if branch is not None else {})
         return self._stub_refresher.call_query_stub(
             lambda x: x.OnlineQueryBulk.with_call(

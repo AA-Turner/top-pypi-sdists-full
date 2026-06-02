@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: agentex-sdk
-Version: 0.11.6
+Version: 0.11.8
 Summary: The official Python library for the agentex API
 Project-URL: Homepage, https://github.com/scaleapi/scale-agentex-python
 Project-URL: Repository, https://github.com/scaleapi/scale-agentex-python

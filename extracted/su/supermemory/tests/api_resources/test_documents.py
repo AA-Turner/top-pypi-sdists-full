@@ -210,6 +210,7 @@ class TestDocuments:
             container_tag="containerTag",
             container_tags=["string"],
             custom_id="customId",
+            dreaming="instant",
             entity_context="entityContext",
             filepath="filepath",
             filter_by_metadata={"foo": "string"},
@@ -266,6 +267,7 @@ class TestDocuments:
                     "container_tag": "user_alex",
                     "container_tags": ["_:_k--W2K_1V"],
                     "custom_id": "doc-api-rate-limits",
+                    "dreaming": "instant",
                     "entity_context": "User's name is {XYZ}",
                     "filepath": "/documents/reports/file.pdf",
                     "filter_by_metadata": {
@@ -282,6 +284,7 @@ class TestDocuments:
             container_tag="user_alex",
             container_tags=["_:_k--W2K_1V"],
             content=None,
+            dreaming="instant",
             entity_context="User's name is {XYZ}",
             filepath="/documents/reports/file.pdf",
             filter_by_metadata={
@@ -681,6 +684,7 @@ class TestAsyncDocuments:
             container_tag="containerTag",
             container_tags=["string"],
             custom_id="customId",
+            dreaming="instant",
             entity_context="entityContext",
             filepath="filepath",
             filter_by_metadata={"foo": "string"},
@@ -737,6 +741,7 @@ class TestAsyncDocuments:
                     "container_tag": "user_alex",
                     "container_tags": ["_:_k--W2K_1V"],
                     "custom_id": "doc-api-rate-limits",
+                    "dreaming": "instant",
                     "entity_context": "User's name is {XYZ}",
                     "filepath": "/documents/reports/file.pdf",
                     "filter_by_metadata": {
@@ -753,6 +758,7 @@ class TestAsyncDocuments:
             container_tag="user_alex",
             container_tags=["_:_k--W2K_1V"],
             content=None,
+            dreaming="instant",
             entity_context="User's name is {XYZ}",
             filepath="/documents/reports/file.pdf",
             filter_by_metadata={

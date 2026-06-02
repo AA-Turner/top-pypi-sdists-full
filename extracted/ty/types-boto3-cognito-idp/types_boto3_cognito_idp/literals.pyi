@@ -47,6 +47,7 @@ __all__ = (
     "DeviceRememberedStatusTypeType",
     "DomainStatusTypeType",
     "EmailSendingAccountTypeType",
+    "EncryptionKeyTypeType",
     "EventFilterTypeType",
     "EventResponseTypeType",
     "EventSourceNameType",
@@ -56,6 +57,7 @@ __all__ = (
     "FeedbackValueTypeType",
     "IdentityProviderTypeTypeType",
     "InboundFederationLambdaVersionTypeType",
+    "IssuerTypeType",
     "ListGroupsPaginatorName",
     "ListIdentityProvidersPaginatorName",
     "ListResourceServersPaginatorName",
@@ -71,6 +73,8 @@ __all__ = (
     "PreventUserExistenceErrorTypesType",
     "RecoveryOptionNameTypeType",
     "RegionName",
+    "ReplicaRoleTypeType",
+    "ReplicaStatusTypeType",
     "ResourceServiceName",
     "RiskDecisionTypeType",
     "RiskLevelTypeType",
@@ -79,6 +83,7 @@ __all__ = (
     "TermsEnforcementTypeType",
     "TermsSourceTypeType",
     "TimeUnitsTypeType",
+    "UpdateReplicaStatusTypeType",
     "UserImportJobStatusTypeType",
     "UserPoolMfaTypeType",
     "UserPoolTierTypeType",
@@ -158,6 +163,7 @@ DeliveryMediumTypeType = Literal["EMAIL", "SMS"]
 DeviceRememberedStatusTypeType = Literal["not_remembered", "remembered"]
 DomainStatusTypeType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "UPDATING"]
 EmailSendingAccountTypeType = Literal["COGNITO_DEFAULT", "DEVELOPER"]
+EncryptionKeyTypeType = Literal["AWS_OWNED_KEY", "CUSTOMER_MANAGED_KEY"]
 EventFilterTypeType = Literal["PASSWORD_CHANGE", "SIGN_IN", "SIGN_UP"]
 EventResponseTypeType = Literal["Fail", "InProgress", "Pass"]
 EventSourceNameType = Literal["userAuthEvents", "userNotification"]
@@ -179,6 +185,7 @@ IdentityProviderTypeTypeType = Literal[
     "Facebook", "Google", "LoginWithAmazon", "OIDC", "SAML", "SignInWithApple"
 ]
 InboundFederationLambdaVersionTypeType = Literal["V1_0"]
+IssuerTypeType = Literal["ORIGINAL", "UPDATED"]
 ListGroupsPaginatorName = Literal["list_groups"]
 ListIdentityProvidersPaginatorName = Literal["list_identity_providers"]
 ListResourceServersPaginatorName = Literal["list_resource_servers"]
@@ -192,12 +199,15 @@ OAuthFlowTypeType = Literal["client_credentials", "code", "implicit"]
 PreTokenGenerationLambdaVersionTypeType = Literal["V1_0", "V2_0", "V3_0"]
 PreventUserExistenceErrorTypesType = Literal["ENABLED", "LEGACY"]
 RecoveryOptionNameTypeType = Literal["admin_only", "verified_email", "verified_phone_number"]
+ReplicaRoleTypeType = Literal["PRIMARY", "SECONDARY"]
+ReplicaStatusTypeType = Literal["ACTIVE", "CREATING", "DELETING", "INACTIVE"]
 RiskDecisionTypeType = Literal["AccountTakeover", "Block", "NoRisk"]
 RiskLevelTypeType = Literal["High", "Low", "Medium"]
 StatusTypeType = Literal["Disabled", "Enabled"]
 TermsEnforcementTypeType = Literal["NONE"]
 TermsSourceTypeType = Literal["LINK"]
 TimeUnitsTypeType = Literal["days", "hours", "minutes", "seconds"]
+UpdateReplicaStatusTypeType = Literal["ACTIVE", "INACTIVE"]
 UserImportJobStatusTypeType = Literal[
     "Created", "Expired", "Failed", "InProgress", "Pending", "Stopped", "Stopping", "Succeeded"
 ]
@@ -545,6 +555,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",

@@ -5,7 +5,7 @@
 
 version = 1
 SPDX-PackageName = "pypdfium2"
-SPDX-PackageSupplier = "geisserml <geisserml@gmail.com>"
+SPDX-PackageSupplier = "pypdfium2-team <geisserml@gmail.com>"
 SPDX-PackageDownloadLocation = "https://github.com/pypdfium2-team/pypdfium2"
 
 [[annotations]]
@@ -116,29 +116,19 @@ See also //BUILD_LICENSES/pdfium-binaries.txt for a copy of upstream's license f
 
 [[annotations]]
 path = [
-    "patches/ffp_contract.patch",
     "patches/avoid_new_clang_flags.patch",
     "patches/system_libcxx_with_clang.patch",
-    "patches/legacy_gn.patch",
+    "patches/legacy_gn_1.patch",
+    "patches/legacy_gn_2.patch",
     "patches/android_build.patch",
-    "patches/gn_build.patch",
     "patches/no_libclang_rt.patch",
+    "patches/musl_fix_libclang_rt_finder.patch",
+    "patches/libpng_loong64.patch",
+    "patches/libpng_ppc64.patch",
     "patches/win/arm64_native.patch",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 geisserml <geisserml@gmail.com>"
-SPDX-License-Identifier = "BSD-3-Clause OR Apache-2.0"
-
-[[annotations]]
-path = [
-    "patches/legacy_libs_compat.patch",
-    "patches/clang_on_musl.patch",
-]
-precedence = "aggregate"
-SPDX-FileCopyrightText = [
-    "2026 wojiushixiaobai <296015668@qq.com>",
-    "2026 geisserml <geisserml@gmail.com>",
-]
 SPDX-License-Identifier = "BSD-3-Clause OR Apache-2.0"
 
 [[annotations]]
@@ -158,13 +148,11 @@ Repo does not have an own license file, but assumably the patches are being made
 '''
 
 [[annotations]]
-path = "patches/abseil_ppc64le_musl.patch"
+path = "patches/security/openjpeg.patch"
 precedence = "aggregate"
-SPDX-FileCopyrightText = "2025 The abseil authors"
-SPDX-License-Identifier = "Apache-2.0"
-SPDX-FileComment = '''
-Cherry-pick https://github.com/abseil/abseil-cpp/commit/8e7767542cfde43f16c142f05dce06cadb7f7f84
-'''
+SPDX-FileCopyrightText = "2026 Even Rouault <even.rouault@spatialys.com>"
+SPDX-License-Identifier = "BSD-2-Clause"
+SPDX-FileComment = "Cherry-pick https://pdfium.googlesource.com/pdfium/+/65c78d0727c665106efed287a687b37d41a49439"
 
 [[annotations]]
 path = [

@@ -284,6 +284,25 @@ class KnowledgeManager:
             "total_evaluations": len(benchmark["evaluations"]),
         }
 
+    def update_entry(self, entry_id: str, **kwargs) -> dict:
+        """Update fields on a knowledge entry. Returns updated entry dict."""
+        entry = self.get_entry(entry_id)
+        if not entry:
+            raise ValueError(f"entry {entry_id} not found")
+        allowed = {"status", "severity", "domain", "category", "title", "content",
+                   "tags", "code_example", "benchmark"}
+        for key, value in kwargs.items():
+            if key not in allowed:
+                raise ValueError(f"cannot update field: {key}")
+            if key == "tags" and isinstance(value, list):
+                value = json.dumps(value, ensure_ascii=False)
+            self._conn.execute(
+                f"UPDATE entries SET {key} = ?, updated_at = datetime('now') WHERE id = ?",
+                (value, entry_id),
+            )
+        self._conn.commit()
+        return self.get_entry(entry_id) or {}
+
     def list_entries(self, domain=None, category=None, status="active", limit=50, offset=0):
         conditions = []
         params = []

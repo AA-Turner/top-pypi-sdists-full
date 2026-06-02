@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+from .braket import from_braket, to_braket
 from .cirq import from_cirq, to_cirq
 from .cirq_noise import from_cirq_noise
 from .pennylane_noise import from_pennylane_noise
@@ -33,4 +34,6 @@ __all__ = [
     "to_cirq",
     "from_cirq_noise",
     "from_pennylane_noise",
+    "from_braket",
+    "to_braket",
 ]

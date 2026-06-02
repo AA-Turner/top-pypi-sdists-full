@@ -305,10 +305,10 @@ __global__ void compute_norm_factor_dense_kernel(
 }
 
 /**
- * Kernel: projection_dense
+ * Kernel: forward_projection_dense
  * Purpose: Forward projection using DENSE format: q = A * theta
  */
-__global__ void projection_kernel__DENSE(
+__global__ void forward_projection_kernel__DENSE(
     float* __restrict__ q_out,
     const float* __restrict__ dense_matrix,
     const float* __restrict__ theta,
@@ -329,10 +329,10 @@ __global__ void projection_kernel__DENSE(
 }
 
 /**
- * Kernel: backprojection_dense
- * Purpose: Backprojection using DENSE format: c += A^T * e
+ * Kernel: backward_projection_dense
+ * Purpose: backward_projection using DENSE format: c += A^T * e
  */
-__global__ void backprojection_kernel__DENSE(
+__global__ void backward_projection_kernel__DENSE(
     float* __restrict__ c_out,
     const float* __restrict__ dense_matrix,
     const float* __restrict__ e,
@@ -414,10 +414,10 @@ __global__ void vector_axpby_kernel(
 }
 
 /**
- * Kernel: vector_minus_axpy
- * Purpose: Compute r = r - alpha * z (in-place axpy)
+ * Kernel: vector_plus_axpy
+ * Purpose: Compute r = r + alpha * z (in-place axpy)
  */
-__global__ void vector_minus_axpy_kernel(
+__global__ void vector_axpy_kernel(
     float* __restrict__ r_in_out,
     const float* __restrict__ z_in,
     float alpha,
@@ -427,10 +427,11 @@ __global__ void vector_minus_axpy_kernel(
     if (idx >= N) return;
     float r_val = r_in_out[idx];
     float z_val = z_in[idx];
-    float result = r_val - alpha * z_val;
+    float result = r_val + alpha * z_val;
     if (!isfinite(result)) result = 0.0f;
     r_in_out[idx] = result;
 }
+
 
 /**
  * Kernel: invert_vector
@@ -668,10 +669,10 @@ __global__ void sparse_matrix_vector_product_csr(
 }
 
 /**
- * Kernel: projection_sell
+ * Kernel: forward_projection_sell
  * Purpose: Forward projection using SELL format: q = A * theta
  */
-__global__ void projection_kernel__SELL(
+__global__ void forward_projection_kernel__SELL(
     float* __restrict__ q_out,
     const float* __restrict__ sell_values,
     const unsigned int* __restrict__ sell_colinds,
@@ -704,10 +705,10 @@ __global__ void projection_kernel__SELL(
 }
 
 /**
- * Kernel: backprojection_sell
- * Purpose: Backprojection using SELL format: c += A^T * e
+ * Kernel: backward_projection_sell
+ * Purpose: backward projection using SELL format: c += A^T * e
  */
-__global__ void backprojection_kernel__SELL(
+__global__ void backward_projection_kernel__SELL(
     const float* __restrict__ sell_values,
     const unsigned int* __restrict__ sell_colinds,
     const long long* __restrict__ slice_ptr,
@@ -741,10 +742,10 @@ __global__ void backprojection_kernel__SELL(
 }
 
 /**
- * Kernel: projection_csr
+ * Kernel: forward_projection_csr
  * Purpose: Forward projection using CSR format: q = A * theta
  */
-__global__ void projection_kernel__CSR(
+__global__ void forward_projection_kernel__CSR(
     float* __restrict__ q_flat,
     const float* __restrict__ values,
     const long long* __restrict__ row_ptr,
@@ -766,10 +767,10 @@ __global__ void projection_kernel__CSR(
 }
 
 /**
- * Kernel: backprojection_csr
- * Purpose: Backprojection using CSR format: c += A^T * e
+ * Kernel: backward_projection_csr
+ * Purpose: backward projection using CSR format: c += A^T * e
  */
-__global__ void backprojection_kernel__CSR(
+__global__ void backward_projection_kernel__CSR(
     float* __restrict__ c_flat,
     const float* __restrict__ values,
     const long long* __restrict__ row_ptr,
@@ -1079,10 +1080,10 @@ __global__ void dpdhg_prox_data_kernel(
 }
 
 /**
- * Kernel: pdhg_backprojection_sell
- * Purpose: Backprojection for PDHG using SELL format
+ * Kernel: pdhg_backward_projection_sell
+ * Purpose: backward projection for PDHG using SELL format
  */
-__global__ void dpdhg_backprojection_kernel(
+__global__ void dpdhg_backward_projection_kernel(
     const float* __restrict__ sell_values,
     const unsigned int* __restrict__ sell_colinds,
     const long long* __restrict__ slice_ptr,
@@ -1169,10 +1170,10 @@ __global__ void lbfgs_calc_q_kernel(
 }
 
 /**
- * Kernel: lbfgs_backprojection_sell
- * Purpose: Backprojection for LBFGS using SELL format
+ * Kernel: lbfgs_backward_projection_sell
+ * Purpose: backward projection for LBFGS using SELL format
  */
-__global__ void lbfgs_backprojection_kernel(
+__global__ void lbfgs_backward_projection_kernel(
     const float* __restrict__ sell_values,
     const unsigned int* __restrict__ sell_colinds,
     const long long* __restrict__ slice_ptr,
@@ -1414,10 +1415,10 @@ __global__ void projection_subset_kernel(
 }
 
 /**
- * Kernel: backprojection_subset_sell
- * Purpose: Backprojection on subset using SELL format
+ * Kernel: backward_projection_subset_sell
+ * Purpose: backward projection on subset using SELL format
  */
-__global__ void backprojection_subset_kernel(
+__global__ void backward_projection_subset_kernel(
     const float* __restrict__ sell_values,
     const unsigned int* __restrict__ sell_colinds,
     const long long* __restrict__ slice_ptr,

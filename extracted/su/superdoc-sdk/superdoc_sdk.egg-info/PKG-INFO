@@ -1,16 +1,16 @@
 Metadata-Version: 2.4
 Name: superdoc-sdk
-Version: 1.11.0
+Version: 1.14.0
 Summary: SuperDoc SDK (CLI-backed)
 Author: SuperDoc
 License-Expression: AGPL-3.0
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
-Requires-Dist: superdoc-sdk-cli-darwin-arm64==1.11.0; platform_system == "Darwin" and (platform_machine == "arm64" or platform_machine == "aarch64" or platform_machine == "ARM64")
-Requires-Dist: superdoc-sdk-cli-darwin-x64==1.11.0; platform_system == "Darwin" and (platform_machine == "x86_64" or platform_machine == "AMD64" or platform_machine == "amd64")
-Requires-Dist: superdoc-sdk-cli-linux-x64==1.11.0; platform_system == "Linux" and (platform_machine == "x86_64" or platform_machine == "AMD64" or platform_machine == "amd64")
-Requires-Dist: superdoc-sdk-cli-linux-arm64==1.11.0; platform_system == "Linux" and (platform_machine == "arm64" or platform_machine == "aarch64" or platform_machine == "ARM64")
-Requires-Dist: superdoc-sdk-cli-windows-x64==1.11.0; platform_system == "Windows" and (platform_machine == "x86_64" or platform_machine == "AMD64" or platform_machine == "amd64")
+Requires-Dist: superdoc-sdk-cli-darwin-arm64==1.14.0; platform_system == "Darwin" and (platform_machine == "arm64" or platform_machine == "aarch64" or platform_machine == "ARM64")
+Requires-Dist: superdoc-sdk-cli-darwin-x64==1.14.0; platform_system == "Darwin" and (platform_machine == "x86_64" or platform_machine == "AMD64" or platform_machine == "amd64")
+Requires-Dist: superdoc-sdk-cli-linux-x64==1.14.0; platform_system == "Linux" and (platform_machine == "x86_64" or platform_machine == "AMD64" or platform_machine == "amd64")
+Requires-Dist: superdoc-sdk-cli-linux-arm64==1.14.0; platform_system == "Linux" and (platform_machine == "arm64" or platform_machine == "aarch64" or platform_machine == "ARM64")
+Requires-Dist: superdoc-sdk-cli-windows-x64==1.14.0; platform_system == "Windows" and (platform_machine == "x86_64" or platform_machine == "AMD64" or platform_machine == "amd64")
 
 # superdoc-sdk
 

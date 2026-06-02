@@ -70,8 +70,8 @@
 //
 // # Algorithm (flat path)
 //
-// 1. Densify each block once (n × p_block). Record per-block pivoted-QR
-//    diagonal as `design_range_singular_values`.
+// 1. Densify each block once (n × p_block). Record per-block
+//    penalty-aware numerical rank as `design_range_rank`.
 // 2. Stack horizontally into `X_joint ∈ ℝ^{n×p_total}`. Sort columns by
 //    descending `gauge_priority` before RRQR so higher-priority blocks own
 //    shared directions (canonical-gauge ownership contract).
@@ -89,10 +89,10 @@ use faer::Side;
 use ndarray::{Array1, Array2};
 
 use crate::families::custom_family::{FamilyLinearizationState, ParameterBlockSpec};
-use crate::linalg::faer_ndarray::{
-    FaerEigh, FaerQr, default_rrqr_rank_alpha, rrqr_with_permutation,
-};
+use crate::linalg::faer_ndarray::{FaerEigh, default_rrqr_rank_alpha, rrqr_with_permutation};
 use crate::solver::estimate::EstimationError;
+
+const DEFAULT_GAUGE_PRIORITY: u8 = 100;
 
 /// Per-block accounting record. `original_dim` is the spec's column
 /// count at audit entry (post `joint_null_rotation` absorption — the
@@ -106,15 +106,12 @@ pub struct BlockIdentity {
     pub original_dim: usize,
     pub effective_dim: usize,
     /// Numerical rank of the block's column space at the n training
-    /// rows, computed by column-pivoted QR on the block in isolation
-    /// with the unified rank tolerance. Equal to `original_dim` for
-    /// any well-posed block; smaller values flag a within-block
-    /// rank deficiency that escaped within-smooth nullspace absorption.
+    /// rows, computed by penalty-aware column-pivoted RRQR on `[J; S]`
+    /// (so penalty-covered design-null directions count as identified).
+    /// Equal to `original_dim` for any well-posed block; smaller values
+    /// flag a within-block rank deficiency that escaped within-smooth
+    /// nullspace absorption.
     pub design_range_rank: usize,
-    /// Pivoted-QR diagonal magnitudes for the block, sorted descending.
-    /// Length = `original_dim`. Stored for diagnostics; the audit's
-    /// drop decisions use the joint pivot, not these per-block values.
-    pub design_range_singular_values: Vec<f64>,
 }
 
 /// A pair `(block_a.column → block_b.column)` whose normalised
@@ -445,8 +442,8 @@ fn signed_cosine(dot: f64, norm_a: f64, norm_b: f64) -> f64 {
 /// The algorithm:
 ///   1. Densify each block once (chunked, n × p_block; biobank n,
 ///      small p_block — total joint width is the GAM smooth budget,
-///      not n). Each block's pivoted-QR diagonal becomes its
-///      `design_range_singular_values`.
+///      not n). Each block's penalty-aware numerical rank is recorded
+///      as `design_range_rank`.
 ///   2. Stack horizontally into `X_joint ∈ ℝ^{n×p_total}` in spec
 ///      order; column-pivoted QR identifies columns linearly
 ///      dependent on earlier (pivot-rank-truncated) columns.
@@ -522,6 +519,14 @@ fn audit_identifiability_impl(
         }
     }
 
+    // Structural (λ-invariant) penalty per block, used to make the rank
+    // verdicts penalty-aware: a penalized direction that is design-null is still
+    // identified (`JᵀWJ + S` non-singular there), so the audit must rank `[J; S]`
+    // rather than `J`. `None` for unpenalized blocks ⇒ the historical raw-design
+    // verdict is preserved exactly.
+    let block_penalties: Vec<Option<Array2<f64>>> =
+        specs.iter().map(block_structural_penalty_dense).collect();
+
     let mut blocks: Vec<BlockIdentity> = Vec::with_capacity(specs.len());
     let mut col_offsets: Vec<usize> = Vec::with_capacity(specs.len() + 1);
     col_offsets.push(0);
@@ -533,14 +538,16 @@ fn audit_identifiability_impl(
         // invariant could be checked against the audit-visible rows.
         let dense = &dense_blocks[idx];
         let p_block = dense.ncols();
-        let block_singular = block_pivoted_qr_diagonal(dense)?;
-        let block_rank = count_rank(&block_singular, n, p_block);
+        // Penalty-aware, rank-revealing: rank of `[J; S]`, so penalty-covered
+        // (design-null but regularized) directions count as identified. RRQR is
+        // rank-revealing (the prior plain-QR diagonal was not), so the reported
+        // range_rank is now an honest numerical rank.
+        let block_rank = block_penalty_aware_rank(dense, block_penalties[idx].as_ref())?;
         blocks.push(BlockIdentity {
             block_name: spec.name.clone(),
             original_dim: p_block,
             effective_dim: p_block,
             design_range_rank: block_rank,
-            design_range_singular_values: block_singular,
         });
         let next_offset = col_offsets[col_offsets.len() - 1] + p_block;
         col_offsets.push(next_offset);
@@ -568,6 +575,44 @@ fn audit_identifiability_impl(
     }
     let p_total = *col_offsets.last().expect("col_offsets non-empty");
 
+    // Permanent layout diagnostic: name every block with its gauge priority,
+    // global column span, raw column count, and within-block range rank. A
+    // block whose `range_rank < original_dim` carries a redundancy that
+    // survived within-smooth nullspace absorption — i.e. an INTRA-block alias
+    // (e.g. a smooth's polynomial-nullspace constant colliding with the
+    // parametric intercept). Intra-block deficiencies cannot be resolved by
+    // cross-block gauge_priority ordering, so surfacing them here turns an
+    // opaque "first attributed drop: block X local column N" into an immediate
+    // "block X is internally rank-deficient" signal.
+    {
+        let layout: Vec<String> = blocks
+            .iter()
+            .enumerate()
+            .map(|(i, b)| {
+                let deficient = if b.design_range_rank < b.original_dim {
+                    "  ⚠WITHIN-BLOCK-DEFICIENT"
+                } else {
+                    ""
+                };
+                format!(
+                    "{}(prio={}, cols[{}..{}], dim={}, range_rank={}{})",
+                    b.block_name,
+                    specs[i].gauge_priority,
+                    col_offsets[i],
+                    col_offsets[i + 1],
+                    b.original_dim,
+                    b.design_range_rank,
+                    deficient,
+                )
+            })
+            .collect();
+        log::info!(
+            "[STAGE] identifiability audit: block layout p_total={} | {}",
+            p_total,
+            layout.join(" | "),
+        );
+    }
+
     if p_total == 0 {
         return Ok(IdentifiabilityAudit {
             blocks,
@@ -586,6 +631,42 @@ fn audit_identifiability_impl(
             x_joint.slice_mut(ndarray::s![.., start..end]).assign(block);
         }
     }
+
+    // Penalty-augmented joint design for the RANK verdict only: stack the
+    // block-diagonal structural penalties beneath `x_joint`, so the joint rank
+    // is `rank([X_joint; S_blockdiag])` and the only fatal deficiencies are
+    // directions that are BOTH data-null AND penalty-null (`ker(J) ∩ ker(S)`).
+    // The pairwise overlap scan below keeps using the *unaugmented* `x_joint`
+    // (penalty rows would distort the data-correlation cosines it measures);
+    // only the RRQR rank/attribution consumes this augmented matrix. When no
+    // block carries a penalty the augmented section is empty and this is bit-
+    // identical to RRQR on `x_joint` — unpenalized families are unaffected.
+    let n_penalty_rows: usize = block_penalties
+        .iter()
+        .enumerate()
+        .map(|(idx, s)| {
+            s.as_ref()
+                .map_or(0, |_| col_offsets[idx + 1] - col_offsets[idx])
+        })
+        .sum();
+    let x_joint_rank_input: Array2<f64> = if n_penalty_rows == 0 {
+        x_joint.clone()
+    } else {
+        let mut aug = Array2::<f64>::zeros((n + n_penalty_rows, p_total));
+        aug.slice_mut(ndarray::s![..n, ..]).assign(&x_joint);
+        let mut row = n;
+        for (idx, s_opt) in block_penalties.iter().enumerate() {
+            let start = col_offsets[idx];
+            let end = col_offsets[idx + 1];
+            if let Some(s) = s_opt {
+                let h = end - start;
+                aug.slice_mut(ndarray::s![row..row + h, start..end])
+                    .assign(s);
+                row += h;
+            }
+        }
+        aug
+    };
 
     // Per-joint-column gauge priority, inherited from the owning block.
     // RRQR uses greedy column pivoting: at each step it picks the
@@ -682,14 +763,21 @@ fn audit_identifiability_impl(
             block_priority_summary.join(", "),
         );
     }
+    // RRQR runs on the penalty-augmented joint (`x_joint_rank_input`): the rank
+    // and the demoted-column attribution then reflect `ker(J) ∩ ker(S)`, not
+    // raw `ker(J)`. Column count is `p_total` in both; only the row count grows
+    // by the appended structural-penalty rows.
     let rrqr = if priority_perm_is_identity {
-        rrqr_with_permutation(&x_joint, default_rrqr_rank_alpha()).map_err(|e| {
+        rrqr_with_permutation(&x_joint_rank_input, default_rrqr_rank_alpha()).map_err(|e| {
             EstimationError::LayoutError(format!("identifiability audit joint RRQR failed: {e:?}"))
         })?
     } else {
-        let mut x_priority = Array2::<f64>::zeros((n, p_total));
+        let m_rows = x_joint_rank_input.nrows();
+        let mut x_priority = Array2::<f64>::zeros((m_rows, p_total));
         for (new_j, &old_j) in priority_perm.iter().enumerate() {
-            x_priority.column_mut(new_j).assign(&x_joint.column(old_j));
+            x_priority
+                .column_mut(new_j)
+                .assign(&x_joint_rank_input.column(old_j));
         }
         rrqr_with_permutation(&x_priority, default_rrqr_rank_alpha()).map_err(|e| {
             EstimationError::LayoutError(format!(
@@ -844,45 +932,106 @@ fn audit_identifiability_impl(
         aliased_pairs.len(),
     );
 
-    // Attribute each demoted joint column back to its (block, local_col)
-    // origin using the col_offsets table built above. The earliest
-    // block whose range absorbs the demoted column is, by construction,
-    // the block at lower index containing the largest projection norm
-    // — but RRQR's column-pivoting selects the column most aligned
-    // with the *trailing* (demoted) space, so we attribute the alias
-    // to "the demoted column itself was selected as redundant; the
-    // earlier blocks (in spec order) reconstruct it". The reason
-    // string names the joint-column index and the joint rank tolerance
-    // so callers can correlate with the structural log.
+    // Attribute each demoted joint column back to its canonical gauge owner.
+    // RRQR is priority-ordered, but column pivoting can still name the
+    // higher-priority representative of a two-block alias. The model-space
+    // redundancy is resolved by dropping the lower-priority participant, so
+    // distinct-priority aliases are re-attributed to that side; same-priority
+    // aliases remain attributed to the raw demoted column and are fatal below.
+    let block_priority_for_attribution: std::collections::HashMap<&str, u8> = specs
+        .iter()
+        .map(|s| (s.name.as_str(), s.gauge_priority))
+        .collect();
     let mut dropped_columns: Vec<DroppedColumn> = Vec::new();
     for &joint_col in &demoted_joint_cols {
         let (block_idx, local_col) = locate_block_column(&col_offsets, joint_col)?;
-        let block_name = specs[block_idx].name.clone();
-        let reason = format!(
-            "joint-design column {joint_col} (block '{block_name}' local column \
-             {local_col}) demoted past joint RRQR rank tolerance {tol:.3e}; earlier \
-             blocks' column span absorbs this direction",
-            tol = joint_rank_tol,
-        );
+        let raw_block_name = specs[block_idx].name.clone();
+        let best_pair = aliased_pairs
+            .iter()
+            .filter(|pair| {
+                (pair.block_a == raw_block_name && pair.direction_a == local_col)
+                    || (pair.block_b == raw_block_name && pair.direction_b == local_col)
+            })
+            .filter(|pair| {
+                let pa = block_priority_for_attribution
+                    .get(pair.block_a.as_str())
+                    .copied()
+                    .unwrap_or(DEFAULT_GAUGE_PRIORITY);
+                let pb = block_priority_for_attribution
+                    .get(pair.block_b.as_str())
+                    .copied()
+                    .unwrap_or(DEFAULT_GAUGE_PRIORITY);
+                pa != pb
+            })
+            .max_by(|a, b| {
+                a.overlap
+                    .partial_cmp(&b.overlap)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+        let (block_name, drop_local_col, reason) = if let Some(pair) = best_pair {
+            let pa = block_priority_for_attribution
+                .get(pair.block_a.as_str())
+                .copied()
+                .unwrap_or(DEFAULT_GAUGE_PRIORITY);
+            let pb = block_priority_for_attribution
+                .get(pair.block_b.as_str())
+                .copied()
+                .unwrap_or(DEFAULT_GAUGE_PRIORITY);
+            let (lower_block, lower_col, lower_prio, higher_block, higher_col, higher_prio) =
+                if pa < pb {
+                    (
+                        pair.block_a.clone(),
+                        pair.direction_a,
+                        pa,
+                        pair.block_b.clone(),
+                        pair.direction_b,
+                        pb,
+                    )
+                } else {
+                    (
+                        pair.block_b.clone(),
+                        pair.direction_b,
+                        pb,
+                        pair.block_a.clone(),
+                        pair.direction_a,
+                        pa,
+                    )
+                };
+            (
+                lower_block.clone(),
+                lower_col,
+                format!(
+                    "joint-design column {joint_col} (raw RRQR block '{raw_block_name}' local column {local_col}) demoted past joint RRQR rank tolerance {tol:.3e}; canonical gauge re-attributed the shared direction to lower-priority block '{lower_block}' local column {lower_col} (priority {lower_prio} < '{higher_block}' local column {higher_col}, priority {higher_prio}; overlap={overlap:.4})",
+                    tol = joint_rank_tol,
+                    overlap = pair.overlap,
+                ),
+            )
+        } else {
+            (
+                raw_block_name.clone(),
+                local_col,
+                format!(
+                    "joint-design column {joint_col} (block '{raw_block_name}' local column {local_col}) demoted past joint RRQR rank tolerance {tol:.3e}; earlier blocks' column span absorbs this direction",
+                    tol = joint_rank_tol,
+                ),
+            )
+        };
         dropped_columns.push(DroppedColumn {
             block: block_name,
-            column: local_col,
+            column: drop_local_col,
             reason,
         });
     }
 
-    // Reflect the dropped-column attribution into `BlockIdentity::
-    // effective_dim`: each block's effective dimension is its original
-    // dim minus the count of its columns appearing in
-    // `demoted_joint_cols`. The per-block `design_range_rank` (from
-    // the in-isolation per-block QR) still flags any within-block
-    // rank deficiency that escaped within-smooth absorption.
+    // Reflect canonical dropped-column attribution into `BlockIdentity::
+    // effective_dim`: each block's effective dimension is its original dim
+    // minus the count of its attributed dropped columns (post re-attribution
+    // to the lower-priority participant, not the raw RRQR-selected column).
     for (block_idx, block) in blocks.iter_mut().enumerate() {
-        let lo = col_offsets[block_idx];
-        let hi = col_offsets[block_idx + 1];
-        let dropped_here = demoted_joint_cols
+        let block_name = specs[block_idx].name.as_str();
+        let dropped_here = dropped_columns
             .iter()
-            .filter(|&&j| j >= lo && j < hi)
+            .filter(|drop| drop.block == block_name)
             .count();
         block.effective_dim = block.original_dim.saturating_sub(dropped_here);
     }
@@ -1063,12 +1212,58 @@ fn audit_identifiability_impl(
             // it indicates a >2-way structural alias that the pairwise
             // scan didn't catch and is the hardest case to fix.
             let attribution = if let Some(first_drop) = dropped_columns.first() {
+                // Name the columns the dropped column is collinear WITH (its
+                // alias partners), so the verdict reveals the actual redundancy
+                // — e.g. "collinear with 'marginal_surface' local column 0"
+                // (the intercept) — instead of only the demoted column's
+                // address. Also flag when the redundancy is INTRA-block, since
+                // that is precisely the case cross-block gauge_priority cannot
+                // resolve.
+                let partners: Vec<String> = aliased_pairs
+                    .iter()
+                    .filter_map(|p| {
+                        if p.block_a == first_drop.block && p.direction_a == first_drop.column {
+                            Some(format!(
+                                "'{}' local column {} (overlap={:.4})",
+                                p.block_b, p.direction_b, p.overlap
+                            ))
+                        } else if p.block_b == first_drop.block
+                            && p.direction_b == first_drop.column
+                        {
+                            Some(format!(
+                                "'{}' local column {} (overlap={:.4})",
+                                p.block_a, p.direction_a, p.overlap
+                            ))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                let alias_note = if partners.is_empty() {
+                    String::new()
+                } else {
+                    format!("; collinear with {}", partners.join(", "))
+                };
+                let within_block_note = blocks
+                    .iter()
+                    .find(|b| b.block_name == first_drop.block)
+                    .filter(|b| b.design_range_rank < b.original_dim)
+                    .map(|b| {
+                        format!(
+                            "; block '{}' is INTRA-BLOCK rank-deficient \
+                             (range_rank {}/{}) — NOT resolvable by cross-block \
+                             gauge_priority; the redundant column must be removed \
+                             or centered within the block",
+                            first_drop.block, b.design_range_rank, b.original_dim
+                        )
+                    })
+                    .unwrap_or_default();
                 format!(
-                    "first attributed drop: block '{}' local column {} \
+                    "first attributed drop: block '{}' local column {}{}{} \
                      (reparam: replace this column with a sum-to-zero or \
                      orthogonal-complement projection against earlier blocks, \
                      or remove the redundant term entirely)",
-                    first_drop.block, first_drop.column,
+                    first_drop.block, first_drop.column, alias_note, within_block_note,
                 )
             } else {
                 "no per-column attribution (>2-way structural alias); \
@@ -1286,12 +1481,10 @@ pub fn audit_identifiability_channel_aware(
             block_name: spec.name.clone(),
             original_dim: p_block,
             effective_dim: kept,
-            // The channel-aware path does not produce per-block
-            // singular values in the flat-X sense; report an empty
-            // vector and rely on `effective_dim` < `original_dim`
-            // as the structural-rank signal.
+            // The channel-aware path does not produce a separate
+            // per-block penalty-aware rank; rely on `effective_dim`
+            // < `original_dim` as the structural-rank signal.
             design_range_rank: kept,
-            design_range_singular_values: Vec::new(),
         });
         let next = col_offsets[col_offsets.len() - 1] + p_block;
         col_offsets.push(next);
@@ -1437,12 +1630,58 @@ pub fn audit_identifiability_channel_aware(
         let mut parts: Vec<String> = Vec::new();
         if joint_rank_deficient && !gauge_resolves_rank_deficiency_ca {
             let attribution = if let Some(first_drop) = dropped_columns.first() {
+                // Name the columns the dropped column is collinear WITH (its
+                // alias partners), so the verdict reveals the actual redundancy
+                // — e.g. "collinear with 'marginal_surface' local column 0"
+                // (the intercept) — instead of only the demoted column's
+                // address. Also flag when the redundancy is INTRA-block, since
+                // that is precisely the case cross-block gauge_priority cannot
+                // resolve.
+                let partners: Vec<String> = aliased_pairs
+                    .iter()
+                    .filter_map(|p| {
+                        if p.block_a == first_drop.block && p.direction_a == first_drop.column {
+                            Some(format!(
+                                "'{}' local column {} (overlap={:.4})",
+                                p.block_b, p.direction_b, p.overlap
+                            ))
+                        } else if p.block_b == first_drop.block
+                            && p.direction_b == first_drop.column
+                        {
+                            Some(format!(
+                                "'{}' local column {} (overlap={:.4})",
+                                p.block_a, p.direction_a, p.overlap
+                            ))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                let alias_note = if partners.is_empty() {
+                    String::new()
+                } else {
+                    format!("; collinear with {}", partners.join(", "))
+                };
+                let within_block_note = blocks
+                    .iter()
+                    .find(|b| b.block_name == first_drop.block)
+                    .filter(|b| b.design_range_rank < b.original_dim)
+                    .map(|b| {
+                        format!(
+                            "; block '{}' is INTRA-BLOCK rank-deficient \
+                             (range_rank {}/{}) — NOT resolvable by cross-block \
+                             gauge_priority; the redundant column must be removed \
+                             or centered within the block",
+                            first_drop.block, b.design_range_rank, b.original_dim
+                        )
+                    })
+                    .unwrap_or_default();
                 format!(
-                    "first attributed drop: block '{}' local column {} \
+                    "first attributed drop: block '{}' local column {}{}{} \
                      (reparam: replace this column with a sum-to-zero or \
                      orthogonal-complement projection against earlier blocks, \
                      or remove the redundant term entirely)",
-                    first_drop.block, first_drop.column,
+                    first_drop.block, first_drop.column, alias_note, within_block_note,
                 )
             } else {
                 "no per-column attribution (>2-way structural alias in the \
@@ -1864,18 +2103,79 @@ fn locate_block_column(
     )))
 }
 
-pub(crate) fn block_pivoted_qr_diagonal(block: &Array2<f64>) -> Result<Vec<f64>, EstimationError> {
-    if block.ncols() == 0 {
-        return Ok(Vec::new());
+/// Structural (λ-invariant) penalty for a block: the unit-weight sum of its
+/// penalty matrices, materialised dense (`p_block × p_block`), or `None` when
+/// the block carries no penalty.
+///
+/// Identifiability of a PENALIZED block is governed by `H + S`, not the raw
+/// design `H` alone: a direction killed by the data design but COVERED by the
+/// penalty is still fully estimated (the penalized normal equations `JᵀWJ + S`
+/// are non-singular there). The block is genuinely non-identifiable only along
+/// `ker(J) ∩ ker(S)`. We therefore audit the rank of the design AUGMENTED with
+/// the penalty's rows — `[J; S]`, whose null space is exactly `ker(J) ∩ ker(S)`
+/// (`[J; S] v = 0 ⟺ Jv = 0 ∧ Sv = 0`), so appending `S` itself is equivalent to
+/// appending any square-root `√S` for the rank/null verdict and avoids a matrix
+/// square root.
+///
+/// Using the unit-weight STRUCTURAL sum (not a fitted λ) keeps the gate
+/// ρ-invariant: only the penalties' shared null space `∩_m ker(S_m)` matters,
+/// which is independent of the smoothing-parameter values. A block with no
+/// penalty returns `None`, so its augmented design is just `J` — the gate then
+/// reduces EXACTLY to the historical raw-design rank check, leaving every
+/// unpenalized block/family's verdict unchanged.
+fn block_structural_penalty_dense(spec: &ParameterBlockSpec) -> Option<Array2<f64>> {
+    let p = spec.design.ncols();
+    if p == 0 || spec.penalties.is_empty() {
+        return None;
     }
-    let (_q, r) = block
-        .qr()
-        .map_err(EstimationError::EigendecompositionFailed)?;
-    let diag_len = r.nrows().min(r.ncols());
-    let mut out: Vec<f64> = (0..diag_len).map(|i| r[[i, i]].abs()).collect();
-    out.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
-    out.resize(block.ncols(), 0.0);
-    Ok(out)
+    let mut s = Array2::<f64>::zeros((p, p));
+    let mut any = false;
+    for penalty in &spec.penalties {
+        let dense = penalty.to_dense();
+        if dense.nrows() == p && dense.ncols() == p {
+            s += &dense;
+            any = true;
+        }
+    }
+    any.then_some(s)
+}
+
+/// Penalty-aware **rank-revealing** column rank of a block: the numerical rank
+/// of the design `J` AUGMENTED with the block's structural penalty rows `[J; S]`
+/// (column count unchanged at `p_block`; null space = `ker(J) ∩ ker(S)`). When
+/// the block has no penalty this is the rank of `J` itself.
+///
+/// Uses column-pivoted RRQR (`rrqr_with_permutation`), which IS rank-revealing,
+/// rather than a plain (non-pivoted) QR whose R diagonal can scatter a near-zero
+/// pivot early and under/over-count the rank of a deficient matrix. Tolerance
+/// matches the joint RRQR.
+fn block_penalty_aware_rank(
+    block: &Array2<f64>,
+    structural_penalty: Option<&Array2<f64>>,
+) -> Result<usize, EstimationError> {
+    let augmented_owned;
+    let target: &Array2<f64> = match structural_penalty {
+        None => block,
+        Some(s) => {
+            let n = block.nrows();
+            let p = block.ncols();
+            let mut augmented = Array2::<f64>::zeros((n + p, p));
+            augmented.slice_mut(ndarray::s![..n, ..]).assign(block);
+            augmented.slice_mut(ndarray::s![n.., ..]).assign(s);
+            augmented_owned = augmented;
+            &augmented_owned
+        }
+    };
+    if target.ncols() == 0 {
+        return Ok(0);
+    }
+    rrqr_with_permutation(target, default_rrqr_rank_alpha())
+        .map(|r| r.rank)
+        .map_err(|e| {
+            EstimationError::LayoutError(format!(
+                "identifiability audit per-block RRQR failed: {e:?}"
+            ))
+        })
 }
 
 pub(crate) fn count_rank(singular_values: &[f64], n: usize, p: usize) -> usize {

@@ -4,7 +4,8 @@ import json
 import pathlib
 import socket
 import sys
-from typing import Any, Dict, Generator, NoReturn, Optional, Tuple
+from collections.abc import Generator
+from typing import Any, NoReturn
 from unittest import mock
 
 import pytest
@@ -30,7 +31,10 @@ from aiohttp.web_protocol import RequestHandler
 try:
     import brotlicffi as brotli
 except ImportError:
-    import brotli
+    try:
+        import brotli
+    except ImportError:
+        brotli = None
 
 try:
     import ssl
@@ -91,8 +95,9 @@ async def test_simple_get_with_text(aiohttp_client) -> None:
     await resp.release()
 
 
-async def test_handler_returns_not_response(aiohttp_server, aiohttp_client) -> None:
-    asyncio.get_event_loop().set_debug(True)
+async def test_handler_returns_not_response(
+    aiohttp_server, aiohttp_client, loop_debug_mode: None
+) -> None:
     logger = mock.Mock()
 
     async def handler(request):
@@ -107,8 +112,9 @@ async def test_handler_returns_not_response(aiohttp_server, aiohttp_client) -> N
         assert resp.status == 500
 
 
-async def test_handler_returns_none(aiohttp_server, aiohttp_client) -> None:
-    asyncio.get_event_loop().set_debug(True)
+async def test_handler_returns_none(
+    aiohttp_server, aiohttp_client, loop_debug_mode: None
+) -> None:
     logger = mock.Mock()
 
     async def handler(request):
@@ -321,7 +327,28 @@ async def test_multipart(aiohttp_client) -> None:
     await resp.release()
 
 
-async def test_multipart_empty(aiohttp_client) -> None:
+async def test_multipart_client_max_size(aiohttp_client: AiohttpClient) -> None:
+    with multipart.MultipartWriter() as writer:
+        writer.append("A" * 1020)
+
+    async def handler(request: web.Request) -> web.Response:
+        reader = await request.multipart()
+        assert isinstance(reader, multipart.MultipartReader)
+
+        part = await reader.next()
+        assert isinstance(part, multipart.BodyPartReader)
+        await part.text()  # Should raise HttpRequestEntityTooLarge
+        assert False
+
+    app = web.Application(client_max_size=1000)
+    app.router.add_post("/", handler)
+    client = await aiohttp_client(app)
+
+    async with client.post("/", data=writer) as resp:
+        assert resp.status == 413
+
+
+async def test_multipart_empty(aiohttp_client: AiohttpClient) -> None:
     with multipart.MultipartWriter() as writer:
         pass
 
@@ -634,7 +661,7 @@ async def test_expect_handler_custom_response(aiohttp_client) -> None:
     async def handler(request: web.Request) -> web.Response:
         return web.Response(text="handler")
 
-    async def expect_handler(request: web.Request) -> Optional[web.Response]:
+    async def expect_handler(request: web.Request) -> web.Response | None:
         k = request.headers.get("X-Key")
         cached_value = cache.get(k)
         if cached_value:
@@ -1137,11 +1164,11 @@ async def test_response_with_payload_stringio(aiohttp_client, fname) -> None:
 def compressor_case(
     request: pytest.FixtureRequest,
     parametrize_zlib_backend: None,
-) -> Generator[Tuple[ZLibCompressObjProtocol, str], None, None]:
+) -> Generator[tuple[ZLibCompressObjProtocol, str], None, None]:
     encoding: str = request.param
     max_wbits: int = ZLibBackend.MAX_WBITS
 
-    encoding_to_wbits: Dict[str, int] = {
+    encoding_to_wbits: dict[str, int] = {
         "deflate": max_wbits,
         "deflate-raw": -max_wbits,
         "gzip": 16 + max_wbits,
@@ -1153,7 +1180,7 @@ def compressor_case(
 
 async def test_response_with_precompressed_body(
     aiohttp_client: AiohttpClient,
-    compressor_case: Tuple[ZLibCompressObjProtocol, str],
+    compressor_case: tuple[ZLibCompressObjProtocol, str],
 ) -> None:
     compressor, encoding = compressor_case
 
@@ -1175,6 +1202,7 @@ async def test_response_with_precompressed_body(
     await resp.release()
 
 
+@pytest.mark.skipif(brotli is None, reason="brotli not available")
 async def test_response_with_precompressed_body_brotli(aiohttp_client) -> None:
     async def handler(request):
         headers = {"Content-Encoding": "br"}
@@ -1697,12 +1725,9 @@ async def test_app_max_client_size(aiohttp_client) -> None:
         resp = await client.post("/", data=data)
     assert 413 == resp.status
     resp_text = await resp.text()
-    assert "Maximum request body size 1048576 exceeded, actual body size" in resp_text
-    # Maximum request body size X exceeded, actual body size X
-    body_size = int(resp_text.split()[-1])
-    assert body_size >= max_size
+    assert "Maximum request body size 1048576 exceeded" in resp_text
 
-    await resp.release()
+    resp.release()
 
 
 async def test_app_max_client_size_adjusted(aiohttp_client: AiohttpClient) -> None:
@@ -1729,10 +1754,7 @@ async def test_app_max_client_size_adjusted(aiohttp_client: AiohttpClient) -> No
         resp = await client.post("/", data=too_large_data)
     assert 413 == resp.status
     resp_text = await resp.text()
-    assert "Maximum request body size 2097152 exceeded, actual body size" in resp_text
-    # Maximum request body size X exceeded, actual body size X
-    body_size = int(resp_text.split()[-1])
-    assert body_size >= custom_max_size
+    assert "Maximum request body size 2097152 exceeded" in resp_text
 
     await resp.release()
 
@@ -1780,11 +1802,10 @@ async def test_post_max_client_size(aiohttp_client) -> None:
 
         assert 413 == resp.status
         resp_text = await resp.text()
-        assert (
-            "Maximum request body size 10 exceeded, "
-            "actual body size 1024" in resp_text
-        )
-        data["file"].close()
+        assert "Maximum request body size 10 exceeded" in resp_text
+        data_file = data["file"]
+        assert isinstance(data_file, io.BytesIO)
+        data_file.close()
 
         await resp.release()
 

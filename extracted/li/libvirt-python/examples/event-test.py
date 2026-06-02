@@ -514,6 +514,8 @@ AGENT_REASONS = Description("unknown", "domain started", "channel event")
 GRAPHICS_PHASES = Description("Connect", "Initialize", "Disconnect")
 DISK_EVENTS = Description("Change missing on start", "Drop missing on start")
 TRAY_EVENTS = Description("Opened", "Closed")
+CHANNEL_STATES = Description("unknown", "connected", "disconnected")
+CHANNEL_REASONS = Description("unknown", "domain started", "channel event")
 
 
 def myDomainEventCallback(conn: libvirt.virConnect, dom: libvirt.virDomain, event: int, detail: int, opaque: _T) -> None:
@@ -651,6 +653,14 @@ def myDomainEventMemoryDeviceSizeChangeCallback(conn: libvirt.virConnect, dom: l
 def myDomainEventNICMACChangeCallback(conn: libvirt.virConnect, dom: libvirt.virDomain, alias: str, oldMAC: str, newMAC: str, opaque: _T) -> None:
     print("myDomainEventNICMACChangeCallback: Domain %s(%s) NIC MAC change alias %s old MAC: %s new MAC: %s" % (
         dom.name(), dom.ID(), alias, oldMAC, newMAC))
+
+def myDomainEventVcpuRemovedCallback(conn: libvirt.virConnect, dom: libvirt.virDomain, vcpuid: int, opaque: _T) -> None:
+    print("myDomainEventVcpuRemovedCallback: Domain %s(%s) vCPU removed %d" % (
+        dom.name(), dom.ID(), vcpuid))
+
+def myDomainEventChannelLifecycleCallback(conn: libvirt.virConnect, dom: libvirt.virDomain, state: int, reason: int, opaque: _T) -> None:
+    print("myDomainEventChannelLifecycleCallback: Domain %s(%s) %s %s" % (
+        dom.name(), dom.ID(), CHANNEL_STATES[state], CHANNEL_REASONS[reason]))
 
 
 ##########################################################################
@@ -811,6 +821,8 @@ def main() -> None:
         vc.domainEventRegisterAny(None, libvirt.VIR_DOMAIN_EVENT_ID_MEMORY_FAILURE, myDomainEventMemoryFailureCallback, None),
         vc.domainEventRegisterAny(None, libvirt.VIR_DOMAIN_EVENT_ID_MEMORY_DEVICE_SIZE_CHANGE, myDomainEventMemoryDeviceSizeChangeCallback, None),
         vc.domainEventRegisterAny(None, libvirt.VIR_DOMAIN_EVENT_ID_NIC_MAC_CHANGE, myDomainEventNICMACChangeCallback, None),
+        vc.domainEventRegisterAny(None, libvirt.VIR_DOMAIN_EVENT_ID_VCPU_REMOVED, myDomainEventVcpuRemovedCallback, None),
+        vc.domainEventRegisterAny(None, libvirt.VIR_DOMAIN_EVENT_ID_CHANNEL_LIFECYCLE, myDomainEventChannelLifecycleCallback, None),
     ]
 
     netcallbacks = [

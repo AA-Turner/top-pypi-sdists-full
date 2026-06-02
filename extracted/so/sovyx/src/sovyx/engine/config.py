@@ -332,6 +332,15 @@ class VoiceTuningConfig(BaseSettings):
     """Maximum audio duration accepted by the cloud STT endpoint.
     OpenAI's documented cap is 25 MB raw audio (~10 min @ 16 kHz);
     the 600 s ceiling matches that with headroom for retries."""
+
+    stt_failover_enabled: bool = False
+    """W2.1 / G-P1-4 — opt-in automatic STT failover. When ``True`` AND an
+    ``OPENAI_API_KEY`` is configured, the daemon wraps the local Moonshine
+    primary with a CloudSTT secondary via
+    :class:`sovyx.voice.stt_failover.FailoverSTTEngine`, so sustained local
+    STT failure (raise / S2 timeout) RECOVERS via the cloud instead of
+    producing permanent silence. Default OFF (staged adoption + BYOK: cloud
+    STT incurs per-request cost, so it stays opt-in)."""
     auto_select_min_gpu_vram_mb: int = 4_000
     auto_select_high_ram_threshold_mb: int = 16_000
     auto_select_low_ram_threshold_mb: int = 2_048
@@ -1796,8 +1805,10 @@ class VoiceTuningConfig(BaseSettings):
     bypass_fingerprint_min_confidence: float = 0.7
 
     # ── Linux ALSA bypass strategies (Phase 3) ─────────────────────────
-    # See docs-internal/plans/linux-alsa-mixer-saturation-fix.md for the
-    # full derivation. Covers two orthogonal Linux failure modes that
+    # See docs-internal/ADR-voice-mixer-sanity-l2.5-bidirectional.md for the
+    # full derivation (canonical; supersedes the original
+    # linux-alsa-mixer-saturation-fix plan). Covers two orthogonal Linux
+    # failure modes that
     # both surface as ``IntegrityVerdict.APO_DEGRADED``: analog mixer
     # saturation (Internal Mic Boost / Capture driven above the ADC's
     # safe range) and session-manager DSP (PulseAudio

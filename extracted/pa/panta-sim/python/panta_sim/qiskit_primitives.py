@@ -227,8 +227,10 @@ class PantaEstimator:
     """Qiskit ``BaseEstimatorV2`` 인터페이스를 panta-sim 백엔드로 구현한다.
 
     expectation value 는 panta-sim 의 statevector (shots=0) 에서 분석적으로
-    계산되어, Qiskit ``StatevectorEstimator`` 와 1e-10 (f64) 일치한다.
-    statistical noise 는 0 (shot-based estimation 이 아니므로).
+    계산되어, Qiskit ``StatevectorEstimator`` 와 1e-10 (f64) 일치한다 (precision
+    미지정 시 statistical noise 0).  ``precision`` (또는 pub 별 precision) 이
+    주어지면 ``shots ≈ ⌈1/precision²⌉`` 로 **shot-based** 추정을 수행해 Qiskit
+    ``EstimatorV2`` 의 precision 의미와 정합한다 (``precision → 0`` 정확값 수렴).
 
     Example:
         >>> from qiskit import QuantumCircuit
@@ -241,8 +243,14 @@ class PantaEstimator:
         >>> result[0].data.evs  # Bell <ZZ + 0.5 XX> = 1 + 0.5 = 1.5
     """
 
-    def __init__(self) -> None:
-        pass
+    def __init__(self, *, seed: Optional[int] = None) -> None:
+        """PantaEstimator 를 생성한다.
+
+        Args:
+            seed: ``precision`` 기반 shot-noise 추정의 RNG seed (재현성).  None
+                이면 비결정적.  ``precision`` 미지정 (정확 statevector) 시 무시.
+        """
+        self._seed = seed
 
     def run(
         self,
@@ -250,7 +258,15 @@ class PantaEstimator:
         *,
         precision: Optional[float] = None,
     ) -> Any:
-        """Estimator 실행. ``precision`` 은 statevector path 에서 의미 없음."""
+        """Estimator 를 실행한다.
+
+        ``precision`` (또는 pub 별 precision) 이 ``None`` / 0 이면 statevector
+        에서 **정확한** 기댓값을 계산하고 ``stds=0`` 을 보고한다.  양수이면
+        Qiskit ``EstimatorV2`` 의미를 따라 ``shots ≈ ⌈1/precision²⌉`` 로 **shot-
+        based** 추정을 수행한다 (qubit-wise commuting grouping, Born-rule
+        샘플링; ``precision → 0`` 에서 정확값으로 수렴).  보고되는 ``stds`` 는
+        목표 표준오차 ``precision`` 이다.
+        """
         _lazy_import_qiskit()
         from qiskit.primitives.containers import (  # type: ignore
             DataBin,
@@ -269,7 +285,7 @@ class PantaEstimator:
 
                 # statevector mode (shots=0) 로 한 번 시뮬.
                 panta_qc = from_qiskit(qc)
-                state = panta_qc.run(shots=0).statevector().astype(np.complex128)
+                sim_result = panta_qc.run(shots=0)
 
                 obs_array = pub.observables
                 if obs_array.shape != ():
@@ -279,11 +295,24 @@ class PantaEstimator:
                     )
                 # observables[()] → dict of Pauli string → coeff.
                 obs_dict: dict[str, complex] = obs_array[()]
-                expval = _expval_from_state(state, obs_dict)
+
+                pub_precision = pub.precision
+                if pub_precision is None or pub_precision <= 0.0:
+                    # 정확 (statevector) — shot noise 없음.
+                    state = sim_result.statevector().astype(np.complex128)
+                    expval = _expval_from_state(state, obs_dict)
+                    std = 0.0
+                else:
+                    # shots ≈ ⌈1/precision²⌉ 로 shot-based 추정.
+                    shots = max(1, int(np.ceil(1.0 / (pub_precision ** 2))))
+                    expval = sim_result.expectation(
+                        obs_dict, shots=shots, seed=self._seed
+                    )
+                    std = float(pub_precision)
 
                 # numpy scalar 형태로 (Qiskit 도 0-d ndarray).
                 evs = np.array(expval, dtype=float)
-                stds = np.array(0.0, dtype=float)
+                stds = np.array(std, dtype=float)
 
                 data_bin = DataBin(evs=evs, stds=stds, shape=())
                 pub_results.append(PubResult(data=data_bin, metadata={}))

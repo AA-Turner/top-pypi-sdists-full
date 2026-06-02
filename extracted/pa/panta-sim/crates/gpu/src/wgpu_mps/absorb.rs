@@ -99,6 +99,7 @@ pub(crate) fn build_absorb_pipeline(
 /// - `tensor_in_buf`:  `chi_ll * 2 * chi_l * 8` bytes
 /// - `us_buf`:         `chi_l * keep * 8` bytes
 /// - `tensor_out_buf`: `chi_ll * 2 * keep * 8` bytes
+#[allow(clippy::too_many_arguments)]
 pub fn dispatch_absorb_us(
     backend: &WgpuMpsBackend,
     pipeline: &wgpu::ComputePipeline,
@@ -151,7 +152,7 @@ pub fn dispatch_absorb_us(
         ],
     });
 
-    let workgroups = ((total as u32) + 63) / 64;
+    let workgroups = (total as u32).div_ceil(64);
     let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
         label: Some("mps_absorb dispatch"),
     });
@@ -283,13 +284,9 @@ mod tests {
         };
         let (pipeline, bgl) = build_absorb_pipeline(backend.device());
 
-        for &(chi_ll, chi_l, keep) in &[
-            (1, 1, 1),
-            (4, 4, 2),
-            (8, 16, 8),
-            (16, 32, 16),
-            (32, 32, 24),
-        ] {
+        for &(chi_ll, chi_l, keep) in
+            &[(1, 1, 1), (4, 4, 2), (8, 16, 8), (16, 32, 16), (32, 32, 24)]
+        {
             let tensor_in = rand_complex(chi_ll * 2 * chi_l, 42 + chi_ll as u64);
             let us_matrix = rand_complex(chi_l * keep, 137 + keep as u64);
 

@@ -146,10 +146,10 @@ def _create_workflow_context_with_token() -> WorkflowContext:
 
 
 class WorkflowContextWorkflowOutboundInterceptor(temporalio.worker.WorkflowOutboundInterceptor):
-    def _contextualize_args(self, args: Sequence[Any], *, preserve_token: bool = False) -> Sequence[Any]:
+    def _contextualize_args(self, args: Sequence[Any], *, include_token: bool = False) -> Sequence[Any]:
         workflow_context = retrieve_context()
         if workflow_context:
-            if not preserve_token:
+            if not include_token:
                 workflow_context = workflow_context.model_copy(update={"execution_token": None})
             contextualized_args = []
             for arg in args:
@@ -168,23 +168,23 @@ class WorkflowContextWorkflowOutboundInterceptor(temporalio.worker.WorkflowOutbo
         await self.next.signal_external_workflow(input)
 
     def start_activity(self, input: temporalio.worker.StartActivityInput) -> temporalio.workflow.ActivityHandle:
-        input.args = self._contextualize_args(input.args, preserve_token=True)
+        input.args = self._contextualize_args(input.args, include_token=True)
         return self.next.start_activity(input)
 
     async def start_child_workflow(
         self, input: temporalio.worker.StartChildWorkflowInput
     ) -> temporalio.workflow.ChildWorkflowHandle:
-        input.args = self._contextualize_args(input.args, preserve_token=True)
+        input.args = self._contextualize_args(input.args)
         return await self.next.start_child_workflow(input)
 
     def start_local_activity(
         self, input: temporalio.worker.StartLocalActivityInput
     ) -> temporalio.workflow.ActivityHandle:
-        input.args = self._contextualize_args(input.args, preserve_token=True)
+        input.args = self._contextualize_args(input.args, include_token=True)
         return self.next.start_local_activity(input)
 
     def continue_as_new(self, input: temporalio.worker.ContinueAsNewInput) -> NoReturn:
-        input.args = self._contextualize_args(input.args, preserve_token=True)
+        input.args = self._contextualize_args(input.args)
         self.next.continue_as_new(input)
 
 

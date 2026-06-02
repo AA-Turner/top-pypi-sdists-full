@@ -44,7 +44,7 @@ _BAD_PACKAGE_NAMES = frozenset({
     "ensure", "ensured", "met", "make", "sure", "use", "using", "needed",
     "install", "installed", "must", "should", "should've", "would",
     "dependencies", "package", "packages", "modules", "all",
-    "please", "kindly", "just", "simply", "now", "next", "step",
+    "please", "kindly", "just", "simply", "now", "step",
 })
 
 _VALID_VERSION_RE = re.compile(

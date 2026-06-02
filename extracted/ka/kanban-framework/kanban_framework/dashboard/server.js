@@ -31,6 +31,29 @@ if (process.env.KANBAN_ROOT && fs.existsSync(path.join(process.env.KANBAN_ROOT, 
 app.use(express.json());
 app.use(express.static(__dirname));
 
+// ── Shared: resolve Python binary (cross-platform) ──
+function getPythonBin() {
+  // 1. Config override
+  try {
+    const cfgPath = path.join(KANBAN_ROOT, 'config.json');
+    if (fs.existsSync(cfgPath)) {
+      const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
+      if (cfg.python_bin) return cfg.python_bin;
+    }
+  } catch (_) {}
+  // 2. Env override
+  if (process.env.KANBAN_PYTHON_BIN) return process.env.KANBAN_PYTHON_BIN;
+  // 3. Platform defaults: try python3, python, py
+  const { execSync } = require('child_process');
+  for (const bin of ['python3', 'python', 'py']) {
+    try {
+      execSync(`${bin} --version`, { stdio: 'ignore', timeout: 3000 });
+      return bin;
+    } catch (_) {}
+  }
+  return 'python3';  // last resort
+}
+
 // Debug: log KANBAN_ROOT and check connectivity
 console.log('KANBAN_ROOT:', KANBAN_ROOT);
 console.log('config.json exists:', fs.existsSync(path.join(KANBAN_ROOT, 'config.json')));
@@ -147,7 +170,7 @@ app.get('/api/step-definitions', (req, res) => {
             for (const s of p.steps) {
               const sid = s.id || '';
               const fullId = sid.includes('.') ? sid : `${p.id}.${sid}`;
-              phaseSteps[fullId] = { description: s.description || '', agent_type: s.agent_type || null };
+              phaseSteps[fullId] = { ...s };  // include all fields
             }
             steps[p.id] = phaseSteps;
           }
@@ -156,6 +179,33 @@ app.get('/api/step-definitions', (req, res) => {
       }
     }
   } catch (_) { /* fall back to built-in definitions */ }
+  // Fallback: load from workflows/ directory files (full step details)
+  const wfDir = path.join(KANBAN_ROOT, 'workflows');
+  if (fs.existsSync(wfDir)) {
+    const steps = {};
+    for (const f of fs.readdirSync(wfDir)) {
+      if (!f.endsWith('.json')) continue;
+      try {
+        const modeFile = JSON.parse(fs.readFileSync(path.join(wfDir, f), 'utf-8'));
+        if (modeFile.phases && Array.isArray(modeFile.phases)) {
+          for (const p of modeFile.phases) {
+            if (p.steps && Array.isArray(p.steps)) {
+              const phaseSteps = {};
+              for (const s of p.steps) {
+                const sid = s.id || '';
+                const fullId = sid.includes('.') ? sid : `${p.id}.${sid}`;
+                phaseSteps[fullId] = { ...s };  // include all fields
+              }
+              steps[p.id] = { ...steps[p.id], ...phaseSteps };
+            }
+          }
+        }
+      } catch (_) {}
+    }
+    if (Object.keys(steps).length > 0) {
+      return res.json({ steps, phases, agent_types });
+    }
+  }
   res.json({ steps: STEP_DEFINITIONS, phases, agent_types });
 });
 function isValidTaskId(id) {
@@ -808,8 +858,28 @@ app.get('/api/config', (req, res) => {
 app.get('/api/workflow', (req, res) => {
   try {
     const workflowPath = path.join(KANBAN_ROOT, 'workflow.json');
-    if (!fs.existsSync(workflowPath)) return res.json({});
-    const data = JSON.parse(fs.readFileSync(workflowPath, 'utf-8'));
+    let data = {};
+    if (fs.existsSync(workflowPath)) {
+      data = JSON.parse(fs.readFileSync(workflowPath, 'utf-8'));
+    }
+    // Merge per-mode phases from .kanban/workflows/<mode>.json
+    const wfDir = path.join(KANBAN_ROOT, 'workflows');
+    if (data.modes && fs.existsSync(wfDir)) {
+      const modes = { ...data.modes };
+      for (const f of fs.readdirSync(wfDir)) {
+        if (!f.endsWith('.json')) continue;
+        const modeName = f.replace('.json', '');
+        const modeCfg = modes[modeName] || {};
+        try {
+          const modeFile = JSON.parse(fs.readFileSync(path.join(wfDir, f), 'utf-8'));
+          if (modeFile.phases && Array.isArray(modeFile.phases)) {
+            // Directory file phases take priority over workflow.json
+          modes[modeName] = { ...modeFile, ...modeCfg, phases: modeFile.phases };
+          }
+        } catch (_) {}
+      }
+      data = { ...data, modes };
+    }
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: 'Failed to read workflow.json' });
@@ -842,13 +912,72 @@ app.put('/api/workflow', (req, res) => {
     if (!validation.valid) {
       return res.status(400).json({ error: 'Validation failed', details: validation.errors });
     }
+    const data = req.body;
+    const workflowsDir = path.join(KANBAN_ROOT, 'workflows');
+
+    // 1. Extract per-mode phases and write to .kanban/workflows/<mode>.json
+    const modes = (data.modes && typeof data.modes === 'object') ? { ...data.modes } : {};
+    for (const [modeName, modeCfg] of Object.entries(modes)) {
+      if (modeCfg && typeof modeCfg === 'object' && modeCfg.phases && Array.isArray(modeCfg.phases)) {
+        // Write full mode config (phase_order + phases) to directory file
+        const modeFile = path.join(workflowsDir, `${modeName}.json`);
+        fs.mkdirSync(workflowsDir, { recursive: true });
+        atomicWriteJSON(modeFile, {
+          name: modeName,
+          phase_order: modeCfg.phase_order || [],
+          phases: modeCfg.phases,
+          gates: modeCfg.gates || {},
+        });
+        // Strip phases from workflow.json copy (keep metadata only)
+        delete modes[modeName].phases;
+      }
+    }
+
+    // 2. Clean up directory files for deleted modes
+    const BUILTIN = new Set(['full', 'lightweight', 'quick']);
     const workflowPath = path.join(KANBAN_ROOT, 'workflow.json');
+    if (fs.existsSync(workflowPath)) {
+      try {
+        const oldWf = JSON.parse(fs.readFileSync(workflowPath, 'utf-8'));
+        const oldModes = (oldWf.modes && typeof oldWf.modes === 'object') ? oldWf.modes : {};
+        for (const oldName of Object.keys(oldModes)) {
+          if (!modes[oldName] && !BUILTIN.has(oldName)) {
+            // Mode was deleted — remove its directory file
+            const oldFile = path.join(workflowsDir, `${oldName}.json`);
+            if (fs.existsSync(oldFile)) {
+              fs.unlinkSync(oldFile);
+              console.log(`Removed orphaned workflow file: ${oldName}.json`);
+            }
+          }
+        }
+      } catch (e) { console.error('Cleanup error:', e.message); }
+    }
+
+    // 3. Write stripped workflow.json (modes without phases)
     let existing = {};
     try { existing = JSON.parse(fs.readFileSync(workflowPath, 'utf-8')); } catch (_) {}
-    const merged = { ...existing, ...req.body };
+    const merged = { ...existing, ...data, modes };
     atomicWriteJSON(workflowPath, merged);
-    broadcastSSE('workflow:changed', merged);
-    res.json({ success: true, data: merged });
+
+    // 4. Merge per-mode phases back from directory files for response
+    // (client needs full data, not stripped modes)
+    const responseModes = { ...merged.modes };
+    if (fs.existsSync(workflowsDir)) {
+      for (const f of fs.readdirSync(workflowsDir)) {
+        if (!f.endsWith('.json')) continue;
+        const modeName = f.replace('.json', '');
+        try {
+          const modeFile = JSON.parse(fs.readFileSync(path.join(workflowsDir, f), 'utf-8'));
+          if (modeFile.phases && Array.isArray(modeFile.phases)) {
+            responseModes[modeName] = { ...modeFile, ...(responseModes[modeName] || {}), phases: modeFile.phases };
+          }
+        } catch (_) {}
+      }
+    }
+    const response = { ...merged, modes: responseModes };
+
+    broadcastSSE('workflow:changed', response);
+    res.json({ success: true, data: response });
   } catch (err) {
     res.status(500).json({ error: 'Failed to write workflow.json: ' + err.message });
   }
@@ -858,13 +987,7 @@ app.put('/api/workflow', (req, res) => {
 app.get('/api/knowledge/health', (req, res) => {
   try {
     const { execFile } = require('child_process');
-    const pythonBin = (() => {
-      try {
-        const cfg = JSON.parse(fs.readFileSync(path.join(KANBAN_ROOT, 'config.json'), 'utf-8'));
-        return cfg.python_bin || 'python3';
-      } catch (_) { return 'python3'; }
-    })();
-    execFile(pythonBin, ['-m', 'kanban_framework', 'knowledge', 'health', '--json'], {
+    execFile(getPythonBin(), ['-m', 'kanban_framework', 'knowledge', 'health', '--json'], {
       cwd: KANBAN_ROOT, timeout: 15000,
     }, (err, stdout, stderr) => {
       if (err) {
@@ -886,7 +1009,7 @@ app.get('/api/knowledge/health', (req, res) => {
 app.get('/api/knowledge/pending', (req, res) => {
   try {
     const { execFile } = require('child_process');
-    execFile('python3', ['-m', 'kanban_framework', 'knowledge', 'pending', '--json'], {
+    execFile(getPythonBin(), ['-m', 'kanban_framework', 'knowledge', 'pending', '--json'], {
       cwd: KANBAN_ROOT, timeout: 10000,
     }, (err, stdout) => {
       if (err) return res.json({ success: false, error: err.message });
@@ -904,7 +1027,7 @@ app.post('/api/knowledge/approve', (req, res) => {
     if (!ids.length) return res.status(400).json({ error: 'ids required' });
     const { execFile } = require('child_process');
     const args = ['-m', 'kanban_framework', 'knowledge', 'approve', '--json', ...ids];
-    execFile('python3', args, { cwd: KANBAN_ROOT, timeout: 10000 }, (err, stdout) => {
+    execFile(getPythonBin(), args, { cwd: KANBAN_ROOT, timeout: 10000 }, (err, stdout) => {
       if (err) return res.json({ success: false, error: err.message });
       try { res.json(JSON.parse(stdout)); } catch (_) { res.json({ success: false }); }
     });
@@ -920,7 +1043,7 @@ app.post('/api/knowledge/reject', (req, res) => {
     if (!ids.length) return res.status(400).json({ error: 'ids required' });
     const { execFile } = require('child_process');
     const args = ['-m', 'kanban_framework', 'knowledge', 'reject', '--json', ...ids];
-    execFile('python3', args, { cwd: KANBAN_ROOT, timeout: 10000 }, (err, stdout) => {
+    execFile(getPythonBin(), args, { cwd: KANBAN_ROOT, timeout: 10000 }, (err, stdout) => {
       if (err) return res.json({ success: false, error: err.message });
       try { res.json(JSON.parse(stdout)); } catch (_) { res.json({ success: false }); }
     });
@@ -1168,7 +1291,7 @@ app.get('/api/tasks/:id/retrospective', (req, res) => {
 app.get('/api/token-stats', (req, res) => {
   try {
     const { execSync } = require('child_process');
-    const pythonBin = process.env.KANBAN_PYTHON_BIN || 'python3';
+    const pythonBin = getPythonBin();
     // Delegate to Python stats backend (NativeBackend or CodeBurnBackend via config)
     const cmd = `${pythonBin} -m kanban_framework stats --json`;
     try {
@@ -1252,7 +1375,7 @@ app.get('/api/tasks/:id/stats', (req, res) => {
     // Token tracking — delegate to StatsBackend (Python), consistent with global stats
     let tokens = { total_tokens: 0, phases: {}, agents: {}, models: {}, total_prompts: 0, prompt_count: {}, phase_duration: {} };
     try {
-      const pythonBin = process.env.KANBAN_PYTHON_BIN || 'python3';
+      const pythonBin = getPythonBin();
       const cmd = `${pythonBin} -m kanban_framework stats --task ${taskId} --json`;
       const result = execSync(cmd, {
         timeout: 15000, encoding: 'utf-8',

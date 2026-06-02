@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymonocypher
-Version: 4.0.2.6
+Version: 4.0.2.8
 Summary: Python ctypes bindings to the Monocypher library
 Home-page: https://github.com/jetperch/pymonocypher
 Author: Jetperch LLC
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: C
 Requires-Python: ~=3.10
 Description-Content-Type: text/markdown

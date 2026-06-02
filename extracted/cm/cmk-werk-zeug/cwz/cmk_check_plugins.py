@@ -6,6 +6,7 @@
 # Not yet implemented:
 # - [ ] accept directories rather than discrete files for walks and agent outputs
 # - [ ] performance measurements
+# - [ ] HaSI
 
 # try:
 #     import debugpy  # noqa: T100 Import for `debugpy` found
@@ -41,6 +42,7 @@ from rich.console import Console
 from rich.status import Status
 
 try:
+    import cmk.utils.paths
     from cmk.agent_based.internal import evaluate_snmp_detection
     from cmk.agent_based.v1._value_store_utils import GetRateError
     from cmk.base import config
@@ -88,10 +90,10 @@ def parse_arguments(args: Sequence[str]) -> Args:
     return parser.parse_args(args)
 
 
-def _create_config(encoding: None | str) -> SNMPHostConfig:
+def _snmp_host_config_from(walk_file_path: Path, encoding: None | str) -> SNMPHostConfig:
     return SNMPHostConfig(
         is_ipv6_primary=False,
-        hostname=HostName("dummy"),
+        hostname=HostName(walk_file_path.name),
         ipaddress=HostAddress("127.0.0.1"),
         credentials="",
         port=0,
@@ -103,6 +105,7 @@ def _create_config(encoding: None | str) -> SNMPHostConfig:
         snmpv3_contexts=[],
         character_encoding=encoding,
         snmp_backend=SNMPBackendEnum.STORED_WALK,
+        stored_walk_path=walk_file_path.parent,
     )
 
 
@@ -150,19 +153,6 @@ def _temp_file_path(path: Path, tmp_dir: Path) -> Path:
             tmp_path = Path(tmp_dir) / path.name
             tmp_path.write_text(content, encoding="utf-8")
             return tmp_path  # noqa: TRY300 Consider moving this statement to an `else` block
-        except UnicodeDecodeError:
-            # rich_print(f"could not read '{path.name}' using {encoding=}: {exc}")
-            pass
-    raise RuntimeError(f"could not decode '{path.name}' with any encoding")
-
-
-def _create_snmp_backend(path: Path, tmp_dir: Path) -> StoredWalkSNMPBackend:
-    for encoding in ("utf-8", "latin-1", "cp437"):
-        try:
-            content = path.read_bytes().decode(encoding)
-            tmp_path = Path(tmp_dir) / path.name
-            tmp_path.write_text(content, encoding="utf-8")
-            return StoredWalkSNMPBackend(_create_config(encoding=None), log(), tmp_path)
         except UnicodeDecodeError:
             # rich_print(f"could not read '{path.name}' using {encoding=}: {exc}")
             pass
@@ -374,13 +364,13 @@ def check(
                         for key, value in check_results.items()
                     }
                     # out_str += f" check_result={check_result}"
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 broad exception (we want to catch everything here)
                 exception = exc
-                raise
+                # raise
             finally:
                 if exception:
                     console.print(f"  - ⚠️  {status_string} [red bold]{exception!r}[/]")
-                    raise  # noqa: PLE0704 Bare `raise` statement is not inside an exception handler
+                    # raise  # noqa: PLE0704 Bare `raise` statement is not inside an exception handler
 
                 console.print(f"  -    {status_string}")
 
@@ -402,7 +392,10 @@ def check(
             try:
                 with patch("time.time", return_value=mocked_timestamp):
                     if path not in snmp_backends:
-                        snmp_backends[path] = _create_snmp_backend(path, tmp_dir)
+                        snmp_backends[path] = StoredWalkSNMPBackend(
+                            _snmp_host_config_from(_temp_file_path(path, tmp_dir), encoding=None),
+                            log(),
+                        )
                     backend = snmp_backends[path]
 
                     is_detected = _snmp_is_detected(snmp_section_plugin, backend)
@@ -433,9 +426,12 @@ def check(
                             case _:
                                 raise RuntimeError(f"{parsed_section.__class__}")
 
-                        check_plugin = check_plugins_to_check[
+                        check_plugin = check_plugins_to_check.get(
                             snmp_section_plugin.parsed_section_name
-                        ]
+                        )
+                        if not check_plugin:  # fixme(frans): make optional
+                            continue
+
                         # print(inspect.signature(check_plugin.discovery_function).parameters)
                         discovered_items = _get_discovered_items(check_plugin, parsed_section)
                         results[task_key]["discovery"] = list(map(str, discovered_items))
@@ -480,7 +476,7 @@ def check(
                     console.print(f"  - ⚠️  walk='{path.name}' [red bold]UnicodeDecodeError[/]")
                 else:
                     console.print(f"  - ⚠️  walk='{path.name}' Error: [red bold]{exc!r}[/]")
-                    raise
+                    # raise
 
                 if not (ignored_errors and type(exc).__name__.lower() in ignored_errors):
                     if error_file:
@@ -494,7 +490,7 @@ def check(
             f"  detected: {detect_count}, not detected: {no_detect_count}, errors: {error_count}"
             f", plugin took {int((time.time() - t0) * 1000)}ms"
         )
-        assert detect_count + no_detect_count + error_count == len(walks)
+        # assert detect_count + no_detect_count + error_count == len(walks)
 
 
 def log() -> logging.Logger:

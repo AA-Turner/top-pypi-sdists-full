@@ -401,6 +401,7 @@ class TestAsyncSpanQueueLinger:
         assert sum(len(b) for b in received) == 7
 
 
+
 class _FakeHTTPError(Exception):
     """Mimics an SGP/httpx status error: carries a ``status_code`` attribute."""
 
@@ -425,9 +426,10 @@ class TestAsyncSpanQueueDropObservability:
         proc.on_spans_start = AsyncMock(side_effect=block_first)
         proc.on_spans_end = AsyncMock()
 
-        # max_size=1, no linger: the drain pulls item-0 and blocks; item-1 fills
-        # the queue; items 2 and 3 are dropped.
-        queue = AsyncSpanQueue(max_size=1, linger_ms=0)
+        # max_size=1, no linger, concurrency=1: the drain dispatches item-0 and
+        # then blocks at the in-flight cap; item-1 fills the queue; items 2 and 3
+        # are dropped.
+        queue = AsyncSpanQueue(max_size=1, linger_ms=0, concurrency=1)
 
         queue.enqueue(SpanEventType.START, _make_span("s0"), [proc])
         await asyncio.sleep(0.02)  # let the drain pick up s0 and block
@@ -536,6 +538,118 @@ class TestAsyncSpanQueueRetry:
         assert queue.dropped_spans == 1
 
 
+class TestAsyncSpanQueueConcurrency:
+    """Span export should issue multiple batch requests concurrently (bounded),
+    so per-pod egress isn't capped at one in-flight request — while still
+    guaranteeing a span's START send completes before its END send.
+    """
+
+    async def test_batches_dispatched_concurrently_up_to_bound(self):
+        current = 0
+        max_seen = 0
+        lock = asyncio.Lock()
+
+        async def slow_start(spans: list[Span]) -> None:
+            nonlocal current, max_seen
+            async with lock:
+                current += 1
+                max_seen = max(max_seen, current)
+            await asyncio.sleep(0.05)
+            async with lock:
+                current -= 1
+
+        proc = AsyncMock()
+        proc.on_spans_start = AsyncMock(side_effect=slow_start)
+        proc.on_spans_end = AsyncMock()
+
+        # batch_size=1 → each span is its own batch/send; concurrency=4 caps
+        # simultaneous in-flight sends.
+        queue = AsyncSpanQueue(batch_size=1, linger_ms=0, concurrency=4)
+        for i in range(8):
+            queue.enqueue(SpanEventType.START, _make_span(f"s{i}"), [proc])
+
+        await queue.shutdown()
+
+        assert proc.on_spans_start.call_count == 8
+        assert 2 <= max_seen <= 4, f"expected bounded concurrency (2..4), saw {max_seen}"
+
+    async def test_concurrency_one_serializes(self):
+        current = 0
+        max_seen = 0
+        lock = asyncio.Lock()
+
+        async def slow_start(spans: list[Span]) -> None:
+            nonlocal current, max_seen
+            async with lock:
+                current += 1
+                max_seen = max(max_seen, current)
+            await asyncio.sleep(0.03)
+            async with lock:
+                current -= 1
+
+        proc = AsyncMock()
+        proc.on_spans_start = AsyncMock(side_effect=slow_start)
+        proc.on_spans_end = AsyncMock()
+
+        queue = AsyncSpanQueue(batch_size=1, linger_ms=0, concurrency=1)
+        for i in range(4):
+            queue.enqueue(SpanEventType.START, _make_span(f"s{i}"), [proc])
+
+        await queue.shutdown()
+
+        assert max_seen == 1, f"concurrency=1 must serialize sends, saw {max_seen}"
+
+    async def test_concurrent_is_faster_than_serial(self):
+        async def slow_start(spans: list[Span]) -> None:
+            await asyncio.sleep(0.05)
+
+        proc = AsyncMock()
+        proc.on_spans_start = AsyncMock(side_effect=slow_start)
+        proc.on_spans_end = AsyncMock()
+
+        queue = AsyncSpanQueue(batch_size=1, linger_ms=0, concurrency=8)
+        for i in range(8):
+            queue.enqueue(SpanEventType.START, _make_span(f"s{i}"), [proc])
+
+        start = time.monotonic()
+        await queue.shutdown()
+        elapsed = time.monotonic() - start
+
+        serial = 8 * 0.05
+        assert elapsed < serial * 0.5, f"concurrent drain took {elapsed:.3f}s; serial would be {serial:.3f}s"
+
+    async def test_end_waits_for_start_of_same_span(self):
+        """The per-span ordering invariant: a span's END upsert must not be sent
+        until its START upsert has completed, even with concurrency enabled."""
+        log: list[tuple[str, str]] = []
+
+        async def on_start(spans: list[Span]) -> None:
+            log.append(("start_enter", spans[0].id))
+            await asyncio.sleep(0.05)
+            log.append(("start_exit", spans[0].id))
+
+        async def on_end(spans: list[Span]) -> None:
+            log.append(("end_enter", spans[0].id))
+            await asyncio.sleep(0.01)
+            log.append(("end_exit", spans[0].id))
+
+        proc = AsyncMock()
+        proc.on_spans_start = AsyncMock(side_effect=on_start)
+        proc.on_spans_end = AsyncMock(side_effect=on_end)
+
+        queue = AsyncSpanQueue(batch_size=1, linger_ms=0, concurrency=4)
+        queue.enqueue(SpanEventType.START, _make_span("A"), [proc])
+        await asyncio.sleep(0.01)  # let the START send begin (and block on sleep)
+        queue.enqueue(SpanEventType.END, _make_span("A"), [proc])
+
+        await queue.shutdown()
+
+        # END must not enter until START has exited for the same span.
+        start_exit = log.index(("start_exit", "A"))
+        end_enter = log.index(("end_enter", "A"))
+        assert start_exit < end_enter, f"END began before START completed: {log}"
+
+
 class TestAsyncSpanQueueIntegration:
     async def test_integration_with_async_trace(self):
         call_log: list[tuple[str, str]] = []
@@ -630,3 +744,118 @@ class TestAsyncSpanQueueIntegration:
         # END should still carry output and end_time
         assert end_spans[0].output is not None
         assert end_spans[0].end_time is not None
+
+
+class TestAsyncSpanQueueMetrics:
+    async def test_batch_coalesced_records_depth_including_batch(self, monkeypatch):
+        monkeypatch.setenv("AGENTEX_TRACING_METRICS", "1")
+        import agentex.lib.core.observability.tracing_metrics_recording as recording
+
+        recording._metrics_enabled = None
+        proc = _make_processor()
+        queue = AsyncSpanQueue(linger_ms=0)
+        recorded_depths: list[int] = []
+
+        def capture_coalesced(*, queue_depth: int, batch_items: object) -> None:
+            recorded_depths.append(queue_depth)
+
+        with patch.object(recording, "record_batch_coalesced", side_effect=capture_coalesced):
+            for _ in range(3):
+                queue.enqueue(SpanEventType.START, _make_span(), [proc])
+            await asyncio.sleep(0.05)
+            await queue.shutdown()
+
+        assert recorded_depths, "expected at least one coalesced batch"
+        assert recorded_depths[0] >= 3, (
+            f"queue_depth should include batch items removed from queue, got {recorded_depths[0]}"
+        )
+
+    async def test_enqueue_records_enqueued_metric(self, monkeypatch):
+        monkeypatch.setenv("AGENTEX_TRACING_METRICS", "1")
+        import agentex.lib.core.observability.tracing_metrics_recording as recording
+
+        recording._metrics_enabled = None
+        recording._tracing = None
+        mock_metrics = MagicMock()
+        proc = _make_processor()
+        queue = AsyncSpanQueue()
+
+        with patch(
+            "agentex.lib.core.observability.tracing_metrics.get_tracing_metrics",
+            return_value=mock_metrics,
+        ):
+            queue.enqueue(SpanEventType.START, _make_span(), [proc])
+            await asyncio.sleep(0.05)
+            await queue.shutdown()
+
+        mock_metrics.span_events_enqueued.add.assert_any_call(1, {"event_type": "start"})
+
+    async def test_enqueue_during_shutdown_records_dropped_metric(self, monkeypatch):
+        monkeypatch.setenv("AGENTEX_TRACING_METRICS", "1")
+        import agentex.lib.core.observability.tracing_metrics_recording as recording
+
+        recording._metrics_enabled = None
+        recording._tracing = None
+        mock_metrics = MagicMock()
+        proc = _make_processor()
+        queue = AsyncSpanQueue(linger_ms=0)
+
+        with patch(
+            "agentex.lib.core.observability.tracing_metrics.get_tracing_metrics",
+            return_value=mock_metrics,
+        ):
+            queue.enqueue(SpanEventType.START, _make_span(), [proc])
+            await asyncio.sleep(0.05)
+            queue._stopping = True
+            queue.enqueue(SpanEventType.END, _make_span(), [proc])
+            await queue.shutdown()
+
+        mock_metrics.span_events_dropped.add.assert_any_call(1, {"reason": "shutdown"})
+
+    async def test_processor_failure_records_export_failure(self, monkeypatch):
+        monkeypatch.setenv("AGENTEX_TRACING_METRICS", "1")
+        import agentex.lib.core.observability.tracing_metrics_recording as recording
+
+        recording._metrics_enabled = None
+        recording._tracing = None
+        mock_metrics = MagicMock()
+
+        class ExportError(Exception):
+            pass
+
+        proc = AsyncMock()
+        proc.on_spans_start = AsyncMock(side_effect=ExportError("Error code: 401 - denied"))
+        proc.on_spans_end = AsyncMock()
+        queue = AsyncSpanQueue()
+
+        with patch(
+            "agentex.lib.core.observability.tracing_metrics.get_tracing_metrics",
+            return_value=mock_metrics,
+        ):
+            queue.enqueue(SpanEventType.START, _make_span(), [proc])
+            await asyncio.sleep(0.05)
+            await queue.shutdown()
+
+        mock_metrics.export_batch_failures.add.assert_called_once()
+        mock_metrics.export_span_failures.add.assert_called_once()
+
+    async def test_enqueue_overhead_with_metrics_disabled(self, monkeypatch):
+        monkeypatch.setenv("AGENTEX_TRACING_METRICS", "0")
+        import agentex.lib.core.observability.tracing_metrics_recording as recording
+
+        recording._metrics_enabled = None
+        recording._tracing = None
+        proc = _make_processor()
+        queue = AsyncSpanQueue()
+
+        with patch(
+            "agentex.lib.core.observability.tracing_metrics.get_tracing_metrics"
+        ) as mock_get:
+            start = time.monotonic()
+            for _ in range(200):
+                queue.enqueue(SpanEventType.START, _make_span(), [proc])
+            elapsed = time.monotonic() - start
+            await queue.shutdown()
+
+        assert elapsed < 0.05, f"disabled metrics enqueue too slow: {elapsed:.3f}s"
+        mock_get.assert_not_called()

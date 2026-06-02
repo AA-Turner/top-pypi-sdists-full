@@ -62,37 +62,34 @@ _io.open = _safe_open
 def _discover_version() -> str:
     """Resolve the installed package version.
 
-    Order: installed-package metadata → pyproject.toml (source checkouts) →
+    Order: pyproject.toml (source checkouts) → installed-package metadata →
     a sentinel string. The sentinel keeps imports working in unusual envs
     where neither path resolves, so the CLI still boots and `sage --version`
     can at least report something rather than crashing.
     """
     try:
-        from importlib.metadata import PackageNotFoundError, version
-    except ImportError:
-        return "0.0.0+unknown"
-
-    try:
-        return version("sage-ai-cli")
-    except PackageNotFoundError:
-        pass
-    except Exception:
-        return "0.0.0+unknown"
-
-    try:
         import re
         from pathlib import Path
 
         pyproject = Path(__file__).resolve().parent.parent / "pyproject.toml"
-        match = re.search(
-            r'^version = "([^"]+)"',
-            pyproject.read_text(encoding="utf-8"),
-            re.MULTILINE,
-        )
-        if match:
-            return match.group(1)
+        if pyproject.exists():
+            match = re.search(
+                r'^version = "([^"]+)"',
+                pyproject.read_text(encoding="utf-8"),
+                re.MULTILINE,
+            )
+            if match:
+                return match.group(1)
     except Exception:
         pass
+
+    try:
+        from importlib.metadata import PackageNotFoundError, version
+        return version("sage-ai-cli")
+    except (ImportError, PackageNotFoundError):
+        pass
+    except Exception:
+        return "0.0.0+unknown"
 
     return "0.0.0+unknown"
 

@@ -3605,15 +3605,21 @@ impl BernoulliMarginalSlopeFamily {
                 max_degree: crate::gpu::bms_flex_row::MOMENT_STRIDE - 1,
                 residency: CubicCellMomentResidency::Device,
             };
-            match try_build_cubic_cell_derivative_moments(view)
-                .map_err(|err| format!("bms_flex_row device-moment build: {err}"))?
-            {
-                Some(CubicCellDerivativeMomentOutput::Device {
+            // The GPU device-moment build is an OPTIONAL acceleration. On any
+            // GPU failure — NVRTC compile error, PTX-version load rejection
+            // (driver older than the toolkit's NVRTC), or kernel-launch
+            // failure — and on the substrate's own host-residency downgrade or
+            // an empty device buffer, fall back to filling the host moments
+            // from the CPU LRU cache so the fit ALWAYS completes. GPU
+            // re-engages automatically once the driver/toolkit can load the
+            // kernel; this mirrors the bms_flex row-kernel CPU fallback above.
+            match try_build_cubic_cell_derivative_moments(view) {
+                Ok(Some(CubicCellDerivativeMomentOutput::Device {
                     d_moments,
                     status,
                     stride,
                     n_cells,
-                }) => {
+                })) => {
                     if stride != crate::gpu::bms_flex_row::MOMENT_STRIDE
                         || n_cells != total_cells_us
                     {
@@ -3646,15 +3652,24 @@ impl BernoulliMarginalSlopeFamily {
                     drop(status);
                     Some(d_moments)
                 }
-                Some(CubicCellDerivativeMomentOutput::Host { .. }) => {
-                    // The substrate degraded to host residency (runtime
-                    // probe failed mid-flight). Fall back to filling the
-                    // host moments path here so the launcher still has a
-                    // valid bundle. We need to do the work the per-row
-                    // loop skipped: re-fill `cell_moments` from the
-                    // existing CPU LRU cache entries.
+                degraded => {
+                    match &degraded {
+                        // Expected mid-flight downgrade to host residency — not
+                        // a failure, so no warning.
+                        Ok(Some(CubicCellDerivativeMomentOutput::Host { .. })) => {}
+                        Ok(_) => log::info!(
+                            "[BMS row-primary-hessian-cache] device-moment build returned no \
+                             device buffer; falling back to host moments"
+                        ),
+                        Err(err) => log::info!(
+                            "[BMS row-primary-hessian-cache] device-moment build failed: {err}; \
+                             falling back to host moments (GPU re-engages once the kernel loads)"
+                        ),
+                    }
+                    // Do the work the per-row loop skipped: re-fill
+                    // `cell_moments` from the existing CPU LRU cache entries.
                     cell_moments = vec![0.0_f64; total_cells_us * moment_stride];
-                    for (row_idx, _) in (0..n).enumerate() {
+                    for row_idx in 0..n {
                         let start = cell_offsets[row_idx] as usize;
                         let row_cells = bundle
                             .row(row_idx, 9)
@@ -3670,12 +3685,6 @@ impl BernoulliMarginalSlopeFamily {
                         }
                     }
                     None
-                }
-                None => {
-                    return Err(
-                        "bms_flex_row device-moment substrate returned Ok(None) on non-empty input"
-                            .to_string(),
-                    );
                 }
             }
         } else {
@@ -11543,7 +11552,7 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
         // O(n · (p_marginal + p_logslope + p_flex)) per call. Only fall back
         // to the dense `n · (Σ p_b)²` build when `use_joint_matrix_free_path`
         // declines the operator path.
-        crate::families::coefficient_cost::joint_coupled_operator_aware_hessian_cost(
+        crate::families::location_scale_engine::location_scale_coefficient_hessian_cost(
             self.y.len() as u64,
             specs,
         )
@@ -12281,13 +12290,15 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
         derivative_blocks: &[Vec<crate::custom_family::CustomFamilyBlockPsiDerivative>],
     ) -> Result<Option<Arc<dyn ExactNewtonJointPsiWorkspace>>, String> {
         Ok(Some(Arc::new(
-            BernoulliMarginalSlopeExactNewtonJointPsiWorkspace::new(
-                self.clone(),
-                block_states.to_vec(),
-                specs.to_vec(),
-                derivative_blocks.to_vec(),
-                BlockwiseFitOptions::default(),
-            )?,
+            crate::families::marginal_slope_shared::MarginalSlopeExactNewtonPsiWorkspace::new(
+                BernoulliMarginalSlopeExactNewtonJointPsiWorkspace::new(
+                    self.clone(),
+                    block_states.to_vec(),
+                    specs.to_vec(),
+                    derivative_blocks.to_vec(),
+                    BlockwiseFitOptions::default(),
+                )?,
+            ),
         )))
     }
 
@@ -12299,13 +12310,15 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
         options: &BlockwiseFitOptions,
     ) -> Result<Option<Arc<dyn ExactNewtonJointPsiWorkspace>>, String> {
         Ok(Some(Arc::new(
-            BernoulliMarginalSlopeExactNewtonJointPsiWorkspace::new(
-                self.clone(),
-                block_states.to_vec(),
-                specs.to_vec(),
-                derivative_blocks.to_vec(),
-                options.clone(),
-            )?,
+            crate::families::marginal_slope_shared::MarginalSlopeExactNewtonPsiWorkspace::new(
+                BernoulliMarginalSlopeExactNewtonJointPsiWorkspace::new(
+                    self.clone(),
+                    block_states.to_vec(),
+                    specs.to_vec(),
+                    derivative_blocks.to_vec(),
+                    options.clone(),
+                )?,
+            ),
         )))
     }
 
@@ -13671,21 +13684,26 @@ impl BernoulliMarginalSlopeExactNewtonJointPsiWorkspace {
     }
 }
 
-impl ExactNewtonJointPsiWorkspace for BernoulliMarginalSlopeExactNewtonJointPsiWorkspace {
-    fn first_order_terms(
+impl crate::families::marginal_slope_shared::MarginalSlopePsiFamily
+    for BernoulliMarginalSlopeExactNewtonJointPsiWorkspace
+{
+    fn is_sigma_aux(&self, psi_index: usize) -> bool {
+        self.family
+            .is_sigma_aux_index(&self.derivative_blocks, psi_index)
+    }
+
+    fn sigma_first_order_terms(&self) -> Result<Option<ExactNewtonJointPsiTerms>, String> {
+        self.family.sigma_exact_joint_psi_terms_with_options(
+            &self.block_states,
+            &self.specs,
+            &self.options,
+        )
+    }
+
+    fn psi_first_order_terms(
         &self,
         psi_index: usize,
     ) -> Result<Option<ExactNewtonJointPsiTerms>, String> {
-        if self
-            .family
-            .is_sigma_aux_index(&self.derivative_blocks, psi_index)
-        {
-            return self.family.sigma_exact_joint_psi_terms_with_options(
-                &self.block_states,
-                &self.specs,
-                &self.options,
-            );
-        }
         self.family
             .exact_newton_joint_psi_terms_from_cache_with_options(
                 &self.block_states,
@@ -13696,7 +13714,7 @@ impl ExactNewtonJointPsiWorkspace for BernoulliMarginalSlopeExactNewtonJointPsiW
             )
     }
 
-    fn first_order_terms_all(&self) -> Result<Option<Vec<ExactNewtonJointPsiTerms>>, String> {
+    fn psi_first_order_terms_all(&self) -> Result<Option<Vec<ExactNewtonJointPsiTerms>>, String> {
         let total: usize = self.derivative_blocks.iter().map(Vec::len).sum();
         if total == 0 {
             return Ok(Some(Vec::new()));
@@ -13731,35 +13749,33 @@ impl ExactNewtonJointPsiWorkspace for BernoulliMarginalSlopeExactNewtonJointPsiW
         Ok(Some(results))
     }
 
-    fn second_order_terms(
+    fn both_sigma_aux_second_order(&self, psi_i: usize, psi_j: usize) -> bool {
+        self.family
+            .is_sigma_aux_index(&self.derivative_blocks, psi_i)
+            && self
+                .family
+                .is_sigma_aux_index(&self.derivative_blocks, psi_j)
+    }
+
+    fn sigma_second_order_terms(
+        &self,
+    ) -> Result<Option<ExactNewtonJointPsiSecondOrderTerms>, String> {
+        self.family
+            .sigma_exact_joint_psisecond_order_terms_with_options(&self.block_states, &self.options)
+    }
+
+    fn mixed_sigma_aux_second_order(
+        &self,
+    ) -> Result<Option<ExactNewtonJointPsiSecondOrderTerms>, String> {
+        Err("bernoulli marginal-slope mixed log-sigma/spatial psi second derivatives require cross auxiliary terms; only pure log-sigma second derivatives are supported"
+            .to_string())
+    }
+
+    fn psi_second_order_terms(
         &self,
         psi_i: usize,
         psi_j: usize,
     ) -> Result<Option<ExactNewtonJointPsiSecondOrderTerms>, String> {
-        if self
-            .family
-            .is_sigma_aux_index(&self.derivative_blocks, psi_i)
-            || self
-                .family
-                .is_sigma_aux_index(&self.derivative_blocks, psi_j)
-        {
-            if self
-                .family
-                .is_sigma_aux_index(&self.derivative_blocks, psi_i)
-                && self
-                    .family
-                    .is_sigma_aux_index(&self.derivative_blocks, psi_j)
-            {
-                return self
-                    .family
-                    .sigma_exact_joint_psisecond_order_terms_with_options(
-                        &self.block_states,
-                        &self.options,
-                    );
-            }
-            return Err("bernoulli marginal-slope mixed log-sigma/spatial psi second derivatives require cross auxiliary terms; only pure log-sigma second derivatives are supported"
-                        .to_string());
-        }
         self.family
             .exact_newton_joint_psisecond_order_terms_from_cache_with_options(
                 &self.block_states,
@@ -13771,26 +13787,23 @@ impl ExactNewtonJointPsiWorkspace for BernoulliMarginalSlopeExactNewtonJointPsiW
             )
     }
 
-    fn hessian_directional_derivative(
+    fn sigma_hessian_directional_derivative(
+        &self,
+        d_beta_flat: &Array1<f64>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        self.family
+            .sigma_exact_joint_psihessian_directional_derivative_with_options(
+                &self.block_states,
+                d_beta_flat,
+                &self.options,
+            )
+    }
+
+    fn psi_hessian_directional_derivative(
         &self,
         psi_index: usize,
         d_beta_flat: &Array1<f64>,
-    ) -> Result<Option<crate::solver::estimate::reml::unified::DriftDerivResult>, String> {
-        if self
-            .family
-            .is_sigma_aux_index(&self.derivative_blocks, psi_index)
-        {
-            return self
-                .family
-                .sigma_exact_joint_psihessian_directional_derivative_with_options(
-                    &self.block_states,
-                    d_beta_flat,
-                    &self.options,
-                )
-                .map(|result| {
-                    result.map(crate::solver::estimate::reml::unified::DriftDerivResult::Dense)
-                });
-        }
+    ) -> Result<Option<Arc<dyn HyperOperator>>, String> {
         self.family
             .exact_newton_joint_psihessian_directional_derivative_operator_from_cache_with_options(
                 &self.block_states,
@@ -13800,8 +13813,5 @@ impl ExactNewtonJointPsiWorkspace for BernoulliMarginalSlopeExactNewtonJointPsiW
                 &self.cache,
                 &self.options,
             )
-            .map(|result| {
-                result.map(crate::solver::estimate::reml::unified::DriftDerivResult::Operator)
-            })
     }
 }

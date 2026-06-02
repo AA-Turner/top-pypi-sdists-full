@@ -1,9 +1,22 @@
-"""
-Questo pacchetto aggrega i componenti principali di DSALT, includendo:
-- moduli per l'attenzione e il trasformatore,
-- il modello di linguaggio DSALTLM,
-- kernel per calcoli energetici e predizione della dimensione della finestra,
-- il trainer per l'addestramento.
+"""DSALT, Dynamic Sparse Attention with Landmark Tokens.
+
+This package aggregates the library's main components:
+- :class:`DSALTConfig` / :class:`DSALTLMHeadModel`, config and language model;
+- :class:`DSALTAttention`, :class:`DSALTTransformerBlock`, :class:`SwiGLUFFN`, the blocks;
+- :func:`hybrid_scores_per_head`, single source of the hybrid-energy score (§4.3),
+  shared between the SDPA path and the Triton kernel;
+- utilities for the adaptive window and RoPE;
+- :class:`DSALTTrainer`, training loop with DDP and checkpointing.
+
+The Triton kernels (sparse attention and fused cross-entropy) are optional:
+without Triton the library stays importable and uses the SDPA fallback.
+
+Example::
+
+    from dsalt import DSALTConfig, DSALTLMHeadModel
+    cfg   = DSALTConfig(vocab_size=50257, d_model=512, n_layers=6, n_heads=8,
+                        n_min=64, n_max=256, k_lmk=16, max_seq_len=1024)
+    model = DSALTLMHeadModel.from_config(cfg)
 """
 
 from dsalt.kernels import (
@@ -14,8 +27,10 @@ from dsalt.kernels import (
     build_local_window_mask_packed,
     apply_rotary_emb,
     build_rope_cache,
+    hybrid_scores_per_head,
     compute_hybrid_scores,
     select_landmarks,
+    soft_landmark_weights,
     HybridEnergyLandmarkSelector,
     sparse_attention_forward,
     sparse_attention_forward_packed,
@@ -28,7 +43,7 @@ from dsalt.modules import (
     SwiGLUFFN,
 )
 
-from dsalt.model.dsalt_lm import DSALTLMHeadModel
+from dsalt.model import DSALTConfig, DSALTLMHeadModel
 from dsalt.training.trainer import DSALTTrainer
 
 __all__ = [
@@ -41,13 +56,16 @@ __all__ = [
     "build_local_window_mask_packed",
     "apply_rotary_emb",
     "build_rope_cache",
+    "hybrid_scores_per_head",
     "compute_hybrid_scores",
     "select_landmarks",
+    "soft_landmark_weights",
     "HybridEnergyLandmarkSelector",
     "sparse_attention_forward",
     "sparse_attention_forward_packed",
     "DSALTAttention",
     "DSALTTransformerBlock",
     "SwiGLUFFN",
+    "DSALTConfig",
     "DSALTLMHeadModel",
 ]

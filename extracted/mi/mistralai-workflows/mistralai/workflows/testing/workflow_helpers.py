@@ -244,7 +244,7 @@ async def poll_workflow_status(
 
         if status == expected_status:
             return cast(dict[str, Any], status_data)
-        elif status in ["FAILED", "TERMINATED", "TIMED_OUT", "CANCELED", "COMPLETED", "RETRYING_AFTER_ERROR"]:
+        elif status in ["FAILED", "TERMINATED", "TIMED_OUT", "CANCELED", "COMPLETED"]:
             if status != expected_status:
                 raise RuntimeError(f"Workflow ended with status: {status}, expected: {expected_status}")
 

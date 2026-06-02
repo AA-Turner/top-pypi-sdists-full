@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: shinyswatch
-Version: 0.10.0
+Version: 0.11.0
 Summary: Bootswatch + Bootstrap 5 themes for Shiny.
 Home-page: https://github.com/rstudio/py-shinyswatch
 Author: Barret Schloerke
@@ -13,22 +13,22 @@ Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Processing :: Markup :: HTML
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: typing-extensions>=3.10.0.0
 Requires-Dist: packaging>=20.9
 Requires-Dist: htmltools>=0.2.0
-Requires-Dist: shiny>=1.2.0
+Requires-Dist: shiny>=1.6.3
 Provides-Extra: test
 Requires-Dist: pytest>=6.2.4; extra == "test"
 Provides-Extra: dev

@@ -69,17 +69,18 @@ def get_rates_from_response_headers(
         present in response.
     """
     usage_rates = limit_rates = []
+    headers = {key.casefold(): value for key, value in headers.items()}
 
-    if "X-ReadRateLimit-Usage" in headers and method == "GET":
+    if "x-readratelimit-usage" in headers and method == "GET":
         usage_rates = [
-            int(v) for v in headers["X-ReadRateLimit-Usage"].split(",")
+            int(v) for v in headers["x-readratelimit-usage"].split(",")
         ]
         limit_rates = [
-            int(v) for v in headers["X-ReadRateLimit-Limit"].split(",")
+            int(v) for v in headers["x-readratelimit-limit"].split(",")
         ]
-    elif "X-RateLimit-Usage" in headers:
-        usage_rates = [int(v) for v in headers["X-RateLimit-Usage"].split(",")]
-        limit_rates = [int(v) for v in headers["X-RateLimit-Limit"].split(",")]
+    elif "x-ratelimit-usage" in headers:
+        usage_rates = [int(v) for v in headers["x-ratelimit-usage"].split(",")]
+        limit_rates = [int(v) for v in headers["x-ratelimit-limit"].split(",")]
 
     if usage_rates and limit_rates:
         return RequestRate(
@@ -183,6 +184,7 @@ class SleepingRateLimitRule:
         """Calculate how much time user has until they can make another
         request"""
 
+        # If limits are exceeded, wait until they reset
         if rates.long_usage >= rates.long_limit:
             self.log.warning("Long term API rate limit exceeded")
             return seconds_until_long_limit
@@ -190,16 +192,28 @@ class SleepingRateLimitRule:
             self.log.warning("Short term API rate limit exceeded")
             return seconds_until_short_limit
 
+        # High priority: no wait time
         if self.priority == "high":
             return 0
-        elif self.priority == "medium":
-            return seconds_until_short_limit / (
-                rates.short_limit - rates.short_usage
-            )
+
+        # Calculate wait times for BOTH limits
+        short_wait = seconds_until_short_limit / (
+            rates.short_limit - rates.short_usage
+        )
+        long_wait = seconds_until_long_limit / (
+            rates.long_limit - rates.long_usage
+        )
+
+        if self.priority == "medium":
+            # Focus on short-term limit, but also respect daily limit
+            # when at least half of the daily quota is used
+            if rates.long_usage >= rates.long_limit / 2:
+                return max(short_wait, long_wait)
+            else:
+                return short_wait
         elif self.priority == "low":
-            return seconds_until_long_limit / (
-                rates.long_limit - rates.long_usage
-            )
+            # Spread requests over the day, but always respect both limits
+            return max(short_wait, long_wait)
 
     def __call__(
         self, response_headers: dict[str, str], method: RequestMethod
@@ -241,6 +255,31 @@ class DefaultRateLimiter(RateLimiter):
 
     Rate limits are enforced by throttling requests based on their method and
     client/app-specific limits imposed by Strava.
+
+    The rate limiter supports three priority levels:
+
+    - **high**: No cool-down period between requests. Requests are made as fast
+      as possible until limits are reached, then waits until the limit period expires.
+    - **medium**: Applies a cool-down period to avoid exceeding short-term limits
+      (e.g., 600 requests per 15 minutes, actual limits are app-specific).
+    - **low**: Applies a cool-down period to avoid exceeding long-term limits
+      (e.g., 30,000 requests per day, actual limits are app-specific), spreading
+      requests evenly throughout the day.
+
+    Examples
+    --------
+    Using default (high priority) rate limiter::
+
+        from stravalib.client import Client
+        client = Client(access_token=token)  # Uses high priority by default
+
+    Using a custom rate limiter with medium priority::
+
+        from stravalib.client import Client
+        from stravalib.util.limiter import DefaultRateLimiter
+
+        rate_limiter = DefaultRateLimiter(priority="medium")
+        client = Client(access_token=token, rate_limiter=rate_limiter)
     """
 
     def __init__(
@@ -259,5 +298,3 @@ class DefaultRateLimiter(RateLimiter):
         super().__init__()
 
         self.rules.append(SleepingRateLimitRule(priority=priority))
-
-        # TODO: This should be added to our documentation

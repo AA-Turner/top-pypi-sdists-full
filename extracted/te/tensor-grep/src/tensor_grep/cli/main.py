@@ -346,6 +346,48 @@ def _candidate_versions_from_pypi_simple_index(simple_index: str) -> list[str]:
     return candidates
 
 
+def _candidate_versions_from_pip_index_output(output: str) -> list[str]:
+    candidates: list[str] = []
+    version_pattern = r"[0-9]+(?:\.[0-9]+)*(?:(?:a|b|rc|dev|post)[0-9]+)?"
+    for raw_line in output.splitlines():
+        line = raw_line.strip()
+        package_match = re.search(rf"\btensor-grep\s+\(({version_pattern})\)", line, re.IGNORECASE)
+        if package_match:
+            candidates.append(package_match.group(1))
+        if re.match(r"(?i)^(?:available versions|latest)\s*:", line):
+            candidates.extend(re.findall(version_pattern, line))
+    return candidates
+
+
+def _candidate_versions_from_pip_index(timeout_seconds: float) -> list[str]:
+    env = os.environ.copy()
+    env.setdefault("PIP_DISABLE_PIP_VERSION_CHECK", "1")
+    try:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "index",
+                "versions",
+                "tensor-grep",
+                "--no-cache-dir",
+                "--index-url",
+                "https://pypi.org/simple",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=timeout_seconds,
+            env=env,
+        )
+    except Exception:
+        return []
+    return _candidate_versions_from_pip_index_output(
+        "\n".join(part for part in (result.stdout, result.stderr) if part)
+    )
+
+
 def _latest_pypi_tensor_grep_version(timeout_seconds: float = 15.0) -> str | None:
     """Best-effort latest-version probe that avoids trusting one stale PyPI cache surface."""
     import urllib.request
@@ -373,6 +415,8 @@ def _latest_pypi_tensor_grep_version(timeout_seconds: float = 15.0) -> str | Non
         candidates.extend(_candidate_versions_from_pypi_simple_index(simple_index))
     except Exception:
         pass
+
+    candidates.extend(_candidate_versions_from_pip_index(timeout_seconds))
 
     return _highest_tensor_grep_version(candidates)
 
@@ -1787,6 +1831,39 @@ def _doctor_lsp_providers_by_language(
     return keyed
 
 
+def _doctor_ast_grep_status() -> dict[str, Any]:
+    status: dict[str, Any] = {
+        "schema_version": 1,
+        "available": False,
+        "binary": None,
+        "wrapper_backend": "AstGrepWrapperBackend",
+        "required_for": "tg run ast-grep semantic options",
+        "semantic_run_options": ["--selector", "--strictness", "--stdin", "--globs"],
+        "timeout_env": "TG_AST_GREP_TIMEOUT_SECONDS",
+        "timeout_seconds": None,
+    }
+    try:
+        from tensor_grep.backends.ast_wrapper_backend import (
+            AstGrepWrapperBackend,
+            _ast_grep_command_timeout_seconds,
+        )
+
+        backend = AstGrepWrapperBackend()
+        binary = backend._get_binary_name()
+        available = backend.is_available()
+        status["available"] = available
+        status["binary"] = binary if available else None
+        status["timeout_seconds"] = _ast_grep_command_timeout_seconds()
+        if not available:
+            status["install_hint"] = (
+                "Install ast-grep or put an ast-grep/sg binary on PATH to use "
+                "tg run --selector, --strictness, --stdin, or --globs."
+            )
+    except Exception as exc:
+        status["error"] = str(exc)
+    return status
+
+
 def _doctor_rust_core_extension_available() -> bool:
     try:
         from tensor_grep.backends.rust_backend import HAVE_RUST
@@ -2687,6 +2764,7 @@ def _build_doctor_payload(
         ),
         "shell_escaping_guidance": _doctor_shell_escaping_guidance(),
         "gpu": gpu_status,
+        "ast_grep": _doctor_ast_grep_status(),
         "ast_cache": _doctor_ast_cache_status(str(root), str(resolved_config)),
         "resident_worker": _doctor_resident_worker_status(str(root)),
         "env": {key: os.environ[key] for key in env_keys if os.environ.get(key)},
@@ -2838,6 +2916,22 @@ def _render_doctor_payload(payload: dict[str, Any]) -> str:
         lines.append(f"  size: {ast_payload.get('size_bytes')} bytes")
         lines.append(f"  mtime: {ast_payload.get('mtime')}")
         lines.append(f"  stale: {ast_payload.get('stale')}")
+
+    ast_grep_payload = cast(dict[str, Any], payload.get("ast_grep", {}))
+    ast_grep_options = "/".join(
+        str(option) for option in ast_grep_payload.get("semantic_run_options", [])
+    )
+    lines.append(
+        "ast_grep: "
+        f"available={ast_grep_payload.get('available', False)} "
+        f"binary={ast_grep_payload.get('binary') or 'missing'} "
+        f"semantic_run_options={ast_grep_options or 'unknown'} "
+        f"timeout_seconds={ast_grep_payload.get('timeout_seconds') or 'unknown'}"
+    )
+    if ast_grep_payload.get("install_hint"):
+        lines.append(f"  install_hint: {ast_grep_payload['install_hint']}")
+    if ast_grep_payload.get("error"):
+        lines.append(f"  error: {ast_grep_payload['error']}")
 
     worker_payload = cast(dict[str, Any], payload.get("resident_worker", {}))
     lines.append(
@@ -6555,6 +6649,73 @@ def _echo_symbol_location_rows(rows: list[dict[str, Any]]) -> None:
             typer.echo(rendered)
 
 
+def _maybe_swap_reversed_positionals(
+    *,
+    path: str,
+    value: str,
+    command_name: str,
+    value_label: str,
+) -> tuple[str, str]:
+    """Auto-correct a reversed ``<VALUE> <PATH>`` invocation.
+
+    Agents (and grep muscle memory, and older docs) frequently call these
+    commands as ``tg <command> <SYMBOL> <PATH>`` instead of the canonical
+    path-first ``tg <command> <PATH> <SYMBOL>``. When that happens the first
+    positional is not an existing path but the second one is, which previously
+    produced an opaque ``Path not found: <SYMBOL>`` error. Detect that exact
+    case and transparently swap, emitting a hint so the caller can learn the
+    canonical order. The swap only fires when the first arg is definitively not
+    a path AND the second arg definitively is, so a legitimate ``<PATH>
+    <VALUE>`` call (where the value happens to share a name with a real path)
+    is never disturbed.
+    """
+    if Path(path).expanduser().exists():
+        return path, value
+    if not Path(value).expanduser().exists():
+        return path, value
+    typer.echo(
+        f"Warning: '{path}' is not an existing path but '{value}' is; "
+        f"interpreting as `tg {command_name} <PATH> <{value_label}>` "
+        f"(path={value!r}, {value_label.lower()}={path!r}). "
+        f"Pass <PATH> before <{value_label}> to silence this hint.",
+        err=True,
+    )
+    return value, path
+
+
+def _maybe_swap_reversed_session_path(
+    *,
+    session_id: str,
+    path: str,
+    command_name: str,
+) -> tuple[str, str]:
+    """Auto-correct ``tg session <command> <PATH> <SESSION_ID> ...``.
+
+    Session commands are the one user-facing surface where the stable session
+    identifier must lead the path. Agents commonly transpose this after using
+    the path-first top-level commands. Only swap when the first positional is
+    an existing path and the second positional resolves to an existing session
+    under that path, so ordinary session-first calls remain untouched.
+    """
+    if not Path(session_id).expanduser().exists():
+        return session_id, path
+    if Path(path).expanduser().exists():
+        return session_id, path
+    try:
+        from tensor_grep.cli.session_store import get_session
+
+        get_session(path, session_id)
+    except Exception:
+        return session_id, path
+    typer.echo(
+        f"Warning: '{session_id}' is an existing path and '{path}' is an existing "
+        f"session for it; interpreting as `tg session {command_name} <SESSION_ID> "
+        f"<PATH> <QUERY>`. Pass <SESSION_ID> before <PATH> to silence this hint.",
+        err=True,
+    )
+    return path, session_id
+
+
 def _resolve_path_and_symbol(
     *,
     path: str,
@@ -6575,7 +6736,12 @@ def _resolve_path_and_symbol(
         )
         return path, symbol_option
     if symbol_arg is not None:
-        return path, symbol_arg
+        return _maybe_swap_reversed_positionals(
+            path=path,
+            value=symbol_arg,
+            command_name=command_name,
+            value_label="SYMBOL",
+        )
     if path != "." and not Path(path).expanduser().exists():
         return ".", path
     raise ValueError("Missing symbol. Use positional SYMBOL or --symbol SYMBOL.")
@@ -6600,7 +6766,12 @@ def _resolve_path_and_query(
         )
         return path, query_option
     if query_arg is not None:
-        return path, query_arg
+        return _maybe_swap_reversed_positionals(
+            path=path,
+            value=query_arg,
+            command_name=command_name,
+            value_label="QUERY",
+        )
     if path != "." and not Path(path).expanduser().exists():
         return ".", path
     raise ValueError("Missing query. Use positional QUERY or --query QUERY.")
@@ -7397,6 +7568,11 @@ def session_context_cmd(
     from tensor_grep.cli.session_store import session_context
 
     try:
+        session_id, path = _maybe_swap_reversed_session_path(
+            session_id=session_id,
+            path=path,
+            command_name="context",
+        )
         resolved_path, resolved_query = _resolve_path_and_query(
             path=path,
             query_arg=query_arg,
@@ -7498,6 +7674,11 @@ def session_context_render_cmd(
     from tensor_grep.cli.session_store import SessionStaleError, session_context_render
 
     try:
+        session_id, path = _maybe_swap_reversed_session_path(
+            session_id=session_id,
+            path=path,
+            command_name="context-render",
+        )
         resolved_path, resolved_query = _resolve_path_and_query(
             path=path,
             query_arg=query_arg,
@@ -7614,6 +7795,11 @@ def session_edit_plan_cmd(
     from tensor_grep.cli.session_store import session_context_edit_plan
 
     try:
+        session_id, path = _maybe_swap_reversed_session_path(
+            session_id=session_id,
+            path=path,
+            command_name="edit-plan",
+        )
         resolved_path, resolved_query = _resolve_path_and_query(
             path=path,
             query_arg=query_arg,
@@ -8972,7 +9158,7 @@ def doctor(
         ),
     ),
 ) -> None:
-    """Print system, GPU, cache, daemon, shell-escaping, and provider-proof diagnostics.
+    """Print system, GPU, cache, AST, daemon, shell-escaping, and provider-proof diagnostics.
 
     Reports Windows shell guidance for PowerShell literal patterns and cmd.exe metacharacters.
     """

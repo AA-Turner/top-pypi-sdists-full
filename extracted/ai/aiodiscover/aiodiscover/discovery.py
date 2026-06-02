@@ -11,14 +11,25 @@ from typing import TYPE_CHECKING, Any, cast
 import pycares
 from aiodns import DNSResolver
 
-from .network import SystemNetworkData, resolv_conf_signature
+from .network import SystemNetworkData, _parse_ipv4, resolv_conf_signature
+
+# Eagerly import pyroute2 at module-load time so its one-shot side effect —
+# pyroute2/config/__init__.py calling platform.uname(), which on POSIX
+# shells out via subprocess — happens before any asyncio loop is running.
+# Otherwise the first AsyncIPRoute() inside async_discover() blocks the
+# loop briefly, and the test suite's blockbuster fixture rejects it
+# outright. pyroute2 isn't importable on Windows (it pulls in fcntl
+# transitively), which is fine — we never reach AsyncIPRoute() there.
+with suppress(ImportError):
+    import pyroute2  # noqa: F401
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from ipaddress import IPv4Address, IPv6Address
     from types import TracebackType
 
-    from pyroute2.iproute import IPRoute
+    from aiodns import AresQueryPTRResult
+    from pyroute2 import AsyncIPRoute
 
     from .network import ResolvConfSignature
 
@@ -74,18 +85,15 @@ def dns_message_short_hostname(dns_message: Any | None) -> str | None:
 async def async_query_for_ptrs(
     resolver: DNSResolver,
     ips_to_lookup: list[IPv4Address],
-) -> list[Any | None]:
+) -> list[AresQueryPTRResult | None]:
     """Fetch PTR records for a list of ips."""
-    results: list[Any | None] = []
+    results: list[AresQueryPTRResult | None] = []
     # Track the in-flight futures of the *current* chunk so a cancellation
     # mid-`asyncio.wait` can be cleaned up in the finally block. asyncio.wait
     # does not cancel its wrapped futures when its task is cancelled, so we
     # must do it ourselves to keep pycares from leaking query slots and from
     # later firing "exception was never retrieved" warnings.
-    # aiodns' PTR overload returns `asyncio.Future[list[pycares.ares_query_ptr_result]]`,
-    # but pycares ships no stubs so mypy degrades the inner type to `Any`; `list[Any]`
-    # is the tightest annotation that doesn't disagree with what aiodns hands us.
-    in_flight: list[asyncio.Future[list[Any]]] = []
+    in_flight: list[asyncio.Future[AresQueryPTRResult]] = []
     try:
         for ip_chunk in chunked(ips_to_lookup, QUERY_BUCKET_SIZE):
             if TYPE_CHECKING:
@@ -138,7 +146,7 @@ def chunked(iterable: Iterable[Any], chunked_num: int) -> Iterable[Any]:
 class DiscoverHosts:
     """Discover hosts on the network by ARP and PTR lookup."""
 
-    def __init__(self, no_recurse: bool = True) -> None:
+    def __init__(self, no_recurse: bool = True, local_ip: str | None = None) -> None:
         """
         Init the discovery hosts.
 
@@ -146,8 +154,22 @@ class DiscoverHosts:
             no_recurse: If True (default), DNS queries will not request recursion.
                        This prevents routers from forwarding PTR queries to external
                        DNS servers, avoiding potential IP bans from public DNS services.
+            local_ip: Optional IPv4 address (as a string) of the interface to use
+                       for discovery. When set, the discovery network and ARP probes
+                       are pinned to the subnet this address belongs to, instead of
+                       being inferred from the system default route. Pass the IP of
+                       the interface a caller (e.g. Home Assistant) has chosen.
+
+        Raises:
+            ValueError: If ``local_ip`` is provided but is not a valid IPv4
+                       address string. Invalid input would otherwise silently
+                       fall back to default-route auto-detection, defeating
+                       the purpose of pinning.
 
         """
+        if local_ip is not None and _parse_ipv4(local_ip) is None:
+            msg = f"local_ip must be a valid IPv4 address string, got {local_ip!r}"
+            raise ValueError(msg)
         loop = asyncio.get_running_loop()
         self._loop = loop
         self._sys_network_data: SystemNetworkData | None = None
@@ -155,6 +177,7 @@ class DiscoverHosts:
         self._failed_nameservers: set[IPv4Address | IPv6Address] = set()
         self._last_cache_clear = loop.time()
         self._closed = False
+        self._local_ip = local_ip
 
         # Create resolver with optional no_recurse flag
         if no_recurse:
@@ -165,7 +188,7 @@ class DiscoverHosts:
         else:
             self._resolver = DNSResolver(timeout=DNS_RESPONSE_TIMEOUT)
 
-    async def __aenter__(self) -> DiscoverHosts:
+    async def __aenter__(self) -> DiscoverHosts:  # noqa: PYI034
         return self
 
     async def __aexit__(
@@ -202,20 +225,20 @@ class DiscoverHosts:
                 ip_route.close()
         self._sys_network_data = None
 
-    def _setup_sys_network_data(self) -> SystemNetworkData:
-        ip_route: IPRoute | None = None
+    async def _setup_sys_network_data(self) -> SystemNetworkData:
+        ip_route: AsyncIPRoute | None = None
         with suppress(Exception):
-            from pyroute2.iproute import IPRoute
+            from pyroute2 import AsyncIPRoute  # noqa: PLC0415
 
-            ip_route = IPRoute()
-        sys_network_data = SystemNetworkData(ip_route)
+            ip_route = AsyncIPRoute()
+        sys_network_data = SystemNetworkData(ip_route, local_ip=self._local_ip)
         try:
-            sys_network_data.setup()
+            await sys_network_data.async_setup()
         except BaseException:
-            # setup() may raise on Linux when resolv.conf is missing or when
-            # no usable local IP can be found. The IPRoute netlink socket
-            # opened just above would otherwise leak until GC — close it
-            # here so the failure is clean.
+            # async_setup() may raise on Linux when resolv.conf is missing or
+            # when no usable local IP can be found. AsyncIPRoute opens a
+            # netlink socket eagerly — close it here so the failure path
+            # doesn't leak it until GC.
             if ip_route is not None:
                 with suppress(OSError):
                     ip_route.close()
@@ -239,7 +262,8 @@ class DiscoverHosts:
     async def async_discover(self) -> list[dict[str, str]]:
         """Discover hosts on the network by ARP and PTR lookup."""
         if self._closed:
-            raise RuntimeError("DiscoverHosts instance is closed")
+            msg = "DiscoverHosts instance is closed"
+            raise RuntimeError(msg)
         current_signature = await self._loop.run_in_executor(
             None, resolv_conf_signature
         )
@@ -255,10 +279,7 @@ class DiscoverHosts:
             self._failed_nameservers.clear()
 
         if not self._sys_network_data:
-            self._sys_network_data = await self._loop.run_in_executor(
-                None,
-                self._setup_sys_network_data,
-            )
+            self._sys_network_data = await self._setup_sys_network_data()
             # Cache the in-fd signature — the upfront stat can disagree if
             # a symlink target was swapped in between. Fall back to the
             # upfront stat when setup didn't populate one.

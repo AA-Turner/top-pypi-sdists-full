@@ -203,7 +203,10 @@ def test_quickstart_no_key_path_runs_clean(tmp_path: Path, monkeypatch: pytest.M
     # v0.1.79: footer names the three concrete artifacts the user is
     # missing (Gap classifications, FRMR attestation drafts, POA&M
     # markdown) so the upgrade path is concrete, not vague.
-    assert "Set ANTHROPIC_API_KEY" in proc.stdout
+    assert "Add an LLM backend and re-run" in proc.stdout
+    # quickstart's default backend is still named, plus the other backends.
+    assert "ANTHROPIC_API_KEY" in proc.stdout
+    assert "--llm-backend openai|bedrock|claude_code" in proc.stdout
     assert "Gap Agent" in proc.stdout
     assert "POA&M" in proc.stdout
     assert "Try this on your own code" in proc.stdout

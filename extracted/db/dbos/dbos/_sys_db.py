@@ -7,6 +7,7 @@ import sys
 import threading
 import time
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from enum import Enum
 from typing import (
     TYPE_CHECKING,
@@ -17,6 +18,7 @@ from typing import (
     List,
     Literal,
     Optional,
+    Set,
     Tuple,
     TypedDict,
     TypeVar,
@@ -179,6 +181,9 @@ class WorkflowStatus:
     dequeued_at: Optional[int]
     # The UNIX epoch timestamp before which the workflow should not be dequeued
     delay_until_epoch_ms: Optional[int]
+    # The UNIX epoch timestamp at which the workflow completed (SUCCESS, ERROR,
+    # or CANCELLED). None if the workflow has not completed.
+    completed_at: Optional[int]
 
     # INTERNAL FIELDS
 
@@ -331,7 +336,16 @@ class StepInfo(TypedDict):
 
 class WorkflowAggregateRow(TypedDict):
     group: Dict[str, Optional[str]]
-    count: int
+    count: Optional[int]
+    min_created_at: Optional[int]
+    max_queue_wait_ms: Optional[int]
+    max_total_latency_ms: Optional[int]
+
+
+class StepAggregateRow(TypedDict):
+    group: Dict[str, Optional[str]]
+    count: Optional[int]
+    max_duration_ms: Optional[int]
 
 
 class NotificationInfo(TypedDict):
@@ -343,6 +357,16 @@ class NotificationInfo(TypedDict):
 
 _dbos_null_topic = "__null__topic__"
 _dbos_stream_closed_sentinel = "__DBOS_STREAM_CLOSED__"
+
+
+@dataclass
+class SendMessage:
+    """A single message to send as part of a bulk send operation."""
+
+    destination_id: str
+    message: Any
+    topic: Optional[str] = None
+    idempotency_key: Optional[str] = None
 
 
 class EventCount(TypedDict):
@@ -541,6 +565,7 @@ class SystemDatabase(ABC):
 
         self.notifications_map = ThreadSafeEventDict()
         self.workflow_events_map = ThreadSafeEventDict()
+        self.streams_map = ThreadSafeEventDict()
         self.executor_id = executor_id
         self._notification_listener_polling_interval_sec = (
             notification_listener_polling_interval_sec
@@ -573,6 +598,14 @@ class SystemDatabase(ABC):
     def _cleanup_connections(self) -> None:
         """Clean up database-specific connections."""
         pass
+
+    def _now_ms_sql(self) -> Any:
+        # SQLite's CURRENT_TIMESTAMP is second-precision; use unixepoch('subsec') for ms.
+        if self.engine.dialect.name == "sqlite":
+            if sys.version_info >= (3, 12):
+                return sa.func.unixepoch("subsec") * 1000
+            return sa.func.strftime("%s", "now") * 1000
+        return sa.func.extract("epoch", sa.func.now()) * 1000
 
     def _insert_workflow_status(
         self,
@@ -748,6 +781,7 @@ class SystemDatabase(ABC):
         error: Optional[str] = None,
     ) -> None:
         with self.engine.begin() as c:
+            now_ms = self._now_ms_sql()
             c.execute(
                 sa.update(SystemSchema.workflow_status)
                 .values(
@@ -756,7 +790,8 @@ class SystemDatabase(ABC):
                     error=error,
                     # As the workflow is complete, remove its deduplication ID
                     deduplication_id=None,
-                    updated_at=func.extract("epoch", func.now()) * 1000,
+                    updated_at=now_ms,
+                    completed_at=now_ms,
                 )
                 .where(SystemSchema.workflow_status.c.workflow_uuid == workflow_id)
             )
@@ -766,6 +801,7 @@ class SystemDatabase(ABC):
         workflow_ids: list[str],
     ) -> None:
         with self.engine.begin() as c:
+            now_ms = self._now_ms_sql()
             # Set the workflows' status to CANCELLED and remove them from any queue,
             # but only if the workflow is not already complete.
             c.execute(
@@ -784,7 +820,8 @@ class SystemDatabase(ABC):
                     queue_name=None,
                     deduplication_id=None,
                     started_at_epoch_ms=None,
-                    updated_at=func.extract("epoch", func.now()) * 1000,
+                    updated_at=now_ms,
+                    completed_at=now_ms,
                 )
             )
 
@@ -817,7 +854,8 @@ class SystemDatabase(ABC):
                     workflow_deadline_epoch_ms=None,
                     deduplication_id=None,
                     started_at_epoch_ms=None,
-                    updated_at=func.extract("epoch", func.now()) * 1000,
+                    updated_at=self._now_ms_sql(),
+                    completed_at=None,
                 )
             )
 
@@ -1424,6 +1462,10 @@ class SystemDatabase(ABC):
         status: Optional[str | list[str]] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
+        completed_after: Optional[str] = None,
+        completed_before: Optional[str] = None,
+        dequeued_after: Optional[str] = None,
+        dequeued_before: Optional[str] = None,
         name: Optional[str | list[str]] = None,
         app_version: Optional[str | list[str]] = None,
         forked_from: Optional[str | list[str]] = None,
@@ -1488,6 +1530,7 @@ class SystemDatabase(ABC):
             SystemSchema.workflow_status.c.started_at_epoch_ms,
             SystemSchema.workflow_status.c.delay_until_epoch_ms,
             SystemSchema.workflow_status.c.was_forked_from,
+            SystemSchema.workflow_status.c.completed_at,
         ]
         if load_input:
             load_columns.append(SystemSchema.workflow_status.c.inputs)
@@ -1528,6 +1571,28 @@ class SystemDatabase(ABC):
             query = query.where(
                 SystemSchema.workflow_status.c.created_at
                 <= datetime.datetime.fromisoformat(end_time).timestamp() * 1000
+            )
+        if completed_after:
+            query = query.where(
+                SystemSchema.workflow_status.c.completed_at
+                >= datetime.datetime.fromisoformat(completed_after).timestamp() * 1000
+            )
+        if completed_before:
+            query = query.where(
+                SystemSchema.workflow_status.c.completed_at
+                <= datetime.datetime.fromisoformat(completed_before).timestamp() * 1000
+            )
+        # dequeued_after/before filter on started_at_epoch_ms: that column is
+        # populated on dequeue and surfaced as WorkflowStatus.dequeued_at.
+        if dequeued_after:
+            query = query.where(
+                SystemSchema.workflow_status.c.started_at_epoch_ms
+                >= datetime.datetime.fromisoformat(dequeued_after).timestamp() * 1000
+            )
+        if dequeued_before:
+            query = query.where(
+                SystemSchema.workflow_status.c.started_at_epoch_ms
+                <= datetime.datetime.fromisoformat(dequeued_before).timestamp() * 1000
             )
         if status_list:
             query = query.where(SystemSchema.workflow_status.c.status.in_(status_list))
@@ -1619,8 +1684,9 @@ class SystemDatabase(ABC):
             info.dequeued_at = row[22]
             info.delay_until_epoch_ms = row[23]
             info.was_forked_from = row[24]
+            info.completed_at = row[25]
 
-            idx = 25
+            idx = 26
             raw_input = row[idx] if load_input else None
             if load_input:
                 idx += 1
@@ -1732,10 +1798,18 @@ class SystemDatabase(ABC):
         group_by_queue_name: bool = False,
         group_by_executor_id: bool = False,
         group_by_application_version: bool = False,
+        select_count: bool = False,
+        select_min_created_at: bool = False,
+        select_max_queue_wait_ms: bool = False,
+        select_max_total_latency_ms: bool = False,
         time_bucket_size_ms: Optional[int] = None,
         status: Optional[List[str]] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
+        completed_after: Optional[str] = None,
+        completed_before: Optional[str] = None,
+        dequeued_after: Optional[str] = None,
+        dequeued_before: Optional[str] = None,
         name: Optional[List[str]] = None,
         app_version: Optional[List[str]] = None,
         executor_id: Optional[List[str]] = None,
@@ -1784,7 +1858,44 @@ class SystemDatabase(ABC):
         if not group_columns:
             raise ValueError("At least one group_by flag must be set to True")
 
-        query = sa.select(*group_columns, func.count().label("count"))
+        # Build select columns from boolean flags. MAX ignores NULLs, so rows
+        # missing started_at_epoch_ms or completed_at naturally drop out of the
+        # latency maxes.
+        select_flags: List[Tuple[str, bool, sa.sql.ColumnElement[Any]]] = [
+            ("count", select_count, func.count()),
+            (
+                "min_created_at",
+                select_min_created_at,
+                func.min(SystemSchema.workflow_status.c.created_at),
+            ),
+            (
+                "max_queue_wait_ms",
+                select_max_queue_wait_ms,
+                func.max(
+                    SystemSchema.workflow_status.c.started_at_epoch_ms
+                    - SystemSchema.workflow_status.c.created_at
+                ),
+            ),
+            (
+                "max_total_latency_ms",
+                select_max_total_latency_ms,
+                func.max(
+                    SystemSchema.workflow_status.c.completed_at
+                    - SystemSchema.workflow_status.c.created_at
+                ),
+            ),
+        ]
+        select_names: List[str] = []
+        select_columns: List[sa.sql.ColumnElement[Any]] = []
+        for select_name, enabled, agg in select_flags:
+            if enabled:
+                select_names.append(select_name)
+                select_columns.append(agg.label(select_name))
+
+        if not select_columns:
+            raise ValueError("At least one select_ flag must be set to True")
+
+        query = sa.select(*group_columns, *select_columns)
 
         # Apply filters
         if status:
@@ -1798,6 +1909,28 @@ class SystemDatabase(ABC):
             query = query.where(
                 SystemSchema.workflow_status.c.created_at
                 <= datetime.datetime.fromisoformat(end_time).timestamp() * 1000
+            )
+        if completed_after:
+            query = query.where(
+                SystemSchema.workflow_status.c.completed_at
+                >= datetime.datetime.fromisoformat(completed_after).timestamp() * 1000
+            )
+        if completed_before:
+            query = query.where(
+                SystemSchema.workflow_status.c.completed_at
+                <= datetime.datetime.fromisoformat(completed_before).timestamp() * 1000
+            )
+        # dequeued_after/before filter on started_at_epoch_ms: that column is
+        # populated on dequeue and surfaced as WorkflowStatus.dequeued_at.
+        if dequeued_after:
+            query = query.where(
+                SystemSchema.workflow_status.c.started_at_epoch_ms
+                >= datetime.datetime.fromisoformat(dequeued_after).timestamp() * 1000
+            )
+        if dequeued_before:
+            query = query.where(
+                SystemSchema.workflow_status.c.started_at_epoch_ms
+                <= datetime.datetime.fromisoformat(dequeued_before).timestamp() * 1000
             )
         if name:
             query = query.where(SystemSchema.workflow_status.c.name.in_(name))
@@ -1825,19 +1958,187 @@ class SystemDatabase(ABC):
                 )
             )
 
-        query = query.group_by(*group_columns).limit(10_000_000)
+        query = query.group_by(*group_columns)
 
         with self.engine.begin() as c:
             rows = c.execute(query).fetchall()
 
         results: List[WorkflowAggregateRow] = []
+        group_offset = len(group_names)
+        select_idx = {name: i for i, name in enumerate(select_names)}
         for row in rows:
             group: Dict[str, Optional[str]] = {
                 group_names[i]: str(row[i]) if row[i] is not None else None
                 for i in range(len(group_names))
             }
+            count_val: Optional[int] = None
+            if (i := select_idx.get("count")) is not None:
+                v = row[group_offset + i]
+                count_val = int(v) if v is not None else None
+            min_created_at_val: Optional[int] = None
+            if (i := select_idx.get("min_created_at")) is not None:
+                v = row[group_offset + i]
+                min_created_at_val = int(v) if v is not None else None
+            max_queue_wait_val: Optional[int] = None
+            if (i := select_idx.get("max_queue_wait_ms")) is not None:
+                v = row[group_offset + i]
+                max_queue_wait_val = int(v) if v is not None else None
+            max_total_latency_val: Optional[int] = None
+            if (i := select_idx.get("max_total_latency_ms")) is not None:
+                v = row[group_offset + i]
+                max_total_latency_val = int(v) if v is not None else None
             results.append(
-                WorkflowAggregateRow(group=group, count=row[len(group_names)])
+                WorkflowAggregateRow(
+                    group=group,
+                    count=count_val,
+                    min_created_at=min_created_at_val,
+                    max_queue_wait_ms=max_queue_wait_val,
+                    max_total_latency_ms=max_total_latency_val,
+                )
+            )
+        return results
+
+    def get_step_aggregates(
+        self,
+        *,
+        group_by_function_name: bool = False,
+        group_by_status: bool = False,
+        select_count: bool = False,
+        select_max_duration_ms: bool = False,
+        time_bucket_size_ms: Optional[int] = None,
+        status: Optional[List[str]] = None,
+        function_name: Optional[List[str]] = None,
+        workflow_id_prefix: Optional[List[str]] = None,
+        completed_after: Optional[str] = None,
+        completed_before: Optional[str] = None,
+    ) -> List[StepAggregateRow]:
+        if time_bucket_size_ms is not None and time_bucket_size_ms <= 0:
+            raise ValueError("time_bucket_size_ms must be > 0")
+
+        # operation_outputs has no explicit status column; derive it from
+        # whether `error` is populated. Bookkeeping rows from record_child_workflow
+        # and DBOS.getResult have NULL error and NULL output, so they appear
+        # as SUCCESS here — callers can filter them by function_name.
+        status_expr = sa.case(
+            (
+                SystemSchema.operation_outputs.c.error.is_(None),
+                sa.literal("SUCCESS"),
+            ),
+            else_=sa.literal("ERROR"),
+        )
+
+        # Build group_by columns from boolean flags
+        group_by_flags: List[Tuple[str, bool, sa.sql.ColumnElement[Any]]] = [
+            (
+                "function_name",
+                group_by_function_name,
+                SystemSchema.operation_outputs.c.function_name,
+            ),
+            ("status", group_by_status, status_expr),
+        ]
+        group_names: List[str] = []
+        group_columns: List[sa.sql.ColumnElement[Any]] = []
+        for group_col_name, enabled, group_col in group_by_flags:
+            if enabled:
+                group_names.append(group_col_name)
+                group_columns.append(group_col.label(group_col_name))
+
+        if time_bucket_size_ms is not None:
+            # Bucket on completed_at_epoch_ms — it's the indexed timestamp on
+            # this table.
+            completed_at = SystemSchema.operation_outputs.c.completed_at_epoch_ms
+            bucket = sa.literal(time_bucket_size_ms)
+            time_bucket_col = (
+                sa.cast(func.floor(completed_at / bucket), sa.BigInteger) * bucket
+            ).label("time_bucket")
+            group_names.append("time_bucket")
+            group_columns.append(time_bucket_col)
+
+        if not group_columns:
+            raise ValueError("At least one group_by flag must be set to True")
+
+        # Build select columns from boolean flags. MAX ignores NULLs, so rows
+        # without start/complete timestamps (child-workflow and getResult
+        # markers) drop out of the duration max.
+        select_flags: List[Tuple[str, bool, sa.sql.ColumnElement[Any]]] = [
+            ("count", select_count, func.count()),
+            (
+                "max_duration_ms",
+                select_max_duration_ms,
+                func.max(
+                    SystemSchema.operation_outputs.c.completed_at_epoch_ms
+                    - SystemSchema.operation_outputs.c.started_at_epoch_ms
+                ),
+            ),
+        ]
+        select_names: List[str] = []
+        select_columns: List[sa.sql.ColumnElement[Any]] = []
+        for select_name, enabled, agg in select_flags:
+            if enabled:
+                select_names.append(select_name)
+                select_columns.append(agg.label(select_name))
+
+        if not select_columns:
+            raise ValueError("At least one select_ flag must be set to True")
+
+        query = sa.select(*group_columns, *select_columns)
+
+        # Apply filters
+        if status:
+            query = query.where(status_expr.in_(status))
+        if function_name:
+            query = query.where(
+                SystemSchema.operation_outputs.c.function_name.in_(function_name)
+            )
+        if workflow_id_prefix:
+            query = query.where(
+                sa.or_(
+                    *[
+                        SystemSchema.operation_outputs.c.workflow_uuid.startswith(
+                            p, autoescape=True
+                        )
+                        for p in workflow_id_prefix
+                    ]
+                )
+            )
+        if completed_after:
+            query = query.where(
+                SystemSchema.operation_outputs.c.completed_at_epoch_ms
+                >= datetime.datetime.fromisoformat(completed_after).timestamp() * 1000
+            )
+        if completed_before:
+            query = query.where(
+                SystemSchema.operation_outputs.c.completed_at_epoch_ms
+                <= datetime.datetime.fromisoformat(completed_before).timestamp() * 1000
+            )
+
+        query = query.group_by(*group_columns)
+
+        with self.engine.begin() as c:
+            rows = c.execute(query).fetchall()
+
+        results: List[StepAggregateRow] = []
+        group_offset = len(group_names)
+        select_idx = {name: i for i, name in enumerate(select_names)}
+        for row in rows:
+            group: Dict[str, Optional[str]] = {
+                group_names[i]: str(row[i]) if row[i] is not None else None
+                for i in range(len(group_names))
+            }
+            count_val: Optional[int] = None
+            if (i := select_idx.get("count")) is not None:
+                v = row[group_offset + i]
+                count_val = int(v) if v is not None else None
+            max_duration_val: Optional[int] = None
+            if (i := select_idx.get("max_duration_ms")) is not None:
+                v = row[group_offset + i]
+                max_duration_val = int(v) if v is not None else None
+            results.append(
+                StepAggregateRow(
+                    group=group,
+                    count=count_val,
+                    max_duration_ms=max_duration_val,
+                )
             )
         return results
 
@@ -2068,122 +2369,186 @@ class SystemDatabase(ABC):
                 workflow_id, function_id, function_name, c
             )
 
+    def _find_fork_descendants_txn(
+        self, workflow_ids: List[str], conn: sa.Connection
+    ) -> Dict[str, Set[str]]:
+        """Return every workflow recursively forked from each of `workflow_ids`.
+
+        Resolves all of the given roots together: one query per level of the fork
+        forest covers every root at once, rather than a separate traversal per
+        root. The `forked_from` edges discovered are accumulated into an adjacency
+        map, then each root's descendant set (direct forks, forks of forks, ...,
+        excluding the root itself) is computed in memory. Self-references and
+        cycles (which should not occur) are ignored.
+        """
+        # Bulk breadth-first walk over the union of all roots, recording the
+        # parent -> children edges of every reachable fork.
+        children: Dict[str, List[str]] = {}
+        seen: Set[str] = set(workflow_ids)
+        frontier = list(dict.fromkeys(workflow_ids))
+        while frontier:
+            rows = conn.execute(
+                sa.select(
+                    SystemSchema.workflow_status.c.workflow_uuid,
+                    SystemSchema.workflow_status.c.forked_from,
+                ).where(SystemSchema.workflow_status.c.forked_from.in_(frontier))
+            ).all()
+            next_frontier = []
+            for forked_id, forked_from in rows:
+                children.setdefault(forked_from, []).append(forked_id)
+                if forked_id not in seen:
+                    seen.add(forked_id)
+                    next_frontier.append(forked_id)
+            frontier = next_frontier
+
+        # Compute each root's descendants in memory from the adjacency map.
+        result: Dict[str, Set[str]] = {}
+        for root in workflow_ids:
+            if root in result:
+                continue
+            descendants: Set[str] = set()
+            stack = list(children.get(root, []))
+            while stack:
+                node = stack.pop()
+                if node != root and node not in descendants:
+                    descendants.add(node)
+                    stack.extend(children.get(node, []))
+            result[root] = descendants
+        return result
+
     @db_retry()
-    def send(
+    def send_bulk(
         self,
-        workflow_uuid: str,
-        function_id: int,
-        destination_uuid: str,
-        message: Any,
-        topic: Optional[str],
+        messages: List[SendMessage],
         *,
         serialization_type: Optional["WorkflowSerializationFormat"],
-        message_uuid: Optional[str],
+        workflow_id: Optional[str],
+        function_id: Optional[int],
+        function_name: str,
+        send_to_forks: bool,
     ) -> None:
-        function_name = "DBOS.send"
+        """Send one or more messages in a single transaction.
+
+        This is the single implementation underlying both `DBOS.send`/`send_bulk`
+        (inside and outside a workflow) and `DBOSClient.send`/`send_bulk`. When
+        called from a workflow, `workflow_id` and `function_id` identify the
+        single step recording the operation, which makes it idempotent on replay;
+        `function_name` is the name recorded for that step. Each message also
+        provides its own idempotency via the primary key constraint on
+        `message_uuid`.
+
+        When `send_to_forks` is set, every message is delivered not only to its
+        `destination_id` but also to every workflow recursively forked from it
+        (forks, forks of forks, ...) that exists at send time.
+        """
         start_time = int(time.time() * 1000)
-        topic = topic if topic is not None else _dbos_null_topic
-        if message_uuid is None:
-            message_uuid = str(generate_uuid())
-        serval, serialization = serialize_value(
-            message,
-            serialization_type,
-            self.serializer,
-        )
-        with self.engine.begin() as c:
-            recorded_output = self._check_operation_execution_txn(
-                workflow_uuid, function_id, function_name, conn=c
+
+        # Reject duplicate idempotency keys
+        provided_keys = [m.idempotency_key for m in messages if m.idempotency_key]
+        if len(provided_keys) != len(set(provided_keys)):
+            duplicates = sorted(
+                {k for k in provided_keys if provided_keys.count(k) > 1}
             )
-            if recorded_output is not None:
-                dbos_logger.debug(
-                    f"Replaying send, id: {function_id}, destination_uuid: {destination_uuid}, topic: {topic}"
+            raise DBOSException(
+                f"send_bulk received duplicate idempotency keys: {', '.join(duplicates)}"
+            )
+
+        # Serialize each message once (independent of how many destinations it
+        # fans out to once forks are resolved).
+        prepared = [
+            (m, *serialize_value(m.message, serialization_type, self.serializer))
+            for m in messages
+        ]
+
+        with self.engine.begin() as c:
+            if workflow_id is not None:
+                assert function_id is not None
+                recorded_output = self._check_operation_execution_txn(
+                    workflow_id, function_id, function_name, conn=c
                 )
-                return  # Already sent before
-            else:
-                dbos_logger.debug(
-                    f"Running send, id: {function_id}, destination_uuid: {destination_uuid}, topic: {topic}"
+                if recorded_output is not None:
+                    dbos_logger.debug(
+                        f"Replaying {function_name}, id: {function_id}, messages: {len(messages)}"
+                    )
+                    return  # Already sent before
+                else:
+                    dbos_logger.debug(
+                        f"Running {function_name}, id: {function_id}, messages: {len(messages)}"
+                    )
+
+            # Expand each message to its destination set (the workflow itself plus,
+            # if requested, every workflow recursively forked from it). Forks for
+            # all destinations are resolved in a single bulk walk, inside the
+            # transaction so the recipient set is consistent with the insert.
+            fork_descendants: Dict[str, Set[str]] = {}
+            if send_to_forks:
+                fork_descendants = self._find_fork_descendants_txn(
+                    [m.destination_id for m, _, _ in prepared], c
                 )
 
+            rows = []
+            for m, serval, serialization in prepared:
+                destinations = [m.destination_id]
+                if send_to_forks:
+                    destinations.extend(
+                        sorted(fork_descendants.get(m.destination_id, set()))
+                    )
+                for dest in destinations:
+                    if m.idempotency_key is None:
+                        message_uuid = str(generate_uuid())
+                    else:
+                        # An idempotency key is scoped per destination: suffix it
+                        # with the recipient's workflow ID. This gives each recipient
+                        # a distinct, deterministic message_uuid (so a single key can
+                        # fan out across forks) while replays stay idempotent, and
+                        # makes the message_uuid independent of whether the send fanned
+                        # out to forks.
+                        message_uuid = f"{m.idempotency_key}::{dest}"
+                    rows.append(
+                        {
+                            "destination_uuid": dest,
+                            "topic": (
+                                m.topic if m.topic is not None else _dbos_null_topic
+                            ),
+                            "message": serval,
+                            "message_uuid": message_uuid,
+                            "serialization": serialization,
+                        }
+                    )
+
             try:
-                c.execute(
-                    self.dialect.insert(SystemSchema.notifications)
-                    .values(
-                        destination_uuid=destination_uuid,
-                        topic=topic,
-                        message=serval,
-                        message_uuid=message_uuid,
-                        serialization=serialization,
+                if rows:
+                    c.execute(
+                        self.dialect.insert(SystemSchema.notifications)
+                        .values(rows)
+                        .on_conflict_do_nothing(
+                            index_elements=[
+                                SystemSchema.notifications.c.message_uuid,
+                            ]
+                        )
                     )
-                    .on_conflict_do_nothing(
-                        index_elements=[
-                            SystemSchema.notifications.c.message_uuid,
-                        ]
-                    )
-                )
             except DBAPIError as dbapi_error:
                 if self._is_foreign_key_violation(dbapi_error):
                     raise DBOSNonExistentWorkflowError(
-                        "`send` destination", destination_uuid
+                        "`send` destination",
+                        ", ".join(sorted({m.destination_id for m in messages})),
                     )
                 raise
-            output: OperationResultInternal = {
-                "workflow_uuid": workflow_uuid,
-                "function_id": function_id,
-                "function_name": function_name,
-                "started_at_epoch_ms": start_time,
-                "output": None,
-                "error": None,
-                "serialization": None,
-            }
-            self._record_operation_result_txn(output, int(time.time() * 1000), conn=c)
 
-    @db_retry()
-    def send_direct(
-        self,
-        destination_uuid: str,
-        message: Any,
-        topic: Optional[str] = None,
-        message_uuid: Optional[str] = None,
-        *,
-        serialization_type: Optional["WorkflowSerializationFormat"] = None,
-    ) -> None:
-        """Send a message without requiring a workflow context.
-
-        Idempotency is provided by the primary key constraint on message_uuid.
-        On duplicate message_uuid, silently returns (idempotent replay).
-        """
-
-        topic = topic if topic is not None else _dbos_null_topic
-        if message_uuid is None:
-            message_uuid = str(generate_uuid())
-        serval, serialization = serialize_value(
-            message,
-            serialization_type,
-            self.serializer,
-        )
-        try:
-            with self.engine.begin() as c:
-                c.execute(
-                    self.dialect.insert(SystemSchema.notifications)
-                    .values(
-                        destination_uuid=destination_uuid,
-                        topic=topic,
-                        message=serval,
-                        message_uuid=message_uuid,
-                        serialization=serialization,
-                    )
-                    .on_conflict_do_nothing(
-                        index_elements=[
-                            SystemSchema.notifications.c.message_uuid,
-                        ]
-                    )
+            if workflow_id is not None:
+                assert function_id is not None
+                output: OperationResultInternal = {
+                    "workflow_uuid": workflow_id,
+                    "function_id": function_id,
+                    "function_name": function_name,
+                    "started_at_epoch_ms": start_time,
+                    "output": None,
+                    "error": None,
+                    "serialization": None,
+                }
+                self._record_operation_result_txn(
+                    output, int(time.time() * 1000), conn=c
                 )
-        except DBAPIError as dbapi_error:
-            if self._is_foreign_key_violation(dbapi_error):
-                raise DBOSNonExistentWorkflowError(
-                    "`send` destination", destination_uuid
-                )
-            raise
 
     @db_retry()
     def recv_setup(
@@ -2460,6 +2825,27 @@ class SystemDatabase(ABC):
                                 SystemSchema.workflow_events.c.workflow_uuid
                                 == workflow_uuid,
                                 SystemSchema.workflow_events.c.key == key,
+                            )
+                            .limit(1)
+                        )
+                        if result.fetchone():
+                            event.set()
+                            dbos_logger.debug(f"Signaled event for {payload}")
+
+                # Check all entries in the streams_map. A stream reader re-reads
+                # at its own offset on wakeup, so any row for (workflow_uuid, key)
+                # is a sufficient hint to re-check.
+                for (
+                    payload,
+                    (workflow_uuid, key),
+                    event,
+                ) in self.streams_map.snapshot():
+                    with self.engine.begin() as conn:
+                        result = conn.execute(
+                            sa.select(sa.literal(1))
+                            .where(
+                                SystemSchema.streams.c.workflow_uuid == workflow_uuid,
+                                SystemSchema.streams.c.key == key,
                             )
                             .limit(1)
                         )
@@ -3008,7 +3394,7 @@ class SystemDatabase(ABC):
                     sa.select(sa.func.count())
                     .select_from(SystemSchema.workflow_status)
                     .where(SystemSchema.workflow_status.c.queue_name == queue.name)
-                    .where(SystemSchema.workflow_status.c.rate_limited.is_(True))
+                    .where(SystemSchema.workflow_status.c.rate_limited == True)
                     .where(
                         SystemSchema.workflow_status.c.status.notin_(
                             [
@@ -3454,6 +3840,25 @@ class SystemDatabase(ABC):
             _dbos_stream_closed_sentinel,
             serialization_type=WorkflowSerializationFormat.PORTABLE,
         )
+
+    def register_stream_listener(
+        self, workflow_uuid: str, key: str
+    ) -> Tuple[threading.Event, str]:
+        """Register an event for the listener to signal when the stream is written.
+
+        Returns the event to wait on and the payload key to unregister later.
+        Must be called before reading so a notification arriving between a read
+        and the wait is not lost.
+        """
+        payload = f"{workflow_uuid}::{key}"
+        _, event = self.streams_map.set(
+            payload, threading.Event(), (workflow_uuid, key)
+        )
+        return event, payload
+
+    def unregister_stream_listener(self, payload: str) -> None:
+        """Drop a previously registered stream listener event."""
+        self.streams_map.pop(payload)
 
     @db_retry()
     def read_stream(self, workflow_uuid: str, key: str, offset: int) -> Any:

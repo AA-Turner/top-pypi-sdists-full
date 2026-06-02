@@ -16,11 +16,17 @@ from db_contrib_tool.clients.resmoke_proxy import ResmokeProxy
 from db_contrib_tool.config import (
     CONTINUOUS_RELEASE_ALIAS,
     LTS_RELEASE_ALIAS,
+    PATCH_RELEASE_ALIAS,
     SETUP_REPRO_ENV_CONFIG,
     SETUP_REPRO_ENV_CONFIG_FILE,
     SetupReproEnvConfig,
 )
 from db_contrib_tool.setup_repro_env.download_service import DownloadOptions
+from db_contrib_tool.setup_repro_env.release_discovery_service import (
+    ReleaseFeedProvider,
+    ReleaseSource,
+    release_feed_provider_for,
+)
 from db_contrib_tool.setup_repro_env.setup_repro_env import (
     SetupReproOrchestrator,
     SetupReproParameters,
@@ -72,7 +78,7 @@ def setup_logging(debug: bool = False) -> None:
     structlog.configure(logger_factory=structlog.stdlib.LoggerFactory())
 
 
-@click.command(cls=CommandWithUsageTracking)
+@click.command(cls=CommandWithUsageTracking, context_settings={"auto_envvar_prefix":"DB_CONTRIB_TOOL"})
 @click.pass_context
 @click.argument(
     "versions",
@@ -137,6 +143,12 @@ def setup_logging(debug: bool = False) -> None:
     help="If specified, the last continuous version will be installed.",
 )
 @click.option(
+    "--installLastPatch",
+    "install_last_patch",
+    is_flag=True,
+    help="If specified, the last patch (release-candidate) version will be installed.",
+)
+@click.option(
     "-sb",
     "--skipBinaries",
     "skip_binaries",
@@ -198,6 +210,17 @@ def setup_logging(debug: bool = False) -> None:
     " version is not found (Only application for mongo versions).",
 )
 @click.option(
+    "--releaseFeedSource",
+    "release_source",
+    type=click.Choice([s.value for s in ReleaseSource], case_sensitive=False),
+    default=ReleaseSource.PUBLIC_FEED.value,
+    show_default=True,
+    help="Source for release metadata. 'public' reads"
+    " downloads.mongodb.org/cloud.json; 'atlas' reads server/feeds/all.json"
+    " from the origin-mongodb-server-atlas S3 bucket (requires AWS credentials)."
+    " Can also be set via the DB_CONTRIB_TOOL_RELEASE_FEED_SOURCE environment variable.",
+)
+@click.option(
     "--evgVersionsFile",
     "evg_versions_file",
     type=click.Path(),
@@ -233,6 +256,7 @@ def setup_repro_env(
     versions: Tuple[str],
     install_last_lts: bool,
     install_last_continuous: bool,
+    install_last_patch: bool,
     skip_binaries: bool,
     download_symbols: bool,
     download_artifacts: bool,
@@ -242,6 +266,7 @@ def setup_repro_env(
     require_push: bool,
     resmoke_cmd: str,
     fallback_to_master: bool,
+    release_source: str,
     evg_versions_file: str,
     extract_downloads: bool,
     binaries_name: str,
@@ -259,8 +284,8 @@ def setup_repro_env(
 
         - binary versions - examples: <major.minor>, 4.2, 4.4, 5.0 etc.
 
-        - `last-lts` and `last-continuous` - will be translated into
-        corresponding versions, e.g. 8.0, 8.1
+        - `last-lts`, `last-continuous`, and `last-patch` - will be translated
+        into corresponding versions, e.g. 8.0, 8.1, 9.0.1
 
         - `master` and release branch names
 
@@ -274,8 +299,8 @@ def setup_repro_env(
 
     Optionally with the version accepts binary suffix, e.g. <version>=<bin_suffix>:
 
-        - aliases `last-lts`, `last-continuous` will be translated into
-        corresponding versions, e.g. 8.0, 8.1.
+        - aliases `last-lts`, `last-continuous`, `last-patch` will be translated
+        into corresponding versions, e.g. 8.0, 8.1, 9.0.1.
 
     If no versions are specified the last LTS and the last continuous versions
     will be installed.
@@ -312,19 +337,23 @@ def setup_repro_env(
         platform=_platform.lower() if _platform else None,
         architecture=architecture.lower(),
         variant=variant.lower() if variant else None,
-        versions=massage_versions(install_last_continuous, install_last_lts, versions),
+        versions=massage_versions(
+            install_last_continuous, install_last_lts, install_last_patch, versions
+        ),
         ignore_failed_push=(not require_push),
         fallback_to_master=fallback_to_master,
         download_options=download_options,
         evg_versions_file=evg_versions_file,
     )
     evg_api = get_evergreen_api(evergreen_config)
+    release_source_enum = ReleaseSource(release_source.lower())
 
     def dependencies(binder: inject.Binder) -> None:
         """Define dependencies for execution."""
         binder.bind(SetupReproEnvConfig, SETUP_REPRO_ENV_CONFIG)
         binder.bind(EvergreenApi, evg_api)
         binder.bind(ResmokeProxy, ResmokeProxy.with_cmd(resmoke_cmd))
+        binder.bind(ReleaseFeedProvider, release_feed_provider_for(release_source_enum))
 
     inject.configure(dependencies)
     setup_repro_orchestrator = inject.instance(SetupReproOrchestrator)
@@ -335,19 +364,23 @@ def setup_repro_env(
 
 
 def massage_versions(
-    install_last_continuous: bool, install_last_lts: bool, input_versions: Tuple[str]
+    install_last_continuous: bool,
+    install_last_lts: bool,
+    install_last_patch: bool,
+    input_versions: Tuple[str],
 ) -> List[str]:
     """
     Process input parameters to get the list of version requests.
 
     :param install_last_continuous: Whether the last continuous version requested.
     :param install_last_lts: Whether the last lts version requested.
+    :param install_last_patch: Whether the last patch version requested.
     :param input_versions: Requested versions.
     :return: The list of version requests.
     """
     versions = []
     for version in input_versions:
-        if version in [LTS_RELEASE_ALIAS, CONTINUOUS_RELEASE_ALIAS]:
+        if version in [LTS_RELEASE_ALIAS, CONTINUOUS_RELEASE_ALIAS, PATCH_RELEASE_ALIAS]:
             versions.append(f"{version}={version}")
         else:
             versions.append(version)
@@ -357,6 +390,9 @@ def massage_versions(
 
     if install_last_continuous:
         versions.append(f"{CONTINUOUS_RELEASE_ALIAS}={CONTINUOUS_RELEASE_ALIAS}")
+
+    if install_last_patch:
+        versions.append(f"{PATCH_RELEASE_ALIAS}={PATCH_RELEASE_ALIAS}")
 
     if len(versions) == 0:
         versions = [

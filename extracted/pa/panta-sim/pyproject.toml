@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "panta-sim"
-version = "0.6.7"
+version = "0.8.22"
 description = "Full Rust core quantum circuit simulator with Python bindings"
 readme = "README.md"
 license = { text = "MIT" }
@@ -32,13 +32,20 @@ viz = ["matplotlib>=3.5"]
 qiskit = ["qiskit>=1.0"]
 pennylane = ["pennylane>=0.35"]
 cirq = ["cirq-core>=1.3"]
+braket = ["amazon-braket-sdk>=1.80"]
+# NOTE: 이 목록은 CI(.github/workflows/ci.yml) 가 설치하는 테스트 의존성과
+# 일치해야 한다 — 누락 시 해당 어댑터 테스트가 skip 되어 CI 가드가 fail 한다
+# (v0.8.22 의 braket 누락 사고).  `pip install panta-sim[dev]` 로 CI 환경 재현.
 dev = [
     "pytest>=7",
     "matplotlib>=3.5",
     "qiskit>=1.0",
     "qiskit-aer>=0.13",
+    "qiskit_qasm3_import",
     "pennylane>=0.35",
     "cirq-core>=1.3",
+    "amazon-braket-sdk>=1.80",
+    "maturin>=1.0",
 ]
 
 [project.entry-points."pennylane.plugins"]

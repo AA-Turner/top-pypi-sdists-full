@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: NEMO-CE
-Version: 7.4.17
+Version: 8.0.0
 Summary: NEMO Community Edition is a laboratory logistics web application based of NEMO. Use it to schedule reservations, control tool access, track maintenance issues, and more.
 Author-email: Atlantis Labs LLC <atlantis@atlantislabs.io>
 License: MIT License
@@ -36,7 +36,7 @@ Classifier: Intended Audience :: System Administrators
 Classifier: License :: Public Domain
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
-Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.2
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -45,9 +45,9 @@ Requires-Python: <4,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cryptography==48.0.0
-Requires-Dist: Django==4.2.30
+Requires-Dist: Django==5.2.14
 Requires-Dist: django-auditlog==3.4.1
-Requires-Dist: django-filter==25.1
+Requires-Dist: django-filter==25.2
 Requires-Dist: django-mptt==0.18.0
 Requires-Dist: djangorestframework==3.17.1
 Requires-Dist: drf-excel==2.5.3
@@ -58,7 +58,7 @@ Requires-Dist: packaging==26.2
 Requires-Dist: Pillow==12.2.0
 Requires-Dist: pymodbus==3.13.0
 Requires-Dist: python-dateutil==2.9.0
-Requires-Dist: requests==2.33.1
+Requires-Dist: requests==2.34.2
 Provides-Extra: dev-tools
 Requires-Dist: pre-commit; extra == "dev-tools"
 Requires-Dist: djlint; extra == "dev-tools"

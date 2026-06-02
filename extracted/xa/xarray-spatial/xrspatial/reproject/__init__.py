@@ -16,7 +16,12 @@ import xarray as xr
 
 from xrspatial.utils import _validate_raster
 
-from ._crs_utils import _detect_nodata, _detect_source_crs, _resolve_crs
+from ._crs_utils import (
+    _detect_band_nodata,
+    _detect_nodata,
+    _detect_source_crs,
+    _resolve_crs,
+)
 from ._grid import (
     _chunk_bounds,
     _compute_chunk_layout,
@@ -25,7 +30,6 @@ from ._grid import (
     _validate_grid_params,
 )
 from ._interpolate import (
-    _resample_cupy,
     _resample_cupy_native,
     _resample_numpy,
     _validate_resampling,
@@ -67,6 +71,34 @@ _VERTICAL_DATUM_EPSG = {
     'EGM2008': 3855,      # EGM2008 height
     'ellipsoidal': 4979,  # WGS 84 (3D, ellipsoidal height)
 }
+
+# Sentinel marking the deprecated ``src_vertical_crs`` / ``tgt_vertical_crs``
+# kwargs as "not passed". Distinct from None so we can tell an explicit
+# ``src_vertical_crs=None`` apart from the default and only warn when the
+# caller actually used the old name.
+_DEPRECATED = object()
+
+
+def _resolve_deprecated_vertical_kwarg(old_name, old_val, new_name, new_val):
+    """Map a deprecated vertical-CRS kwarg onto its renamed replacement.
+
+    Emits a ``DeprecationWarning`` when the old name is used and rejects
+    passing both the old and new spellings at once.
+    """
+    if old_val is _DEPRECATED:
+        return new_val
+    import warnings
+    warnings.warn(
+        f"reproject(): {old_name!r} is deprecated, use {new_name!r} instead.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+    if new_val is not None:
+        raise TypeError(
+            f"reproject(): pass either {new_name!r} or the deprecated "
+            f"{old_name!r}, not both."
+        )
+    return old_val
 
 
 def _find_spatial_dims(raster):
@@ -240,8 +272,11 @@ def _transform_coords(transformer, chunk_bounds, chunk_shape,
     -------
     src_y, src_x : ndarray (height, width)
     """
-    # Try Numba fast path for common projections
-    if src_crs is not None and tgt_crs is not None:
+    # Try Numba fast path for common projections.
+    # transform_precision == 0 is the documented escape hatch for exact
+    # per-pixel pyproj transforms, so skip the approximate fast path then.
+    if (transform_precision != 0
+            and src_crs is not None and tgt_crs is not None):
         try:
             from ._projections import try_numba_transform
             result = try_numba_transform(
@@ -300,6 +335,7 @@ def _reproject_chunk_numpy(
     chunk_bounds_tuple, chunk_shape,
     resampling, nodata, transform_precision,
     source_x_desc=False,
+    band_nodata=None,
 ):
     """Reproject a single output chunk (numpy backend).
 
@@ -315,15 +351,17 @@ def _reproject_chunk_numpy(
     src_crs = _crs_from_wkt(src_wkt)
     tgt_crs = _crs_from_wkt(tgt_wkt)
 
-    # Try Numba fast path first (avoids creating pyproj Transformer)
+    # Try Numba fast path first (avoids creating pyproj Transformer).
+    # transform_precision == 0 forces the exact pyproj path, so skip Numba.
     numba_result = None
-    try:
-        from ._projections import try_numba_transform
-        numba_result = try_numba_transform(
-            src_crs, tgt_crs, chunk_bounds_tuple, chunk_shape,
-        )
-    except (ImportError, ModuleNotFoundError):
-        pass
+    if transform_precision != 0:
+        try:
+            from ._projections import try_numba_transform
+            numba_result = try_numba_transform(
+                src_crs, tgt_crs, chunk_bounds_tuple, chunk_shape,
+            )
+        except (ImportError, ModuleNotFoundError):
+            pass
 
     if numba_result is not None:
         src_y, src_x = numba_result
@@ -412,8 +450,12 @@ def _reproject_chunk_numpy(
         bands = []
         for b in range(n_bands):
             band_data = window[:, :, b].astype(np.float64)
-            if not np.isnan(nodata):
-                band_data[band_data == nodata] = np.nan
+            # Mask this band with its own source sentinel when the raster
+            # declares per-band nodata; otherwise fall back to the single
+            # resolved sentinel (#2647).
+            src_nd = band_nodata[b] if band_nodata is not None else nodata
+            if not np.isnan(src_nd):
+                band_data[band_data == src_nd] = np.nan
             band_result = _resample_numpy(band_data, local_row, local_col,
                                           resampling=resampling, nodata=nodata)
             if np.issubdtype(orig_dtype, np.integer):
@@ -446,6 +488,7 @@ def _reproject_chunk_cupy(
     chunk_bounds_tuple, chunk_shape,
     resampling, nodata, transform_precision,
     source_x_desc=False,
+    band_nodata=None,
 ):
     """CuPy variant of ``_reproject_chunk_numpy``.
 
@@ -466,9 +509,11 @@ def _reproject_chunk_cupy(
     else:
         _empty_shape = chunk_shape
 
-    # Try CUDA transform first (keeps coordinates on-device)
+    # Try CUDA transform first (keeps coordinates on-device).
+    # transform_precision == 0 forces the exact pyproj path, so skip CUDA.
     cuda_result = None
-    if src_crs is not None and tgt_crs is not None:
+    if (transform_precision != 0
+            and src_crs is not None and tgt_crs is not None):
         try:
             from ._projections_cuda import try_cuda_transform
             cuda_result = try_cuda_transform(
@@ -586,24 +631,29 @@ def _reproject_chunk_cupy(
         bands = []
         for b in range(n_bands):
             band_data = window[:, :, b].astype(cp.float64)
-            if _use_native_cuda:
-                # Native CUDA kernels do the nodata->NaN conversion
-                # internally; matching the 2-D path above.
-                band_result = _resample_cupy_native(
-                    band_data, local_row, local_col,
-                    resampling=resampling, nodata=nodata,
+            # Mask this band with its own source sentinel when the raster
+            # declares per-band nodata; otherwise fall back to the single
+            # resolved sentinel (#2647). Pre-converting to NaN here lets
+            # each band use a different source sentinel; the native kernel
+            # still fills out-of-bounds pixels with the resolved `nodata`.
+            src_nd = band_nodata[b] if band_nodata is not None else nodata
+            if not np.isnan(src_nd):
+                band_data = cp.where(
+                    band_data == src_nd, cp.nan, band_data,
                 )
-            else:
-                # CPU coords path needs explicit conversion before
-                # cupyx.scipy.ndimage.map_coordinates.
-                if not np.isnan(nodata):
-                    band_data = cp.where(
-                        band_data == nodata, cp.nan, band_data,
-                    )
-                band_result = _resample_cupy(
-                    band_data, local_row, local_col,
-                    resampling=resampling, nodata=nodata,
-                )
+            # Always resample through the native CUDA kernels so the cupy
+            # backend matches numpy exactly. They accept CPU coordinate
+            # arrays (transferring them to the GPU) and do the
+            # nodata->NaN conversion internally, so they serve both the
+            # on-device coordinate path and the pyproj fallback. Using
+            # cupyx.scipy.ndimage.map_coordinates here instead would
+            # diverge from numpy: it bleeds the cval=0.0 constant into the
+            # half-pixel boundary band rather than renormalizing, and its
+            # order=3 path is a B-spline rather than Catmull-Rom (#2620).
+            band_result = _resample_cupy_native(
+                band_data, local_row, local_col,
+                resampling=resampling, nodata=nodata,
+            )
             if np.issubdtype(orig_dtype, np.integer):
                 info = np.iinfo(orig_dtype)
                 band_result = cp.clip(
@@ -614,18 +664,14 @@ def _reproject_chunk_cupy(
 
     window = window.astype(cp.float64)
 
-    if _use_native_cuda:
-        # Coordinates are already CuPy arrays -- use native CUDA kernels
-        # (nodata->NaN conversion is handled inside _resample_cupy_native)
-        result = _resample_cupy_native(window, local_row, local_col,
-                                       resampling=resampling, nodata=nodata)
-    else:
-        # CPU coordinates -- convert sentinel nodata to NaN before map_coordinates
-        if not np.isnan(nodata):
-            window[window == nodata] = cp.nan
-
-        result = _resample_cupy(window, local_row, local_col,
-                                resampling=resampling, nodata=nodata)
+    # Always resample through the native CUDA kernels for numpy parity.
+    # local_row/local_col may be CuPy (on-device transform) or numpy
+    # (pyproj fallback); _resample_cupy_native handles both and does the
+    # nodata->NaN conversion internally. The previous
+    # cupyx.scipy.ndimage.map_coordinates fallback diverged from numpy at
+    # chunk edges and for cubic resampling (#2620).
+    result = _resample_cupy_native(window, local_row, local_col,
+                                   resampling=resampling, nodata=nodata)
 
     # Clamp and cast back for integer source dtypes (parity with numpy path)
     if np.issubdtype(orig_dtype, np.integer):
@@ -653,9 +699,11 @@ def reproject(
     chunk_size=None,
     name=None,
     max_memory=None,
-    src_vertical_crs=None,
-    tgt_vertical_crs=None,
+    source_vertical_crs=None,
+    target_vertical_crs=None,
     bounds_policy="auto",
+    src_vertical_crs=_DEPRECATED,
+    tgt_vertical_crs=_DEPRECATED,
 ):
     """Reproject a raster DataArray to a new coordinate reference system.
 
@@ -702,16 +750,22 @@ def reproject(
         ``'512MB'``.  Controls how many output tiles are processed
         in parallel for large-dataset streaming mode.  Default None
         uses 1GB.  Has no effect for small datasets that fit in memory.
-    src_vertical_crs : str or None
+    source_vertical_crs : str or None
         Source vertical datum for height values. One of:
 
         - ``'EGM96'`` -- orthometric heights relative to EGM96 geoid (MSL)
         - ``'EGM2008'`` -- orthometric heights relative to EGM2008 geoid
         - ``'ellipsoidal'`` -- heights relative to the WGS84 ellipsoid
         - ``None`` -- no vertical transformation (default)
-    tgt_vertical_crs : str or None
-        Target vertical datum. Same options as *src_vertical_crs*.
+    target_vertical_crs : str or None
+        Target vertical datum. Same options as *source_vertical_crs*.
         Both must be set to trigger a vertical transformation.
+    src_vertical_crs : str or None
+        Deprecated alias for *source_vertical_crs*. Passing it emits a
+        ``DeprecationWarning``.
+    tgt_vertical_crs : str or None
+        Deprecated alias for *target_vertical_crs*. Passing it emits a
+        ``DeprecationWarning``.
     bounds_policy : {"auto", "raw", "clamp", "percentile"}, default "auto"
         How to derive the output extent from the source extent when
         ``bounds`` is not supplied. Only relevant when projecting near a
@@ -745,13 +799,13 @@ def reproject(
     -------
     xr.DataArray
         The output ``attrs['crs']`` is in WKT format.
-        Whenever *tgt_vertical_crs* is set, ``attrs['vertical_crs']``
+        Whenever *target_vertical_crs* is set, ``attrs['vertical_crs']``
         records the target vertical datum's EPSG code (5773 for EGM96,
         3855 for EGM2008, 4979 for ellipsoidal WGS84) to match the
         convention used by ``xrspatial.geotiff``. The friendly string
         token (``'EGM96'`` etc.) is preserved under ``attrs['vertical_datum']``.
         Both attrs are written even when no shift is applied (e.g. when
-        *src_vertical_crs* equals *tgt_vertical_crs*, or when only the
+        *source_vertical_crs* equals *target_vertical_crs*, or when only the
         target is given), so the output's vertical reference is always
         explicit.
 
@@ -786,6 +840,16 @@ def reproject(
     >>> result.attrs['crs'].startswith(('PROJCRS', 'PROJCS'))
     True
     """
+    # Back-compat shim for the old abbreviated kwarg names. These were
+    # renamed to source_vertical_crs / target_vertical_crs to match the
+    # source_crs / target_crs spelling used by the rest of the signature.
+    source_vertical_crs = _resolve_deprecated_vertical_kwarg(
+        'src_vertical_crs', src_vertical_crs,
+        'source_vertical_crs', source_vertical_crs)
+    target_vertical_crs = _resolve_deprecated_vertical_kwarg(
+        'tgt_vertical_crs', tgt_vertical_crs,
+        'target_vertical_crs', target_vertical_crs)
+
     _validate_raster(raster, func_name='reproject', name='raster',
                      ndim=(2, 3))
 
@@ -812,8 +876,8 @@ def reproject(
 
     # Reject unknown vertical-datum tokens at the API boundary so we never
     # write None into attrs['vertical_crs'] for typos / unsupported values.
-    for _name, _val in (('src_vertical_crs', src_vertical_crs),
-                        ('tgt_vertical_crs', tgt_vertical_crs)):
+    for _name, _val in (('source_vertical_crs', source_vertical_crs),
+                        ('target_vertical_crs', target_vertical_crs)):
         if _val is not None and _val not in _VERTICAL_DATUM_EPSG:
             raise ValueError(
                 f"Unknown {_name}={_val!r}; expected one of "
@@ -854,6 +918,16 @@ def reproject(
     # cast-back step would collapse NaN to 0 and `attrs['nodata']`
     # would contradict the array contents (#2185).
     nd = _detect_nodata(raster, nodata, dtype=raster.dtype)
+
+    # Multi-band rasters can declare a distinct source sentinel per band
+    # via the rasterio `nodatavals` tuple. `nd` is the single resolved
+    # output sentinel; `band_nd` carries the raw per-band source sentinels
+    # so each band is masked with its own value before resampling (#2647).
+    # `None` means one scalar covers every band -- the workers use `nd`.
+    # The raster is in canonical (y, x, band) layout here, so the band
+    # axis is trailing.
+    _n_bands = raster.shape[2] if raster.ndim == 3 else None
+    band_nd = _detect_band_nodata(raster, nodata, _n_bands)
 
     # Source geometry
     src_bounds = _source_bounds(raster)
@@ -933,6 +1007,7 @@ def reproject(
             chunk_size or 2048,
             _parse_max_memory(max_memory),
             x_desc=x_desc,
+            band_nodata=band_nd,
         )
     elif is_dask and is_cupy:
         result_data = _reproject_dask_cupy(
@@ -942,6 +1017,7 @@ def reproject(
             resampling, nd, transform_precision,
             chunk_size,
             x_desc=x_desc,
+            band_nodata=band_nd,
         )
     elif is_dask:
         result_data = _reproject_dask(
@@ -951,6 +1027,7 @@ def reproject(
             resampling, nd, transform_precision,
             chunk_size, False,
             x_desc=x_desc,
+            band_nodata=band_nd,
         )
     elif is_cupy:
         result_data = _reproject_inmemory_cupy(
@@ -959,6 +1036,7 @@ def reproject(
             out_bounds, out_shape,
             resampling, nd, transform_precision,
             x_desc=x_desc,
+            band_nodata=band_nd,
         )
     else:
         result_data = _reproject_inmemory_numpy(
@@ -967,14 +1045,15 @@ def reproject(
             out_bounds, out_shape,
             resampling, nd, transform_precision,
             x_desc=x_desc,
+            band_nodata=band_nd,
         )
 
     # Vertical datum transformation (if requested)
-    if src_vertical_crs is not None and tgt_vertical_crs is not None:
-        if src_vertical_crs != tgt_vertical_crs:
+    if source_vertical_crs is not None and target_vertical_crs is not None:
+        if source_vertical_crs != target_vertical_crs:
             result_data, nd = _apply_vertical_shift(
                 result_data, y_coords, x_coords,
-                src_vertical_crs, tgt_vertical_crs, nd,
+                source_vertical_crs, target_vertical_crs, nd,
                 tgt_crs_wkt=tgt_wkt,
             )
 
@@ -1009,13 +1088,13 @@ def reproject(
         except TypeError:
             n_entries = 1
         out_attrs['nodatavals'] = tuple(nd for _ in range(n_entries))
-    if tgt_vertical_crs is not None:
+    if target_vertical_crs is not None:
         # Align with xrspatial.geotiff: attrs['vertical_crs'] holds the
         # EPSG integer code. The friendly string token is preserved under
         # attrs['vertical_datum'] so the human-readable name is not lost.
         # See GH issue #1570.
-        out_attrs['vertical_crs'] = _VERTICAL_DATUM_EPSG.get(tgt_vertical_crs)
-        out_attrs['vertical_datum'] = tgt_vertical_crs
+        out_attrs['vertical_crs'] = _VERTICAL_DATUM_EPSG.get(target_vertical_crs)
+        out_attrs['vertical_datum'] = target_vertical_crs
 
     # Handle multi-band output (3D result from multi-band source)
     if result_data.ndim == 3:
@@ -1352,6 +1431,7 @@ def _reproject_inmemory_numpy(
     out_bounds, out_shape,
     resampling, nodata, precision,
     x_desc=False,
+    band_nodata=None,
 ):
     """Single-chunk numpy reproject."""
     return _reproject_chunk_numpy(
@@ -1361,6 +1441,7 @@ def _reproject_inmemory_numpy(
         out_bounds, out_shape,
         resampling, nodata, precision,
         source_x_desc=x_desc,
+        band_nodata=band_nodata,
     )
 
 
@@ -1370,6 +1451,7 @@ def _reproject_inmemory_cupy(
     out_bounds, out_shape,
     resampling, nodata, precision,
     x_desc=False,
+    band_nodata=None,
 ):
     """Single-chunk cupy reproject."""
     return _reproject_chunk_cupy(
@@ -1379,6 +1461,7 @@ def _reproject_inmemory_cupy(
         out_bounds, out_shape,
         resampling, nodata, precision,
         source_x_desc=x_desc,
+        band_nodata=band_nodata,
     )
 
 
@@ -1397,7 +1480,8 @@ def _parse_max_memory(max_memory):
 
 def _process_tile_batch(batch, source_data, src_bounds, src_shape, y_desc,
                         src_wkt, tgt_wkt, resampling, nodata, precision,
-                        max_memory_bytes, tile_mem, x_desc=False):
+                        max_memory_bytes, tile_mem, x_desc=False,
+                        band_nodata=None):
     """Process a batch of tiles within a single worker.
 
     Uses ThreadPoolExecutor for intra-worker parallelism (Numba
@@ -1416,6 +1500,7 @@ def _process_tile_batch(batch, source_data, src_bounds, src_shape, y_desc,
             cb, (rchunk, cchunk),
             resampling, nodata, precision,
             source_x_desc=x_desc,
+            band_nodata=band_nodata,
         )
 
     results = []
@@ -1448,6 +1533,7 @@ def _reproject_streaming(
     resampling, nodata, precision,
     tile_size, max_memory_bytes,
     x_desc=False,
+    band_nodata=None,
 ):
     """Streaming reproject for datasets too large for dask's graph.
 
@@ -1513,6 +1599,7 @@ def _reproject_streaming(
             resampling=resampling, nodata=nodata, precision=precision,
             max_memory_bytes=max_memory_bytes, tile_mem=tile_mem,
             x_desc=x_desc,
+            band_nodata=band_nodata,
         )
 
         # Compute all partitions and assemble result
@@ -1531,6 +1618,7 @@ def _reproject_streaming(
         resampling, nodata, precision,
         max_memory_bytes, tile_mem,
         x_desc=x_desc,
+        band_nodata=band_nodata,
     )
     for ro, co, tile in batch_results:
         result[ro:ro + tile.shape[0], co:co + tile.shape[1]] = tile
@@ -1545,6 +1633,7 @@ def _reproject_dask_cupy(
     resampling, nodata, precision,
     chunk_size,
     x_desc=False,
+    band_nodata=None,
 ):
     """Dask+CuPy backend: process output chunks on GPU.
 
@@ -1589,6 +1678,7 @@ def _reproject_dask_cupy(
             resampling, nodata, precision,
             chunk_size or 2048, True,  # is_cupy=True
             x_desc=x_desc,
+            band_nodata=band_nodata,
         )
 
     # Memory check: if the full output doesn't fit in GPU memory,
@@ -1614,6 +1704,7 @@ def _reproject_dask_cupy(
             resampling, nodata, precision,
             chunk_size or 2048, True,  # is_cupy=True
             x_desc=x_desc,
+            band_nodata=band_nodata,
         )
 
     # Match the dask+numpy and chunked dask+cupy paths: integer sources
@@ -1640,14 +1731,17 @@ def _reproject_dask_cupy(
             )
             chunk_shape = (rchunk, cchunk)
 
-            # CUDA coordinate transform (reuses cached CRS objects)
-            try:
-                from ._projections_cuda import try_cuda_transform
-                cuda_coords = try_cuda_transform(
-                    src_crs, tgt_crs, cb, chunk_shape,
-                )
-            except (ImportError, ModuleNotFoundError):
-                cuda_coords = None
+            # CUDA coordinate transform (reuses cached CRS objects).
+            # precision == 0 forces the exact pyproj path, so skip CUDA.
+            cuda_coords = None
+            if precision != 0:
+                try:
+                    from ._projections_cuda import try_cuda_transform
+                    cuda_coords = try_cuda_transform(
+                        src_crs, tgt_crs, cb, chunk_shape,
+                    )
+                except (ImportError, ModuleNotFoundError):
+                    cuda_coords = None
 
             if cuda_coords is not None:
                 src_y, src_x = cuda_coords
@@ -1742,16 +1836,15 @@ def _reproject_dask_cupy(
             local_row = src_row_px - r_min_clip
             local_col = src_col_px - c_min_clip
 
-            if cuda_coords is not None:
-                chunk_data = _resample_cupy_native(
-                    window, local_row, local_col,
-                    resampling=resampling, nodata=nodata,
-                )
-            else:
-                chunk_data = _resample_cupy(
-                    window, local_row, local_col,
-                    resampling=resampling, nodata=nodata,
-                )
+            # Always use the native CUDA kernels (numpy parity). The
+            # cupyx.scipy.ndimage.map_coordinates fallback diverged from
+            # numpy at chunk edges and for cubic resampling (#2620).
+            # local_row/local_col may be numpy here (pyproj fallback);
+            # _resample_cupy_native transfers them to the GPU.
+            chunk_data = _resample_cupy_native(
+                window, local_row, local_col,
+                resampling=resampling, nodata=nodata,
+            )
 
             # Clamp + cast back for integer source dtypes so this fast
             # path returns the same dtype as the other backends (#2505).
@@ -1768,6 +1861,25 @@ def _reproject_dask_cupy(
         row_offset += rchunk
 
     return result
+
+
+def _finite_pair_bbox(tx, ty):
+    """Bounding box of (tx, ty) pairs where both coordinates are finite.
+
+    The x and y coordinates must be filtered together: a transform can
+    send some probe points to NaN/inf, and dropping finite x and finite
+    y independently would mix coordinates from different points into one
+    box. Returns ``(left, bottom, right, top)`` or ``None`` when no pair
+    is finite in both coordinates.
+    """
+    tx = np.asarray(tx, dtype=np.float64)
+    ty = np.asarray(ty, dtype=np.float64)
+    mask = np.isfinite(tx) & np.isfinite(ty)
+    if not mask.any():
+        return None
+    tx = tx[mask]
+    ty = ty[mask]
+    return (float(tx.min()), float(ty.min()), float(tx.max()), float(ty.max()))
 
 
 def _source_footprint_in_target(src_bounds, src_wkt, tgt_wkt):
@@ -1796,11 +1908,7 @@ def _source_footprint_in_target(src_bounds, src_wkt, tgt_wkt):
         result = transform_points(src_crs, tgt_crs, xs, ys)
         if result is not None:
             tx, ty = result
-            tx = [v for v in tx if np.isfinite(v)]
-            ty = [v for v in ty if np.isfinite(v)]
-            if not tx or not ty:
-                return None
-            return (min(tx), min(ty), max(tx), max(ty))
+            return _finite_pair_bbox(tx, ty)
     except (ImportError, ModuleNotFoundError):
         pass
 
@@ -1809,11 +1917,7 @@ def _source_footprint_in_target(src_bounds, src_wkt, tgt_wkt):
         pyproj = _require_pyproj()
         transformer = pyproj.Transformer.from_crs(src_crs, tgt_crs, always_xy=True)
         tx, ty = transformer.transform(xs.tolist(), ys.tolist())
-        tx = [v for v in tx if np.isfinite(v)]
-        ty = [v for v in ty if np.isfinite(v)]
-        if not tx or not ty:
-            return None
-        return (min(tx), min(ty), max(tx), max(ty))
+        return _finite_pair_bbox(tx, ty)
     except Exception:
         return None
 
@@ -1831,6 +1935,7 @@ def _reproject_block_adapter(
     resampling, nodata, precision,
     is_cupy, src_footprint_tgt, n_bands=None,
     x_desc=False,
+    band_nodata=None,
 ):
     """``map_blocks`` adapter for reprojection.
 
@@ -1870,6 +1975,7 @@ def _reproject_block_adapter(
         cb, chunk_shape,
         resampling, nodata, precision,
         source_x_desc=x_desc,
+        band_nodata=band_nodata,
     )
 
 
@@ -1880,6 +1986,7 @@ def _reproject_dask(
     resampling, nodata, precision,
     chunk_size, is_cupy,
     x_desc=False,
+    band_nodata=None,
 ):
     """Dask+NumPy backend: ``map_blocks`` over a template array.
 
@@ -1935,6 +2042,7 @@ def _reproject_dask(
         src_footprint_tgt=src_footprint_tgt,
         n_bands=n_bands,
         x_desc=x_desc,
+        band_nodata=band_nodata,
     )
 
     # Pick the template dtype to match the eager path: integer sources

@@ -35,9 +35,9 @@ except ImportError:
         ndarray = False
 
 # local modules
-from xrspatial.utils import (ArrayTypeFunctionMapping, _validate_raster, cuda_args,
-                             has_cuda_and_cupy, has_dask_array, is_cupy_array, is_dask_cupy, ngjit,
-                             validate_arrays)
+from xrspatial.utils import (ArrayTypeFunctionMapping, _classify_backend, _validate_raster,
+                             cuda_args, has_cuda_and_cupy, has_dask_array, is_cupy_array,
+                             is_dask_cupy, ngjit, validate_arrays)
 
 TOTAL_COUNT = '_total_count'
 
@@ -223,11 +223,23 @@ def _nanreduce_preserve_allnan(blocks, func):
     return result
 
 
+def _count_reduce(blocks):
+    """Sum per-block counts. An empty zone (NaN in every block) totals 0.
+
+    Unlike the other reducers, count does not preserve all-NaN as NaN: an
+    empty zone has zero valid cells, so its count is 0, not undefined.
+    """
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', RuntimeWarning)
+        return np.nansum(blocks, axis=0)
+
+
 _DASK_STATS = dict(
     max=lambda blocks: _nanreduce_preserve_allnan(blocks, np.nanmax),
     min=lambda blocks: _nanreduce_preserve_allnan(blocks, np.nanmin),
     sum=lambda blocks: _nanreduce_preserve_allnan(blocks, np.nansum),
-    count=lambda blocks: _nanreduce_preserve_allnan(blocks, np.nansum),
+    count=_count_reduce,
     sum_squares=lambda blocks: _nanreduce_preserve_allnan(blocks, np.nansum),
 )
 
@@ -284,7 +296,7 @@ def _parallel_variance(block_counts, block_sums, block_m2s):
 def _strides(flatten_zones, unique_zones):
     num_elements = flatten_zones.shape[0]
     num_zones = len(unique_zones)
-    strides = np.zeros(len(unique_zones), dtype=np.int32)
+    strides = np.zeros(len(unique_zones), dtype=np.int64)
 
     count = 0
     for i in range(num_zones):
@@ -319,6 +331,13 @@ def _sort_and_stride(zones, values, unique_zones):
     return sorted_indices, values_by_zones, zone_breaks
 
 
+def _empty_zone_value(stat_name: str) -> float:
+    # 'count' is a cardinality: an empty zone has zero valid cells, so its
+    # count is 0. Every other built-in stat (and any custom callable) is
+    # undefined over no values, so it stays NaN.
+    return 0.0 if stat_name == 'count' else np.nan
+
+
 def _calc_stats(
     values_by_zones: np.array,
     zone_breaks: np.array,
@@ -326,9 +345,14 @@ def _calc_stats(
     zone_ids: np.array,
     func: Callable,
     nodata_values: Union[int, float] = None,
+    empty_zone_value: float = np.nan,
 ):
+    # An "empty" zone exists in the zones raster but has no valid values
+    # (all NaN, or all equal to nodata_values). Most stats leave NaN there
+    # (empty_zone_value defaults to NaN), but count passes 0 because the
+    # count of no values is a cardinality of zero, not undefined.
     start = 0
-    results = np.full(unique_zones.shape, np.nan)
+    results = np.full(unique_zones.shape, empty_zone_value, dtype=np.float64)
     for i in range(len(unique_zones)):
         end = zone_breaks[i]
         if unique_zones[i] in zone_ids:
@@ -505,7 +529,8 @@ def _stats_numpy(
             func = stats_funcs.get(stats)
             stats_dict[stats] = _calc_stats(
                 values_by_zones, zone_breaks,
-                unique_zones, zone_ids, func, nodata_values
+                unique_zones, zone_ids, func, nodata_values,
+                empty_zone_value=_empty_zone_value(stats),
             )
             stats_dict[stats] = stats_dict[stats][selected_indexes]
         result = pd.DataFrame(stats_dict)
@@ -519,7 +544,8 @@ def _stats_numpy(
             func = stats_funcs.get(stats)
             stats_results = _calc_stats(
                 values_by_zones, zone_breaks,
-                unique_zones, zone_ids, func, nodata_values
+                unique_zones, zone_ids, func, nodata_values,
+                empty_zone_value=_empty_zone_value(stats),
             )
             for zone in zone_ids:
                 iz = zone_ids_map[zone]  # position of zone in unique_zones
@@ -604,7 +630,8 @@ def _stats_cupy(
 
         # extract zone_values, then filter per-zone for non-finite values
         # and the nodata sentinel. If the zone has no valid values left,
-        # emit NaN for every stat instead of dropping the zone.
+        # emit the empty-zone value for every stat instead of dropping the
+        # zone: 0 for count (a cardinality), NaN for everything else.
         zone_values = values_by_zone[unique_index[i]:unique_index[i]+unique_counts[i]]
         zone_mask = cupy.isfinite(zone_values)
         if nodata_values is not None:
@@ -613,7 +640,7 @@ def _stats_cupy(
 
         if zone_values.size == 0:
             for stats in stats_funcs:
-                stats_dict[stats].append(float('nan'))
+                stats_dict[stats].append(_empty_zone_value(stats))
             continue
 
         # apply stats on the zone data
@@ -628,7 +655,6 @@ def _stats_cupy(
             stats_dict[stats].append(cupy.float_(result))
 
     stats_df = pd.DataFrame(stats_dict)
-    stats_df.set_index("zone")
     return stats_df
 
 
@@ -740,6 +766,17 @@ def stats(
     rasterize_kw : dict, optional
         Extra keyword arguments forwarded to ``rasterize()`` when
         *zones* is vector input (e.g. ``{'all_touched': True}``).
+
+    Notes
+    -----
+    Empty zones. A zone that exists in ``zones`` but has no valid values
+    (every cell is NaN, or every cell equals ``nodata_values``) still
+    appears as a row in the output. For such a zone, ``count`` is ``0``
+    because the number of valid cells is zero. Every other statistic
+    (``mean``, ``min``, ``max``, ``sum``, ``std``, ``var``, ``majority``,
+    and any custom callable) is ``NaN``, since those values are undefined
+    over an empty set. This holds across the numpy, cupy, and dask
+    backends.
 
     Returns
     -------
@@ -857,6 +894,11 @@ def stats(
         if return_type != 'pandas.DataFrame':
             raise ValueError(
                 "return_type must be 'pandas.DataFrame' when values is a Dataset"
+            )
+        if len(values.data_vars) == 0:
+            raise ValueError(
+                "values Dataset has no data variables to compute statistics "
+                "over. Pass a Dataset with at least one data variable."
             )
         dfs = []
         for var_name in values.data_vars:
@@ -1308,8 +1350,9 @@ def crosstab(
         List of categories to be included in calculation.
         If no cat_ids provided, all categories will be used.
 
-    layer: int, default=0
-        index of the categorical dimension layer inside the `values` DataArray.
+    layer: int, optional, default=None
+        Index of the categorical dimension layer inside the `values`
+        DataArray. When left as ``None``, layer 0 is used.
 
     agg: str, default = 'count'
         Aggregation method.
@@ -1413,6 +1456,21 @@ def crosstab(
     # (e.g., xarray Datasets via to_array().sel())
     if values.ndim == 2:
         validate_arrays(zones, values)
+    else:
+        # 3D values: validate_arrays() requires equal shapes, so it cannot be
+        # used here (zones is 2D, values is 3D). Check backend compatibility up
+        # front instead, otherwise a mixed-backend call (e.g. numpy zones with
+        # dask values) fails deep inside the dask/numba machinery with an
+        # opaque error like "'NoneType' object is not subscriptable".
+        zones_backend = _classify_backend(zones)
+        values_backend = _classify_backend(values)
+        if zones_backend != values_backend:
+            raise ValueError(
+                "`zones` and `values` must share the same backend; got "
+                "'{}' (zones) and '{}' (values)".format(
+                    zones_backend, values_backend
+                )
+            )
 
     agg_2d = ["percentage", "count"]
     agg_3d_numpy = _DEFAULT_STATS.keys()
@@ -1648,12 +1706,12 @@ def _hi_dask_cupy(zones_data, values_data, nodata):
 
 def hypsometric_integral(
     zones,
-    values,
-    nodata=0,
-    column=None,
-    rasterize_kw=None,
-    name='hypsometric_integral',
-):
+    values: xr.DataArray,
+    nodata: Optional[int] = 0,
+    column: Optional[str] = None,
+    rasterize_kw: Optional[dict] = None,
+    name: str = 'hypsometric_integral',
+) -> xr.DataArray:
     """Hypsometric integral (HI) per zone, painted back to a raster.
 
     HI measures geomorphic maturity: ``(mean - min) / (max - min)``
@@ -1842,7 +1900,8 @@ def apply(
     nodata: Optional[int] = 0,
     column: Optional[str] = None,
     rasterize_kw: Optional[dict] = None,
-):
+    name: Optional[str] = None,
+) -> xr.DataArray:
     """
     Apply a function to the `values` agg within zones in `zones` agg.
     Returns a new DataArray with the function applied.
@@ -1881,6 +1940,11 @@ def apply(
     rasterize_kw : dict, optional
         Extra keyword arguments forwarded to ``rasterize()`` when
         *zones* is vector input.
+
+    name : str, optional
+        Output ``xr.DataArray.name`` property.  Defaults to ``None``,
+        which is the same across every backend (without it the dask
+        backends inherit an internal task name instead).
 
     Returns
     -------
@@ -1921,6 +1985,21 @@ def apply(
     # align chunks for 2D values
     if values.ndim == 2:
         validate_arrays(zones, values)
+    else:
+        # 3D values: validate_arrays can't be used because it requires equal
+        # full shapes (a 2D zones never equals a 3D values). Check backend
+        # compatibility directly so mixed dask/numpy inputs fail here with a
+        # clear error instead of crashing in the dask backend with an
+        # AttributeError or silently returning eager numpy output.
+        zones_backend = _classify_backend(zones)
+        values_backend = _classify_backend(values)
+        if zones_backend != values_backend:
+            # Wording mirrors validate_arrays() in utils.py so the two stay
+            # greppable together; the labels replace its "array 0"/"array N".
+            raise ValueError(
+                "input arrays must share the same backend; got "
+                f"'{zones_backend}' (zones) and '{values_backend}' (values)"
+            )
 
     mapper = ArrayTypeFunctionMapping(
         numpy_func=_apply_numpy,
@@ -1930,9 +2009,16 @@ def apply(
     )
     out = mapper(values)(zones.data, values.data, func, nodata)
 
-    return xr.DataArray(
+    result = xr.DataArray(
         out, dims=values.dims, coords=values.coords, attrs=values.attrs,
     )
+    # Assign .name after construction. When `out` is a dask array,
+    # xr.DataArray(..., name=None) inherits the dask graph's task name,
+    # so the result name would differ from the numpy/cupy backends and
+    # change between runs. Setting it here forces a deterministic name
+    # (None by default) across all four backends. See issue #2611.
+    result.name = name
+    return result
 
 
 def get_full_extent(crs):
@@ -2798,6 +2884,9 @@ def crop(
     Notes
     -----
         - This operation will change the output size of the raster.
+        - ``zones`` and ``values`` must have the same shape and backend;
+          otherwise a ``ValueError`` is raised (consistent with
+          :func:`stats` and :func:`crosstab`).
         - If none of the requested ``zone_ids`` are present in ``zones``, the
           returned DataArray has shape ``(0, 0)``. This behaviour is the same
           across all backends (numpy, cupy, dask+numpy, dask+cupy).
@@ -2922,6 +3011,11 @@ def crop(
 
     _validate_raster(zones, func_name='crop', name='zones', ndim=2)
     _validate_raster(values, func_name='crop', name='values', ndim=2)
+
+    # Guard against mismatched shapes / backends, consistent with stats()
+    # and crosstab().  Without this, a zones/values shape mismatch silently
+    # produces a nonsense crop instead of raising (GH #2638).
+    validate_arrays(zones, values)
 
     data = zones.data
     if has_dask_array() and isinstance(data, da.Array):

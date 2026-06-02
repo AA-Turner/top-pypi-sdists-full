@@ -32,6 +32,7 @@ from typing import Any, Iterable, List, Optional, Sequence, Tuple, Union
 
 from .qsim_python import Circuit as _RustCircuit
 from .qsim_python import NoiseChannel as _NoiseChannel
+from .qsim_python import NoiseChannel2 as _NoiseChannel2
 
 QubitSpec = Union[str, Sequence[int], Sequence[Tuple[int, ...]]]
 GateSpec = Union[str, Sequence[str]]
@@ -60,6 +61,8 @@ class NoiseModel:
         # gate_filter: None 이면 모든 게이트, 그 외 set[str].
         # qubit_filter: None ("all"), List[int], 또는 List[Tuple[int, ...]].
         self._rules: List[Tuple[_NoiseChannel, Optional[set], Any]] = []
+        # 2-큐비트 상관 노이즈 규칙: (channel2, gate_filter, qubit_pairs).
+        self._rules_2q: List[Tuple[Any, Optional[set], List[Tuple[int, int]]]] = []
 
     # ------------------------------------------------------------------
     # Fluent builders
@@ -105,6 +108,161 @@ class NoiseModel:
         """Amplitude-damping 채널 추가 (T1 모델, γ ∈ [0, 1])."""
         return self._add(_NoiseChannel.amplitude_damping(gamma), gates, qubits)
 
+    def add_phase_damping(
+        self,
+        gamma: float,
+        *,
+        gates: Optional[GateSpec] = None,
+        qubits: QubitSpec = "all",
+    ) -> "NoiseModel":
+        """Phase-damping 채널 추가 (T2 위상 디코히어런스, γ ∈ [0, 1]).
+
+        Off-diagonal coherence (⟨X⟩, ⟨Y⟩) 를 √(1-γ) 배 감쇠시키되 population
+        (⟨Z⟩) 은 보존한다.
+        """
+        return self._add(_NoiseChannel.phase_damping(gamma), gates, qubits)
+
+    def add_generalized_amplitude_damping(
+        self,
+        gamma: float,
+        p: float,
+        *,
+        gates: Optional[GateSpec] = None,
+        qubits: QubitSpec = "all",
+    ) -> "NoiseModel":
+        """Generalized amplitude-damping 채널 추가 (유한 온도 T1).
+
+        γ = damping rate, p = 평형 population (p=1 → 0온도 amplitude damping).
+        γ, p ∈ [0, 1].
+        """
+        return self._add(
+            _NoiseChannel.generalized_amplitude_damping(gamma, p), gates, qubits
+        )
+
+    def add_pauli_channel(
+        self,
+        p_x: float,
+        p_y: float,
+        p_z: float,
+        *,
+        gates: Optional[GateSpec] = None,
+        qubits: QubitSpec = "all",
+    ) -> "NoiseModel":
+        """일반 단일 큐비트 Pauli 채널 추가 (v0.7.1).
+
+        확률 ``p_x`` / ``p_y`` / ``p_z`` 로 X / Y / Z 를, 나머지 확률
+        ``1 - p_x - p_y - p_z`` 로 I 를 적용한다 (Qiskit ``pauli_error`` 의
+        단일 큐비트 버전).  depolarizing 은 ``p_x=p_y=p_z=p/4`` 의 특수 경우.
+
+        Args:
+            p_x, p_y, p_z: 각 Pauli 확률.  ``0 ≤ pᵢ`` 이고 ``p_x+p_y+p_z ≤ 1``.
+
+        Raises:
+            ValueError: 확률이 음수이거나 합이 1 을 초과할 때.
+        """
+        import math as _math
+
+        if p_x < 0 or p_y < 0 or p_z < 0:
+            raise ValueError(f"add_pauli_channel: 확률은 음수일 수 없습니다 ({p_x}, {p_y}, {p_z})")
+        p_i = 1.0 - p_x - p_y - p_z
+        if p_i < -1e-12:
+            raise ValueError(
+                f"add_pauli_channel: p_x+p_y+p_z={p_x + p_y + p_z} 가 1 을 초과합니다"
+            )
+        p_i = max(p_i, 0.0)
+        si, sx, sy, sz = (_math.sqrt(p) for p in (p_i, p_x, p_y, p_z))
+        kraus = [
+            [[si, 0], [0, si]],  # √p_i I
+            [[0, sx], [sx, 0]],  # √p_x X
+            [[0, -1j * sy], [1j * sy, 0]],  # √p_y Y
+            [[sz, 0], [0, -sz]],  # √p_z Z
+        ]
+        return self.add_custom_kraus(kraus, gates=gates, qubits=qubits)
+
+    def add_custom_kraus(
+        self,
+        kraus_ops,
+        *,
+        gates: Optional[GateSpec] = None,
+        qubits: QubitSpec = "all",
+    ) -> "NoiseModel":
+        """사용자 정의 단일 큐비트 Kraus 채널 추가 (v0.7.1).
+
+        임의의 2×2 Kraus 연산자 집합 ``{K_i}`` 로 노이즈를 정의한다.
+        **trace-preserving** (``Σ K_i† K_i = I``, 1e-9 허용오차) 이어야 하며
+        위반 시 ``ValueError``.  statevector / density 백엔드 + MPS trajectory
+        에서 동작한다.
+
+        Args:
+            kraus_ops: 2×2 복소 행렬의 시퀀스.  각 행렬은 ``numpy.ndarray``
+                (shape ``(2, 2)``) 또는 중첩 리스트.  예) amplitude damping 은
+                ``[[[1, 0], [0, √(1-γ)]], [[0, √γ], [0, 0]]]``.
+            gates: 적용 대상 게이트 필터 (``None`` = 모든 게이트).
+            qubits: 적용 대상 큐비트 필터 (``"all"`` 기본).
+
+        Returns:
+            ``self`` (fluent chaining).
+        """
+        import numpy as np
+
+        ops_tuples = []
+        for k in kraus_ops:
+            arr = np.asarray(k, dtype=np.complex128)
+            if arr.shape != (2, 2):
+                raise ValueError(
+                    f"add_custom_kraus: 각 Kraus 연산자는 2×2 여야 합니다 (shape={arr.shape})"
+                )
+            ops_tuples.append(
+                [[(float(arr[i, j].real), float(arr[i, j].imag)) for j in range(2)] for i in range(2)]
+            )
+        return self._add(_NoiseChannel.custom(ops_tuples), gates, qubits)
+
+    def add_custom_kraus_2q(
+        self,
+        kraus_ops,
+        qubit_pairs,
+        *,
+        gates: Optional[GateSpec] = None,
+    ) -> "NoiseModel":
+        """사용자 정의 2-큐비트 (상관) Kraus 채널 추가 (v0.7.2).
+
+        crosstalk / 상관 디코히어런스 등 2-큐비트 상관 노이즈를 임의의 4×4 Kraus
+        연산자 집합 ``{K_i}`` 로 정의한다.  trace-preserving (``Σ K_i† K_i = I₄``,
+        1e-9) 검증.  지정한 큐비트 쌍에 매칭 게이트 직후 적용된다.  statevector /
+        density / MPS (CPU) 백엔드 지원 (GPU 백엔드 미지원).
+
+        Args:
+            kraus_ops: 4×4 복소 행렬 시퀀스 (``numpy.ndarray`` (4,4) 또는 중첩
+                리스트).  큐비트 인덱스 컨벤션: 행/열 비트 ``2·q1 + q0`` (q0=LSB,
+                ``qubit_pairs`` 의 첫 원소가 q0).
+            qubit_pairs: 적용할 ``(q0, q1)`` 쌍 또는 쌍들의 리스트.
+            gates: 적용 대상 게이트 필터 (``None`` = 모든 사용자 게이트).
+
+        Returns:
+            ``self`` (fluent chaining).
+        """
+        import numpy as np
+
+        ops_tuples = []
+        for k in kraus_ops:
+            arr = np.asarray(k, dtype=np.complex128)
+            if arr.shape != (4, 4):
+                raise ValueError(
+                    f"add_custom_kraus_2q: 각 Kraus 연산자는 4×4 여야 합니다 (shape={arr.shape})"
+                )
+            ops_tuples.append(
+                [[(float(arr[i, j].real), float(arr[i, j].imag)) for j in range(4)] for i in range(4)]
+            )
+        channel2 = _NoiseChannel2.custom(ops_tuples)
+        # qubit_pairs 정규화: 단일 (q0,q1) 또는 [(..),(..)].
+        pairs = list(qubit_pairs)
+        if pairs and isinstance(pairs[0], (int, np.integer)):
+            pairs = [tuple(pairs)]
+        norm_pairs = [(int(a), int(b)) for a, b in pairs]
+        gate_filter = _normalize_gate_filter(gates)
+        self._rules_2q.append((channel2, gate_filter, norm_pairs))
+        return self
+
     def _add(
         self,
         channel: _NoiseChannel,
@@ -142,6 +300,12 @@ class NoiseModel:
                 continue
             for channel, target in self._channels_for(name, qubits):
                 new_rust.add_noise(channel, target)
+            # 2-큐비트 상관 노이즈 규칙.
+            for channel2, gate_filter, pairs in self._rules_2q:
+                if gate_filter is not None and name not in gate_filter:
+                    continue
+                for q0, q1 in pairs:
+                    new_rust.add_noise_2q(channel2, q0, q1)
 
         # 원본 회로의 global_phase 를 보존 (예: unitary() 분해 phase).
         new_rust.global_phase = panta_circuit.global_phase
@@ -272,6 +436,24 @@ def _replay_op_to_rust(rust: _RustCircuit, op: Tuple[str, Tuple[int, ...], Tuple
         rust.cz(qubits[0], qubits[1])
     elif name == "swap":
         rust.swap(qubits[0], qubits[1])
+    elif name == "iswap":
+        rust.iswap(qubits[0], qubits[1])
+    elif name == "dcx":
+        rust.dcx(qubits[0], qubits[1])
+    elif name == "ecr":
+        rust.ecr(qubits[0], qubits[1])
+    elif name == "rxx":
+        rust.rxx(float(params[0]), qubits[0], qubits[1])
+    elif name == "ryy":
+        rust.ryy(float(params[0]), qubits[0], qubits[1])
+    elif name == "rzz":
+        rust.rzz(float(params[0]), qubits[0], qubits[1])
+    elif name == "rzx":
+        rust.rzx(float(params[0]), qubits[0], qubits[1])
+    elif name == "xx_plus_yy":
+        rust.xx_plus_yy(float(params[0]), qubits[0], qubits[1])
+    elif name == "xx_minus_yy":
+        rust.xx_minus_yy(float(params[0]), qubits[0], qubits[1])
     elif name == "cy":
         rust.cy(qubits[0], qubits[1])
     elif name == "ch":

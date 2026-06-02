@@ -1,4 +1,4 @@
-from typing import Union, List, Required, TypedDict, Dict, Literal, Any
+from typing import List, Any, Required, TypedDict, Dict, Union, Literal
 
 
 class ReplayRecording(TypedDict, total=False):

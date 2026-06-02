@@ -2338,9 +2338,27 @@ class AgentLoop:
                 f"  - or end your turn with a text summary explaining "
                 f"what you intended to create."
             )
-        # For read-only tools include the full cached content so the model
-        # has the data it needs and doesn't retry just to see more output.
-        result_preview = last_result if is_readonly else last_result[:200]
+        # For read-only tools: embed the cached content so the model
+        # has the data, but CAP at 800 chars to stop the bait.
+        # Operator session 2026-06-01: read_file got skipped at count=6
+        # for a 40+ line renderer.py, and the FULL FILE content was
+        # echoed back in the skip-notice — every line of the source the
+        # model could pattern-match and emit as the next call's
+        # arguments. The previous logic was "include full result so
+        # the model has the data" but the model already has the data
+        # (it's been read 5+ times this session — earlier tool_result
+        # messages still carry it). The repeat-skip is meant to NUDGE,
+        # not re-provide.
+        if is_readonly:
+            if len(last_result) > 800:
+                result_preview = (
+                    last_result[:400]
+                    + f"\n  …[{len(last_result)-400} chars omitted on dedup re-display]"
+                )
+            else:
+                result_preview = last_result
+        else:
+            result_preview = last_result[:200]
         return (
             f"NOTE: this exact call to `{tool_name}` has been made "
             f"{count} times this session with identical arguments. "
@@ -3234,6 +3252,7 @@ class AgentLoop:
                     "REFUSED: bash inplace file edit" in (text or "")
                     or "REFUSED: bash redirect-to-source-file" in (text or "")
                     or "[bash: empty or placeholder command" in (text or "")
+                    or "[bash: LOOP-BREAKER" in (text or "")
                     or "[bash: comment-only command" in (text or "")
                 ):
                     # Refused/no-op bash — counts as a failed/no-progress turn.
@@ -3266,9 +3285,10 @@ class AgentLoop:
                 >= THRESHOLD):
             note = (
                 f"[REFLECTION: you've made {self._readonly_streak} "
-                f"consecutive read-only tool calls (read_file/grep/"
-                f"glob/retrieve/web_search) without producing any code "
-                f"change. You likely have enough context now. Either: "
+                f"consecutive read-only or no-progress tool calls "
+                f"(read_file/grep/glob/retrieve/web_search/empty-bash) "
+                f"without producing any code change. You likely have "
+                f"enough context now. Either: "
                 f"(1) call write_file / search_replace / "
                 f"mechanical_rename / apply_patch with your best attempt "
                 f"at the fix right now, OR (2) emit a plain-text "
@@ -3277,7 +3297,7 @@ class AgentLoop:
                 f"piece). Continued pure exploration past this point "
                 f"will not progress the task. The deadline is finite — "
                 f"a partial-but-real attempt is more useful than "
-                f"another grep.]"
+                f"another grep or empty bash call.]"
             )
             self._inject_system_note(note)
             self._last_reflection_streak = self._readonly_streak
@@ -5560,9 +5580,11 @@ class AgentLoop:
                     if _tc.function and _tc.function.name == "bash":
                         try:
                             _a = json.loads(_tc.function.arguments or "{}")
-                            _cmd = _a.get("command", "")
-                            if _cmd:
-                                _bash_cmds.append(_cmd)
+                            # Normalize empty/missing command to "" so the
+                            # consecutive-identical check fires for bash({})
+                            # loops (the `if _cmd:` guard was excluding them).
+                            _cmd = _a.get("command", "") or ""
+                            _bash_cmds.append(_cmd)
                         except (json.JSONDecodeError, AttributeError):
                             pass
             if _total_tc >= 20:

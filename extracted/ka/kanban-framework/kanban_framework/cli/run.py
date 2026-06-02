@@ -221,6 +221,12 @@ def cmd_decide(args: list[str]) -> dict:
 
     # Execute the action (fix #82)
     if action == "approve_and_archive":
+        # Ensure score_history is synced before archiving (#440)
+        if not task.score_history:
+            from kanban_framework.cli.evaluator import _record_score
+            sync_result = _record_score(fs, tm, task_id)
+            if sync_result.get("recorded"):
+                task = tm.show(task_id)
         tm.update(task_id, phase="archive", status="archived")
         time_summary = _get_time_summary(task_id)
         # Write artifacts BEFORE moving directory (#262)

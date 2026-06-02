@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dcc-mcp-core
-Version: 0.17.49
+Version: 0.17.50
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -42,6 +42,8 @@ Project-URL: Issues, https://github.com/loonghao/dcc-mcp-core/issues
 Project-URL: Repository, https://github.com/loonghao/dcc-mcp-core
 
 # dcc-mcp-core
+
+![dcc-mcp-core logo](docs/assets/brand/dcc-mcp-logo.png)
 
 [![Core PyPI](https://img.shields.io/pypi/v/dcc-mcp-core?label=core%20PyPI)](https://pypi.org/project/dcc-mcp-core/)
 [![Server PyPI](https://img.shields.io/pypi/v/dcc-mcp-server?label=server%20PyPI)](https://pypi.org/project/dcc-mcp-server/)

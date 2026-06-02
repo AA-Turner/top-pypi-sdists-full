@@ -16,7 +16,7 @@ consume):
 - Prowler's native JSON has richer fields (CheckType, Severity,
   ResourceTags, Risk, Remediation) that Prowler's ASFF translation
   drops.
-- Customers running Prowler in Comp-AI-style workflows already have
+- Customers running Prowler in multi-tool aggregation workflows already have
   the native JSON; adding an ASFF translation step is friction.
 - Native ingest path lets us evolve the Prowler-specific Evidence
   content shape independently of the ASFF mapping table.

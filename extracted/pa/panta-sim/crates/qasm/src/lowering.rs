@@ -32,6 +32,7 @@ pub fn lower_program(program: Program) -> QasmResult<Circuit> {
     let mut qregs: HashMap<String, RegInfo> = HashMap::new();
     let mut cregs: HashMap<String, RegInfo> = HashMap::new();
     let mut gate_decls: HashMap<String, GateDecl> = HashMap::new();
+    let mut def_decls: HashMap<String, DefDecl> = HashMap::new();
     let mut total_qubits = 0usize;
     let mut total_cbits = 0usize;
     let mut allowed_includes_seen = false;
@@ -87,6 +88,14 @@ pub fn lower_program(program: Program) -> QasmResult<Circuit> {
                     });
                 }
                 gate_decls.insert(decl.name.clone(), decl.clone());
+            }
+            Stmt::DefDecl(decl) => {
+                if def_decls.contains_key(&decl.name) || gate_decls.contains_key(&decl.name) {
+                    return Err(QasmError::Lower {
+                        message: format!("duplicate def/gate definition {:?}", decl.name),
+                    });
+                }
+                def_decls.insert(decl.name.clone(), decl.clone());
             }
             Stmt::OpaqueDecl { name, line, col } => {
                 return Err(QasmError::UnsupportedFeature {
@@ -157,6 +166,7 @@ pub fn lower_program(program: Program) -> QasmResult<Circuit> {
                     &qregs,
                     &cregs,
                     &gate_decls,
+                    &Env::empty(),
                     *line,
                     *col,
                 )?;
@@ -178,6 +188,7 @@ pub fn lower_program(program: Program) -> QasmResult<Circuit> {
                     &qregs,
                     &cregs,
                     &gate_decls,
+                    &Env::empty(),
                     *line,
                     *col,
                 )?;
@@ -197,6 +208,7 @@ pub fn lower_program(program: Program) -> QasmResult<Circuit> {
                     &qregs,
                     &cregs,
                     &gate_decls,
+                    &Env::empty(),
                     *line,
                     *col,
                 )?;
@@ -218,6 +230,7 @@ pub fn lower_program(program: Program) -> QasmResult<Circuit> {
                     &qregs,
                     &cregs,
                     &gate_decls,
+                    &Env::empty(),
                     *line,
                     *col,
                 )?;
@@ -235,6 +248,32 @@ pub fn lower_program(program: Program) -> QasmResult<Circuit> {
                     &qregs,
                     &cregs,
                     &gate_decls,
+                    &Env::empty(),
+                    *line,
+                    *col,
+                )?;
+            }
+            Stmt::Box { body, .. } => {
+                // box 는 timing/scope wrapper — body 를 투명하게 직접 lowering.
+                for s in body {
+                    lower_stmt_into(&mut circuit, s, &qregs, &cregs, &gate_decls, &Env::empty())?;
+                }
+            }
+            Stmt::DefDecl(_) => {} // 이미 pass 1 에서 수집.
+            Stmt::DefCall {
+                name,
+                args,
+                line,
+                col,
+            } => {
+                lower_def_call(
+                    &mut circuit,
+                    name,
+                    args,
+                    &def_decls,
+                    &qregs,
+                    &cregs,
+                    &gate_decls,
                     *line,
                     *col,
                 )?;
@@ -244,7 +283,7 @@ pub fn lower_program(program: Program) -> QasmResult<Circuit> {
                     message: format!(
                         "OpenQASM 3.0 '{keyword}' (dynamic circuits) at line {line}:{col}"
                     ),
-                    planned_for: "v0.5",
+                    planned_for: "v0.7",
                 });
             }
         }
@@ -263,10 +302,11 @@ fn lower_block_to_instructions(
     qregs: &HashMap<String, RegInfo>,
     cregs: &HashMap<String, RegInfo>,
     gate_decls: &HashMap<String, GateDecl>,
+    env: &Env,
 ) -> QasmResult<Vec<qsim_simulator::Instruction>> {
     let mut sub = Circuit::new(n_qubits);
     for stmt in stmts {
-        lower_stmt_into(&mut sub, stmt, qregs, cregs, gate_decls)?;
+        lower_stmt_into(&mut sub, stmt, qregs, cregs, gate_decls, env)?;
     }
     Ok(sub.instructions().to_vec())
 }
@@ -283,6 +323,7 @@ fn lower_stmt_into(
     qregs: &HashMap<String, RegInfo>,
     cregs: &HashMap<String, RegInfo>,
     gate_decls: &HashMap<String, GateDecl>,
+    env: &Env,
 ) -> QasmResult<()> {
     match stmt {
         Stmt::Include { .. }
@@ -291,14 +332,14 @@ fn lower_stmt_into(
         | Stmt::GateDecl(_)
         | Stmt::OpaqueDecl { .. } => Ok(()),
         Stmt::Barrier { .. } => Ok(()),
-        Stmt::GateCall(call) => lower_gate_call(circuit, call, qregs, gate_decls, &Env::empty(), 0),
+        Stmt::GateCall(call) => lower_gate_call(circuit, call, qregs, gate_decls, env, 0),
         Stmt::Measure {
             qubit,
             cbit,
             line,
             col,
         } => {
-            let q = resolve_qarg(qubit, qregs).map_err(|e| with_loc(e, *line, *col))?;
+            let q = resolve_qarg_in_env(qubit, qregs, env).map_err(|e| with_loc(e, *line, *col))?;
             let c = resolve_carg(cbit, cregs).map_err(|e| with_loc(e, *line, *col))?;
             if q.len() != c.len() {
                 return Err(QasmError::Lower {
@@ -315,7 +356,7 @@ fn lower_stmt_into(
             Ok(())
         }
         Stmt::Reset { qarg, line, col } => {
-            let qs = resolve_qarg(qarg, qregs).map_err(|e| with_loc(e, *line, *col))?;
+            let qs = resolve_qarg_in_env(qarg, qregs, env).map_err(|e| with_loc(e, *line, *col))?;
             for q in qs {
                 circuit.reset(q);
             }
@@ -328,7 +369,7 @@ fn lower_stmt_into(
             line,
             col,
         } => lower_if(
-            circuit, creg, *value, body, qregs, cregs, gate_decls, *line, *col,
+            circuit, creg, *value, body, qregs, cregs, gate_decls, env, *line, *col,
         ),
         Stmt::IfElse {
             creg,
@@ -346,6 +387,7 @@ fn lower_stmt_into(
             qregs,
             cregs,
             gate_decls,
+            env,
             *line,
             *col,
         ),
@@ -356,7 +398,7 @@ fn lower_stmt_into(
             line,
             col,
         } => lower_while_loop(
-            circuit, creg, *value, body, qregs, cregs, gate_decls, *line, *col,
+            circuit, creg, *value, body, qregs, cregs, gate_decls, env, *line, *col,
         ),
         Stmt::ForLoop {
             var,
@@ -366,19 +408,128 @@ fn lower_stmt_into(
             line,
             col,
         } => lower_for_loop(
-            circuit, var, *low, *high, body, qregs, cregs, gate_decls, *line, *col,
+            circuit, var, *low, *high, body, qregs, cregs, gate_decls, env, *line, *col,
         ),
         Stmt::Switch {
             creg,
             cases,
             line,
             col,
-        } => lower_switch(circuit, creg, cases, qregs, cregs, gate_decls, *line, *col),
+        } => lower_switch(
+            circuit, creg, cases, qregs, cregs, gate_decls, env, *line, *col,
+        ),
+        Stmt::Box { body, .. } => {
+            for s in body {
+                lower_stmt_into(circuit, s, qregs, cregs, gate_decls, env)?;
+            }
+            Ok(())
+        }
+        Stmt::DefDecl(_) => Ok(()), // pass 1 수집.
+        Stmt::DefCall {
+            name, line, col, ..
+        } => Err(QasmError::UnsupportedFeature {
+            message: format!(
+                "def 호출 {name:?} 가 control-flow / box block 안에 있습니다 \
+                 (line {line}:{col}) — v0.6.9 는 top-level def 호출만 지원합니다"
+            ),
+            planned_for: "v0.7",
+        }),
         Stmt::UnsupportedV3 { keyword, line, col } => Err(QasmError::UnsupportedFeature {
             message: format!("OpenQASM 3.0 '{keyword}' (dynamic circuits) at line {line}:{col}"),
-            planned_for: "v0.5",
+            planned_for: "v0.7",
         }),
     }
+}
+
+/// v0.6.9: def 서브루틴 호출을 인라인 확장한다.  classical 인자는 f64 로
+/// 평가해 body 의 angle 표현식에, qubit 인자는 실제 큐비트 인덱스 (단일/배열)
+/// 에 바인딩한 [`Env`] 를 만들어 body 문장들을 lowering 한다 (v0.7.3: gate-call
+/// 뿐 아니라 measure / reset / control-flow 도 허용).
+#[allow(clippy::too_many_arguments)]
+fn lower_def_call(
+    circuit: &mut Circuit,
+    name: &str,
+    args: &[DefArg],
+    def_decls: &HashMap<String, DefDecl>,
+    qregs: &HashMap<String, RegInfo>,
+    cregs: &HashMap<String, RegInfo>,
+    gate_decls: &HashMap<String, GateDecl>,
+    line: usize,
+    col: usize,
+) -> QasmResult<()> {
+    let decl = def_decls.get(name).ok_or_else(|| QasmError::UnknownGate {
+        line,
+        col,
+        name: name.to_string(),
+    })?;
+    if args.len() != decl.params.len() {
+        return Err(QasmError::ArityMismatch {
+            line,
+            col,
+            gate: name.to_string(),
+            expected: decl.params.len(),
+            got: args.len(),
+        });
+    }
+    let mut env = Env::empty();
+    for (param, arg) in decl.params.iter().zip(args.iter()) {
+        match (param.kind, arg) {
+            (DefParamKind::Classical, DefArg::Classical(expr)) => {
+                let value = eval_expr(expr, &Env::empty())?;
+                env.insert_param(param.name.clone(), value);
+            }
+            (DefParamKind::Qubit, DefArg::Qubit(qarg)) => {
+                let qs = resolve_qarg(qarg, qregs).map_err(|e| with_loc(e, line, col))?;
+                if qs.len() != 1 {
+                    return Err(QasmError::Lower {
+                        message: format!(
+                            "def {name:?} 의 qubit 인자는 단일 큐비트여야 합니다 \
+                             (레지스터 전체 전달 불가, {} 큐비트)",
+                            qs.len()
+                        ),
+                    });
+                }
+                env.insert_qubit(param.name.clone(), qs[0]);
+            }
+            (DefParamKind::QubitArray, DefArg::Qubit(qarg)) => {
+                let qs = resolve_qarg(qarg, qregs).map_err(|e| with_loc(e, line, col))?;
+                if let Some(decl_size) = param.size {
+                    if qs.len() != decl_size {
+                        return Err(QasmError::Lower {
+                            message: format!(
+                                "def {name:?} 의 qubit 배열 파라미터 {:?} 는 크기 \
+                                 {decl_size} 인데 {} 큐비트가 전달되었습니다",
+                                param.name,
+                                qs.len()
+                            ),
+                        });
+                    }
+                }
+                env.insert_qubit_array(param.name.clone(), qs);
+            }
+            (DefParamKind::Classical, DefArg::Qubit(_)) => {
+                return Err(QasmError::Lower {
+                    message: format!(
+                        "def {name:?}: classical 파라미터 {:?} 에 qubit 인자 전달",
+                        param.name
+                    ),
+                });
+            }
+            (DefParamKind::Qubit, DefArg::Classical(_))
+            | (DefParamKind::QubitArray, DefArg::Classical(_)) => {
+                return Err(QasmError::Lower {
+                    message: format!(
+                        "def {name:?}: qubit 파라미터 {:?} 에 classical 인자 전달",
+                        param.name
+                    ),
+                });
+            }
+        }
+    }
+    for stmt in &decl.body {
+        lower_stmt_into(circuit, stmt, qregs, cregs, gate_decls, &env)?;
+    }
+    Ok(())
 }
 
 /// v0.4.7: block-form `if (c==N) { ... } else { ... }` lowering.
@@ -392,6 +543,7 @@ fn lower_if_else(
     qregs: &HashMap<String, RegInfo>,
     cregs: &HashMap<String, RegInfo>,
     gate_decls: &HashMap<String, GateDecl>,
+    env: &Env,
     line: usize,
     col: usize,
 ) -> QasmResult<()> {
@@ -417,10 +569,11 @@ fn lower_if_else(
     }
     let cbit_indices: Vec<usize> = (info.offset..info.offset + info.size).collect();
     let n_qubits = circuit.num_qubits();
-    let then_insts = lower_block_to_instructions(then_body, n_qubits, qregs, cregs, gate_decls)?;
+    let then_insts =
+        lower_block_to_instructions(then_body, n_qubits, qregs, cregs, gate_decls, env)?;
     let else_insts = match else_body {
         Some(stmts) => Some(lower_block_to_instructions(
-            stmts, n_qubits, qregs, cregs, gate_decls,
+            stmts, n_qubits, qregs, cregs, gate_decls, env,
         )?),
         None => None,
     };
@@ -438,6 +591,7 @@ fn lower_while_loop(
     qregs: &HashMap<String, RegInfo>,
     cregs: &HashMap<String, RegInfo>,
     gate_decls: &HashMap<String, GateDecl>,
+    env: &Env,
     line: usize,
     col: usize,
 ) -> QasmResult<()> {
@@ -458,7 +612,7 @@ fn lower_while_loop(
     }
     let cbit_indices: Vec<usize> = (info.offset..info.offset + info.size).collect();
     let n_qubits = circuit.num_qubits();
-    let body_insts = lower_block_to_instructions(body, n_qubits, qregs, cregs, gate_decls)?;
+    let body_insts = lower_block_to_instructions(body, n_qubits, qregs, cregs, gate_decls, env)?;
     circuit.add_while_loop(cbit_indices, value as u64, body_insts, 256);
     Ok(())
 }
@@ -476,6 +630,7 @@ fn lower_for_loop(
     qregs: &HashMap<String, RegInfo>,
     cregs: &HashMap<String, RegInfo>,
     gate_decls: &HashMap<String, GateDecl>,
+    env: &Env,
     line: usize,
     col: usize,
 ) -> QasmResult<()> {
@@ -485,7 +640,7 @@ fn lower_for_loop(
     }
     let iterations = (high - low + 1) as usize;
     let n_qubits = circuit.num_qubits();
-    let body_insts = lower_block_to_instructions(body, n_qubits, qregs, cregs, gate_decls)
+    let body_insts = lower_block_to_instructions(body, n_qubits, qregs, cregs, gate_decls, env)
         .map_err(|e| with_loc(e, line, col))?;
     circuit.add_for_loop(iterations, body_insts);
     Ok(())
@@ -500,6 +655,7 @@ fn lower_switch(
     qregs: &HashMap<String, RegInfo>,
     cregs: &HashMap<String, RegInfo>,
     gate_decls: &HashMap<String, GateDecl>,
+    env: &Env,
     line: usize,
     col: usize,
 ) -> QasmResult<()> {
@@ -514,7 +670,8 @@ fn lower_switch(
     let n_qubits = circuit.num_qubits();
     let mut rust_cases: Vec<(Option<u64>, Vec<qsim_simulator::Instruction>)> = Vec::new();
     for (label, body) in cases {
-        let body_insts = lower_block_to_instructions(body, n_qubits, qregs, cregs, gate_decls)?;
+        let body_insts =
+            lower_block_to_instructions(body, n_qubits, qregs, cregs, gate_decls, env)?;
         let label_u = match label {
             crate::ast::SwitchLabel::Value(v) => {
                 if *v < 0 {
@@ -548,6 +705,7 @@ fn lower_if(
     qregs: &HashMap<String, RegInfo>,
     cregs: &HashMap<String, RegInfo>,
     gate_decls: &HashMap<String, GateDecl>,
+    env: &Env,
     line: usize,
     col: usize,
 ) -> QasmResult<()> {
@@ -586,7 +744,7 @@ fn lower_if(
     };
     // 4. body lowering 전후의 instruction 수 차이가 정확히 1 이어야.
     let before = circuit.instructions().len();
-    lower_gate_call(circuit, call, qregs, gate_decls, &Env::empty(), 0)?;
+    lower_gate_call(circuit, call, qregs, gate_decls, env, 0)?;
     let added = circuit.instructions().len() - before;
     if added != 1 {
         // 부분 lowering 결과를 되돌릴 수 있게 truncate.
@@ -714,6 +872,9 @@ fn inline_user_gate(
 struct Env {
     params: HashMap<String, f64>,
     qubits: HashMap<String, usize>,
+    /// def 의 qubit 배열 파라미터 (`qubit[N] q`) → 바인딩된 큐비트 인덱스들.
+    /// body 에서 `q[i]` 인덱싱으로 해석된다 (v0.7.3).
+    qubit_arrays: HashMap<String, Vec<usize>>,
 }
 
 impl Env {
@@ -725,6 +886,9 @@ impl Env {
     }
     fn insert_qubit(&mut self, name: String, idx: usize) {
         self.qubits.insert(name, idx);
+    }
+    fn insert_qubit_array(&mut self, name: String, qubits: Vec<usize>) {
+        self.qubit_arrays.insert(name, qubits);
     }
 }
 
@@ -741,6 +905,16 @@ fn resolve_qarg_in_env(
 ) -> QasmResult<Vec<usize>> {
     match q {
         QArg::Indexed { reg, idx } => {
+            // def 의 qubit 배열 파라미터 `q[i]` → 바인딩된 인덱스 (v0.7.3).
+            if let Some(arr) = env.qubit_arrays.get(reg) {
+                if *idx >= arr.len() {
+                    return Err(QasmError::QubitOutOfRange {
+                        qubit: *idx,
+                        n_qubits: arr.len(),
+                    });
+                }
+                return Ok(vec![arr[*idx]]);
+            }
             if env.qubits.contains_key(reg) {
                 return Err(QasmError::Lower {
                     message: format!("indexed qubit '{reg}[{idx}]' inside gate body not allowed"),
@@ -761,6 +935,10 @@ fn resolve_qarg_in_env(
             // gate-body 안의 매개변수 이름이면 단일 인덱스 반환.
             if let Some(qi) = env.qubits.get(reg) {
                 return Ok(vec![*qi]);
+            }
+            // def 의 qubit 배열 파라미터 전체 (`q`) → 바인딩된 인덱스 전체.
+            if let Some(arr) = env.qubit_arrays.get(reg) {
+                return Ok(arr.clone());
             }
             let info = qregs.get(reg).ok_or_else(|| QasmError::Lower {
                 message: format!("undefined qreg/qubit register {reg:?}"),
@@ -909,6 +1087,84 @@ mod tests {
     fn test_v3_qubit_decl() {
         let c = lower("OPENQASM 3.0; include \"stdgates.inc\"; qubit[3] q; h q[0]; cx q[0], q[1]; cx q[0], q[2];");
         assert_eq!(c.num_qubits(), 3);
+    }
+
+    #[test]
+    fn test_def_subroutine_inline() {
+        // v0.6.9: def 가 호출 시 body 로 인라인.
+        let c = lower(
+            "OPENQASM 3.0; include \"stdgates.inc\"; qubit[2] q; \
+             def bell(qubit a, qubit b) { h a; cx a, b; } bell(q[0], q[1]);",
+        );
+        assert_eq!(c.num_qubits(), 2);
+        // h + cx = 2 instructions.
+        assert_eq!(c.instructions().len(), 2);
+    }
+
+    #[test]
+    fn test_def_classical_param() {
+        // classical 파라미터가 angle 표현식에 바인딩.
+        let c = lower(
+            "OPENQASM 3.0; include \"stdgates.inc\"; qubit[1] q; \
+             def myrot(angle t, qubit a) { rx(t/2) a; } myrot(pi, q[0]);",
+        );
+        assert_eq!(c.instructions().len(), 1);
+    }
+
+    #[test]
+    fn test_def_mixed_classical_qubit_args() {
+        // int + qubit 혼합 인자, 호출 순서 매칭.
+        let c = lower(
+            "OPENQASM 3.0; include \"stdgates.inc\"; qubit[2] q; \
+             def f(qubit a, angle t, qubit b) { rz(t) a; cx a, b; } f(q[0], 0.5, q[1]);",
+        );
+        assert_eq!(c.instructions().len(), 2);
+    }
+
+    #[test]
+    fn test_def_return_value_unsupported() {
+        let src = "OPENQASM 3.0; include \"stdgates.inc\"; qubit[1] q; \
+             def f(qubit a) -> bit { h a; } f(q[0]);";
+        let toks = Lexer::new(src).tokenize().unwrap();
+        let prog = Parser::new(toks).parse_program().unwrap();
+        assert!(lower_program(prog).is_err());
+    }
+
+    #[test]
+    fn test_def_arity_mismatch() {
+        let src = "OPENQASM 3.0; include \"stdgates.inc\"; qubit[2] q; \
+             def bell(qubit a, qubit b) { h a; cx a, b; } bell(q[0]);";
+        let toks = Lexer::new(src).tokenize().unwrap();
+        let prog = Parser::new(toks).parse_program().unwrap();
+        assert!(lower_program(prog).is_err());
+    }
+
+    #[test]
+    fn test_box_transparent_lowering() {
+        // v0.6.8 — `box { ... }` 는 body 를 투명하게 lowering (게이트 개수 동일).
+        let c = lower(
+            "OPENQASM 3.0; include \"stdgates.inc\"; qubit[2] q; box { h q[0]; cx q[0], q[1]; }",
+        );
+        assert_eq!(c.num_qubits(), 2);
+        assert_eq!(c.instructions().len(), 2);
+    }
+
+    #[test]
+    fn test_box_with_designator_ignored() {
+        // duration designator 는 무시되고 body 만 lowering.
+        let c = lower(
+            "OPENQASM 3.0; include \"stdgates.inc\"; qubit[1] q; box[100ns] { h q[0]; x q[0]; }",
+        );
+        assert_eq!(c.instructions().len(), 2);
+    }
+
+    #[test]
+    fn test_box_nested_in_for() {
+        // box 가 다른 블록 안에 중첩돼도 동작.
+        let c = lower(
+            "OPENQASM 3.0; include \"stdgates.inc\"; qubit[1] q; for int i in [0:2] { box { x q[0]; } }",
+        );
+        assert_eq!(c.num_qubits(), 1);
     }
 
     #[test]

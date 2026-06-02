@@ -1,225 +1,417 @@
-//! Distribution-free (split / leave-one-out) conformal calibration of
-//! prediction intervals.
+//! Distribution-free conformal calibration of prediction intervals.
 //!
-//! Conformal calibration turns a point predictor plus a per-point scale
-//! estimate into intervals with finite-sample *marginal* coverage, regardless
-//! of whether the model's nominal variance is correct. It is the coverage
-//! safety net for the GAM / GAMLSS / survival / flexible-link predictors when
-//! the likelihood is mildly misspecified: even if `σ̂(x)` is biased, the
-//! conformal multiplier rescales it so realized coverage matches the nominal
-//! `1 − α`.
+//! Split-conformal (and its heteroscedastic generalization, conformalized
+//! scale regression — Romano, Patterson & Candès 2019) turns any point
+//! predictor into intervals with *finite-sample marginal coverage*
 //!
-//! Given calibration residuals `r_i = y_i − μ̂_i` and positive predicted scales
-//! `s_i` (posterior SD, `σ̂(x)`, or `1` for plain absolute-residual conformal),
-//! the normalized nonconformity scores `e_i = |r_i| / s_i` are exchangeable
-//! with a test point's score under the split-conformal assumption. The
-//! conformal quantile
+//!   P(Y ∈ interval) ≥ 1 − α
 //!
-//! ```text
-//! q̂ = the ⌈(n+1)(1−α)⌉-th smallest of {e_i}
-//! ```
+//! that holds regardless of model misspecification, given only that the
+//! calibration scores are exchangeable with the test score.
 //!
-//! gives the interval `μ̂(x) ± q̂ · s(x)` with `P(Y ∈ interval) ≥ 1 − α`. With
-//! heteroscedastic `s_i` this is conformalized quantile / scale regression
-//! (Romano, Patterson & Candès, *Conformalized Quantile Regression*, NeurIPS
-//! 2019): the width adapts per point while keeping the distribution-free
-//! guarantee. With `s_i ≡ 1` it reduces to classical absolute-residual
-//! split conformal.
+//! # The math
 //!
-//! The residuals are meant to be *held-out* — split-conformal calibration
-//! residuals or the ALO / leave-one-out residuals from
-//! [`crate::inference::alo`] — so the exchangeability with a fresh test point
-//! holds. Feeding in-sample training residuals understates the width.
+//! Given held-out residuals `r_i` and strictly-positive per-point scales
+//! `s_i`, form nonconformity scores
+//!
+//!   e_i = |r_i| / s_i.
+//!
+//! The conformal multiplier is the EXACT order statistic
+//!
+//!   q̂ = the ⌈(n+1)(1−α)⌉-th smallest of {e_i}        (1-based rank)
+//!
+//! and if `rank > n` we return `+∞` — the calibration set is too small to
+//! certify coverage at the requested level, so the only honest interval is
+//! the unbounded one (never a silently under-covering finite interval). The
+//! calibrated interval for a test point with point prediction `μ̂(x)` and
+//! scale `s(x)` is
+//!
+//!   μ̂(x) ± q̂ · s(x).
+//!
+//! With `s_i ≡ 1` this is classic absolute-residual split conformal; with
+//! heteroscedastic `s_i` it is conformalized scale regression.
+//!
+//! CRITICAL: this uses the EXACT k-th order statistic from
+//! [`crate::util::quantile::order_statistic`]. It deliberately does NOT use
+//! the interpolating [`crate::util::quantile::quantile_from_sorted`] — linear
+//! interpolation between order statistics would void the finite-sample coverage
+//! proof.
+//!
+//! # Where the calibration lives, and how it is wired
+//!
+//! Conformal calibration is a *post-fit* operation: a single scalar `q̂` is
+//! derived once from the fitted model and its training data (via the
+//! approximate-leave-one-out diagnostics in [`crate::inference::alo`], whose
+//! `eta_tilde` gives genuine held-out linear predictors and whose `se_bayes`
+//! gives the per-point posterior SE used as the scale `s_i`), then applied per
+//! prediction. [`ConformalCalibrator::from_fit`] computes `q̂`; the predict
+//! path consumes it through the opt-in `conformal_level` field on
+//! [`crate::inference::predict::PredictUncertaintyOptions`], which calls
+//! [`ConformalCalibrator::apply_to_uncertainty_result`] to overwrite the
+//! model-based response-scale bounds with the conformal ones.
+//!
+//! # Response scale vs. link scale
+//!
+//! The interval the caller consumes is on the *response* scale (`μ̂ ± q̂·s`),
+//! and the coverage guarantee is a statement about `Y` on the response scale.
+//! We therefore build the calibration scores on the response scale:
+//!
+//!   r_i = y_i − g⁻¹(η̃_i)
+//!
+//! where `η̃_i` is the leave-one-out linear predictor and `g⁻¹` the family
+//! inverse link, and the per-point scale is the response-scale SE
+//! `s_i = |dμ/dη|·se_bayes_i`. At predict time the matching scale `s(x)` is
+//! the response-scale standard error the predict engine already produces
+//! (`mean_standard_error`). Calibration and prediction thus draw their scale
+//! from the *same* source, which is exactly what conformalized scale
+//! regression requires. For Gaussian-identity the response scale is exact;
+//! for the monotone links gam fits (logit/probit/cloglog/log) the response
+//! map is monotone so the symmetric `±q̂·s(x)` interval is well defined, and
+//! it is finally clamped to the family support — keeping the guarantee about
+//! `Y` directly rather than relying on a delta-method linearization that the
+//! coverage proof does not need.
 
-use crate::estimate::EstimationError;
+use crate::estimate::{EstimationError, UnifiedFitResult};
+use crate::families::strategy::FamilyStrategy;
+use crate::families::strategy::strategy_for_spec;
+use crate::inference::alo::compute_alo_diagnostics_from_unified;
+use crate::inference::predict::PredictUncertaintyResult;
+use crate::inference::predict::interval_policy::ResponseBounds;
+use crate::types::{LikelihoodSpec, LinkFunction};
+use crate::util::quantile::order_statistic;
+use ndarray::{Array1, Array2, ArrayView1};
 
-/// Conformal multiplier `q̂`: the smallest factor such that `|r_i| ≤ q̂ · s_i`
-/// for at least a `⌈(n+1)(1−α)⌉ / n` fraction of the calibration set.
+/// The conformal nonconformity scores `e_i = |r_i| / s_i` for held-out
+/// residuals `r_i` and strictly-positive per-point scales `s_i`.
 ///
-/// Multiply a test point's predicted scale `s(x)` by `q̂` to obtain the
-/// half-width of a `1 − α` interval. Returns `f64::INFINITY` when
-/// `⌈(n+1)(1−α)⌉ > n` — the calibration set is too small to *certify* the
-/// requested coverage, so the honest distribution-free answer is an unbounded
-/// interval rather than a silently under-covering finite one.
-///
-/// `scales` must be strictly positive; pass a slice of `1.0`s for plain
-/// absolute-residual conformal.
-pub fn conformal_scale_multiplier(
-    residuals: &[f64],
-    scales: &[f64],
-    alpha: f64,
-) -> Result<f64, EstimationError> {
+/// Validates that the two slices have equal length, that every scale is
+/// finite and strictly positive, and that every residual is finite. Returns
+/// an `EstimationError::InvalidInput` otherwise — never a silently degenerate
+/// score vector.
+pub fn nonconformity_scores(
+    residuals: ArrayView1<'_, f64>,
+    scales: ArrayView1<'_, f64>,
+) -> Result<Array1<f64>, EstimationError> {
     if residuals.len() != scales.len() {
         return Err(EstimationError::InvalidInput(format!(
-            "conformal calibration: {} residuals but {} scales",
+            "conformal calibration requires residuals and scales of equal length, \
+             got {} residuals and {} scales",
             residuals.len(),
             scales.len()
         )));
     }
-    let n = residuals.len();
-    if n == 0 {
+    if residuals.is_empty() {
         return Err(EstimationError::InvalidInput(
-            "conformal calibration requires at least one calibration point".to_string(),
+            "conformal calibration requires at least one held-out residual".to_string(),
         ));
     }
-    if !(alpha > 0.0 && alpha < 1.0) {
-        return Err(EstimationError::InvalidInput(format!(
-            "conformal calibration: alpha must lie in (0, 1); got {alpha}"
-        )));
-    }
-
-    let mut scores = Vec::with_capacity(n);
-    for (i, (&r, &s)) in residuals.iter().zip(scales.iter()).enumerate() {
+    let mut scores = Array1::<f64>::zeros(residuals.len());
+    for (idx, (&r, &s)) in residuals.iter().zip(scales.iter()).enumerate() {
         if !r.is_finite() {
             return Err(EstimationError::InvalidInput(format!(
-                "conformal calibration: residual[{i}] is not finite ({r})"
+                "conformal residual[{idx}] must be finite, got {r}"
             )));
         }
         if !(s.is_finite() && s > 0.0) {
             return Err(EstimationError::InvalidInput(format!(
-                "conformal calibration: scale[{i}] must be finite and positive; got {s}"
+                "conformal scale[{idx}] must be finite and strictly positive, got {s}"
             )));
         }
-        scores.push(r.abs() / s);
+        scores[idx] = r.abs() / s;
     }
-
-    // 1-based conformal rank k = ⌈(n+1)(1−α)⌉; k > n ⇒ insufficient data.
-    let rank = (((n + 1) as f64) * (1.0 - alpha)).ceil() as usize;
-    if rank > n {
-        return Ok(f64::INFINITY);
-    }
-    scores.sort_by(f64::total_cmp);
-    Ok(scores[rank - 1])
+    Ok(scores)
 }
 
-/// Symmetric calibrated interval `(μ − q̂·s, μ + q̂·s)` for a single test point
-/// given a multiplier from [`conformal_scale_multiplier`].
-pub fn conformal_interval(mu: f64, scale: f64, multiplier: f64) -> (f64, f64) {
-    let half = multiplier * scale;
-    (mu - half, mu + half)
-}
-
-/// Calibrate on `(cal_residuals, cal_scales)` and emit `1 − α` intervals for a
-/// test set `(test_mu, test_scales)`. The returned vector matches the test set
-/// length; each entry is `(lower, upper)`.
-pub fn conformal_calibrate_intervals(
-    cal_residuals: &[f64],
-    cal_scales: &[f64],
-    test_mu: &[f64],
-    test_scales: &[f64],
+/// The EXACT conformal multiplier `q̂` at miscoverage `α ∈ (0, 1)`.
+///
+/// `q̂` is the `⌈(n+1)(1−α)⌉`-th smallest score (1-based rank). When that rank
+/// exceeds `n` the calibration set is too small to certify `1 − α` coverage,
+/// and the only honest multiplier is `+∞` (the unbounded interval). Uses the
+/// exact order statistic — no interpolation — so the finite-sample coverage
+/// guarantee is preserved.
+pub fn conformal_multiplier(
+    scores: ArrayView1<'_, f64>,
     alpha: f64,
-) -> Result<Vec<(f64, f64)>, EstimationError> {
-    if test_mu.len() != test_scales.len() {
+) -> Result<f64, EstimationError> {
+    if !(alpha.is_finite() && alpha > 0.0 && alpha < 1.0) {
         return Err(EstimationError::InvalidInput(format!(
-            "conformal calibration: {} test means but {} test scales",
-            test_mu.len(),
-            test_scales.len()
+            "conformal miscoverage alpha must be in (0,1), got {alpha}"
         )));
     }
-    let multiplier = conformal_scale_multiplier(cal_residuals, cal_scales, alpha)?;
-    Ok(test_mu
-        .iter()
-        .zip(test_scales.iter())
-        .map(|(&mu, &s)| conformal_interval(mu, s, multiplier))
-        .collect())
+    let n = scores.len();
+    if n == 0 {
+        return Err(EstimationError::InvalidInput(
+            "conformal multiplier requires at least one nonconformity score".to_string(),
+        ));
+    }
+    for (idx, &e) in scores.iter().enumerate() {
+        if !e.is_finite() {
+            return Err(EstimationError::InvalidInput(format!(
+                "conformal score[{idx}] must be finite, got {e}"
+            )));
+        }
+    }
+    // 1-based rank ⌈(n+1)(1−α)⌉.
+    let rank = ((n as f64 + 1.0) * (1.0 - alpha)).ceil() as usize;
+    if rank > n {
+        // Too few calibration points to certify coverage at this level.
+        return Ok(f64::INFINITY);
+    }
+    let values: Vec<f64> = scores.iter().copied().collect();
+    Ok(order_statistic(&values, rank))
+}
+
+/// A fitted conformal calibrator: the single scalar `q̂` and the miscoverage
+/// `α` it was computed at. Built once from a fit + training data, then applied
+/// per prediction.
+#[derive(Clone, Copy, Debug)]
+pub struct ConformalCalibrator {
+    q_hat: f64,
+    alpha: f64,
+    n_calibration: usize,
+}
+
+impl ConformalCalibrator {
+    /// The conformal multiplier `q̂`.
+    pub fn q_hat(&self) -> f64 {
+        self.q_hat
+    }
+
+    /// The nominal miscoverage `α` (so the nominal coverage is `1 − α`).
+    pub fn alpha(&self) -> f64 {
+        self.alpha
+    }
+
+    /// The number of held-out calibration points behind `q̂`.
+    pub fn n_calibration(&self) -> usize {
+        self.n_calibration
+    }
+
+    /// Whether the calibration set was large enough to certify finite
+    /// intervals at the requested level (`q̂` finite). When `false` the
+    /// honest interval is unbounded.
+    pub fn certifies_finite(&self) -> bool {
+        self.q_hat.is_finite()
+    }
+
+    /// Build a calibrator directly from held-out residuals and per-point
+    /// scales. This is the pure core both [`ConformalCalibrator::from_fit`]
+    /// and the e2e tests route through.
+    pub fn from_residuals_and_scales(
+        residuals: ArrayView1<'_, f64>,
+        scales: ArrayView1<'_, f64>,
+        alpha: f64,
+    ) -> Result<Self, EstimationError> {
+        let scores = nonconformity_scores(residuals, scales)?;
+        let q_hat = conformal_multiplier(scores.view(), alpha)?;
+        Ok(Self {
+            q_hat,
+            alpha,
+            n_calibration: scores.len(),
+        })
+    }
+
+    /// Build a calibrator from a fitted model and its training data.
+    ///
+    /// Computes approximate-leave-one-out diagnostics (held-out linear
+    /// predictors `η̃_i` and per-point posterior SE `se_bayes_i`), maps both
+    /// onto the response scale through the fitted family's inverse link, forms
+    /// the response-scale held-out residuals `r_i = y_i − g⁻¹(η̃_i)` and scales
+    /// `s_i = |dμ/dη(η̃_i)| · se_bayes_i`, and returns the resulting `q̂`.
+    ///
+    /// `design`, `offset`, `phi` mirror the arguments
+    /// [`compute_alo_diagnostics_from_unified`] requires; `eta` is the fitted
+    /// in-sample linear predictor `Xβ̂ + offset`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_fit(
+        fit: &UnifiedFitResult,
+        family: &LikelihoodSpec,
+        design: &Array2<f64>,
+        eta: &Array1<f64>,
+        offset: &Array1<f64>,
+        y: ArrayView1<'_, f64>,
+        phi: f64,
+        alpha: f64,
+    ) -> Result<Self, EstimationError> {
+        let link: LinkFunction = family.link.link_function();
+        let alo = compute_alo_diagnostics_from_unified(fit, design, eta, offset, link, phi)?;
+        if alo.eta_tilde.len() != y.len() {
+            return Err(EstimationError::InvalidInput(format!(
+                "conformal calibration: ALO produced {} held-out predictors but y has length {}",
+                alo.eta_tilde.len(),
+                y.len()
+            )));
+        }
+        let strategy = strategy_for_spec(family);
+        let n = y.len();
+        let mut residuals = Array1::<f64>::zeros(n);
+        let mut scales = Array1::<f64>::zeros(n);
+        for i in 0..n {
+            let eta_tilde = alo.eta_tilde[i];
+            let jet = strategy.inverse_link_jet(eta_tilde)?;
+            let mu_tilde = jet.mu;
+            // Response-scale held-out residual.
+            residuals[i] = y[i] - mu_tilde;
+            // Response-scale held-out SE: |dμ/dη| · se_bayes (delta method on
+            // the held-out posterior SE). Floored to a tiny positive value so a
+            // genuinely flat link region does not produce a zero scale that
+            // would void the |r|/s score; `from_residuals_and_scales` then
+            // re-validates strict positivity.
+            let dmu_deta = jet.d1.abs();
+            let scale = (dmu_deta * alo.se_bayes[i]).max(f64::MIN_POSITIVE);
+            scales[i] = scale;
+        }
+        Self::from_residuals_and_scales(residuals.view(), scales.view(), alpha)
+    }
+
+    /// Calibrated response-scale interval `μ̂(x) ± q̂·s(x)`, clamped to the
+    /// family support `bounds`.
+    ///
+    /// `mean` is the point prediction `μ̂(x)` and `scale` the response-scale SE
+    /// `s(x)` at each test point. When `q̂ = +∞` the interval is unbounded
+    /// (`(−∞, +∞)`, then clamped to the support) — the honest answer when the
+    /// calibration set could not certify coverage.
+    pub fn calibrated_interval(
+        &self,
+        mean: &Array1<f64>,
+        scale: &Array1<f64>,
+        bounds: ResponseBounds,
+    ) -> Result<(Array1<f64>, Array1<f64>), EstimationError> {
+        if mean.len() != scale.len() {
+            return Err(EstimationError::InvalidInput(format!(
+                "conformal interval requires mean and scale of equal length, \
+                 got {} means and {} scales",
+                mean.len(),
+                scale.len()
+            )));
+        }
+        let mut lower = Array1::<f64>::zeros(mean.len());
+        let mut upper = Array1::<f64>::zeros(mean.len());
+        for i in 0..mean.len() {
+            let half = self.q_hat * scale[i];
+            // q̂·s with q̂ = +∞ yields ±∞; bounds.clamp_value then maps that
+            // onto the support (or leaves it unbounded).
+            lower[i] = bounds.clamp_value(mean[i] - half);
+            upper[i] = bounds.clamp_value(mean[i] + half);
+        }
+        Ok((lower, upper))
+    }
+
+    /// Overwrite the response-scale bounds of a model-based
+    /// [`PredictUncertaintyResult`] with the conformal interval, using the
+    /// result's own `mean` and `mean_standard_error` (the same response-scale
+    /// SE source the calibration scales came from). This is the real
+    /// predict-path application: the model-based point/SE are kept, only the
+    /// `mean_lower` / `mean_upper` bounds become the conformal ones.
+    pub fn apply_to_uncertainty_result(
+        &self,
+        result: &mut PredictUncertaintyResult,
+        bounds: ResponseBounds,
+    ) -> Result<(), EstimationError> {
+        let (lower, upper) =
+            self.calibrated_interval(&result.mean, &result.mean_standard_error, bounds)?;
+        result.mean_lower = lower;
+        result.mean_upper = upper;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ndarray::array;
 
     #[test]
-    fn multiplier_is_the_exact_conformal_order_statistic() {
-        // scores = |r| / s = 1, 2, ..., 19 (scales all 1).
-        let residuals: Vec<f64> = (1..=19).map(|v| v as f64).collect();
-        let scales = vec![1.0_f64; 19];
-        // k = ceil((19+1) * 0.9) = ceil(18) = 18 -> 18th smallest = 18.
-        let q = conformal_scale_multiplier(&residuals, &scales, 0.10).unwrap();
-        assert_eq!(q, 18.0);
-        // k = ceil((19+1) * 0.8) = 16 -> 16th smallest = 16.
-        let q2 = conformal_scale_multiplier(&residuals, &scales, 0.20).unwrap();
-        assert_eq!(q2, 16.0);
+    fn scores_are_abs_residual_over_scale() {
+        let r = array![2.0, -4.0, 1.0];
+        let s = array![1.0, 2.0, 0.5];
+        let e = nonconformity_scores(r.view(), s.view()).expect("valid scores");
+        assert_eq!(e, array![2.0, 2.0, 2.0]);
     }
 
     #[test]
-    fn heteroscedastic_scales_rescale_the_multiplier() {
-        let residuals: Vec<f64> = (1..=9).map(|v| v as f64).collect();
-        let unit = vec![1.0_f64; 9];
-        let base = conformal_scale_multiplier(&residuals, &unit, 0.2).unwrap();
-        // Doubling every scale halves every score, so q̂ halves.
-        let doubled = vec![2.0_f64; 9];
-        let halved = conformal_scale_multiplier(&residuals, &doubled, 0.2).unwrap();
-        assert!(
-            (halved - base / 2.0).abs() < 1e-12,
-            "{halved} vs {}",
-            base / 2.0
-        );
-        // Doubling every residual doubles every score, so q̂ doubles.
-        let big: Vec<f64> = residuals.iter().map(|r| 2.0 * r).collect();
-        let doubled_q = conformal_scale_multiplier(&big, &unit, 0.2).unwrap();
-        assert!((doubled_q - 2.0 * base).abs() < 1e-12);
+    fn rejects_nonpositive_scale() {
+        let r = array![1.0, 2.0];
+        let s = array![1.0, 0.0];
+        assert!(nonconformity_scores(r.view(), s.view()).is_err());
+        let s2 = array![1.0, -1.0];
+        assert!(nonconformity_scores(r.view(), s2.view()).is_err());
     }
 
     #[test]
-    fn insufficient_calibration_data_returns_infinity() {
-        // n = 4, alpha = 0.1 -> k = ceil(5 * 0.9) = 5 > 4 -> infinite width.
-        let residuals = vec![0.3, 1.1, 0.7, 2.0];
-        let scales = vec![1.0; 4];
-        let q = conformal_scale_multiplier(&residuals, &scales, 0.1).unwrap();
+    fn rejects_nonfinite_residual() {
+        let r = array![1.0, f64::NAN];
+        let s = array![1.0, 1.0];
+        assert!(nonconformity_scores(r.view(), s.view()).is_err());
+    }
+
+    #[test]
+    fn multiplier_is_exact_order_statistic() {
+        // n = 9 scores 1..=9. With alpha = 0.1, rank = ceil(10 * 0.9) = 9,
+        // so q̂ is the 9th smallest = 9.
+        let scores = array![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0];
+        let q = conformal_multiplier(scores.view(), 0.1).expect("valid");
+        assert_eq!(q, 9.0);
+
+        // alpha = 0.25, rank = ceil(10 * 0.75) = 8 → 8th smallest = 8.
+        let q2 = conformal_multiplier(scores.view(), 0.25).expect("valid");
+        assert_eq!(q2, 8.0);
+    }
+
+    #[test]
+    fn multiplier_does_not_interpolate() {
+        // Unequally spaced scores: the exact order statistic must be one of the
+        // observed values, never an interpolated value between two of them.
+        let scores = array![0.0, 10.0, 100.0, 1000.0];
+        // n = 4, alpha = 0.4 → rank = ceil(5 * 0.6) = 3 → 3rd smallest = 100.
+        let q = conformal_multiplier(scores.view(), 0.4).expect("valid");
+        assert_eq!(q, 100.0);
+    }
+
+    #[test]
+    fn too_few_points_returns_infinity() {
+        // n = 4, alpha = 0.05 → rank = ceil(5 * 0.95) = 5 > 4 → +∞.
+        let scores = array![1.0, 2.0, 3.0, 4.0];
+        let q = conformal_multiplier(scores.view(), 0.05).expect("valid");
         assert!(q.is_infinite());
+
+        let calib =
+            ConformalCalibrator::from_residuals_and_scales(scores.view(), scores.view(), 0.05)
+                .expect("valid");
+        assert!(!calib.certifies_finite());
     }
 
     #[test]
-    fn finite_sample_coverage_guarantee_holds_combinatorially() {
-        // Exchangeable distinct scores 1..=n. For a fresh test point whose
-        // score is equally likely to fall in any of the n+1 gaps, coverage is
-        // (#calibration scores <= q + 1) / (n + 1) and must be >= 1 - alpha.
-        let n = 99usize;
-        let residuals: Vec<f64> = (1..=n).map(|v| v as f64).collect();
-        let scales = vec![1.0_f64; n];
-        for &alpha in &[0.05_f64, 0.1, 0.2, 0.5] {
-            let q = conformal_scale_multiplier(&residuals, &scales, alpha).unwrap();
-            let covered_cal = residuals.iter().filter(|&&r| r <= q).count();
-            // A test point is covered when its rank among the n+1 combined
-            // scores is <= covered_cal + 1 positions; the worst-case marginal
-            // coverage is (covered_cal + 1) / (n + 1).
-            let coverage = (covered_cal as f64 + 1.0) / (n as f64 + 1.0);
-            assert!(
-                coverage >= 1.0 - alpha - 1e-12,
-                "alpha={alpha}: coverage {coverage} < {}",
-                1.0 - alpha
-            );
-        }
+    fn rejects_alpha_out_of_range() {
+        let scores = array![1.0, 2.0, 3.0];
+        assert!(conformal_multiplier(scores.view(), 0.0).is_err());
+        assert!(conformal_multiplier(scores.view(), 1.0).is_err());
+        assert!(conformal_multiplier(scores.view(), -0.1).is_err());
     }
 
     #[test]
-    fn interval_is_symmetric_about_the_mean() {
-        let (lo, hi) = conformal_interval(3.0, 2.0, 1.5);
-        assert_eq!(lo, 3.0 - 3.0);
-        assert_eq!(hi, 3.0 + 3.0);
-    }
+    fn calibrated_interval_is_symmetric_and_clamped() {
+        let calib = ConformalCalibrator::from_residuals_and_scales(
+            array![1.0].view(),
+            array![1.0].view(),
+            0.5,
+        )
+        .expect("valid");
+        // n = 1, alpha = 0.5 → rank = ceil(2 * 0.5) = 1 → q̂ = score = 1.0.
+        assert_eq!(calib.q_hat(), 1.0);
+        let mean = array![0.5, 2.0];
+        let scale = array![0.1, 0.2];
+        let (lo, hi) = calib
+            .calibrated_interval(&mean, &scale, ResponseBounds::UNBOUNDED)
+            .expect("interval");
+        assert!((lo[0] - 0.4).abs() < 1e-12);
+        assert!((hi[0] - 0.6).abs() < 1e-12);
 
-    #[test]
-    fn calibrate_intervals_applies_multiplier_per_test_point() {
-        let cal_res: Vec<f64> = (1..=9).map(|v| v as f64).collect();
-        let cal_scales = vec![1.0_f64; 9];
-        let q = conformal_scale_multiplier(&cal_res, &cal_scales, 0.2).unwrap();
-        let test_mu = vec![0.0, 10.0];
-        let test_scales = vec![1.0, 3.0];
-        let intervals =
-            conformal_calibrate_intervals(&cal_res, &cal_scales, &test_mu, &test_scales, 0.2)
-                .unwrap();
-        assert_eq!(intervals.len(), 2);
-        assert!((intervals[0].1 - intervals[0].0 - 2.0 * q).abs() < 1e-12);
-        assert!((intervals[1].1 - intervals[1].0 - 2.0 * q * 3.0).abs() < 1e-12);
-    }
-
-    #[test]
-    fn mismatched_lengths_and_bad_alpha_are_rejected() {
-        assert!(conformal_scale_multiplier(&[1.0, 2.0], &[1.0], 0.1).is_err());
-        assert!(conformal_scale_multiplier(&[1.0], &[1.0], 0.0).is_err());
-        assert!(conformal_scale_multiplier(&[1.0], &[1.0], 1.0).is_err());
-        assert!(conformal_scale_multiplier(&[1.0], &[-1.0], 0.1).is_err());
-        assert!(conformal_scale_multiplier(&[], &[], 0.1).is_err());
+        // Clamp to [0, 1].
+        let (lo_c, hi_c) = calib
+            .calibrated_interval(&mean, &scale, ResponseBounds::UNIT_PROBABILITY)
+            .expect("interval");
+        assert!(lo_c.iter().all(|&v| v >= 0.0));
+        assert!(hi_c.iter().all(|&v| v <= 1.0));
     }
 }

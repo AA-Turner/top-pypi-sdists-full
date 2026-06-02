@@ -1,4 +1,4 @@
-use qsim_core::{Gate, NoiseChannel};
+use qsim_core::{Gate, NoiseChannel, NoiseChannel2};
 
 use crate::instruction::Instruction;
 
@@ -163,6 +163,42 @@ impl Circuit {
     pub fn swap(&mut self, qubit0: usize, qubit1: usize) {
         self.add_gate(Gate::SWAP, vec![qubit0, qubit1]);
     }
+    /// iSWAP (v0.7).
+    pub fn iswap(&mut self, qubit0: usize, qubit1: usize) {
+        self.add_gate(Gate::ISwap, vec![qubit0, qubit1]);
+    }
+    /// `RXX(θ) = exp(-iθ/2 X⊗X)` (v0.7).
+    pub fn rxx(&mut self, theta: f64, qubit0: usize, qubit1: usize) {
+        self.add_gate(Gate::Rxx(theta), vec![qubit0, qubit1]);
+    }
+    /// `RYY(θ) = exp(-iθ/2 Y⊗Y)` (v0.7).
+    pub fn ryy(&mut self, theta: f64, qubit0: usize, qubit1: usize) {
+        self.add_gate(Gate::Ryy(theta), vec![qubit0, qubit1]);
+    }
+    /// `RZZ(θ) = exp(-iθ/2 Z⊗Z)` (v0.7).
+    pub fn rzz(&mut self, theta: f64, qubit0: usize, qubit1: usize) {
+        self.add_gate(Gate::Rzz(theta), vec![qubit0, qubit1]);
+    }
+    /// DCX — double-CNOT (v0.7.1).
+    pub fn dcx(&mut self, qubit0: usize, qubit1: usize) {
+        self.add_gate(Gate::Dcx, vec![qubit0, qubit1]);
+    }
+    /// ECR — echoed cross-resonance (v0.7.1).
+    pub fn ecr(&mut self, qubit0: usize, qubit1: usize) {
+        self.add_gate(Gate::Ecr, vec![qubit0, qubit1]);
+    }
+    /// `RZX(θ) = exp(-iθ/2 Z⊗X)` (v0.7.1).
+    pub fn rzx(&mut self, theta: f64, qubit0: usize, qubit1: usize) {
+        self.add_gate(Gate::Rzx(theta), vec![qubit0, qubit1]);
+    }
+    /// `XXPlusYY(θ)` excitation-preserving (v0.7.1).
+    pub fn xx_plus_yy(&mut self, theta: f64, qubit0: usize, qubit1: usize) {
+        self.add_gate(Gate::XxPlusYy(theta), vec![qubit0, qubit1]);
+    }
+    /// `XXMinusYY(θ)` (v0.7.1).
+    pub fn xx_minus_yy(&mut self, theta: f64, qubit0: usize, qubit1: usize) {
+        self.add_gate(Gate::XxMinusYy(theta), vec![qubit0, qubit1]);
+    }
     /// Controlled-Y (v0.4.6).
     pub fn cy(&mut self, control: usize, target: usize) {
         self.add_gate(Gate::CY, vec![control, target]);
@@ -212,6 +248,43 @@ impl Circuit {
         self.add_gate(Gate::Fredkin, vec![control, target1, target2]);
     }
 
+    /// 임의 k-큐비트 유니터리를 직접 적용한다 (v0.6.8).
+    ///
+    /// `matrix` 는 `2^k × 2^k` row-major (`matrix[row * 2^k + col]`),
+    /// `targets` 는 k 개의 큐비트.  행렬 sub-index 비트 `j` 가 `targets[j]`
+    /// 에 대응 (`targets[0]` = LSB).  unitarity 검증은 호출 측 (Python
+    /// binding) 책임.  statevector 백엔드에서만 지원되며 다른 백엔드는
+    /// 실행 시 에러를 반환한다.
+    ///
+    /// # Panics
+    /// `targets` 가 비었거나 중복이거나, 큐비트 인덱스가 범위를 벗어나거나,
+    /// `matrix.len() != 4^k` 이면 panic.
+    pub fn unitary(&mut self, matrix: Vec<num_complex::Complex<f64>>, targets: Vec<usize>) {
+        assert!(!targets.is_empty(), "unitary: targets 는 비어 있을 수 없음");
+        for &t in &targets {
+            self.validate_qubit(t);
+        }
+        for i in 0..targets.len() {
+            for j in (i + 1)..targets.len() {
+                assert!(
+                    targets[i] != targets[j],
+                    "unitary: targets 중복: {targets:?} (distinct 해야 함)"
+                );
+            }
+        }
+        let dim = 1usize << targets.len();
+        assert_eq!(
+            matrix.len(),
+            dim * dim,
+            "unitary: matrix 는 2^k × 2^k 여야 함 (k={}, expected {}, got {})",
+            targets.len(),
+            dim * dim,
+            matrix.len()
+        );
+        self.instructions
+            .push(Instruction::ApplyUnitary { matrix, targets });
+    }
+
     /// 특정 큐비트를 측정하여 클래식 비트에 저장한다.
     pub fn measure(&mut self, qubit: usize, cbit: usize) {
         self.validate_qubit(qubit);
@@ -237,6 +310,15 @@ impl Circuit {
             channel,
             target: qubit,
         });
+    }
+
+    /// 2-큐비트 상관 노이즈 채널을 회로 명령 시퀀스에 추가한다 (v0.7.2 trajectory).
+    pub fn add_noise_2q(&mut self, channel: NoiseChannel2, q0: usize, q1: usize) {
+        self.validate_qubit(q0);
+        self.validate_qubit(q1);
+        assert!(q0 != q1, "add_noise_2q: q0 == q1 ({q0})");
+        self.instructions
+            .push(Instruction::ApplyNoise2 { channel, q0, q1 });
     }
 
     /// 큐비트를 |0⟩ 상태로 리셋한다 (v0.4.5).
@@ -543,7 +625,10 @@ impl Circuit {
                         return true;
                     }
                 }
-                Instruction::ApplyGate { .. } | Instruction::ApplyNoise { .. } => {}
+                Instruction::ApplyGate { .. }
+                | Instruction::ApplyUnitary { .. }
+                | Instruction::ApplyNoise { .. }
+                | Instruction::ApplyNoise2 { .. } => {}
             }
         }
         false

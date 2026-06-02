@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: htmldate
-Version: 1.9.4
+Version: 1.10.0
 Summary: Fast and robust extraction of original and updated publication dates from URLs and web pages.
 Author-email: Adrien Barbaresi <adrien.barbaresi@gmail.com>
-License: Apache 2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://htmldate.readthedocs.io
 Project-URL: Source, https://github.com/adbar/htmldate
 Project-URL: Blog, https://adrien.barbaresi.eu/blog/
@@ -15,14 +15,11 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -32,21 +29,19 @@ Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Text Processing :: Linguistic
 Classifier: Topic :: Text Processing :: Markup :: HTML
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: charset_normalizer>=3.4.0
 Requires-Dist: dateparser>=1.1.2
-Requires-Dist: lxml==4.9.2; platform_system == "Darwin" and python_version <= "3.8"
-Requires-Dist: lxml>=5.3.0; platform_system != "Darwin" or python_version > "3.8"
+Requires-Dist: lxml>=5.3.0
 Requires-Dist: python-dateutil>=2.9.0.post0
 Requires-Dist: urllib3<3,>=1.26
 Provides-Extra: dev
-Requires-Dist: black; extra == "dev"
-Requires-Dist: flake8; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
 Requires-Dist: types-dateparser; extra == "dev"
 Requires-Dist: types-python-dateutil; extra == "dev"
 Requires-Dist: types-lxml; extra == "dev"
@@ -116,7 +111,7 @@ $ htmldate -u http://blog.python.org/2016/12/python-360-is-now-available.html
     YMD](https://en.wikipedia.org/wiki/ISO_8601)).
 -   Detection of both original and updated dates.
 -   Multilingual.
--   Compatible with all recent versions of Python.
+-   Compatible with Python 3.10 and later.
 
 ### How it works
 
@@ -139,17 +134,17 @@ Finally, the output is validated and converted to the chosen format.
 
 ## Performance
 
-1000 web pages containing identifiable dates (as of 2023-11-13 on Python 3.10)
+1000 web pages containing identifiable dates (as of 2026-06-01 on Python 3.13)
 
 | Python Package | Precision | Recall | Accuracy | F-Score | Time |
 | -------------- | --------- | ------ | -------- | ------- | ---- |
-| articleDateExtractor 0.20 | 0.803 | 0.734 | 0.622 | 0.767 | 5x |
-| date_guesser 2.1.4 | 0.781 | 0.600 | 0.514 | 0.679 | 18x |
-| goose3 3.1.17 | 0.869 | 0.532 | 0.493 | 0.660 | 15x |
-| htmldate\[all\] 1.6.0 (fast) | **0.883** | 0.924 | 0.823 | 0.903 | **1x** |
-| htmldate\[all\] 1.6.0 (extensive) | 0.870 | **0.993** | **0.865** | **0.928** | 1.7x |
-| newspaper3k 0.2.8 | 0.769 | 0.667 | 0.556 | 0.715 | 15x |
-| news-please 1.5.35 | 0.801 | 0.768 | 0.645 | 0.784 | 34x |
+| articleDateExtractor 0.20 | 0.846 | 0.745 | 0.656 | 0.792 | 3x |
+| date_guesser 2.1.4 | 0.832 | 0.611 | 0.544 | 0.705 | 11x |
+| goose3 3.1.21 | **0.930** | 0.568 | 0.545 | 0.706 | 14x |
+| htmldate\[all\] 1.10.0 (fast) | 0.924 | 0.927 | 0.861 | 0.925 | **1x** |
+| htmldate\[all\] 1.10.0 (extensive) | 0.908 | **0.993** | **0.903** | **0.949** | 1.8x |
+| newspaper4k 0.9.5 | 0.912 | 0.728 | 0.680 | 0.810 | 2.5x |
+| news-please 1.6.16 | 0.845 | 0.777 | 0.680 | 0.810 | 29x |
 
 For the complete results and explanations see [evaluation
 page](https://htmldate.readthedocs.io/en/latest/evaluation.html).
@@ -157,13 +152,14 @@ page](https://htmldate.readthedocs.io/en/latest/evaluation.html).
 ## Installation
 
 Htmldate is tested on Linux, macOS and Windows systems, it is compatible
-with Python 3.8 upwards. It can notably be installed with `pip` (`pip3`
+with Python 3.10 upwards. It can notably be installed with `pip` (`pip3`
 where applicable) from the PyPI package repository:
 
 -   `pip install htmldate`
 -   (optionally) `pip install htmldate[speed]`
 
-The last version to support Python 3.6 and 3.7 is `htmldate==1.8.1`.
+The last version to support Python 3.6 and 3.7 is `htmldate==1.8.1`; for
+Python 3.8 and 3.9 use the `1.9.x` series.
 
 ## Documentation
 

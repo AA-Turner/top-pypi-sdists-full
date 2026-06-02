@@ -155,8 +155,9 @@ class CommonConfig(_ConflictDetectionMixin, BaseSettings):
 
 # Hardcoded reserved workflow names that conflict with API endpoints
 # This CANNOT be overridden via environment variables for security reasons
-RESERVED_WORKFLOW_NAMES: frozenset[str] = frozenset({"executions", "schedules", "definitions", "internal"})
-
+RESERVED_WORKFLOW_NAMES: frozenset[str] = frozenset(
+    {"executions", "schedules", "definitions", "internal", "webhooks", "archive", "unarchive"}
+)
 RESERVED_UPDATE_NAMES: frozenset[str] = frozenset({"__submit_input"})
 
 RESERVED_QUERY_NAMES: frozenset[str] = frozenset({"__get_pending_inputs"})

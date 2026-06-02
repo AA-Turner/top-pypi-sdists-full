@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Literal
+
 from reflex.vars.base import Var
 from reflex.vars.object import ObjectVar
 
@@ -19,6 +22,41 @@ from reflex_enterprise.components.map.types import (
     ZoomEvent,
     ZoomLevelsChangeEvent,
 )
+
+# All events an interactive leaflet layer (marker, vector, ...) can emit, kept in
+# sync with the upstream leaflet ``LeafletEventHandlerFnMap`` so any of them can
+# be wired through the ``event_handlers`` prop.
+LayerEventName = Literal[
+    # Mouse / interaction events.
+    "click",
+    "dblclick",
+    "mousedown",
+    "mouseup",
+    "mouseover",
+    "mouseout",
+    "mousemove",
+    "contextmenu",
+    # Keyboard events (focusable layers, e.g. markers).
+    "keypress",
+    "keydown",
+    "keyup",
+    # Layer lifecycle events.
+    "add",
+    "remove",
+    # Popup events.
+    "popupopen",
+    "popupclose",
+    # Tooltip events.
+    "tooltipopen",
+    "tooltipclose",
+    # Marker movement / drag events.
+    "movestart",
+    "move",
+    "moveend",
+    "dragstart",
+    "drag",
+    "dragend",
+]
 
 
 def move_event_spec(event: ObjectVar[dict]) -> tuple[Var[MoveEvent]]:
@@ -164,3 +202,16 @@ def zoom_levels_change_event_spec(
             }
         ).to(ZoomLevelsChangeEvent),
     )
+
+
+# Args spec for leaflet layer events that lack a dedicated ``on_<event>`` alias on
+# the component (aliased events derive their spec from the ``EventHandler``
+# annotation instead). Events not listed here fall back to ``no_args_event_spec``,
+# so they still fire but their handler receives no typed payload.
+LAYER_EVENT_ARGS_SPECS: dict[str, Callable] = {
+    "mousemove": mouse_event_spec,
+    "popupopen": popup_event_spec,
+    "popupclose": popup_event_spec,
+    "tooltipopen": tooltip_event_spec,
+    "tooltipclose": tooltip_event_spec,
+}

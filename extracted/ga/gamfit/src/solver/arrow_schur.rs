@@ -1334,13 +1334,55 @@ fn factor_one_row(
         .max(1.0);
     let ridge_cap = ridge_t.max(1.0e-12 * diag_scale) * 1.0e12;
     let mut ridge_eff = ridge_t;
+    // Escalate the per-row ridge until the block is BOTH positive-definite AND
+    // well-conditioned. Previously the escalation only fired on a *failed*
+    // Cholesky (indefinite block); a barely-PD but ill-conditioned block
+    // (pivots ~ε·trace — e.g. a rank-deficient / over-parameterized decoder
+    // atom) factored successfully and was then rejected outright as
+    // `PerRowFactorIllConditioned`, so the ridge the SAE audit advertises
+    // ("the Arrow-Schur ridge will regularise the deficient directions") never
+    // got the chance to. Folding the κ proxy into the loop lets the ridge lift
+    // just enough to regularise the deficient directions, as advertised,
+    // instead of aborting the whole fit (gam#578). A genuinely PD,
+    // well-conditioned block factors at the base ridge with zero escalation and
+    // is bit-for-bit unchanged; only a block that cannot be conditioned even at
+    // `ridge_cap` (1e12 × base) still surfaces an error for the outer loop.
     let factor = loop {
         let mut block = row.htt.clone();
         for a in 0..d {
             block[[a, a]] += ridge_eff;
         }
         match cholesky_lower(&block) {
-            Ok(factor) => break factor,
+            Ok(factor) => {
+                // Evidence/log-det-only callers tolerate ill-conditioning: the
+                // factor is genuinely PD, so its diagonal gives an exact log|S|
+                // and an inaccurate Δβ would be discarded anyway.
+                if tolerate_ill_conditioning {
+                    break factor;
+                }
+                // Diagonal-ratio condition-number proxy κ(LLᵀ) ≈
+                // (max L_ii / min L_ii)², vs the dimension-scaled Higham
+                // near-singularity ceiling. A barely-PD inverse plugged into
+                //   S = H_ββ + ridge_β·I − Σ_i H_tβ^(i)ᵀ (H_tt^(i))⁻¹ H_tβ^(i)
+                // contaminates S by spectral terms scaled by κ_i, so an
+                // over-threshold block is regularised further rather than used.
+                let kappa_est = cholesky_factor_kappa_estimate(&factor);
+                if kappa_est.is_finite() && kappa_est <= safe_spd_kappa_max(d) {
+                    break factor;
+                }
+                let next = if ridge_eff > 0.0 {
+                    ridge_eff * 10.0
+                } else {
+                    1.0e-10 * diag_scale
+                };
+                if !next.is_finite() || next > ridge_cap {
+                    return Err(ArrowSchurError::PerRowFactorIllConditioned {
+                        row: row_idx,
+                        kappa_estimate: kappa_est,
+                    });
+                }
+                ridge_eff = next;
+            }
             Err(e) => {
                 let next = if ridge_eff > 0.0 {
                     ridge_eff * 10.0
@@ -1360,31 +1402,6 @@ fn factor_one_row(
             }
         }
     };
-    // Cholesky succeeded, but barely-PD H_tt^(i) (pivots on the order of
-    // ε·trace) yield an inverse with condition number ~1/ε. Plugging that
-    // inverse into the Schur reduction
-    //     S = H_ββ + ridge_β·I − Σ_i H_tβ^(i)ᵀ (H_tt^(i))⁻¹ H_tβ^(i)
-    // contaminates S by spectral terms scaled by κ_i, while still letting
-    // the outer Cholesky on S succeed. Treat that case as functionally
-    // equivalent to a PSD failure so LM escalation lifts ridge_t.
-    //
-    // Diagonal-ratio condition-number proxy κ(L Lᵀ) ≈ (max L_ii / min L_ii)²,
-    // compared against the dimension-scaled Higham near-singularity ceiling.
-    // See `cholesky_factor_kappa_estimate` / `safe_spd_kappa_max`.
-    //
-    // Evidence/log-det-only callers set `tolerate_ill_conditioning` to skip
-    // this *rejection* (the factor itself is still genuinely PD — Cholesky
-    // above would have errored otherwise — so its diagonal gives an exact
-    // log-determinant and the selected-inverse traces remain well-defined).
-    if !tolerate_ill_conditioning {
-        let kappa_est = cholesky_factor_kappa_estimate(&factor);
-        if !kappa_est.is_finite() || kappa_est > safe_spd_kappa_max(d) {
-            return Err(ArrowSchurError::PerRowFactorIllConditioned {
-                row: row_idx,
-                kappa_estimate: kappa_est,
-            });
-        }
-    }
     Ok(factor)
 }
 
@@ -2657,6 +2674,94 @@ impl StreamingArrowSchur {
             }
         }
         Ok(())
+    }
+
+    /// Compute the exact arrow Hessian log-determinant by accumulating the
+    /// reduced Schur complement in row chunks, without retaining the full set
+    /// of per-row Cholesky factors.
+    ///
+    /// This is the streaming analogue of [`ArrowFactorCache::arrow_log_det`]:
+    ///
+    /// ```text
+    /// log|H| = Σ_i log|H_tt^(i)| + log|H_ββ - Σ_i H_βt^(i) H_tt^(i)⁻¹ H_tβ^(i)|.
+    /// ```
+    ///
+    /// The same row builder and procedural `H_tβ` callbacks used by the
+    /// streaming Newton solve are consumed here, so callers can score REML
+    /// evidence without materialising the full `(N × q × K)` cross block or
+    /// the full list of row factors.
+    pub fn reduced_schur_and_log_det_tt(
+        &mut self,
+        ridge_t: f64,
+        ridge_beta: f64,
+        options: &ArrowSolveOptions,
+    ) -> Result<(f64, Array2<f64>), ArrowSchurError> {
+        self.tolerate_ill_conditioning = options.tolerate_ill_conditioning;
+        self.reset_accumulator(ridge_beta)?;
+        let backend = CpuBatchedBlockSolver;
+        let mut log_det_tt = 0.0_f64;
+        for start in (0..self.n_rows).step_by(self.chunk_size) {
+            let end = (start + self.chunk_size).min(self.n_rows);
+            for row_idx in start..end {
+                let row = (self.row_builder)(row_idx)?;
+                let di = row.htt.nrows();
+                self.validate_row(row_idx, &row)?;
+                let htbeta = self.row_htbeta(row_idx, &row, di);
+                let factor =
+                    factor_one_row(&row, ridge_t, di, row_idx, self.tolerate_ill_conditioning)?;
+                for axis in 0..di {
+                    log_det_tt += 2.0 * factor[[axis, axis]].ln();
+                }
+                match options.mode {
+                    ArrowSolverMode::Direct | ArrowSolverMode::InexactPCG => {
+                        let solved = backend.solve_block_matrix(&factor, &htbeta);
+                        backend.block_gemm_subtract(&mut self.s_acc, &htbeta, &solved);
+                    }
+                    ArrowSolverMode::SqrtBA => {
+                        let whitened = backend.sqrt_solve_block_matrix(&factor, &htbeta);
+                        backend.block_gemm_subtract(&mut self.s_acc, &whitened, &whitened);
+                    }
+                }
+            }
+        }
+        symmetrize_upper_from_lower(&mut self.s_acc);
+        let schur = std::mem::replace(&mut self.s_acc, Array2::<f64>::zeros((self.k, self.k)));
+        Ok((log_det_tt, schur))
+    }
+
+    pub fn reduced_schur_log_det(
+        schur: &Array2<f64>,
+        options: &ArrowSolveOptions,
+    ) -> Result<f64, ArrowSchurError> {
+        let rhs = Array1::<f64>::zeros(schur.nrows());
+        let trust_metric_weights = None;
+        let (delta, schur_factor, diag) =
+            solve_dense_reduced_system(schur, &rhs, options, trust_metric_weights)?;
+        if delta.len() != schur.nrows() || diag.iterations != 0 {
+            return Err(ArrowSchurError::SchurFactorFailed {
+                reason: "streaming log-det reduced solve returned incoherent diagnostics"
+                    .to_string(),
+            });
+        }
+        let schur_factor = schur_factor.ok_or_else(|| ArrowSchurError::SchurFactorFailed {
+            reason: "streaming log-det requires a dense reduced Schur factor".to_string(),
+        })?;
+        let mut log_det_schur = 0.0_f64;
+        for axis in 0..schur_factor.nrows() {
+            log_det_schur += 2.0 * schur_factor[[axis, axis]].ln();
+        }
+        Ok(log_det_schur)
+    }
+
+    pub fn exact_arrow_log_det(
+        &mut self,
+        ridge_t: f64,
+        ridge_beta: f64,
+        options: &ArrowSolveOptions,
+    ) -> Result<f64, ArrowSchurError> {
+        let (log_det_tt, schur) =
+            self.reduced_schur_and_log_det_tt(ridge_t, ridge_beta, options)?;
+        Ok(log_det_tt + Self::reduced_schur_log_det(&schur, options)?)
     }
 
     pub fn solve(
@@ -5761,37 +5866,65 @@ mod tests {
         );
     }
 
-    /// Issue #195: a per-row block that is barely-PD (smallest pivot on
-    /// the order of ε·trace) factors successfully but is unsafe to use in
-    /// the Schur reduction. `factor_one_row` must detect this via the
-    /// diagonal-ratio condition estimate and surface
-    /// `PerRowFactorIllConditioned` rather than silently contaminating
+    /// Issue #195 / gam#578: a per-row block that is barely-PD (smallest
+    /// pivot on the order of ε·trace — a rank-deficient / over-parameterized
+    /// decoder atom) factors successfully but is unsafe to use raw in the
+    /// Schur reduction. The κ proxy is folded INTO the per-row ridge
+    /// escalation loop: rather than reject such a block outright (which made
+    /// the advertised Arrow-Schur ridge never actually run and aborted the
+    /// whole SAE fit, gam#578), `factor_one_row` lifts this row's ridge until
+    /// the block is BOTH positive-definite and well-conditioned, then returns
+    /// a genuinely conditioned factor safe to plug into
     /// `S = H_ββ + ridge_β·I − Σ_i H_tβ^(i)ᵀ (H_tt^(i))⁻¹ H_tβ^(i)`.
+    /// Only a block that cannot be conditioned even at `ridge_cap` errors.
     #[test]
-    fn factor_one_row_rejects_barely_pd_block() {
+    fn factor_one_row_conditions_barely_pd_block_via_ridge() {
         let d = 2;
         let k = 2;
         let mut row = ArrowRowBlock::new(d, k);
         // Matrix from the issue body: PD by an exact ε along the second
-        // direction. Cholesky succeeds, but κ ≈ 1e14.
+        // direction. Cholesky succeeds at ridge 0, but κ ≈ 1e14 — far past
+        // the safe inversion regime. This is exactly the rank-deficient
+        // decoder-atom block gam#578 advertised the ridge would stabilize.
         row.htt = array![[1.0_f64, 1.0], [1.0, 1.0 + 1e-14]];
         row.htbeta = array![[1.0_f64, 0.0], [0.0, 1.0]];
         row.gt = array![0.0_f64, 0.0];
 
-        let err = factor_one_row(&row, 0.0, d, 0, false)
-            .expect_err("barely-PD H_tt must be rejected by the condition check");
-        match err {
-            ArrowSchurError::PerRowFactorIllConditioned {
-                row: r,
-                kappa_estimate,
-            } => {
-                assert_eq!(r, 0);
-                assert!(
-                    kappa_estimate > 1e10,
-                    "kappa estimate should reflect the barely-PD block; got {kappa_estimate:e}"
-                );
+        // The fix: instead of rejecting, the escalation loop lifts this
+        // row's ridge until the factor is well-conditioned. The returned
+        // factor must satisfy the κ ceiling that a raw barely-PD block fails.
+        let factor = factor_one_row(&row, 0.0, d, 0, false).expect(
+            "barely-PD H_tt must be CONDITIONED by per-row ridge escalation, not rejected (gam#578)",
+        );
+        let kappa = cholesky_factor_kappa_estimate(&factor);
+        assert!(
+            kappa.is_finite() && kappa <= safe_spd_kappa_max(d),
+            "conditioned factor must be within the safe-inversion κ ceiling; got κ={kappa:e}"
+        );
+        // The factor is a genuine Cholesky of the ridge-lifted block
+        // H_tt + ridge_eff·I (ridge_eff ≥ 0), so reconstructing L Lᵀ must
+        // match H_tt up to a nonnegative diagonal shift (never below).
+        for i in 0..d {
+            for j in 0..d {
+                let mut acc = 0.0_f64;
+                for kk in 0..d {
+                    acc += factor[[i, kk]] * factor[[j, kk]];
+                }
+                if i == j {
+                    assert!(
+                        acc >= row.htt[[i, j]] - 1e-12,
+                        "diagonal of L Lᵀ must be H_tt + (nonneg ridge) at ({i},{j}): \
+                         {acc} vs {}",
+                        row.htt[[i, j]]
+                    );
+                } else {
+                    assert!(
+                        (acc - row.htt[[i, j]]).abs() < 1e-9,
+                        "off-diagonal of L Lᵀ must equal H_tt at ({i},{j}): {acc} vs {}",
+                        row.htt[[i, j]]
+                    );
+                }
             }
-            other => panic!("expected PerRowFactorIllConditioned, got {other:?}"),
         }
 
         // Evidence/log-det mode (`tolerate_ill_conditioning = true`) must
@@ -5834,11 +5967,27 @@ mod tests {
         row_ok.gt = array![0.0_f64, 0.0];
         factor_one_row(&row_ok, 0.0, d, 0, false)
             .expect("well-conditioned block must still factor at ridge_t=0");
+
+        // A block that cannot be conditioned at all — a non-finite entry —
+        // is genuinely broken: no finite ridge shift repairs it, so the
+        // escalation loop must still surface a typed `PerRowFactorFailed`
+        // for the outer loop rather than loop forever or return garbage.
+        let mut row_nan = ArrowRowBlock::new(d, k);
+        row_nan.htt = array![[f64::NAN, 0.0], [0.0, 1.0]];
+        row_nan.htbeta = array![[1.0_f64, 0.0], [0.0, 1.0]];
+        row_nan.gt = array![0.0_f64, 0.0];
+        let nan = factor_one_row(&row_nan, 1.0e-6, d, 0, false);
+        assert!(
+            matches!(nan, Err(ArrowSchurError::PerRowFactorFailed { .. })),
+            "non-finite block must surface PerRowFactorFailed, not loop or condition; got {nan:?}"
+        );
     }
 
-    /// Issue #195 follow-up: when the per-row block is barely-PD at
-    /// `ridge_t = 0`, `solve_with_lm_escalation_inner` must escalate
-    /// `ridge_t` and produce a successful solve at a higher ridge.
+    /// Issue #195 / gam#578: when the per-row block is barely-PD at
+    /// `ridge_t = 0` (a rank-deficient atom), the per-row factor must
+    /// CONDITION it through the folded ridge escalation, and the full
+    /// `solve_with_lm_escalation_inner` must produce a finite Newton step
+    /// rather than aborting the whole fit.
     #[test]
     fn lm_escalation_recovers_from_ill_conditioned_row() {
         let n = 1;
@@ -5852,20 +6001,34 @@ mod tests {
         sys.hbb = array![[4.0_f64, 0.2], [0.2, 5.0]];
         sys.gb = array![0.3_f64, -0.1];
 
-        // Direct factor at ridge_t=0 must report ill-conditioning.
-        let direct = factor_one_row(&sys.rows[0], 0.0, d, 0, false);
-        assert!(matches!(
-            direct,
-            Err(ArrowSchurError::PerRowFactorIllConditioned { .. })
-        ));
+        // Direct factor at ridge_t=0 now CONDITIONS the barely-PD block via
+        // the folded per-row ridge escalation (gam#578: the advertised ridge
+        // genuinely stabilizes the deficient direction instead of rejecting
+        // it) and returns a well-conditioned factor.
+        let factor = factor_one_row(&sys.rows[0], 0.0, d, 0, false)
+            .expect("barely-PD row must be conditioned, not rejected (gam#578)");
+        let kappa = cholesky_factor_kappa_estimate(&factor);
+        assert!(
+            kappa.is_finite() && kappa <= safe_spd_kappa_max(d),
+            "conditioned per-row factor must satisfy the κ ceiling; got κ={kappa:e}"
+        );
 
-        // But the LM-escalating wrapper must recover by lifting ridge_t.
+        // The full LM-escalating wrapper likewise produces a finite step.
+        // Because the per-row factor now conditions the deficient block on
+        // its own, the proximal wrapper needs ZERO outer ridge escalations —
+        // the deficient direction is regularised at the row level, exactly as
+        // gam#578 advertises, instead of forcing the whole system to be
+        // over-damped.
         let options = ArrowSolveOptions::direct();
-        let (delta_t, delta_beta, _diag) = solve_with_lm_escalation_inner(&sys, 0.0, 0.0, &options)
-            .expect("LM escalation must recover from PerRowFactorIllConditioned");
+        let (delta_t, delta_beta, diag) = solve_with_lm_escalation_inner(&sys, 0.0, 0.0, &options)
+            .expect("LM escalation must recover from a barely-PD per-row block");
         for v in delta_t.iter().chain(delta_beta.iter()) {
             assert!(v.is_finite(), "recovered step must be finite: {v}");
         }
+        assert_eq!(
+            diag.ridge_escalations, 0,
+            "per-row conditioning must absorb the deficiency without an outer ridge bump"
+        );
     }
 
     /// `latent_block_inverse_diagonal` must reproduce the `t`-block diagonal of
@@ -6092,18 +6255,32 @@ mod tests {
         sys.hbb = array![[5.0_f64, 0.3], [0.3, 4.0]];
         sys.gb = array![0.0_f64, 0.0];
 
-        // Default guard rejects the ill-conditioned per-row block.
-        let strict =
-            solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &ArrowSolveOptions::direct());
-        assert!(
-            matches!(
-                strict,
-                Err(ArrowSchurError::PerRowFactorIllConditioned { .. })
-            ),
-            "default direct() must reject the ill-conditioned block; got {strict:?}"
-        );
+        // Default guard now CONDITIONS the barely-PD per-row blocks through
+        // the folded per-row ridge escalation (gam#578): rather than reject
+        // them, factor_one_row lifts each row's ridge until the block is
+        // within the safe-Schur κ ceiling, so strict direct() returns Ok with
+        // a finite, well-conditioned Newton step. The per-row factors held by
+        // the resulting cache must satisfy the κ ceiling that the raw
+        // barely-PD blocks fail.
+        let (strict_dt, strict_db, strict_cache) =
+            solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &ArrowSolveOptions::direct())
+                .expect("default direct() must CONDITION the barely-PD blocks, not reject (gam#578)");
+        for v in strict_dt.iter().chain(strict_db.iter()) {
+            assert!(v.is_finite(), "conditioned strict step must be finite: {v}");
+        }
+        // The cache's damped per-row factors `htt_factors` are the conditioned
+        // (ridge-lifted) blocks actually used in the Schur reduction; each must
+        // satisfy the safe-Schur κ ceiling the raw barely-PD block fails.
+        for i in 0..n {
+            let kappa = cholesky_factor_kappa_estimate(&strict_cache.htt_factors[i]);
+            assert!(
+                kappa.is_finite() && kappa <= safe_spd_kappa_max(d),
+                "conditioned per-row factor {i} must satisfy the safe-Schur κ ceiling; got κ={kappa:e}"
+            );
+        }
 
-        // Evidence mode accepts it and returns a cache.
+        // Evidence mode accepts the RAW (undamped) block and returns a cache —
+        // the genuinely PD factor whose diagonal gives the EXACT log|H|.
         let opts = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
         let (_dt, _db, cache) = solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &opts)
             .expect("tolerate mode must factor the ill-conditioned-but-PD system");

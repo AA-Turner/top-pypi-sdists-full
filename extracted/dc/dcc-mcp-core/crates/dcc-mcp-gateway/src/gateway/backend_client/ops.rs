@@ -20,6 +20,18 @@ use super::http::{
 use super::probe::{ProbeOutcome, probe_mcp_readiness};
 use super::urls::rest_base_from_mcp_url;
 
+/// Check whether `action` (which may be skill-prefixed like
+/// `maya_geometry__create_sphere`) matches a group tool entry
+/// (typically a bare tool name like `create_sphere`).
+fn action_matches_group_tool(action: &str, group_tool_name: &str) -> bool {
+    if action == group_tool_name {
+        return true;
+    }
+    // Try the bare action name (strip skill prefix) for comparison.
+    dcc_mcp_gateway_core::naming::decode_skill_tool_name(action)
+        .is_some_and(|(_, bare)| bare == group_tool_name)
+}
+
 #[derive(Debug, Clone)]
 pub struct UnloadedCapabilityHint {
     pub skill_name: String,
@@ -27,6 +39,7 @@ pub struct UnloadedCapabilityHint {
     pub summary: String,
     pub search_tokens: Vec<String>,
     pub available_groups: Vec<CapabilityGroupInfo>,
+    pub tool_group: Option<String>,
 }
 
 async fn rest_get_idempotent(
@@ -224,7 +237,41 @@ pub async fn try_fetch_tools(
             if loaded {
                 let annotations = parse_tool_annotations(v.get("annotations"));
                 let metadata = v.get("metadata");
-                let meta = mcp_meta_from_rest_metadata(metadata, v.get("skill"));
+                let mut meta = mcp_meta_from_rest_metadata(metadata, v.get("skill"));
+
+                // Inject available_groups and per-tool group info so the
+                // capability builder can surface progressive group state.
+                if let Some(available_groups) = v.get("available_groups")
+                    && let Some(dcc) = meta
+                        .get_or_insert_with(Default::default)
+                        .entry("dcc".to_string())
+                        .or_insert_with(|| json!({}))
+                        .as_object_mut()
+                {
+                    dcc.insert("available_groups".to_string(), available_groups.clone());
+                    // Determine which group this tool belongs to.
+                    if let Some(arr) = available_groups.as_array() {
+                        for group in arr {
+                            if let Some(tools) = group.get("tools").and_then(Value::as_array)
+                                && tools.iter().any(|t| {
+                                    t.as_str().is_some_and(|tool_name| {
+                                        action_matches_group_tool(&action, tool_name)
+                                    })
+                                })
+                            {
+                                if let Some(group_name) = group.get("name").and_then(Value::as_str)
+                                {
+                                    dcc.insert(
+                                        "group".to_string(),
+                                        Value::String(group_name.to_string()),
+                                    );
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+
                 loaded_tools.push(McpTool {
                     name: action,
                     description,
@@ -247,17 +294,27 @@ pub async fn try_fetch_tools(
                     .unwrap_or("")
                     .to_owned();
                 let metadata = v.get("metadata");
-                let available_groups = v
+                let available_groups: Vec<CapabilityGroupInfo> = v
                     .get("available_groups")
                     .cloned()
                     .and_then(|value| serde_json::from_value(value).ok())
                     .unwrap_or_default();
+                // Determine which group this tool belongs to.
+                let tool_group = available_groups
+                    .iter()
+                    .find(|g| {
+                        g.tools
+                            .iter()
+                            .any(|t| action_matches_group_tool(&action, t))
+                    })
+                    .map(|g| g.name.clone());
                 unloaded_hints.push(UnloadedCapabilityHint {
                     skill_name,
                     tool_name: action,
                     summary: description,
                     search_tokens: rest_metadata_search_tokens(metadata),
                     available_groups,
+                    tool_group,
                 });
             }
         }
@@ -741,4 +798,48 @@ pub async fn subscribe_resource(
     post_jsonrpc(client, mcp_url, req_body, Some(session_id), timeout)
         .await
         .map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::action_matches_group_tool;
+
+    #[test]
+    fn exact_match() {
+        assert!(action_matches_group_tool("create_sphere", "create_sphere"));
+    }
+
+    #[test]
+    fn skill_prefixed_action_matches_bare_group_tool() {
+        // Backend action: maya_geometry__create_sphere
+        // Group tool entry: create_sphere
+        assert!(action_matches_group_tool(
+            "maya_geometry__create_sphere",
+            "create_sphere"
+        ));
+    }
+
+    #[test]
+    fn non_matching_tool_returns_false() {
+        assert!(!action_matches_group_tool(
+            "maya_geometry__create_cube",
+            "create_sphere"
+        ));
+    }
+
+    #[test]
+    fn hyphenated_skill_prefixed_action_matches() {
+        assert!(action_matches_group_tool(
+            "maya-animation__set_keyframe",
+            "set_keyframe"
+        ));
+    }
+
+    #[test]
+    fn bare_action_not_in_any_group() {
+        assert!(!action_matches_group_tool(
+            "standalone_action",
+            "create_sphere"
+        ));
+    }
 }

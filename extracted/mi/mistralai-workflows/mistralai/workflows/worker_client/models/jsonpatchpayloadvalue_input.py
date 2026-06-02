@@ -2,16 +2,16 @@
 # @generated-id: 543272e4bbf3
 
 from __future__ import annotations
-from .jsonpatch import JSONPatch, JSONPatchTypedDict
+from .jsonpatch_input import JSONPatchInput, JSONPatchInputTypedDict
 from typing import List, Union
 from typing_extensions import TypeAliasType
 
 
 JSONPatchPayloadValueInputTypedDict = TypeAliasType(
-    "JSONPatchPayloadValueInputTypedDict", Union[List[JSONPatchTypedDict], str]
+    "JSONPatchPayloadValueInputTypedDict", Union[List[JSONPatchInputTypedDict], str]
 )
 
 
 JSONPatchPayloadValueInput = TypeAliasType(
-    "JSONPatchPayloadValueInput", Union[List[JSONPatch], str]
+    "JSONPatchPayloadValueInput", Union[List[JSONPatchInput], str]
 )

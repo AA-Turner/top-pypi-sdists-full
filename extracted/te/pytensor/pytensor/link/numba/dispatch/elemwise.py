@@ -27,6 +27,10 @@ from pytensor.link.numba.dispatch.string_codegen import (
     create_tuple_string,
 )
 from pytensor.link.numba.dispatch.vectorize_codegen import (
+    NO_INDEXED_INPUTS,
+    NO_INDEXED_OUTPUTS,
+    NO_SIZE,
+    _jit_options,
     _vectorized,
     encode_literals,
     store_core_outputs,
@@ -42,11 +46,11 @@ from pytensor.scalar.basic import (
     Mul,
     Sub,
     TrueDiv,
-    get_scalar_type,
 )
 from pytensor.tensor.blas import BatchedDot
 from pytensor.tensor.elemwise import CAReduce, DimShuffle, Elemwise
 from pytensor.tensor.math import Argmax, Dot, MulWithoutZeros
+from pytensor.tensor.rewriting.indexed_elemwise import IndexedElemwise
 
 
 @singledispatch
@@ -632,8 +636,7 @@ def create_axis_apply_fn(fn, axis, ndim, dtype):
 
 @register_funcify_and_cache_key(Elemwise)
 def numba_funcify_Elemwise(op, node, **kwargs):
-    scalar_inputs = [get_scalar_type(dtype=input.dtype)() for input in node.inputs]
-    scalar_node = op.scalar_op.make_node(*scalar_inputs)
+    scalar_node = op.make_scalar_node(*node.inputs)
     scalar_op_fn, scalar_cache_key = numba_funcify_and_cache_key(
         op.scalar_op,
         node=scalar_node,
@@ -688,8 +691,10 @@ def numba_funcify_Elemwise(op, node, **kwargs):
                 True,  # allow_core_scalar
                 (),  # constant_inputs
                 inputs,
-                core_output_shapes,  # core_shapes
-                None,  # size
+                core_output_shapes,
+                NO_SIZE,
+                NO_INDEXED_INPUTS,
+                NO_INDEXED_OUTPUTS,
             )
 
         return impl
@@ -708,6 +713,107 @@ def numba_funcify_Elemwise(op, node, **kwargs):
         )
         elemwise_key = sha256(elemwise_key.encode()).hexdigest()
     return elemwise, elemwise_key
+
+
+@register_funcify_and_cache_key(IndexedElemwise)
+def numba_funcify_IndexedElemwise(op, node, **kwargs):
+    """Generate fused Elemwise Numba code with indexed reads and updates.
+
+    Reads indexed_inputs/indexed_outputs specs stored on the Op by the
+    rewriting pass, and generates a single vectorized loop with indirect
+    indexing.
+
+    fgraph inputs are ordered as::
+
+        [elemwise_inputs..., idx_0, idx_1, ..., update_target_0, ...]
+    """
+    [elemwise_node] = [n for n in op.fgraph.apply_nodes if isinstance(n.op, Elemwise)]
+
+    scalar_node = elemwise_node.op.make_scalar_node(*elemwise_node.inputs)
+    scalar_op_fn, scalar_cache_key = numba_funcify_and_cache_key(
+        elemwise_node.op.scalar_op, node=scalar_node, **kwargs
+    )
+
+    indexed_inputs = op.indexed_inputs
+    indexed_outputs = op.indexed_outputs
+    n_indices = len(indexed_inputs)
+    nin_elemwise = len(elemwise_node.inputs)
+    nout = len(elemwise_node.outputs)
+
+    inc_outputs = frozenset(
+        out_idx
+        for entry in indexed_outputs
+        if entry is not None
+        for out_idx in entry[0]
+        if entry[2] == "inc"
+    )
+
+    core_op_fn = store_core_outputs(
+        scalar_op_fn, nin=nin_elemwise, nout=nout, inc_outputs=inc_outputs
+    )
+
+    input_bc_patterns = tuple(inp.type.broadcastable for inp in elemwise_node.inputs)
+    output_bc_patterns = tuple(out.type.broadcastable for out in elemwise_node.outputs)
+    output_dtypes = tuple(out.type.dtype for out in node.outputs)
+    inplace_pattern = tuple(elemwise_node.op.inplace_pattern.items())
+    core_output_shapes = tuple(() for _ in range(nout))
+
+    idx_broadcastable = tuple(
+        node.inputs[nin_elemwise + k].type.broadcastable for k in range(n_indices)
+    )
+
+    input_bc_patterns_enc = encode_literals(input_bc_patterns)
+    output_bc_patterns_enc = encode_literals(output_bc_patterns)
+    output_dtypes_enc = encode_literals(output_dtypes)
+    inplace_pattern_enc = encode_literals(inplace_pattern)
+    indexed_inputs_enc = encode_literals((indexed_inputs, idx_broadcastable))
+    indexed_outputs_enc = encode_literals(indexed_outputs)
+
+    def indexed_elemwise_fn(*outer_inputs):
+        raise NotImplementedError(
+            "IndexedElemwise cannot be evaluated in Python (non-JIT) mode."
+        )
+
+    @overload(indexed_elemwise_fn, jit_options=_jit_options)
+    def ov_indexed_elemwise_fn(*outer_inputs):
+        def impl(*outer_inputs):
+            return _vectorized(
+                core_op_fn,
+                input_bc_patterns_enc,
+                output_bc_patterns_enc,
+                output_dtypes_enc,
+                inplace_pattern_enc,
+                True,  # allow_core_scalar
+                (),  # constant_inputs
+                outer_inputs,
+                core_output_shapes,
+                NO_SIZE,
+                indexed_inputs_enc,
+                indexed_outputs_enc,
+            )
+
+        return impl
+
+    cache_version = 1
+    if scalar_cache_key is None:
+        key = None
+    else:
+        key = str(
+            (
+                type(op),
+                "IndexedElemwise",
+                cache_version,
+                inplace_pattern,
+                input_bc_patterns,
+                indexed_inputs,
+                idx_broadcastable,
+                indexed_outputs,
+                scalar_cache_key,
+            )
+        )
+        key = sha256(key.encode()).hexdigest()
+
+    return indexed_elemwise_fn, key
 
 
 @register_funcify_and_cache_key(CAReduce)
@@ -893,36 +999,51 @@ def numba_funcify_Dot(op, node, **kwargs):
     if x_dtype == numba_dot_dtype and y_dtype == numba_dot_dtype:
 
         @numba_basic.numba_njit
-        def dot(x, y):
-            return np.asarray(np.dot(x, y))
+        def dot(x, y, out=None):
+            if out is None:
+                return np.asarray(np.dot(x, y))
+            np.dot(x, y, out)
+            return out
 
     elif x_dtype == numba_dot_dtype and y_dtype != numba_dot_dtype:
 
         @numba_basic.numba_njit
-        def dot(x, y):
-            return np.asarray(np.dot(x, y.astype(numba_dot_dtype)))
+        def dot(x, y, out=None):
+            if out is None:
+                return np.asarray(np.dot(x, y.astype(numba_dot_dtype)))
+            np.dot(x, y.astype(numba_dot_dtype), out)
+            return out
 
     elif x_dtype != numba_dot_dtype and y_dtype == numba_dot_dtype:
 
         @numba_basic.numba_njit
-        def dot(x, y):
-            return np.asarray(np.dot(x.astype(numba_dot_dtype), y))
+        def dot(x, y, out=None):
+            if out is None:
+                return np.asarray(np.dot(x.astype(numba_dot_dtype), y))
+            np.dot(x.astype(numba_dot_dtype), y, out)
+            return out
 
     else:
 
         @numba_basic.numba_njit
-        def dot(x, y):
-            return np.asarray(
-                np.dot(x.astype(numba_dot_dtype), y.astype(numba_dot_dtype))
-            )
+        def dot(x, y, out=None):
+            if out is None:
+                return np.asarray(
+                    np.dot(x.astype(numba_dot_dtype), y.astype(numba_dot_dtype))
+                )
+            np.dot(x.astype(numba_dot_dtype), y.astype(numba_dot_dtype), out)
+            return out
 
-    cache_version = 1
+    cache_version = 2
 
     if out_dtype == numba_dot_dtype:
+        # np.dot can write straight into the pre-allocated batch output slice.
+        dot.handles_out = True
         return dot, cache_version
 
     else:
-
+        # Output needs a dtype cast np.dot can't do in place, so fall back to
+        # the copying store_core_outputs wrapper.
         @numba_basic.numba_njit
         def dot_with_cast(x, y):
             return dot(x, y).astype(out_dtype)
@@ -935,14 +1056,16 @@ def numba_funcify_BatchedDot(op, node, **kwargs):
     dtype = node.outputs[0].type.numpy_dtype
 
     @numba_basic.numba_njit
-    def batched_dot(x, y):
+    def batched_dot(x, y, out=None):
         # Numba does not support 3D matmul
         # https://github.com/numba/numba/issues/3804
-        shape = x.shape[:-1] + y.shape[2:]
-        z0 = np.empty(shape, dtype=dtype)
-        for i in range(z0.shape[0]):
-            z0[i] = np.dot(x[i], y[i])
+        if out is None:
+            shape = x.shape[:-1] + y.shape[2:]
+            out = np.empty(shape, dtype=dtype)
+        for i in range(out.shape[0]):
+            out[i] = np.dot(x[i], y[i])
 
-        return z0
+        return out
 
-    return batched_dot
+    batched_dot.handles_out = True
+    return batched_dot, 1

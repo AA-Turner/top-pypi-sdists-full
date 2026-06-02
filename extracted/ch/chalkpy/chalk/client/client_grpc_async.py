@@ -26,7 +26,7 @@ from chalk._gen.chalk.server.v1.scheduled_query_pb2_grpc import ScheduledQuerySe
 from chalk._gen.chalk.server.v1.scheduler_pb2_grpc import SchedulerServiceStub
 from chalk._gen.chalk.server.v1.team_pb2_grpc import TeamServiceStub
 from chalk.client.client_grpc import _canonicalize_headers  # pyright: ignore[reportPrivateUsage]
-from chalk.client.client_grpc import _merge_headers  # pyright: ignore[reportPrivateUsage]
+from chalk.client.client_grpc import _inject_trace_context_metadata  # pyright: ignore[reportPrivateUsage]
 from chalk.client.client_grpc import _parse_uri_for_engine  # pyright: ignore[reportPrivateUsage]
 from chalk.client.client_grpc import get_features_feather_bytes
 from chalk.client.client_headers import (
@@ -61,7 +61,7 @@ from chalk.utils.grpc import (
     AsyncTokenRefresher,
     AsyncUnauthenticatedChalkClientInterceptor,
 )
-from chalk.utils.tracing import add_trace_headers, safe_trace
+from chalk.utils.tracing import current_or_new_trace_context, current_trace_context, safe_trace
 
 if TYPE_CHECKING:
     from google.protobuf import timestamp_pb2
@@ -756,6 +756,7 @@ class AsyncChalkGRPCClient:
         query_context: Mapping[str, Union[str, int, float, bool, None]] | str | None = None,
         trace: bool = False,
     ) -> online_query_pb2.OnlineQueryBulkResponse:
+        trace_context = current_or_new_trace_context() if trace else current_trace_context()
         with safe_trace("_online_query_grpc_request"):
             request = self._make_query_bulk_request(
                 input={k: [v] for k, v in input.items()},
@@ -776,8 +777,8 @@ class AsyncChalkGRPCClient:
                 planner_options=planner_options or {},
                 query_context=query_context,
             )
-            if trace:
-                headers = _merge_headers(add_trace_headers({}), headers)
+            if trace_context is not None:
+                headers = _inject_trace_context_metadata(headers, trace_context)
             metadata = _canonicalize_headers(headers)
 
             async def fn(stub: QueryServiceStub):
@@ -937,6 +938,9 @@ class AsyncChalkGRPCClient:
             planner_options=planner_options or {},
             query_context=query_context,
         )
+        trace_context = current_trace_context()
+        if trace_context is not None:
+            headers = _inject_trace_context_metadata(headers, trace_context)
         metadata = _canonicalize_headers(headers)
 
         async def fn(stub: QueryServiceStub):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jsii
-Version: 1.132.0
+Version: 1.133.0
 Summary: Python client for jsii runtime
 Home-page: https://github.com/aws/jsii
 Author: Amazon Web Services
@@ -12,19 +12,20 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: JavaScript
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
-Requires-Python: ~=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: attrs<26.0,>=21.2
-Requires-Dist: cattrs<25.4,>=1.8
-Requires-Dist: importlib_resources>=5.2.0
+Requires-Dist: attrs<27.0,>=21.2
+Requires-Dist: cattrs<27.0,>=1.8
 Requires-Dist: publication>=0.0.3
 Requires-Dist: typeguard==2.13.3
 Requires-Dist: python-dateutil

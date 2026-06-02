@@ -71,7 +71,7 @@ from qiskit.transpiler import Target, CouplingMap
 
 from qiskit_ionq.ionq_gates import GPIGate, GPI2Gate, MSGate, ZZGate
 from . import ionq_equivalence_library, ionq_job, ionq_client, exceptions
-from .helpers import GATESET_MAP, get_n_qubits, warn_bad_transpile_level
+from .helpers import GATESET_MAP, get_n_qubits, native_2q_gate, warn_bad_transpile_level
 from .ionq_client import Characterization
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -118,6 +118,8 @@ class IonQBackend(Backend):
 
         # Target (basis & connectivity)
         self._target = self._make_target()
+        # Track noise_model for native simulator target caching
+        self._cached_noise_model: str | None = None
 
         # Apply initial options if any
         if initial_options:
@@ -137,10 +139,17 @@ class IonQBackend(Backend):
             extra_metadata={},
             sampler_seed=None,  # simulator-only (harmless on QPU)
             noise_model="ideal",  # simulator-only
+            memory=False,
+            dry_run=False,  # if True, the API compiles but does not execute
         )
 
     @property
     def target(self) -> Target | None:
+        if self._simulator and self._gateset == "native":
+            current_noise_model = getattr(self.options, "noise_model", "ideal")
+            if self._cached_noise_model != current_noise_model:
+                self._target = self._make_target()
+                self._cached_noise_model = current_noise_model
         return self._target
 
     @property
@@ -253,10 +262,16 @@ class IonQBackend(Backend):
         """Return the latest characterization data (None for simulator)."""
         if self._simulator:
             return None
-        return self.client.get_calibration_data(self._api_backend_name, limit=1)
+        return self.client.get_latest_calibration(self._api_backend_name)
 
     def status(self) -> bool:
-        """True if the backend is currently available."""
+        """True if the backend is currently available.
+
+        Simulators short-circuit to ``True``: they have no characterization
+        endpoint but are reachable whenever the API is.
+        """
+        if self._simulator:
+            return True
         cal = self.calibration()
         return bool(cal and getattr(cal, "status", "available") == "available")
 
@@ -320,8 +335,13 @@ class IonQBackend(Backend):
             for gate in (GPIGate(phi), GPI2Gate(phi)):
                 tgt.add_instruction(gate)
 
-            # 2q native
-            if "forte" in self.name.lower():
+            # 2q native: per family (see helpers.NATIVE_2Q_BY_FAMILY).
+            gate = (
+                native_2q_gate(self.name)
+                or native_2q_gate(getattr(self.options, "noise_model", None))
+                or "ms"
+            )
+            if gate == "zz":
                 theta = Parameter("θ")
                 tgt.add_instruction(ZZGate(theta))
             else:

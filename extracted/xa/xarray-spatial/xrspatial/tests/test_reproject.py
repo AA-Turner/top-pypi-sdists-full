@@ -494,6 +494,104 @@ class TestGrid:
 
 
 # ---------------------------------------------------------------------------
+# Datum-shift bounds estimation (GH #2649)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.skipif(not HAS_PYPROJ, reason="pyproj required")
+class TestDatumShiftBounds:
+    """Output bounds estimation must account for datum shifts.
+
+    The Numba fast path ``transform_points`` runs its projection kernels
+    in WGS84 and does not apply a datum shift. The per-pixel data path
+    (``try_numba_transform``) does apply a Helmert shift for the same CRS
+    pairs, so bounds estimated without the shift disagree with the
+    reprojected data. For NAD27 (EPSG:4267) the shift is tens to over a
+    hundred metres in CONUS -- many pixels on a high-resolution raster.
+    The fix bails datum-shift pairs to pyproj. See GH #2649.
+    """
+
+    # CONUS sample points where the NAD27 shift is largest.
+    XS = np.array([-105.0, -95.0, -120.0, -80.0])
+    YS = np.array([35.0, 45.0, 40.0, 30.0])
+
+    def test_transform_points_bails_for_nad27(self):
+        from xrspatial.reproject._projections import transform_points
+        src = pyproj.CRS.from_epsg(4267)  # NAD27
+        tgt = pyproj.CRS.from_epsg(3857)  # Web Mercator
+        assert transform_points(src, tgt, self.XS, self.YS) is None
+        # And the reverse direction.
+        assert transform_points(tgt, src, self.XS, self.YS) is None
+
+    def test_transform_points_keeps_fast_path_no_shift(self):
+        # WGS84 and NAD83 need no shift, so the fast path must stay.
+        from xrspatial.reproject._projections import transform_points
+        for epsg in (4326, 4269):
+            src = pyproj.CRS.from_epsg(epsg)
+            tgt = pyproj.CRS.from_epsg(3857)
+            fast = transform_points(src, tgt, self.XS, self.YS)
+            assert fast is not None
+            ref = pyproj.Transformer.from_crs(
+                src, tgt, always_xy=True).transform(self.XS, self.YS)
+            np.testing.assert_allclose(fast[0], ref[0], atol=1e-3)
+            np.testing.assert_allclose(fast[1], ref[1], atol=1e-3)
+
+    def test_boundary_matches_pyproj_for_nad27(self):
+        # _transform_boundary must agree with pyproj once the fast path
+        # bails. Before the fix it was off by ~45 m in x.
+        from xrspatial.reproject._grid import _transform_boundary
+        src = pyproj.CRS.from_epsg(4267)
+        tgt = pyproj.CRS.from_epsg(3857)
+        tx, ty = _transform_boundary(src, tgt, self.XS, self.YS)
+        ref_x, ref_y = pyproj.Transformer.from_crs(
+            src, tgt, always_xy=True).transform(self.XS, self.YS)
+        np.testing.assert_allclose(np.asarray(tx), ref_x, atol=1e-6)
+        np.testing.assert_allclose(np.asarray(ty), ref_y, atol=1e-6)
+
+    def test_output_grid_bounds_correct_high_res_nad27(self):
+        # End-to-end: a high-resolution NAD27 raster reprojected to Web
+        # Mercator. The computed grid bounds must match the datum-shifted
+        # corner transform, not the unshifted one. At 1 m resolution the
+        # ~45 m shift error would be ~45 pixels.
+        from xrspatial.reproject._grid import _compute_output_grid
+        src = pyproj.CRS.from_epsg(4267)
+        tgt = pyproj.CRS.from_epsg(3857)
+        # ~1 arcsec cells near 40N -> sub-30 m pixels (high resolution).
+        source_bounds = (-105.0, 39.9, -104.9, 40.0)
+        grid = _compute_output_grid(
+            source_bounds=source_bounds,
+            source_shape=(360, 360),
+            source_crs=src,
+            target_crs=tgt,
+        )
+        left, bottom, right, top = grid['bounds']
+
+        # Reference bounds from pyproj corner transform (datum-shifted).
+        cx = np.array([source_bounds[0], source_bounds[2],
+                       source_bounds[0], source_bounds[2]])
+        cy = np.array([source_bounds[1], source_bounds[1],
+                       source_bounds[3], source_bounds[3]])
+        rx, ry = pyproj.Transformer.from_crs(
+            src, tgt, always_xy=True).transform(cx, cy)
+        # Bounds enclose the projected corners up to grid snapping
+        # (bounds are rounded to an integer number of cells, so each
+        # edge can move by up to one resolution). One cell here is
+        # ~35 m, well under the ~45 m datum error this guards against.
+        res = max(grid['res_x'], grid['res_y'])
+        assert left <= rx.min() + res
+        assert right >= rx.max() - res
+        assert bottom <= ry.min() + res
+        assert top >= ry.max() - res
+        # Guard against regression to the unshifted bounds: each edge
+        # must be closer to the datum-shifted corner than to the
+        # unshifted one. The shift (~45 m) exceeds the snapping (~35 m).
+        unshifted_x, _ = pyproj.Transformer.from_crs(
+            pyproj.CRS.from_epsg(4326), tgt, always_xy=True
+        ).transform(cx, cy)
+        assert abs(left - rx.min()) < abs(left - unshifted_x.min())
+        assert abs(right - rx.max()) < abs(right - unshifted_x.max())
+
+
+# ---------------------------------------------------------------------------
 # Merge strategies
 # ---------------------------------------------------------------------------
 
@@ -1527,6 +1625,129 @@ def test_reproject_uint8_cubic_no_overflow():
 
 
 # ---------------------------------------------------------------------------
+# Per-band nodata (#2647)
+# ---------------------------------------------------------------------------
+
+def _make_per_band_nodata_raster():
+    """3-band raster with a distinct source sentinel baked into each band.
+
+    Band b is filled with the valid value ``10*(b+1)`` and a 2x2 corner
+    block of band b's own nodata sentinel. The ``nodatavals`` attr declares
+    the per-band sentinels in band order: ``(-9999, 255, 0)``.
+    """
+    ny, nx = 16, 16
+    sentinels = (-9999.0, 255.0, 0.0)
+    valids = (10.0, 20.0, 30.0)
+    bands = []
+    for sentinel, valid in zip(sentinels, valids):
+        plane = np.full((ny, nx), valid, dtype=np.float64)
+        plane[:2, :2] = sentinel  # corner block of this band's nodata
+        bands.append(plane)
+    data = np.stack(bands, axis=0)  # (band, y, x)
+    raster = xr.DataArray(
+        data, dims=['band', 'y', 'x'],
+        coords={'band': [1, 2, 3],
+                'y': np.linspace(55, 45, ny),
+                'x': np.linspace(-5, 5, nx)},
+        attrs={'crs': 'EPSG:4326', 'nodatavals': sentinels},
+    )
+    return raster, sentinels, valids
+
+
+def _assert_each_band_masked(result, sentinels, valids):
+    """Every band's own sentinel must be gone; its valid value must survive."""
+    arr = result.transpose('band', 'y', 'x').values
+    for b, (sentinel, valid) in enumerate(zip(sentinels, valids)):
+        band = arr[b]
+        finite = band[np.isfinite(band)]
+        # The raw source sentinel for this band must not leak through as a
+        # resampled "valid" sample. (-9999 is the resolved output sentinel
+        # used for masked pixels, so it is expected and excluded here.)
+        if sentinel != -9999.0:
+            assert not np.any(finite == sentinel), (
+                f"band {b}: source sentinel {sentinel} leaked into output"
+            )
+        # The band's valid fill value must still be present somewhere.
+        assert np.any(np.isclose(finite, valid)), (
+            f"band {b}: valid value {valid} did not survive reprojection"
+        )
+
+
+@pytest.mark.skipif(not HAS_PYPROJ, reason="pyproj not installed")
+class TestPerBandNodata:
+    """Multi-band rasters with distinct per-band nodata sentinels (#2647).
+
+    Before the fix, ``_detect_nodata_raw`` read only ``nodatavals[0]`` and
+    the worker masked every band with that single value, so bands 1+ leaked
+    their invalid pixels into the output as valid data.
+    """
+
+    def _reproject(self, *args, **kwargs):
+        from xrspatial.reproject import reproject
+        return reproject(*args, **kwargs)
+
+    def test_detect_band_nodata_helper(self):
+        from xrspatial.reproject._crs_utils import _detect_band_nodata
+        raster, sentinels, _ = _make_per_band_nodata_raster()
+        # Canonical layout is (y, x, band); the public path transposes
+        # before calling, but the helper only reads attrs + band count.
+        assert _detect_band_nodata(raster, None, 3) == sentinels
+        # Explicit nodata arg overrides per-band detection.
+        assert _detect_band_nodata(raster, 0.0, 3) is None
+        # Single-band rasters never get a per-band tuple.
+        assert _detect_band_nodata(raster, None, 1) is None
+
+    def test_detect_band_nodata_uniform_returns_none(self):
+        from xrspatial.reproject._crs_utils import _detect_band_nodata
+        raster = xr.DataArray(
+            np.zeros((3, 4, 4)), dims=['band', 'y', 'x'],
+            attrs={'nodatavals': (0.0, 0.0, 0.0)},
+        )
+        assert _detect_band_nodata(raster, None, 3) is None
+
+    def test_numpy_per_band_masking(self):
+        raster, sentinels, valids = _make_per_band_nodata_raster()
+        r = self._reproject(raster, 'EPSG:32633', resampling='nearest')
+        assert r.ndim == 3
+        _assert_each_band_masked(r, sentinels, valids)
+
+    @pytest.mark.skipif(not HAS_DASK, reason="dask required")
+    def test_dask_numpy_per_band_masking(self):
+        raster, sentinels, valids = _make_per_band_nodata_raster()
+        raster.data = da.from_array(raster.values, chunks=(3, 8, 8))
+        r = self._reproject(raster, 'EPSG:32633', resampling='nearest')
+        r = r.compute() if hasattr(r.data, 'compute') else r
+        _assert_each_band_masked(r, sentinels, valids)
+
+    @pytest.mark.skipif(not HAS_CUPY, reason="cupy required")
+    def test_cupy_per_band_masking(self):
+        raster, sentinels, valids = _make_per_band_nodata_raster()
+        raster.data = cp.asarray(raster.values)
+        r = self._reproject(raster, 'EPSG:32633', resampling='nearest')
+        host = r.transpose('band', 'y', 'x')
+        host = xr.DataArray(host.data.get(), dims=host.dims, coords=host.coords)
+        _assert_each_band_masked(host, sentinels, valids)
+
+    @pytest.mark.skipif(not HAS_CUPY or not HAS_DASK,
+                        reason="cupy and dask required")
+    def test_dask_cupy_per_band_masking(self):
+        raster, sentinels, valids = _make_per_band_nodata_raster()
+        raster.data = da.from_array(cp.asarray(raster.values), chunks=(3, 8, 8))
+        r = self._reproject(raster, 'EPSG:32633', resampling='nearest')
+        computed = r.compute()
+        host = computed.transpose('band', 'y', 'x')
+        host = xr.DataArray(host.data.get(), dims=host.dims, coords=host.coords)
+        _assert_each_band_masked(host, sentinels, valids)
+
+    def test_output_nodatavals_band_count_preserved(self):
+        raster, sentinels, _ = _make_per_band_nodata_raster()
+        r = self._reproject(raster, 'EPSG:32633', resampling='nearest')
+        assert 'nodatavals' in r.attrs
+        # Output uses one resolved sentinel; the tuple keeps the band count.
+        assert len(r.attrs['nodatavals']) == len(sentinels)
+
+
+# ---------------------------------------------------------------------------
 # Edge case tests
 # ---------------------------------------------------------------------------
 
@@ -1821,6 +2042,95 @@ class TestCudaCubicNanFallback:
                                    rtol=1e-10)
 
 
+@pytest.mark.skipif(not HAS_CUPY, reason="CuPy not installed")
+class TestCupyPyprojFallbackParity:
+    """The cupy backend must match numpy even when no CUDA coordinate
+    kernel exists for the CRS pair (#2620).
+
+    For a projected->projected reprojection such as EPSG:32633 ->
+    EPSG:3857 (neither side is geographic WGS84/NAD83), both backends
+    fall back to pyproj for coordinates. The cupy resampler previously
+    used cupyx.scipy.ndimage.map_coordinates, which bled the cval=0.0
+    constant into the half-pixel boundary band and used a B-spline for
+    cubic instead of the Catmull-Rom kernel the numpy path uses, so the
+    two backends produced different numbers.
+    """
+
+    def _make_utm_source(self):
+        ny, nx = 64, 64
+        y = np.linspace(5610000.0, 5600000.0, ny)  # descending (north-up)
+        x = np.linspace(500000.0, 510000.0, nx)
+        data = (
+            np.add.outer(np.sin(np.linspace(0, 4, ny)),
+                         np.cos(np.linspace(0, 4, nx))) * 100 + 500
+        ).astype(np.float64)
+        return y, x, data
+
+    def test_resample_cupy_native_renormalizes_boundary_band(self):
+        """The native kernel must renormalize in the half-pixel border
+        band rather than bleed a zero, matching numpy bilinear."""
+        from xrspatial.reproject._interpolate import (
+            _resample_cupy_native,
+            _resample_numpy,
+        )
+        src = np.arange(1, 26, dtype=np.float64).reshape(5, 5)
+        # r=4.6 sits in the (sh-1, sh) border band; r=-0.4 in (-1, 0).
+        rows = np.array([[4.6, -0.4]], dtype=np.float64)
+        cols = np.array([[2.0, 2.0]], dtype=np.float64)
+        cpu = _resample_numpy(src, rows, cols,
+                              resampling='bilinear', nodata=np.nan)
+        gpu = cp.asnumpy(_resample_cupy_native(
+            cp.asarray(src), rows, cols,
+            resampling='bilinear', nodata=np.nan))
+        # numpy returns the renormalized edge value (23.0, 3.0), not 0.0.
+        np.testing.assert_allclose(gpu, cpu, rtol=1e-12)
+        assert not np.any(gpu == 0.0)
+
+    @pytest.mark.parametrize('resampling', ['nearest', 'bilinear', 'cubic'])
+    def test_projected_to_projected_numpy_cupy_match(self, resampling):
+        from xrspatial.reproject import reproject
+        y, x, data = self._make_utm_source()
+        attrs = {'crs': 'EPSG:32633'}
+        da_np = xr.DataArray(data, dims=('y', 'x'),
+                             coords={'y': y, 'x': x}, attrs=attrs)
+        da_cp = xr.DataArray(cp.asarray(data), dims=('y', 'x'),
+                             coords={'y': y, 'x': x}, attrs=attrs)
+        out_np = np.asarray(
+            reproject(da_np, 'EPSG:3857', resampling=resampling).data)
+        out_cp = cp.asnumpy(
+            reproject(da_cp, 'EPSG:3857', resampling=resampling).data)
+        assert out_np.shape == out_cp.shape
+        # Same finite/nodata pattern (edge band no longer diverges).
+        np.testing.assert_array_equal(
+            np.isfinite(out_np), np.isfinite(out_cp))
+        finite = np.isfinite(out_np) & np.isfinite(out_cp)
+        np.testing.assert_allclose(out_np[finite], out_cp[finite],
+                                   rtol=1e-6, atol=1e-6)
+
+    @pytest.mark.skipif(not HAS_DASK, reason="dask required")
+    def test_projected_to_projected_dask_cupy_match(self):
+        from xrspatial.reproject import reproject
+        y, x, data = self._make_utm_source()
+        attrs = {'crs': 'EPSG:32633'}
+        ref = np.asarray(
+            reproject(
+                xr.DataArray(data, dims=('y', 'x'),
+                             coords={'y': y, 'x': x}, attrs=attrs),
+                'EPSG:3857', resampling='cubic').data)
+        dc = xr.DataArray(
+            da.from_array(cp.asarray(data), chunks=(32, 32)),
+            dims=('y', 'x'), coords={'y': y, 'x': x}, attrs=attrs)
+        out = reproject(dc, 'EPSG:3857', resampling='cubic').data
+        if hasattr(out, 'compute'):
+            out = out.compute()
+        out = cp.asnumpy(out) if isinstance(out, cp.ndarray) else np.asarray(out)
+        assert ref.shape == out.shape
+        np.testing.assert_array_equal(np.isfinite(ref), np.isfinite(out))
+        finite = np.isfinite(ref) & np.isfinite(out)
+        np.testing.assert_allclose(ref[finite], out[finite],
+                                   rtol=1e-6, atol=1e-6)
+
+
 # ---------------------------------------------------------------------------
 # Dask graph optimization tests
 # ---------------------------------------------------------------------------
@@ -1964,6 +2274,51 @@ class TestDaskGraphOptimization:
         # left < right, bottom < top
         assert fp[0] < fp[2]
         assert fp[1] < fp[3]
+
+    def test_finite_pair_bbox_joint_mask(self):
+        """_finite_pair_bbox keeps x/y from the same point only (#2643).
+
+        Independent finite-filtering of tx and ty would build a bbox from
+        coordinates that never belonged to the same transformed point. Here
+        the only point finite in both coordinates is (5.0, 6.0), so the bbox
+        must be that single point -- not the (1, 2, 5, 6) box that
+        independent filtering produces.
+        """
+        from xrspatial.reproject import _finite_pair_bbox
+        tx = [1.0, np.nan, 5.0]
+        ty = [np.nan, 2.0, 6.0]
+        bbox = _finite_pair_bbox(tx, ty)
+        assert bbox == (5.0, 6.0, 5.0, 6.0)
+        # Independent filtering would have leaked x=1.0 (from a NaN-y point)
+        # and y=2.0 (from a NaN-x point) into the box.
+        assert bbox[0] != 1.0
+        assert bbox[1] != 2.0
+
+    def test_finite_pair_bbox_all_nan(self):
+        """_finite_pair_bbox returns None when no pair is finite (#2643)."""
+        from xrspatial.reproject import _finite_pair_bbox
+        assert _finite_pair_bbox([np.nan, np.nan], [np.nan, 1.0]) is None
+        assert _finite_pair_bbox([np.inf], [1.0]) is None
+
+    def test_footprint_chunk_skip_with_unpaired_nan(self):
+        """Chunk-skipping must use the joint-filtered footprint (#2643).
+
+        When independent filtering would widen the footprint with mismatched
+        coordinates, a chunk that only overlaps the spurious region must
+        still be skipped under joint filtering.
+        """
+        from xrspatial.reproject import _bounds_overlap, _finite_pair_bbox
+        # Real footprint is the point (5, 6). Independent filtering would
+        # report (1, 2, 5, 6), which overlaps a chunk sitting at (1..3, 2..4).
+        tx = [1.0, np.nan, 5.0]
+        ty = [np.nan, 2.0, 6.0]
+        fp = _finite_pair_bbox(tx, ty)
+        chunk = (1.0, 2.0, 3.0, 4.0)
+        # Joint footprint does not overlap the chunk -> chunk is skipped.
+        assert not _bounds_overlap(chunk, fp)
+        # The spurious independent-filter footprint would have overlapped.
+        spurious = (1.0, 2.0, 5.0, 6.0)
+        assert _bounds_overlap(chunk, spurious)
 
     def test_bounds_overlap(self):
         """_bounds_overlap should correctly detect overlap."""
@@ -2828,7 +3183,7 @@ def _egm2008_available():
 
 
 class TestVerticalShift:
-    """End-to-end coverage for src_vertical_crs / tgt_vertical_crs."""
+    """End-to-end coverage for source_vertical_crs / target_vertical_crs."""
 
     def _ny_raster(self, h=8, w=8, value=100.0, nodata=np.nan):
         # Small raster centred on New York. EGM96 undulation there is ~-33 m.
@@ -2847,7 +3202,7 @@ class TestVerticalShift:
         raster = self._ny_raster(value=100.0)
         result = reproject(
             raster, 'EPSG:4326',
-            src_vertical_crs='EGM96', tgt_vertical_crs='ellipsoidal',
+            source_vertical_crs='EGM96', target_vertical_crs='ellipsoidal',
         )
         # Reference undulation at the centre.
         cy = float(result.coords['y'].values[result.shape[0] // 2])
@@ -2869,7 +3224,7 @@ class TestVerticalShift:
         raster = self._ny_raster(value=100.0)
         result = reproject(
             raster, 'EPSG:4326',
-            src_vertical_crs='ellipsoidal', tgt_vertical_crs='EGM96',
+            source_vertical_crs='ellipsoidal', target_vertical_crs='EGM96',
         )
         cy = float(result.coords['y'].values[result.shape[0] // 2])
         cx = float(result.coords['x'].values[result.shape[1] // 2])
@@ -2888,7 +3243,7 @@ class TestVerticalShift:
         raster = self._ny_raster(value=100.0)
         result = reproject(
             raster, 'EPSG:4326',
-            src_vertical_crs='EGM96', tgt_vertical_crs='EGM2008',
+            source_vertical_crs='EGM96', target_vertical_crs='EGM2008',
         )
         diffs = result.values - 100.0
         # EGM96 vs EGM2008 differ by under 2 m globally.
@@ -2901,7 +3256,7 @@ class TestVerticalShift:
         baseline = reproject(raster, 'EPSG:4326')
         result = reproject(
             raster, 'EPSG:4326',
-            src_vertical_crs='EGM96', tgt_vertical_crs='EGM96',
+            source_vertical_crs='EGM96', target_vertical_crs='EGM96',
         )
         np.testing.assert_array_equal(result.values, baseline.values)
 
@@ -2912,8 +3267,8 @@ class TestVerticalShift:
         baseline = reproject(raster, 'EPSG:4326')
         result = reproject(
             raster, 'EPSG:4326',
-            src_vertical_crs='EGM96',
-            tgt_vertical_crs=None,
+            source_vertical_crs='EGM96',
+            target_vertical_crs=None,
         )
         np.testing.assert_array_equal(result.values, baseline.values)
 
@@ -2933,7 +3288,7 @@ class TestVerticalShift:
         )
         result = reproject(
             raster, 'EPSG:32633',
-            src_vertical_crs='EGM96', tgt_vertical_crs='ellipsoidal',
+            source_vertical_crs='EGM96', target_vertical_crs='ellipsoidal',
         )
         vals = result.values
         finite = vals[np.isfinite(vals)]
@@ -2962,7 +3317,7 @@ class TestVerticalShift:
         # x=y=0 maps to the pole, which often returns inf longitude.
         result = reproject(
             raster, 'EPSG:3413',
-            src_vertical_crs='EGM96', tgt_vertical_crs='ellipsoidal',
+            source_vertical_crs='EGM96', target_vertical_crs='ellipsoidal',
         )
         # Must produce some finite output where the source had finite values.
         assert np.isfinite(result.values).any()
@@ -2987,7 +3342,7 @@ class TestVerticalShift:
             raster = self._ny_raster(value=10.0)
             result = reproject(
                 raster, 'EPSG:4326',
-                src_vertical_crs='EGM96', tgt_vertical_crs=tgt,
+                source_vertical_crs='EGM96', target_vertical_crs=tgt,
             )
             assert result.attrs.get('vertical_crs') == expected_epsg, (
                 f"vertical_crs for tgt={tgt!r} should be EPSG {expected_epsg}, "
@@ -3001,13 +3356,47 @@ class TestVerticalShift:
         write ``attrs['vertical_crs'] = None``."""
         from xrspatial.reproject import reproject
         raster = self._ny_raster(value=10.0)
-        with pytest.raises(ValueError, match="tgt_vertical_crs"):
+        with pytest.raises(ValueError, match="target_vertical_crs"):
             reproject(raster, 'EPSG:4326',
-                      src_vertical_crs='EGM96', tgt_vertical_crs='NAVD88')
-        with pytest.raises(ValueError, match="src_vertical_crs"):
+                      source_vertical_crs='EGM96', target_vertical_crs='NAVD88')
+        with pytest.raises(ValueError, match="source_vertical_crs"):
             reproject(raster, 'EPSG:4326',
-                      src_vertical_crs='egm96',  # case-sensitive
-                      tgt_vertical_crs='ellipsoidal')
+                      source_vertical_crs='egm96',  # case-sensitive
+                      target_vertical_crs='ellipsoidal')
+
+    def test_deprecated_vertical_kwargs_still_work(self):
+        """Old src_/tgt_vertical_crs names map to the new ones with a warning.
+
+        Renamed to source_/target_vertical_crs for consistency with the
+        source_crs/target_crs spelling (#2613). The old names stay working
+        through a deprecation shim.
+        """
+        from xrspatial.reproject import reproject
+        raster = self._ny_raster(value=100.0)
+        new = reproject(raster, 'EPSG:4326',
+                        source_vertical_crs='EGM96',
+                        target_vertical_crs='ellipsoidal')
+        with pytest.warns(DeprecationWarning, match="src_vertical_crs"):
+            old_src = reproject(raster, 'EPSG:4326',
+                                src_vertical_crs='EGM96',
+                                target_vertical_crs='ellipsoidal')
+        with pytest.warns(DeprecationWarning, match="tgt_vertical_crs"):
+            old_tgt = reproject(raster, 'EPSG:4326',
+                                source_vertical_crs='EGM96',
+                                tgt_vertical_crs='ellipsoidal')
+        np.testing.assert_array_equal(old_src.values, new.values)
+        np.testing.assert_array_equal(old_tgt.values, new.values)
+
+    def test_deprecated_and_new_vertical_kwarg_conflict(self):
+        """Passing both the old and new spelling for one side is an error."""
+        from xrspatial.reproject import reproject
+        raster = self._ny_raster(value=100.0)
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(TypeError, match="not both"):
+                reproject(raster, 'EPSG:4326',
+                          source_vertical_crs='EGM96',
+                          src_vertical_crs='EGM96',
+                          target_vertical_crs='ellipsoidal')
 
     def test_dask_backend_matches_numpy(self):
         """Dask-backed input must apply the vertical shift correctly (#2025).
@@ -3032,11 +3421,11 @@ class TestVerticalShift:
             coords=ds.coords, attrs=ds.attrs,
         )
         out_np = reproject(ds, 'EPSG:4326',
-                           src_vertical_crs='EGM96',
-                           tgt_vertical_crs='ellipsoidal')
+                           source_vertical_crs='EGM96',
+                           target_vertical_crs='ellipsoidal')
         out_da = reproject(ds_d, 'EPSG:4326',
-                           src_vertical_crs='EGM96',
-                           tgt_vertical_crs='ellipsoidal')
+                           source_vertical_crs='EGM96',
+                           target_vertical_crs='ellipsoidal')
         # Output is still dask-backed so the graph stays lazy.
         assert isinstance(out_da.data, da.Array)
         np.testing.assert_allclose(
@@ -3062,8 +3451,8 @@ class TestVerticalShift:
             attrs={'crs': 'EPSG:4326'},
         )
         result = reproject(raster, 'EPSG:4326',
-                           src_vertical_crs='EGM96',
-                           tgt_vertical_crs='ellipsoidal')
+                           source_vertical_crs='EGM96',
+                           target_vertical_crs='ellipsoidal')
         assert result.shape == (48, 48, 3)
 
         # Same N applied to every band -> inter-band differences are
@@ -3080,8 +3469,8 @@ class TestVerticalShift:
             attrs={'crs': 'EPSG:4326'},
         )
         out_2d = reproject(raster_2d, 'EPSG:4326',
-                           src_vertical_crs='EGM96',
-                           tgt_vertical_crs='ellipsoidal')
+                           source_vertical_crs='EGM96',
+                           target_vertical_crs='ellipsoidal')
         np.testing.assert_allclose(
             result.values[:, :, 0], out_2d.values, rtol=0, atol=1e-9,
         )
@@ -3112,14 +3501,14 @@ class TestVerticalShift:
 
         base_np = reproject(ds_np, 'EPSG:4326')
         shifted_np = reproject(ds_np, 'EPSG:4326',
-                               src_vertical_crs='EGM96',
-                               tgt_vertical_crs='ellipsoidal')
+                               source_vertical_crs='EGM96',
+                               target_vertical_crs='ellipsoidal')
         delta_np = shifted_np.values - base_np.values
 
         base_cu = reproject(ds_cu, 'EPSG:4326')
         shifted_cu = reproject(ds_cu, 'EPSG:4326',
-                               src_vertical_crs='EGM96',
-                               tgt_vertical_crs='ellipsoidal')
+                               source_vertical_crs='EGM96',
+                               target_vertical_crs='ellipsoidal')
         assert isinstance(shifted_cu.data, cp.ndarray)
         delta_cu = (cp.asnumpy(shifted_cu.data)
                     - cp.asnumpy(base_cu.data))
@@ -3167,7 +3556,7 @@ class TestVerticalShiftIntegerDtype:
         raster = self._ny_raster_int(np.int16, 100, -32768)
         result = reproject(
             raster, 'EPSG:4326',
-            src_vertical_crs='EGM96', tgt_vertical_crs='ellipsoidal',
+            source_vertical_crs='EGM96', target_vertical_crs='ellipsoidal',
         )
         assert result.dtype == np.float32, (
             f"expected float32 output for int16 input, got {result.dtype}"
@@ -3192,7 +3581,7 @@ class TestVerticalShiftIntegerDtype:
         raster = self._ny_raster_int(np.uint8, 100, 0)
         result = reproject(
             raster, 'EPSG:4326',
-            src_vertical_crs='EGM96', tgt_vertical_crs='ellipsoidal',
+            source_vertical_crs='EGM96', target_vertical_crs='ellipsoidal',
         )
         assert result.dtype == np.float32
         assert np.isnan(result.attrs['nodata'])
@@ -3222,7 +3611,7 @@ class TestVerticalShiftIntegerDtype:
         baseline = reproject(raster, 'EPSG:4326')
         result = reproject(
             raster, 'EPSG:4326',
-            src_vertical_crs='EGM96', tgt_vertical_crs='ellipsoidal',
+            source_vertical_crs='EGM96', target_vertical_crs='ellipsoidal',
         )
         assert result.dtype == baseline.dtype, (
             f"vertical shift changed dtype from {baseline.dtype} to {result.dtype}"
@@ -3240,7 +3629,7 @@ class TestVerticalShiftIntegerDtype:
         )
         result = reproject(
             raster, 'EPSG:4326',
-            src_vertical_crs='EGM96', tgt_vertical_crs='ellipsoidal',
+            source_vertical_crs='EGM96', target_vertical_crs='ellipsoidal',
         )
         assert result.dtype == np.float64
 
@@ -3258,7 +3647,7 @@ class TestVerticalShiftIntegerDtype:
         )
         result = reproject(
             raster, 'EPSG:4326',
-            src_vertical_crs='EGM96', tgt_vertical_crs='ellipsoidal',
+            source_vertical_crs='EGM96', target_vertical_crs='ellipsoidal',
         )
         assert result.dtype == np.float32
         # The nodata cell must have propagated as NaN, not as -32768 + N.
@@ -3291,7 +3680,7 @@ class TestVerticalShiftIntegerDtype:
         )
         result = reproject(
             raster, 'EPSG:4326',
-            src_vertical_crs='EGM96', tgt_vertical_crs='ellipsoidal',
+            source_vertical_crs='EGM96', target_vertical_crs='ellipsoidal',
         )
         assert np.isnan(result.attrs['_FillValue'])
         assert np.isnan(result.attrs['nodatavals'][0])
@@ -3310,7 +3699,7 @@ class TestVerticalShiftIntegerDtype:
         )
         result = reproject(
             raster, 'EPSG:4326',
-            src_vertical_crs='EGM96', tgt_vertical_crs='ellipsoidal',
+            source_vertical_crs='EGM96', target_vertical_crs='ellipsoidal',
         )
         # The dask graph must advertise float32 so downstream consumers
         # don't get a dtype lie.
@@ -4106,6 +4495,225 @@ class TestCupyReprojectParity:
         in_vals = (in_bounds.data.get() if hasattr(in_bounds.data, 'get')
                    else np.asarray(in_bounds.data))
         assert np.isfinite(in_vals).any()
+
+
+class TestDegenerateShapeReproject:
+    """Single-row, single-column, and constant-value rasters (#2618).
+
+    A strip raster has one spatial axis of size 1, which hits the
+    ``size < 2`` early-return in ``_validate_regular_axis`` and runs the
+    resampling kernel on a degenerate axis. A constant-value raster has
+    zero gradient, exercising the all-equal interpolation path. All four
+    backends return correct output today; these tests lock that in.
+    """
+
+    @staticmethod
+    def _strip(values, n, axis, use_dask=False, use_cupy=False, chunks=None):
+        """Build a 1xN (axis='row') or Nx1 (axis='col') strip raster.
+
+        The degenerate axis spans a single coordinate; the long axis is a
+        regular ramp so the projection has a real extent to work with.
+        """
+        arr = np.asarray(values, dtype=np.float64)
+        if axis == 'row':
+            data = arr.reshape(1, n)
+            y = np.array([0.0])
+            x = np.linspace(-5, 5, n)
+        else:
+            data = arr.reshape(n, 1)
+            y = np.linspace(5, -5, n)
+            x = np.array([0.0])
+        if use_cupy:
+            data = cp.asarray(data)
+        if use_dask:
+            block = chunks if chunks is not None else data.shape
+            data = da.from_array(data, chunks=block)
+        return xr.DataArray(
+            data, dims=['y', 'x'], coords={'y': y, 'x': x},
+            attrs={'crs': 'EPSG:4326', 'nodata': np.nan},
+        )
+
+    @staticmethod
+    def _to_host(result):
+        arr = result.data
+        if hasattr(arr, 'compute'):
+            arr = arr.compute()
+        if hasattr(arr, 'get'):
+            arr = arr.get()
+        return np.asarray(arr)
+
+    # -- single-row (1xN) strip --------------------------------------------
+
+    def test_single_row_strip_numpy(self):
+        from xrspatial.reproject import reproject
+        raster = self._strip(np.arange(8), 8, 'row')
+        out = reproject(raster, 'EPSG:3857')
+        vals = self._to_host(out)
+        assert out.ndim == 2
+        assert np.isfinite(vals).any()
+
+    @pytest.mark.skipif(not HAS_DASK, reason="dask required")
+    def test_single_row_strip_dask_matches_numpy(self):
+        from xrspatial.reproject import reproject
+        np_raster = self._strip(np.arange(8), 8, 'row')
+        da_raster = self._strip(np.arange(8), 8, 'row',
+                                use_dask=True, chunks=(1, 4))
+        np_vals = self._to_host(reproject(np_raster, 'EPSG:3857'))
+        da_vals = self._to_host(reproject(da_raster, 'EPSG:3857'))
+        assert np_vals.shape == da_vals.shape
+        np.testing.assert_array_equal(np.isnan(np_vals), np.isnan(da_vals))
+        finite = np.isfinite(np_vals)
+        if finite.any():
+            np.testing.assert_allclose(
+                np_vals[finite], da_vals[finite], rtol=1e-5, atol=1e-5)
+
+    @pytest.mark.skipif(not HAS_CUPY, reason="cupy required")
+    def test_single_row_strip_cupy_matches_numpy(self):
+        from xrspatial.reproject import reproject
+        np_raster = self._strip(np.arange(8), 8, 'row')
+        cp_raster = self._strip(np.arange(8), 8, 'row', use_cupy=True)
+        np_vals = self._to_host(reproject(np_raster, 'EPSG:3857'))
+        cp_vals = self._to_host(reproject(cp_raster, 'EPSG:3857'))
+        assert np_vals.shape == cp_vals.shape
+        np.testing.assert_array_equal(np.isnan(np_vals), np.isnan(cp_vals))
+        finite = np.isfinite(np_vals)
+        if finite.any():
+            np.testing.assert_allclose(
+                np_vals[finite], cp_vals[finite], rtol=1e-5, atol=1e-5)
+
+    @pytest.mark.skipif(not (HAS_DASK and HAS_CUPY),
+                        reason="dask and cupy required")
+    def test_single_row_strip_dask_cupy_matches_numpy(self):
+        from xrspatial.reproject import reproject
+        np_raster = self._strip(np.arange(8), 8, 'row')
+        dc_raster = self._strip(np.arange(8), 8, 'row',
+                                use_dask=True, use_cupy=True, chunks=(1, 4))
+        np_vals = self._to_host(reproject(np_raster, 'EPSG:3857'))
+        dc_vals = self._to_host(reproject(dc_raster, 'EPSG:3857'))
+        assert np_vals.shape == dc_vals.shape
+        np.testing.assert_array_equal(np.isnan(np_vals), np.isnan(dc_vals))
+        finite = np.isfinite(np_vals)
+        if finite.any():
+            np.testing.assert_allclose(
+                np_vals[finite], dc_vals[finite], rtol=1e-5, atol=1e-5)
+
+    # -- single-column (Nx1) strip -----------------------------------------
+
+    def test_single_col_strip_numpy(self):
+        from xrspatial.reproject import reproject
+        raster = self._strip(np.arange(8), 8, 'col')
+        out = reproject(raster, 'EPSG:3857')
+        vals = self._to_host(out)
+        assert out.ndim == 2
+        assert np.isfinite(vals).any()
+
+    @pytest.mark.skipif(not HAS_DASK, reason="dask required")
+    def test_single_col_strip_dask_matches_numpy(self):
+        from xrspatial.reproject import reproject
+        np_raster = self._strip(np.arange(8), 8, 'col')
+        da_raster = self._strip(np.arange(8), 8, 'col',
+                                use_dask=True, chunks=(4, 1))
+        np_vals = self._to_host(reproject(np_raster, 'EPSG:3857'))
+        da_vals = self._to_host(reproject(da_raster, 'EPSG:3857'))
+        assert np_vals.shape == da_vals.shape
+        np.testing.assert_array_equal(np.isnan(np_vals), np.isnan(da_vals))
+        finite = np.isfinite(np_vals)
+        if finite.any():
+            np.testing.assert_allclose(
+                np_vals[finite], da_vals[finite], rtol=1e-5, atol=1e-5)
+
+    @pytest.mark.skipif(not HAS_CUPY, reason="cupy required")
+    def test_single_col_strip_cupy_matches_numpy(self):
+        from xrspatial.reproject import reproject
+        np_raster = self._strip(np.arange(8), 8, 'col')
+        cp_raster = self._strip(np.arange(8), 8, 'col', use_cupy=True)
+        np_vals = self._to_host(reproject(np_raster, 'EPSG:3857'))
+        cp_vals = self._to_host(reproject(cp_raster, 'EPSG:3857'))
+        assert np_vals.shape == cp_vals.shape
+        np.testing.assert_array_equal(np.isnan(np_vals), np.isnan(cp_vals))
+        finite = np.isfinite(np_vals)
+        if finite.any():
+            np.testing.assert_allclose(
+                np_vals[finite], cp_vals[finite], rtol=1e-5, atol=1e-5)
+
+    @pytest.mark.skipif(not (HAS_DASK and HAS_CUPY),
+                        reason="dask and cupy required")
+    def test_single_col_strip_dask_cupy_matches_numpy(self):
+        from xrspatial.reproject import reproject
+        np_raster = self._strip(np.arange(8), 8, 'col')
+        dc_raster = self._strip(np.arange(8), 8, 'col',
+                                use_dask=True, use_cupy=True, chunks=(4, 1))
+        np_vals = self._to_host(reproject(np_raster, 'EPSG:3857'))
+        dc_vals = self._to_host(reproject(dc_raster, 'EPSG:3857'))
+        assert np_vals.shape == dc_vals.shape
+        np.testing.assert_array_equal(np.isnan(np_vals), np.isnan(dc_vals))
+        finite = np.isfinite(np_vals)
+        if finite.any():
+            np.testing.assert_allclose(
+                np_vals[finite], dc_vals[finite], rtol=1e-5, atol=1e-5)
+
+    # -- constant-value (zero-gradient) raster -----------------------------
+
+    def _constant(self, fill=7.0, use_dask=False, use_cupy=False,
+                  chunks=(8, 8)):
+        data = np.full((16, 16), fill, dtype=np.float64)
+        y = np.linspace(5, -5, 16)
+        x = np.linspace(-5, 5, 16)
+        if use_cupy:
+            data = cp.asarray(data)
+        if use_dask:
+            data = da.from_array(data, chunks=chunks)
+        return xr.DataArray(
+            data, dims=['y', 'x'], coords={'y': y, 'x': x},
+            attrs={'crs': 'EPSG:4326', 'nodata': np.nan},
+        )
+
+    def test_constant_raster_numpy_preserves_value(self):
+        from xrspatial.reproject import reproject
+        out = reproject(self._constant(fill=7.0), 'EPSG:3857',
+                        resampling='bilinear')
+        vals = self._to_host(out)
+        finite = vals[np.isfinite(vals)]
+        assert finite.size > 0
+        # Zero gradient: every interpolated pixel must equal the fill value.
+        np.testing.assert_allclose(finite, 7.0, rtol=0, atol=1e-9)
+
+    @pytest.mark.skipif(not HAS_DASK, reason="dask required")
+    def test_constant_raster_dask_matches_numpy(self):
+        from xrspatial.reproject import reproject
+        np_vals = self._to_host(reproject(self._constant(), 'EPSG:3857'))
+        da_vals = self._to_host(
+            reproject(self._constant(use_dask=True), 'EPSG:3857'))
+        assert np_vals.shape == da_vals.shape
+        np.testing.assert_array_equal(np.isnan(np_vals), np.isnan(da_vals))
+        finite = np.isfinite(np_vals)
+        np.testing.assert_allclose(
+            np_vals[finite], da_vals[finite], rtol=1e-5, atol=1e-5)
+
+    @pytest.mark.skipif(not HAS_CUPY, reason="cupy required")
+    def test_constant_raster_cupy_matches_numpy(self):
+        from xrspatial.reproject import reproject
+        np_vals = self._to_host(reproject(self._constant(), 'EPSG:3857'))
+        cp_vals = self._to_host(
+            reproject(self._constant(use_cupy=True), 'EPSG:3857'))
+        assert np_vals.shape == cp_vals.shape
+        np.testing.assert_array_equal(np.isnan(np_vals), np.isnan(cp_vals))
+        finite = np.isfinite(np_vals)
+        np.testing.assert_allclose(
+            np_vals[finite], cp_vals[finite], rtol=1e-5, atol=1e-5)
+
+    @pytest.mark.skipif(not (HAS_DASK and HAS_CUPY),
+                        reason="dask and cupy required")
+    def test_constant_raster_dask_cupy_matches_numpy(self):
+        from xrspatial.reproject import reproject
+        np_vals = self._to_host(reproject(self._constant(), 'EPSG:3857'))
+        dc_vals = self._to_host(reproject(
+            self._constant(use_dask=True, use_cupy=True), 'EPSG:3857'))
+        assert np_vals.shape == dc_vals.shape
+        np.testing.assert_array_equal(np.isnan(np_vals), np.isnan(dc_vals))
+        finite = np.isfinite(np_vals)
+        np.testing.assert_allclose(
+            np_vals[finite], dc_vals[finite], rtol=1e-5, atol=1e-5)
 
 
 class TestCoordsPreservation:
@@ -5968,3 +6576,246 @@ class TestReprojectIntegerNodataRegression:
         # After the fix, every non-fill pixel must be the sentinel.
         unique = set(np.unique(result.values).tolist())
         assert unique == {100, -32768}
+
+
+# ---------------------------------------------------------------------------
+# transform_precision=0 forces the exact pyproj path (#2646)
+# ---------------------------------------------------------------------------
+
+class TestExactPrecisionEscapeHatch:
+    """transform_precision=0 must bypass the Numba/CUDA fast path entirely
+    and transform every pixel through pyproj, as the docstring promises.
+
+    The bug: the fast path was tried before checking transform_precision == 0,
+    so for CRS pairs the Numba path supports (WGS84/NAD83 <-> UTM, WGS84 <->
+    Web Mercator) the escape hatch did nothing.
+    """
+
+    # A 4326 <-> 3857 chunk; the Numba fast path supports this pair, so the
+    # pre-fix code never reached the pyproj branch for transform_precision=0.
+    _BOUNDS = (-1_000_000.0, -1_000_000.0, 1_000_000.0, 1_000_000.0)
+    _SHAPE = (37, 53)  # non-square, odd dims to catch axis/reshape mistakes
+
+    def _pyproj_exact_reference(self):
+        """Per-pixel source coords computed straight from pyproj.
+
+        Output bounds are in the target CRS (3857); the transform maps each
+        output pixel center back to the source CRS (4326), matching how
+        ``_transform_coords`` is invoked (target -> source).
+        """
+        transformer = pyproj.Transformer.from_crs(
+            'EPSG:3857', 'EPSG:4326', always_xy=True
+        )
+        height, width = self._SHAPE
+        left, bottom, right, top = self._BOUNDS
+        res_x = (right - left) / width
+        res_y = (top - bottom) / height
+        out_x = left + (np.arange(width, dtype=np.float64) + 0.5) * res_x
+        out_y = top - (np.arange(height, dtype=np.float64) + 0.5) * res_y
+        xx, yy = np.meshgrid(out_x, out_y)
+        sx, sy = transformer.transform(xx.ravel(), yy.ravel())
+        return (
+            np.asarray(sy, dtype=np.float64).reshape(self._SHAPE),
+            np.asarray(sx, dtype=np.float64).reshape(self._SHAPE),
+        )
+
+    def test_numba_fast_path_active_for_this_pair(self):
+        """Sanity check: the Numba fast path really does fire for 4326<->3857,
+        otherwise the regression below would pass vacuously."""
+        from xrspatial.reproject._projections import try_numba_transform
+        src = pyproj.CRS('EPSG:4326')
+        tgt = pyproj.CRS('EPSG:3857')
+        result = try_numba_transform(src, tgt, self._BOUNDS, self._SHAPE)
+        assert result is not None
+
+    def test_transform_coords_precision_zero_matches_pyproj(self):
+        from xrspatial.reproject import _transform_coords
+        src = pyproj.CRS('EPSG:4326')
+        tgt = pyproj.CRS('EPSG:3857')
+        transformer = pyproj.Transformer.from_crs(
+            tgt, src, always_xy=True
+        )
+        src_y, src_x = _transform_coords(
+            transformer, self._BOUNDS, self._SHAPE, 0,
+            src_crs=src, tgt_crs=tgt,
+        )
+        ref_y, ref_x = self._pyproj_exact_reference()
+        # Exact path: should match pyproj to floating-point precision.
+        np.testing.assert_allclose(src_x, ref_x, rtol=0, atol=1e-6)
+        np.testing.assert_allclose(src_y, ref_y, rtol=0, atol=1e-6)
+
+    def test_transform_coords_precision_zero_skips_numba(self, monkeypatch):
+        """transform_precision=0 must not call try_numba_transform."""
+        from xrspatial.reproject import _transform_coords
+        from xrspatial.reproject import _projections
+
+        calls = []
+
+        def _spy(*args, **kwargs):
+            calls.append(args)
+            raise AssertionError(
+                "try_numba_transform called with transform_precision=0"
+            )
+
+        monkeypatch.setattr(_projections, 'try_numba_transform', _spy)
+
+        src = pyproj.CRS('EPSG:4326')
+        tgt = pyproj.CRS('EPSG:3857')
+        transformer = pyproj.Transformer.from_crs(tgt, src, always_xy=True)
+        # Must not raise: the Numba path is never entered.
+        _transform_coords(
+            transformer, self._BOUNDS, self._SHAPE, 0,
+            src_crs=src, tgt_crs=tgt,
+        )
+        assert calls == []
+
+    def test_reproject_chunk_numpy_precision_zero_skips_numba(self, monkeypatch):
+        """The numpy chunk worker honors the escape hatch too."""
+        from xrspatial.reproject import _reproject_chunk_numpy
+        from xrspatial.reproject import _projections
+
+        def _spy(*args, **kwargs):
+            raise AssertionError(
+                "try_numba_transform called with transform_precision=0"
+            )
+
+        monkeypatch.setattr(_projections, 'try_numba_transform', _spy)
+
+        src_wkt = pyproj.CRS('EPSG:4326').to_wkt()
+        tgt_wkt = pyproj.CRS('EPSG:3857').to_wkt()
+        source_data = np.arange(32 * 32, dtype=np.float64).reshape(32, 32)
+        # Must not raise: with transform_precision=0 the worker takes the
+        # pyproj branch instead of the Numba fast path.
+        out = _reproject_chunk_numpy(
+            source_data,
+            (-2_000_000.0, -2_000_000.0, 2_000_000.0, 2_000_000.0),
+            (32, 32), True,
+            src_wkt, tgt_wkt,
+            self._BOUNDS, self._SHAPE,
+            'nearest', np.nan, 0,
+        )
+        assert out.shape == self._SHAPE
+
+    def test_reproject_end_to_end_precision_zero_skips_numba(self, monkeypatch):
+        """reproject() with transform_precision=0 routes through pyproj and
+        still produces a sensible result."""
+        from xrspatial.reproject import reproject
+        from xrspatial.reproject import _projections
+
+        def _spy(*args, **kwargs):
+            raise AssertionError(
+                "try_numba_transform called with transform_precision=0"
+            )
+
+        monkeypatch.setattr(_projections, 'try_numba_transform', _spy)
+
+        raster = _gradient_raster(
+            h=32, w=32, x_range=(-10, 10), y_range=(-10, 10)
+        )
+        result = reproject(raster, 'EPSG:3857', transform_precision=0)
+        assert result.shape[0] > 0
+        assert result.shape[1] > 0
+
+    def test_reproject_precision_zero_matches_default_for_smooth_pair(self):
+        """For a smooth, well-behaved pair the exact path and the default
+        approximate path should agree closely on overlapping pixels."""
+        from xrspatial.reproject import reproject
+        raster = _gradient_raster(
+            h=48, w=48, x_range=(-8, 8), y_range=(-8, 8)
+        )
+        exact = reproject(
+            raster, 'EPSG:3857', resolution=200000.0, transform_precision=0
+        )
+        approx = reproject(
+            raster, 'EPSG:3857', resolution=200000.0
+        )
+        assert exact.shape == approx.shape
+        a = exact.values
+        b = approx.values
+        both = np.isfinite(a) & np.isfinite(b)
+        assert both.any()
+        np.testing.assert_allclose(a[both], b[both], rtol=0, atol=1e-3)
+
+
+@pytest.mark.skipif(not HAS_PYPROJ, reason="pyproj not installed")
+class TestNonWgsDatumNumbaFastPath:
+    """The numba fast path must not corrupt coordinates for non-WGS84
+    datums (GH #2651).
+
+    The projection kernels run in WGS84. The old datum-shift wrapper
+    applied a degree-based Helmert shift to the kernel output, which is
+    wrong whenever the source is a projected CRS (the output is
+    easting/northing in metres) and ignored a non-WGS84 target datum
+    entirely. The fix disables the numba fast path for any non-WGS84
+    datum so pyproj handles those transforms.
+    """
+
+    def test_fast_path_disabled_for_projected_non_wgs_source(self):
+        # OSGB36 / British National Grid (Airy datum), projected.
+        from xrspatial.reproject._projections import try_numba_transform
+        src = pyproj.CRS('EPSG:27700')
+        tgt = pyproj.CRS('EPSG:4326')
+        # Output chunk in WGS84 lon/lat over Great Britain.
+        result = try_numba_transform(src, tgt, (-2.0, 51.0, -1.0, 52.0), (4, 4))
+        assert result is None
+
+    def test_fast_path_disabled_for_geographic_non_wgs_source(self):
+        # NAD27 geographic (Clarke 1866 datum).
+        from xrspatial.reproject._projections import try_numba_transform
+        src = pyproj.CRS('EPSG:4267')
+        tgt = pyproj.CRS('EPSG:3857')
+        result = try_numba_transform(
+            src, tgt, (-8000000.0, 4000000.0, -7900000.0, 4100000.0), (4, 4),
+        )
+        assert result is None
+
+    def test_fast_path_disabled_for_non_wgs_target(self):
+        from xrspatial.reproject._projections import try_numba_transform
+        src = pyproj.CRS('EPSG:4326')
+        tgt = pyproj.CRS('EPSG:27700')
+        result = try_numba_transform(src, tgt, (400000.0, 200000.0, 410000.0, 210000.0), (4, 4))
+        assert result is None
+
+    def test_wgs_fast_path_still_active(self):
+        # WGS84 UTM <-> WGS84 geographic must keep using the fast path.
+        from xrspatial.reproject._projections import try_numba_transform
+        src = pyproj.CRS('EPSG:32617')
+        tgt = pyproj.CRS('EPSG:4326')
+        result = try_numba_transform(src, tgt, (-84.0, 40.0, -83.0, 41.0), (4, 4))
+        assert result is not None
+
+    def test_source_coords_match_pyproj_for_osgb36(self):
+        # End-to-end through _transform_coords: with the fast path
+        # disabled, the per-pixel source coordinates must match pyproj.
+        # Before the fix, the numba path returned easting ~5 where
+        # pyproj returns ~408701 metres -- a corrupt grid.
+        from xrspatial.reproject import _transform_coords
+        src = pyproj.CRS('EPSG:27700')
+        tgt = pyproj.CRS('EPSG:4326')
+        chunk_bounds = (-2.0, 51.0, -1.0, 52.0)
+        chunk_shape = (8, 8)
+
+        transformer = pyproj.Transformer.from_crs(tgt, src, always_xy=True)
+        src_y, src_x = _transform_coords(
+            transformer, chunk_bounds, chunk_shape, 0,
+            src_crs=src, tgt_crs=tgt,
+        )
+
+        # Reference: transform every output-pixel centre with pyproj.
+        h, w = chunk_shape
+        left, bottom, right, top = chunk_bounds
+        res_x = (right - left) / w
+        res_y = (top - bottom) / h
+        out_x = left + (np.arange(w) + 0.5) * res_x
+        out_y = top - (np.arange(h) + 0.5) * res_y
+        gx, gy = np.meshgrid(out_x, out_y)
+        ref_x, ref_y = transformer.transform(gx.ravel(), gy.ravel())
+        ref_x = np.asarray(ref_x).reshape(h, w)
+        ref_y = np.asarray(ref_y).reshape(h, w)
+
+        # Eastings/northings are ~4e5 metres; require mm-level agreement.
+        np.testing.assert_allclose(src_x, ref_x, atol=1e-3)
+        np.testing.assert_allclose(src_y, ref_y, atol=1e-3)
+        # Guard against the old corruption: coords must be metres, not degrees.
+        assert np.all(np.abs(src_x) > 1000.0)
+        assert np.all(np.abs(src_y) > 1000.0)

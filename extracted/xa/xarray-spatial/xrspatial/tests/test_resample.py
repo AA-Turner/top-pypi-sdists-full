@@ -11,6 +11,7 @@ from xrspatial.tests.general_checks import (
     dask_array_available,
     cuda_and_cupy_available,
 )
+from xrspatial.utils import has_dask_array
 
 
 # ---------------------------------------------------------------------------
@@ -659,6 +660,57 @@ class TestDaskParity:
         np_agg, dk_agg = numpy_and_dask_rasters
         np_out = resample(np_agg, scale_factor=0.5, method=method)
         dk_out = resample(dk_agg, scale_factor=0.5, method=method)
+        np.testing.assert_allclose(dk_out.values, np_out.values,
+                                   atol=1e-5, equal_nan=True)
+
+
+# ---------------------------------------------------------------------------
+# Interp dask seam parity on large downsample ratios (issue #2610)
+# ---------------------------------------------------------------------------
+
+@dask_array_available
+class TestInterpDaskDownsampleSeam:
+    """Interp dask path must match eager numpy when the downsample ratio is
+    large enough that an output pixel's block-centered source coordinate
+    lands beyond its own input chunk. The fixed depth=1 overlap for
+    nearest/bilinear was too small for that case (#2610): the source row /
+    column was clamped to the block edge, corrupting whole seam rows.
+
+    Random data is essential here: a smooth gradient hides the bug because
+    the clamped neighbour value is close to the correct one. The chunk
+    sizes deliberately do NOT divide the input evenly so output windows
+    straddle chunk seams.
+    """
+
+    @pytest.mark.parametrize('method', ['nearest', 'bilinear', 'cubic'])
+    @pytest.mark.parametrize('sf', [0.33, 0.2, 0.1])
+    @pytest.mark.parametrize('chunks', [(11, 13), (7, 7), (17, 9)])
+    def test_large_downsample_seam_parity(self, method, sf, chunks):
+        rng = np.random.RandomState(2610)
+        data = rng.rand(50, 50).astype(np.float32)
+        np_agg = create_test_raster(data, backend='numpy',
+                                    attrs={'res': (1.0, 1.0)})
+        dk_agg = create_test_raster(data, backend='dask+numpy',
+                                    attrs={'res': (1.0, 1.0)},
+                                    chunks=chunks)
+        np_out = resample(np_agg, scale_factor=sf, method=method)
+        dk_out = resample(dk_agg, scale_factor=sf, method=method)
+        # nearest/bilinear are exact in eager-vs-chunked space once the
+        # overlap covers the stencil; allow only float32 round-off.
+        np.testing.assert_allclose(dk_out.values, np_out.values,
+                                   atol=1e-5, equal_nan=True)
+
+    def test_asymmetric_large_downsample_seam_parity(self):
+        # Different ratio per axis so depth_y and depth_x diverge.
+        rng = np.random.RandomState(26101)
+        data = rng.rand(48, 60).astype(np.float32)
+        np_agg = create_test_raster(data, backend='numpy',
+                                    attrs={'res': (1.0, 1.0)})
+        dk_agg = create_test_raster(data, backend='dask+numpy',
+                                    attrs={'res': (1.0, 1.0)},
+                                    chunks=(13, 11))
+        np_out = resample(np_agg, scale_factor=(0.2, 0.4), method='nearest')
+        dk_out = resample(dk_agg, scale_factor=(0.2, 0.4), method='nearest')
         np.testing.assert_allclose(dk_out.values, np_out.values,
                                    atol=1e-5, equal_nan=True)
 
@@ -1488,6 +1540,90 @@ class TestNodata:
 
 
 # ---------------------------------------------------------------------------
+# Identity fast path nodata metadata (issue #2662)
+# ---------------------------------------------------------------------------
+
+class TestIdentityNodataMetadata:
+    """The identity fast path (scale_factor=1.0) masks sentinels to NaN
+    but used to refresh only `_FillValue`, leaving `nodata` and
+    `nodatavals` advertising the stale finite sentinel. Every nodata
+    attr the input declared must read NaN on the output, matching the
+    non-identity path."""
+
+    _data = np.array([[-9999, -9999, 10, 10],
+                      [-9999, -9999, 10, 10],
+                      [20, 20, 30, 30],
+                      [20, 20, 30, 30]], dtype=np.float32)
+
+    # The bug is in backend-independent attr handling; the nodata mask
+    # itself routes through xarray's `.where`. cupy backends are exercised
+    # by the cross-backend nodata coverage elsewhere, so this regression
+    # checks numpy and dask+numpy (mirroring the rest of TestNodata, which
+    # does not parametrize cupy for the masking path).
+    @pytest.mark.parametrize('backend', ['numpy', 'dask+numpy'])
+    def test_identity_refreshes_all_nodata_attrs(self, backend):
+        if not _backend_available(backend):
+            pytest.skip(f"backend {backend} unavailable")
+
+        agg = create_test_raster(
+            self._data.copy(), backend=backend, chunks=(2, 2),
+            attrs={'res': (1.0, 1.0), 'nodata': -9999,
+                   'nodatavals': (-9999,)},
+        )
+        out = resample(agg, scale_factor=1.0)
+        out_np = _to_numpy(out)
+
+        # Masked pixel is NaN ...
+        assert np.isnan(out_np[0, 0])
+        # ... and no attr still advertises the finite sentinel.
+        assert np.isnan(out.attrs['_FillValue'])
+        assert np.isnan(out.attrs['nodata'])
+        assert len(out.attrs['nodatavals']) == 1
+        assert np.isnan(out.attrs['nodatavals'][0])
+
+    def test_identity_matches_non_identity_attrs(self):
+        # The identity path and a real downsample must agree on which
+        # nodata attrs end up as NaN.
+        attrs = {'res': (1.0, 1.0), 'nodata': -9999, 'nodatavals': (-9999,),
+                 '_FillValue': -9999}
+        agg = create_test_raster(self._data.copy(), attrs=dict(attrs))
+        identity = resample(agg, scale_factor=1.0)
+        agg2 = create_test_raster(self._data.copy(), attrs=dict(attrs))
+        downsample = resample(agg2, scale_factor=0.5, method='nearest')
+        for key in ('_FillValue', 'nodata', 'nodatavals'):
+            id_val = identity.attrs[key]
+            ds_val = downsample.attrs[key]
+            if key == 'nodatavals':
+                assert np.isnan(id_val[0]) and np.isnan(ds_val[0])
+            else:
+                assert np.isnan(id_val) and np.isnan(ds_val)
+
+    def test_identity_absent_attrs_stay_absent(self):
+        # Without nodata attrs (and no explicit param) nothing is masked,
+        # so no nodata attr should appear on the output.
+        data = np.arange(16, dtype=np.float32).reshape(4, 4)
+        agg = create_test_raster(data, attrs={'res': (1.0, 1.0)})
+        out = resample(agg, scale_factor=1.0)
+        assert 'nodata' not in out.attrs
+        assert 'nodatavals' not in out.attrs
+        assert '_FillValue' not in out.attrs
+
+    def test_identity_3d_refreshes_nodata_attrs(self):
+        # The 3D dispatch path shares the same gap.
+        band = self._data.copy()
+        data = np.stack([band, band + 100], axis=0)
+        agg = create_test_raster(
+            data, dims=['band', 'y', 'x'],
+            attrs={'res': (1.0, 1.0), 'nodata': -9999,
+                   'nodatavals': (-9999,)},
+        )
+        out = resample(agg, scale_factor=1.0)
+        assert np.isnan(out.attrs['nodata'])
+        assert np.isnan(out.attrs['nodatavals'][0])
+        assert np.isnan(out.attrs['_FillValue'])
+
+
+# ---------------------------------------------------------------------------
 # Integer nodata precision (issue #2570)
 # ---------------------------------------------------------------------------
 
@@ -1587,3 +1723,85 @@ class TestNodataIntegerPrecision:
         agg = create_test_raster(data, attrs={'res': (1.0, 1.0)})
         with pytest.raises(ValueError, match="not representable"):
             resample(agg, scale_factor=0.5, method='nearest', nodata=-9999.5)
+
+
+# ---------------------------------------------------------------------------
+# Out-of-range integer nodata sentinels (issue #2660)
+# ---------------------------------------------------------------------------
+
+backends = ['numpy']
+if has_dask_array():
+    backends.append('dask+numpy')
+
+
+class TestNodataOutOfRange:
+    """Regression coverage for #2660 -- an out-of-range integer sentinel
+    used to wrap silently on the dtype cast (e.g. 999 -> 231 for uint8),
+    masking the wrong cells. It must raise instead."""
+
+    @pytest.mark.parametrize('backend', backends)
+    def test_uint8_sentinel_above_max_raises(self, backend):
+        # 999 wraps to 231 on a uint8 cast; a real 231 pixel would then
+        # be masked. Reject the sentinel up front.
+        data = np.full((4, 4), 231, dtype=np.uint8)
+        agg = create_test_raster(data, attrs={'res': (1.0, 1.0)},
+                                 backend=backend)
+        with pytest.raises(ValueError, match="out of range"):
+            resample(agg, scale_factor=0.5, method='nearest', nodata=999)
+
+    @pytest.mark.parametrize('backend', backends)
+    def test_uint8_negative_sentinel_raises(self, backend):
+        # -1 is not representable in an unsigned dtype; it wraps to 255.
+        data = np.zeros((4, 4), dtype=np.uint8)
+        agg = create_test_raster(data, attrs={'res': (1.0, 1.0)},
+                                 backend=backend)
+        with pytest.raises(ValueError, match="out of range"):
+            resample(agg, scale_factor=0.5, method='nearest', nodata=-1)
+
+    def test_int8_sentinel_above_max_raises(self):
+        # 200 wraps to -56 on an int8 cast.
+        data = np.zeros((4, 4), dtype=np.int8)
+        agg = create_test_raster(data, attrs={'res': (1.0, 1.0)})
+        with pytest.raises(ValueError, match="out of range"):
+            resample(agg, scale_factor=0.5, method='nearest', nodata=200)
+
+    def test_sentinel_beyond_int64_raises_valueerror(self):
+        # A Python int past the C-long range would raise OverflowError on
+        # the numpy cast; the range check must turn it into the same
+        # ValueError as any other out-of-range sentinel.
+        data = np.zeros((4, 4), dtype=np.int64)
+        agg = create_test_raster(data, attrs={'res': (1.0, 1.0)})
+        with pytest.raises(ValueError, match="out of range"):
+            resample(agg, scale_factor=0.5, method='nearest', nodata=2 ** 70)
+
+    def test_out_of_range_sentinel_via_fillvalue_attr_raises(self):
+        # Same defect when the sentinel arrives through _FillValue rather
+        # than the explicit kwarg.
+        data = np.zeros((4, 4), dtype=np.uint8)
+        agg = create_test_raster(
+            data, attrs={'res': (1.0, 1.0), '_FillValue': 999}
+        )
+        with pytest.raises(ValueError, match="out of range"):
+            resample(agg, scale_factor=0.5, method='nearest')
+
+    @pytest.mark.parametrize('backend', backends)
+    def test_in_range_sentinel_at_dtype_limit_still_masks(self, backend):
+        # The boundary value (uint8 max) is representable and must still
+        # work -- the new check rejects only values that do not round-trip.
+        sentinel = 255
+        data = np.array([
+            [sentinel, sentinel, 10, 10],
+            [sentinel, sentinel, 10, 10],
+            [20, 20, 30, 30],
+            [20, 20, 30, 30],
+        ], dtype=np.uint8)
+        agg = create_test_raster(data, attrs={'res': (1.0, 1.0)},
+                                 backend=backend)
+        out = resample(agg, scale_factor=0.5, method='nearest',
+                       nodata=sentinel)
+        # Output type matches input backend (numpy stays numpy, dask
+        # stays dask) and the resampled corners mask as expected.
+        assert isinstance(out.data, type(agg.data))
+        result = out.data.compute() if backend.startswith('dask') else out.data
+        assert np.isnan(result[0, 0])
+        assert np.isfinite(result[1, 1])

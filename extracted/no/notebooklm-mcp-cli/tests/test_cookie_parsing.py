@@ -144,7 +144,9 @@ def test_file_not_found():
 
 def test_netscape_httponly_cookies():
     """Lines starting with '#HttpOnly_' should be parsed, not skipped as comments."""
-    content = "#HttpOnly_.google.com\tTRUE\t/\tTRUE\t1812953356\t__Secure-1PSIDTS\tsecure-value-123\n"
+    content = (
+        "#HttpOnly_.google.com\tTRUE\t/\tTRUE\t1812953356\t__Secure-1PSIDTS\tsecure-value-123\n"
+    )
     with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
         f.write(content)
         path = f.name

@@ -84,6 +84,7 @@ __all__ = (
     "DescribeAgreementOutputTypeDef",
     "DimensionTypeDef",
     "DocumentItemTypeDef",
+    "EntitlementTypeDef",
     "EstimatedChargesTypeDef",
     "EstimatedTaxesTypeDef",
     "ExpectedChargeTypeDef",
@@ -265,6 +266,10 @@ class PricingCurrencyAmountTypeDef(TypedDict):
     amount: NotRequired[str]
     maxAdjustmentAmount: NotRequired[str]
     currencyCode: NotRequired[str]
+
+
+class EntitlementTypeDef(TypedDict):
+    licenseArn: NotRequired[str]
 
 
 class ProposerTypeDef(TypedDict):
@@ -944,6 +949,7 @@ class AgreementViewSummaryTypeDef(TypedDict):
     proposer: NotRequired[ProposerTypeDef]
     proposalSummary: NotRequired[ProposalSummaryTypeDef]
     status: NotRequired[AgreementStatusType]
+    entitlements: NotRequired[list[EntitlementTypeDef]]
 
 
 class DescribeAgreementOutputTypeDef(TypedDict):

@@ -145,7 +145,8 @@ def handle_steps(args: list[str], fs: Filesystem, tm: TaskManager,
     mode = task.mode if task.mode not in ("full", "lightweight", "quick") else ("quick" if task.mode == "quick" else ("lightweight" if task.lightweight else "full"))
     quick = task.mode == "quick"
     base_steps = _get_steps(mode)
-    base_order = _get_phase_order(task.lightweight, quick=quick)
+    base_order = _get_phase_order(task.lightweight, quick=quick, mode=task.mode,
+                                   kanban_dir=cfg._fs.kanban_dir if cfg else None)
     str_order = [p.value if isinstance(p, Phase) else str(p) for p in base_order]
     custom_order = None
     custom_steps = None

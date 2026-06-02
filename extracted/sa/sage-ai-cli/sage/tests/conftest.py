@@ -979,6 +979,12 @@ func _physics_process(delta):
                 file_content = "export const firebaseConfig = { apiKey: 'fake' };\n"
             elif basename in ("index.js", "index.ts") and requested_path and "firebase" in requested_path.lower():
                 file_content = "export { default } from './auth';\n"
+            elif basename == "babel.config.js":
+                file_content = "module.exports = function(api) {\n  api.cache(true);\n  return {\n    presets: ['babel-preset-expo'],\n  };\n};\n"
+            elif basename == "metro.config.js":
+                file_content = "const { getDefaultConfig } = require('expo/metro-config');\nconst config = getDefaultConfig(__dirname);\nmodule.exports = config;\n"
+            elif basename == "jest.config.js":
+                file_content = "module.exports = {\n  preset: 'jest-expo',\n  transformIgnorePatterns: [\n    'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg)',\n  ],\n};\n"
             elif basename.lower() == "index.html":
                 file_content = """<!DOCTYPE html>
 <html lang="en">
@@ -1007,9 +1013,7 @@ func _physics_process(delta):
                 is_rn = "react-native" in stack_name or "expo" in stack_name
                 if requested_path:
                     req_path_lower = requested_path.replace("\\", "/").lower()
-                    if "/src/" in req_path_lower:
-                        is_rn = False
-                    elif "/app/" in req_path_lower or "app.json" in req_path_lower or "metro.config" in req_path_lower:
+                    if "/app/" in req_path_lower or "app.json" in req_path_lower or "metro.config" in req_path_lower:
                         is_rn = True
                 if is_rn:
                     file_content = """import React, { useState } from 'react';
@@ -1101,7 +1105,7 @@ const styles = StyleSheet.create({ container: { flex: 1 } });"""
                 
                 blocks = []
                 for i in range(already_written + 1, end_idx + 1):
-                    blocks.append(f"FILE: app/component_{i}/impl.py\n```python\ndef impl_{i}():\n    pass\n```")
+                    blocks.append(f"FILE: app/component_{i}/impl.py\n```python\ndef impl_{i}():\n    print(\"implement\")\n    return True\n```")
                 
                 response_text = "Here is the implementation.\n\n" + "\n\n".join(blocks)
                 if end_idx >= 1000:
@@ -1175,10 +1179,16 @@ SCAFFOLD_COMPLETE"""
             or "failure in a" in filtered_history
         )
         if is_repair:
-            if "python compile" in filtered_history and "app/main.py" in filtered_history:
+            if "app/main.py" in filtered_history:
                 response_text = '{"app/main.py": "def run_app():\\n    print(\'broken\')\\n"}'
+
             else:
                 import re
+                config_basenames = {
+                    "package.json", "tsconfig.json", "vite.config.ts", ".env", ".env.example",
+                    ".gitignore", ".npmrc", "babel.config.js", "metro.config.js", "tailwind.config.js",
+                    "postcss.config.js", "webpack.config.js"
+                }
                 files_to_fix = []
                 matches = re.findall(r"##\s+([^\s\n`]+)", last_msg)
                 for m in matches:
@@ -1192,14 +1202,62 @@ SCAFFOLD_COMPLETE"""
                         if m_clean and "." in m_clean:
                             files_to_fix.append(m_clean)
 
-                config_basenames = {
-                    "package.json", "tsconfig.json", "vite.config.ts", ".env", ".env.example",
-                    ".gitignore", ".npmrc", "babel.config.js", "metro.config.js", "tailwind.config.js",
-                    "postcss.config.js", "webpack.config.js"
-                }
+                # Filter out configuration files from files_to_fix so we can fallback to extracting code paths from compiler logs
+                files_to_fix = [f for f in files_to_fix if os.path.basename(f) not in config_basenames]
+
+                # Fallback: extract paths directly from compiler error logs in the prompt
+                if not files_to_fix:
+                    path_matches = re.findall(
+                        r'\b(?:frontend/|backend/|src/|[\w\-]+/)*[\w\-]+\.(?:py|tsx?|jsx?|go|rs|cpp|h|html|css|json)\b',
+                        last_msg
+                    )
+                    for pm in path_matches:
+                        pm_clean = pm.strip("`'\"\\:,()[]{}<>")
+                        if pm_clean and "." in pm_clean:
+                            if "node_modules" in pm_clean:
+                                continue
+                            # Prepend frontend/ if it's a src/ component and we're inside a node project
+                            if "src/" in pm_clean and not pm_clean.startswith("frontend/") and ("node" in filtered_history or "react" in filtered_history or "vite" in filtered_history):
+                                pm_clean = "frontend/" + pm_clean
+                            files_to_fix.append(pm_clean)
+                    # Filter config files again after fallback matching
+                    files_to_fix = [f for f in files_to_fix if os.path.basename(f) not in config_basenames]
+
+                # Extra heuristics for compilation/Vite issues (always check regardless of files_to_fix empty state)
+                last_msg_lower = last_msg.lower()
+                if "onwarn" in last_msg_lower or "rollup" in last_msg_lower or "vite" in last_msg_lower or "invalid resolved id" in last_msg_lower:
+                    files_to_fix.append("frontend/src/App.jsx")
+                    files_to_fix.append("frontend/src/main.jsx")
+                    files_to_fix.append("frontend/src/App.tsx")
+                    files_to_fix.append("frontend/src/main.tsx")
+
+                # Extra heuristics for other cases with empty files_to_fix
+                if not files_to_fix:
+                    if "couldn't find any `pages` or `app` directory" in last_msg_lower or "couldn't find any pages or app directory" in last_msg_lower:
+                        files_to_fix.append("frontend/pages/index.tsx")
+                    elif "no inputs were found in config file" in last_msg_lower:
+                        files_to_fix.append("frontend/src/index.ts")
+
+                # Filter config files again after heuristics matching
+                files_to_fix = [f for f in files_to_fix if os.path.basename(f) not in config_basenames]
 
                 fixes_dict = {}
                 for fpath in set(files_to_fix):
+                    # Normalize fpath to prevent malformed paths like frontend/tend/...
+                    if "src/" in fpath:
+                        parts = fpath.split("src/", 1)
+                        fpath = "frontend/src/" + parts[1]
+                    elif "index.html" in fpath:
+                        fpath = "frontend/index.html"
+                    elif "main.jsx" in fpath:
+                        fpath = "frontend/src/main.jsx"
+                    elif "main.tsx" in fpath:
+                        fpath = "frontend/src/main.tsx"
+                    elif "App.jsx" in fpath:
+                        fpath = "frontend/src/App.jsx"
+                    elif "App.tsx" in fpath:
+                        fpath = "frontend/src/App.tsx"
+
                     basename = os.path.basename(fpath)
                     if basename in config_basenames:
                         continue  # Keep original generated configuration
@@ -1209,6 +1267,10 @@ SCAFFOLD_COMPLETE"""
                     
                     if basename == "index.html":
                         fixes_dict[fpath] = '<!DOCTYPE html>\n<html lang="en"><head><meta charset="UTF-8"><title>App</title></head><body><div id="root"></div><script type="module" src="/src/main.jsx"></script></body></html>'
+                    elif basename == "main.jsx":
+                        fixes_dict[fpath] = 'import React from "react";\nimport ReactDOM from "react-dom/client";\nimport App from "./App";\nReactDOM.createRoot(document.getElementById("root")).render(React.createElement(React.StrictMode, null, React.createElement(App, null)));'
+                    elif basename == "main.tsx":
+                        fixes_dict[fpath] = 'import React from "react";\nimport ReactDOM from "react-dom/client";\nimport App from "./App";\nReactDOM.createRoot(document.getElementById("root")!).render(React.createElement(React.StrictMode, null, React.createElement(App, null)));'
                     elif is_test_file:
                         if ext in ("js", "ts", "jsx", "tsx"):
                             fixes_dict[fpath] = 'import { test, expect } from "vitest";\ntest("runs successfully", () => {\n    expect(1 + 1).toBe(2);\n});'
@@ -1218,16 +1280,29 @@ SCAFFOLD_COMPLETE"""
                             fixes_dict[fpath] = 'assert True'
                     else:
                         if ext in ("jsx", "tsx"):
-                            fixes_dict[fpath] = 'import React from "react";\nexport default function App() {\n    return React.createElement("div", null, "App");\n}'
+                            is_rn_project = "react-native" in filtered_history.lower() or "expo" in filtered_history.lower()
+                            if is_rn_project:
+                                fixes_dict[fpath] = 'import React from "react";\nimport { View, Text } from "react-native";\nexport default function App() {\n    return React.createElement(View, null, React.createElement(Text, null, "App"));\n}'
+                            else:
+                                fixes_dict[fpath] = 'import React from "react";\nexport default function App() {\n    return React.createElement("div", null, "App");\n}'
                         elif ext in ("js", "ts"):
                             fixes_dict[fpath] = 'export function helper() {\n    return "helper";\n}'
                         elif ext == "py":
-                            fixes_dict[fpath] = 'def main():\n    pass\nif __name__ == "__main__":\n    main()'
+                            fixes_dict[fpath] = 'def main():\n    print("main service running")\n    return True\nif __name__ == "__main__":\n    main()'
                         else:
                             fixes_dict[fpath] = '/* ok */'
                 
                 if fixes_dict:
-                    response_text = json.dumps(fixes_dict)
+                    # Extended fixes dictionary to include variants with/without frontend prefix
+                    extended_fixes = {}
+                    for k, v in fixes_dict.items():
+                        extended_fixes[k] = v
+                        if k.startswith("frontend/"):
+                            stripped_k = k.replace("frontend/", "", 1)
+                            extended_fixes[stripped_k] = v
+                        else:
+                            extended_fixes["frontend/" + k] = v
+                    response_text = json.dumps(extended_fixes)
                 else:
                     response_text = '{}'
 
@@ -1235,7 +1310,7 @@ SCAFFOLD_COMPLETE"""
             with open("/Users/laynefaler/.gemini/antigravity/brain/c83ce90c-9e34-44d5-af14-b1ee6d85c486/mock_server_debug.log", "a", encoding="utf-8") as f_dbg:
                 f_dbg.write(f"\n=====================================\n")
                 f_dbg.write(f"REQUEST FOR PATH: {requested_path}\n")
-                f_dbg.write(f"LAST MESSAGE: {last_msg[:200]}...\n")
+                f_dbg.write(f"LAST MESSAGE: {last_msg}\n")
                 f_dbg.write(f"DOMAIN: {domain if 'domain' in locals() else 'N/A'}\n")
                 f_dbg.write(f"FILENAME: {filename if 'filename' in locals() else 'N/A'}\n")
                 f_dbg.write(f"IS_RN: {is_rn if 'is_rn' in locals() else 'N/A'}\n")

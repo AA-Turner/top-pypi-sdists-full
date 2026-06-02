@@ -2,20 +2,38 @@
 
 from __future__ import annotations
 
-import asyncio
 import subprocess
 import sys
+import tempfile
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from apps.cli.app import DeepApp
 
+from pydantic_ai.messages import TextPart, ToolCallPart, ToolReturnPart, UserPromptPart
+
+from apps.cli.debug_log import get_logger
+from apps.cli.forking import (
+    ForkingNotEnabledError,
+    ForkPickerResult,
+    resolve_capability,
+    start_fork_from_cli,
+)
+from apps.cli.modals.diff_picker import DiffPickerModal, DiffPickerResult
+from apps.cli.modals.fork_config import ForkConfigModal
+from apps.cli.modals.fork_picker import ForkPickerModal
+from apps.cli.modals.merge_picker import MergePickerModal, MergePickerResult
+from apps.cli.text_heuristics import looks_like_error
+from apps.cli.widgets.judge_loading import JudgeAborted, JudgeLoadingScreen
+from apps.cli.widgets.merge_acceptance import MergeAcceptanceAction, MergeAcceptanceWidget
 from apps.cli.widgets.status_bar import StatusBar
+
+_FORK_ID_PREFIX_LEN = 8
 
 
 async def dispatch_command(app: DeepApp, command: str) -> None:  # noqa: C901
     """Dispatch a slash command to the appropriate handler."""
-    from apps.cli.debug_log import get_logger
 
     log = get_logger()
 
@@ -81,20 +99,29 @@ async def dispatch_command(app: DeepApp, command: str) -> None:  # noqa: C901
             app.notify("Failed to copy to clipboard", severity="error")
 
     elif cmd == "/model":
+        from apps.cli.modals.fallback_picker import FallbackPickerModal
         from apps.cli.modals.model_picker import ModelPickerModal
 
-        async def _handle(result: str | None) -> None:
-            if result:
-                app.model_name = result
-                # Try to reconfigure agent with new model
-                app.reconfigure_agent(model=result)
+        async def _handle_fallback(primary: str, fallback: str | None) -> None:
+            app.set_fallback_and_reconfigure(primary, fallback)
 
-        app.push_screen(ModelPickerModal(app.model_name), _handle)
+        async def _handle_model(result: str | None) -> None:
+            if result:
+                primary = result
+
+                def _on_fallback_picked(fb: str | None) -> None:
+                    app.call_later(_handle_fallback, primary, fb)
+
+                app.push_screen(
+                    FallbackPickerModal(result, app.fallback_model_name or None),
+                    _on_fallback_picked,
+                )
+
+        app.push_screen(ModelPickerModal(app.model_name), _handle_model)
 
     elif cmd == "/context":
         from apps.cli.modals.context_view import ContextViewModal
 
-        # Calculate from message history
         total_input = 0
         for msg in app.message_history:
             usage = getattr(msg, "usage", None)
@@ -135,9 +162,6 @@ async def dispatch_command(app: DeepApp, command: str) -> None:  # noqa: C901
                 app.message_history = history[-keep:]
                 app.notify(f"Trimmed to last {keep} messages")
             elif mode == "llm":
-                # LLM-based: keep more context (last 30) since we can't
-                # easily call the summarization processor from here.
-                # Try to use ContextManagerCapability if available.
                 compacted = False
                 try:
                     agent = app.agent
@@ -145,11 +169,10 @@ async def dispatch_command(app: DeepApp, command: str) -> None:  # noqa: C901
                         for cap in getattr(agent, "_capabilities", []):
                             cap_type = type(cap).__name__
                             if "ContextManager" in cap_type:
-                                # Found ContextManagerCapability — trigger compression
-                                compress = getattr(cap, "compress", None)
-                                if compress is not None:
+                                compact = getattr(cap, "compact", None)
+                                if compact is not None:
                                     app.notify("Compacting with LLM...", severity="information")
-                                    await compress(history)
+                                    app.message_history = await compact(history, focus)
                                     compacted = True
                                     app.notify("Context compacted (LLM)")
                                 break
@@ -165,7 +188,6 @@ async def dispatch_command(app: DeepApp, command: str) -> None:  # noqa: C901
                 app.notify(f"Unknown compact mode: {mode}", severity="warning")
                 return
 
-            # Update status bar message count
             try:
                 status = app.screen.query_one(StatusBar)
                 status.message_count = len(app.message_history)
@@ -175,7 +197,6 @@ async def dispatch_command(app: DeepApp, command: str) -> None:  # noqa: C901
         app.push_screen(CompactModal(), _handle_compact)
 
     elif cmd == "/copy-all":
-        # Copy entire conversation as text
         try:
             from apps.cli.widgets.assistant_message import AssistantMessage
             from apps.cli.widgets.message_list import MessageList
@@ -202,7 +223,6 @@ async def dispatch_command(app: DeepApp, command: str) -> None:  # noqa: C901
             app.notify(f"Failed to copy: {e}", severity="error")
 
     elif cmd == "/cost":
-        # Calculate from message history for accuracy
         total_input = 0
         total_output = 0
         for msg in app.message_history:
@@ -211,9 +231,16 @@ async def dispatch_command(app: DeepApp, command: str) -> None:  # noqa: C901
                 continue
             total_input += getattr(usage, "input_tokens", 0) or 0
             total_output += getattr(usage, "output_tokens", 0) or 0
-        est_cost = (total_input * 3.0 + total_output * 15.0) / 1_000_000
+        # Prefer the authoritative cost from CostTracking (genai-prices, accurate
+        # per active model). Fall back to a rough Sonnet-rate heuristic only when
+        # no tracked cost is available.
+        if app.total_cost > 0:
+            cost_label = f"${app.total_cost:.4f}"
+        else:
+            est_cost = (total_input * 3.0 + total_output * 15.0) / 1_000_000
+            cost_label = f"~${est_cost:.4f}"
         app.notify(
-            f"Cost: ~${est_cost:.4f}  ·  "
+            f"Cost: {cost_label}  ·  "
             f"Input: {total_input:,} tokens  ·  Output: {total_output:,} tokens"
         )
 
@@ -243,6 +270,18 @@ async def dispatch_command(app: DeepApp, command: str) -> None:  # noqa: C901
         except Exception:
             app.notify("No todos yet", severity="information")
 
+    elif cmd == "/paste":
+        handler = getattr(app.screen, "attach_clipboard_image", None)
+        if handler is not None:
+            handler()
+        else:
+            app.notify("Image paste is unavailable on this screen", severity="warning")
+
+    elif cmd == "/mcp":
+        from apps.cli.modals.mcp_view import MCPViewModal
+
+        app.push_screen(MCPViewModal())
+
     elif cmd == "/skills":
         from apps.cli.modals.skills_view import SkillsViewModal
 
@@ -253,6 +292,15 @@ async def dispatch_command(app: DeepApp, command: str) -> None:  # noqa: C901
 
         app.push_screen(DiffViewModal(working_dir=app.working_dir))
 
+    elif cmd == "/screenshot":
+        # Export the current TUI as an SVG - handy for docs / marketing assets.
+        try:
+            filename = arg.strip() or None
+            saved = app.save_screenshot(filename)
+            app.notify(f"📸 Screenshot saved: {saved}")
+        except Exception as exc:  # pragma: no cover - defensive
+            app.notify(f"Screenshot failed: {exc}", severity="error")
+
     elif cmd == "/version":
         app.notify(f"pydantic-deep v{app.app_version}")
 
@@ -261,7 +309,6 @@ async def dispatch_command(app: DeepApp, command: str) -> None:  # noqa: C901
 
         async def _handle_remember(result: str | None) -> None:
             if result:
-                # Append to MEMORY.md
                 import os
 
                 memory_path = os.path.join(app.working_dir, ".pydantic-deep", "main", "MEMORY.md")
@@ -296,7 +343,6 @@ async def dispatch_command(app: DeepApp, command: str) -> None:  # noqa: C901
         async def _handle_load(session_id: str | None) -> None:  # noqa: C901
             if not session_id:
                 return
-            # Load session messages
             try:
                 import json
 
@@ -313,7 +359,6 @@ async def dispatch_command(app: DeepApp, command: str) -> None:  # noqa: C901
                 history = ModelMessagesTypeAdapter.validate_json(messages_path.read_bytes())
                 app.message_history = list(history)
 
-                # Clear messages and replay loaded history in the UI
                 from apps.cli.widgets.message_list import MessageList
 
                 msg_list = app.screen.query_one(MessageList)
@@ -333,7 +378,6 @@ async def dispatch_command(app: DeepApp, command: str) -> None:  # noqa: C901
                     if isinstance(part, ToolReturnPart)
                 }
 
-                # Replay messages into the message list
                 for msg in history:
                     for part in msg.parts:
                         if isinstance(part, UserPromptPart):
@@ -359,30 +403,22 @@ async def dispatch_command(app: DeepApp, command: str) -> None:  # noqa: C901
                             content = str(part.content)
                             assistant_msg = msg_list.current_assistant
                             if assistant_msg is not None:
-                                is_error = (
-                                    "error" in content.lower()[:100]
-                                    or "traceback" in content.lower()[:200]
-                                )
                                 assistant_msg.complete_tool_call(
-                                    part.tool_call_id, content, 0.0, is_error
+                                    part.tool_call_id, content, 0.0, looks_like_error(content)
                                 )
 
-                # Finalize any open assistant message
                 if msg_list.current_assistant is not None:
                     msg_list.current_assistant.finalize_text()
                     msg_list.end_assistant_message()
 
-                # Show notification
                 app.notify(
                     f"Loaded session: {len(history)} messages",
                     severity="information",
                 )
 
-                # Update status bar
                 status = app.screen.query_one(StatusBar)
                 status.message_count = len(history)
 
-                # Scroll to bottom
                 msg_list.scroll_end(animate=False)
             except Exception as e:
                 app.notify(f"Failed to load session: {e}", severity="error")
@@ -436,7 +472,12 @@ async def dispatch_command(app: DeepApp, command: str) -> None:  # noqa: C901
 
                 if report.failed_sessions > 0:
                     err_msg = f"{report.failed_sessions} session(s) failed extraction"
-                    if report.last_error:
+                    if report.extraction_errors:
+                        details = "; ".join(
+                            f"{sid}: {exc}" for sid, exc in report.extraction_errors
+                        )
+                        err_msg += f" ({details})"
+                    elif report.last_error:
                         err_msg += f": {report.last_error}"
                     app.notify(err_msg, severity="warning", timeout=10)
 
@@ -473,7 +514,7 @@ async def dispatch_command(app: DeepApp, command: str) -> None:  # noqa: C901
                 except Exception:
                     app.notify(f"Improve failed: {e}", severity="error")
 
-        asyncio.ensure_future(_run_improve())
+        app._spawn_tracked(_run_improve(), label="/improve")
 
     elif cmd == "/help":
         from apps.cli.modals.help_view import HelpModal
@@ -483,7 +524,6 @@ async def dispatch_command(app: DeepApp, command: str) -> None:  # noqa: C901
     elif cmd == "/provider":
         from apps.cli.screens.onboarding import _PROVIDERS, ApiKeyModal, ProviderPickerModal
 
-        # Map provider_id to default model
         _PROVIDER_DEFAULT_MODELS = {
             "openrouter": "openrouter:anthropic/claude-sonnet-4",
             "anthropic": "anthropic:claude-sonnet-4-6",
@@ -497,7 +537,6 @@ async def dispatch_command(app: DeepApp, command: str) -> None:  # noqa: C901
             if provider_id == "ollama":
                 app.reconfigure_agent(model="ollama:llama3.3")
                 return
-            # Find the provider info
             for pid, name, env_var, url in _PROVIDERS:
                 if pid == provider_id:
                     default_model = _PROVIDER_DEFAULT_MODELS.get(pid, "")
@@ -525,7 +564,6 @@ async def dispatch_command(app: DeepApp, command: str) -> None:  # noqa: C901
         if arg:
             if apply_theme(app, arg):
                 app.notify(f"Theme: {arg}")
-                # Save to config
                 try:
                     from apps.cli.config import DEFAULT_CONFIG_PATH, set_config_value
 
@@ -578,6 +616,19 @@ async def dispatch_command(app: DeepApp, command: str) -> None:  # noqa: C901
         webbrowser.open("https://github.com/vstorm-co/pydantic-deepagents/issues")
         app.notify("Opened GitHub issues in browser")
 
+    elif cmd == "/fork":
+        if arg.strip().startswith("diff"):
+            rest = arg.strip()[len("diff") :].strip()
+            await _dispatch_fork_open_diff(app, rest or None)
+        else:
+            await _dispatch_fork(app)
+
+    elif cmd == "/fork-config":
+        _dispatch_fork_config(app)
+
+    elif cmd == "/merge":
+        await _dispatch_merge(app)
+
     else:
         # Check if it's a skill command (e.g. /code-review)
         # Skills are loaded via the command picker from _discover_skill_commands()
@@ -591,7 +642,6 @@ async def dispatch_command(app: DeepApp, command: str) -> None:  # noqa: C901
             prompt = f"Use the {skill_name} skill."
             if arg:
                 prompt += f" {arg}"
-            # Post as user message
             from apps.cli.widgets.message_list import MessageList
 
             try:
@@ -602,3 +652,621 @@ async def dispatch_command(app: DeepApp, command: str) -> None:  # noqa: C901
                 app.notify(f"Failed to run skill: {skill_name}", severity="error")
         else:
             app.notify(f"Unknown command: {cmd}", severity="warning")
+
+
+# ── Fork dispatch helpers ─────────────────────────────────────────────
+
+
+async def _dispatch_fork(app: DeepApp) -> None:
+    """Handle `/fork` — open the picker modal and spawn branches on submit."""
+
+    if app.agent is None:
+        app.notify("Agent not configured — use /provider first", severity="error")
+        return
+    if resolve_capability(app.agent) is None:
+        app.notify(
+            "Forking is not enabled on this agent. Restart with forking=True.",
+            severity="error",
+        )
+        return
+    if app.active_fork is not None:
+        if app.active_fork.adopted:
+            app.notify(
+                "agent already forked — resolve it first (/merge or pick a branch).",
+                severity="warning",
+            )
+        else:
+            app.notify("Fork already active — /merge to resolve first", severity="warning")
+        return
+    task = app.agent_task
+    if task is not None and not task.done():
+        app.notify("Agent run in progress — press Esc or wait, then /fork", severity="warning")
+        return
+
+    async def _on_result(result: ForkPickerResult | None) -> None:
+        if result is None:
+            return
+        try:
+            session = await start_fork_from_cli(app, result)
+        except ForkingNotEnabledError as e:
+            app.notify(str(e), severity="error")
+            return
+        except Exception as e:  # pragma: no cover - defensive
+            from apps.cli.debug_log import get_logger
+
+            get_logger().error("Fork failed", exc_info=True)
+            app.notify(f"Fork failed: {e}", severity="error")
+            return
+        app.active_fork = session
+        labels = ", ".join(s.label for s in result.specs)
+        app.notify(f"Forked: {labels}", severity="information")
+
+    app.push_screen(ForkPickerModal(), _on_result)
+
+
+# ── /fork-config ───────────────────────────────────────────────────────
+
+
+def _dispatch_fork_config(app: DeepApp) -> None:
+    """Handle `/fork-config` — open the settings modal."""
+
+    if app.agent is None:
+        app.notify("Agent not configured — use /provider first", severity="error")
+        return
+    if app.active_fork is not None:
+        app.notify(
+            "Fork active — /merge to resolve first, then /fork-config",
+            severity="warning",
+        )
+        return
+    task = app.agent_task
+    if task is not None and not task.done():
+        app.notify(
+            "Agent run in progress — press Esc or wait, then /fork-config",
+            severity="warning",
+        )
+        return
+    app.push_screen(ForkConfigModal())
+
+
+async def _dispatch_merge(app: DeepApp) -> None:
+    """Handle `/merge` — dispatch on :attr:`MergeStrategy.kind`."""
+
+    session = app.active_fork
+    if session is None:
+        app.notify("No active fork — type /fork to start one", severity="warning")
+        return
+    report = session.build_diff()
+    if report is None:  # pragma: no cover - defensive: session implies a live fork
+        app.notify("Cannot build diff report", severity="error")
+        return
+    statuses = session.inspect()
+    strategy = session.handle.merge_strategy
+
+    async def _commit_pick(branch_id: str) -> None:
+        """Shared post-pick commit path used by every flow."""
+        active = app.active_fork
+        if active is None:  # pragma: no cover - defensive: another flow cleared it
+            return
+        try:
+            result = await active.merge(branch_id)
+        except Exception as e:  # pragma: no cover - defensive
+            from apps.cli.debug_log import get_logger
+
+            get_logger().error("Merge failed", exc_info=True)
+            app.notify(f"Merge failed: {e}", severity="error")
+            return
+
+        from pydantic_deep.processors.patch import patch_tool_calls_processor
+
+        parent_len = len(app.message_history)
+        patched = patch_tool_calls_processor(list(result.history_after_merge))
+        app.message_history = patched
+        runtime = active.coordinator.branches.get(branch_id)
+        label = runtime.spec.label if runtime else branch_id
+        steer = runtime.spec.steer if runtime else ""
+        if app.deps is not None:
+            app.deps.fork_coordinator = None
+        app.active_fork = None
+        _replay_branch_into_main_chat(app, patched[parent_len:], label, steer, result)
+        app.notify(_format_merge_notification(label, result), severity="information")
+
+    async def _on_pick(picked: MergePickerResult | None) -> None:
+        if picked is None:
+            return
+        await _commit_pick(picked.branch_id)
+
+    def _on_open_in_editor(branch_id: str) -> None:
+        """Bridge the merge picker's `o` binding into the diff picker.
+
+        The merge picker passes the currently-highlighted branch id; we
+        detect the editor kind once and open the diff picker pre-checked
+        with only that branch. User can toggle more branches via Space.
+        """
+        from pydantic_deep.toolsets.forking.editor import EditorDetector
+
+        kind = EditorDetector.detect()
+        if kind == "tui":
+            app.notify(
+                "No external diff tool detected — use the panels here, or "
+                "set PYDANTIC_DEEP_DIFFTOOL.",
+                severity="warning",
+            )
+            return
+        _open_diff_picker(app, kind=kind, initial_branch_id=branch_id)
+
+    def _push_picker(
+        *,
+        preselected_id: str | None = None,
+        subtitle: str | None = None,
+    ) -> None:
+        """Push :class:`MergePickerModal` with the shared per-dispatch context.
+
+        Closes over `report` / `statuses` / `session.label_to_id` /
+        `_on_open_in_editor` / `_on_pick` so each call site collapses to
+        one line. `preselected_id` and `subtitle` carry the only
+        per-call-site variation across the three picker call sites.
+        """
+        app.push_screen(
+            MergePickerModal(
+                report,
+                statuses,
+                session.label_to_id,
+                on_open_in_editor=_on_open_in_editor,
+                preselected_branch_id=preselected_id,
+                verdict_subtitle=subtitle,
+            ),
+            _on_pick,
+        )
+
+    if strategy.kind == "manual":
+        _push_picker()
+        return
+
+    async def _on_judge_complete(result: Any) -> None:
+        await _handle_judge_result(
+            app,
+            result=result,
+            session=session,
+            strategy=strategy,
+            report=report,
+            statuses=statuses,
+            push_picker=_push_picker,
+            commit_pick=_commit_pick,
+            on_open_in_editor=_on_open_in_editor,
+            on_pick=_on_pick,
+        )
+
+    app.push_screen(JudgeLoadingScreen(session.coordinator, strategy), _on_judge_complete)
+
+
+async def _handle_judge_result(
+    app: DeepApp,
+    *,
+    result: Any,
+    session: Any,
+    strategy: Any,
+    report: Any,
+    statuses: list[Any],
+    push_picker: Any,
+    commit_pick: Any,
+    on_open_in_editor: Any,
+    on_pick: Any,
+) -> None:
+    """Route JudgeLoadingScreen result to the appropriate next screen."""
+
+    if isinstance(result, Exception):
+        from apps.cli.debug_log import get_logger
+
+        exc_name = type(result).__name__
+        severity = "information" if isinstance(result, JudgeAborted) else "warning"
+        get_logger().error("Judge resolve failed", exc_info=True, exc_name=exc_name)
+        app.notify(
+            f"{exc_name}: {result} — falling back to manual picker.",
+            severity=severity,
+        )
+        push_picker()
+        return
+
+    outcome = result
+    if outcome.committed and outcome.merge_result is not None:
+        from pydantic_deep.processors.patch import patch_tool_calls_processor
+
+        parent_len = len(app.message_history)
+        patched = patch_tool_calls_processor(list(outcome.merge_result.history_after_merge))
+        app.message_history = patched
+        runtime = session.coordinator.branches.get(outcome.merge_result.winner_branch_id)
+        label = runtime.spec.label if runtime else outcome.merge_result.winner_branch_id
+        steer = runtime.spec.steer if runtime else ""
+        if app.deps is not None:
+            app.deps.fork_coordinator = None
+        app.active_fork = None
+        _replay_branch_into_main_chat(app, patched[parent_len:], label, steer, outcome.merge_result)
+        app.notify(_format_auto_merge_notification(label, outcome), severity="information")
+        return
+
+    if not outcome.auto_eligible:
+        verdict = outcome.verdict
+        if verdict is None:  # pragma: no cover - defensive: non-manual always has a verdict
+            push_picker()
+            return
+        _runtime = session.coordinator.branches.get(verdict.winner_branch_id)
+        _winner_label = _runtime.spec.label if _runtime else verdict.winner_branch_id
+        subtitle = _format_verdict_subtitle(
+            outcome=outcome,
+            threshold=strategy.confidence_threshold,
+            above_threshold=False,
+            winner_label=_winner_label,
+        )
+        push_picker(preselected_id=verdict.winner_branch_id, subtitle=subtitle)
+        return
+
+    # auto_with_fallback above threshold — defer to acceptance widget
+    await _dispatch_acceptance_widget(
+        app,
+        report=report,
+        statuses=statuses,
+        outcome=outcome,
+        strategy=strategy,
+        on_pick=on_pick,
+        on_open_in_editor=on_open_in_editor,
+        commit_pick=commit_pick,
+    )
+
+
+async def _dispatch_acceptance_widget(
+    app: DeepApp,
+    *,
+    report: Any,
+    statuses: list[Any],
+    outcome: Any,
+    strategy: Any,
+    on_pick: Any,
+    on_open_in_editor: Any,
+    commit_pick: Any,
+) -> None:
+    """Push :class:`MergeAcceptanceWidget` and route its actions."""
+
+    session = app.active_fork
+    if session is None:  # pragma: no cover - defensive
+        return
+    verdict = outcome.verdict
+    winner_id = verdict.winner_branch_id
+    runtime = session.coordinator.branches.get(winner_id)
+    winner_label = runtime.spec.label if runtime else winner_id
+
+    async def _on_acceptance(action: MergeAcceptanceAction | None) -> None:
+        if action is None:
+            # Escape pressed — cancel without merging
+            return
+        if action == "accept":
+            await commit_pick(winner_id)
+            return
+        if action == "diff":
+            # Re-engage acceptance widget after diff explorer closes
+            async def _on_diff_dismissed(_: Any) -> None:
+                await _dispatch_acceptance_widget(
+                    app,
+                    report=report,
+                    statuses=statuses,
+                    outcome=outcome,
+                    strategy=strategy,
+                    on_pick=on_pick,
+                    on_open_in_editor=on_open_in_editor,
+                    commit_pick=commit_pick,
+                )
+
+            app.push_screen(
+                MergePickerModal(
+                    report,
+                    statuses,
+                    session.label_to_id,
+                    on_open_in_editor=on_open_in_editor,
+                ),
+                _on_diff_dismissed,
+            )
+            return
+        subtitle = _format_verdict_subtitle(
+            outcome=outcome,
+            threshold=strategy.confidence_threshold,
+            above_threshold=True,
+            winner_label=winner_label,
+        )
+        app.push_screen(
+            MergePickerModal(
+                report,
+                statuses,
+                session.label_to_id,
+                on_open_in_editor=on_open_in_editor,
+                preselected_branch_id=winner_id,
+                verdict_subtitle=subtitle,
+            ),
+            on_pick,
+        )
+
+    if outcome.merge_result is not None:
+        fork_id_for_widget = outcome.merge_result.fork_id
+    else:
+        fork_id_for_widget = session.coordinator.fork_id or "?"
+
+    app.push_screen(
+        MergeAcceptanceWidget(
+            fork_id=fork_id_for_widget,
+            winner_label=winner_label,
+            effective_confidence=outcome.effective_confidence,
+            verdict=verdict,
+        ),
+        _on_acceptance,
+    )
+
+
+def _format_auto_merge_notification(label: str, outcome: Any) -> str:
+    """Render the post-auto-merge notification — confidence + 1-line reasoning."""
+    verdict = outcome.verdict
+    parts = [
+        f"Auto-merged: kept branch {label}",
+        f"confidence {outcome.effective_confidence:.2f}",
+    ]
+    if verdict is not None and verdict.reasoning:
+        first_sentence = verdict.reasoning.split(". ", 1)[0].rstrip(".")
+        parts.append(first_sentence)
+    return " · ".join(parts)
+
+
+def _format_verdict_subtitle(
+    *, outcome: Any, threshold: float, above_threshold: bool, winner_label: str
+) -> str:
+    """Compose the verdict-subtitle string the picker mounts as a Static row."""
+    verdict = outcome.verdict
+    if verdict is None:  # pragma: no cover - dispatcher only calls this with a verdict
+        return ""
+    confidence = outcome.effective_confidence
+    if above_threshold:
+        header = (
+            f"Judge picked: [bold]{winner_label}[/bold] "
+            f"(confidence {confidence:.2f} ≥ threshold {threshold:.2f})"
+        )
+    else:
+        header = (
+            f"Judge picked: [bold]{winner_label}[/bold] "
+            f"(confidence {confidence:.2f} — below threshold {threshold:.2f})"
+        )
+    return f"{header}\nWhy: {verdict.reasoning}"
+
+
+def _format_merge_notification(label: str, result: Any) -> str:
+    """Render the post-merge notification — applied count, conflicts, errors."""
+    parts = [f"Merged: kept branch {label}", f"{len(result.applied_paths)} files applied"]
+    if result.deleted_paths:
+        parts.append(f"{len(result.deleted_paths)} deleted")
+    if result.conflicts:
+        parts.append(f"conflicts: {', '.join(result.conflicts)}")
+    if result.errors:
+        parts.append(f"errors: {len(result.errors)}")
+    if result.blocked_commands:
+        parts.append(f"denied: {len(result.blocked_commands)}")
+    return " · ".join(parts)
+
+
+async def _dispatch_fork_open_diff(app: DeepApp, _path_arg: str | None) -> None:
+    """Handle `/fork diff` — external diff inspection via picker.
+
+    Always opens :class:`DiffPickerModal` so the user can pick a touched
+    path + branch subset from a list. Any path argument typed after the
+    command is ignored — the picker supersedes it.
+
+    Falls back to the in-TUI :class:`MergePickerModal` (diff-explore
+    mode) when no external editor is detected.
+    """
+    from pydantic_deep.toolsets.forking.editor import EditorDetector
+
+    session = app.active_fork
+    if session is None:
+        app.notify(
+            "No active fork — type /fork to start one, then /fork diff",
+            severity="warning",
+        )
+        return
+    coordinator = session.coordinator
+    if coordinator.materializer is None:  # pragma: no cover - defensive
+        app.notify("Materializer not initialised", severity="error")
+        return
+
+    kind = EditorDetector.detect()
+    if kind == "tui":
+        report = session.build_diff()
+        if report is None:  # pragma: no cover - defensive
+            app.notify("Cannot build diff report", severity="error")
+            return
+        statuses = session.inspect()
+        # Browse-only (view_only): /fork diff inspects, it doesn't resolve — Enter just closes
+        # rather than committing a pick that push_screen would silently discard.
+        app.push_screen(MergePickerModal(report, statuses, session.label_to_id, view_only=True))
+        return
+
+    _open_diff_picker(app, kind=kind, initial_branch_id=None)
+
+
+def _labeled_symlinks(
+    parent_path: Path | None,
+    branch_paths: list[Path],
+    labels: list[str],
+    basename: str,
+    fork_id: str,
+) -> tuple[Path | None, list[Path]]:
+    """Return short-path symlinks so editor title bars show branch labels.
+
+    Creates `{tempdir}/pd_{fork_id}/parent/{basename}` and
+    `{tempdir}/pd_{fork_id}/{label}/{basename}` symlinks pointing at the
+    materialiser paths.  Keeping the temp-dir prefix short ensures the
+    label component stays visible in PyCharm/VS Code title truncation.
+    """
+    tmp = Path(tempfile.gettempdir()) / f"pd_{fork_id[:_FORK_ID_PREFIX_LEN]}"
+    tmp.mkdir(exist_ok=True)
+    sym_branches: list[Path] = []
+    for bp, label in zip(branch_paths, labels, strict=True):
+        d = tmp / label
+        d.mkdir(exist_ok=True)
+        link = d / basename
+        link.symlink_to(bp.resolve())
+        sym_branches.append(link)
+    if parent_path is not None:
+        pd = tmp / "parent"
+        pd.mkdir(exist_ok=True)
+        plink = pd / basename
+        plink.symlink_to(parent_path.resolve())
+        return plink, sym_branches
+    return None, sym_branches
+
+
+def _open_diff_picker(
+    app: DeepApp,
+    *,
+    kind: str,
+    initial_branch_id: str | None,
+) -> None:
+    """Show :class:`DiffPickerModal` and dispatch the editor on confirm.
+
+    Extracted so the merge picker's "Open in editor" button can reuse
+    the same flow with `initial_branch_id` set to the merge picker's
+    currently-highlighted branch.
+    """
+    from pydantic_deep.toolsets.forking.editor import EditorDetector
+
+    session = app.active_fork
+    if session is None:  # pragma: no cover - defensive: caller already checked
+        return
+    report = session.build_diff()
+    if report is None:  # pragma: no cover - defensive
+        app.notify("Cannot build diff report", severity="error")
+        return
+    statuses = session.inspect()
+    coordinator = session.coordinator
+    materializer = coordinator.materializer
+    if materializer is None:  # pragma: no cover - defensive
+        app.notify("Materializer not initialised", severity="error")
+        return
+
+    def _id_to_label(bid: str) -> str:
+        return next(
+            (lbl for lbl, b in session.label_to_id.items() if b == bid),
+            bid,
+        )
+
+    def _on_pick(picked: DiffPickerResult | None) -> None:
+        if picked is None:
+            return
+        parent_path = materializer.parent_path(picked.path) if picked.include_parent else None
+        branch_paths = []
+        for bid in picked.branch_ids:
+            label = _id_to_label(bid)
+            branch_paths.append(materializer.branch_path(label, picked.path))
+        labels = [_id_to_label(bid) for bid in picked.branch_ids]
+        basename = Path(picked.path).name
+        sym_parent, sym_branches = _labeled_symlinks(
+            parent_path, branch_paths, labels, basename, materializer.fork_id
+        )
+        EditorDetector.invoke(kind, sym_parent, sym_branches)
+        if picked.include_parent:
+            app.notify(f"{kind} diff: parent  ←→  {', '.join(labels)}")
+        else:
+            app.notify(f"{kind} diff: {' ←→ '.join(labels)}")
+
+    app.notify(
+        "Files are read-only snapshots — edits won't affect /merge",
+        severity="warning",
+        timeout=6,
+    )
+    app.push_screen(
+        DiffPickerModal(report, statuses, session.label_to_id, initial_branch_id=initial_branch_id),
+        _on_pick,
+    )
+
+
+def _replay_branch_into_main_chat(
+    app: DeepApp,
+    branch_messages: list[Any],
+    label: str,
+    steer: str,
+    result: Any,
+) -> None:
+    """Append the winning branch's new messages to the main MessageList.
+
+    `branch_messages` is the slice of the patched history that belongs
+    to the branch (everything after the parent's pre-fork history).  The
+    steer appears as a user message, the branch's tool calls and text
+    responses follow, and a compact system summary closes the turn so the
+    parent agent has file-change context for its next run.
+    """
+
+    try:
+        from apps.cli.screens.chat import ChatScreen
+        from apps.cli.widgets.message_list import MessageList
+
+        chat = app.screen
+        if not isinstance(chat, ChatScreen):
+            return
+        msg_list = chat.query_one(MessageList)
+    except Exception:
+        return
+
+    completed_call_ids: set[str] = {
+        part.tool_call_id
+        for msg in branch_messages
+        for part in getattr(msg, "parts", [])
+        if isinstance(part, ToolReturnPart)
+    }
+
+    for msg in branch_messages:
+        for part in getattr(msg, "parts", []):
+            if isinstance(part, UserPromptPart):
+                content = part.content
+                if isinstance(content, str) and content:
+                    msg_list.append_user_message(content)
+            elif isinstance(part, TextPart):
+                if part.content:
+                    assistant_msg = msg_list.begin_assistant_message()
+                    assistant_msg.append_text(part.content)
+                    assistant_msg.finalize_text()
+                    msg_list.end_assistant_message()
+            elif isinstance(part, ToolCallPart):
+                args = part.args_as_dict()
+                call_id = part.tool_call_id
+                assistant_msg = msg_list.current_assistant
+                if assistant_msg is None:
+                    assistant_msg = msg_list.begin_assistant_message()
+                assistant_msg.add_tool_call(part.tool_name, args, call_id)
+                if call_id not in completed_call_ids:
+                    assistant_msg.complete_tool_call(call_id, "No return", 0.0, True)
+            elif isinstance(part, ToolReturnPart):
+                content_str = str(part.content)
+                assistant_msg = msg_list.current_assistant
+                if assistant_msg is not None:
+                    assistant_msg.complete_tool_call(
+                        part.tool_call_id, content_str, 0.0, looks_like_error(content_str)
+                    )
+
+    if msg_list.current_assistant is not None:
+        msg_list.current_assistant.finalize_text()
+        msg_list.end_assistant_message()
+
+    chat.add_system_message(_build_replay_summary(label, result))
+
+
+def _build_replay_summary(label: str, result: Any) -> str:
+    """Render the post-merge replay summary shown in the main chat.
+
+    Bundles applied paths, deleted paths, and any tool calls that were denied
+    by the user during the branch run into a single multi-line system message.
+    """
+    paths = list(result.applied_paths)
+    paths += [f"{p} (deleted)" for p in result.deleted_paths]
+    path_str = "\n  ".join(paths) if paths else "no file changes"
+    summary = f"✓ Fork merged — branch '{label}' applied. Files changed:\n  {path_str}"
+    if result.blocked_commands:
+        blocked_list = "\n  ".join(f"- {entry}" for entry in result.blocked_commands)
+        summary += (
+            f"\n⚠ {len(result.blocked_commands)} tool calls denied by user during "
+            f"branch run:\n  {blocked_list}"
+        )
+    return summary

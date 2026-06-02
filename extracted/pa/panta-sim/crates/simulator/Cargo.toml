@@ -7,9 +7,11 @@ edition = "2021"
 qsim-core = { path = "../core" }
 qsim-gpu = { path = "../gpu" }
 qsim-mps = { path = "../mps" }
+qsim-tensornet = { path = "../tensornet" }
 num-complex = "0.4"
 num-traits = "0.2"
 rand = "0.8"
+rayon = "1"
 
 [features]
 default = []
